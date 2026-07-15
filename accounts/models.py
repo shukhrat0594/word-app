@@ -30,10 +30,21 @@ class User(AbstractUser):
         ADMIN = "admin", "Administrator"
         TEACHER = "teacher", "O'qituvchi"
         STUDENT = "student", "Talaba"
+        PARENT = "parent", "Ota-ona"
 
     role = models.CharField(max_length=10, choices=Role.choices, default=Role.STUDENT)
     markaz = models.ForeignKey(
         Markaz, on_delete=models.SET_NULL, null=True, blank=True, related_name="users"
+    )
+    # B6.1: Ota-ona <-> Talaba (ko'p-ko'pga). Bog'lashni faqat Markaz
+    # (Admin/O'qituvchi) admin panelda amalga oshiradi.
+    farzandlar = models.ManyToManyField(
+        "self",
+        symmetrical=False,
+        blank=True,
+        related_name="ota_onalar",
+        limit_choices_to={"role": "student"},
+        help_text="Faqat 'Ota-ona' roli uchun — kuzatiladigan talabalar",
     )
 
     def __str__(self):

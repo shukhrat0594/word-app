@@ -16,8 +16,9 @@ class UserAdmin(BaseUserAdmin):
     list_display = ("username", "email", "role", "markaz", "is_staff")
     list_filter = ("role", "markaz", "is_staff", "is_superuser")
     fieldsets = BaseUserAdmin.fieldsets + (
-        ("LMS", {"fields": ("role", "markaz")}),
+        ("LMS", {"fields": ("role", "markaz", "farzandlar")}),
     )
     add_fieldsets = BaseUserAdmin.add_fieldsets + (
         ("LMS", {"fields": ("role", "markaz")}),
     )
+    filter_horizontal = BaseUserAdmin.filter_horizontal + ("farzandlar",)
