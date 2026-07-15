@@ -7,7 +7,7 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 
 from academics.models import Davomat
-from assessment.models import WritingTekshiruv
+from assessment.models import SpeakingTekshiruv, WritingTekshiruv
 from content.models import DarsFaollik
 from exercises.models import MashqYechim
 
@@ -27,6 +27,12 @@ def mashq_uchun_xp(sender, instance, created, **kwargs):
 def writing_uchun_xp(sender, instance, created, **kwargs):
     if created:
         xp_ber(instance.talaba, "writing_tekshiruv", manba_id=instance.id)
+
+
+@receiver(post_save, sender=SpeakingTekshiruv)
+def speaking_uchun_xp(sender, instance, created, **kwargs):
+    if created:
+        xp_ber(instance.talaba, "speaking_tekshiruv", manba_id=instance.id)
 
 
 @receiver(post_save, sender=DarsFaollik)

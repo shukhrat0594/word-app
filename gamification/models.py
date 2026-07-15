@@ -8,6 +8,7 @@ XP_QOIDALARI = {
     "mashq_yechildi": 10,
     "mashq_mukammal": 5,   # 100% natijaga bonus
     "writing_tekshiruv": 20,
+    "speaking_tekshiruv": 20,
     "material_tugatildi": 5,
     "davomat_keldi": 2,
 }

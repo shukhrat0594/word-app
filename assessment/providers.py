@@ -63,6 +63,57 @@ WRITING_SYSTEM_PROMPT = (
 )
 
 
+# Speaking matn-mazmun tahlili (B8, sinovdan o'tgan prompt 2026-07-15) +
+# B8.1: talaba Part turini tanlamaydi — AI kontekstdan aniqlaydi.
+# Pronunciation BAHOLANMAYDI — u Azure vazifasi (Tezkor tahlil rejimida).
+SPEAKING_SYSTEM_PROMPT = (
+    "Siz professional IELTS Speaking imtihonchisiz. Sizga talabaning OG'ZAKI "
+    "javobining matni (transkripsiya yoki yozma kiritilgan) beriladi. FAQAT "
+    "quyidagi 3 mezon bo'yicha baholang. PRONUNCIATION (talaffuz)ni "
+    "BAHOLAMANG — u alohida audio tizim orqali baholanadi.\n\n"
+
+    "0) TURINI ANIQLANG: javob mazmunidan bu Part 1 (qisqa shaxsiy savollar), "
+    "Part 2 (2 daqiqalik monolog — cue card tavsifi) yoki Part 3 (mavzu "
+    "bo'yicha chuqurroq munozara) ekanini aniqlang, 'part_type'da yozing.\n\n"
+
+    "1) TAHLIL (ball qo'yishdan oldin): 'analysis' maydonida har mezon "
+    "bo'yicha 1 gaplik xulosa yozing.\n"
+    "Band yo'riqnomasi: 4-5=ko'p pauza/takrorlash, oddiy bog'lovchilar, "
+    "tez-tez xato; 6=tushunarli oqim lekin ba'zan ikkilanish, xato bor-yu "
+    "tushunishga xalaqit bermaydi; 7=nisbatan erkin, moslashuvchan lug'at, "
+    "xato kam; 8-9=deyarli erkin va tabiiy, murakkab til.\n\n"
+
+    "2) MEZONLAR: fluency_coherence (nutq oqimi, discourse markerlar, "
+    "izchillik), lexical_resource (so'z boyligi, idiomalar), "
+    "grammatical_range (gap tuzilishi xilma-xilligi, og'zaki nutqda kichik "
+    "xato kechiriladi, tizimli xato pasaytiradi).\n\n"
+
+    "3) XATOLAR: faqat GRAMMATIK va LEKSIK xatolar. Har birini ANIQ shu "
+    'formatda: "noto\'g\'ri qism -> to\'g\'ri qism (sabab)". Bir xil turdagi '
+    "xato necha marta uchrasa, HAR BIRINI ALOHIDA yozing.\n\n"
+
+    "4) TEKSHIRUV: xatolar ro'yxatini yozgach, matnni qayta o'qing — "
+    "tashlab ketilgan xato bo'lsa qo'shing.\n\n"
+
+    "5) KUCHLI TOMONLAR: 1-2 ta ijobiy narsani ko'rsating.\n\n"
+
+    "Faqat quyidagi JSON qaytaring ('overall_band_no_pronunciation' — "
+    "Pronunciation'siz 3 mezon o'rtachasi, yakuniy IELTS ball EMAS):\n"
+    "{\n"
+    '  "part_type": "part1 yoki part2 yoki part3",\n'
+    '  "word_count": 0,\n'
+    '  "analysis": {"fluency_coherence": "", "lexical_resource": "", '
+    '"grammatical_range": ""},\n'
+    '  "fluency_coherence": {"score": 0, "comment": ""},\n'
+    '  "lexical_resource": {"score": 0, "comment": ""},\n'
+    '  "grammatical_range": {"score": 0, "comment": ""},\n'
+    '  "overall_band_no_pronunciation": 0,\n'
+    '  "errors": ["noto\'g\'ri -> to\'g\'ri (sabab)"],\n'
+    '  "strengths": [""]\n'
+    "}"
+)
+
+
 def javobni_parse_qil(raw_text):
     """AI javobidan JSON ajratadi (```json ... ``` o'ramini olib tashlab)."""
     cleaned = raw_text.strip()
@@ -86,7 +137,7 @@ class GeminiProvider:
         self.api_key = api_key
         self.model = model
 
-    def writing_baholash(self, matn):
+    def _generate(self, system_prompt, matn):
         from google import genai
         from google.genai import types
 
@@ -95,7 +146,7 @@ class GeminiProvider:
             model=self.model,
             contents=matn,
             config=types.GenerateContentConfig(
-                system_instruction=WRITING_SYSTEM_PROMPT,
+                system_instruction=system_prompt,
                 max_output_tokens=4096,
             ),
         )
@@ -108,6 +159,12 @@ class GeminiProvider:
             "output_tokens": usage.candidates_token_count or 0,
         }
 
+    def writing_baholash(self, matn):
+        return self._generate(WRITING_SYSTEM_PROMPT, matn)
+
+    def speaking_matn_baholash(self, matn):
+        return self._generate(SPEAKING_SYSTEM_PROMPT, matn)
+
 
 class ClaudeProvider:
     name = "claude"
@@ -118,14 +175,14 @@ class ClaudeProvider:
         self.api_key = api_key
         self.model = model
 
-    def writing_baholash(self, matn):
+    def _generate(self, system_prompt, matn):
         import anthropic
 
         client = anthropic.Anthropic(api_key=self.api_key)
         response = client.messages.create(
             model=self.model,
             max_tokens=4096,
-            system=WRITING_SYSTEM_PROMPT,
+            system=system_prompt,
             messages=[{"role": "user", "content": matn}],
         )
         return {
@@ -135,6 +192,12 @@ class ClaudeProvider:
             "input_tokens": response.usage.input_tokens,
             "output_tokens": response.usage.output_tokens,
         }
+
+    def writing_baholash(self, matn):
+        return self._generate(WRITING_SYSTEM_PROMPT, matn)
+
+    def speaking_matn_baholash(self, matn):
+        return self._generate(SPEAKING_SYSTEM_PROMPT, matn)
 
 
 def provider_tanla(user):

@@ -4,7 +4,7 @@ foydalanadi (faqat o'z farzandi uchun)."""
 from django.db.models import Avg, Count, Q
 
 from academics.models import Davomat
-from assessment.models import WritingTekshiruv
+from assessment.models import SpeakingTekshiruv, WritingTekshiruv
 from content.models import DarsFaollik
 from exercises.models import BOLIM_TURLARI, Bolim, MashqYechim
 
@@ -54,6 +54,13 @@ def talaba_statistikasi(talaba):
     listening = _bolim_statistikasi(talaba, Bolim.LISTENING)
     reading = _bolim_statistikasi(talaba, Bolim.READING)
 
+    speaking = SpeakingTekshiruv.objects.filter(talaba=talaba)
+    speaking_dinamika = [
+        {"sana": t.created_at.date(), "band": t.overall_band,
+         "rejim": t.rejim, "part_type": t.part_type}
+        for t in speaking.order_by("created_at")
+    ]
+
     return {
         "writing": {
             "soni": writing.count(),
@@ -61,15 +68,20 @@ def talaba_statistikasi(talaba):
             "oxirgi_band": writing_dinamika[-1]["band"] if writing_dinamika else None,
             "dinamika": writing_dinamika,
         },
+        "speaking": {
+            "soni": speaking.count(),
+            "ortacha_band": speaking.aggregate(a=Avg("overall_band"))["a"],
+            "oxirgi_band": speaking_dinamika[-1]["band"] if speaking_dinamika else None,
+            "dinamika": speaking_dinamika,
+        },
         "listening": listening,
         "reading": reading,
-        # Ko'nikmalar diagrammasi (radar) uchun tayyor qiymatlar.
-        # Speaking B8'da qo'shiladi.
+        # Ko'nikmalar diagrammasi (radar) uchun tayyor qiymatlar
         "konikmalar": {
             "writing_band": writing.aggregate(a=Avg("overall_band"))["a"],
             "listening_foiz": listening["ortacha_foiz"],
             "reading_foiz": reading["ortacha_foiz"],
-            "speaking_band": None,
+            "speaking_band": speaking.aggregate(a=Avg("overall_band"))["a"],
         },
         "dars_faollik": faollik,
         "davomat": davomat,
