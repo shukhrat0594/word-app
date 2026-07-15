@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'corsheaders',
     'accounts',
+    'academics',
 ]
 
 AUTH_USER_MODEL = 'accounts.User'
@@ -140,3 +141,6 @@ MEDIA_URL = 'media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Google OAuth (talaba ro'yxatdan o'tishi/kirishi -- B2.1)
+GOOGLE_OAUTH_CLIENT_ID = config('GOOGLE_OAUTH_CLIENT_ID', default='')
