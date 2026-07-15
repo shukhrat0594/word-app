@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'accounts',
     'academics',
     'content',
+    'exercises',
 ]
 
 # B3.1: markaz shuncha Public material kiritgach, boshqa markazlarning
