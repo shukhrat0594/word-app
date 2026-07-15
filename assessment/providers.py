@@ -1,0 +1,158 @@
+"""Provider-agnostic AI baholash qatlami (B5).
+
+Claude va Gemini bir xil interfeys ortida: har provider `writing_baholash(matn)`
+metodini beradi va bir xil tuzilmadagi dict qaytaradi. Markaz o'z provayderini
+tanlaydi (Markaz.ai_provider + api_key), aks holda platforma kaliti ishlatiladi.
+"""
+
+import json
+
+from django.conf import settings
+
+
+class ProviderXatosi(Exception):
+    """AI provider bilan ishlashdagi xato (kalit yo'q, javob buzuq va h.k.)."""
+
+
+# v4 prompt (2026-07-15 tanlangan) + B8.1 moslashuvi: talaba Task turini
+# oldindan tanlamaydi — AI kontekstdan Task 1 yoki Task 2 ekanini aniqlaydi.
+WRITING_SYSTEM_PROMPT = (
+    "Siz professional IELTS imtihonchisiz. Sizga talabaning Writing javobi "
+    "beriladi. Quyidagi tartibda baholang:\n\n"
+
+    "0) TURINI ANIQLANG: matn mazmunidan bu Task 1 (grafik/jadval/jarayon "
+    "tavsifi yoki xat, kamida 150 so'z) yoki Task 2 (fikr-mulohaza inshosi, "
+    "kamida 250 so'z) ekanini aniqlang va 'task_type' maydonida yozing.\n\n"
+
+    "1) SO'Z SONI: sanang. Turiga mos minimumdan (150/250) kam bo'lsa, "
+    "Task Achievement balini pasaytiring va buni izohda ayting.\n\n"
+
+    "2) TAHLIL (ball qo'yishdan oldin): 'analysis' maydonida har mezon "
+    "bo'yicha 1 gaplik xulosa yozing — shu asosda ball bering.\n"
+    "Band yo'riqnomasi: 4-5=ko'p tizimli xato/rivojlanmagan fikr; "
+    "6=tushunarli lekin sezilarli xato; 7=xato kam, fikr dalillangan; "
+    "8-9=deyarli xatosiz, murakkab til.\n\n"
+
+    "3) XATOLAR: matnni qatorma-qator o'qib, BARCHA xatolarni toping "
+    "(ega-kesim, birlik/ko'plik, artikl, egalik, imlo). Har birini "
+    'ANIQ shu formatda yozing: "noto\'g\'ri qism -> to\'g\'ri qism (sabab)". '
+    "Bir xil xato matnda necha marta uchrasa, HAR BIRINI ALOHIDA, aniq "
+    "qaysi so'z birikmasida ekanini ko'rsatib yozing.\n\n"
+
+    "4) TEKSHIRUV: xatolar ro'yxatini yozgach, matnni qayta o'qing — "
+    "tashlab ketilgan xato bo'lsa qo'shing.\n\n"
+
+    "5) KUCHLI TOMONLAR: 1-2 ta ijobiy narsani ko'rsating.\n\n"
+
+    "Faqat quyidagi JSON qaytaring, boshqa matn yozmang:\n"
+    "{\n"
+    '  "task_type": "task1 yoki task2",\n'
+    '  "word_count": 0,\n'
+    '  "analysis": {\n'
+    '    "task_achievement": "", "coherence_cohesion": "",\n'
+    '    "lexical_resource": "", "grammatical_range": ""\n'
+    "  },\n"
+    '  "task_achievement": {"score": 0, "comment": ""},\n'
+    '  "coherence_cohesion": {"score": 0, "comment": ""},\n'
+    '  "lexical_resource": {"score": 0, "comment": ""},\n'
+    '  "grammatical_range": {"score": 0, "comment": ""},\n'
+    '  "overall_band": 0,\n'
+    '  "errors": ["noto\'g\'ri -> to\'g\'ri (sabab)"],\n'
+    '  "strengths": [""]\n'
+    "}"
+)
+
+
+def javobni_parse_qil(raw_text):
+    """AI javobidan JSON ajratadi (```json ... ``` o'ramini olib tashlab)."""
+    cleaned = raw_text.strip()
+    if cleaned.startswith("```"):
+        cleaned = cleaned.split("```")[1]
+        if cleaned.startswith("json"):
+            cleaned = cleaned[4:]
+        cleaned = cleaned.strip()
+    try:
+        return json.loads(cleaned)
+    except json.JSONDecodeError as e:
+        raise ProviderXatosi(f"AI javobi JSON emas: {e}") from e
+
+
+class GeminiProvider:
+    name = "gemini"
+
+    def __init__(self, api_key, model="gemini-3.1-flash-lite"):
+        if not api_key:
+            raise ProviderXatosi("Gemini API kaliti berilmagan")
+        self.api_key = api_key
+        self.model = model
+
+    def writing_baholash(self, matn):
+        from google import genai
+        from google.genai import types
+
+        client = genai.Client(api_key=self.api_key)
+        response = client.models.generate_content(
+            model=self.model,
+            contents=matn,
+            config=types.GenerateContentConfig(
+                system_instruction=WRITING_SYSTEM_PROMPT,
+                max_output_tokens=4096,
+            ),
+        )
+        usage = response.usage_metadata
+        return {
+            "natija": javobni_parse_qil(response.text),
+            "provider": self.name,
+            "model": self.model,
+            "input_tokens": usage.prompt_token_count or 0,
+            "output_tokens": usage.candidates_token_count or 0,
+        }
+
+
+class ClaudeProvider:
+    name = "claude"
+
+    def __init__(self, api_key, model="claude-haiku-4-5"):
+        if not api_key:
+            raise ProviderXatosi("Claude API kaliti berilmagan")
+        self.api_key = api_key
+        self.model = model
+
+    def writing_baholash(self, matn):
+        import anthropic
+
+        client = anthropic.Anthropic(api_key=self.api_key)
+        response = client.messages.create(
+            model=self.model,
+            max_tokens=4096,
+            system=WRITING_SYSTEM_PROMPT,
+            messages=[{"role": "user", "content": matn}],
+        )
+        return {
+            "natija": javobni_parse_qil(response.content[0].text),
+            "provider": self.name,
+            "model": self.model,
+            "input_tokens": response.usage.input_tokens,
+            "output_tokens": response.usage.output_tokens,
+        }
+
+
+def provider_tanla(user):
+    """Foydalanuvchi uchun AI provider tanlaydi.
+
+    Markaz o'z kalitini kiritgan bo'lsa — markaz tanlagan provider
+    (markaz to'laydi). Aks holda — platforma kaliti (Gemini, pullik
+    individual foydalanuvchilar uchun).
+    """
+    markaz = user.markaz
+    if markaz and markaz.api_key:
+        if markaz.ai_provider == "claude":
+            return ClaudeProvider(markaz.api_key)
+        return GeminiProvider(markaz.api_key)
+
+    platforma_kaliti = getattr(settings, "GEMINI_API_KEY", "")
+    if not platforma_kaliti:
+        raise ProviderXatosi(
+            "Platforma GEMINI_API_KEY sozlanmagan (.env) va markaz kaliti yo'q"
+        )
+    return GeminiProvider(platforma_kaliti)

@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     'academics',
     'content',
     'exercises',
+    'assessment',
 ]
 
 # B3.1: markaz shuncha Public material kiritgach, boshqa markazlarning
@@ -150,3 +151,6 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Google OAuth (talaba ro'yxatdan o'tishi/kirishi -- B2.1)
 GOOGLE_OAUTH_CLIENT_ID = config('GOOGLE_OAUTH_CLIENT_ID', default='')
+
+# Platforma AI kaliti (B5) — markaz o'z kalitini kiritmagan bo'lsa ishlatiladi
+GEMINI_API_KEY = config('GEMINI_API_KEY', default='')

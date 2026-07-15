@@ -26,4 +26,5 @@ urlpatterns = [
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('api/auth/google/', GoogleLoginView.as_view(), name='google_login'),
     path('api/', include('exercises.urls')),
+    path('api/', include('assessment.urls')),
 ]
