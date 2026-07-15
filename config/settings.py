@@ -41,7 +41,12 @@ INSTALLED_APPS = [
     'corsheaders',
     'accounts',
     'academics',
+    'content',
 ]
+
+# B3.1: markaz shuncha Public material kiritgach, boshqa markazlarning
+# Public kontentini ko'rish ochiladi (moslashuvchan chegara)
+PUBLIC_UNLOCK_LIMIT = 5
 
 AUTH_USER_MODEL = 'accounts.User'
 
