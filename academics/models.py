@@ -32,6 +32,56 @@ class Guruh(models.Model):
         return f"{self.name} ({self.markaz.name})"
 
 
+class Davomat(models.Model):
+    """Kunlik yo'qlama — o'qituvchi guruh bo'yicha kim kelganini belgilaydi.
+
+    Dars jadvali/kalendar yo'q (soddalashtirilgan): bitta yozuv = bitta
+    talaba, bitta guruh, bitta sana, holat (Keldi/Kelmadi).
+    """
+
+    class Holat(models.TextChoices):
+        KELDI = "keldi", "Keldi"
+        KELMADI = "kelmadi", "Kelmadi"
+
+    sana = models.DateField()
+    guruh = models.ForeignKey(
+        Guruh, on_delete=models.CASCADE, related_name="davomatlar"
+    )
+    talaba = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="davomatlar",
+        limit_choices_to={"role": "student"},
+    )
+    holat = models.CharField(max_length=10, choices=Holat.choices)
+    belgilagan = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="belgilagan_davomatlar",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["sana", "guruh", "talaba"], name="davomat_unikal"
+            )
+        ]
+        ordering = ["-sana"]
+
+    def clean(self):
+        if self.guruh_id and self.talaba_id:
+            if not self.guruh.talabalar.filter(pk=self.talaba_id).exists():
+                raise ValidationError(
+                    f"{self.talaba} bu guruhga ({self.guruh}) a'zo emas."
+                )
+
+    def __str__(self):
+        return f"{self.sana} — {self.talaba} — {self.get_holat_display()}"
+
+
 @receiver(m2m_changed, sender=Guruh.talabalar.through)
 def guruhga_qoshilganda_markaz_biriktir(sender, instance, action, pk_set, **kwargs):
     """Talaba guruhga qo'shilganda uning markazini guruh markaziga moslashtiradi.
