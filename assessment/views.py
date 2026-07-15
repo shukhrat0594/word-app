@@ -40,7 +40,20 @@ class WritingTekshirishView(APIView):
             input_tokens=baho["input_tokens"],
             output_tokens=baho["output_tokens"],
         )
-        return Response({"id": tekshiruv.id, "natija": natija})
+
+        # B9: aktiv paket bo'lsa, undan 1 ta Writing yechiladi.
+        # Paket bo'lmasa — alohida to'lov (600 so'm, to'lov tizimi 2-fazada).
+        from packages.models import paketdan_ishlat
+
+        paket = paketdan_ishlat(request.user, "w")
+        return Response(
+            {
+                "id": tekshiruv.id,
+                "natija": natija,
+                "paketdan": paket is not None,
+                "paket_w_qolgan": paket.w_qolgan if paket else None,
+            }
+        )
 
 
 class WritingTarixView(APIView):

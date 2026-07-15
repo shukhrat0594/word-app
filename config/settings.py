@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     'assessment',
     'stats',
     'gamification',
+    'packages',
 ]
 
 # B3.1: markaz shuncha Public material kiritgach, boshqa markazlarning
