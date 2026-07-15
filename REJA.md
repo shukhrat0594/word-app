@@ -262,3 +262,4 @@ VPS'ga deploy — B1 tugagach yoki server tayyor bo'lganda amalga oshiriladi.
 | 3-faza | Multi-tenant SaaS (o'z domeni, to'liq branding) | Biznes talab qilganda |
 | 4-faza | Native mobil ilova (agar PWA yetmasa) | Kerak bo'lsa |
 | 5-faza | Cloudflare R2'ga o'tish (katta hajm uchun) | Foydalanuvchi ko'paysa |
+| 6-faza | **Jonli suhbat orqali Speaking mashqi** (Gemini 2.5 Flash Native Audio Dialog / Live API) — talaba rasmiy (ballanadigan) Speaking testidan oldin AI bilan real-vaqtli ovozli suhbatda erkin mashq qiladi, AI imtihonchidek savol berib, jonli javob qaytaradi. Baholashdan mustaqil — faqat amaliyot rejimi, Azure Pronunciation Assessment/B8 asosiy oqimiga ta'sir qilmaydi | Eng oxirgi bosqich, barcha boshqa fazalardan keyin |
