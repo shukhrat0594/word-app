@@ -26,8 +26,8 @@
 | Frontend | React |
 | Video | YouTube (unlisted) |
 | Bildirishnoma | Telegram Bot API (keyingi fazaga o'tkazildi) |
-| Writing AI | Claude Haiku 4.5 (arzon) + Claude Sonnet 5 (kuchli) — ikkala tarif |
-| Speaking AI | Azure Speech (talaffuz) + ixtiyoriy Claude qo'shimchasi (mazmun/til sifati) |
+| Writing AI | Gemini 3.1 Flash Lite (asosiy, MVP'da yagona tarif) — Claude Sonnet 5 ("Chuqurroq tahlil") keyingi fazada qo'shiladi |
+| Speaking AI | Azure Speech (talaffuz, har doim) + Gemini 3.1 Flash Lite (mazmun) — Claude Sonnet 5 ("Chuqurroq tahlil") keyingi fazada qo'shiladi |
 | Hosting | Contabo Cloud VPS 20 — 1 oylik (test) → keyin 6/12 oy + Auto Backup |
 
 ## 2. Biznes model
@@ -61,27 +61,30 @@
 - v3: band tavsiflari + `analysis` (fikrlash zanjiri) + `strengths` + o'z-o'zini tekshirish qo'shildi — lekin xato formati chalkashib, token narxi 2x oshdi
 - **v4 (yakuniy):** v2'ning aniq "xato -> to'g'risi (sabab)" formati + v3'ning `analysis`/`strengths` foydali qo'shimchalari birlashtirildi, band tavsiflari qisqartirildi (token tejash)
 
-**Bilib qo'yilgan model chegarasi:** Lite model **qo'shma egalarni** (compound subject, masalan "smartphones and internet") grammatik tahlilda to'liq to'g'ri tushunmasligi va bir xil turdagi xatoni matnning turli joylarida alohida-alohida (joyini ko'rsatib) ajrata olmasligi — v2/v3/v4'ning barchasida takrorlandi, bu **prompt emas, modelning tahlil chuqurligi chegarasi**. Shu sababli **Chuqurroq tahlil (kuchli model)** tarifi mavjud — nozik grammatik holatlar uchun.
+**Bilib qo'yilgan model chegarasi:** Lite model **qo'shma egalarni** (compound subject, masalan "smartphones and internet") grammatik tahlilda to'liq to'g'ri tushunmasligi va bir xil turdagi xatoni matnning turli joylarida alohida-alohida (joyini ko'rsatib) ajrata olmasligi — v2/v3/v4'ning barchasida takrorlandi, bu **prompt emas, modelning tahlil chuqurligi chegarasi**. Shu sababli **Chuqurroq tahlil (kuchli model)** tarifi mo'ljallangan — nozik grammatik holatlar uchun (MVP'da emas, keyingi fazada qo'shiladi, "Keyingi fazalar" jadvaliga qarang).
 
-### Writing AI — ikki tarif (yakuniy, 2026-07-15 nomlash bilan tasdiqlangan)
+### Writing AI — bitta tarif MVP'da (2026-07-15 yakuniy yangilangan)
+
+**Muhim (2026-07-15):** dastlab "Tezkor tahlil"=Haiku / "Chuqurroq tahlil"=Sonnet ikki tarif rejalashtirilgan edi. Keyinchalik (1) Gemini 3.1 Flash Lite'ning rasmiy narxi ($0.25/1M input, $1.50/1M output, `ai.google.dev` tekshirildi) va 500 so'rov/kun bepul tieri Haiku'dan sezilarli arzonroq/saxiyroq chiqdi, (2) **Sonnet asosidagi "Chuqurroq tahlil" MVP'dan chiqarilib, keyingi fazaga o'tkazildi** (soddalik va xarajatsiz ishga tushish uchun). MVP'da Writing AI — **faqat Gemini asosida, bitta tarif**:
+
 | Tarif nomi | Model | Narx | Taxminiy xarajat | Marja |
 |---|---|---|---|---|
-| **Tezkor tahlil** | Claude Haiku 4.5 | 500 so'm | ~39 so'm | ~92% |
-| **Chuqurroq tahlil** | Claude Sonnet 5 | 1000 so'm | ~77 so'm | ~92% |
+| **Tezkor tahlil** | Gemini 3.1 Flash Lite (v4 prompt) | **600 so'm** | **~0 so'm** (500/kun bepul tierda, ~815 talabagacha yetadi; undan keyin ~15 so'm/tekshiruv pullik tarifda) | **~100%** (bepul tierda) |
+| ~~Chuqurroq tahlil~~ (Claude Sonnet 5) | — | — | ~77 so'm | *(keyingi fazada qaytadi)* |
 
-### Speaking AI — uch tarif (yakuniy, 2026-07-14 tasdiqlangan)
+### Speaking AI — ikki tarif MVP'da (2026-07-15 yakuniy yangilangan)
 
-Standart Speaking javob davomiyligi: **2 daqiqa** audio.
+Standart Speaking javob davomiyligi: **2 daqiqa** audio. Sinov: `test_speaking_gemini.py` — Gemini 3.1 Flash Lite namunaviy IELTS Part 2 transkriptida 17 xato topdi, B8 arxitekturasi (Azure=Pronunciation, Gemini=qolgan 3 mezon) tasdiqlandi.
 
 | Tarif nomi | Tarkib | Narx | Taxminiy xarajat | Marja | Izoh |
 |---|---|---|---|---|---|
-| **Matn rejimi** | Faqat Claude Haiku (talaba matn kiritadi, audio yo'q) | **500 so'm** | ~34 so'm | ~93% | Talaffuz baholanmaydi — faqat mazmun/grammatika/lug'at. Mikrofonsiz mashq uchun |
-| **Tezkor tahlil** | Azure (talaffuz/ravonlik/urg'u) + Claude Haiku (mazmun) | **900 so'm** | ~557 so'm | ~38% | To'liq audio-asoslangan baho |
-| **Chuqurroq tahlil** | Azure + Claude Sonnet 5 | **1200 so'm** | ~590 so'm | ~51% | Eng chuqur tahlil |
+| **Matn rejimi** | Faqat Gemini 3.1 Flash Lite (talaba matn kiritadi, audio yo'q) | **600 so'm** | **~0 so'm** (bepul tierda) | **~100%** | Talaffuz baholanmaydi — faqat mazmun/grammatika/lug'at. Mikrofonsiz mashq uchun |
+| **Tezkor tahlil** | Azure (talaffuz/ravonlik/urg'u) + Gemini 3.1 Flash Lite (mazmun) | **1000 so'm** | **~523 so'm** (faqat Azure, Gemini qismi ~0) | **~47.7%** | To'liq audio-asoslangan baho |
+| ~~Chuqurroq tahlil~~ (Azure + Claude Sonnet 5) | — | — | ~590 so'm | — | *(keyingi fazada qaytadi)* |
 
-*(2026-07-15: "Tezkor tahlil" narxi 800→900 so'm ga o'zgartirildi va marja qayta hisoblandi — avvalgi "~44%" xato edi, foyda narxga emas xarajatga nisbatan hisoblangan ekan; to'g'ri formula — foyda/narx.)*
+*(2026-07-15: Haiku'dan Gemini'ga o'tildi (arzonroq, bepul tierda), narxlar 500→600 va 900→1000 so'mga oshirildi, Chuqurroq tahlil MVP'dan keyingi fazaga o'tkazildi.)*
 
-> **Muhim:** Azure yolg'iz (talaffuzsiz Claude'siz) tarif **taklif qilinmaydi** — chunki IELTS Speaking 4 mezondan iborat (Fluency&Coherence, Lexical Resource, Grammatical Range, Pronunciation), Azure faqat Pronunciation va Fluency'ning "yetkazish" qismini biladi, qolganini (Coherence, Lexical, Grammar) bilmaydi. Shuning uchun Speaking baho har doim Azure+Claude combo bo'lishi kerak (Matn rejimi bundan mustasno — u alohida, talaffuzsiz mashq vositasi).
+> **Muhim:** Azure yolg'iz (talaffuzsiz Gemini'siz) tarif **taklif qilinmaydi** — chunki IELTS Speaking 4 mezondan iborat (Fluency&Coherence, Lexical Resource, Grammatical Range, Pronunciation), Azure faqat Pronunciation va Fluency'ning "yetkazish" qismini biladi, qolganini (Coherence, Lexical, Grammar) bilmaydi. Shuning uchun Speaking baho har doim Azure+Gemini combo bo'lishi kerak (Matn rejimi bundan mustasno — u alohida, talaffuzsiz mashq vositasi).
 
 ### Listening/Reading — mashq turlari va kunlik bepul limit (yangilangan, 2026-07-15)
 
@@ -101,109 +104,101 @@ Standart Speaking javob davomiyligi: **2 daqiqa** audio.
 
 *Backend'da qoida moslashuvchan qilib qurilishi kerak — "har tur × 1" formulasi, mashq turlari soni kelajakda o'zgarsa (ko'paysa/kamaysa) ham avtomatik moslashishi uchun (qattiq kodlangan "5" raqami emas).*
 
-**Xarajat manbalari:** Claude — platform.claude.com rasmiy narxi; Azure — azure.microsoft.com rasmiy narxi (Speech-to-Text $1/soat + Pronunciation Assessment prosody $0.30/soat); Kurs — CBU rasmiy kursi 1 USD = 12,065.49 so'm, 1 EUR = 13,754.66 so'm (15.07.2026).
+**Xarajat manbalari:** Claude — platform.claude.com rasmiy narxi; Gemini — ai.google.dev/gemini-api/docs/pricing rasmiy narxi (Gemini 3.1 Flash Lite: $0.25/1M input, $1.50/1M output, 500 so'rov/kun bepul); Azure — azure.microsoft.com rasmiy narxi (Speech-to-Text $1/soat + Pronunciation Assessment prosody $0.30/soat); Kurs — CBU rasmiy kursi 1 USD = 12,065.49 so'm, 1 EUR = 13,754.66 so'm (15.07.2026).
 
-### "IELTS Boost" Paket — 10,000 so'm, 7 kun amal qiladi (yakuniy, 2026-07-14 tasdiqlangan)
+### "IELTS Boost" Paket — 8,000 so'm, 7 kun amal qiladi (2026-07-15 Gemini asosida qayta qurildi)
 
-**Tarkibi (2026-07-15 yangilangan — fixed taqsimot o'rniga erkin tanlov):**
+**Muhim (2026-07-15):** Sonnet MVP'dan chiqarilgani sababli, paket tarkibi Chuqurroq tahlil (Sonnet) o'rniga **Tezkor tahlil (Gemini/Azure+Gemini)** ishlatadi. Bu narx va qiymatni pasaytirdi, lekin xarajatni ham keskin kamaytirdi.
+
+**Tarkibi:**
 - 10 ta Reading (5 tur × 2 — MC, Fill in blanks, Matching Headings, T/F/NG, Short Answer)
 - 10 ta Listening (5 tur × 2 — MC, Fill in blanks, Matching, T/F/NG, Short Answer)
-- **5 ta** Speaking — **Chuqurroq tahlil** (Azure+Sonnet). Talaba har safar Part 1, 2 yoki 3'dan qaysi birini xohlasa, o'shani tanlab yuboradi (B8.1 qoidasi — fixed taqsimot yo'q)
-- **5 ta** Writing — **Chuqurroq tahlil** (Sonnet). Talaba har safar Task 1 yoki Task 2'dan qaysi birini xohlasa, o'shani tanlab yuboradi
+- **5 ta** Speaking — **Tezkor tahlil** (Azure+Gemini). Talaba har safar Part 1, 2 yoki 3'dan qaysi birini xohlasa, o'shani tanlab yuboradi (B8.1 qoidasi — fixed taqsimot yo'q)
+- **5 ta** Writing — **Tezkor tahlil** (Gemini). Talaba har safar Task 1 yoki Task 2'dan qaysi birini xohlasa, o'shani tanlab yuboradi
 
 **Muhim:** paket davomida (7 kun) talabaning **kunlik bepul Reading/Listening limiti** (5 tur × 1 = 5+5/kun) ham **parallel ravishda davom etadi** — paket bunga qo'shimcha, uni almashtirmaydi.
 
+| Element | Miqdor | Narx/birlik | Jami |
+|---|---|---|---|
+| Reading | 10 ta (5 tur × 2) | 500 so'm/bundle | 1,000 so'm |
+| Listening | 10 ta (5 tur × 2) | 500 so'm/bundle | 1,000 so'm |
+| Speaking — Tezkor tahlil | 5 ta | 1000 so'm | 5,000 so'm |
+| Writing — Tezkor tahlil | 5 ta | 600 so'm | 3,000 so'm |
+| **Alohida sotilsa (jami qiymat)** | | | **10,000 so'm** |
+
 | | Summa |
 |---|---|
-| Alohida sotilsa (jami qiymat) | 13,000 so'm |
-| **Paket narxi** | **10,000 so'm** |
-| Talaba tejaydi | 3,000 so'm (~23% chegirma) |
-| Bizning xarajatimiz (Azure+Claude, faqat Speaking+Writing — L/R bepul) | 3,335 so'm |
-| **Bizning sof foydamiz** | **6,665 so'm** |
-| **Marja** | **~66.7%** |
+| **Paket narxi** | **8,000 so'm** |
+| Talaba tejaydi | 2,000 so'm (**20% chegirma**) |
+| Bizning xarajatimiz (5× Azure ~523 so'm, Gemini ~0) | 2,615 so'm |
+| **Bizning sof foydamiz** | **5,385 so'm** |
+| **Marja** | **~67.3%** |
 
-**Muddat asoslanishi (2026-07-15 yangilangan — Speaking/Writing 5+5ga o'zgargani va L/R kunlik bepul limit 5+5ga tushirilgani hisobga olindi):** faqat paket mashqlari (30 ta: R100+L80+S75+W175 daqiqa) — ~430 daqiqa (~7.2 soat), 7 kunga taqsimlansa ~61 daq/kun. Agar talaba kunlik bepul L/R'ni ham to'liq ishlatsa (~1.5 soat/kun) — jami ~17.7 soat/7 kun (~2.5 soat/kun). 7 kun 5 kunga nisbatan yukni yengillashtiradi va paketning ishlatilmay qolish xavfini kamaytiradi.
+**Muddat asoslanishi:** faqat paket mashqlari (30 ta: R100+L80+S75+W175 daqiqa) — ~430 daqiqa (~7.2 soat), 7 kunga taqsimlansa ~61 daq/kun. Agar talaba kunlik bepul L/R'ni ham to'liq ishlatsa (~1.5 soat/kun) — jami ~17.7 soat/7 kun (~2.5 soat/kun). 7 kun 5 kunga nisbatan yukni yengillashtiradi va paketning ishlatilmay qolish xavfini kamaytiradi.
 
-### "Arzon Paket" — 5,000 so'm, 5 kun amal qiladi (yakuniy, 2026-07-14 tasdiqlangan)
+### "Arzon Paket" — 5,000 so'm, 5 kun amal qiladi (2026-07-15 Gemini narxlariga qayta hisoblandi)
 
-Premium ("IELTS Boost") paketning kirish darajasidagi (entry-level) versiyasi — arzonroq tariflar bilan.
+IELTS Boost'ning kirish darajasidagi (entry-level) versiyasi — arzonroq tariflar bilan. Tarkib o'zgarmadi, faqat Writing tarifi Chuqurroq(Sonnet)dan Tezkor(Gemini)ga o'tdi (Sonnet MVP'dan chiqarilgani sababli).
 
 **Tarkibi:**
 - 15 ta Reading (5 tur × 3)
 - 15 ta Listening (5 tur × 3)
-- 3 ta Writing — **Chuqurroq tahlil** (Sonnet). **Talaba har safar Task 1 yoki Task 2'dan qaysi birini xohlasa, o'shani tanlab yuboradi** (fixed taqsimot yo'q, erkin tanlov)
-- 3 ta Speaking — **Matn rejimi** (Haiku, audio yo'q). **Talaba har safar Part 1, 2 yoki 3'dan qaysi birini xohlasa, o'shani tanlab yuboradi**
+- 3 ta Writing — **Tezkor tahlil** (Gemini). **Talaba har safar Task 1 yoki Task 2'dan qaysi birini xohlasa, o'shani tanlab yuboradi** (fixed taqsimot yo'q, erkin tanlov)
+- 3 ta Speaking — **Matn rejimi** (Gemini, audio yo'q). **Talaba har safar Part 1, 2 yoki 3'dan qaysi birini xohlasa, o'shani tanlab yuboradi**
 
 **Muhim:** paket davomida (5 kun) talabaning kunlik bepul Reading/Listening limiti ham parallel davom etadi.
 
 | | Summa |
 |---|---|
-| Alohida sotilsa (jami qiymat, R/L 1.5× standart top-up narxida hisoblangan) | 7,500 so'm |
+| Alohida sotilsa (jami qiymat, R/L standart top-up narxida hisoblangan) | 6,600 so'm |
 | **Paket narxi** | **5,000 so'm** |
-| Talaba tejaydi | 2,500 so'm (~33% chegirma) |
-| Bizning xarajatimiz (Writing Sonnet + Speaking Matn/Haiku, R/L bepul) | 333 so'm |
-| **Bizning sof foydamiz** | **4,667 so'm** |
-| **Marja** | **~93.3%** |
+| Talaba tejaydi | 1,600 so'm (**~24.2% chegirma**) |
+| Bizning xarajatimiz (Writing+Speaking Gemini ~0, R/L bepul) | **~0 so'm** |
+| **Bizning sof foydamiz** | **~5,000 so'm** |
+| **Marja** | **~100%** |
 
 **Muddat asoslanishi:** jami ~36 ta mashq, ~6.5 soat vaqt (Reading ~150 daq, Listening ~120 daq, Writing ~90 daq, Speaking-matn ~30 daq), 5 kunga taqsimlansa ~78 daqiqa/kun.
 
-### Daromad/foyda misoli — 50 pullik talaba, 1 oy (yakuniy, 2026-07-14 tasdiqlangan)
+### Daromad/foyda misoli — 50 pullik talaba, 1 oy (2026-07-15 Gemini narxlariga qayta hisoblandi)
 
-**Taxminlar (1 talaba/oyiga):** Writing 12 ta (70% Haiku / 30% Sonnet = 8.4/3.6), Speaking 12 ta (6 Matn / 4 Oddiy / 2 Premium), Listening+Reading jami 4,000 so'm (kamdan-kam limitdan oshadi — 2 ta to'liq L+R kuniga 4-5 soat oladi). Server — Contabo VPS 20, 1 oylik ≈ 103,160 so'm/oy (barcha foydalanuvchilar orasida taqsimlanadi).
+**Taxminlar (1 talaba/oyiga):** Writing 12 ta (MVP'da faqat Tezkor tahlil — Sonnet yo'q), Speaking 12 ta (6 Matn / 6 Tezkor — avvalgi "Premium" ulushi Tezkor'ga qo'shildi, chunki Chuqurroq MVP'da yo'q), Listening+Reading jami 4,000 so'm. Server — Contabo VPS 20, 1 oylik ≈ 103,160 so'm/oy. **Kunlik Gemini so'rovi tekshirildi: ~40/kun — 500/kun bepul limitning atigi ~8%i, ya'ni Gemini xarajati bu hajmda 0 so'm.**
 
 | Xizmat | Hisob | Daromad | Xarajat |
 |---|---|---|---|
-| Writing — Haiku (70%) | 8.4 × 500 so'm | 4,200 so'm | 328 so'm |
-| Writing — Sonnet (30%) | 3.6 × 1000 so'm | 3,600 so'm | 277 so'm |
-| Speaking — Matn | 6 × 500 so'm | 3,000 so'm | 204 so'm |
-| Speaking — Oddiy | 4 × 800 so'm | 3,200 so'm | 2,228 so'm |
-| Speaking — Premium | 2 × 1200 so'm | 2,400 so'm | 1,180 so'm |
+| Writing — Tezkor tahlil (Gemini) | 12 × 600 so'm | 7,200 so'm | ~0 so'm |
+| Speaking — Matn rejimi (Gemini) | 6 × 600 so'm | 3,600 so'm | ~0 so'm |
+| Speaking — Tezkor tahlil (Azure+Gemini) | 6 × 1000 so'm | 6,000 so'm | 3,138 so'm |
 | Listening + Reading | jami | 4,000 so'm | ~0 so'm |
-| **1 talaba jami** | | **20,400 so'm** | **4,217 so'm** |
+| **1 talaba jami** | | **20,800 so'm** | **3,138 so'm** |
 
 | 50 talaba, 1 oy | Summa |
 |---|---|
-| Jami daromad (50 × 20,400) | 1,020,000 so'm |
-| AI/Azure xarajati (50 × 4,217) | −210,850 so'm |
-| Yalpi foyda | 809,150 so'm |
+| Jami daromad (50 × 20,800) | 1,040,000 so'm |
+| AI/Azure xarajati (50 × 3,138) | −156,900 so'm |
+| Yalpi foyda | 883,100 so'm |
 | Server xarajati (VPS, 1 oylik) | −103,160 so'm |
-| **Sof foyda (taxminiy)** | **≈ 705,990 so'm/oy** (~14,100 so'm/talaba) |
+| **Sof foyda (taxminiy)** | **≈ 779,940 so'm/oy** (~15,599 so'm/talaba) |
 
-*Bu — taxminiy stsenariy. Real foydalanish chastotasi MVP ishga tushgach aniqlashtiriladi. To'lov tizimi komissiyasi (~1-2%, Payme/Click) hali hisobga olinmagan (2-faza).*
+*Bu — taxminiy stsenariy (eski Haiku-asosli hisobdan +73,950 so'm/oy ko'proq, asosan Gemini'ning bepul tieri tufayli). Real foydalanish chastotasi MVP ishga tushgach aniqlashtiriladi. To'lov tizimi komissiyasi (~1-2%, Payme/Click) hali hisobga olinmagan (2-faza).*
 
-### "Konstruktor" Paket — 3-chi paket turi (yakuniy, 2026-07-15 tasdiqlangan)
+### "AI Tarifi" Paket — 3-chi paket turi (2026-07-15 yakuniy, Konstruktor o'rniga soddalashtirildi)
 
-Fixed (tayyor) paketlardan farqli — foydalanuvchi **o'zi tanlaydi**, qaysi elementdan nechta oladi.
+**Tarix:** dastlab to'liq erkin "Konstruktor" (R/L/W/S'dan istalgan miqdor + istalgan AI tarifi) rejalashtirilgan edi. Sodda va tezroq ishga tushirish uchun bu **ikkita fixed tanlovga** soddalashtirildi — faqat Writing va Speaking'ning **Tezkor tahlil** tarifidan, faqat ikki hajm variantida. Reading/Listening bu paketga kirmaydi (ular alohida — kunlik bepul limit + top-up).
 
-**Tanlanadigan elementlar (har biriga miqdor kiritiladi, 0 = kiritilmaydi):**
+**Tanlov:** foydalanuvchi ikkitadan birini tanlaydi:
+- **5W + 5S** — 5 ta Writing Tezkor tahlil + 5 ta Speaking Tezkor tahlil
+- **10W + 10S** — 10 ta Writing Tezkor tahlil + 10 ta Speaking Tezkor tahlil
 
-| Element | Miqdor kiritilsa nima beriladi | AI tarifi tanlovi |
-|---|---|---|
-| **R** (Reading) | son × (5 turdan 1 tadan bundle) | — (AI yo'q) |
-| **L** (Listening) | son × (5 turdan 1 tadan bundle) | — (AI yo'q) |
-| **W T1** (Writing Task 1) | son × 1 ta | Tezkor tahlil (Haiku) / Chuqurroq tahlil (Sonnet) |
-| **W T2** (Writing Task 2) | son × 1 ta | Tezkor tahlil (Haiku) / Chuqurroq tahlil (Sonnet) |
-| **S P1** (Speaking Part 1) | son × 1 ta | Matn rejimi / Tezkor tahlil / Chuqurroq tahlil |
-| **S P2** (Speaking Part 2) | son × 1 ta | Matn rejimi / Tezkor tahlil / Chuqurroq tahlil |
-| **S P3** (Speaking Part 3) | son × 1 ta | Matn rejimi / Tezkor tahlil / Chuqurroq tahlil |
+Ikkala holatda ham talaba har safar Task/Part turini erkin tanlab yuboradi (B8.1 qoidasi).
 
 **Qo'shimcha tanlov:** Paket muddati — **3 / 5 / 7 kun** (foydalanuvchi tanlaydi, narxga ta'sir qilmaydi — faqat foydalanish oynasi).
 
-**Minimal xarid:** tanlangan elementlarning **umumiy narxi kamida 5,000 so'm** bo'lishi shart — aks holda xarid yakunlanmaydi.
+| Tanlov | Standalone qiymat | **Paket narxi** | Chegirma | Xarajat | Sof foyda | Marja |
+|---|---|---|---|---|---|---|
+| **5W + 5S** | 8,000 so'm (5×600 + 5×1000) | **7,000 so'm** | 12.5% | 2,615 so'm (5× Azure) | 4,385 so'm | ~62.6% |
+| **10W + 10S** | 16,000 so'm (10×600 + 10×1000) | **14,000 so'm** | 12.5% | 5,230 so'm (10× Azure) | 8,770 so'm | ~62.6% |
 
-**Konstruktor narxlari (chegirmali, standalone narxdan arzon):**
-
-| Element | Standalone narx | Konstruktor narxi | Xarajat | Marja (konstruktorda) |
-|---|---|---|---|---|
-| R — 1 birlik (5 turdan 1 tadan) | 500 so'm | **350 so'm** | ~0 so'm | ~100% |
-| L — 1 birlik (5 turdan 1 tadan) | 500 so'm | **350 so'm** | ~0 so'm | ~100% |
-| W T1/T2 — Tezkor tahlil (Haiku) | 500 so'm | **400 so'm** | ~39 so'm | ~90% |
-| W T1/T2 — Chuqurroq tahlil (Sonnet) | 1,000 so'm | **800 so'm** | ~77 so'm | ~90% |
-| S P1/P2/P3 — Matn rejimi | 500 so'm | **400 so'm** | ~34 so'm | ~91.5% |
-| S P1/P2/P3 — Tezkor tahlil | 900 so'm | **800 so'm** | ~557 so'm | ~30.4% |
-| S P1/P2/P3 — Chuqurroq tahlil | 1,200 so'm | **1,000 so'm** | ~590 so'm | ~41% |
-
-*Izoh: "S — Tezkor tahlil" marjasi (30.4%) boshqalarga nisbatan tor, chunki Azure audio xarajati (~523 so'm) narxning katta qismini oladi — bu Speaking'ning tabiiy xususiyati, xato emas.*
+*Xarajat faqat Speaking miqdoriga bog'liq (Azure ~523 so'm/birlik) — Writing (Gemini) xarajati ~0 so'm.*
 
 ---
 
@@ -220,12 +215,12 @@ Har bir bosqich Django Admin + DRF orqali **frontendsiz** tekshiriladi.
 | **B3.2** | Kontent himoyasi (tarqalishdan) | Mashqlar (Listening/Reading/Speaking/Writing) va AI feedback — faqat autentifikatsiyalangan API orqali, xom fayl/export endpoint yo'q. Audio — **signed, muddati tez tugaydigan URL** orqali stream (doimiy ommaviy link yo'q). Video — YouTube unlisted + embed-only player, **shaffof watermark** (talaba ismi/ID). Har foydalanuvchining kontentga kirishi **log** qilinadi, g'ayrioddiy tez/ko'p so'rov (skript bilan ommaviy yuklab olishga urinish) **rate-limit** bilan avtomatik bloklanadi. Talabaning **o'z tarixi/feedback'iga** istalgan payt kirish huquqi cheklanmaydi (faqat o'ziniki) | Signed URL muddati tugagach ishlamasligini, rate-limit chegara oshganda bloklashini, talaba o'z tarixini erkin ko'ra olishini tekshirish |
 | **B4** | Testlar/Mashqlar — **Listening va Reading (har biri 5 tur)** | Har ikkalasida: Multiple Choice, Fill in the Blanks, Matching (Listening'da oddiy Matching, Reading'da Matching Headings), True/False/Not Given, Short Answer — avtomatik tekshiriladi (AI shart emas). Yetkazish B3.2 talablariga mos (API orqali, export yo'q) | Har 5 turdan test yaratib, avtomatik natijani tekshirish |
 | **B4.1** | Listening/Reading — kunlik limit | Qoida: **har mashq turidan kuniga 1 tadan bepul** (5 tur × 1 = 5 ta/kun, Listening va Reading uchun alohida-alohida). Limit tugagach — **500 so'm** evaziga yana har turdan 1 tadan (**+5 ta**) ochiladi. Qoida moslashuvchan — tur soni o'zgarsa avtomatik moslashadi (qattiq kodlanmagan). Kunlik hisoblagich har kuni 00:00'da qayta tiklanadi | Limitni tugatib, to'lov qilib, +5 ta ochilishini tekshirish |
-| **B5** | Writing AI | **Provider-agnostic** (`AIProvider` interfeysi — Claude va Gemini bir xil ortida). Tezkor tahlil (500 so'm) + Chuqurroq tahlil (1000 so'm), ichida platforma uchun **Gemini 3.1 Flash Lite (v2 prompt)**, markaz o'zi tanlagan providerga (Claude/Gemini) qarab almashadi. Ikki toifa API kalit (markaz/pullik). AI feedback yetkazish B3.2 talablariga mos (faqat API, export yo'q) | Har ikki providerda insho yuborib solishtirish, markaz provayder almashtirsa to'g'ri ishlashini tekshirish |
+| **B5** | Writing AI | **Provider-agnostic** (`AIProvider` interfeysi — Claude va Gemini bir xil ortida). MVP'da **bitta tarif — Tezkor tahlil (600 so'm, Gemini 3.1 Flash Lite v4 prompt)**, markaz o'zi tanlagan providerga (Claude/Gemini) qarab almashadi. Chuqurroq tahlil (Sonnet) keyingi fazada qo'shiladi. Ikki toifa API kalit (markaz/pullik). AI feedback yetkazish B3.2 talablariga mos (faqat API, export yo'q) | Insho yuborib tekshirish, markaz provayder almashtirsa to'g'ri ishlashini tekshirish |
 | **B6** | Monitoring va Statistika | Progress, ko'nikmalar diagrammasi ma'lumotlari | Statistika API'ni tekshirish |
 | **B7** | Gamifikatsiya (backend) | XP, Leaderboard, Badge logikasi | Ball/reyting hisobini tekshirish |
-| **B8** | Speaking AI | Azure hisobi ochiladi (talaffuz — provayderdan mustaqil, har doim Azure), mazmun tahlili (Fluency&Coherence/Lexical/Grammar, matn asosida) **provider-agnostic** (Claude/Gemini) — Writing'dagi bilan bir xil mexanizm, kirish matni Azure transkripsiyasidan keladi. Uch tarif: Matn rejimi (500 so'm), Tezkor tahlil (900 so'm), Chuqurroq tahlil (1200 so'm). Audio yetkazish B3.2 talablariga mos (signed URL) | Har uch tarifni ikkala providerda sinab, narx/xarajatni tekshirish |
-| **B8.1** | Writing/Speaking — turini oldindan tanlash shart emas | Talaba faqat **AI tarifini** (Tezkor/Chuqurroq/Matn) tanlaydi, keyin **istalgan turdagi** (Task 1/Task 2, Part 1/2/3) matn/audio yuboradi — tizim oldindan "qaysi tur" deb so'ramaydi, **nima yuborilsa o'shani tekshiradi** (AI prompt kontekstdan turini aniqlab, mos mezon bilan baholaydi). Bu qoida barcha paketlarga (Arzon, IELTS Boost, Konstruktor) baravar tegishli | Turli xil (Task1/Task2 aralash) matnlar yuborib, har biri to'g'ri baholanishini tekshirish |
-| **B9** | Konstruktor paket | Foydalanuvchi R/L/W-T1/W-T2/S-P1/S-P2/S-P3'dan miqdor va AI tarifini o'zi tanlaydigan modul, muddat 3/5/7 kun | Turli kombinatsiyalarda narx to'g'ri hisoblanishini tekshirish |
+| **B8** | Speaking AI | Azure hisobi ochiladi (talaffuz — provayderdan mustaqil, har doim Azure), mazmun tahlili (Fluency&Coherence/Lexical/Grammar, matn asosida) **provider-agnostic** (Claude/Gemini) — Writing'dagi bilan bir xil mexanizm, kirish matni Azure transkripsiyasidan keladi. MVP'da ikki tarif: Matn rejimi (600 so'm), Tezkor tahlil (1000 so'm). Chuqurroq tahlil (Azure+Sonnet, 1200 so'm) keyingi fazada qo'shiladi. Audio yetkazish B3.2 talablariga mos (signed URL) | Ikkala tarifni ikkala providerda sinab, narx/xarajatni tekshirish |
+| **B8.1** | Writing/Speaking — turini oldindan tanlash shart emas | Talaba faqat **AI tarifini** (Tezkor/Matn) tanlaydi, keyin **istalgan turdagi** (Task 1/Task 2, Part 1/2/3) matn/audio yuboradi — tizim oldindan "qaysi tur" deb so'ramaydi, **nima yuborilsa o'shani tekshiradi** (AI prompt kontekstdan turini aniqlab, mos mezon bilan baholaydi). Bu qoida barcha paketlarga (Arzon, IELTS Boost, AI Tarifi) baravar tegishli | Turli xil (Task1/Task2 aralash) matnlar yuborib, har biri to'g'ri baholanishini tekshirish |
+| **B9** | "AI Tarifi" paket | Foydalanuvchi ikkitadan birini tanlaydi — 5W+5S yoki 10W+10S (ikkalasi ham Tezkor tahlil), muddat 3/5/7 kun (narxga ta'sir qilmaydi) | Ikkala tanlovda ham narx to'g'ri hisoblanishini tekshirish |
 
 VPS'ga deploy — B1 tugagach yoki server tayyor bo'lganda amalga oshiriladi.
 
@@ -241,10 +236,10 @@ VPS'ga deploy — B1 tugagach yoki server tayyor bo'lganda amalga oshiriladi.
 |---|---|---|
 | F1 | UI/UX dizayn (Figma) | Dashboard, monitoring paneli, talaba/o'qituvchi/admin interfeyslari. Ranglar/shrift CSS o'zgaruvchilarida. **Markaz logotipini yuklash imkoniyati** (branding uchun alohida joy) |
 | F2 | Asosiy sahifalar | Login, dashboard — Backend API'larga ulanadi |
-| F3 | Writing AI interfeysi | Insho kiritish, tarif tanlash (Tezkor tahlil/Chuqurroq tahlil), natija ko'rish sahifasi |
-| F4 | Speaking AI interfeysi | Audio yozib olish moduli, tarif tanlash (Matn rejimi/Tezkor tahlil/Chuqurroq tahlil), xato so'zlarni qizil/yashil rangda ko'rsatish |
+| F3 | Writing AI interfeysi | Insho kiritish, Tezkor tahlil natija ko'rish sahifasi (Chuqurroq tahlil UI keyingi fazada qo'shiladi) |
+| F4 | Speaking AI interfeysi | Audio yozib olish moduli, tarif tanlash (Matn rejimi/Tezkor tahlil), xato so'zlarni qizil/yashil rangda ko'rsatish |
 | F5 | Gamifikatsiya UI | Leaderboard, XP, badge ko'rinishi |
-| F6 | Konstruktor paket UI | R/L/W-T1/W-T2/S-P1/S-P2/S-P3 miqdor tanlash, AI tarifi tanlash, muddat (3/5/7 kun) tanlash, real-vaqtda narx hisoblash |
+| F6 | "AI Tarifi" paket UI | 5W+5S / 10W+10S tanlash, muddat (3/5/7 kun) tanlash, narx ko'rsatish |
 
 ## 3-bosqich: QA va yakunlash (1 hafta)
 
@@ -258,6 +253,7 @@ VPS'ga deploy — B1 tugagach yoki server tayyor bo'lganda amalga oshiriladi.
 | Faza | Nima | Qachon |
 |---|---|---|
 | — | **Telegram bot bildirishnoma** | Vaqt qisqarsa, MVP'dan keyin qo'shiladi (B bosqichlaridan olib tashlandi) |
+| — | **"Chuqurroq tahlil" (Claude Sonnet 5)** — Writing va Speaking'ning ikkalasida ham | MVP'dan keyin qo'shiladi (2026-07-15: soddalik/xarajatsiz ishga tushish uchun MVP'dan chiqarildi — B5/B8/B9/F3/F4/F6'dan olib tashlandi) |
 | 2-faza | To'lov integratsiyasi (Payme/Click) | MVP'dan keyin |
 | 3-faza | Multi-tenant SaaS (o'z domeni, to'liq branding) | Biznes talab qilganda |
 | 4-faza | Native mobil ilova (agar PWA yetmasa) | Kerak bo'lsa |
