@@ -27,4 +27,5 @@ urlpatterns = [
     path('api/auth/google/', GoogleLoginView.as_view(), name='google_login'),
     path('api/', include('exercises.urls')),
     path('api/', include('assessment.urls')),
+    path('api/', include('stats.urls')),
 ]
