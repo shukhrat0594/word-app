@@ -33,9 +33,35 @@
 ## 2. Biznes model
 
 ### AI xarajatni ajratish
-- **Hamkor o'quv markazi talabalari** — bepul, markaz o'z Anthropic API kalitini kiritadi, o'zi to'laydi
-- **Individual pullik foydalanuvchilar** — platforma o'z API kalitidan foydalanadi
+- **Hamkor o'quv markazi talabalari** — bepul, markaz o'z API kalitini kiritadi, o'zi to'laydi. **Markaz tanlaydi: Claude yoki Gemini** (2026-07-15 qo'shildi) — markaz sozlamalarida provayder tanlanadi, mos kalit kiritiladi
+- **Individual pullik foydalanuvchilar** — platforma o'z API kalitidan foydalanadi (asosiy: Gemini 3.1 Flash Lite, quyidagi tahlilga asosan)
 - Har biri uchun alohida API kalit — sarfni ajratib kuzatish uchun
+- Backend **provider-agnostic** qilib quriladi (`AIProvider` interfeysi) — Claude va Gemini bir xil interfeys ortida, markaz/platforma xohlagan providerni tanlaydi
+
+### AI Provider tanlovi — sinov natijalari (2026-07-15)
+
+5 ta model Writing AI vazifasida (bir xil insho, bir xil mezonlar) sinovdan o'tkazildi:
+
+| Model | Overall Band | Xatolar topildi | So'z kamligini payqadi | JSON | Bepul limit/kun |
+|---|---|---|---|---|---|
+| Claude Haiku 4.5 | 6.0 | 11 | ❌ | ✅ | — (pullik) |
+| Gemini 3.5 Flash | 5.5 | 9 | ✅ | ✅ | 20 |
+| Gemini 3 Flash Preview | 5.0 | 10 | ✅ | ✅ | 20 |
+| Gemini 3.1 Flash Lite (eski prompt) | 6.5 | 6 | ❌ | ✅ | 500 |
+| **Gemini 3.1 Flash Lite (yaxshilangan prompt)** | 5.5 | **15** | ✅ | ✅ | **500** |
+| Gemma 4 26B | 5.5 | — (javob uzildi) | ❌ | ❌ | ? |
+
+**Muhim topilma — prompt sifati modelni "kuchaytiradi":** Gemini 3.1 Flash Lite'ga (1) so'z sonini sanashni majburiy qilib, IELTS 250-so'z jarimasini aniq tushuntirib, (2) xatolarni to'liq (birortasini tashlab ketmasdan) sanashni so'rab prompt yaxshilanganda — natija 6 ta xatodan **15 ta xatoga** (barcha modellardan ko'p!) va so'z sonini to'g'ri payqashga o'tdi. Bu — eng arzon/saxiy limitli (500/kun bepul) modelni eng sifatli natijaga olib chiqdi.
+
+**Yakuniy tanlov:** dev va asosiy ishlatish uchun **Gemini 3.1 Flash Lite + v4 prompt**. Bu prompt barcha providerlar uchun standart bo'ladi (Claude'da ham sifatni oshiradi).
+
+**Prompt evolyutsiyasi (v1→v4):**
+- v1: oddiy baholash — so'z sonini/uzunlik jarimasini payqamadi
+- v2: so'z sanash majburiy + xatolarni to'liq sanash talabi qo'shildi — 6→15 xato, so'z jarimasi to'g'ri ishladi
+- v3: band tavsiflari + `analysis` (fikrlash zanjiri) + `strengths` + o'z-o'zini tekshirish qo'shildi — lekin xato formati chalkashib, token narxi 2x oshdi
+- **v4 (yakuniy):** v2'ning aniq "xato -> to'g'risi (sabab)" formati + v3'ning `analysis`/`strengths` foydali qo'shimchalari birlashtirildi, band tavsiflari qisqartirildi (token tejash)
+
+**Bilib qo'yilgan model chegarasi:** Lite model **qo'shma egalarni** (compound subject, masalan "smartphones and internet") grammatik tahlilda to'liq to'g'ri tushunmasligi va bir xil turdagi xatoni matnning turli joylarida alohida-alohida (joyini ko'rsatib) ajrata olmasligi — v2/v3/v4'ning barchasida takrorlandi, bu **prompt emas, modelning tahlil chuqurligi chegarasi**. Shu sababli **Chuqurroq tahlil (kuchli model)** tarifi mavjud — nozik grammatik holatlar uchun.
 
 ### Writing AI — ikki tarif (yakuniy, 2026-07-15 nomlash bilan tasdiqlangan)
 | Tarif nomi | Model | Narx | Taxminiy xarajat | Marja |
@@ -187,16 +213,16 @@ Har bir bosqich Django Admin + DRF orqali **frontendsiz** tekshiriladi.
 
 | # | Bosqich | Nima qilinadi | Tekshirish usuli |
 |---|---|---|---|
-| **B1** | Loyiha skeleti | Django + PostgreSQL ulanish, `.env` sozlash | `runserver` ishlashi |
-| **B2** | Foydalanuvchi/rol/Markaz tizimi | Administrator/O'qituvchi/Talaba, har bir foydalanuvchi **Markaz**ga biriktiriladi, Auth (JWT) | Admin panelda foydalanuvchi/markaz yaratish, login |
+| **B1** ✅ | Loyiha skeleti | Django 6.0.7 + DRF + django-cors-headers, `.env` (python-decouple), DB — SQLite local / PostgreSQL-ready (dj-database-url, `DATABASE_URL` orqali VPS'da almashtiriladi) | `runserver` ishladi (HTTP 200), Admin sahifasi ishladi (302 login'ga). Git: `word-app` repo tozalanib, Django skeleti push qilindi |
+| **B2** ✅ | Foydalanuvchi/rol/Markaz tizimi | Administrator/O'qituvchi/Talaba, har bir foydalanuvchi **Markaz**ga biriktiriladi, Auth (JWT, `/api/token/`). **Markaz sozlamalarida AI provayder tanlovi** (Claude yoki Gemini) + mos API kalit maydoni — Fernet bilan shifrlangan (`accounts/fields.py`, `django-cryptography` Django 6'ga mos kelmagani uchun o'zimiz yozdik) | Admin panelda foydalanuvchi/markaz yaratish, provayder tanlab kalit kiritish (bazada shifrlangan holda saqlanishi tekshirildi), `/api/token/` orqali JWT login ishladi — hammasi tasdiqlandi |
 | **B3** | Kurslar va Kontent (Private/Public) | Kurs/Dars/Material modellari — matn, video, **audio (Listening uchun)**. Material turi: Shaxsiy (Private) / Umumiy (Public). Lug'at va lug'at asosidagi o'yinlar — Umumiy turga misol | Admin panelda material (jumladan audio dars) yaratib, turini tekshirish |
 | **B3.1** | Umumiy kontent — ochilish sharti | Markaz ma'lum miqdorda umumiy material kiritgandan keyin — boshqa markazlarning umumiy materiallarini **ko'rish huquqi** ochiladi (o'qituvchi/admin darajasida). Alohida shart bajarilgach — o'sha markaz **talabalari** umumiy materiallardan **foydalanish huquqi**ga ega bo'ladi | Chegaralarni sozlab, ochilish/yopilishini tekshirish |
 | **B4** | Testlar/Mashqlar — **Listening va Reading (har biri 5 tur)** | Har ikkalasida: Multiple Choice, Fill in the Blanks, Matching (Listening'da oddiy Matching, Reading'da Matching Headings), True/False/Not Given, Short Answer — avtomatik tekshiriladi (AI shart emas) | Har 5 turdan test yaratib, avtomatik natijani tekshirish |
 | **B4.1** | Listening/Reading — kunlik limit | Qoida: **har mashq turidan kuniga 1 tadan bepul** (5 tur × 1 = 5 ta/kun, Listening va Reading uchun alohida-alohida). Limit tugagach — **500 so'm** evaziga yana har turdan 1 tadan (**+5 ta**) ochiladi. Qoida moslashuvchan — tur soni o'zgarsa avtomatik moslashadi (qattiq kodlanmagan). Kunlik hisoblagich har kuni 00:00'da qayta tiklanadi | Limitni tugatib, to'lov qilib, +5 ta ochilishini tekshirish |
-| **B5** | Writing AI | Tezkor tahlil (Haiku, 500 so'm) + Chuqurroq tahlil (Sonnet, 1000 so'm), ikki toifa API kalit (markaz/pullik) | Har ikki model bilan insho yuborib solishtirish |
+| **B5** | Writing AI | **Provider-agnostic** (`AIProvider` interfeysi — Claude va Gemini bir xil ortida). Tezkor tahlil (500 so'm) + Chuqurroq tahlil (1000 so'm), ichida platforma uchun **Gemini 3.1 Flash Lite (v2 prompt)**, markaz o'zi tanlagan providerga (Claude/Gemini) qarab almashadi. Ikki toifa API kalit (markaz/pullik) | Har ikki providerda insho yuborib solishtirish, markaz provayder almashtirsa to'g'ri ishlashini tekshirish |
 | **B6** | Monitoring va Statistika | Progress, ko'nikmalar diagrammasi ma'lumotlari | Statistika API'ni tekshirish |
 | **B7** | Gamifikatsiya (backend) | XP, Leaderboard, Badge logikasi | Ball/reyting hisobini tekshirish |
-| **B8** | Speaking AI | Azure hisobi ochiladi, uch tarif: Matn rejimi (500 so'm), Tezkor tahlil Azure+Haiku (900 so'm), Chuqurroq tahlil Azure+Sonnet (1200 so'm) | Har uch tarifni sinab, narx/xarajatni tekshirish |
+| **B8** | Speaking AI | Azure hisobi ochiladi (talaffuz — provayderdan mustaqil, har doim Azure), mazmun tahlili **provider-agnostic** (Claude/Gemini). Uch tarif: Matn rejimi (500 so'm), Tezkor tahlil (900 so'm), Chuqurroq tahlil (1200 so'm) | Har uch tarifni ikkala providerda sinab, narx/xarajatni tekshirish |
 | **B8.1** | Writing/Speaking — turini oldindan tanlash shart emas | Talaba faqat **AI tarifini** (Tezkor/Chuqurroq/Matn) tanlaydi, keyin **istalgan turdagi** (Task 1/Task 2, Part 1/2/3) matn/audio yuboradi — tizim oldindan "qaysi tur" deb so'ramaydi, **nima yuborilsa o'shani tekshiradi** (AI prompt kontekstdan turini aniqlab, mos mezon bilan baholaydi). Bu qoida barcha paketlarga (Arzon, IELTS Boost, Konstruktor) baravar tegishli | Turli xil (Task1/Task2 aralash) matnlar yuborib, har biri to'g'ri baholanishini tekshirish |
 | **B9** | Konstruktor paket | Foydalanuvchi R/L/W-T1/W-T2/S-P1/S-P2/S-P3'dan miqdor va AI tarifini o'zi tanlaydigan modul, muddat 3/5/7 kun | Turli kombinatsiyalarda narx to'g'ri hisoblanishini tekshirish |
 
