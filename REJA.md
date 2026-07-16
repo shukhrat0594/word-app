@@ -234,6 +234,8 @@ VPS'ga deploy — B1 tugagach yoki server tayyor bo'lganda amalga oshiriladi.
 
 > **B3.1 haqida eslatma:** Bu — to'liq multi-tenant SaaS (3-faza, alohida domen/branding) emas, balki **bitta platforma ichida** markazlar orasida kontent almashish tizimi. Bu hoziroq (B bosqichida) amalga oshiriladi, chunki `markaz_id` asosidagi ma'lumot ajratish allaqachon reja qilingan edi.
 
+> **B3.2 amalga oshirilishi boshlandi (2026-07-16):** Audio endi to'g'ridan-to'g'ri media URL bilan berilmaydi — faqat `/api/mashqlar/<id>/audio/` autentifikatsiyalangan stream (tokensiz 401, ochiq /media/ havola 404). Video — YouTube embed (yuklab olish tugmasi yo'q). Screenshot'ga texnik qarshilik qilinmaydi (foydalanuvchi qarori). **Deploy eslatmasi:** production'da nginx `media/mashqlar/audio/` va `media/speaking/audio/` papkalarini statik servis qilmasligi shart.
+
 > **B3.2 haqida eslatma (2026-07-15 kelishilgan):** Maqsad — mashqlar, AI feedback, video, audio saytdan/ilova/botdan tashqariga **ommaviy tarzda chiqib ketmasligi va tarqalmasligi**. Muhim: 100% himoya texnik jihatdan imkonsiz (agar kontent ekranda ko'rinsa/eshitilsa, screenshot/screen recording bilan baribir olinishi mumkin — "analog hole"), shuning uchun maqsad **ommaviy/skript orqali yuklab olish va oson tarqatishni qiyinlashtirish + tarqalsa manbasini aniqlash** (watermark, access log). Bu B3/B4/B5/B8/B9 bosqichlarining barchasiga tarqaladigan (cross-cutting) talab, alohida bosqich emas — har birida amalga oshiriladi. Talabaning **o'z natijalari tarixiga**, shuningdek bog'langan **ota-onaning farzandi natijalariga** (B6.1) kirishi hech qanday holatda cheklanmaydi — lekin ota-ona faqat o'z farzandi(lari)ni ko'radi, boshqa talabalarni emas.
 
 ## 2-bosqich: Frontend — dizayn va kod (taxminan 5-6 hafta)
