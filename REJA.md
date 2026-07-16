@@ -240,7 +240,7 @@ VPS'ga deploy — B1 tugagach yoki server tayyor bo'lganda amalga oshiriladi.
 
 | # | Bosqich | Nima qilinadi |
 |---|---|---|
-| F1 | UI/UX dizayn (Figma) | Dashboard, monitoring paneli, talaba/o'qituvchi/admin/**ota-ona** interfeyslari. Ranglar/shrift CSS o'zgaruvchilarida. **Markaz logotipini yuklash imkoniyati** (branding uchun alohida joy) |
+| F1 ✅ | UI/UX dizayn | Figma o'rniga **HTML/CSS mockup** (amaliyroq — React'ning asosi bo'ladi): `design/f1_dizayn.html`, Artifact: claude.ai/code/artifact/eddf9f1b-... **Tasdiqlandi (2026-07-16, "zo'r"):** sariq-qora brend (#FFD400 + #2B2A28, EduCenter "U" logo), 5 ekran (Login/Dashboard/Writing/Mashqlar/Paketlar), UZ/RU/EN i18n lug'at bilan jonli almashadi, yorug'+qorong'u tema (CSS token'lar), radar/chiziq diagrammalar canvas'da. O'qituvchi/admin/ota-ona ekranlari shu dizayn tizimida F2/F5.1 paytida qilinadi. Markaz logotipi joyi — keyingi iteratsiyada |
 | F2 | Asosiy sahifalar | Login (talaba uchun **Google OAuth tugmasi**, o'qituvchi/admin uchun oddiy login), dashboard — Backend API'larga ulanadi |
 | F2.1 | Guruh va Davomat UI | O'qituvchi/admin — guruh yaratish, talaba/o'qituvchi biriktirish; o'qituvchi — kunlik davomat (Keldi/Kelmadi) belgilash sahifasi |
 | F3 | Writing AI interfeysi | Insho kiritish, Tezkor tahlil natija ko'rish sahifasi (Chuqurroq tahlil UI keyingi fazada qo'shiladi) |
