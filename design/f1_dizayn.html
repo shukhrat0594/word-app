@@ -1,0 +1,770 @@
+<title>LMS — F1 dizayn mockup</title>
+<style>
+  :root {
+    --sariq: #FFD400;
+    --sariq-toq: #E6BE00;
+    --komir: #2B2A28;
+    --fon: #FAF9F6;
+    --sirt: #FFFFFF;
+    --sirt-2: #F3F1EB;
+    --matn: #2B2A28;
+    --matn-sokin: #6B6862;
+    --chiziq: #E7E4DC;
+    --yaxshi: #2E9E5B;
+    --ogoh: #E08700;
+    --xato: #D64545;
+    --soya: 0 1px 3px rgba(43, 42, 40, .08);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --fon: #1C1B19;
+      --sirt: #262522;
+      --sirt-2: #2F2E2A;
+      --matn: #F2F0EA;
+      --matn-sokin: #A6A29A;
+      --chiziq: #3A3833;
+      --soya: 0 1px 3px rgba(0, 0, 0, .35);
+    }
+  }
+  :root[data-theme="dark"] {
+    --fon: #1C1B19;
+    --sirt: #262522;
+    --sirt-2: #2F2E2A;
+    --matn: #F2F0EA;
+    --matn-sokin: #A6A29A;
+    --chiziq: #3A3833;
+    --soya: 0 1px 3px rgba(0, 0, 0, .35);
+  }
+  :root[data-theme="light"] {
+    --fon: #FAF9F6;
+    --sirt: #FFFFFF;
+    --sirt-2: #F3F1EB;
+    --matn: #2B2A28;
+    --matn-sokin: #6B6862;
+    --chiziq: #E7E4DC;
+    --soya: 0 1px 3px rgba(43, 42, 40, .08);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    background: var(--fon);
+    color: var(--matn);
+    font-size: 15px;
+    line-height: 1.5;
+  }
+
+  .qobiq { display: flex; min-height: 100vh; }
+
+  /* ==== Sidebar ==== */
+  .sidebar {
+    width: 232px;
+    flex-shrink: 0;
+    background: var(--komir);
+    color: #F2F0EA;
+    display: flex;
+    flex-direction: column;
+    padding: 20px 14px;
+    gap: 4px;
+  }
+  .logo {
+    display: flex; align-items: center; gap: 10px;
+    padding: 4px 10px 18px;
+  }
+  .logo-belgi {
+    width: 38px; height: 38px; border-radius: 9px;
+    background: var(--sariq);
+    display: grid; place-items: center;
+    font-weight: 800; font-size: 20px; color: #2B2A28;
+    position: relative;
+  }
+  .logo-belgi::after {
+    content: "";
+    position: absolute; top: -4px; left: 50%;
+    transform: translateX(-50%) rotate(0deg);
+    border-left: 13px solid transparent;
+    border-right: 13px solid transparent;
+    border-top: 7px solid #2B2A28;
+  }
+  .logo-nom { font-weight: 700; font-size: 17px; letter-spacing: .2px; }
+  .logo-nom small { display: block; font-weight: 400; font-size: 11px; color: #A6A29A; letter-spacing: .8px; text-transform: uppercase; }
+
+  .nav-tugma {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px; border-radius: 8px;
+    background: none; border: none; color: #CFCCC4;
+    font: inherit; font-size: 14.5px; cursor: pointer;
+    width: 100%; text-align: left;
+  }
+  .nav-tugma:hover { background: rgba(255, 212, 0, .08); color: #fff; }
+  .nav-tugma.aktiv { background: var(--sariq); color: #2B2A28; font-weight: 600; }
+  .nav-tugma:focus-visible { outline: 2px solid var(--sariq); outline-offset: 2px; }
+  .nav-ikon { width: 20px; text-align: center; flex-shrink: 0; }
+  .sidebar .bolim-sarlavha {
+    font-size: 10.5px; letter-spacing: 1.2px; text-transform: uppercase;
+    color: #7d7a73; padding: 16px 12px 6px;
+  }
+
+  /* ==== Topbar ==== */
+  .asosiy { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 28px; border-bottom: 1px solid var(--chiziq);
+    background: var(--sirt);
+  }
+  .topbar h1 { font-size: 18px; margin: 0; font-weight: 700; }
+  .topbar-ong { display: flex; align-items: center; gap: 14px; }
+  .til-guruh { display: flex; border: 1px solid var(--chiziq); border-radius: 8px; overflow: hidden; }
+  .til-guruh button {
+    border: none; background: var(--sirt); color: var(--matn-sokin);
+    padding: 6px 11px; font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer;
+  }
+  .til-guruh button.aktiv { background: var(--sariq); color: #2B2A28; }
+  .tema-tugma, .profil {
+    border: 1px solid var(--chiziq); background: var(--sirt); color: var(--matn);
+    border-radius: 8px; padding: 6px 12px; font: inherit; font-size: 13px; cursor: pointer;
+  }
+  .profil { display: flex; align-items: center; gap: 8px; }
+  .avatar {
+    width: 26px; height: 26px; border-radius: 50%;
+    background: var(--sariq); color: #2B2A28;
+    display: grid; place-items: center; font-size: 12px; font-weight: 700;
+  }
+
+  .kontent { padding: 28px; display: grid; gap: 20px; max-width: 1060px; }
+
+  /* ==== Kartalar ==== */
+  .karta {
+    background: var(--sirt); border: 1px solid var(--chiziq);
+    border-radius: 12px; padding: 20px; box-shadow: var(--soya);
+  }
+  .karta h3 { margin: 0 0 14px; font-size: 14px; font-weight: 700; }
+  .karta .izoh { color: var(--matn-sokin); font-size: 12.5px; }
+
+  .stat-qator { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+  .stat { background: var(--sirt); border: 1px solid var(--chiziq); border-radius: 12px; padding: 16px 18px; box-shadow: var(--soya); }
+  .stat .nom { font-size: 12px; color: var(--matn-sokin); font-weight: 600; letter-spacing: .3px; }
+  .stat .qiymat { font-size: 28px; font-weight: 800; font-variant-numeric: tabular-nums; margin-top: 4px; }
+  .stat .qiymat small { font-size: 13px; font-weight: 600; color: var(--matn-sokin); }
+  .stat .ozgarish { font-size: 12px; margin-top: 2px; font-weight: 600; }
+  .stat .ozgarish.up { color: var(--yaxshi); }
+
+  .ikki-ustun { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .uch-ustun { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; }
+
+  canvas { max-width: 100%; }
+
+  /* Badge */
+  .badge-qator { display: flex; gap: 10px; flex-wrap: wrap; }
+  .badge {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--sirt-2); border: 1px solid var(--chiziq);
+    border-radius: 999px; padding: 6px 14px 6px 8px; font-size: 13px; font-weight: 600;
+  }
+  .badge .b-ikon {
+    width: 24px; height: 24px; border-radius: 50%;
+    background: var(--sariq); display: grid; place-items: center; font-size: 12px;
+  }
+  .badge.yopiq { opacity: .45; filter: grayscale(1); }
+
+  /* Leaderboard */
+  .lb-qator { display: flex; align-items: center; gap: 12px; padding: 9px 4px; border-bottom: 1px solid var(--chiziq); }
+  .lb-qator:last-child { border-bottom: none; }
+  .lb-orin { width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center; font-weight: 800; font-size: 13px; background: var(--sirt-2); font-variant-numeric: tabular-nums; }
+  .lb-qator.birinchi .lb-orin { background: var(--sariq); color: #2B2A28; }
+  .lb-qator.men { background: var(--sirt-2); border-radius: 8px; }
+  .lb-ism { flex: 1; font-weight: 600; font-size: 14px; }
+  .lb-xp { font-variant-numeric: tabular-nums; font-weight: 700; font-size: 13.5px; }
+  .lb-xp small { color: var(--matn-sokin); font-weight: 500; }
+
+  /* Limit chiplar */
+  .limit-jadval { display: grid; gap: 8px; }
+  .limit-qator { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; background: var(--sirt-2); border-radius: 9px; }
+  .limit-nom { font-size: 13.5px; font-weight: 600; }
+  .chip { font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; }
+  .chip.bor { background: color-mix(in srgb, var(--yaxshi) 15%, transparent); color: var(--yaxshi); }
+  .chip.tugadi { background: color-mix(in srgb, var(--xato) 12%, transparent); color: var(--xato); }
+
+  /* Tugmalar */
+  .tugma {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    background: var(--sariq); color: #2B2A28; border: none;
+    border-radius: 9px; padding: 10px 20px; font: inherit; font-size: 14px;
+    font-weight: 700; cursor: pointer;
+  }
+  .tugma:hover { background: var(--sariq-toq); }
+  .tugma:focus-visible { outline: 2px solid var(--komir); outline-offset: 2px; }
+  .tugma.ikkinchi { background: var(--sirt); color: var(--matn); border: 1px solid var(--chiziq); }
+  .tugma.katta { padding: 12px 26px; font-size: 15px; }
+
+  /* Writing */
+  textarea {
+    width: 100%; min-height: 180px; resize: vertical;
+    background: var(--sirt); color: var(--matn);
+    border: 1px solid var(--chiziq); border-radius: 10px;
+    padding: 14px; font: inherit; font-size: 14.5px; line-height: 1.6;
+  }
+  textarea:focus-visible { outline: 2px solid var(--sariq); border-color: var(--sariq); }
+  .mezon-qator { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .mezon { background: var(--sirt-2); border-radius: 10px; padding: 12px 14px; }
+  .mezon .m-nom { font-size: 11px; font-weight: 700; letter-spacing: .4px; text-transform: uppercase; color: var(--matn-sokin); }
+  .mezon .m-ball { font-size: 24px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .umumiy-band {
+    display: flex; align-items: center; gap: 16px;
+    background: var(--komir); color: #F2F0EA;
+    border-radius: 12px; padding: 16px 22px;
+  }
+  .umumiy-band .u-ball { font-size: 40px; font-weight: 800; color: var(--sariq); font-variant-numeric: tabular-nums; }
+  .xato-el { display: flex; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--chiziq); font-size: 13.5px; align-items: baseline; }
+  .xato-el:last-child { border-bottom: none; }
+  .xato-notogri { color: var(--xato); text-decoration: line-through; }
+  .xato-togri { color: var(--yaxshi); font-weight: 600; }
+  .xato-sabab { color: var(--matn-sokin); font-size: 12.5px; }
+
+  /* Mashqlar */
+  .tab-guruh { display: flex; gap: 8px; margin-bottom: 4px; }
+  .tab-guruh button {
+    border: 1px solid var(--chiziq); background: var(--sirt); color: var(--matn-sokin);
+    border-radius: 999px; padding: 7px 18px; font: inherit; font-size: 13.5px; font-weight: 600; cursor: pointer;
+  }
+  .tab-guruh button.aktiv { background: var(--komir); color: var(--sariq); border-color: var(--komir); }
+  .mashq-karta { display: flex; align-items: center; gap: 14px; padding: 14px 16px; background: var(--sirt); border: 1px solid var(--chiziq); border-radius: 11px; box-shadow: var(--soya); }
+  .mashq-ikon { width: 40px; height: 40px; border-radius: 10px; background: var(--sirt-2); display: grid; place-items: center; font-size: 18px; flex-shrink: 0; }
+  .mashq-mal { flex: 1; min-width: 0; }
+  .mashq-mal .m-nomi { font-weight: 700; font-size: 14.5px; }
+  .mashq-mal .m-turi { font-size: 12.5px; color: var(--matn-sokin); }
+
+  /* Paketlar */
+  .paket-qator { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .paket {
+    border: 2px solid var(--chiziq); border-radius: 14px; padding: 24px;
+    background: var(--sirt); display: flex; flex-direction: column; gap: 12px;
+  }
+  .paket.tavsiya { border-color: var(--sariq); position: relative; }
+  .paket.tavsiya::before {
+    content: "Ommabop"; position: absolute; top: -11px; left: 20px;
+    background: var(--sariq); color: #2B2A28; font-size: 11px; font-weight: 800;
+    letter-spacing: .5px; text-transform: uppercase; padding: 3px 12px; border-radius: 999px;
+  }
+  .paket .p-nom { font-size: 16px; font-weight: 800; }
+  .paket .p-narx { font-size: 30px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .paket .p-narx small { font-size: 13px; color: var(--matn-sokin); font-weight: 600; }
+  .paket ul { margin: 0; padding: 0 0 0 2px; list-style: none; display: grid; gap: 7px; font-size: 13.5px; }
+  .paket li::before { content: "✓  "; color: var(--yaxshi); font-weight: 800; }
+  .muddat-guruh { display: flex; gap: 8px; }
+  .muddat-guruh button {
+    flex: 1; border: 1px solid var(--chiziq); background: var(--sirt-2); color: var(--matn);
+    border-radius: 8px; padding: 8px; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer;
+  }
+  .muddat-guruh button.aktiv { background: var(--komir); color: var(--sariq); border-color: var(--komir); }
+
+  /* Login */
+  .login-ekran { display: none; position: fixed; inset: 0; z-index: 50; }
+  .login-ekran.ochiq { display: flex; }
+  .login-brend {
+    flex: 1; background: var(--sariq); color: #2B2A28;
+    display: flex; flex-direction: column; justify-content: center; padding: 60px;
+  }
+  .login-brend .katta-logo {
+    width: 84px; height: 84px; border-radius: 20px; background: #2B2A28;
+    display: grid; place-items: center; font-size: 44px; font-weight: 800; color: var(--sariq);
+    margin-bottom: 28px; position: relative;
+  }
+  .login-brend h2 { font-size: 34px; margin: 0 0 10px; line-height: 1.2; text-wrap: balance; }
+  .login-brend p { font-size: 16px; max-width: 42ch; margin: 0; }
+  .login-forma {
+    width: 460px; background: var(--sirt); display: flex; flex-direction: column;
+    justify-content: center; padding: 60px 52px; gap: 14px;
+  }
+  .login-forma h3 { font-size: 22px; margin: 0 0 6px; }
+  .login-forma input {
+    background: var(--sirt-2); border: 1px solid var(--chiziq); color: var(--matn);
+    border-radius: 9px; padding: 12px 14px; font: inherit; font-size: 14.5px;
+  }
+  .login-forma input:focus-visible { outline: 2px solid var(--sariq); }
+  .google-tugma {
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    border: 1.5px solid var(--chiziq); background: var(--sirt); color: var(--matn);
+    border-radius: 9px; padding: 12px; font: inherit; font-size: 14.5px; font-weight: 700; cursor: pointer;
+  }
+  .yoki { display: flex; align-items: center; gap: 12px; color: var(--matn-sokin); font-size: 12px; }
+  .yoki::before, .yoki::after { content: ""; flex: 1; height: 1px; background: var(--chiziq); }
+
+  .ekran { display: none; }
+  .ekran.aktiv { display: grid; gap: 20px; }
+
+  .mockup-eslatma {
+    background: var(--sirt-2); border: 1px dashed var(--chiziq); border-radius: 10px;
+    padding: 10px 16px; font-size: 12.5px; color: var(--matn-sokin);
+  }
+
+  @media (max-width: 900px) {
+    .sidebar { display: none; }
+    .stat-qator, .mezon-qator { grid-template-columns: repeat(2, 1fr); }
+    .ikki-ustun, .uch-ustun, .paket-qator { grid-template-columns: 1fr; }
+    .login-brend { display: none; }
+    .login-forma { width: 100%; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+  }
+</style>
+
+<div class="qobiq">
+  <!-- Sidebar -->
+  <nav class="sidebar">
+    <div class="logo">
+      <div class="logo-belgi">U</div>
+      <div class="logo-nom">EduCenter<small data-i18n="platforma">IELTS platforma</small></div>
+    </div>
+    <button class="nav-tugma aktiv" data-ekran="dashboard"><span class="nav-ikon">▦</span><span data-i18n="nav_dashboard">Bosh sahifa</span></button>
+    <button class="nav-tugma" data-ekran="mashqlar"><span class="nav-ikon">✎</span><span data-i18n="nav_mashqlar">Mashqlar</span></button>
+    <button class="nav-tugma" data-ekran="writing"><span class="nav-ikon">✍</span><span data-i18n="nav_writing">Writing AI</span></button>
+    <button class="nav-tugma" data-ekran="writing"><span class="nav-ikon">🎙</span><span data-i18n="nav_speaking">Speaking AI</span></button>
+    <button class="nav-tugma" data-ekran="paketlar"><span class="nav-ikon">◈</span><span data-i18n="nav_paketlar">Paketlar</span></button>
+    <div class="bolim-sarlavha" data-i18n="boshqa">Boshqa</div>
+    <button class="nav-tugma" data-ekran="dashboard"><span class="nav-ikon">🏆</span><span data-i18n="nav_reyting">Reyting</span></button>
+    <button class="nav-tugma" data-ekran="login"><span class="nav-ikon">⇥</span><span data-i18n="nav_chiqish">Chiqish (login ko'rish)</span></button>
+  </nav>
+
+  <!-- Asosiy -->
+  <div class="asosiy">
+    <header class="topbar">
+      <h1 id="sahifa-nomi" data-i18n="nav_dashboard">Bosh sahifa</h1>
+      <div class="topbar-ong">
+        <div class="til-guruh" role="group" aria-label="Til">
+          <button class="aktiv" data-til="uz">UZ</button>
+          <button data-til="ru">RU</button>
+          <button data-til="en">EN</button>
+        </div>
+        <button class="tema-tugma" id="tema-tugma" aria-label="Tema">◐</button>
+        <button class="profil"><span class="avatar">SH</span> Shuxrat</button>
+      </div>
+    </header>
+
+    <main class="kontent">
+
+      <!-- ======= DASHBOARD ======= -->
+      <section class="ekran aktiv" id="ekran-dashboard">
+        <div class="stat-qator">
+          <div class="stat">
+            <div class="nom" data-i18n="jami_xp">Jami XP</div>
+            <div class="qiymat">1 240</div>
+            <div class="ozgarish up">+40 <span data-i18n="bugun">bugun</span></div>
+          </div>
+          <div class="stat">
+            <div class="nom">Writing band</div>
+            <div class="qiymat">5.5</div>
+            <div class="ozgarish up">+0.5</div>
+          </div>
+          <div class="stat">
+            <div class="nom">Speaking band</div>
+            <div class="qiymat">5.3 <small data-i18n="matn_rejim">matn</small></div>
+          </div>
+          <div class="stat">
+            <div class="nom" data-i18n="reyting_orin">Reytingdagi o'rin</div>
+            <div class="qiymat">#3 <small>/ 24</small></div>
+          </div>
+        </div>
+
+        <div class="ikki-ustun">
+          <div class="karta">
+            <h3 data-i18n="konikmalar">Ko'nikmalar</h3>
+            <canvas id="radar" width="380" height="270"></canvas>
+          </div>
+          <div class="karta">
+            <h3 data-i18n="writing_din">Writing dinamikasi</h3>
+            <canvas id="chiziq" width="380" height="270"></canvas>
+          </div>
+        </div>
+
+        <div class="uch-ustun">
+          <div class="karta">
+            <h3 data-i18n="bugungi_limit">Bugungi bepul limit — Reading</h3>
+            <div class="limit-jadval">
+              <div class="limit-qator"><span class="limit-nom">Multiple Choice</span><span class="chip bor">1/1</span></div>
+              <div class="limit-qator"><span class="limit-nom">Fill in the Blanks</span><span class="chip bor">1/1</span></div>
+              <div class="limit-qator"><span class="limit-nom">Matching Headings</span><span class="chip tugadi" data-i18n="tugadi">tugadi</span></div>
+              <div class="limit-qator"><span class="limit-nom">True/False/Not Given</span><span class="chip bor">1/1</span></div>
+              <div class="limit-qator"><span class="limit-nom">Short Answer</span><span class="chip bor">1/1</span></div>
+            </div>
+            <p class="izoh" style="margin:12px 0 0" data-i18n="limit_izoh">Limit tugasa — 500 so'm evaziga har turdan +1 ta ochiladi.</p>
+          </div>
+          <div class="karta">
+            <h3 data-i18n="guruh_reyting">Guruh reytingi — IELTS-B1</h3>
+            <div class="lb-qator birinchi"><span class="lb-orin">1</span><span class="lb-ism">Aziza N.</span><span class="lb-xp">1 480 <small>XP</small></span></div>
+            <div class="lb-qator"><span class="lb-orin">2</span><span class="lb-ism">Jasur T.</span><span class="lb-xp">1 320 <small>XP</small></span></div>
+            <div class="lb-qator men"><span class="lb-orin">3</span><span class="lb-ism">Shuxrat K. <span style="color:var(--matn-sokin)">(siz)</span></span><span class="lb-xp">1 240 <small>XP</small></span></div>
+            <div class="lb-qator"><span class="lb-orin">4</span><span class="lb-ism">Malika R.</span><span class="lb-xp">990 <small>XP</small></span></div>
+          </div>
+        </div>
+
+        <div class="karta">
+          <h3 data-i18n="badgelar">Yutuqlar</h3>
+          <div class="badge-qator">
+            <span class="badge"><span class="b-ikon">🚀</span> Birinchi qadam</span>
+            <span class="badge"><span class="b-ikon">✍</span> Yozuvchi</span>
+            <span class="badge"><span class="b-ikon">💯</span> Mukammal</span>
+            <span class="badge"><span class="b-ikon">⭐</span> Yulduz (100 XP)</span>
+            <span class="badge yopiq"><span class="b-ikon">🏆</span> Chempion (500 XP)</span>
+            <span class="badge yopiq"><span class="b-ikon">📅</span> Intizomli (5 kun)</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ======= WRITING ======= -->
+      <section class="ekran" id="ekran-writing">
+        <div class="karta">
+          <h3 data-i18n="insho_yuboring">Inshoingizni yuboring — Task 1 yoki Task 2, AI o'zi aniqlaydi</h3>
+          <textarea>Nowadays, many people believe that technology has made our lives easier, but others think it has created more problems than it solves. In my opinion, technology have brought both benefits and challenges to modern society...</textarea>
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-top:12px">
+            <span class="izoh">164 <span data-i18n="soz">so'z</span></span>
+            <button class="tugma katta" data-i18n="tekshirish">Tekshirish — 600 so'm</button>
+          </div>
+        </div>
+
+        <div class="umumiy-band">
+          <span class="u-ball">5.5</span>
+          <div>
+            <div style="font-weight:700">Overall Band — Task 2</div>
+            <div style="font-size:13px; color:#A6A29A" data-i18n="band_izoh">164 so'z — Task 2 uchun minimum 250 so'z, Task Achievement pasaytirildi</div>
+          </div>
+        </div>
+
+        <div class="mezon-qator">
+          <div class="mezon"><div class="m-nom">Task Achievement</div><div class="m-ball">5.0</div></div>
+          <div class="mezon"><div class="m-nom">Coherence & Cohesion</div><div class="m-ball">6.0</div></div>
+          <div class="mezon"><div class="m-nom">Lexical Resource</div><div class="m-ball">6.0</div></div>
+          <div class="mezon"><div class="m-nom">Grammar Range</div><div class="m-ball">5.0</div></div>
+        </div>
+
+        <div class="ikki-ustun">
+          <div class="karta">
+            <h3><span data-i18n="xatolar">Xatolar</span> (14)</h3>
+            <div class="xato-el"><span class="xato-notogri">technology have</span> → <span class="xato-togri">technology has</span> <span class="xato-sabab">(ega-kesim mosligi)</span></div>
+            <div class="xato-el"><span class="xato-notogri">technology allow</span> → <span class="xato-togri">technology allows</span> <span class="xato-sabab">(ega-kesim mosligi)</span></div>
+            <div class="xato-el"><span class="xato-notogri">which save time</span> → <span class="xato-togri">which saves time</span> <span class="xato-sabab">(ega-kesim mosligi)</span></div>
+            <div class="xato-el"><span class="xato-notogri">many peoples</span> → <span class="xato-togri">many people</span> <span class="xato-sabab">(ko'plik shakli)</span></div>
+            <div class="xato-el"><span class="xato-notogri">there is several problems</span> → <span class="xato-togri">there are several problems</span> <span class="xato-sabab">(ko'plik)</span></div>
+            <p class="izoh" style="margin:10px 0 0">+ yana 9 ta xato…</p>
+          </div>
+          <div class="karta">
+            <h3 data-i18n="kuchli">Kuchli tomonlar</h3>
+            <div class="xato-el">✓ <span data-i18n="k1">Insho tuzilishi aniq — kirish, ikki tomon, xulosa</span></div>
+            <div class="xato-el">✓ <span data-i18n="k2">Bog'lovchi so'zlar o'rinli ishlatilgan (On one hand, Furthermore)</span></div>
+            <h3 style="margin-top:20px" data-i18n="tahlil">AI tahlili</h3>
+            <p class="izoh" style="margin:0">Fikr rivojlantirilgan, lekin misollar yuzaki. Ega-kesim mosligida tizimli xato — shuni mashq qilish band 6.0+ ga olib chiqadi.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ======= MASHQLAR ======= -->
+      <section class="ekran" id="ekran-mashqlar">
+        <div class="tab-guruh">
+          <button class="aktiv">Reading</button>
+          <button>Listening</button>
+        </div>
+        <div style="display:grid; gap:12px">
+          <div class="mashq-karta">
+            <div class="mashq-ikon">📖</div>
+            <div class="mashq-mal">
+              <div class="m-nomi">The History of Tea</div>
+              <div class="m-turi">Multiple Choice · 4 <span data-i18n="savol">savol</span></div>
+            </div>
+            <span class="chip bor" data-i18n="bepul">bepul 1/1</span>
+            <button class="tugma" data-i18n="boshlash">Boshlash</button>
+          </div>
+          <div class="mashq-karta">
+            <div class="mashq-ikon">📝</div>
+            <div class="mashq-mal">
+              <div class="m-nomi">Climate Change Effects</div>
+              <div class="m-turi">Fill in the Blanks · 6 <span data-i18n="savol">savol</span></div>
+            </div>
+            <span class="chip bor" data-i18n="bepul">bepul 1/1</span>
+            <button class="tugma" data-i18n="boshlash">Boshlash</button>
+          </div>
+          <div class="mashq-karta" style="opacity:.65">
+            <div class="mashq-ikon">🔗</div>
+            <div class="mashq-mal">
+              <div class="m-nomi">Urban Planning Paragraphs</div>
+              <div class="m-turi">Matching Headings · 5 <span data-i18n="savol">savol</span></div>
+            </div>
+            <span class="chip tugadi" data-i18n="tugadi">tugadi</span>
+            <button class="tugma ikkinchi">+5 — 500 so'm</button>
+          </div>
+          <div class="mashq-karta">
+            <div class="mashq-ikon">⚖</div>
+            <div class="mashq-mal">
+              <div class="m-nomi">Ocean Pollution Facts</div>
+              <div class="m-turi">True/False/Not Given · 5 <span data-i18n="savol">savol</span></div>
+            </div>
+            <span class="chip bor" data-i18n="bepul">bepul 1/1</span>
+            <button class="tugma" data-i18n="boshlash">Boshlash</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ======= PAKETLAR ======= -->
+      <section class="ekran" id="ekran-paketlar">
+        <div class="paket-qator">
+          <div class="paket">
+            <div class="p-nom">AI Tarifi — 5+5</div>
+            <div class="p-narx">7 000 <small>so'm</small></div>
+            <ul>
+              <li>5 × Writing Tezkor tahlil</li>
+              <li>5 × Speaking Tezkor tahlil</li>
+              <li><span data-i18n="erkin_tanlov">Task/Part turini har safar erkin tanlaysiz</span></li>
+            </ul>
+            <div class="muddat-guruh">
+              <button>3 <span data-i18n="kun">kun</span></button>
+              <button class="aktiv">5 <span data-i18n="kun">kun</span></button>
+              <button>7 <span data-i18n="kun">kun</span></button>
+            </div>
+            <button class="tugma katta" data-i18n="sotib_olish">Sotib olish</button>
+          </div>
+          <div class="paket tavsiya">
+            <div class="p-nom">AI Tarifi — 10+10</div>
+            <div class="p-narx">14 000 <small>so'm</small></div>
+            <ul>
+              <li>10 × Writing Tezkor tahlil</li>
+              <li>10 × Speaking Tezkor tahlil</li>
+              <li><span data-i18n="erkin_tanlov">Task/Part turini har safar erkin tanlaysiz</span></li>
+            </ul>
+            <div class="muddat-guruh">
+              <button>3 <span data-i18n="kun">kun</span></button>
+              <button>5 <span data-i18n="kun">kun</span></button>
+              <button class="aktiv">7 <span data-i18n="kun">kun</span></button>
+            </div>
+            <button class="tugma katta" data-i18n="sotib_olish">Sotib olish</button>
+          </div>
+        </div>
+        <div class="mockup-eslatma">Mockup: "Arzon Paket" (5 000) va "IELTS Boost" (8 000) kartalari ham shu uslubda qo'shiladi. To'lov tugmasi 2-fazada Payme/Click'ka ulanadi.</div>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<!-- ======= LOGIN ======= -->
+<div class="login-ekran" id="ekran-login">
+  <div class="login-brend">
+    <div class="katta-logo">U</div>
+    <h2 data-i18n="login_sarlavha">IELTS'ga AI bilan tayyorlaning</h2>
+    <p data-i18n="login_izoh">Writing va Speaking javoblaringizni sun'iy intellekt soniyalarda baholaydi. Reading va Listening — har kuni bepul mashqlar.</p>
+  </div>
+  <div class="login-forma">
+    <h3 data-i18n="kirish">Kirish</h3>
+    <button class="google-tugma">
+      <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.1H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3l5.7-5.7C34.2 6.1 29.4 4 24 4 13 4 4 13 4 24s9 20 20 20 20-9 20-20c0-1.3-.1-2.6-.4-3.9z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.9 1.2 8 3l5.7-5.7C34.2 6.1 29.4 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.1H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C36.9 39.2 44 34 44 24c0-1.3-.1-2.6-.4-3.9z"/></svg>
+      <span data-i18n="google_kirish">Google orqali kirish</span>
+    </button>
+    <div class="yoki" data-i18n="yoki">yoki xodim sifatida</div>
+    <input type="text" placeholder="Login" aria-label="Login">
+    <input type="password" placeholder="Parol" aria-label="Parol">
+    <button class="tugma katta" data-i18n="kirish">Kirish</button>
+    <button class="tugma ikkinchi" id="login-yopish" data-i18n="mockup_qaytish">← Mockup'ga qaytish</button>
+  </div>
+</div>
+
+<script>
+  // ===== i18n =====
+  const LUGAT = {
+    uz: {
+      platforma: "IELTS platforma", nav_dashboard: "Bosh sahifa", nav_mashqlar: "Mashqlar",
+      nav_writing: "Writing AI", nav_speaking: "Speaking AI", nav_paketlar: "Paketlar",
+      boshqa: "Boshqa", nav_reyting: "Reyting", nav_chiqish: "Chiqish (login ko'rish)",
+      jami_xp: "Jami XP", bugun: "bugun", matn_rejim: "matn", reyting_orin: "Reytingdagi o'rin",
+      konikmalar: "Ko'nikmalar", writing_din: "Writing dinamikasi",
+      bugungi_limit: "Bugungi bepul limit — Reading", tugadi: "tugadi",
+      limit_izoh: "Limit tugasa — 500 so'm evaziga har turdan +1 ta ochiladi.",
+      guruh_reyting: "Guruh reytingi — IELTS-B1", badgelar: "Yutuqlar",
+      insho_yuboring: "Inshoingizni yuboring — Task 1 yoki Task 2, AI o'zi aniqlaydi",
+      soz: "so'z", tekshirish: "Tekshirish — 600 so'm",
+      band_izoh: "164 so'z — Task 2 uchun minimum 250 so'z, Task Achievement pasaytirildi",
+      xatolar: "Xatolar", kuchli: "Kuchli tomonlar", tahlil: "AI tahlili",
+      k1: "Insho tuzilishi aniq — kirish, ikki tomon, xulosa",
+      k2: "Bog'lovchi so'zlar o'rinli ishlatilgan (On one hand, Furthermore)",
+      savol: "savol", bepul: "bepul 1/1", boshlash: "Boshlash",
+      erkin_tanlov: "Task/Part turini har safar erkin tanlaysiz", kun: "kun",
+      sotib_olish: "Sotib olish",
+      login_sarlavha: "IELTS'ga AI bilan tayyorlaning",
+      login_izoh: "Writing va Speaking javoblaringizni sun'iy intellekt soniyalarda baholaydi. Reading va Listening — har kuni bepul mashqlar.",
+      kirish: "Kirish", google_kirish: "Google orqali kirish", yoki: "yoki xodim sifatida",
+      mockup_qaytish: "← Mockup'ga qaytish",
+    },
+    ru: {
+      platforma: "IELTS платформа", nav_dashboard: "Главная", nav_mashqlar: "Упражнения",
+      nav_writing: "Writing AI", nav_speaking: "Speaking AI", nav_paketlar: "Пакеты",
+      boshqa: "Прочее", nav_reyting: "Рейтинг", nav_chiqish: "Выход (экран входа)",
+      jami_xp: "Всего XP", bugun: "сегодня", matn_rejim: "текст", reyting_orin: "Место в рейтинге",
+      konikmalar: "Навыки", writing_din: "Динамика Writing",
+      bugungi_limit: "Бесплатный лимит сегодня — Reading", tugadi: "исчерпан",
+      limit_izoh: "Лимит исчерпан? За 500 сум откроется +1 каждого типа.",
+      guruh_reyting: "Рейтинг группы — IELTS-B1", badgelar: "Достижения",
+      insho_yuboring: "Отправьте эссе — Task 1 или Task 2, AI определит сам",
+      soz: "слов", tekshirish: "Проверить — 600 сум",
+      band_izoh: "164 слова — для Task 2 минимум 250, Task Achievement снижен",
+      xatolar: "Ошибки", kuchli: "Сильные стороны", tahlil: "Анализ AI",
+      k1: "Чёткая структура эссе — вступление, обе стороны, вывод",
+      k2: "Уместные связки (On one hand, Furthermore)",
+      savol: "вопр.", bepul: "бесплатно 1/1", boshlash: "Начать",
+      erkin_tanlov: "Тип Task/Part выбираете свободно каждый раз", kun: "дн.",
+      sotib_olish: "Купить",
+      login_sarlavha: "Готовьтесь к IELTS с AI",
+      login_izoh: "AI оценит ваши Writing и Speaking за секунды. Reading и Listening — бесплатные упражнения каждый день.",
+      kirish: "Войти", google_kirish: "Войти через Google", yoki: "или как сотрудник",
+      mockup_qaytish: "← Вернуться к mockup",
+    },
+    en: {
+      platforma: "IELTS platform", nav_dashboard: "Dashboard", nav_mashqlar: "Exercises",
+      nav_writing: "Writing AI", nav_speaking: "Speaking AI", nav_paketlar: "Packages",
+      boshqa: "Other", nav_reyting: "Leaderboard", nav_chiqish: "Log out (view login)",
+      jami_xp: "Total XP", bugun: "today", matn_rejim: "text", reyting_orin: "Leaderboard rank",
+      konikmalar: "Skills", writing_din: "Writing progress",
+      bugungi_limit: "Today's free limit — Reading", tugadi: "used up",
+      limit_izoh: "Out of limit? Unlock +1 of each type for 500 UZS.",
+      guruh_reyting: "Group leaderboard — IELTS-B1", badgelar: "Achievements",
+      insho_yuboring: "Submit your essay — Task 1 or Task 2, AI detects it",
+      soz: "words", tekshirish: "Check — 600 UZS",
+      band_izoh: "164 words — Task 2 needs 250 minimum, Task Achievement reduced",
+      xatolar: "Errors", kuchli: "Strengths", tahlil: "AI analysis",
+      k1: "Clear essay structure — intro, both views, conclusion",
+      k2: "Good linking words (On one hand, Furthermore)",
+      savol: "questions", bepul: "free 1/1", boshlash: "Start",
+      erkin_tanlov: "Choose any Task/Part type each time", kun: "days",
+      sotib_olish: "Buy",
+      login_sarlavha: "Prepare for IELTS with AI",
+      login_izoh: "AI grades your Writing and Speaking in seconds. Reading and Listening — free daily exercises.",
+      kirish: "Sign in", google_kirish: "Sign in with Google", yoki: "or as staff",
+      mockup_qaytish: "← Back to mockup",
+    },
+  };
+
+  function tilQoy(til) {
+    document.querySelectorAll("[data-i18n]").forEach((el) => {
+      const kalit = el.dataset.i18n;
+      if (LUGAT[til][kalit]) el.textContent = LUGAT[til][kalit];
+    });
+    document.querySelectorAll("[data-til]").forEach((b) =>
+      b.classList.toggle("aktiv", b.dataset.til === til)
+    );
+  }
+  document.querySelectorAll("[data-til]").forEach((b) =>
+    b.addEventListener("click", () => tilQoy(b.dataset.til))
+  );
+
+  // ===== Ekranlar =====
+  document.querySelectorAll(".nav-tugma").forEach((b) => {
+    b.addEventListener("click", () => {
+      const ekran = b.dataset.ekran;
+      if (ekran === "login") {
+        document.getElementById("ekran-login").classList.add("ochiq");
+        return;
+      }
+      document.querySelectorAll(".nav-tugma").forEach((x) => x.classList.remove("aktiv"));
+      b.classList.add("aktiv");
+      document.querySelectorAll(".ekran").forEach((e) => e.classList.remove("aktiv"));
+      document.getElementById("ekran-" + ekran).classList.add("aktiv");
+      document.getElementById("sahifa-nomi").textContent = b.querySelector("[data-i18n]").textContent;
+      chizToq();
+    });
+  });
+  document.getElementById("login-yopish").addEventListener("click", () =>
+    document.getElementById("ekran-login").classList.remove("ochiq")
+  );
+
+  // ===== Tema =====
+  document.getElementById("tema-tugma").addEventListener("click", () => {
+    const r = document.documentElement;
+    const hozirgi = r.dataset.theme ||
+      (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    r.dataset.theme = hozirgi === "dark" ? "light" : "dark";
+    chizToq();
+  });
+
+  // ===== Diagrammalar =====
+  function css(nom) {
+    return getComputedStyle(document.documentElement).getPropertyValue(nom).trim();
+  }
+
+  function radarChiz() {
+    const c = document.getElementById("radar");
+    if (!c) return;
+    const x = c.getContext("2d");
+    x.clearRect(0, 0, c.width, c.height);
+    const cx = c.width / 2, cy = c.height / 2 + 8, R = 92;
+    const oqlar = ["Writing", "Speaking", "Listening", "Reading"];
+    const qiymat = [5.5 / 9, 5.3 / 9, 0.62, 0.5]; // band/9 va foizlar
+    const n = oqlar.length;
+
+    x.strokeStyle = css("--chiziq");
+    x.fillStyle = css("--matn-sokin");
+    x.font = "600 12px Segoe UI, sans-serif";
+    for (let d = 1; d <= 3; d++) {
+      x.beginPath();
+      for (let i = 0; i <= n; i++) {
+        const a = (Math.PI * 2 * i) / n - Math.PI / 2;
+        const px = cx + Math.cos(a) * R * (d / 3), py = cy + Math.sin(a) * R * (d / 3);
+        i ? x.lineTo(px, py) : x.moveTo(px, py);
+      }
+      x.stroke();
+    }
+    for (let i = 0; i < n; i++) {
+      const a = (Math.PI * 2 * i) / n - Math.PI / 2;
+      x.beginPath(); x.moveTo(cx, cy);
+      x.lineTo(cx + Math.cos(a) * R, cy + Math.sin(a) * R); x.stroke();
+      const tx = cx + Math.cos(a) * (R + 22), ty = cy + Math.sin(a) * (R + 16);
+      x.textAlign = "center"; x.fillText(oqlar[i], tx, ty + 4);
+    }
+    x.beginPath();
+    for (let i = 0; i <= n; i++) {
+      const a = (Math.PI * 2 * (i % n)) / n - Math.PI / 2;
+      const px = cx + Math.cos(a) * R * qiymat[i % n], py = cy + Math.sin(a) * R * qiymat[i % n];
+      i ? x.lineTo(px, py) : x.moveTo(px, py);
+    }
+    x.closePath();
+    x.fillStyle = "rgba(255, 212, 0, .25)"; x.fill();
+    x.strokeStyle = css("--sariq"); x.lineWidth = 2.5; x.stroke();
+    x.lineWidth = 1;
+  }
+
+  function chiziqChiz() {
+    const c = document.getElementById("chiziq");
+    if (!c) return;
+    const x = c.getContext("2d");
+    x.clearRect(0, 0, c.width, c.height);
+    const balllar = [4.0, 4.5, 4.5, 5.0, 5.5, 5.0, 5.5];
+    const chap = 34, ost = c.height - 30, kenglik = c.width - chap - 16, bal = c.height - 70;
+    const minB = 3, maxB = 7;
+    const nx = (i) => chap + (kenglik * i) / (balllar.length - 1);
+    const ny = (b) => ost - ((b - minB) / (maxB - minB)) * bal;
+
+    x.strokeStyle = css("--chiziq");
+    x.fillStyle = css("--matn-sokin");
+    x.font = "600 11px Segoe UI, sans-serif";
+    x.textAlign = "left";
+    for (let b = minB; b <= maxB; b++) {
+      x.beginPath(); x.moveTo(chap, ny(b)); x.lineTo(c.width - 10, ny(b)); x.stroke();
+      x.fillText(b.toFixed(0), 8, ny(b) + 4);
+    }
+    // maydon
+    x.beginPath();
+    balllar.forEach((b, i) => (i ? x.lineTo(nx(i), ny(b)) : x.moveTo(nx(0), ny(b))));
+    x.lineTo(nx(balllar.length - 1), ost); x.lineTo(nx(0), ost); x.closePath();
+    x.fillStyle = "rgba(255, 212, 0, .18)"; x.fill();
+    // chiziq
+    x.beginPath();
+    balllar.forEach((b, i) => (i ? x.lineTo(nx(i), ny(b)) : x.moveTo(nx(0), ny(b))));
+    x.strokeStyle = css("--sariq"); x.lineWidth = 2.5; x.stroke();
+    // oxirgi nuqta
+    const oxi = balllar.length - 1;
+    x.beginPath(); x.arc(nx(oxi), ny(balllar[oxi]), 5, 0, 7);
+    x.fillStyle = css("--sariq"); x.fill();
+    x.strokeStyle = css("--komir"); x.lineWidth = 2; x.stroke();
+    x.lineWidth = 1;
+  }
+
+  function chizToq() { requestAnimationFrame(() => { radarChiz(); chiziqChiz(); }); }
+  chizToq();
+</script>
