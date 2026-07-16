@@ -1,0 +1,177 @@
+/* F1 dizayn tizimi — sariq-qora brend (design/f1_dizayn.html asosida) */
+:root {
+  --sariq: #FFD400;
+  --sariq-toq: #E6BE00;
+  --komir: #2B2A28;
+  --fon: #FAF9F6;
+  --sirt: #FFFFFF;
+  --sirt-2: #F3F1EB;
+  --matn: #2B2A28;
+  --matn-sokin: #6B6862;
+  --chiziq: #E7E4DC;
+  --yaxshi: #2E9E5B;
+  --ogoh: #E08700;
+  --xato: #D64545;
+  --soya: 0 1px 3px rgba(43, 42, 40, .08);
+}
+:root[data-theme="dark"] {
+  --fon: #1C1B19;
+  --sirt: #262522;
+  --sirt-2: #2F2E2A;
+  --matn: #F2F0EA;
+  --matn-sokin: #A6A29A;
+  --chiziq: #3A3833;
+  --soya: 0 1px 3px rgba(0, 0, 0, .35);
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  background: var(--fon);
+  color: var(--matn);
+  font-size: 15px;
+  line-height: 1.5;
+}
+h1, h2, h3 { text-wrap: balance; }
+
+/* ==== Umumiy komponentlar ==== */
+.karta {
+  background: var(--sirt); border: 1px solid var(--chiziq);
+  border-radius: 12px; padding: 20px; box-shadow: var(--soya);
+}
+.karta h3 { margin: 0 0 14px; font-size: 14px; font-weight: 700; }
+.izoh { color: var(--matn-sokin); font-size: 12.5px; }
+
+.tugma {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  background: var(--sariq); color: #2B2A28; border: none;
+  border-radius: 9px; padding: 10px 20px; font: inherit; font-size: 14px;
+  font-weight: 700; cursor: pointer;
+}
+.tugma:hover { background: var(--sariq-toq); }
+.tugma:focus-visible { outline: 2px solid var(--komir); outline-offset: 2px; }
+.tugma.ikkinchi { background: var(--sirt); color: var(--matn); border: 1px solid var(--chiziq); }
+.tugma.katta { padding: 12px 26px; font-size: 15px; }
+.tugma:disabled { opacity: .55; cursor: not-allowed; }
+
+input, textarea, select {
+  background: var(--sirt-2); border: 1px solid var(--chiziq); color: var(--matn);
+  border-radius: 9px; padding: 11px 14px; font: inherit; font-size: 14.5px;
+}
+input:focus-visible, textarea:focus-visible { outline: 2px solid var(--sariq); }
+
+.chip { font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; }
+.chip.bor { background: rgba(46, 158, 91, .15); color: var(--yaxshi); }
+.chip.tugadi { background: rgba(214, 69, 69, .12); color: var(--xato); }
+
+/* ==== App qobiq ==== */
+.qobiq { display: flex; min-height: 100vh; }
+.sidebar {
+  width: 232px; flex-shrink: 0; background: var(--komir); color: #F2F0EA;
+  display: flex; flex-direction: column; padding: 20px 14px; gap: 4px;
+}
+.logo { display: flex; align-items: center; gap: 10px; padding: 4px 10px 18px; }
+.logo-belgi {
+  width: 38px; height: 38px; border-radius: 9px; background: var(--sariq);
+  display: grid; place-items: center; font-weight: 800; font-size: 20px; color: #2B2A28;
+  position: relative;
+}
+.logo-belgi::after {
+  content: ""; position: absolute; top: -4px; left: 50%; transform: translateX(-50%);
+  border-left: 13px solid transparent; border-right: 13px solid transparent;
+  border-top: 7px solid #2B2A28;
+}
+.logo-nom { font-weight: 700; font-size: 17px; }
+.logo-nom small { display: block; font-weight: 400; font-size: 11px; color: #A6A29A; letter-spacing: .8px; text-transform: uppercase; }
+
+.nav-tugma {
+  display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 8px;
+  background: none; border: none; color: #CFCCC4; font: inherit; font-size: 14.5px;
+  cursor: pointer; width: 100%; text-align: left; text-decoration: none;
+}
+.nav-tugma:hover { background: rgba(255, 212, 0, .08); color: #fff; }
+.nav-tugma.aktiv { background: var(--sariq); color: #2B2A28; font-weight: 600; }
+.nav-ikon { width: 20px; text-align: center; flex-shrink: 0; }
+
+.asosiy { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 28px; border-bottom: 1px solid var(--chiziq); background: var(--sirt);
+}
+.topbar h1 { font-size: 18px; margin: 0; font-weight: 700; }
+.topbar-ong { display: flex; align-items: center; gap: 14px; }
+.til-guruh { display: flex; border: 1px solid var(--chiziq); border-radius: 8px; overflow: hidden; }
+.til-guruh button {
+  border: none; background: var(--sirt); color: var(--matn-sokin);
+  padding: 6px 11px; font: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer;
+}
+.til-guruh button.aktiv { background: var(--sariq); color: #2B2A28; }
+.tema-tugma, .profil {
+  border: 1px solid var(--chiziq); background: var(--sirt); color: var(--matn);
+  border-radius: 8px; padding: 6px 12px; font: inherit; font-size: 13px; cursor: pointer;
+}
+
+.kontent { padding: 28px; display: grid; gap: 20px; max-width: 1060px; width: 100%; }
+
+/* ==== Statlar ==== */
+.stat-qator { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+.stat { background: var(--sirt); border: 1px solid var(--chiziq); border-radius: 12px; padding: 16px 18px; box-shadow: var(--soya); }
+.stat .nom { font-size: 12px; color: var(--matn-sokin); font-weight: 600; }
+.stat .qiymat { font-size: 28px; font-weight: 800; font-variant-numeric: tabular-nums; margin-top: 4px; }
+.stat .qiymat small { font-size: 13px; font-weight: 600; color: var(--matn-sokin); }
+
+.ikki-ustun { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+
+/* ==== Leaderboard ==== */
+.lb-qator { display: flex; align-items: center; gap: 12px; padding: 9px 4px; border-bottom: 1px solid var(--chiziq); }
+.lb-qator:last-child { border-bottom: none; }
+.lb-orin { width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center; font-weight: 800; font-size: 13px; background: var(--sirt-2); font-variant-numeric: tabular-nums; }
+.lb-qator.birinchi .lb-orin { background: var(--sariq); color: #2B2A28; }
+.lb-qator.men { background: var(--sirt-2); border-radius: 8px; }
+.lb-ism { flex: 1; font-weight: 600; font-size: 14px; }
+.lb-xp { font-variant-numeric: tabular-nums; font-weight: 700; font-size: 13.5px; }
+
+/* ==== Badge ==== */
+.badge-qator { display: flex; gap: 10px; flex-wrap: wrap; }
+.badge {
+  display: flex; align-items: center; gap: 8px; background: var(--sirt-2);
+  border: 1px solid var(--chiziq); border-radius: 999px; padding: 6px 14px 6px 8px;
+  font-size: 13px; font-weight: 600;
+}
+.badge .b-ikon { width: 24px; height: 24px; border-radius: 50%; background: var(--sariq); display: grid; place-items: center; font-size: 12px; }
+
+/* ==== Login ==== */
+.login-ekran { display: flex; min-height: 100vh; }
+.login-brend {
+  flex: 1; background: var(--sariq); color: #2B2A28;
+  display: flex; flex-direction: column; justify-content: center; padding: 60px;
+}
+.login-brend .katta-logo {
+  width: 84px; height: 84px; border-radius: 20px; background: #2B2A28;
+  display: grid; place-items: center; font-size: 44px; font-weight: 800; color: var(--sariq);
+  margin-bottom: 28px;
+}
+.login-brend h2 { font-size: 34px; margin: 0 0 10px; line-height: 1.2; }
+.login-brend p { font-size: 16px; max-width: 42ch; margin: 0; }
+.login-forma {
+  width: 460px; background: var(--sirt); display: flex; flex-direction: column;
+  justify-content: center; padding: 60px 52px; gap: 14px;
+}
+.login-forma h3 { font-size: 22px; margin: 0 0 6px; }
+.yoki { display: flex; align-items: center; gap: 12px; color: var(--matn-sokin); font-size: 12px; }
+.yoki::before, .yoki::after { content: ""; flex: 1; height: 1px; background: var(--chiziq); }
+.xato-xabar { color: var(--xato); font-size: 13px; font-weight: 600; }
+
+.yuklanmoqda { display: grid; place-items: center; padding: 60px; color: var(--matn-sokin); }
+
+@media (max-width: 900px) {
+  .sidebar { display: none; }
+  .stat-qator { grid-template-columns: repeat(2, 1fr); }
+  .ikki-ustun { grid-template-columns: 1fr; }
+  .login-brend { display: none; }
+  .login-forma { width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}
