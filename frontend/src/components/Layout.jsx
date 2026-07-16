@@ -1,5 +1,6 @@
+import { useEffect, useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import { tokenlarniTozala } from "../api";
+import { api, tokenlarniTozala } from "../api";
 import { useI18n } from "../i18n";
 
 const NAVLAR = [
@@ -13,6 +14,14 @@ const NAVLAR = [
 export default function Layout() {
   const { til, tilniQoy, t } = useI18n();
   const navigate = useNavigate();
+  const [profil, setProfil] = useState(null);
+
+  useEffect(() => {
+    api("/api/profil/").then(setProfil).catch(() => {});
+  }, []);
+
+  const markazNomi = profil?.markaz?.name || "EduCenter";
+  const markazLogo = profil?.markaz?.logo_url;
 
   function temaAlmash() {
     const r = document.documentElement;
@@ -32,9 +41,14 @@ export default function Layout() {
     <div className="qobiq">
       <nav className="sidebar">
         <div className="logo">
-          <div className="logo-belgi">U</div>
+          {markazLogo ? (
+            <img className="logo-rasm" src={markazLogo} alt={markazNomi} />
+          ) : (
+            <div className="logo-belgi">U</div>
+          )}
           <div className="logo-nom">
-            EduCenter<small>{t("platforma")}</small>
+            {markazNomi}
+            <small>{t("platforma")}</small>
           </div>
         </div>
         {NAVLAR.map((n) => (
@@ -57,7 +71,7 @@ export default function Layout() {
 
       <div className="asosiy">
         <header className="topbar">
-          <h1>EduCenter</h1>
+          <h1>{markazNomi}</h1>
           <div className="topbar-ong">
             <div className="til-guruh" role="group" aria-label="Til">
               {["uz", "ru", "en"].map((t2) => (

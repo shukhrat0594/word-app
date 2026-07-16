@@ -82,7 +82,11 @@ input:focus-visible, textarea:focus-visible { outline: 2px solid var(--sariq); }
   border-left: 13px solid transparent; border-right: 13px solid transparent;
   border-top: 7px solid #2B2A28;
 }
-.logo-nom { font-weight: 700; font-size: 17px; }
+.logo-rasm {
+  width: 38px; height: 38px; border-radius: 9px; object-fit: cover;
+  background: var(--sariq); flex-shrink: 0;
+}
+.logo-nom { font-weight: 700; font-size: 17px; overflow-wrap: anywhere; }
 .logo-nom small { display: block; font-weight: 400; font-size: 11px; color: #A6A29A; letter-spacing: .8px; text-transform: uppercase; }
 
 .nav-tugma {

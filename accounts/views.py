@@ -1,12 +1,37 @@
 from django.conf import settings
 from google.auth.transport import requests as google_requests
 from google.oauth2 import id_token as google_id_token
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from .models import User
+
+
+class ProfilView(APIView):
+    """Joriy foydalanuvchi profili + markaz brendingi (nom, logo)."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        u = request.user
+        markaz = None
+        if u.markaz:
+            markaz = {
+                "id": u.markaz.id,
+                "name": u.markaz.name,
+                "logo_url": u.markaz.logo.url if u.markaz.logo else None,
+            }
+        return Response(
+            {
+                "id": u.id,
+                "username": u.username,
+                "ism": u.get_full_name() or u.username,
+                "role": u.role,
+                "markaz": markaz,
+            }
+        )
 
 
 class GoogleLoginView(APIView):
