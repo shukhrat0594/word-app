@@ -14,6 +14,7 @@ export default function Login() {
   const [parol, setParol] = useState("");
   const [xato, setXato] = useState("");
   const [band, setBand] = useState(false);
+  const [xodimForma, setXodimForma] = useState(false);
 
   useEffect(() => {
     // Google Identity Services tugmasi
@@ -74,27 +75,41 @@ export default function Login() {
       </div>
       <div className="login-forma">
         <h3>{t("kirish")}</h3>
+        <p className="izoh" style={{ margin: 0 }}>{t("talaba_izoh")}</p>
         <div ref={googleDiv} />
-        <div className="yoki">{t("yoki_xodim")}</div>
-        <form onSubmit={xodimKirish} style={{ display: "grid", gap: 14 }}>
-          <input
-            placeholder="Login"
-            value={login}
-            onChange={(e) => setLogin(e.target.value)}
-            autoComplete="username"
-          />
-          <input
-            type="password"
-            placeholder="Parol"
-            value={parol}
-            onChange={(e) => setParol(e.target.value)}
-            autoComplete="current-password"
-          />
-          {xato && <div className="xato-xabar">{xato}</div>}
-          <button className="tugma katta" disabled={band}>
-            {t("kirish")}
+        {!xodimForma ? (
+          <button
+            type="button"
+            className="tugma ikkinchi"
+            onClick={() => setXodimForma(true)}
+          >
+            {t("xodim_kirish")}
           </button>
-        </form>
+        ) : (
+          <>
+            <div className="yoki">{t("yoki_xodim")}</div>
+            <form onSubmit={xodimKirish} style={{ display: "grid", gap: 14 }}>
+              <input
+                placeholder="Login"
+                value={login}
+                onChange={(e) => setLogin(e.target.value)}
+                autoComplete="username"
+              />
+              <input
+                type="password"
+                placeholder="Parol"
+                value={parol}
+                onChange={(e) => setParol(e.target.value)}
+                autoComplete="current-password"
+              />
+              <p className="izoh" style={{ margin: 0 }}>{t("xodim_izoh")}</p>
+              {xato && <div className="xato-xabar">{xato}</div>}
+              <button className="tugma katta" disabled={band}>
+                {t("kirish")}
+              </button>
+            </form>
+          </>
+        )}
       </div>
     </div>
   );

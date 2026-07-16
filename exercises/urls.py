@@ -5,6 +5,7 @@ from . import views
 urlpatterns = [
     path("mashqlar/", views.MashqListView.as_view(), name="mashq_list"),
     path("mashqlar/<int:pk>/", views.MashqDetailView.as_view(), name="mashq_detail"),
+    path("mashqlar/<int:pk>/audio/", views.MashqAudioView.as_view(), name="mashq_audio"),
     path(
         "mashqlar/<int:pk>/yechish/",
         views.MashqYechishView.as_view(),

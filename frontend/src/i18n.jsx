@@ -26,6 +26,11 @@ const LUGAT = {
     yuklanmoqda: "Yuklanmoqda…",
     hali_yoq: "hali yo'q",
     tekshiruv: "tekshiruv",
+    talaba_izoh:
+      "Talabalar uchun parol kerak emas — Google akkauntingiz bilan kiring, hisob avtomatik yaratiladi.",
+    xodim_kirish: "Xodim sifatida kirish",
+    xodim_izoh:
+      "Xodim hisobini markaz administratori yaratadi va parolni beradi.",
   },
   ru: {
     platforma: "IELTS платформа",
@@ -52,6 +57,11 @@ const LUGAT = {
     yuklanmoqda: "Загрузка…",
     hali_yoq: "пока нет",
     tekshiruv: "проверок",
+    talaba_izoh:
+      "Студентам пароль не нужен — войдите через Google, аккаунт создастся автоматически.",
+    xodim_kirish: "Вход для сотрудников",
+    xodim_izoh:
+      "Аккаунт сотрудника создаёт администратор центра и выдаёт пароль.",
   },
   en: {
     platforma: "IELTS platform",
@@ -78,6 +88,10 @@ const LUGAT = {
     yuklanmoqda: "Loading…",
     hali_yoq: "none yet",
     tekshiruv: "checks",
+    talaba_izoh:
+      "Students don't need a password — sign in with Google, an account is created automatically.",
+    xodim_kirish: "Staff sign in",
+    xodim_izoh: "Staff accounts are created by the center administrator.",
   },
 };
 

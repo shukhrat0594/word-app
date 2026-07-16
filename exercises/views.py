@@ -36,7 +36,11 @@ class MashqListView(APIView):
 
 
 class MashqDetailView(APIView):
-    """Bitta mashq — savollar 'togri'siz (B3.2)."""
+    """Bitta mashq — savollar 'togri'siz (B3.2).
+
+    Audio to'g'ridan-to'g'ri media URL sifatida BERILMAYDI — faqat
+    autentifikatsiyalangan stream endpoint orqali (B3.2: ochiq havola yo'q).
+    """
 
     permission_classes = [IsAuthenticated]
 
@@ -49,11 +53,30 @@ class MashqDetailView(APIView):
                 "bolim": mashq.bolim,
                 "tur": mashq.tur,
                 "matn": mashq.matn,
-                "audio_url": mashq.audio_fayl.url if mashq.audio_fayl else None,
+                "audio_url": (
+                    f"/api/mashqlar/{mashq.id}/audio/" if mashq.audio_fayl else None
+                ),
                 "rasm_url": mashq.rasm.url if mashq.rasm else None,
                 "savollar": savollar_talaba_uchun(mashq.savollar),
             }
         )
+
+
+class MashqAudioView(APIView):
+    """Audio stream — faqat autentifikatsiyalangan va ko'rish huquqi bor
+    foydalanuvchiga (B3.2). Yuklab olish emas, inline eshitish uchun."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        from django.http import FileResponse, Http404
+
+        mashq = get_object_or_404(korinadigan_mashqlar(request.user), pk=pk)
+        if not mashq.audio_fayl:
+            raise Http404
+        javob = FileResponse(mashq.audio_fayl.open("rb"))
+        javob["Content-Disposition"] = "inline"
+        return javob
 
 
 class MashqYechishView(APIView):
