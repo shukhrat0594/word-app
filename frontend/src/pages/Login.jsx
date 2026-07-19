@@ -2,12 +2,14 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, tokenlarniSaqla } from "../api";
 import { useI18n } from "../i18n";
+import { useProfil } from "../profilContext";
 
 const GOOGLE_CLIENT_ID =
   "664162111049-l5kll7qhdboiurn3phhmqb7nd5j76hc9.apps.googleusercontent.com";
 
 export default function Login() {
   const { t } = useI18n();
+  const { yangila } = useProfil();
   const navigate = useNavigate();
   const googleDiv = useRef(null);
   const [login, setLogin] = useState("");
@@ -29,6 +31,7 @@ export default function Login() {
               body: { id_token: javob.credential },
             });
             tokenlarniSaqla(data);
+            await yangila();
             navigate("/");
           } catch {
             setXato(t("login_xato"));
@@ -46,7 +49,7 @@ export default function Login() {
       const interval = setInterval(() => urin() && clearInterval(interval), 300);
       return () => clearInterval(interval);
     }
-  }, [navigate, t]);
+  }, [navigate, t, yangila]);
 
   async function xodimKirish(e) {
     e.preventDefault();
@@ -58,6 +61,7 @@ export default function Login() {
         body: { username: login, password: parol },
       });
       tokenlarniSaqla(data);
+      await yangila();
       navigate("/");
     } catch {
       setXato(t("login_xato"));
@@ -69,13 +73,14 @@ export default function Login() {
   return (
     <div className="login-ekran">
       <div className="login-brend">
-        <div className="katta-logo">U</div>
+        <div className="login-brend-sarlavha">
+          <img src="/logo.jpg" alt="Utmost" className="katta-logo" />
+          <div className="login-markaz-nomi">Utmost o'quv markazi</div>
+        </div>
         <h2>{t("login_sarlavha")}</h2>
-        <p>{t("login_izoh")}</p>
       </div>
       <div className="login-forma">
         <h3>{t("kirish")}</h3>
-        <p className="izoh" style={{ margin: 0 }}>{t("talaba_izoh")}</p>
         <div ref={googleDiv} />
         {!xodimForma ? (
           <button

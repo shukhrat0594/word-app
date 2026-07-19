@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
+from datetime import timedelta
 from pathlib import Path
 from decouple import config
 import dj_database_url
@@ -39,6 +40,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework_simplejwt',
     'corsheaders',
+    'rest_framework_simplejwt.token_blacklist',
     'accounts',
     'academics',
     'content',
@@ -47,6 +49,7 @@ INSTALLED_APPS = [
     'stats',
     'gamification',
     'packages',
+    'games',
 ]
 
 # B3.1: markaz shuncha Public material kiritgach, boshqa markazlarning
@@ -59,10 +62,28 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
+    # Brute-force himoyasi: login/parol urinishlari + umumiy so'rovlar cheklanadi.
+    'DEFAULT_THROTTLE_CLASSES': (
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle',
+    ),
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '100/minute',
+        'user': '300/minute',
+        'login': '10/minute',
+    },
+}
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=30),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
 }
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -145,6 +166,16 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+STORAGES = {
+    'default': {
+        'BACKEND': 'django.core.files.storage.FileSystemStorage',
+    },
+    'staticfiles': {
+        'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
+    },
+}
 
 # Media files (markaz logotiplari, audio va h.k. — B3'da to'liq ishlatiladi)
 MEDIA_URL = 'media/'
@@ -155,5 +186,27 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Google OAuth (talaba ro'yxatdan o'tishi/kirishi -- B2.1)
 GOOGLE_OAUTH_CLIENT_ID = config('GOOGLE_OAUTH_CLIENT_ID', default='')
 
-# Platforma AI kaliti (B5) — markaz o'z kalitini kiritmagan bo'lsa ishlatiladi
+# Platforma AI kalitlari (B5) — 2026-07-17: markazlar endi o'z kalitini
+# kirita olmaydi, barcha AI xarajati shu platforma kalitlari orqali to'lanadi.
 GEMINI_API_KEY = config('GEMINI_API_KEY', default='')
+ANTHROPIC_API_KEY = config('ANTHROPIC_API_KEY', default='')
+
+# Production xavfsizligi — VPS'da .env'da DEBUG=False qo'yilganda avtomatik
+# yoqiladi (local dev'da DEBUG=True bo'lgani uchun tegmaydi).
+if not DEBUG:
+    # Render/Heroku kabi platformalar SSL'ni proxy orqali tugatadi va ichkarida
+    # http bilan uzatadi — bu header bo'lmasa SECURE_SSL_REDIRECT cheksiz
+    # redirect siklga tushib qoladi.
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_HSTS_SECONDS = 31536000
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+
+CSRF_TRUSTED_ORIGINS = config(
+    'CSRF_TRUSTED_ORIGINS',
+    default='',
+    cast=lambda v: [o.strip() for o in v.split(',')] if v else [],
+)

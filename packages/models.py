@@ -3,12 +3,19 @@ import datetime
 from django.conf import settings
 from django.db import models
 
+from config.narxlar import paket_narx
+
 # "AI Tarifi" paketi (B9): ikkita fixed tanlov, muddat narxga ta'sir qilmaydi.
+# Narx config/narxlar.py'dagi yagona manbadan hisoblanadi (hardcode emas).
 # To'lov 2-fazada (Payme/Click) — hozircha xarid to'lovsiz yoziladi (test rejimi).
 PAKETLAR = {
-    "5x5": {"w": 5, "s": 5, "narx": 7000},
-    "10x10": {"w": 10, "s": 10, "narx": 14000},
+    "5x5": {"w": 5, "s": 5},
+    "10x10": {"w": 10, "s": 10},
 }
+for _paket in PAKETLAR.values():
+    _paket["narx"] = paket_narx(_paket["w"], _paket["s"])
+del _paket
+
 MUDDATLAR = (3, 5, 7)
 
 

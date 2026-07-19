@@ -1,27 +1,85 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import { api, tokenlarniTozala } from "../api";
+import { tokenlarniTozala } from "../api";
 import { useI18n } from "../i18n";
+import { useProfil } from "../profilContext";
 
-const NAVLAR = [
+const TALABA_NAVLAR = [
   { yol: "/", ikon: "▦", kalit: "nav_dashboard" },
   { yol: "/mashqlar", ikon: "✎", kalit: "nav_mashqlar" },
-  { yol: "/writing", ikon: "✍", kalit: "nav_writing" },
-  { yol: "/speaking", ikon: "🎙", kalit: "nav_speaking" },
-  { yol: "/paketlar", ikon: "◈", kalit: "nav_paketlar" },
+  { yol: "/oyinlar", ikon: "🎮", kalit: "nav_oyinlar" },
+  { yol: "/tarix", ikon: "🕐", kalit: "nav_tarix" },
+  { yol: "/reyting", ikon: "🏆", kalit: "nav_reyting" },
 ];
+
+function navlarniOl(role) {
+  if (role === "admin") {
+    return [
+      { yol: "/", ikon: "▦", kalit: "nav_dashboard" },
+      { yol: "/guruhlar", ikon: "☰", kalit: "nav_guruhlar" },
+      { yol: "/xodimlar", ikon: "🧑‍🏫", kalit: "nav_xodimlar" },
+      { yol: "/davomat", ikon: "🗓", kalit: "nav_davomat" },
+      { yol: "/davomat-hisoboti", ikon: "📊", kalit: "nav_davomat_hisoboti" },
+      { yol: "/markaz-sozlash", ikon: "🎨", kalit: "nav_markaz_sozlama" },
+    ];
+  }
+  if (role === "teacher") {
+    return [
+      { yol: "/", ikon: "▦", kalit: "nav_dashboard" },
+      { yol: "/davomat", ikon: "🗓", kalit: "nav_davomat" },
+    ];
+  }
+  if (role === "parent") {
+    return [{ yol: "/", ikon: "👪", kalit: "nav_dashboard" }];
+  }
+  return TALABA_NAVLAR;
+}
 
 export default function Layout() {
   const { til, tilniQoy, t } = useI18n();
   const navigate = useNavigate();
-  const [profil, setProfil] = useState(null);
+  const { profil } = useProfil();
 
+  const markazNomi = profil?.markaz?.name || "Utmost o'quv markazi";
+  // Owner markazga biriktirilmagan (markaz=null) — shu holatda ham standart
+  // logo ko'rsatiladi, umumiy "U" harfiga tushib qolmasin.
+  const markazLogo = profil?.markaz?.logo_url || "/logo.jpg";
   useEffect(() => {
-    api("/api/profil/").then(setProfil).catch(() => {});
-  }, []);
+    if (profil?.markaz?.brend_rang) {
+      document.documentElement.style.setProperty("--sariq", profil.markaz.brend_rang);
+    }
+  }, [profil]);
 
-  const markazNomi = profil?.markaz?.name || "EduCenter";
-  const markazLogo = profil?.markaz?.logo_url;
+  // Brauzer tab sarlavhasi va favicon — markaz nomi/logotipiga moslanadi.
+  useEffect(() => {
+    document.title = `${markazNomi} — ${t("platforma")}`;
+    if (markazLogo) {
+      let ikon = document.querySelector('link[rel="icon"]');
+      if (!ikon) {
+        ikon = document.createElement("link");
+        ikon.rel = "icon";
+        document.head.appendChild(ikon);
+      }
+      ikon.type = "";
+      ikon.href = markazLogo;
+    }
+  }, [markazNomi, markazLogo, t]);
+
+  // Owner'ning o'z markazi yo'q — "Markaz sozlash" (bitta markazga tegishli)
+  // unga emas, balki "Markazlar" (barchasi) paneliga tegishli.
+  const asosiyNavlar = navlarniOl(profil?.role).filter(
+    (n) => !(profil?.is_owner && n.yol === "/markaz-sozlash")
+  );
+  const navlar = [
+    ...asosiyNavlar,
+    ...(profil?.is_owner
+      ? [
+          { yol: "/markazlar", ikon: "🏢", kalit: "nav_markazlar" },
+          { yol: "/foydalanuvchilar", ikon: "🧑‍🤝‍🧑", kalit: "nav_foydalanuvchilar" },
+        ]
+      : []),
+    { yol: "/profil", ikon: "👤", kalit: "nav_profil" },
+  ];
 
   function temaAlmash() {
     const r = document.documentElement;
@@ -51,7 +109,7 @@ export default function Layout() {
             <small>{t("platforma")}</small>
           </div>
         </div>
-        {NAVLAR.map((n) => (
+        {navlar.map((n) => (
           <NavLink
             key={n.yol}
             to={n.yol}
@@ -90,6 +148,12 @@ export default function Layout() {
           </div>
         </header>
         <main className="kontent">
+          {profil && !profil.parol_bormi && (
+            <div className="karta parol-ogohlantirish">
+              {t("parol_ogohlantirish")}{" "}
+              <NavLink to="/profil">{t("parol_qoy")}</NavLink>
+            </div>
+          )}
           <Outlet />
         </main>
       </div>

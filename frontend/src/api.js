@@ -58,3 +58,33 @@ export async function api(yol, options = {}) {
   }
   return data;
 }
+
+// Fayl yuklash (masalan markaz logotipi) — Content-Type'ni brauzer o'zi
+// (multipart boundary bilan) qo'yishi kerak, shuning uchun JSON.stringify
+// qilinmaydi va header qo'lda belgilanmaydi.
+export async function apiForm(yol, { method = "POST", formData } = {}) {
+  const sorov = () =>
+    fetch(yol, {
+      method,
+      headers: tokenOl() ? { Authorization: `Bearer ${tokenOl()}` } : {},
+      body: formData,
+    });
+
+  let res = await sorov();
+  if (res.status === 401 && (await refreshQil())) {
+    res = await sorov();
+  }
+  if (res.status === 401) {
+    tokenlarniTozala();
+    window.location.href = "/login";
+    throw new Error("401");
+  }
+  const data = await res.json().catch(() => null);
+  if (!res.ok) {
+    const e = new Error(data?.detail || `HTTP ${res.status}`);
+    e.status = res.status;
+    e.data = data;
+    throw e;
+  }
+  return data;
+}

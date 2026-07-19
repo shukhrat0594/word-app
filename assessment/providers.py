@@ -1,8 +1,9 @@
 """Provider-agnostic AI baholash qatlami (B5).
 
 Claude va Gemini bir xil interfeys ortida: har provider `writing_baholash(matn)`
-metodini beradi va bir xil tuzilmadagi dict qaytaradi. Markaz o'z provayderini
-tanlaydi (Markaz.ai_provider + api_key), aks holda platforma kaliti ishlatiladi.
+metodini beradi va bir xil tuzilmadagi dict qaytaradi. Markaz faqat provayderni
+(Markaz.ai_provider) tanlaydi — API kalit har doim platforma (owner) kaliti,
+markaz o'z kalitini kirita olmaydi (2026-07-17).
 """
 
 import json
@@ -203,19 +204,21 @@ class ClaudeProvider:
 def provider_tanla(user):
     """Foydalanuvchi uchun AI provider tanlaydi.
 
-    Markaz o'z kalitini kiritgan bo'lsa — markaz tanlagan provider
-    (markaz to'laydi). Aks holda — platforma kaliti (Gemini, pullik
-    individual foydalanuvchilar uchun).
+    Markaz faqat AI provayderni (Gemini/Claude) tanlaydi — API kalit har
+    doim platforma (owner) kaliti orqali to'lanadi, markazlar o'z kalitini
+    kirita olmaydi. Shunday qilib har bir Writing/Speaking tekshiruvi
+    xarajati platformaga tushadi (2026-07-17'da shunday qaror qilingan).
     """
     markaz = user.markaz
-    if markaz and markaz.api_key:
-        if markaz.ai_provider == "claude":
-            return ClaudeProvider(markaz.api_key)
-        return GeminiProvider(markaz.api_key)
+    provider_nomi = markaz.ai_provider if markaz else "gemini"
 
-    platforma_kaliti = getattr(settings, "GEMINI_API_KEY", "")
-    if not platforma_kaliti:
-        raise ProviderXatosi(
-            "Platforma GEMINI_API_KEY sozlanmagan (.env) va markaz kaliti yo'q"
-        )
-    return GeminiProvider(platforma_kaliti)
+    if provider_nomi == "claude":
+        kalit = getattr(settings, "ANTHROPIC_API_KEY", "")
+        if not kalit:
+            raise ProviderXatosi("Platforma ANTHROPIC_API_KEY sozlanmagan (.env)")
+        return ClaudeProvider(kalit)
+
+    kalit = getattr(settings, "GEMINI_API_KEY", "")
+    if not kalit:
+        raise ProviderXatosi("Platforma GEMINI_API_KEY sozlanmagan (.env)")
+    return GeminiProvider(kalit)

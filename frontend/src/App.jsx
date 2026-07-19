@@ -1,20 +1,23 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { tokenOl } from "./api";
 import Layout from "./components/Layout";
-import Dashboard from "./pages/Dashboard";
+import BoshSahifa from "./pages/BoshSahifa";
+import Davomat from "./pages/Davomat";
+import DavomatHisoboti from "./pages/DavomatHisoboti";
+import Foydalanuvchilar from "./pages/Foydalanuvchilar";
+import Guruhlar from "./pages/Guruhlar";
+import Leaderboard from "./pages/Leaderboard";
 import Login from "./pages/Login";
+import Mashqlar from "./pages/Mashqlar";
+import MarkazSozlash from "./pages/MarkazSozlash";
+import Markazlar from "./pages/Markazlar";
+import Oyinlar from "./pages/Oyinlar";
+import Profil from "./pages/Profil";
+import Tarix from "./pages/Tarix";
+import Xodimlar from "./pages/Xodimlar";
 
 function Himoyalangan({ children }) {
   return tokenOl() ? children : <Navigate to="/login" replace />;
-}
-
-function Tezkun({ nomi }) {
-  return (
-    <div className="karta">
-      <h3>{nomi}</h3>
-      <p className="izoh">Bu sahifa keyingi bosqichda quriladi (F3–F6).</p>
-    </div>
-  );
 }
 
 export default function App() {
@@ -30,11 +33,19 @@ export default function App() {
             </Himoyalangan>
           }
         >
-          <Route index element={<Dashboard />} />
-          <Route path="mashqlar" element={<Tezkun nomi="Mashqlar" />} />
-          <Route path="writing" element={<Tezkun nomi="Writing AI" />} />
-          <Route path="speaking" element={<Tezkun nomi="Speaking AI" />} />
-          <Route path="paketlar" element={<Tezkun nomi="Paketlar" />} />
+          <Route index element={<BoshSahifa />} />
+          <Route path="mashqlar" element={<Mashqlar />} />
+          <Route path="reyting" element={<Leaderboard />} />
+          <Route path="oyinlar" element={<Oyinlar />} />
+          <Route path="tarix" element={<Tarix />} />
+          <Route path="guruhlar" element={<Guruhlar />} />
+          <Route path="davomat" element={<Davomat />} />
+          <Route path="davomat-hisoboti" element={<DavomatHisoboti />} />
+          <Route path="markazlar" element={<Markazlar />} />
+          <Route path="xodimlar" element={<Xodimlar />} />
+          <Route path="markaz-sozlash" element={<MarkazSozlash />} />
+          <Route path="foydalanuvchilar" element={<Foydalanuvchilar />} />
+          <Route path="profil" element={<Profil />} />
         </Route>
       </Routes>
     </BrowserRouter>

@@ -15,4 +15,5 @@ urlpatterns = [
         name="speaking_matn",
     ),
     path("speaking/tarix/", views.SpeakingTarixView.as_view(), name="speaking_tarix"),
+    path("tarix/", views.TarixView.as_view(), name="tarix"),
 ]

@@ -1,0 +1,191 @@
+import { useEffect, useState } from "react";
+import { api } from "../api";
+import { useI18n } from "../i18n";
+import { xatoniAjrat } from "../xatoUtils";
+
+const PART_NOMI = { part1: "Part 1", part2: "Part 2", part3: "Part 3" };
+
+function Natija({ natija }) {
+  const { t } = useI18n();
+  const mezonlar = [
+    ["fluency_coherence", t("fluency_coherence")],
+    ["lexical_resource", t("lexical_resource")],
+    ["grammatical_range", t("grammatical_range")],
+  ];
+  const partNomi = PART_NOMI[natija.part_type] || natija.part_type || "";
+
+  return (
+    <>
+      <div className="umumiy-band">
+        <span className="u-ball">{natija.overall_band_no_pronunciation ?? "—"}</span>
+        <div>
+          <div style={{ fontWeight: 700 }}>
+            Overall Band{partNomi ? ` — ${partNomi}` : ""}
+          </div>
+          <div className="u-izoh">
+            {natija.word_count} {t("soz")}
+          </div>
+        </div>
+      </div>
+
+      <div className="mezon-qator" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
+        {mezonlar.map(([kalit, nomi]) => (
+          <div className="mezon" key={kalit}>
+            <div className="m-nom">{nomi}</div>
+            <div className="m-ball">{natija[kalit]?.score ?? "—"}</div>
+          </div>
+        ))}
+      </div>
+
+      <div className="ikki-ustun">
+        <div className="karta">
+          <h3>
+            {t("xatolar")} ({natija.errors?.length || 0})
+          </h3>
+          {(!natija.errors || natija.errors.length === 0) && (
+            <span className="izoh">{t("xato_topilmadi")}</span>
+          )}
+          {(natija.errors || []).map((qator, i) => {
+            const { notogri, togri, sabab } = xatoniAjrat(qator);
+            return (
+              <div className="xato-el" key={i}>
+                <span className="xato-notogri">{notogri}</span>
+                {togri && <>→ <span className="xato-togri">{togri}</span></>}
+                {sabab && <span className="xato-sabab">({sabab})</span>}
+              </div>
+            );
+          })}
+        </div>
+        <div className="karta">
+          <h3>{t("kuchli")}</h3>
+          {(natija.strengths || []).map((s, i) => (
+            <div className="xato-el" key={i}>✓ {s}</div>
+          ))}
+          <h3 style={{ marginTop: 20 }}>{t("tahlil")}</h3>
+          <p className="izoh" style={{ margin: 0 }}>
+            {Object.values(natija.analysis || {}).join(" ")}
+          </p>
+        </div>
+      </div>
+    </>
+  );
+}
+
+export default function Speaking() {
+  const { t } = useI18n();
+  const [rejim, setRejim] = useState("matn");
+  const [matn, setMatn] = useState("");
+  const [natija, setNatija] = useState(null);
+  const [xato, setXato] = useState("");
+  const [yuklanmoqda, setYuklanmoqda] = useState(false);
+  const [tarix, setTarix] = useState([]);
+
+  useEffect(() => {
+    api("/api/speaking/tarix/").then(setTarix).catch(() => {});
+  }, []);
+
+  const sozSoni = matn.trim() ? matn.trim().split(/\s+/).length : 0;
+
+  async function tekshir() {
+    setXato("");
+    if (sozSoni < 20) {
+      setXato(t("matn_qisqa"));
+      return;
+    }
+    setYuklanmoqda(true);
+    try {
+      const res = await api("/api/speaking/matn/", {
+        method: "POST",
+        body: { matn },
+      });
+      setNatija(res.natija);
+      api("/api/speaking/tarix/").then(setTarix).catch(() => {});
+    } catch (e) {
+      setXato(e.data?.detail || t("xato_yuz_berdi"));
+    } finally {
+      setYuklanmoqda(false);
+    }
+  }
+
+  function yangiTekshiruv() {
+    setNatija(null);
+    setMatn("");
+    setXato("");
+  }
+
+  return (
+    <>
+      <div className="tab-guruh">
+        <button
+          className={rejim === "matn" ? "aktiv" : ""}
+          onClick={() => setRejim("matn")}
+        >
+          {t("matn_rejimi")}
+        </button>
+        <button disabled title={t("tez_orada")}>
+          {t("tezkor_tahlil")} · {t("tez_orada")}
+        </button>
+      </div>
+
+      {rejim === "matn" && !natija && (
+        <div className="karta">
+          <h3>{t("javob_yuboring")}</h3>
+          <textarea
+            value={matn}
+            onChange={(e) => setMatn(e.target.value)}
+            placeholder={t("javob_placeholder")}
+          />
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginTop: 12,
+            }}
+          >
+            <span className="izoh">
+              {sozSoni} {t("soz")}
+            </span>
+            <button className="tugma katta" onClick={tekshir} disabled={yuklanmoqda}>
+              {yuklanmoqda ? t("tekshirilmoqda") : t("tekshirish")}
+            </button>
+          </div>
+          {xato && <div className="xato-xabar" style={{ marginTop: 10 }}>{xato}</div>}
+          <p className="izoh" style={{ marginTop: 12 }}>
+            {t("tezkor_izoh")}
+          </p>
+        </div>
+      )}
+
+      {natija && (
+        <>
+          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 4 }}>
+            <button className="tugma ikkinchi" onClick={yangiTekshiruv}>
+              {t("yangi_tekshiruv")}
+            </button>
+          </div>
+          <Natija natija={natija} />
+        </>
+      )}
+
+      {tarix.length > 0 && (
+        <div className="karta">
+          <h3>{t("tarix")}</h3>
+          {tarix.map((tk) => (
+            <div
+              className="tarix-el"
+              key={tk.id}
+              onClick={() => setNatija(tk.natija)}
+            >
+              <span>
+                {PART_NOMI[tk.part_type] || tk.part_type || "—"} ·{" "}
+                {new Date(tk.created_at).toLocaleDateString()}
+              </span>
+              <strong>{tk.overall_band ?? "—"}</strong>
+            </div>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}

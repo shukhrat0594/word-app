@@ -42,7 +42,8 @@ class WritingTekshirishView(APIView):
         )
 
         # B9: aktiv paket bo'lsa, undan 1 ta Writing yechiladi.
-        # Paket bo'lmasa — alohida to'lov (600 so'm, to'lov tizimi 2-fazada).
+        # Paket bo'lmasa — alohida to'lov (narx: config/narxlar.WRITING_TEZKOR,
+        # to'lov tizimi 2-fazada).
         from packages.models import paketdan_ishlat
 
         paket = paketdan_ishlat(request.user, "w")
@@ -123,10 +124,59 @@ class SpeakingTarixView(APIView):
                     "overall_band": t.overall_band,
                     "created_at": t.created_at,
                     "natija": t.natija,
+                    "audio_url": t.audio_fayl.url if t.audio_fayl else None,
                 }
                 for t in qs
             ]
         )
+
+
+class TarixView(APIView):
+    """Talabaning barcha mashq tarixi — Writing + Speaking bitta ro'yxatda,
+    sana bo'yicha tartiblangan (B3.2: har doim faqat o'ziniki, ochiq).
+
+    Speaking'da audio fayl bo'lsa (Tezkor tahlil rejimi) — `audio_url` bilan
+    birga qaytadi, frontend audio pleyer ko'rsatishi uchun.
+
+    ESLATMA (2026-07-18): Tezkor tahlil (audio) hali qurilmagani uchun
+    `audio_fayl` amalda doim bo'sh — shuning uchun `.url` to'g'ridan-to'g'ri
+    ishlatilgan (media serving hozircha yo'q). B8-audio bosqichi qurilganda
+    B3.2 qoidasiga ko'ra bu **authenticated stream endpoint**ga
+    (exercises.MashqAudioView kabi) almashtirilishi kerak — xom /media/ havola
+    orqali emas.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        yozuvlar = []
+        for t in WritingTekshiruv.objects.filter(talaba=request.user)[:100]:
+            yozuvlar.append(
+                {
+                    "turi": "writing",
+                    "id": t.id,
+                    "sarlavha": t.task_type or "Writing",
+                    "overall_band": t.overall_band,
+                    "created_at": t.created_at,
+                    "natija": t.natija,
+                    "audio_url": None,
+                }
+            )
+        for t in SpeakingTekshiruv.objects.filter(talaba=request.user)[:100]:
+            yozuvlar.append(
+                {
+                    "turi": "speaking",
+                    "id": t.id,
+                    "sarlavha": t.part_type or "Speaking",
+                    "rejim": t.rejim,
+                    "overall_band": t.overall_band,
+                    "created_at": t.created_at,
+                    "natija": t.natija,
+                    "audio_url": t.audio_fayl.url if t.audio_fayl else None,
+                }
+            )
+        yozuvlar.sort(key=lambda y: y["created_at"], reverse=True)
+        return Response(yozuvlar[:100])
 
 
 class WritingTarixView(APIView):
