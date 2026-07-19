@@ -388,12 +388,17 @@ def band_hisobla(ball, jami, bolim):
 
 
 def korinadigan_testlar(user):
-    """Foydalanuvchiga ko'rinadigan to'liq testlar — korinadigan_mashqlar
-    bilan bir xil ko'rinish qoidasi (public/private + markaz)."""
+    """Foydalanuvchiga ko'rinadigan to'liq testlar.
+
+    Mashq bankidan farqli o'laroq (u hammaga ochiq), IELTS to'liq imtihon
+    bo'limi FAQAT markazga biriktirilgan (Utmost) talabalar uchun —
+    "oddiy foydalanuvchi" (markaz=None) hech qanday testni ko'rmaydi
+    (2026-07-19 qarori).
+    """
     from content.models import public_kontent_ochiqmi
 
     if user.markaz_id is None:
-        return ImtihonTest.objects.filter(korinish="public")
+        return ImtihonTest.objects.none()
     ozimniki = models.Q(markaz_id=user.markaz_id)
     if public_kontent_ochiqmi(user.markaz):
         return ImtihonTest.objects.filter(ozimniki | models.Q(korinish="public"))

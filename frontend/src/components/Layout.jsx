@@ -73,8 +73,12 @@ export default function Layout() {
 
   // Owner'ning o'z markazi yo'q — "Markaz sozlash" (bitta markazga tegishli)
   // unga emas, balki "Markazlar" (barchasi) paneliga tegishli.
+  // IELTS bo'limi faqat Utmost talabalari uchun (markazga biriktirilgan) —
+  // "oddiy foydalanuvchi" (markaz=null) buni ko'rmaydi, faqat Mashqlar ochiq.
   const asosiyNavlar = navlarniOl(profil?.role).filter(
-    (n) => !(profil?.is_owner && n.yol === "/markaz-sozlash")
+    (n) =>
+      !(profil?.is_owner && n.yol === "/markaz-sozlash") &&
+      !(n.yol === "/ielts" && !profil?.markaz)
   );
   const navlar = [
     ...asosiyNavlar,

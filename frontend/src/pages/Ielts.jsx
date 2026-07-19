@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useI18n } from "../i18n";
 import ImtihonOtish from "./ImtihonOtish";
+import Speaking from "./Speaking";
+import Writing from "./Writing";
 
 const TURLAR = [
   { kalit: "reading", nom_kaliti: "reading_bolimi" },
@@ -25,11 +27,8 @@ export default function Ielts() {
 
       <div style={{ marginTop: 16 }}>
         {(tur === "reading" || tur === "listening") && <ImtihonOtish bolim={tur} />}
-        {(tur === "writing" || tur === "speaking") && (
-          <div className="karta">
-            <span className="izoh">{t("tez_orada")}</span>
-          </div>
-        )}
+        {tur === "writing" && <Writing />}
+        {tur === "speaking" && <Speaking />}
       </div>
     </>
   );
