@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
 import { useI18n } from "../i18n";
+import { useProfil } from "../profilContext";
 
 const ROLLAR = ["owner", "admin", "teacher", "student", "oddiy"];
 
 export default function Foydalanuvchilar() {
   const { t } = useI18n();
+  const { profil } = useProfil();
   const [royxat, setRoyxat] = useState(null);
   const [qidiruv, setQidiruv] = useState("");
   const [parolForma, setParolForma] = useState({});
@@ -40,6 +42,16 @@ export default function Foydalanuvchilar() {
       yukla();
     } catch (e) {
       setXabar((x) => ({ ...x, [id]: e.data?.detail || t("xato_yuz_berdi") }));
+    }
+  }
+
+  async function ochir(u) {
+    if (!window.confirm(t("ochirish_tasdiq").replace("{nom}", u.username))) return;
+    try {
+      await api(`/api/foydalanuvchilar/${u.id}/ochirish/`, { method: "DELETE" });
+      yukla();
+    } catch (e) {
+      setXabar((x) => ({ ...x, [u.id]: e.data?.detail || t("xato_yuz_berdi") }));
     }
   }
 
@@ -149,6 +161,15 @@ export default function Foydalanuvchilar() {
               {u.role === "oddiy" && (
                 <button className="tugma ikkinchi" onClick={() => studentgaOtkaz(u.id)}>
                   {t("studentga_otkazish")}
+                </button>
+              )}
+              {!u.is_owner && u.id !== profil?.id && (
+                <button
+                  className="tugma ikkinchi"
+                  style={{ color: "#d33" }}
+                  onClick={() => ochir(u)}
+                >
+                  {t("ochirish")}
                 </button>
               )}
               {xabar[u.id] && <span className="izoh">{xabar[u.id]}</span>}

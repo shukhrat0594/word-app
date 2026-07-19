@@ -22,6 +22,7 @@ from rest_framework_simplejwt.views import TokenRefreshView
 
 from accounts.views import (
     FoydalanuvchilarView,
+    FoydalanuvchiOchirishView,
     FoydalanuvchiParolTiklashView,
     FoydalanuvchiYaratishView,
     GoogleLoginView,
@@ -81,6 +82,11 @@ urlpatterns = [
         'api/foydalanuvchilar/<int:pk>/studentga-otkazish/',
         OddiyStudentgaOtkazishView.as_view(),
         name='foydalanuvchi_studentga_otkazish',
+    ),
+    path(
+        'api/foydalanuvchilar/<int:pk>/ochirish/',
+        FoydalanuvchiOchirishView.as_view(),
+        name='foydalanuvchi_ochirish',
     ),
     path('api/', include('academics.urls')),
     path('api/', include('exercises.urls')),

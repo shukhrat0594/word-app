@@ -354,6 +354,36 @@ class FoydalanuvchiYaratishView(APIView):
         )
 
 
+class FoydalanuvchiOchirishView(APIView):
+    """Owner yoki admin uchun — foydalanuvchi hisobini o'chiradi.
+
+    Cheklovlar: o'zini o'chirib bo'lmaydi; owner'larni (superuser) hech kim
+    o'chira olmaydi; owner bo'lmagan admin boshqa adminni o'chira olmaydi.
+    O'chirish bilan birga foydalanuvchining barcha bog'liq ma'lumotlari
+    (tekshiruv tarixi va h.k.) ham o'chadi (FK cascade).
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request, pk):
+        if not (owner_mi(request.user) or request.user.role == User.Role.ADMIN):
+            return Response({"detail": "Ruxsat yo'q"}, status=403)
+
+        user = get_object_or_404(User, pk=pk)
+        if user.pk == request.user.pk:
+            return Response({"detail": "O'z hisobingizni o'chira olmaysiz"}, status=400)
+        if user.is_superuser:
+            return Response({"detail": "Owner hisobini o'chirib bo'lmaydi"}, status=400)
+        if user.role == User.Role.ADMIN and not owner_mi(request.user):
+            return Response(
+                {"detail": "Adminni faqat owner o'chira oladi"}, status=403
+            )
+
+        username = user.username
+        user.delete()
+        return Response({"detail": f"{username} o'chirildi"})
+
+
 class OddiyStudentgaOtkazishView(APIView):
     """Owner yoki admin uchun — "oddiy foydalanuvchi"ni "talaba" roliga o'tkazadi."""
 
