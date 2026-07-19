@@ -95,9 +95,41 @@ class MashqBoshqaruvView(APIView):
 
 
 class MashqBoshqaruvDetailView(APIView):
-    """Owner/admin uchun — mashqni o'chirish."""
+    """Owner/admin uchun — mashqni o'chirish yoki tahrirlash.
+
+    PATCH — JSON orqali matn/savollar bilan yaratilgan mashqqa keyinroq
+    audio/rasm biriktirish uchun (yoki istalgan maydonni yangilash uchun).
+    Faqat yuborilgan maydonlar o'zgaradi.
+    """
 
     permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def patch(self, request, pk):
+        if not _mashq_admin_mi(request.user):
+            return Response({"detail": "Faqat admin/owner uchun"}, status=403)
+        mashq = get_object_or_404(Mashq, pk=pk)
+
+        for maydon in ("name", "bolim", "tur", "korinish", "matn", "namuna_javob"):
+            if maydon in request.data:
+                setattr(mashq, maydon, request.data[maydon])
+        if "savollar" in request.data:
+            try:
+                mashq.savollar = json.loads(request.data["savollar"])
+            except json.JSONDecodeError:
+                return Response({"detail": "savollar noto'g'ri JSON"}, status=400)
+        if request.FILES.get("audio_fayl"):
+            mashq.audio_fayl = request.FILES["audio_fayl"]
+        if request.FILES.get("rasm"):
+            mashq.rasm = request.FILES["rasm"]
+
+        try:
+            mashq.full_clean()
+        except ValidationError as e:
+            return Response(e.message_dict, status=400)
+        mashq.save()
+
+        return Response(_mashq_qisqa(mashq))
 
     def delete(self, request, pk):
         if not _mashq_admin_mi(request.user):

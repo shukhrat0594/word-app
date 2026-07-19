@@ -31,6 +31,7 @@ export default function MashqlarBoshqarish() {
   const [filtrBolim, setFiltrBolim] = useState("");
   const [saqlanmoqda, setSaqlanmoqda] = useState(false);
   const [natijalar, setNatijalar] = useState([]);
+  const [jsonXato, setJsonXato] = useState("");
 
   function yukla(bolim) {
     api(`/api/mashqlar-boshqaruv/${bolim ? `?bolim=${bolim}` : ""}`)
@@ -72,6 +73,50 @@ export default function MashqlarBoshqarish() {
 
   function navbatdanOlibTashla(i) {
     setNavbat((n) => n.filter((_, idx) => idx !== i));
+  }
+
+  async function jsonYukla(e) {
+    const fayl = e.target.files[0];
+    e.target.value = "";
+    if (!fayl) return;
+    setJsonXato("");
+    try {
+      const matn = await fayl.text();
+      const data = JSON.parse(matn);
+      const royxatJson = Array.isArray(data) ? data : [data];
+      const yangi = royxatJson.map((m) => ({
+        name: m.name || "",
+        bolim: BOLIM_TURLARI[m.bolim] ? m.bolim : "reading",
+        tur: m.tur || BOLIM_TURLARI[BOLIM_TURLARI[m.bolim] ? m.bolim : "reading"][0],
+        korinish: m.korinish === "public" ? "public" : "private",
+        matn: m.matn || "",
+        namuna_javob: m.namuna_javob || "",
+        audio_fayl: null,
+        rasm: null,
+        savollar: Array.isArray(m.savollar)
+          ? m.savollar.map((s) => ({
+              savol: s.savol || "",
+              variantlar: Array.isArray(s.variantlar) ? s.variantlar.join(", ") : s.variantlar || "",
+              togri: Array.isArray(s.togri) ? s.togri.join(", ") : s.togri || "",
+            }))
+          : [],
+      }));
+      setNavbat((n) => [...n, ...yangi]);
+    } catch (err) {
+      setJsonXato(t("mashq_json_xato"));
+    }
+  }
+
+  async function mediaBiriktir(id, maydon, fayl) {
+    if (!fayl) return;
+    const fd = new FormData();
+    fd.append(maydon, fayl);
+    try {
+      await apiForm(`/api/mashqlar-boshqaruv/${id}/`, { method: "PATCH", formData: fd });
+      yukla(filtrBolim);
+    } catch (e) {
+      setJsonXato(e.data?.detail || t("xato_yuz_berdi"));
+    }
   }
 
   async function hammasiniSaqla() {
@@ -124,6 +169,13 @@ export default function MashqlarBoshqarish() {
 
   return (
     <div style={{ display: "grid", gap: 20 }}>
+      <div className="karta">
+        <h3>{t("mashq_json_yuklash")}</h3>
+        <p className="izoh" style={{ marginTop: 0 }}>{t("mashq_json_izoh")}</p>
+        <input type="file" accept="application/json" onChange={jsonYukla} />
+        {jsonXato && <div className="xato-xabar" style={{ marginTop: 8 }}>{jsonXato}</div>}
+      </div>
+
       <div className="karta">
         <h3>{t("mashq_yangi_qoshish")}</h3>
 
@@ -308,11 +360,33 @@ export default function MashqlarBoshqarish() {
                   <span className="izoh">
                     {t(`mashq_bolim_${m.bolim}`)} · {t(`mashq_tur_${m.tur}`)} ·{" "}
                     {m.korinish === "public" ? t("mashq_hammaga_ochiq") : t("mashq_faqat_talaba")}
+                    {!m.audio_url && m.bolim === "listening" && ` · ${t("mashq_audio_yoq")}`}
+                    {!m.rasm_url && ` · ${t("mashq_rasm_yoq")}`}
                   </span>
                 </span>
-                <button className="tugma ikkinchi" style={{ color: "#d33" }} onClick={() => ochir(m.id)}>
-                  {t("ochirish")}
-                </button>
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  {m.bolim === "listening" && !m.audio_url && (
+                    <input
+                      type="file"
+                      accept="audio/*"
+                      title={t("mashq_audio_biriktir")}
+                      style={{ maxWidth: 140 }}
+                      onChange={(e) => mediaBiriktir(m.id, "audio_fayl", e.target.files[0])}
+                    />
+                  )}
+                  {!m.rasm_url && (
+                    <input
+                      type="file"
+                      accept="image/*"
+                      title={t("mashq_rasm_biriktir")}
+                      style={{ maxWidth: 140 }}
+                      onChange={(e) => mediaBiriktir(m.id, "rasm", e.target.files[0])}
+                    />
+                  )}
+                  <button className="tugma ikkinchi" style={{ color: "#d33" }} onClick={() => ochir(m.id)}>
+                    {t("ochirish")}
+                  </button>
+                </div>
               </div>
             ))}
           </div>
