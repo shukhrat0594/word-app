@@ -11,6 +11,35 @@ const BOLIM_TURLARI = {
 
 const AVTO_BAHOLANADI = ["listening", "reading"];
 
+const AI_PROMT = `Men senga IELTS mashqlari uchun xom material (matn, savollar, mavzular) beraman. Sen shu materialni quyidagi JSON formatiga o'girib ber — natija FAQAT valid JSON massiv bo'lsin, hech qanday izoh, sarlavha yoki markdown belgisi (masalan \`\`\`json) qo'shma, faqat sof JSON matni qaytar.
+
+Har bir mashq — shu formatdagi obyekt:
+{
+  "name": "Mashqning qisqa nomi",
+  "bolim": "listening" | "reading" | "writing" | "speaking",
+  "tur": "quyidagi ro'yxatdan, bolim'ga mos ravishda",
+  "korinish": "private" | "public",
+  "matn": "Reading uchun passage matni / Writing uchun topshiriq matni / Speaking uchun savol(lar) matni. Listening uchun bo'sh qoldirish mumkin (audio alohida yuklanadi).",
+  "namuna_javob": "Writing/Speaking uchun namuna javob (ixtiyoriy, bo'lmasa bo'sh qoldir)",
+  "savollar": [
+    { "savol": "Savol matni", "variantlar": ["A variant", "B variant"], "togri": "To'g'ri javob" }
+  ]
+}
+
+Qoidalar:
+- "bolim" = "listening" bo'lsa "tur" quyidagilardan biri: multiple_choice, fill_blanks, matching, map_labelling, short_answer
+- "bolim" = "reading" bo'lsa "tur": multiple_choice, fill_blanks, matching_headings, tfng, short_answer
+- "bolim" = "writing" bo'lsa "tur": task1 yoki task2
+- "bolim" = "speaking" bo'lsa "tur": part1, part2 yoki part3
+- "savollar" faqat listening va reading uchun MAJBURIY (kamida 1 ta savol, har birida "savol" va "togri" bo'lishi shart, "variantlar" ixtiyoriy). Writing va speaking uchun "savollar"ni bo'sh massiv [] qoldir.
+- "korinish": agar material barcha foydalanuvchilarga (Utmost talabasi bo'lmaganlarga ham) ochiq bo'lishi kerak bo'lsa "public", faqat Utmost talabalari uchun bo'lsa "private" yoz. Aniq ko'rsatilmagan bo'lsa "private" qo'y.
+- Audio fayl va rasm bu JSON'ga KIRMAYDI — ular alohida, saytda qo'lda yuklanadi. Shunchaki matn/savol/namuna javoblarni to'g'ri joylashtir.
+- Agar bitta material ichida bir nechta mashq/savollar to'plami bo'lsa — har birini alohida obyekt qilib, bittasi array ichida bir nechta obyekt bo'lsin.
+
+Natijani shu JSON massiv ko'rinishida qaytar, boshqa hech narsa yozma. Quyida mening materialim:
+
+[BU YERGA MATERIALINGIZNI (matn, savollar, transkript va h.k.) joylashtiring]`;
+
 const BOSH_DRAFT = {
   name: "",
   bolim: "reading",
@@ -32,6 +61,15 @@ export default function MashqlarBoshqarish() {
   const [saqlanmoqda, setSaqlanmoqda] = useState(false);
   const [natijalar, setNatijalar] = useState([]);
   const [jsonXato, setJsonXato] = useState("");
+  const [promtKorinadi, setPromtKorinadi] = useState(false);
+  const [nusxalandi, setNusxalandi] = useState(false);
+
+  function promtNusxala() {
+    navigator.clipboard?.writeText(AI_PROMT).then(() => {
+      setNusxalandi(true);
+      setTimeout(() => setNusxalandi(false), 2000);
+    });
+  }
 
   function yukla(bolim) {
     api(`/api/mashqlar-boshqaruv/${bolim ? `?bolim=${bolim}` : ""}`)
@@ -174,6 +212,31 @@ export default function MashqlarBoshqarish() {
         <p className="izoh" style={{ marginTop: 0 }}>{t("mashq_json_izoh")}</p>
         <input type="file" accept="application/json" onChange={jsonYukla} />
         {jsonXato && <div className="xato-xabar" style={{ marginTop: 8 }}>{jsonXato}</div>}
+
+        <div style={{ marginTop: 14 }}>
+          <button
+            type="button"
+            className="tugma ikkinchi"
+            onClick={() => setPromtKorinadi((v) => !v)}
+          >
+            {promtKorinadi ? t("mashq_promt_yashirish") : t("mashq_promt_korsatish")}
+          </button>
+          {promtKorinadi && (
+            <div style={{ marginTop: 10 }}>
+              <p className="izoh" style={{ marginTop: 0 }}>{t("mashq_promt_izoh")}</p>
+              <textarea
+                readOnly
+                rows={14}
+                value={AI_PROMT}
+                onClick={(e) => e.target.select()}
+                style={{ width: "100%", fontFamily: "monospace", fontSize: 12.5 }}
+              />
+              <button type="button" className="tugma" onClick={promtNusxala} style={{ marginTop: 8 }}>
+                {nusxalandi ? t("nusxalandi") : t("nusxalash")}
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="karta">
