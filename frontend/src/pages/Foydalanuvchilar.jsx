@@ -55,9 +55,9 @@ export default function Foydalanuvchilar() {
     }
   }
 
-  async function studentgaOtkaz(id) {
+  async function rolOzgartir(id, rol) {
     try {
-      await api(`/api/foydalanuvchilar/${id}/studentga-otkazish/`, { method: "POST" });
+      await api(`/api/foydalanuvchilar/${id}/rol/`, { method: "PATCH", body: { rol } });
       yukla();
     } catch (e) {
       setXabar((x) => ({ ...x, [id]: e.data?.detail || t("xato_yuz_berdi") }));
@@ -158,10 +158,17 @@ export default function Foydalanuvchilar() {
               <button className="tugma ikkinchi" onClick={() => parolOrnat(u.id)}>
                 {t("parol_ornatish")}
               </button>
-              {u.role === "oddiy" && (
-                <button className="tugma ikkinchi" onClick={() => studentgaOtkaz(u.id)}>
-                  {t("studentga_otkazish")}
-                </button>
+              {u.id !== profil?.id && (
+                <select
+                  value={u.is_owner ? "owner" : u.role}
+                  onChange={(e) => rolOzgartir(u.id, e.target.value)}
+                >
+                  {ROLLAR.map((r) => (
+                    <option key={r} value={r}>
+                      {t(`rol_${r}`)}
+                    </option>
+                  ))}
+                </select>
               )}
               {!u.is_owner && u.id !== profil?.id && (
                 <button

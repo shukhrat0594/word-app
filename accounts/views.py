@@ -354,6 +354,62 @@ class FoydalanuvchiYaratishView(APIView):
         )
 
 
+class FoydalanuvchiRolView(APIView):
+    """Owner uchun — istalgan foydalanuvchining rolini o'zgartiradi
+    (owner/admin/teacher/student/oddiy), "owner" ham shu ro'yxatda.
+
+    Cheklovlar: o'z rolini o'zgartira olmaysiz (tasodifan owner
+    huquqidan mahrum bo'lmaslik uchun); owner qilishda jami owner soni
+    2 tadan oshmaydi; oxirgi owner'ni pastga tushirib bo'lmaydi (kamida
+    1 owner doim qolishi kerak).
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request, pk):
+        if not owner_mi(request.user):
+            return Response({"detail": "Faqat owner uchun"}, status=403)
+
+        user = get_object_or_404(User, pk=pk)
+        if user.pk == request.user.pk:
+            return Response({"detail": "O'z rolingizni o'zgartira olmaysiz"}, status=400)
+
+        rol = request.data.get("rol") or ""
+        is_super = rol == "owner"
+        if is_super:
+            if not user.is_superuser and User.objects.filter(is_superuser=True).count() >= 2:
+                return Response(
+                    {"detail": "Ko'pi bilan 2 ta owner bo'lishi mumkin"}, status=400
+                )
+            role_value = User.Role.ADMIN
+        elif rol == "admin":
+            role_value = User.Role.ADMIN
+        elif rol == "teacher":
+            role_value = User.Role.TEACHER
+        elif rol == "student":
+            role_value = User.Role.STUDENT
+        elif rol == "oddiy":
+            role_value = User.Role.ODDIY
+        else:
+            return Response({"detail": "Noto'g'ri rol"}, status=400)
+
+        if user.is_superuser and not is_super and User.objects.filter(is_superuser=True).count() <= 1:
+            return Response(
+                {"detail": "Oxirgi owner'ni pastga tushirib bo'lmaydi"}, status=400
+            )
+
+        user.role = role_value
+        user.is_superuser = is_super
+        user.is_staff = is_super
+        if role_value in (User.Role.ADMIN, User.Role.TEACHER) and not user.markaz_id:
+            markaz = Markaz.objects.first()
+            if markaz:
+                user.markaz = markaz
+        user.save()
+
+        return Response({"id": user.id, "role": user.role, "is_owner": user.is_superuser})
+
+
 class FoydalanuvchiOchirishView(APIView):
     """Owner yoki admin uchun — foydalanuvchi hisobini o'chiradi.
 
