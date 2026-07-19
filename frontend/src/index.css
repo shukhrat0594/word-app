@@ -197,6 +197,31 @@ textarea {
 .natija-belgi.togri { color: var(--yaxshi); }
 .natija-belgi.notogri { color: var(--xato); }
 
+/* ==== To'liq imtihon (IELTS full test) ==== */
+.imtihon-fokus-ustma {
+  position: fixed; inset: 0; z-index: 200; background: var(--fon);
+  overflow-y: auto; padding: 24px;
+}
+.imtihon-asboblar {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  padding: 10px 14px; background: var(--sirt); border: 1px solid var(--chiziq);
+  border-radius: 10px; margin-bottom: 16px; position: sticky; top: 0; z-index: 5;
+}
+.imtihon-taymer { font-weight: 700; font-variant-numeric: tabular-nums; font-size: 15px; }
+.imtihon-asboblar .tugma, .imtihon-asboblar .tugma.ikkinchi { padding: 6px 12px; font-size: 13px; }
+.imtihon-zoom { display: flex; align-items: center; gap: 6px; }
+.imtihon-zoom button { width: 28px; height: 28px; border-radius: 6px; }
+.imtihon-qism-sarlavha { font-size: 17px; font-weight: 800; margin: 22px 0 4px; }
+.imtihon-qism-sarlavha:first-child { margin-top: 0; }
+.imtihon-yoriqnoma { color: var(--matn-sokin); font-size: 13px; font-style: italic; margin-bottom: 10px; }
+.imtihon-guruh-sarlavha { font-weight: 700; margin: 16px 0 6px; font-size: 13.5px; }
+.imtihon-palitra { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+.imtihon-palitra button {
+  width: 30px; height: 30px; border-radius: 6px; font-size: 12px;
+  background: var(--sirt-2); border: 1px solid var(--chiziq); cursor: pointer;
+}
+.imtihon-palitra button.javob-berilgan { background: var(--sariq); border-color: var(--sariq); color: var(--komir); }
+
 /* ==== Leaderboard ==== */
 .lb-qator { display: flex; align-items: center; gap: 12px; padding: 9px 4px; border-bottom: 1px solid var(--chiziq); }
 .lb-qator:last-child { border-bottom: none; }

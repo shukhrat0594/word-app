@@ -7,6 +7,7 @@ import { useProfil } from "../profilContext";
 const TALABA_NAVLAR = [
   { yol: "/", ikon: "▦", kalit: "nav_dashboard" },
   { yol: "/mashqlar", ikon: "✎", kalit: "nav_mashqlar" },
+  { yol: "/ielts", ikon: "🎓", kalit: "nav_ielts" },
   { yol: "/oyinlar", ikon: "🎮", kalit: "nav_oyinlar" },
   { yol: "/tarix", ikon: "🕐", kalit: "nav_tarix" },
   { yol: "/reyting", ikon: "🏆", kalit: "nav_reyting" },
@@ -19,6 +20,7 @@ function navlarniOl(role) {
       { yol: "/guruhlar", ikon: "☰", kalit: "nav_guruhlar" },
       { yol: "/xodimlar", ikon: "🧑‍🏫", kalit: "nav_xodimlar" },
       { yol: "/mashqlar-boshqarish", ikon: "🗂", kalit: "nav_mashqlar_boshqarish" },
+      { yol: "/ielts-boshqarish", ikon: "🎓", kalit: "nav_ielts_boshqarish" },
       { yol: "/davomat", ikon: "🗓", kalit: "nav_davomat" },
       { yol: "/davomat-hisoboti", ikon: "📊", kalit: "nav_davomat_hisoboti" },
       { yol: "/markaz-sozlash", ikon: "🎨", kalit: "nav_markaz_sozlama" },

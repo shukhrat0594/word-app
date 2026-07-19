@@ -271,3 +271,130 @@ def korinadigan_mashqlar(user):
     if public_kontent_ochiqmi(user.markaz):
         return Mashq.objects.filter(ozimniki | models.Q(korinish="public"))
     return Mashq.objects.filter(ozimniki)
+
+
+class ImtihonTest(models.Model):
+    """To'liq IELTS testi (masalan Cambridge uslubidagi Reading/Listening Test)
+    — bir nechta TestQismi'dan iborat, uzluksiz raqamlangan yagona imtihon.
+
+    Mavjud Mashq bankidan (bitta passage/audio = alohida kichik mashq)
+    mustaqil — kunlik limit tizimiga bog'lanmaydi (10/11-faza, 2026-07-19).
+    """
+
+    name = models.CharField(max_length=200)
+    bolim = models.CharField(
+        max_length=10,
+        choices=[(Bolim.READING, Bolim.READING.label), (Bolim.LISTENING, Bolim.LISTENING.label)],
+    )
+    markaz = models.ForeignKey(
+        "accounts.Markaz", on_delete=models.CASCADE, related_name="imtihon_testlari"
+    )
+    korinish = models.CharField(
+        max_length=10,
+        choices=[("private", "Shaxsiy"), ("public", "Umumiy")],
+        default="private",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name_plural = "Imtihon testlari"
+
+    def __str__(self):
+        return f"{self.name} [{self.get_bolim_display()}]"
+
+
+class TestQismi(models.Model):
+    """Bitta testning bir qismi (Reading passage / Listening audio bo'lagi)."""
+
+    test = models.ForeignKey(ImtihonTest, on_delete=models.CASCADE, related_name="qismlar")
+    tartib = models.PositiveSmallIntegerField()
+    sarlavha = models.CharField(max_length=200, blank=True, help_text="masalan 'Passage 1'")
+    yoriqnoma = models.CharField(
+        max_length=300, blank=True,
+        help_text="masalan 'You should spend about 20 minutes on Questions 1-13.'",
+    )
+    matn = models.TextField(blank=True, help_text="Reading passage matni")
+    audio_fayl = models.FileField(upload_to="imtihon/audio/", blank=True)
+    savollar = models.JSONField(
+        default=list,
+        help_text=(
+            'Ro\'yxat: [{"savol": "...", "tur": "multiple_choice", '
+            '"variantlar": ["A", "B"], "togri": "A", "guruh_boshi": "Questions 1-7" (ixtiyoriy)}]'
+        ),
+    )
+
+    class Meta:
+        ordering = ["tartib"]
+        unique_together = [("test", "tartib")]
+        verbose_name_plural = "Test qismlari"
+
+    def __str__(self):
+        return f"{self.test.name} — {self.sarlavha or self.tartib}"
+
+
+class TestYechim(models.Model):
+    """Talabaning to'liq testga bergan javoblari va natijasi (flat, uzluksiz)."""
+
+    talaba = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="imtihon_yechimlari",
+        limit_choices_to={"role": "student"},
+    )
+    test = models.ForeignKey(ImtihonTest, on_delete=models.CASCADE, related_name="yechimlar")
+    javoblar = models.JSONField()
+    ball = models.PositiveIntegerField()
+    jami = models.PositiveIntegerField()
+    natijalar = models.JSONField()
+    band = models.DecimalField(max_digits=2, decimal_places=1, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name_plural = "Imtihon yechimlari"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.talaba} — {self.test} — {self.ball}/{self.jami} (Band {self.band})"
+
+
+# Ommaviy IELTS tayyorgarlik manbalaridan olingan TAXMINIY xom ball -> band
+# jadvali (Academic, 40 savol asosida). Rasmiy Cambridge/IDP konvertatsiya
+# jadvali bilan ozgina farq qilishi mumkin — aniq rasmiy manba emas.
+_READING_BAND_JADVALI = [
+    (39, 9.0), (37, 8.5), (35, 8.0), (33, 7.5), (30, 7.0), (27, 6.5),
+    (23, 6.0), (19, 5.5), (15, 5.0), (13, 4.5), (10, 4.0), (8, 3.5),
+    (6, 3.0), (4, 2.5),
+]
+_LISTENING_BAND_JADVALI = [
+    (39, 9.0), (37, 8.5), (35, 8.0), (32, 7.5), (30, 7.0), (26, 6.5),
+    (23, 6.0), (18, 5.5), (16, 5.0), (13, 4.5), (11, 4.0), (8, 3.5),
+    (6, 3.0), (4, 2.5),
+]
+
+
+def band_hisobla(ball, jami, bolim):
+    """Xom ballni (ball/jami) taxminiy IELTS bandiga aylantiradi.
+
+    jami 40'dan farq qilsa, 40 savolga proporsional moslashtiriladi.
+    """
+    if jami <= 0:
+        return None
+    ball40 = round(ball / jami * 40)
+    jadval = _READING_BAND_JADVALI if bolim == Bolim.READING else _LISTENING_BAND_JADVALI
+    for chegara, band in jadval:
+        if ball40 >= chegara:
+            return band
+    return 2.0
+
+
+def korinadigan_testlar(user):
+    """Foydalanuvchiga ko'rinadigan to'liq testlar — korinadigan_mashqlar
+    bilan bir xil ko'rinish qoidasi (public/private + markaz)."""
+    from content.models import public_kontent_ochiqmi
+
+    if user.markaz_id is None:
+        return ImtihonTest.objects.filter(korinish="public")
+    ozimniki = models.Q(markaz_id=user.markaz_id)
+    if public_kontent_ochiqmi(user.markaz):
+        return ImtihonTest.objects.filter(ozimniki | models.Q(korinish="public"))
+    return ImtihonTest.objects.filter(ozimniki)
