@@ -59,7 +59,7 @@ const LUGAT = {
     hammasi: "Hammasi",
     mashq_json_yuklash: "JSON orqali ko'plab mashq yuklash",
     mashq_json_izoh:
-      "JSON fayl tanlang — bir yoki bir nechta mashq (matn, savollar) navbatga qo'shiladi. Audio/rasm bu yerda kirmaydi, saqlagandan keyin har biriga alohida biriktiriladi.",
+      "JSON fayl tanlang — bir yoki bir nechta mashq (matn, savollar) navbatga qo'shiladi. Agar tayyor audio/rasm fayllaringiz bo'lsa, ularni ham JSON'ga base64 qilib qo'shishingiz mumkin (\"audio_base64\"/\"rasm_base64\" maydonlari — quyidagi AI promtida namuna bor). Bo'lmasa, saqlagandan keyin har biriga alohida biriktirasiz.",
     mashq_json_xato: "JSON fayl noto'g'ri formatda",
     mashq_audio_yoq: "audio yo'q",
     mashq_rasm_yoq: "rasm yo'q",
@@ -295,7 +295,7 @@ const LUGAT = {
     hammasi: "Все",
     mashq_json_yuklash: "Массовая загрузка заданий через JSON",
     mashq_json_izoh:
-      "Выберите JSON-файл — одно или несколько заданий (текст, вопросы) добавится в список. Аудио/изображения сюда не входят, их можно прикрепить отдельно после сохранения.",
+      "Выберите JSON-файл — одно или несколько заданий (текст, вопросы) добавится в список. Если у вас есть готовые аудио/изображения, их тоже можно добавить в JSON в виде base64 (поля \"audio_base64\"/\"rasm_base64\" — пример есть в промпте для AI ниже). Иначе прикрепите их отдельно после сохранения.",
     mashq_json_xato: "Неверный формат JSON-файла",
     mashq_audio_yoq: "нет аудио",
     mashq_rasm_yoq: "нет изображения",
@@ -531,7 +531,7 @@ const LUGAT = {
     hammasi: "All",
     mashq_json_yuklash: "Bulk-upload exercises via JSON",
     mashq_json_izoh:
-      "Choose a JSON file — one or more exercises (text, questions) will be added to the queue. Audio/images aren't included here — attach them individually after saving.",
+      "Choose a JSON file — one or more exercises (text, questions) will be added to the queue. If you have ready audio/image files, you can also include them in the JSON as base64 (\"audio_base64\"/\"rasm_base64\" fields — see the AI prompt below for an example). Otherwise, attach them individually after saving.",
     mashq_json_xato: "Invalid JSON file format",
     mashq_audio_yoq: "no audio",
     mashq_rasm_yoq: "no image",

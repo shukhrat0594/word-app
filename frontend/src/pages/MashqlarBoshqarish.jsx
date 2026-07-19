@@ -23,7 +23,9 @@ Har bir mashq — shu formatdagi obyekt:
   "namuna_javob": "Writing/Speaking uchun namuna javob (ixtiyoriy, bo'lmasa bo'sh qoldir)",
   "savollar": [
     { "savol": "Savol matni", "variantlar": ["A variant", "B variant"], "togri": "To'g'ri javob" }
-  ]
+  ],
+  "audio_base64": "(BUNI TO'LDIRMA — foydalanuvchi o'zi keyinroq qo'shadi, sen audio fayl yarata olmaysan)",
+  "rasm_base64": "(BUNI TO'LDIRMA — foydalanuvchi o'zi keyinroq qo'shadi, sen rasm fayl yarata olmaysan)"
 }
 
 Qoidalar:
@@ -33,7 +35,7 @@ Qoidalar:
 - "bolim" = "speaking" bo'lsa "tur": part1, part2 yoki part3
 - "savollar" faqat listening va reading uchun MAJBURIY (kamida 1 ta savol, har birida "savol" va "togri" bo'lishi shart, "variantlar" ixtiyoriy). Writing va speaking uchun "savollar"ni bo'sh massiv [] qoldir.
 - "korinish": agar material barcha foydalanuvchilarga (Utmost talabasi bo'lmaganlarga ham) ochiq bo'lishi kerak bo'lsa "public", faqat Utmost talabalari uchun bo'lsa "private" yoz. Aniq ko'rsatilmagan bo'lsa "private" qo'y.
-- Audio fayl va rasm bu JSON'ga KIRMAYDI — ular alohida, saytda qo'lda yuklanadi. Shunchaki matn/savol/namuna javoblarni to'g'ri joylashtir.
+- "audio_base64" va "rasm_base64" maydonlarini HECH QACHON to'ldirma va JSON'ga qo'shma — sen (AI) haqiqiy audio yoki rasm fayl yarata olmaysan, bu ikki maydon faqat foydalanuvchi o'zida tayyor fayl bo'lsa, o'zi qo'lda base64'ga aylantirib qo'shishi uchun. Sen faqat matn/savol/namuna javoblarni to'ldir, media maydonlarini butunlay tashla.
 - Agar bitta material ichida bir nechta mashq/savollar to'plami bo'lsa — har birini alohida obyekt qilib, bittasi array ichida bir nechta obyekt bo'lsin.
 
 Natijani shu JSON massiv ko'rinishida qaytar, boshqa hech narsa yozma. Quyida mening materialim:
@@ -113,6 +115,25 @@ export default function MashqlarBoshqarish() {
     setNavbat((n) => n.filter((_, idx) => idx !== i));
   }
 
+  function base64gaFayl(qiymat, standartNomi, standartMime) {
+    if (!qiymat) return null;
+    let mime = standartMime || "application/octet-stream";
+    let b64 = qiymat;
+    const dataUriMos = qiymat.match(/^data:([^;]+);base64,([\s\S]*)$/);
+    if (dataUriMos) {
+      mime = dataUriMos[1];
+      b64 = dataUriMos[2];
+    }
+    try {
+      const bin = atob(b64);
+      const arr = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+      return new File([arr], standartNomi, { type: mime });
+    } catch {
+      return null;
+    }
+  }
+
   async function jsonYukla(e) {
     const fayl = e.target.files[0];
     e.target.value = "";
@@ -129,8 +150,8 @@ export default function MashqlarBoshqarish() {
         korinish: m.korinish === "public" ? "public" : "private",
         matn: m.matn || "",
         namuna_javob: m.namuna_javob || "",
-        audio_fayl: null,
-        rasm: null,
+        audio_fayl: base64gaFayl(m.audio_base64, m.audio_nomi || "audio.mp3", m.audio_mime),
+        rasm: base64gaFayl(m.rasm_base64, m.rasm_nomi || "rasm.png", m.rasm_mime),
         savollar: Array.isArray(m.savollar)
           ? m.savollar.map((s) => ({
               savol: s.savol || "",
@@ -371,6 +392,8 @@ export default function MashqlarBoshqarish() {
                   <strong>{m.name}</strong>{" "}
                   <span className="izoh">
                     {t(`mashq_bolim_${m.bolim}`)} · {t(`mashq_tur_${m.tur}`)}
+                    {m.audio_fayl && " · 🎧"}
+                    {m.rasm && " · 🖼"}
                   </span>
                 </span>
                 <button className="tugma ikkinchi" onClick={() => navbatdanOlibTashla(i)}>
