@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import { tokenlarniTozala } from "../api";
+import { mediaManzil, tokenlarniTozala } from "../api";
 import { useI18n } from "../i18n";
 import { useProfil } from "../profilContext";
 
@@ -43,7 +43,9 @@ export default function Layout() {
   const markazNomi = profil?.markaz?.name || "Utmost o'quv markazi";
   // Owner markazga biriktirilmagan (markaz=null) — shu holatda ham standart
   // logo ko'rsatiladi, umumiy "U" harfiga tushib qolmasin.
-  const markazLogo = profil?.markaz?.logo_url || "/logo.jpg";
+  const markazLogo = profil?.markaz?.logo_url
+    ? mediaManzil(profil.markaz.logo_url)
+    : "/logo.jpg";
   useEffect(() => {
     if (profil?.markaz?.brend_rang) {
       document.documentElement.style.setProperty("--sariq", profil.markaz.brend_rang);

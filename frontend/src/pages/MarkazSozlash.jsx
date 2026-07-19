@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api, apiForm } from "../api";
+import { api, apiForm, mediaManzil } from "../api";
 import { useI18n } from "../i18n";
 
 export default function MarkazSozlash() {
@@ -49,7 +49,7 @@ export default function MarkazSozlash() {
           <div className="izoh" style={{ marginBottom: 6 }}>{t("logo")}</div>
           {markaz.logo_url && (
             <img
-              src={markaz.logo_url}
+              src={mediaManzil(markaz.logo_url)}
               alt={markaz.name}
               style={{ height: 48, marginBottom: 8, display: "block" }}
             />

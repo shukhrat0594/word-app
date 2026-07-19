@@ -1,5 +1,21 @@
 // Backend API qatlami — JWT localStorage'da, 401 bo'lsa refresh urinadi.
 
+// Production'da (Render) frontend va backend alohida domenlarda — backend
+// manzili build paytida VITE_API_URL orqali beriladi. Local dev'da bo'sh
+// qoladi va so'rovlar Vite proxy (vite.config.js) orqali Django'ga boradi.
+const API_BAZA = import.meta.env.VITE_API_URL || "";
+
+export function apiManzil(yol) {
+  return `${API_BAZA}${yol}`;
+}
+
+// Backend'dan kelgan nisbiy media URL (/media/...) uchun — production'da
+// backend domeni bilan to'ldiriladi. To'liq (http...) URL o'zgarmaydi.
+export function mediaManzil(url) {
+  if (!url) return url;
+  return url.startsWith("/") ? `${API_BAZA}${url}` : url;
+}
+
 export function tokenOl() {
   return localStorage.getItem("access");
 }
@@ -17,7 +33,7 @@ export function tokenlarniTozala() {
 async function refreshQil() {
   const refresh = localStorage.getItem("refresh");
   if (!refresh) return false;
-  const res = await fetch("/api/token/refresh/", {
+  const res = await fetch(apiManzil("/api/token/refresh/"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ refresh }),
@@ -30,7 +46,7 @@ async function refreshQil() {
 
 export async function api(yol, options = {}) {
   const sorov = () =>
-    fetch(yol, {
+    fetch(apiManzil(yol), {
       ...options,
       headers: {
         "Content-Type": "application/json",
@@ -64,7 +80,7 @@ export async function api(yol, options = {}) {
 // qilinmaydi va header qo'lda belgilanmaydi.
 export async function apiForm(yol, { method = "POST", formData } = {}) {
   const sorov = () =>
-    fetch(yol, {
+    fetch(apiManzil(yol), {
       method,
       headers: tokenOl() ? { Authorization: `Bearer ${tokenOl()}` } : {},
       body: formData,

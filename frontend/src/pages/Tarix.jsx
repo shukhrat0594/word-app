@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api } from "../api";
+import { api, mediaManzil } from "../api";
 import { useI18n } from "../i18n";
 import { xatoniAjrat } from "../xatoUtils";
 
@@ -48,7 +48,7 @@ export default function Tarix() {
             {ochiqmi && (
               <div className="karta" style={{ margin: "8px 0 16px", background: "var(--sirt-2)" }}>
                 {y.audio_url && (
-                  <audio controls src={y.audio_url} style={{ width: "100%", marginBottom: 14 }} />
+                  <audio controls src={mediaManzil(y.audio_url)} style={{ width: "100%", marginBottom: 14 }} />
                 )}
                 <h3>
                   {t("xatolar")} ({y.natija.errors?.length || 0})
