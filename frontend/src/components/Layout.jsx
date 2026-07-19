@@ -113,7 +113,7 @@ export default function Layout() {
           )}
           <div className="logo-nom">
             {markazNomi}
-            <small>{t("platforma")}</small>
+            <small>{profil?.ism || t("platforma")}</small>
           </div>
         </div>
         {navlar.map((n) => (
