@@ -75,6 +75,26 @@ export async function api(yol, options = {}) {
   return data;
 }
 
+// Autentifikatsiyalangan fayl (masalan audio stream) — <audio src> to'g'ridan
+// to'g'ri so'rov yubora olmaydi (Authorization header qo'shilmaydi), shuning
+// uchun blob sifatida olib, vaqtinchalik object URL yaratamiz.
+export async function apiBlobUrl(yol) {
+  const sorov = () =>
+    fetch(apiManzil(yol), {
+      headers: tokenOl() ? { Authorization: `Bearer ${tokenOl()}` } : {},
+    });
+
+  let res = await sorov();
+  if (res.status === 401 && (await refreshQil())) {
+    res = await sorov();
+  }
+  if (!res.ok) {
+    throw new Error(`HTTP ${res.status}`);
+  }
+  const blob = await res.blob();
+  return URL.createObjectURL(blob);
+}
+
 // Fayl yuklash (masalan markaz logotipi) — Content-Type'ni brauzer o'zi
 // (multipart boundary bilan) qo'yishi kerak, shuning uchun JSON.stringify
 // qilinmaydi va header qo'lda belgilanmaydi.

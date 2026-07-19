@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useI18n } from "../i18n";
+import MashqBank from "./MashqBank";
 import Speaking from "./Speaking";
 import Writing from "./Writing";
 
@@ -43,11 +44,7 @@ export default function Mashqlar() {
           <div style={{ marginTop: 16 }}>
             {bolim === "writing" && <Writing />}
             {bolim === "speaking" && <Speaking />}
-            {(bolim === "reading" || bolim === "listening") && (
-              <div className="karta">
-                <span className="izoh">{t("tez_orada")}</span>
-              </div>
-            )}
+            {(bolim === "reading" || bolim === "listening") && <MashqBank bolim={bolim} />}
           </div>
         </>
       )}

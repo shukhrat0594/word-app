@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
+import NamunaMavzular from "../components/NamunaMavzular";
 import { useI18n } from "../i18n";
 import { xatoniAjrat } from "../xatoUtils";
 
@@ -186,6 +187,8 @@ export default function Speaking() {
           ))}
         </div>
       )}
+
+      <NamunaMavzular bolim="speaking" />
     </>
   );
 }

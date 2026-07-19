@@ -183,6 +183,20 @@ textarea {
 .tarix-el:last-child { border-bottom: none; }
 .tarix-el:hover { color: var(--sariq); }
 
+/* ==== Mashq banki (Reading/Listening/Namuna mavzular) ==== */
+.mashq-royxat-el { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--chiziq); font-size: 13.5px; cursor: pointer; }
+.mashq-royxat-el:last-child { border-bottom: none; }
+.mashq-royxat-el:hover { color: var(--sariq); }
+.mashq-passage { white-space: pre-wrap; line-height: 1.6; font-size: 14px; margin-bottom: 18px; }
+.savol-blok { padding: 14px 0; border-bottom: 1px solid var(--chiziq); }
+.savol-blok:last-child { border-bottom: none; }
+.savol-matni { font-weight: 600; margin-bottom: 8px; }
+.variant-qator { display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 13.5px; cursor: pointer; }
+.variant-qator input { cursor: pointer; }
+.natija-belgi { font-weight: 700; margin-left: 8px; }
+.natija-belgi.togri { color: var(--yaxshi); }
+.natija-belgi.notogri { color: var(--xato); }
+
 /* ==== Leaderboard ==== */
 .lb-qator { display: flex; align-items: center; gap: 12px; padding: 9px 4px; border-bottom: 1px solid var(--chiziq); }
 .lb-qator:last-child { border-bottom: none; }

@@ -180,6 +180,7 @@ class MashqDetailView(APIView):
                 "bolim": mashq.bolim,
                 "tur": mashq.tur,
                 "matn": mashq.matn,
+                "namuna_javob": mashq.namuna_javob,
                 "audio_url": (
                     f"/api/mashqlar/{mashq.id}/audio/" if mashq.audio_fayl else None
                 ),
