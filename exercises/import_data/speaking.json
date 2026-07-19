@@ -1,0 +1,396 @@
+{
+  "part1": [
+    {
+      "category": "hometown",
+      "topic": "Hometown",
+      "questions": [
+        {
+          "question": "What is your hometown like?",
+          "sample_answer": "Well, I come from a mid-sized city with a mix of old buildings and modern shopping centers, so it's got a nice blend of history and convenience."
+        },
+        {
+          "question": "What do you like most about your hometown?",
+          "sample_answer": "To be honest, what I love most is the food scene — there are loads of small family-run cafes serving really authentic local dishes."
+        },
+        {
+          "question": "Has your hometown changed much over the years?",
+          "sample_answer": "Yeah, quite a lot actually — new roads and apartment blocks have popped up everywhere, so it feels much more urban than when I was a kid."
+        },
+        {
+          "question": "Would you like to live in your hometown in the future?",
+          "sample_answer": "I guess so, at least for a while, because my family is there and I feel a strong sense of belonging."
+        }
+      ],
+      "phrases": [
+        "a close-knit community",
+        "on the outskirts of",
+        "a bustling city center",
+        "steeped in history",
+        "undergo rapid development",
+        "a strong sense of belonging",
+        "a hidden gem",
+        "off the beaten track",
+        "a melting pot of cultures",
+        "picturesque scenery"
+      ]
+    },
+    {
+      "category": "work-or-study",
+      "topic": "Work or Study",
+      "questions": [
+        {
+          "question": "Do you work or are you a student?",
+          "sample_answer": "At the moment I'm studying — actually I'm in my final year at university, majoring in business administration."
+        },
+        {
+          "question": "What do you like about your studies?",
+          "sample_answer": "What I really enjoy is the group projects, because they let me apply theory to real-life case studies alongside my classmates."
+        },
+        {
+          "question": "Is there anything you dislike about your subject?",
+          "sample_answer": "If I'm honest, the exams can be pretty stressful since there's just so much material to memorize in a short time."
+        },
+        {
+          "question": "What are your plans after you finish studying?",
+          "sample_answer": "Well, I'm hoping to land an internship at a marketing firm, and eventually work my way up to a managerial position."
+        }
+      ],
+      "phrases": [
+        "pursue a degree in",
+        "hands-on experience",
+        "a heavy workload",
+        "climb the career ladder",
+        "work under pressure",
+        "a steep learning curve",
+        "meet a deadline",
+        "broaden my horizons",
+        "a nine-to-five job",
+        "strike a work-life balance"
+      ]
+    },
+    {
+      "category": "hobbies-and-free-time",
+      "topic": "Hobbies and Free Time",
+      "questions": [
+        {
+          "question": "What do you usually do in your free time?",
+          "sample_answer": "Honestly, I spend most of my downtime playing badminton with friends or just binge-watching series on weekends."
+        },
+        {
+          "question": "Have your hobbies changed since you were a child?",
+          "sample_answer": "Definitely — as a kid I was obsessed with drawing, but now I've shifted more towards outdoor activities like hiking."
+        },
+        {
+          "question": "Do you prefer hobbies you do alone or with others?",
+          "sample_answer": "I'd say a mix of both, but doing things with others, like team sports, tends to be more fun and keeps me motivated."
+        },
+        {
+          "question": "Is it important for people to have hobbies?",
+          "sample_answer": "Absolutely, I think hobbies help people unwind and recharge after a long, hectic week."
+        }
+      ],
+      "phrases": [
+        "unwind after a long day",
+        "an avid reader",
+        "take up a new hobby",
+        "recharge my batteries",
+        "kill two birds with one stone",
+        "a leisure activity",
+        "get hooked on something",
+        "a creative outlet",
+        "spare time",
+        "immerse myself in"
+      ]
+    },
+    {
+      "category": "family-and-friends",
+      "topic": "Family and Friends",
+      "questions": [
+        {
+          "question": "How many people are there in your family?",
+          "sample_answer": "There are four of us — my parents, my younger sister, and me, and we're all pretty close-knit."
+        },
+        {
+          "question": "Who are you closest to in your family?",
+          "sample_answer": "I'd say my mother, to be honest, since she's always been the one I turn to whenever I need advice."
+        },
+        {
+          "question": "How often do you see your friends?",
+          "sample_answer": "These days, probably once or twice a week, mostly because everyone's caught up with work and studies."
+        },
+        {
+          "question": "What qualities do you look for in a friend?",
+          "sample_answer": "For me, honesty and a good sense of humor matter most — someone I can be completely myself around."
+        }
+      ],
+      "phrases": [
+        "a tight-knit family",
+        "extended family",
+        "see eye to eye",
+        "a shoulder to cry on",
+        "keep in touch",
+        "a childhood friend",
+        "get along well with",
+        "lean on someone",
+        "a strong bond",
+        "through thick and thin"
+      ]
+    },
+    {
+      "category": "daily-routine",
+      "topic": "Daily Routine",
+      "questions": [
+        {
+          "question": "What does a typical day look like for you?",
+          "sample_answer": "Well, I usually wake up around seven, grab a quick breakfast, then head straight to classes or work."
+        },
+        {
+          "question": "What part of your day do you enjoy the most?",
+          "sample_answer": "Honestly, it's the evening, because that's when I finally get to relax and catch up with family."
+        },
+        {
+          "question": "Has your daily routine changed recently?",
+          "sample_answer": "Yeah, quite a bit — since I started university, I've had to wake up earlier and manage my time far more strictly."
+        },
+        {
+          "question": "Do you think routines are important?",
+          "sample_answer": "I do, actually, because having some structure keeps me productive and stops the day from feeling chaotic."
+        }
+      ],
+      "phrases": [
+        "rise and shine",
+        "a hectic schedule",
+        "get into the swing of things",
+        "on autopilot",
+        "wind down before bed",
+        "juggle multiple tasks",
+        "a creature of habit",
+        "from dawn till dusk",
+        "squeeze something into my schedule",
+        "stick to a routine"
+      ]
+    }
+  ],
+  "part2_3": [
+    {
+      "category": "memorable-trip",
+      "cue_card": "Describe a memorable trip you have taken.\nYou should say:\n- where you went\n- who you went with\n- what you did there\nand explain why this trip was memorable for you.",
+      "structure": [
+        "Kirish: sayohat haqida umumiy ma'lumot bering (qachon va qayerga borganingiz)",
+        "Asosiy qism 1: kim bilan borganingiz va nega aynan shu odamlar/joy tanlangani",
+        "Asosiy qism 2: u yerda nima qilganingiz — asosiy faoliyatlar va voqealar",
+        "Asosiy qism 3: nima uchun bu sayohat sizga unutilmas bo'lgani (his-tuyg'ular, sabab)",
+        "Xulosa: umumiy taassurot va bu tajriba sizga qanday ta'sir qilgani"
+      ],
+      "phrases": [
+        "off the beaten track",
+        "a once-in-a-lifetime experience",
+        "breathtaking scenery",
+        "immerse myself in the local culture",
+        "a whirlwind tour",
+        "make lasting memories",
+        "broaden my horizons",
+        "get away from it all",
+        "a spur-of-the-moment decision",
+        "soak up the atmosphere",
+        "come back with a fresh perspective",
+        "an unforgettable adventure"
+      ],
+      "sample_answer": "Well, one trip that really stands out in my memory is a road trip I took to the mountains with three of my closest friends about two years ago. We'd actually planned it on a whim — it was kind of a spur-of-the-moment decision after we finished our exams and just wanted to get away from it all. We drove for almost six hours, and once we arrived, we spent four days hiking, camping by a lake, and just soaking up the atmosphere of being surrounded by nature instead of the usual city noise. To be honest, what made it so memorable wasn't really the scenery, although it was breathtaking, but the fact that we disconnected from our phones completely and just talked, laughed, and helped each other set up tents and cook meals over a campfire. There was this one evening when we watched the sunset from a cliff, and none of us said a word — we just sat there taking it all in. I guess that trip taught me how important it is to slow down sometimes. Even now, whenever I feel stressed, I think back to that trip and it genuinely lifts my mood.",
+      "part3_questions": [
+        {
+          "question": "Why do you think people enjoy traveling?",
+          "sample_answer": "I think people travel mainly to escape their daily routine and experience something completely different. It also broadens their perspective, since seeing how other people live often challenges assumptions they didn't even realize they had."
+        },
+        {
+          "question": "What are the benefits of traveling with friends compared to traveling alone?",
+          "sample_answer": "Traveling with friends means you've got someone to share the experience with, which honestly makes the memories feel more meaningful. On the other hand, traveling alone gives you more flexibility and forces you to be more independent, so both have their own advantages."
+        },
+        {
+          "question": "Do you think tourism can have negative effects on a place?",
+          "sample_answer": "Definitely — overtourism can put a huge strain on local infrastructure and drive up prices for residents. There's also the environmental impact, since popular destinations often struggle with pollution and overcrowding."
+        },
+        {
+          "question": "How has traveling changed over the past few decades?",
+          "sample_answer": "I'd say it's become far more accessible, mainly because of budget airlines and online booking platforms that make planning so much easier. At the same time, technology like smartphones has changed the experience itself, since people now document everything instead of just living in the moment."
+        }
+      ]
+    },
+    {
+      "category": "inspiring-person",
+      "cue_card": "Describe a person who has inspired you.\nYou should say:\n- who this person is\n- how you know them\n- what they have done that inspires you\nand explain why this person has had such an impact on you.",
+      "structure": [
+        "Kirish: kim ekanini va u bilan aloqangizni qisqacha ayting",
+        "Asosiy qism 1: u bilan qanday tanishganingiz yoki bilishingiz",
+        "Asosiy qism 2: uning qanday xususiyatlari yoki qilgan ishlari sizni ilhomlantirgani",
+        "Asosiy qism 3: bu insonning shaxsiyatingizga yoki qarashlaringizga ta'siri",
+        "Xulosa: umumiy fikr va bu ilhom sizga hozir qanday yordam berayotgani"
+      ],
+      "phrases": [
+        "a role model",
+        "lead by example",
+        "against all odds",
+        "sheer determination",
+        "go the extra mile",
+        "a driving force",
+        "down-to-earth",
+        "an inspiring figure",
+        "overcome adversity",
+        "instill values in someone",
+        "leave a lasting impression",
+        "selfless dedication"
+      ],
+      "sample_answer": "The person who has inspired me the most is actually my high school teacher, Mrs. Karimova, who taught me literature for three years. I got to know her properly in my second year, when I was really struggling academically and honestly thinking about dropping a subject altogether. What inspires me about her is her sheer determination and the way she went the extra mile for every single student, even staying after classes just to help us one-on-one without ever complaining. She grew up in a small village with very few resources, yet through hard work she managed to overcome adversity and build a successful career, which to me is incredibly admirable. What really had such a big impact on me was her belief that anyone can improve if they just put in consistent effort — she used to say talent is overrated compared to persistence. Honestly, that mindset stuck with me, and I now apply it to pretty much everything I do, whether it's studying or learning a new skill. Even years later, I still think of her whenever I feel like giving up on something, and I guess that's the mark of someone who's truly inspiring.",
+      "part3_questions": [
+        {
+          "question": "What qualities make someone a good role model?",
+          "sample_answer": "I'd say honesty and consistency are key, because people need to see that someone's actions actually match their words. Resilience also matters a lot, since a good role model shows others how to handle setbacks gracefully."
+        },
+        {
+          "question": "Do you think celebrities are good role models for young people?",
+          "sample_answer": "Not always, to be honest — a lot of celebrities are famous for their image rather than genuine achievements, which can send the wrong message. That said, some do use their platform responsibly to promote positive causes."
+        },
+        {
+          "question": "Is it more common for people to be inspired by family members or people outside the family?",
+          "sample_answer": "I think it varies depending on the person, but family members often have a deeper influence simply because of the amount of time spent together growing up. Outside figures, though, can inspire specific ambitions, like a particular career path."
+        },
+        {
+          "question": "How can teachers inspire their students?",
+          "sample_answer": "Teachers can inspire students by showing genuine passion for their subject, since enthusiasm tends to be contagious. They can also inspire through patience, by believing in students even when the students don't yet believe in themselves."
+        }
+      ]
+    },
+    {
+      "category": "favorite-book",
+      "cue_card": "Describe a book you enjoyed reading.\nYou should say:\n- what the book is about\n- when you read it\n- why you decided to read it\nand explain why you enjoyed it so much.",
+      "structure": [
+        "Kirish: kitobning nomi (yoki mavzusi) va janrini ayting",
+        "Asosiy qism 1: qachon va nima sababdan uni o'qiganingiz",
+        "Asosiy qism 2: kitobning qisqacha mazmuni",
+        "Asosiy qism 3: nima uchun sizga yoqqani (his-tuyg'u, dars)",
+        "Xulosa: umumiy taassurot va tavsiya qilasizmi yoki yo'q"
+      ],
+      "phrases": [
+        "a page-turner",
+        "get lost in a story",
+        "thought-provoking",
+        "a plot twist",
+        "relate to a character",
+        "an eye-opening read",
+        "hooked from the first page",
+        "food for thought",
+        "a gripping narrative",
+        "put a book down",
+        "leave a deep impression",
+        "broaden one's outlook"
+      ],
+      "sample_answer": "One book that I genuinely enjoyed reading is a novel about a young man who leaves his hometown to pursue an unconventional dream, despite his family's disapproval. I actually read it about a year ago during semester break, when a close friend of mine recommended it after noticing I was going through a bit of a rough patch trying to decide on my own career path. I picked it up out of curiosity more than anything, but honestly, I was hooked from the first page. The story follows the main character through various struggles and failures, but what I loved was how realistically it portrayed self-doubt without making everything feel overly dramatic. There's this one plot twist about halfway through that completely changed how I viewed the protagonist's choices, and it genuinely made me pause and reflect on my own life decisions. What made it such a gripping narrative for me was that I could really relate to the character's fear of disappointing his family. By the end, I felt like I'd gained a completely different outlook on taking risks. I'd definitely recommend it to anyone feeling stuck or unsure about their future.",
+      "part3_questions": [
+        {
+          "question": "Do you think reading habits have changed because of technology?",
+          "sample_answer": "Definitely — a lot of people now prefer e-books or audiobooks simply because they're more convenient for busy lifestyles. That said, I think something is lost, since physical books tend to hold people's attention better without the distractions of notifications."
+        },
+        {
+          "question": "Why do some people prefer fiction while others prefer non-fiction?",
+          "sample_answer": "I think it comes down to what someone's looking for — fiction offers an escape and emotional engagement, while non-fiction appeals to people who want practical knowledge or facts. Personally, I enjoy switching between the two depending on my mood."
+        },
+        {
+          "question": "Should children be encouraged to read more books?",
+          "sample_answer": "Absolutely, because reading from a young age builds vocabulary and critical thinking skills that are hard to develop otherwise. It also nurtures imagination in a way that passive activities like watching TV simply can't match."
+        },
+        {
+          "question": "Do you think books will eventually be replaced by digital media entirely?",
+          "sample_answer": "I doubt it completely, though digital formats will likely dominate in terms of convenience. There's still a strong nostalgic and sensory appeal to physical books that a lot of readers just aren't willing to give up."
+        }
+      ]
+    },
+    {
+      "category": "skill-to-learn",
+      "cue_card": "Describe a skill you would like to learn.\nYou should say:\n- what the skill is\n- why you want to learn it\n- how you would learn it\nand explain how this skill would benefit you.",
+      "structure": [
+        "Kirish: qaysi ko'nikmani o'rganmoqchi ekaningizni ayting",
+        "Asosiy qism 1: nima uchun aynan shu ko'nikmani tanlaganingiz",
+        "Asosiy qism 2: uni qanday o'rganish rejangiz bor (kurslar, o'z-o'zidan, va h.k.)",
+        "Asosiy qism 3: bu ko'nikma sizga qanday foyda keltirishi mumkinligi",
+        "Xulosa: umumiy fikr va motivatsiyangiz"
+      ],
+      "phrases": [
+        "pick up a skill",
+        "be self-taught",
+        "hands-on practice",
+        "a steep learning curve",
+        "master a craft",
+        "come in handy",
+        "invest time and effort",
+        "trial and error",
+        "take lessons",
+        "build confidence",
+        "a valuable asset",
+        "open up opportunities"
+      ],
+      "sample_answer": "A skill I've genuinely wanted to learn for quite a while now is playing the guitar. I guess my interest really started when a close friend of mine picked it up during university and I noticed how much it helped him unwind after stressful days, plus it just seemed like such a valuable asset to have at social gatherings. I'm planning to learn mostly through online tutorials, since there are countless free resources these days, though I'd probably also take a few in-person lessons at the start just to get the basics right, like proper finger positioning and chord transitions. Honestly, I know there's a pretty steep learning curve involved, especially with building up calluses on my fingers, but I'm willing to invest the time and effort because I think it would benefit me in more ways than one. For starters, it would give me a creative outlet away from screens, and I imagine it would also boost my confidence, especially in social situations where I could actually contribute something at a get-together instead of just watching. Beyond that, I've read that learning an instrument improves memory and discipline, so honestly, it feels like a win-win skill to pick up.",
+      "part3_questions": [
+        {
+          "question": "What skills are most useful for young people to learn nowadays?",
+          "sample_answer": "I'd say digital literacy is essential now, since almost every job requires some level of comfort with technology. Communication skills are equally important too, because they affect everything from job interviews to everyday teamwork."
+        },
+        {
+          "question": "Is it better to learn a skill through formal classes or by self-teaching?",
+          "sample_answer": "I think it depends on the skill itself — something technical like coding often benefits from structured classes, while creative skills can be picked up quite effectively through self-teaching and practice. Ideally, a combination of both works best."
+        },
+        {
+          "question": "Do you think adults find it harder to learn new skills than children?",
+          "sample_answer": "In some ways, yes, mainly because adults have less free time and often feel more self-conscious about making mistakes. However, adults also have better discipline and clearer motivation, which can actually speed up the learning process."
+        },
+        {
+          "question": "How important is practice compared to natural talent when learning a skill?",
+          "sample_answer": "Honestly, I'd say practice matters far more in the long run, since even naturally talented people plateau without consistent effort. Talent might give someone a head start, but persistence is really what determines mastery."
+        }
+      ]
+    },
+    {
+      "category": "technology-often-used",
+      "cue_card": "Describe a piece of technology you use often.\nYou should say:\n- what it is\n- how often you use it\n- what you use it for\nand explain why it is important to you.",
+      "structure": [
+        "Kirish: qaysi texnologiya haqida gapirishingizni ayting",
+        "Asosiy qism 1: uni qanchalik tez-tez ishlatishingiz",
+        "Asosiy qism 2: uni asosan nima uchun ishlatishingiz (funksiyalari)",
+        "Asosiy qism 3: nima uchun bu texnologiya siz uchun muhim ekani",
+        "Xulosa: umumiy fikr, ijobiy va salbiy tomonlari haqida qisqacha"
+      ],
+      "phrases": [
+        "an indispensable tool",
+        "stay connected",
+        "streamline daily tasks",
+        "at the touch of a button",
+        "rely heavily on something",
+        "cutting-edge technology",
+        "a game-changer",
+        "tech-savvy",
+        "multitask effortlessly",
+        "be glued to a screen",
+        "enhance productivity",
+        "a double-edged sword"
+      ],
+      "sample_answer": "The piece of technology I probably use the most is my smartphone, and honestly, it's become such an indispensable tool that I can barely imagine getting through a day without it. I'd say I use it practically every hour, whether it's for checking messages, browsing the internet, or setting reminders for assignments and appointments. Beyond just communication, I rely heavily on it for things like online banking, navigation whenever I'm in an unfamiliar area, and even for entertainment, like listening to podcasts during my commute. What makes it so important to me is how it streamlines so many daily tasks that used to take much longer, like paying bills or looking up information, which now I can do at the touch of a button. It's also become my main way of staying connected with family and friends who live in different cities, through video calls and messaging apps. That said, I'll admit it's a bit of a double-edged sword, because sometimes I catch myself being glued to the screen far longer than I intend to, scrolling mindlessly. Still, on balance, I think the convenience and productivity it brings to my life far outweigh the downsides.",
+      "part3_questions": [
+        {
+          "question": "How has technology changed the way people communicate?",
+          "sample_answer": "Technology has made communication instant and constant, so people no longer have to wait days for a letter or rely solely on landlines. At the same time, I think it's made communication less personal in some ways, since face-to-face interaction has decreased."
+        },
+        {
+          "question": "Do you think people are too dependent on technology today?",
+          "sample_answer": "I'd say many people are, especially when it comes to smartphones, since a lot of us feel anxious without immediate access to them. That dependency can be problematic, but technology also genuinely improves efficiency, so it's a bit of a trade-off."
+        },
+        {
+          "question": "What technology do you think will become common in the future?",
+          "sample_answer": "I imagine artificial intelligence will become even more embedded into everyday devices, handling tasks automatically without much input from users. Wearable technology monitoring health in real time also seems likely to become mainstream within the next decade."
+        },
+        {
+          "question": "Is technology making children less social?",
+          "sample_answer": "To some extent, yes, since a lot of children now spend more time on screens than playing outside with peers, which can limit face-to-face social skills. However, technology also connects children through online games and platforms, so it's creating a different, not necessarily worse, form of socializing."
+        }
+      ]
+    }
+  ]
+}

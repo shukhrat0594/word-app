@@ -1,0 +1,205 @@
+[
+  {
+    "id": "listening-01",
+    "type": "multiple-choice",
+    "title": "Library Registration",
+    "level": "A2",
+    "transcript": "Good afternoon. I'd like to know more about borrowing books from this library. As a new student, how many books am I allowed to borrow at one time? You can borrow up to eight books at once, and the loan period is three weeks for most items, though DVDs and equipment are limited to one week. And what happens if I return something late? There's a fine of twenty cents per day for regular books, but reference materials and rare books cannot be taken out of the building at all. I see. Also, is there a photocopying service here? Yes, on the ground floor near the main entrance. It costs ten cents per page in black and white, and thirty cents for color copies. That's helpful, thank you. One last question, do I need to bring my student card every time? Yes, you must show your student card each time you borrow or return items, otherwise we cannot process your request.",
+    "exercises": [
+      { "type": "multiple-choice", "question": "How many books can a student borrow at one time?", "options": ["Five", "Eight", "Ten", "Twelve"], "correct": "Eight" },
+      { "type": "multiple-choice", "question": "What is the loan period for DVDs?", "options": ["One week", "Two weeks", "Three weeks", "One month"], "correct": "One week" },
+      { "type": "multiple-choice", "question": "How much is the fine for a late regular book?", "options": ["Ten cents per day", "Twenty cents per day", "Fifty cents per day", "One dollar per day"], "correct": "Twenty cents per day" }
+    ]
+  },
+  {
+    "id": "listening-02",
+    "type": "multiple-choice",
+    "title": "Gym Membership",
+    "level": "B1",
+    "transcript": "Hi, I'm calling about the gym membership options you offer. Could you explain the different plans? Of course. We have three plans: the Basic plan at twenty-five dollars a month gives you access to the gym floor only. The Standard plan, at forty dollars, includes the gym floor plus all group fitness classes. The Premium plan is sixty-five dollars a month and includes everything in Standard plus unlimited access to the swimming pool and sauna. That's useful. Is there a joining fee? Yes, there's a one-time joining fee of thirty dollars for all plans, but this is often waived during promotional periods. And can I freeze my membership if I travel? Absolutely. You can freeze your membership for up to two months per year at no extra cost, as long as you notify us at least a week in advance. Great, and what are your opening hours? We're open from six in the morning until eleven at night on weekdays, and from eight until eight on weekends.",
+    "exercises": [
+      { "type": "multiple-choice", "question": "How much does the Standard plan cost per month?", "options": ["$25", "$40", "$65", "$30"], "correct": "$40" },
+      { "type": "multiple-choice", "question": "What does the Premium plan include that Standard does not?", "options": ["Group fitness classes", "Personal trainer", "Swimming pool and sauna", "Locker rental"], "correct": "Swimming pool and sauna" },
+      { "type": "multiple-choice", "question": "How long can a member freeze their membership per year?", "options": ["One month", "Six weeks", "Two months", "Three months"], "correct": "Two months" }
+    ]
+  },
+  {
+    "id": "listening-03",
+    "type": "matching",
+    "title": "Museum Floor Guide",
+    "level": "A2",
+    "transcript": "Welcome to the City History Museum. Let me give you a quick overview of what you'll find on each floor. On the ground floor, you'll find our permanent exhibition on ancient settlements, including pottery and tools from over two thousand years ago. The first floor is dedicated to the medieval period, with a fascinating collection of armor and manuscripts. If you go up to the second floor, that's where we display items from the industrial revolution, including early machinery and photographs of the first factories in the region. Finally, the third floor houses our modern art gallery, which changes exhibitions every few months and currently features local contemporary painters. There's also a small cafe on the ground floor if you'd like to take a break.",
+    "exercises": [
+      {
+        "type": "matching",
+        "instructions": "Match each floor to what is displayed there.",
+        "items": ["Ground floor", "First floor", "Second floor", "Third floor"],
+        "options": ["Ancient settlements", "Medieval period", "Industrial revolution", "Modern art", "Natural history"],
+        "correctMapping": { "Ground floor": "Ancient settlements", "First floor": "Medieval period", "Second floor": "Industrial revolution", "Third floor": "Modern art" }
+      }
+    ]
+  },
+  {
+    "id": "listening-04",
+    "type": "matching",
+    "title": "New Employees",
+    "level": "B1",
+    "transcript": "Let me tell you where our four new employees will be working. Sarah, who has a background in accounting, will be joining the Finance department to help manage our budgets. Tom, who studied graphic design at university, will be working in the Marketing department, creating promotional materials for our products. Then there's Aisha, who has several years of experience in customer service, she'll be heading up our new Customer Support team. Finally, David, who has a strong technical background in software development, will join the IT department to help maintain our internal systems.",
+    "exercises": [
+      {
+        "type": "matching",
+        "instructions": "Match each employee to their department.",
+        "items": ["Sarah", "Tom", "Aisha", "David"],
+        "options": ["Finance", "Marketing", "Customer Support", "IT", "Human Resources"],
+        "correctMapping": { "Sarah": "Finance", "Tom": "Marketing", "Aisha": "Customer Support", "David": "IT" }
+      }
+    ]
+  },
+  {
+    "id": "listening-05",
+    "type": "form-completion",
+    "title": "Hotel Booking",
+    "level": "A2",
+    "transcript": "Good morning, Lakeside Hotel, how can I help you? Hi, I'd like to book a room for next weekend. Certainly, can I take your name please? Yes, it's Michael Turner. That's T-U-R-N-E-R. Thank you, Mr. Turner. And what dates would you like to stay? We'd like to check in on Friday the fourteenth and check out on Sunday the sixteenth, so that's two nights. Perfect, and how many guests will be staying? There will be two adults and one child. Great, would you prefer a room with a city view or a lake view? A lake view, please, if that's available. It is. That will be a Deluxe Double Room with a lake view for one hundred and eighty dollars per night. Could I get a contact number in case we need to reach you? Sure, it's zero seven seven, four one two, six six zero five. Thank you very much, Mr. Turner. We look forward to welcoming you.",
+    "exercises": [
+      {
+        "type": "form-completion",
+        "instructions": "Complete the hotel booking form.",
+        "fields": [
+          { "label": "Guest name", "answer": "Michael Turner" },
+          { "label": "Check-in date", "answer": "Friday 14th" },
+          { "label": "Number of nights", "answer": "2" },
+          { "label": "Room type", "answer": "Deluxe Double Room" },
+          { "label": "View", "answer": "Lake view" },
+          { "label": "Price per night", "answer": "$180" }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "listening-06",
+    "type": "form-completion",
+    "title": "Course Registration",
+    "level": "B1",
+    "transcript": "Hello, I'd like to register for one of your evening courses. Of course, which course are you interested in? I saw the Introduction to Photography course listed online. Great choice. That course runs every Tuesday evening from six to eight, starting on the third of March and running for eight weeks. And how much does it cost? The full course fee is one hundred and twenty dollars, but there's a ten percent discount if you pay before the end of this month. That sounds good. What do I need to bring to the first class? Just a notebook and, if you have one, your own camera, though we do have a few cameras available to borrow if needed. Can I get your name and email address to complete the registration? Yes, it's Elena Petrova, and my email is elena dot petrova at mailbox dot com. Perfect, you're now registered for the course starting March third.",
+    "exercises": [
+      {
+        "type": "form-completion",
+        "instructions": "Complete the course registration form.",
+        "fields": [
+          { "label": "Course name", "answer": "Introduction to Photography" },
+          { "label": "Day", "answer": "Tuesday" },
+          { "label": "Start date", "answer": "March 3rd" },
+          { "label": "Duration", "answer": "8 weeks" },
+          { "label": "Course fee", "answer": "$120" },
+          { "label": "Student name", "answer": "Elena Petrova" }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "listening-07",
+    "type": "short-answer",
+    "title": "Daily Routine",
+    "level": "A2",
+    "transcript": "So, can you tell me a bit about your typical weekday morning? Sure. I usually wake up at six thirty, and the first thing I do is go for a short run around the park near my house, about twenty minutes. That's a great way to start the day. What do you have for breakfast? Just something simple, usually oatmeal with fruit and a cup of green tea. And how do you get to work? I take the bus, it's about a thirty-five minute journey, and I usually read on the way. Do you have a favorite part of the day? Definitely the evening, when I get to relax and read for pleasure, usually a novel, before going to bed around ten thirty.",
+    "exercises": [
+      {
+        "type": "short-answer",
+        "instructions": "Answer each question in no more than three words.",
+        "questions": [
+          { "question": "What time does the speaker wake up?", "answer": "six thirty" },
+          { "question": "How long is the speaker's morning run?", "answer": "twenty minutes" },
+          { "question": "What does the speaker have for breakfast?", "answer": "oatmeal with fruit" },
+          { "question": "How does the speaker travel to work?", "answer": "bus" }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "listening-08",
+    "type": "short-answer",
+    "title": "Summer Travel Plans",
+    "level": "B1",
+    "transcript": "I heard you're planning a trip this summer. Where are you thinking of going? Yes, my partner and I are planning to visit Portugal, specifically Lisbon and Porto. How long will you be there? We're planning a ten-day trip, split evenly between the two cities. How are you getting there? We found a direct flight, so it should take about four hours from here. Are you staying in hotels? Actually, we booked an apartment through a rental website, it's usually cheaper and gives us more space than a hotel room. Sounds like a great trip. Any specific places you want to visit? Yes, we really want to see the old bookshop in Porto and take a boat tour along the river.",
+    "exercises": [
+      {
+        "type": "short-answer",
+        "instructions": "Answer each question in no more than three words.",
+        "questions": [
+          { "question": "Which two cities will they visit?", "answer": "Lisbon and Porto" },
+          { "question": "How long is the trip?", "answer": "ten days" },
+          { "question": "How long is the flight?", "answer": "four hours" },
+          { "question": "Where will they stay?", "answer": "an apartment" }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "listening-09",
+    "type": "multiple-choice",
+    "title": "Airport Check-in",
+    "level": "A2",
+    "transcript": "Good morning, welcome to Skyline Airlines, how can I help you today? Hi, I'd like to check in for my flight to Manchester. Certainly, could I see your passport and booking reference please? Yes, here you go. Thank you. I can see you're on flight SK 204, departing at two forty-five this afternoon. Would you like a window or an aisle seat? An aisle seat would be great, if possible. No problem, I've given you seat fourteen C. How many bags will you be checking in today? Just the one suitcase. That's fine, the weight limit is twenty-three kilograms, and yours is well within that. Your boarding gate is gate sixteen, and boarding begins one hour before departure. Please make sure you arrive at the gate at least thirty minutes before boarding starts. Thank you, and have a pleasant flight.",
+    "exercises": [
+      { "type": "multiple-choice", "question": "What seat is the passenger given?", "options": ["14A", "14B", "14C", "16C"], "correct": "14C" },
+      { "type": "multiple-choice", "question": "What is the maximum weight allowed for checked baggage?", "options": ["20 kg", "23 kg", "25 kg", "30 kg"], "correct": "23 kg" },
+      { "type": "multiple-choice", "question": "Which gate does the passenger need to go to?", "options": ["Gate 14", "Gate 16", "Gate 20", "Gate 24"], "correct": "Gate 16" }
+    ]
+  },
+  {
+    "id": "listening-10",
+    "type": "matching",
+    "title": "Weekend Plans",
+    "level": "A2",
+    "transcript": "Let me tell you what everyone's doing this weekend. Laura is going hiking in the mountains with a group from her climbing club, she loves being outdoors. Ben, on the other hand, is staying home to finish painting his living room, he's been meaning to do it for weeks. Priya is heading to her cousin's wedding in another city, so she'll be away for the whole weekend. And Karim is planning to spend Saturday at the local market, buying fresh vegetables and fruit for the week ahead.",
+    "exercises": [
+      {
+        "type": "matching",
+        "instructions": "Match each person to their weekend activity.",
+        "items": ["Laura", "Ben", "Priya", "Karim"],
+        "options": ["Hiking", "Painting the house", "Attending a wedding", "Shopping at the market", "Watching a football match"],
+        "correctMapping": { "Laura": "Hiking", "Ben": "Painting the house", "Priya": "Attending a wedding", "Karim": "Shopping at the market" }
+      }
+    ]
+  },
+  {
+    "id": "listening-11",
+    "type": "form-completion",
+    "title": "Restaurant Reservation",
+    "level": "B1",
+    "transcript": "Good evening, The Olive Tree restaurant, how can I help you? Hi, I'd like to make a reservation for Saturday evening. Of course, what time would you like to come? Around seven thirty, if that's possible. Let me check, yes, seven thirty works well. And how many people will be in your party? There will be four of us. Great, could I take a name for the booking? Yes, it's under the name Robertson. And do you have any dietary requirements we should know about? Yes, one of our guests is vegetarian. Noted, we'll make sure to have some vegetarian options ready. Finally, could I get a contact number? Sure, it's zero nine one, five five zero, two two three three. Perfect, we look forward to seeing you at seven thirty on Saturday.",
+    "exercises": [
+      {
+        "type": "form-completion",
+        "instructions": "Complete the restaurant reservation form.",
+        "fields": [
+          { "label": "Day", "answer": "Saturday" },
+          { "label": "Time", "answer": "7:30" },
+          { "label": "Number of guests", "answer": "4" },
+          { "label": "Name", "answer": "Robertson" },
+          { "label": "Dietary requirement", "answer": "Vegetarian" }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "listening-12",
+    "type": "short-answer",
+    "title": "Talking About a Pet",
+    "level": "A2",
+    "transcript": "Do you have any pets? Yes, I have a small dog called Max, he's a golden retriever. How long have you had him? We got him about two years ago, when he was just a puppy. What's he like? He's very friendly and energetic, he loves playing in the garden and going for long walks. Where do you usually take him for walks? There's a big park near our house, we go there most evenings after dinner.",
+    "exercises": [
+      {
+        "type": "short-answer",
+        "instructions": "Answer each question in no more than three words.",
+        "questions": [
+          { "question": "What breed is the dog?", "answer": "golden retriever" },
+          { "question": "How long have they had the dog?", "answer": "two years" },
+          { "question": "Where do they usually walk the dog?", "answer": "a park" },
+          { "question": "When do they usually go for walks?", "answer": "in the evening" }
+        ]
+      }
+    ]
+  }
+]

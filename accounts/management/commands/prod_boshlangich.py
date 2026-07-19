@@ -7,6 +7,9 @@ Uch ish qiladi, har biri faqat kerak bo'lsa:
      o'zgaruvchilaridan yaratadi. Mavjud foydalanuvchilarga TEGMAYDI —
      parol faqat yangi yaratilganda o'rnatiladi.
   3. O'yin kontenti (Soz) bo'sh bo'lsa — games/fixtures/oyinlar.json yuklaydi.
+  4. word-app-backup'dan IELTS mashqlarini import qiladi (wordapp_import,
+     ichkarida o'zi idempotent — audio fayllarni esa HAR safar qayta
+     nusxalaydi, chunki disk har deploy'da tozalanadi).
 """
 
 from decouple import config
@@ -57,3 +60,5 @@ class Command(BaseCommand):
         else:
             call_command("loaddata", "oyinlar")
             self.stdout.write(f"O'yin kontenti yuklandi: {Soz.objects.count()} so'z")
+
+        call_command("wordapp_import")

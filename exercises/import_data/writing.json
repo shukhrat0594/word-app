@@ -1,0 +1,288 @@
+[
+  {
+    "category": "line-graph",
+    "prompt": "The line graph below shows the number of visitors (in thousands) to three museums in a European city between 2005 and 2020. Summarise the information by selecting and reporting the main features, and make comparisons where relevant.",
+    "structure": [
+      "1-paragraf (Kirish): Savolni o'z so'zlaring bilan qayta ifodala (paraphrase) - grafik nimani tasvirlashini umumiy tarzda yoz.",
+      "2-paragraf (Umumiy tavsif - Overview): Eng muhim 2-3 ta umumiy tendensiyani, eng yuqori va eng past ko'rsatkichlarni aniq raqamlarsiz umumlashtir.",
+      "3-paragraf (Batafsil tavsif 1): Grafikdagi ikkita ob'ektni (masalan, birinchi va ikkinchi muzey) taqqoslab, aniq raqamlar va yillar bilan tasvirla.",
+      "4-paragraf (Batafsil tavsif 2): Qolgan ob'ekt(lar)ni va ular orasidagi farq yoki o'xshashliklarni tasvirla, xulosani ta'kidlab yakunla."
+    ],
+    "phrases": [
+      "rose steadily",
+      "increased sharply",
+      "declined gradually",
+      "remained relatively stable",
+      "fluctuated slightly",
+      "reached a peak of",
+      "hit its lowest point",
+      "overtook",
+      "in contrast to",
+      "whereas",
+      "by the end of the period",
+      "there was a slight dip in",
+      "more than doubled",
+      "showed a similar pattern",
+      "from X to Y respectively"
+    ],
+    "sample_answer": "The line graph illustrates how many people visited three museums in a European city over a fifteen-year period, from 2005 to 2020, measured in thousands.\n\nOverall, visitor numbers at the Science Museum rose considerably throughout the period, while the History Museum experienced a gradual decline. The Art Gallery, meanwhile, remained comparatively stable, with only minor fluctuations from year to year.\n\nIn 2005, the History Museum was the most popular destination, attracting around 180,000 visitors, compared with 120,000 at the Science Museum and 90,000 at the Art Gallery. However, this pattern shifted dramatically over the following decade. By 2015, the Science Museum had overtaken the History Museum, drawing approximately 210,000 visitors, whereas the History Museum's figures had dropped to just 130,000.\n\nThe Art Gallery followed a much steadier trajectory, hovering between 85,000 and 100,000 visitors for most of the period, with only a brief dip around 2012. By 2020, the Science Museum had reached its peak of roughly 250,000 visitors, firmly establishing itself as the most visited of the three, while the History Museum continued to fall, ending the period at just under 100,000.\n\nIn summary, the data reveals a clear reversal in popularity between the Science and History Museums, with the Art Gallery maintaining a consistently moderate level of interest throughout.",
+    "chart": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 700 400\" width=\"100%\" height=\"100%\">\n  <rect width=\"700\" height=\"400\" fill=\"#ffffff\"/>\n  <text x=\"350\" y=\"30\" font-family=\"Arial, sans-serif\" font-size=\"16\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#333\">Museum Visitors (2005-2020) in Thousands</text>\n  \n  <!-- Grid Lines & Y-Axis -->\n  <line x1=\"80\" y1=\"330\" x2=\"650\" y2=\"330\" stroke=\"#ccc\" stroke-width=\"1\"/>\n  <line x1=\"80\" y1=\"270\" x2=\"650\" y2=\"270\" stroke=\"#eee\" stroke-width=\"1\"/>\n  <line x1=\"80\" y1=\"210\" x2=\"650\" y2=\"210\" stroke=\"#eee\" stroke-width=\"1\"/>\n  <line x1=\"80\" y1=\"150\" x2=\"650\" y2=\"150\" stroke=\"#eee\" stroke-width=\"1\"/>\n  <line x1=\"80\" y1=\"90\" x2=\"650\" y2=\"90\" stroke=\"#eee\" stroke-width=\"1\"/>\n  <line x1=\"80\" y1=\"50\" x2=\"650\" y2=\"50\" stroke=\"#ccc\" stroke-width=\"1\"/>\n  \n  <!-- Y-Axis Labels -->\n  <text x=\"70\" y=\"334\" font-family=\"Arial, sans-serif\" font-size=\"11\" text-anchor=\"end\" fill=\"#555\">0</text>\n  <text x=\"70\" y=\"274\" font-family=\"Arial, sans-serif\" font-size=\"11\" text-anchor=\"end\" fill=\"#555\">50</text>\n  <text x=\"70\" y=\"214\" font-family=\"Arial, sans-serif\" font-size=\"11\" text-anchor=\"end\" fill=\"#555\">100</text>\n  <text x=\"70\" y=\"154\" font-family=\"Arial, sans-serif\" font-size=\"11\" text-anchor=\"end\" fill=\"#555\">150</text>\n  <text x=\"70\" y=\"94\" font-family=\"Arial, sans-serif\" font-size=\"11\" text-anchor=\"end\" fill=\"#555\">200</text>\n  <text x=\"70\" y=\"54\" font-family=\"Arial, sans-serif\" font-size=\"11\" text-anchor=\"end\" fill=\"#555\">250</text>\n\n  <!-- X-Axis Labels -->\n  <!-- 2005: x=120, 2012: x=344, 2015: x=440, 2020: x=600 -->\n  <text x=\"120\" y=\"350\" font-family=\"Arial, sans-serif\" font-size=\"12\" text-anchor=\"middle\" fill=\"#333\">2005</text>\n  <text x=\"344\" y=\"350\" font-family=\"Arial, sans-serif\" font-size=\"12\" text-anchor=\"middle\" fill=\"#333\">2012</text>\n  <text x=\"440\" y=\"350\" font-family=\"Arial, sans-serif\" font-size=\"12\" text-anchor=\"middle\" fill=\"#333\">2015</text>\n  <text x=\"600\" y=\"350\" font-family=\"Arial, sans-serif\" font-size=\"12\" text-anchor=\"middle\" fill=\"#333\">2020</text>\n\n  <!-- Science Museum Line (Blue): 2005=120 (y=186), 2015=210 (y=84), 2020=250 (y=50) -->\n  <path d=\"M 120 186 L 440 84 L 600 50\" fill=\"none\" stroke=\"#1f77b4\" stroke-width=\"3\"/>\n  <circle cx=\"120\" cy=\"186\" r=\"4\" fill=\"#1f77b4\"/>\n  <circle cx=\"440\" cy=\"84\" r=\"4\" fill=\"#1f77b4\"/>\n  <circle cx=\"600\" cy=\"50\" r=\"4\" fill=\"#1f77b4\"/>\n  <text x=\"120\" y=\"176\" font-family=\"Arial, sans-serif\" font-size=\"11\" text-anchor=\"middle\" fill=\"#1f77b4\" font-weight=\"bold\">120</text>\n  <text x=\"440\" y=\"74\" font-family=\"Arial, sans-serif\" font-size=\"11\" text-anchor=\"middle\" fill=\"#1f77b4\" font-weight=\"bold\">210</text>\n  <text x=\"600\" y=\"40\" font-family=\"Arial, sans-serif\" font-size=\"11\" text-anchor=\"middle\" fill=\"#1f77b4\" font-weight=\"bold\">250</text>\n\n  <!-- History Museum Line (Orange): 2005=180 (y=120), 2015=130 (y=174), 2020=95 (y=216) -->\n  <path d=\"M 120 120 L 440 174 L 600 216\" fill=\"none\" stroke=\"#ff7f0e\" stroke-width=\"3\"/>\n  <circle cx=\"120\" cy=\"120\" r=\"4\" fill=\"#ff7f0e\"/>\n  <circle cx=\"440\" cy=\"174\" r=\"4\" fill=\"#ff7f0e\"/>\n  <circle cx=\"600\" cy=\"216\" r=\"4\" fill=\"#ff7f0e\"/>\n  <text x=\"120\" y=\"110\" font-family=\"Arial, sans-serif\" font-size=\"11\" text-anchor=\"middle\" fill=\"#ff7f0e\" font-weight=\"bold\">180</text>\n  <text x=\"440\" y=\"164\" font-family=\"Arial, sans-serif\" font-size=\"11\" text-anchor=\"middle\" fill=\"#ff7f0e\" font-weight=\"bold\">130</text>\n  <text x=\"600\" y=\"206\" font-family=\"Arial, sans-serif\" font-size=\"11\" text-anchor=\"middle\" fill=\"#ff7f0e\" font-weight=\"bold\">95</text>\n\n  <!-- Art Gallery Line (Green): 2005=90 (y=222), 2012=85 (y=228), 2015=92 (y=219.6), 2020=100 (y=210) -->\n  <path d=\"M 120 222 L 344 228 L 440 220 L 600 210\" fill=\"none\" stroke=\"#2ca02c\" stroke-width=\"3\"/>\n  <circle cx=\"120\" cy=\"222\" r=\"4\" fill=\"#2ca02c\"/>\n  <circle cx=\"344\" cy=\"228\" r=\"4\" fill=\"#2ca02c\"/>\n  <circle cx=\"440\" cy=\"220\" r=\"4\" fill=\"#2ca02c\"/>\n  <circle cx=\"600\" cy=\"210\" r=\"4\" fill=\"#2ca02c\"/>\n  <text x=\"120\" y=\"240\" font-family=\"Arial, sans-serif\" font-size=\"11\" text-anchor=\"middle\" fill=\"#2ca02c\" font-weight=\"bold\">90</text>\n  <text x=\"344\" y=\"244\" font-family=\"Arial, sans-serif\" font-size=\"11\" text-anchor=\"middle\" fill=\"#2ca02c\" font-weight=\"bold\">85</text>\n  <text x=\"600\" y=\"198\" font-family=\"Arial, sans-serif\" font-size=\"11\" text-anchor=\"middle\" fill=\"#2ca02c\" font-weight=\"bold\">100</text>\n\n  <!-- Legend -->\n  <g transform=\"translate(150, 370)\">\n    <rect x=\"0\" y=\"0\" width=\"12\" height=\"12\" fill=\"#1f77b4\"/>\n    <text x=\"20\" y=\"11\" font-family=\"Arial, sans-serif\" font-size=\"12\" fill=\"#333\">Science Museum</text>\n    \n    <rect x=\"160\" y=\"0\" width=\"12\" height=\"12\" fill=\"#ff7f0e\"/>\n    <text x=\"180\" y=\"11\" font-family=\"Arial, sans-serif\" font-size=\"12\" fill=\"#333\">History Museum</text>\n    \n    <rect x=\"320\" y=\"0\" width=\"12\" height=\"12\" fill=\"#2ca02c\"/>\n    <text x=\"340\" y=\"11\" font-family=\"Arial, sans-serif\" font-size=\"12\" fill=\"#333\">Art Gallery</text>\n  </g>\n</svg>"
+  },
+  {
+    "category": "bar-chart",
+    "prompt": "The bar chart below shows the percentage of households with access to high-speed internet in four countries in 2005 and 2020. Summarise the information by selecting and reporting the main features, and make comparisons where relevant.",
+    "structure": [
+      "1-paragraf (Kirish): Savolni paraphrase qil - qaysi mamlakatlar, qaysi yillar va nima o'lchanayotganini umumiy tarzda bildir.",
+      "2-paragraf (Overview): Eng katta o'zgarish qaysi mamlakatda bo'lganini, umumiy o'sish yoki pasayish tendensiyasini umumlashtir.",
+      "3-paragraf: Ikki mamlakatni 2005 va 2020 yillar bo'yicha aniq raqamlar bilan taqqoslab tasvirla.",
+      "4-paragraf: Qolgan ikki mamlakatni tasvirla, mamlakatlar orasidagi farqlarni ta'kidlab xulosala."
+    ],
+    "phrases": [
+      "accounted for X% of",
+      "a significant increase in",
+      "the proportion of",
+      "was considerably higher than",
+      "nearly tripled",
+      "the gap between X and Y widened",
+      "the lowest figure was recorded in",
+      "compared with",
+      "roughly the same as",
+      "a marginal rise",
+      "surged from X% to Y%",
+      "lagged behind",
+      "the leading country in terms of",
+      "climbed to",
+      "as illustrated in the chart"
+    ],
+    "sample_answer": "The bar chart compares the percentage of households with access to high-speed internet in four countries, namely Sweden, Japan, Brazil and Kenya, in the years 2005 and 2020.\n\nOverall, internet access increased in every country during this period, although the extent of growth varied considerably, with Sweden and Japan consistently ahead of Brazil and Kenya.\n\nIn 2005, Sweden had the highest level of household internet access at 55%, followed closely by Japan at 48%. Brazil and Kenya lagged far behind, with figures of only 12% and 3% respectively. By 2020, Sweden's rate had climbed to 96%, while Japan reached 93%, meaning both countries had achieved near-universal coverage.\n\nBrazil saw the most dramatic transformation among the four nations: access surged from 12% to 74%, a sixfold increase over fifteen years. Kenya also made notable progress, though it started from a much lower base; the figure rose from just 3% to 41%, still leaving it considerably behind the other three countries.\n\nDespite this overall growth, the gap between the wealthiest and poorest nations in the chart remained wide in 2020, with a difference of 55 percentage points separating Sweden and Kenya.\n\nIn conclusion, while all four countries expanded their internet infrastructure substantially, Sweden and Japan retained their position as the leading nations throughout the period.",
+    "chart": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 700 400\" width=\"100%\" height=\"100%\">\n  <rect width=\"700\" height=\"400\" fill=\"#ffffff\"/>\n  <text x=\"350\" y=\"30\" font-family=\"Arial, sans-serif\" font-size=\"16\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#333\">Internet Connection Percentage by Country (2005 vs 2020)</text>\n  \n  <!-- Y-Axis Grid and Labels -->\n  <line x1=\"80\" y1=\"330\" x2=\"650\" y2=\"330\" stroke=\"#333\" stroke-width=\"1\"/>\n  <line x1=\"80\" y1=\"270\" x2=\"650\" y2=\"270\" stroke=\"#eee\" stroke-width=\"1\"/>\n  <line x1=\"80\" y1=\"210\" x2=\"650\" y2=\"210\" stroke=\"#eee\" stroke-width=\"1\"/>\n  <line x1=\"80\" y1=\"150\" x2=\"650\" y2=\"150\" stroke=\"#eee\" stroke-width=\"1\"/>\n  <line x1=\"80\" y1=\"90\" x2=\"650\" y2=\"90\" stroke=\"#eee\" stroke-width=\"1\"/>\n  <line x1=\"80\" y1=\"50\" x2=\"650\" y2=\"50\" stroke=\"#ccc\" stroke-width=\"1\"/>\n\n  <text x=\"70\" y=\"334\" font-family=\"Arial, sans-serif\" font-size=\"11\" text-anchor=\"end\" fill=\"#555\">0%</text>\n  <text x=\"70\" y=\"274\" font-family=\"Arial, sans-serif\" font-size=\"11\" text-anchor=\"end\" fill=\"#555\">20%</text>\n  <text x=\"70\" y=\"214\" font-family=\"Arial, sans-serif\" font-size=\"11\" text-anchor=\"end\" fill=\"#555\">40%</text>\n  <text x=\"70\" y=\"154\" font-family=\"Arial, sans-serif\" font-size=\"11\" text-anchor=\"end\" fill=\"#555\">60%</text>\n  <text x=\"70\" y=\"94\" font-family=\"Arial, sans-serif\" font-size=\"11\" text-anchor=\"end\" fill=\"#555\">80%</text>\n  <text x=\"70\" y=\"54\" font-family=\"Arial, sans-serif\" font-size=\"11\" text-anchor=\"end\" fill=\"#555\">100%</text>\n\n  <!-- Sweden (x center = 150) -->\n  <rect x=\"120\" y=\"165\" width=\"25\" height=\"165\" fill=\"#4682b4\"/>\n  <rect x=\"147\" y=\"42\" width=\"25\" height=\"288\" fill=\"#1f4e79\"/>\n  <text x=\"132\" y=\"155\" font-family=\"Arial, sans-serif\" font-size=\"11\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#4682b4\">55%</text>\n  <text x=\"160\" y=\"32\" font-family=\"Arial, sans-serif\" font-size=\"11\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#1f4e79\">96%</text>\n  <text x=\"146\" y=\"350\" font-family=\"Arial, sans-serif\" font-size=\"13\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#333\">Sweden</text>\n\n  <!-- Japan (x center = 290) -->\n  <rect x=\"260\" y=\"186\" width=\"25\" height=\"144\" fill=\"#4682b4\"/>\n  <rect x=\"287\" y=\"51\" width=\"25\" height=\"279\" fill=\"#1f4e79\"/>\n  <text x=\"272\" y=\"176\" font-family=\"Arial, sans-serif\" font-size=\"11\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#4682b4\">48%</text>\n  <text x=\"300\" y=\"41\" font-family=\"Arial, sans-serif\" font-size=\"11\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#1f4e79\">93%</text>\n  <text x=\"286\" y=\"350\" font-family=\"Arial, sans-serif\" font-size=\"13\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#333\">Japan</text>\n\n  <!-- Brazil (x center = 430) -->\n  <rect x=\"400\" y=\"294\" width=\"25\" height=\"36\" fill=\"#4682b4\"/>\n  <rect x=\"427\" y=\"108\" width=\"25\" height=\"222\" fill=\"#1f4e79\"/>\n  <text x=\"412\" y=\"284\" font-family=\"Arial, sans-serif\" font-size=\"11\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#4682b4\">12%</text>\n  <text x=\"440\" y=\"98\" font-family=\"Arial, sans-serif\" font-size=\"11\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#1f4e79\">74%</text>\n  <text x=\"426\" y=\"350\" font-family=\"Arial, sans-serif\" font-size=\"13\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#333\">Brazil</text>\n\n  <!-- Kenya (x center = 570) -->\n  <rect x=\"540\" y=\"321\" width=\"25\" height=\"9\" fill=\"#4682b4\"/>\n  <rect x=\"567\" y=\"207\" width=\"25\" height=\"123\" fill=\"#1f4e79\"/>\n  <text x=\"552\" y=\"311\" font-family=\"Arial, sans-serif\" font-size=\"11\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#4682b4\">3%</text>\n  <text x=\"580\" y=\"197\" font-family=\"Arial, sans-serif\" font-size=\"11\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#1f4e79\">41%</text>\n  <text x=\"566\" y=\"350\" font-family=\"Arial, sans-serif\" font-size=\"13\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#333\">Kenya</text>\n\n  <!-- Legend -->\n  <g transform=\"translate(280, 375)\">\n    <rect x=\"0\" y=\"0\" width=\"15\" height=\"15\" fill=\"#4682b4\"/>\n    <text x=\"22\" y=\"13\" font-family=\"Arial, sans-serif\" font-size=\"12\" fill=\"#333\">2005</text>\n    <rect x=\"90\" y=\"0\" width=\"15\" height=\"15\" fill=\"#1f4e79\"/>\n    <text x=\"112\" y=\"13\" font-family=\"Arial, sans-serif\" font-size=\"12\" fill=\"#333\">2020</text>\n  </g>\n</svg>"
+  },
+  {
+    "category": "pie-chart",
+    "prompt": "The pie charts below show the sources of electricity generation in a country in 2000 and in 2020. Summarise the information by selecting and reporting the main features, and make comparisons where relevant.",
+    "structure": [
+      "1-paragraf (Kirish): Ikkita doira diagramma nimani, qaysi yillar uchun tasvirlashini paraphrase qilib yoz.",
+      "2-paragraf (Overview): Eng katta ulushga ega manba qanday o'zgarganini va umumiy tendensiyani (masalan, qayta tiklanuvchi manbalar o'sishi) umumlashtir.",
+      "3-paragraf: 2000-yildagi ulushlarni eng kattadan boshlab foizlar bilan tasvirla.",
+      "4-paragraf: 2020-yildagi ulushlarni tasvirlab, ikki yil orasidagi asosiy farqlarni taqqosla."
+    ],
+    "phrases": [
+      "made up the largest share of",
+      "accounted for just under/over X%",
+      "a quarter of",
+      "the smallest proportion was",
+      "a notable shift towards",
+      "in comparison",
+      "this figure had fallen to",
+      "expanded considerably",
+      "represented less than a tenth of",
+      "the combined share of",
+      "dominated the energy mix",
+      "a slight increase from X% to Y%",
+      "virtually disappeared",
+      "emerged as a significant source",
+      "two-fifths of the total"
+    ],
+    "sample_answer": "The two pie charts illustrate the different sources used to generate electricity in a particular country in 2000 and 2020.\n\nOverall, the country's reliance on coal fell dramatically over the twenty-year period, while renewable energy sources, which were negligible in 2000, became a major contributor to the energy mix by 2020.\n\nIn 2000, coal dominated electricity production, accounting for 58% of the total, making it by far the largest single source. Natural gas was the second-largest contributor at 25%, followed by nuclear power at 12%. Renewable sources such as solar and wind made up only 2% of generation, while other sources accounted for the remaining 3%.\n\nBy 2020, the picture had changed substantially. Coal's share had dropped to just 19%, less than a third of its former level, while natural gas rose slightly to 30%, becoming the leading source. Nuclear power remained relatively stable at 14%. The most striking change, however, was the rise of renewables, which expanded to 34% of total generation, overtaking coal entirely. Other sources decreased slightly to 3%.\n\nIn summary, the data reveals a clear transition away from coal-based electricity towards a more balanced mix dominated by natural gas and renewable energy by 2020.",
+    "chart": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 700 400\" width=\"100%\" height=\"100%\">\n  <rect width=\"700\" height=\"400\" fill=\"#ffffff\"/>\n  <text x=\"350\" y=\"30\" font-family=\"Arial, sans-serif\" font-size=\"16\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#333\">Electricity Sources Comparison (2000 vs 2020)</text>\n\n  <!-- PIE 2000 (Center x=200, y=180, r=100) -->\n  <text x=\"200\" y=\"310\" font-family=\"Arial, sans-serif\" font-size=\"14\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#333\">2000</text>\n  <g transform=\"translate(200, 180)\">\n    <!-- Coal 58% (0 to 208.8 deg) -->\n    <path d=\"M 0 0 L 0 -100 A 100 100 0 1 1 -48.17 87.63 Z\" fill=\"#555555\"/>\n    <!-- Gas 25% (208.8 to 298.8 deg) -->\n    <path d=\"M 0 0 L -48.17 87.63 A 100 100 0 0 1 -85.54 -51.80 Z\" fill=\"#f7b6d2\"/>\n    <!-- Nuclear 12% (298.8 to 342 deg) -->\n    <path d=\"M 0 0 L -85.54 -51.80 A 100 100 0 0 1 -30.90 -95.11 Z\" fill=\"#ff7f0e\"/>\n    <!-- Renewables 2% (342 to 349.2 deg) -->\n    <path d=\"M 0 0 L -30.90 -95.11 A 100 100 0 0 1 -18.74 -98.23 Z\" fill=\"#2ca02c\"/>\n    <!-- Other 3% (349.2 to 360 deg) -->\n    <path d=\"M 0 0 L -18.74 -98.23 A 100 100 0 0 1 0 -100 Z\" fill=\"#9467bd\"/>\n    \n    <!-- Labels -->\n    <text x=\"40\" y=\"20\" font-family=\"Arial, sans-serif\" font-size=\"12\" font-weight=\"bold\" fill=\"#fff\">Coal 58%</text>\n    <text x=\"-70\" y=\"20\" font-family=\"Arial, sans-serif\" font-size=\"11\" font-weight=\"bold\" fill=\"#fff\">Gas 25%</text>\n    <text x=\"-65\" y=\"-65\" font-family=\"Arial, sans-serif\" font-size=\"10\" font-weight=\"bold\" fill=\"#fff\">Nuc 12%</text>\n  </g>\n\n  <!-- PIE 2020 (Center x=500, y=180, r=100) -->\n  <text x=\"500\" y=\"310\" font-family=\"Arial, sans-serif\" font-size=\"14\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#333\">2020</text>\n  <g transform=\"translate(500, 180)\">\n    <!-- Renewables 34% (0 to 122.4 deg) -->\n    <path d=\"M 0 0 L 0 -100 A 100 100 0 0 1 84.43 53.58 Z\" fill=\"#2ca02c\"/>\n    <!-- Gas 30% (122.4 to 230.4 deg) -->\n    <path d=\"M 0 0 L 84.43 53.58 A 100 100 0 0 1 -77.05 -63.74 Z\" fill=\"#f7b6d2\"/>\n    <!-- Coal 19% (230.4 to 298.8 deg) -->\n    <path d=\"M 0 0 L -77.05 -63.74 A 100 100 0 0 1 -85.54 -51.80 Z\" fill=\"#555555\"/>\n    <!-- Nuclear 14% (298.8 to 349.2 deg) -->\n    <path d=\"M 0 0 L -85.54 -51.80 A 100 100 0 0 1 -18.74 -98.23 Z\" fill=\"#ff7f0e\"/>\n    <!-- Other 3% (349.2 to 360 deg) -->\n    <path d=\"M 0 0 L -18.74 -98.23 A 100 100 0 0 1 0 -100 Z\" fill=\"#9467bd\"/>\n\n    <!-- Labels -->\n    <text x=\"40\" y=\"-30\" font-family=\"Arial, sans-serif\" font-size=\"12\" font-weight=\"bold\" fill=\"#fff\">Ren 34%</text>\n    <text x=\"0\" y=\"50\" font-family=\"Arial, sans-serif\" font-size=\"12\" font-weight=\"bold\" fill=\"#fff\">Gas 30%</text>\n    <text x=\"-75\" y=\"-10\" font-family=\"Arial, sans-serif\" font-size=\"11\" font-weight=\"bold\" fill=\"#fff\">Coal 19%</text>\n    <text x=\"-45\" y=\"-65\" font-family=\"Arial, sans-serif\" font-size=\"11\" font-weight=\"bold\" fill=\"#fff\">Nuc 14%</text>\n  </g>\n\n  <!-- Legend -->\n  <g transform=\"translate(60, 350)\">\n    <rect x=\"0\" y=\"0\" width=\"12\" height=\"12\" fill=\"#555555\"/>\n    <text x=\"18\" y=\"11\" font-family=\"Arial, sans-serif\" font-size=\"12\" fill=\"#333\">Coal (Ko'mir)</text>\n    \n    <rect x=\"130\" y=\"0\" width=\"12\" height=\"12\" fill=\"#f7b6d2\"/>\n    <text x=\"148\" y=\"11\" font-family=\"Arial, sans-serif\" font-size=\"12\" fill=\"#333\">Gas (Gaz)</text>\n    \n    <rect x=\"240\" y=\"0\" width=\"12\" height=\"12\" fill=\"#ff7f0e\"/>\n    <text x=\"258\" y=\"11\" font-family=\"Arial, sans-serif\" font-size=\"12\" fill=\"#333\">Nuclear (Yadro)</text>\n    \n    <rect x=\"380\" y=\"0\" width=\"12\" height=\"12\" fill=\"#2ca02c\"/>\n    <text x=\"398\" y=\"11\" font-family=\"Arial, sans-serif\" font-size=\"12\" fill=\"#333\">Renewables (Qayta tiklanuvchi)</text>\n    \n    <rect x=\"580\" y=\"0\" width=\"12\" height=\"12\" fill=\"#9467bd\"/>\n    <text x=\"598\" y=\"11\" font-family=\"Arial, sans-serif\" font-size=\"12\" fill=\"#333\">Other (Boshqa)</text>\n  </g>\n</svg>"
+  },
+  {
+    "category": "table",
+    "prompt": "The table below shows the average number of hours per week that adults in three age groups spent on different leisure activities in one country in 2021. Summarise the information by selecting and reporting the main features, and make comparisons where relevant.",
+    "structure": [
+      "1-paragraf (Kirish): Jadval nimani, qaysi yosh guruhlari va qaysi yil uchun tasvirlashini paraphrase qil.",
+      "2-paragraf (Overview): Qaysi yosh guruhi eng ko'p vaqt sarflashi, qaysi faoliyat eng mashhur ekanini umumlashtir.",
+      "3-paragraf: Bitta yoki ikkita faoliyat turini yosh guruhlari bo'yicha taqqoslab tasvirla.",
+      "4-paragraf: Qolgan faoliyat turlarini tasvirlab, umumiy naqshlarni ta'kidlab yakunla."
+    ],
+    "phrases": [
+      "spent an average of X hours on",
+      "the figures for X and Y were identical",
+      "considerably more time than",
+      "the youngest age group",
+      "in stark contrast",
+      "topped the list with",
+      "the least popular activity",
+      "as shown in the table",
+      "twice as much time as",
+      "a similar amount of time",
+      "ranked second in terms of",
+      "devoted the most time to",
+      "there was little variation between",
+      "notably lower figures",
+      "the overall pattern suggests that"
+    ],
+    "sample_answer": "The table presents data on the average number of hours per week that adults aged 18-30, 31-50 and over 50 spent on four leisure activities - watching television, exercising, reading and socialising - in one country in 2021.\n\nOverall, watching television was the most time-consuming activity for all three age groups, while exercising occupied the least time overall, particularly among older adults.\n\nAdults aged 18-30 spent the most time socialising, at 9 hours per week, considerably more than the 31-50 age group, who managed only 5 hours. This younger group also dedicated 6 hours to exercise, the highest figure among the three categories. In contrast, those over 50 spent just 3 hours per week exercising, the lowest of all groups.\n\nTelevision viewing showed a clear upward trend with age: the youngest group watched an average of 10 hours per week, rising to 14 hours for the 31-50 group and reaching 18 hours for those over 50, making it by far their dominant leisure activity.\n\nReading habits followed a similar pattern to television, with older adults spending nearly twice as much time reading (7 hours) as younger adults (4 hours). The middle age group fell between the two, at 5 hours.\n\nIn conclusion, the table indicates that as adults grow older, they tend to spend more time on sedentary activities such as television and reading, while physical and social activities decline.",
+    "chart": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 700 400\" width=\"100%\" height=\"100%\">\n  <rect width=\"700\" height=\"400\" fill=\"#ffffff\"/>\n  <text x=\"350\" y=\"35\" font-family=\"Arial, sans-serif\" font-size=\"16\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#333\">Weekly Leisure Hours by Age Group</text>\n  \n  <g transform=\"translate(100, 70)\">\n    <!-- Table Header Background -->\n    <rect x=\"0\" y=\"0\" width=\"500\" height=\"40\" fill=\"#1f4e79\"/>\n    <!-- Table Rows Background -->\n    <rect x=\"0\" y=\"40\" width=\"500\" height=\"50\" fill=\"#f9f9f9\"/>\n    <rect x=\"0\" y=\"90\" width=\"500\" height=\"50\" fill=\"#ffffff\"/>\n    <rect x=\"0\" y=\"140\" width=\"500\" height=\"50\" fill=\"#f9f9f9\"/>\n    <rect x=\"0\" y=\"190\" width=\"500\" height=\"50\" fill=\"#ffffff\"/>\n\n    <!-- Grid Lines -->\n    <line x1=\"0\" y1=\"0\" x2=\"500\" y2=\"0\" stroke=\"#ccc\" stroke-width=\"1\"/>\n    <line x1=\"0\" y1=\"40\" x2=\"500\" y2=\"40\" stroke=\"#ccc\" stroke-width=\"2\"/>\n    <line x1=\"0\" y1=\"90\" x2=\"500\" y2=\"90\" stroke=\"#ccc\" stroke-width=\"1\"/>\n    <line x1=\"0\" y1=\"140\" x2=\"500\" y2=\"140\" stroke=\"#ccc\" stroke-width=\"1\"/>\n    <line x1=\"0\" y1=\"190\" x2=\"500\" y2=\"190\" stroke=\"#ccc\" stroke-width=\"1\"/>\n    <line x1=\"0\" y1=\"240\" x2=\"500\" y2=\"240\" stroke=\"#ccc\" stroke-width=\"1\"/>\n\n    <line x1=\"0\" y1=\"0\" x2=\"0\" y2=\"240\" stroke=\"#ccc\" stroke-width=\"1\"/>\n    <line x1=\"200\" y1=\"0\" x2=\"200\" y2=\"240\" stroke=\"#ccc\" stroke-width=\"1\"/>\n    <line x1=\"300\" y1=\"0\" x2=\"300\" y2=\"240\" stroke=\"#ccc\" stroke-width=\"1\"/>\n    <line x1=\"400\" y1=\"0\" x2=\"400\" y2=\"240\" stroke=\"#ccc\" stroke-width=\"1\"/>\n    <line x1=\"500\" y1=\"0\" x2=\"500\" y2=\"240\" stroke=\"#ccc\" stroke-width=\"1\"/>\n\n    <!-- Header Text -->\n    <text x=\"100\" y=\"25\" font-family=\"Arial, sans-serif\" font-size=\"13\" font-weight=\"bold\" fill=\"#fff\" text-anchor=\"middle\">Activity</text>\n    <text x=\"250\" y=\"25\" font-family=\"Arial, sans-serif\" font-size=\"13\" font-weight=\"bold\" fill=\"#fff\" text-anchor=\"middle\">18-30</text>\n    <text x=\"350\" y=\"25\" font-family=\"Arial, sans-serif\" font-size=\"13\" font-weight=\"bold\" fill=\"#fff\" text-anchor=\"middle\">31-50</text>\n    <text x=\"450\" y=\"25\" font-family=\"Arial, sans-serif\" font-size=\"13\" font-weight=\"bold\" fill=\"#fff\" text-anchor=\"middle\">50+</text>\n\n    <!-- Row 1: TV -->\n    <text x=\"20\" y=\"70\" font-family=\"Arial, sans-serif\" font-size=\"13\" font-weight=\"bold\" fill=\"#333\">TV</text>\n    <text x=\"250\" y=\"70\" font-family=\"Arial, sans-serif\" font-size=\"13\" fill=\"#333\" text-anchor=\"middle\">10</text>\n    <text x=\"350\" y=\"70\" font-family=\"Arial, sans-serif\" font-size=\"13\" fill=\"#333\" text-anchor=\"middle\">14</text>\n    <text x=\"450\" y=\"70\" font-family=\"Arial, sans-serif\" font-size=\"13\" fill=\"#333\" text-anchor=\"middle\">18</text>\n\n    <!-- Row 2: Exercise -->\n    <text x=\"20\" y=\"120\" font-family=\"Arial, sans-serif\" font-size=\"13\" font-weight=\"bold\" fill=\"#333\">Mashq (Exercise)</text>\n    <text x=\"250\" y=\"120\" font-family=\"Arial, sans-serif\" font-size=\"13\" fill=\"#333\" text-anchor=\"middle\">6</text>\n    <text x=\"350\" y=\"120\" font-family=\"Arial, sans-serif\" font-size=\"13\" fill=\"#333\" text-anchor=\"middle\">4</text>\n    <text x=\"450\" y=\"120\" font-family=\"Arial, sans-serif\" font-size=\"13\" fill=\"#333\" text-anchor=\"middle\">3</text>\n\n    <!-- Row 3: Reading -->\n    <text x=\"20\" y=\"170\" font-family=\"Arial, sans-serif\" font-size=\"13\" font-weight=\"bold\" fill=\"#333\">O'qish (Reading)</text>\n    <text x=\"250\" y=\"170\" font-family=\"Arial, sans-serif\" font-size=\"13\" fill=\"#333\" text-anchor=\"middle\">4</text>\n    <text x=\"350\" y=\"170\" font-family=\"Arial, sans-serif\" font-size=\"13\" fill=\"#333\" text-anchor=\"middle\">5</text>\n    <text x=\"450\" y=\"170\" font-family=\"Arial, sans-serif\" font-size=\"13\" fill=\"#333\" text-anchor=\"middle\">7</text>\n\n    <!-- Row 4: Socialising -->\n    <text x=\"20\" y=\"220\" font-family=\"Arial, sans-serif\" font-size=\"13\" font-weight=\"bold\" fill=\"#333\">Muloqot (Socialising)</text>\n    <text x=\"250\" y=\"220\" font-family=\"Arial, sans-serif\" font-size=\"13\" fill=\"#333\" text-anchor=\"middle\">9</text>\n    <text x=\"350\" y=\"220\" font-family=\"Arial, sans-serif\" font-size=\"13\" fill=\"#333\" text-anchor=\"middle\">5</text>\n    <text x=\"450\" y=\"220\" font-family=\"Arial, sans-serif\" font-size=\"13\" fill=\"#333\" text-anchor=\"middle\">3</text>\n  </g>\n</svg>"
+  },
+  {
+    "category": "process-diagram",
+    "prompt": "The diagram below shows the process by which plastic bottles are recycled. Summarise the information by selecting and reporting the main features, and make comparisons where relevant.",
+    "structure": [
+      "1-paragraf (Kirish): Jarayon nima haqida ekanini paraphrase qil - nechta bosqichdan iboratligini aytish mumkin.",
+      "2-paragraf (Overview): Jarayon qayerdan boshlanib qayerda tugashini, umumiy tsiklning tabiatini (chiziqli yoki tsiklik) umumlashtir.",
+      "3-paragraf: Jarayonning birinchi yarmini bosqichma-bosqich, tartib bildiruvchi so'zlar bilan tasvirla.",
+      "4-paragraf: Jarayonning ikkinchi yarmini tasvirlab, yakuniy natija bilan yakunla."
+    ],
+    "phrases": [
+      "the process begins with",
+      "the first stage involves",
+      "once this is complete",
+      "following this",
+      "at this point",
+      "subsequently",
+      "the next step is to",
+      "after being sorted/washed/melted",
+      "this is then passed through",
+      "the final stage of the process",
+      "the cycle then repeats",
+      "as a result",
+      "prior to",
+      "simultaneously",
+      "the process is completed when"
+    ],
+    "sample_answer": "The diagram illustrates the stages involved in recycling plastic bottles, from collection to the production of new plastic items.\n\nOverall, the process consists of six main stages and forms a cycle, since the final product can eventually be used to make new bottles, which are later collected and recycled again.\n\nThe process begins with the collection of used plastic bottles from households and public recycling bins. These bottles are then transported to a recycling facility, where they undergo an initial sorting stage. During sorting, workers and machines separate the bottles by colour and plastic type, removing any non-plastic contaminants such as caps or labels.\n\nFollowing this, the sorted bottles are washed thoroughly to eliminate dirt, chemicals and residual liquids. Once cleaned, they are fed into a shredding machine, which breaks them down into small plastic flakes. These flakes are then melted at high temperatures and formed into small plastic pellets, a process known as pelletising.\n\nAt this point, the pellets are ready to be transported to manufacturing plants, where they are melted once again and moulded into new products, such as fibres for clothing, containers, or new plastic bottles. If the pellets are used to create new bottles, these will eventually be purchased, used and discarded, at which point they re-enter the collection stage, completing the cycle.\n\nIn summary, the recycling process transforms discarded plastic bottles into reusable raw material through a systematic sequence of collection, sorting, cleaning and reprocessing.",
+    "chart": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 700 400\" width=\"100%\" height=\"100%\">\n  <rect width=\"700\" height=\"400\" fill=\"#ffffff\"/>\n  <text x=\"350\" y=\"30\" font-family=\"Arial, sans-serif\" font-size=\"16\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#333\">Plastic Bottle Recycling Process</text>\n\n  <!-- Define Arrow Marker -->\n  <defs>\n    <marker id=\"arrow\" viewBox=\"0 0 10 10\" refX=\"5\" refY=\"5\" markerWidth=\"6\" markerHeight=\"6\" orient=\"auto-start-reverse\">\n      <path d=\"M 0 2 L 8 5 L 0 8 z\" fill=\"#2ca02c\"/>\n    </marker>\n  </defs>\n\n  <!-- 6 Steps in a circle layout -->\n  <!-- Center: 350, 200. Radius = 120 -->\n  <!-- Step 1: Yig'ish (350, 70) -->\n  <rect x=\"290\" y=\"50\" width=\"120\" height=\"40\" rx=\"8\" fill=\"#e2f0d9\" stroke=\"#2ca02c\" stroke-width=\"2\"/>\n  <text x=\"350\" y=\"75\" font-family=\"Arial, sans-serif\" font-size=\"12\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#333\">1. Yig'ish</text>\n\n  <!-- Step 2: Saralash (480, 140) -->\n  <rect x=\"430\" y=\"125\" width=\"120\" height=\"40\" rx=\"8\" fill=\"#e2f0d9\" stroke=\"#2ca02c\" stroke-width=\"2\"/>\n  <text x=\"490\" y=\"150\" font-family=\"Arial, sans-serif\" font-size=\"12\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#333\">2. Saralash</text>\n\n  <!-- Step 3: Yuvish (480, 260) -->\n  <rect x=\"430\" y=\"245\" width=\"120\" height=\"40\" rx=\"8\" fill=\"#e2f0d9\" stroke=\"#2ca02c\" stroke-width=\"2\"/>\n  <text x=\"490\" y=\"270\" font-family=\"Arial, sans-serif\" font-size=\"12\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#333\">3. Yuvish</text>\n\n  <!-- Step 4: Maydalash (300, 320) -->\n  <rect x=\"290\" y=\"310\" width=\"120\" height=\"40\" rx=\"8\" fill=\"#e2f0d9\" stroke=\"#2ca02c\" stroke-width=\"2\"/>\n  <text x=\"350\" y=\"335\" font-family=\"Arial, sans-serif\" font-size=\"12\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#333\">4. Maydalash</text>\n\n  <!-- Step 5: Eritish (140, 260) -->\n  <rect x=\"110\" y=\"245\" width=\"150\" height=\"40\" rx=\"8\" fill=\"#e2f0d9\" stroke=\"#2ca02c\" stroke-width=\"2\"/>\n  <text x=\"185\" y=\"268\" font-family=\"Arial, sans-serif\" font-size=\"11\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#333\">5. Eritish /</text>\n  <text x=\"185\" y=\"280\" font-family=\"Arial, sans-serif\" font-size=\"10\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#333\">donachalarga keltirish</text>\n\n  <!-- Step 6: Yangi mahsulot (140, 140) -->\n  <rect x=\"110\" y=\"125\" width=\"150\" height=\"40\" rx=\"8\" fill=\"#e2f0d9\" stroke=\"#2ca02c\" stroke-width=\"2\"/>\n  <text x=\"185\" y=\"148\" font-family=\"Arial, sans-serif\" font-size=\"11\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#333\">6. Yangi mahsulot</text>\n  <text x=\"185\" y=\"160\" font-family=\"Arial, sans-serif\" font-size=\"10\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#333\">ishlab chiqarish</text>\n\n  <!-- Curved Connecting Arrows -->\n  <path d=\"M 415 70 Q 480 90 490 120\" fill=\"none\" stroke=\"#2ca02c\" stroke-width=\"2\" marker-end=\"url(#arrow)\"/>\n  <path d=\"M 490 170 Q 500 205 490 240\" fill=\"none\" stroke=\"#2ca02c\" stroke-width=\"2\" marker-end=\"url(#arrow)\"/>\n  <path d=\"M 430 275 Q 380 310 355 310\" fill=\"none\" stroke=\"#2ca02c\" stroke-width=\"2\" marker-end=\"url(#arrow)\"/>\n  <path d=\"M 290 330 Q 210 310 195 290\" fill=\"none\" stroke=\"#2ca02c\" stroke-width=\"2\" marker-end=\"url(#arrow)\"/>\n  <path d=\"M 185 240 Q 170 205 185 170\" fill=\"none\" stroke=\"#2ca02c\" stroke-width=\"2\" marker-end=\"url(#arrow)\"/>\n  <path d=\"M 220 125 Q 260 90 285 90\" fill=\"none\" stroke=\"#2ca02c\" stroke-width=\"2\" marker-end=\"url(#arrow)\"/>\n</svg>"
+  },
+  {
+    "category": "map",
+    "prompt": "The maps below show the town of Millbrook in 1995 and in 2020. Summarise the information by selecting and reporting the main features, and make comparisons where relevant.",
+    "structure": [
+      "1-paragraf (Kirish): Ikki xarita qaysi joy va qaysi yillarni tasvirlashini paraphrase qil.",
+      "2-paragraf (Overview): Eng katta 2-3 ta o'zgarishni (yangi qurilgan, yo'q qilingan yoki kengaytirilgan joylarni) umumlashtir.",
+      "3-paragraf: Xaritaning bir qismidagi (masalan, markaz yoki shimoliy qism) o'zgarishlarni joy-yo'nalish so'zlari bilan tasvirla.",
+      "4-paragraf: Xaritaning qolgan qismidagi o'zgarishlarni tasvirlab, umumiy rivojlanish tendensiyasini ta'kidlab yakunla."
+    ],
+    "phrases": [
+      "has been replaced by",
+      "was converted into",
+      "a new X was constructed to the north of",
+      "no longer exists",
+      "has been demolished",
+      "was extended/widened",
+      "remained unchanged",
+      "in the south-eastern part of the town",
+      "adjacent to",
+      "a considerable amount of land was cleared for",
+      "as a result of urban development",
+      "was transformed from X into Y",
+      "on the outskirts of",
+      "significant changes can be seen in",
+      "the overall layout became more"
+    ],
+    "sample_answer": "The two maps show how the town of Millbrook changed between 1995 and 2020.\n\nOverall, the town underwent substantial development during this period, with agricultural land giving way to residential and commercial areas, and the transport infrastructure being significantly expanded.\n\nIn 1995, the area to the north of the town centre consisted mainly of farmland, with a single road connecting Millbrook to the neighbouring village. By 2020, this farmland had been replaced by a large residential estate containing houses, a primary school and a small shopping centre. The original road had also been widened into a dual carriageway to accommodate the increased traffic generated by the new estate.\n\nIn the town centre itself, the old market square remained largely unchanged, although the small cinema that stood there in 1995 had been demolished and replaced by a modern shopping mall. To the east of the centre, a stretch of woodland that existed in 1995 had been partially cleared to make way for an industrial park, though a smaller section of forest was preserved as a public park.\n\nFinally, whereas the town had no railway station in 1995, a new station was built on the southern edge of Millbrook by 2020, connecting the town directly to the nearby city and reflecting the town's growing population and economic importance.\n\nIn conclusion, the maps reveal that Millbrook transformed from a small, largely rural town into a more developed urban area with improved transport links.",
+    "chart": "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 700 400\" width=\"100%\" height=\"100%\">\n  <rect width=\"700\" height=\"400\" fill=\"#ffffff\"/>\n  <text x=\"350\" y=\"25\" font-family=\"Arial, sans-serif\" font-size=\"16\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#333\">Millbrook Town Map Evolution (1995 vs 2020)</text>\n\n  <!-- MAP 1995 -->\n  <g transform=\"translate(40, 50)\">\n    <rect width=\"290\" height=\"300\" fill=\"#f5f5f0\" stroke=\"#aaa\" stroke-width=\"2\"/>\n    <text x=\"145\" y=\"25\" font-family=\"Arial, sans-serif\" font-size=\"14\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#555\">1995</text>\n    \n    <!-- North: Dala -->\n    <rect x=\"10\" y=\"40\" width=\"130\" height=\"60\" fill=\"#e2efda\"/>\n    <text x=\"75\" y=\"75\" font-family=\"Arial, sans-serif\" font-size=\"12\" text-anchor=\"middle\" fill=\"#555\">Dala (Farmland)</text>\n\n    <!-- Center: Bozor & Kinoteatr -->\n    <rect x=\"20\" y=\"140\" width=\"90\" height=\"40\" fill=\"#fff2cc\" stroke=\"#d6b656\"/>\n    <text x=\"65\" y=\"165\" font-family=\"Arial, sans-serif\" font-size=\"11\" text-anchor=\"middle\" fill=\"#333\">Bozor</text>\n    \n    <rect x=\"120\" y=\"140\" width=\"70\" height=\"40\" fill=\"#f8cecc\" stroke=\"#b85450\"/>\n    <text x=\"155\" y=\"165\" font-family=\"Arial, sans-serif\" font-size=\"11\" text-anchor=\"middle\" fill=\"#333\">Kinoteatr</text>\n\n    <!-- East: O'rmon & Bog' -->\n    <rect x=\"210\" y=\"40\" width=\"70\" height=\"150\" fill=\"#c5e0b4\"/>\n    <text x=\"245\" y=\"100\" font-family=\"Arial, sans-serif\" font-size=\"12\" text-anchor=\"middle\" fill=\"#375623\">O'rmon</text>\n    <circle cx=\"245\" cy=\"170\" r=\"15\" fill=\"#a9d18e\"/>\n    <text x=\"245\" y=\"174\" font-family=\"Arial, sans-serif\" font-size=\"10\" text-anchor=\"middle\" fill=\"#375623\">Bog'</text>\n\n    <!-- South: Yo'l (No Railway) -->\n    <line x1=\"0\" y1=\"240\" x2=\"290\" y2=\"240\" stroke=\"#bbb\" stroke-width=\"12\"/>\n    <text x=\"145\" y=\"255\" font-family=\"Arial, sans-serif\" font-size=\"11\" text-anchor=\"middle\" fill=\"#555\">Asosiy Yo'l</text>\n  </g>\n\n  <!-- MAP 2020 -->\n  <g transform=\"translate(370, 50)\">\n    <rect width=\"290\" height=\"300\" fill=\"#f5f5f0\" stroke=\"#aaa\" stroke-width=\"2\"/>\n    <text x=\"145\" y=\"25\" font-family=\"Arial, sans-serif\" font-size=\"14\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#555\">2020</text>\n    \n    <!-- North: Housing + School + Shopping -->\n    <rect x=\"10\" y=\"40\" width=\"110\" height=\"40\" fill=\"#fce4d6\" stroke=\"#c65911\"/>\n    <text x=\"65\" y=\"65\" font-family=\"Arial, sans-serif\" font-size=\"10\" text-anchor=\"middle\" fill=\"#333\">Turar-joy majmuasi</text>\n    \n    <rect x=\"125\" y=\"40\" width=\"50\" height=\"40\" fill=\"#dda0dd\" stroke=\"#4b0082\"/>\n    <text x=\"150\" y=\"65\" font-family=\"Arial, sans-serif\" font-size=\"10\" text-anchor=\"middle\" fill=\"#333\">Maktab</text>\n\n    <rect x=\"10\" y=\"85\" width=\"165\" height=\"25\" fill=\"#fff2cc\" stroke=\"#d6b656\"/>\n    <text x=\"92\" y=\"102\" font-family=\"Arial, sans-serif\" font-size=\"10\" text-anchor=\"middle\" fill=\"#333\">Savdo Markazi</text>\n\n    <!-- Center: Bozor (Unchanged) & Savdo Mall (Changed from cinema) -->\n    <rect x=\"20\" y=\"140\" width=\"90\" height=\"40\" fill=\"#fff2cc\" stroke=\"#d6b656\"/>\n    <text x=\"65\" y=\"165\" font-family=\"Arial, sans-serif\" font-size=\"11\" text-anchor=\"middle\" fill=\"#333\">Bozor</text>\n    \n    <rect x=\"120\" y=\"140\" width=\"80\" height=\"40\" fill=\"#e1f5fe\" stroke=\"#0288d1\"/>\n    <text x=\"160\" y=\"165\" font-family=\"Arial, sans-serif\" font-size=\"11\" text-anchor=\"middle\" fill=\"#333\">Savdo Mall</text>\n\n    <!-- East: Sanoat zonasi & Kichik bog' -->\n    <rect x=\"210\" y=\"40\" width=\"70\" height=\"100\" fill=\"#fff2cc\" stroke=\"#d6b656\"/>\n    <text x=\"245\" y=\"90\" font-family=\"Arial, sans-serif\" font-size=\"11\" text-anchor=\"middle\" fill=\"#333\">Sanoat</text>\n    <circle cx=\"245\" cy=\"170\" r=\"15\" fill=\"#a9d18e\"/>\n    <text x=\"245\" y=\"174\" font-family=\"Arial, sans-serif\" font-size=\"10\" text-anchor=\"middle\" fill=\"#375623\">Bog'</text>\n\n    <!-- South: Widened Road + Railway and New Station -->\n    <line x1=\"0\" y1=\"235\" x2=\"290\" y2=\"235\" stroke=\"#999\" stroke-width=\"18\"/>\n    <text x=\"145\" y=\"240\" font-family=\"Arial, sans-serif\" font-size=\"11\" text-anchor=\"middle\" fill=\"#fff\">Kengaytirilgan Yo'l</text>\n\n    <line x1=\"0\" y1=\"280\" x2=\"290\" y2=\"280\" stroke=\"#333\" stroke-width=\"4\" stroke-dasharray=\"5,5\"/>\n    <rect x=\"100\" y=\"268\" width=\"90\" height=\"25\" fill=\"#d9d9d9\" stroke=\"#333\"/>\n    <text x=\"145\" y=\"285\" font-family=\"Arial, sans-serif\" font-size=\"11\" font-weight=\"bold\" text-anchor=\"middle\" fill=\"#333\">Yangi Vokzal</text>\n  </g>\n</svg>"
+  },
+  {
+    "category": "opinion-essay",
+    "prompt": "Some people believe that unpaid community service should be a compulsory part of the school curriculum for all teenagers. To what extent do you agree or disagree?",
+    "structure": [
+      "1-paragraf (Kirish): Mavzuni paraphrase qil va o'z fikringni aniq bildir (thesis statement).",
+      "2-paragraf (Asosiy fikr 1): Fikringni qo'llab-quvvatlovchi birinchi asosiy argumentni misol bilan yoz.",
+      "3-paragraf (Asosiy fikr 2): Ikkinchi asosiy argumentni misol bilan yoz (kerak bo'lsa qarama-qarshi fikrni qisqacha tan olib, unga javob ber).",
+      "4-paragraf (Xulosa): Asosiy fikrlarni umumlashtirib, o'z pozitsiyangni yana bir bor tasdiqla."
+    ],
+    "phrases": [
+      "it is widely believed that",
+      "I firmly agree/disagree with the view that",
+      "from my perspective",
+      "one of the main reasons for this is",
+      "for instance",
+      "this is evidenced by",
+      "on the other hand, some may argue that",
+      "however, this argument overlooks the fact that",
+      "furthermore",
+      "as a result",
+      "it could be argued that",
+      "in light of the above",
+      "taking everything into account",
+      "in conclusion",
+      "outweighs the potential drawbacks"
+    ],
+    "sample_answer": "It has been suggested that schools should require all teenagers to take part in unpaid community service as part of their studies. I strongly agree with this view, as I believe such a requirement would benefit both individual students and society as a whole.\n\nFirstly, compulsory community service would help teenagers develop essential life skills that are not always taught through traditional academic subjects. Working in a soup kitchen, assisting elderly residents, or helping to clean up local parks requires teamwork, patience and communication, qualities that are difficult to cultivate through classroom lessons alone. For example, a student who volunteers at a nursing home learns how to interact respectfully with people from a different generation, a skill that will prove valuable throughout their life, both personally and professionally.\n\nSecondly, this kind of programme would foster a stronger sense of civic responsibility among young people. Many teenagers today are largely unaware of the challenges faced by disadvantaged members of their community, simply because they have never been exposed to them directly. By requiring students to engage in service projects, schools would give them firsthand experience of these issues, which could encourage lifelong habits of volunteering and social awareness. Critics might argue that forcing students to volunteer contradicts the very spirit of voluntary work, since true generosity should come from personal choice rather than obligation. However, I would argue that once students experience the satisfaction of helping others, many will continue such activities voluntarily even after the requirement ends.\n\nIn conclusion, although making community service compulsory may initially seem contrary to its voluntary nature, I believe the long-term benefits for students' personal development and for society far outweigh this concern. Schools should therefore consider incorporating it into the curriculum."
+  },
+  {
+    "category": "discussion-essay",
+    "prompt": "Some people think that governments should spend more money on improving public transport instead of building new roads for cars, while others believe that constructing more roads is a better use of public funds. Discuss both views and give your own opinion.",
+    "structure": [
+      "1-paragraf (Kirish): Mavzuni paraphrase qil va ikkala tomon muhokama qilinishini, so'ngra o'z fikring beriladigan tartibni bildir.",
+      "2-paragraf (1-tomon): Yo'llar qurishni qo'llab-quvvatlovchilarning asosiy argumentlarini misol bilan tushuntir.",
+      "3-paragraf (2-tomon): Jamoat transportiga ko'proq mablag' ajratishni qo'llab-quvvatlovchilarning asosiy argumentlarini misol bilan tushuntir.",
+      "4-paragraf (Xulosa): Ikkala fikrni qisqacha umumlashtir va o'z shaxsiy pozitsiyangni aniq bildirib yakunla."
+    ],
+    "phrases": [
+      "there are differing opinions regarding",
+      "proponents of this view argue that",
+      "advocates of X claim that",
+      "on the other hand",
+      "conversely",
+      "another argument in favour of this view is",
+      "this is particularly true in",
+      "while both sides raise valid points",
+      "in my view",
+      "a more balanced approach would be",
+      "it seems reasonable to conclude that",
+      "this would ultimately lead to",
+      "critics of this approach point out that",
+      "weighing up both perspectives",
+      "all things considered"
+    ],
+    "sample_answer": "Governments face an ongoing debate about whether public money should primarily go towards expanding road networks or improving public transport systems. This essay will examine both perspectives before presenting my own opinion.\n\nThose who favour building more roads argue that this approach directly addresses the growing number of private vehicles on the streets. As cities expand and populations increase, existing roads often become congested, leading to longer commuting times and increased fuel consumption from idling engines. Proponents of this view claim that wider roads and new highways would reduce traffic jams and support economic activities that depend on the efficient movement of goods, such as delivery services and freight transport. For many drivers, particularly those living in areas poorly served by buses or trains, better roads seem like the most practical solution to their daily frustrations.\n\nOn the other hand, advocates of investing in public transport argue that this is a more sustainable long-term solution. Building new roads tends to encourage more people to buy cars, which ultimately results in the same congestion problems reappearing within a few years, a phenomenon often referred to as induced demand. Improving buses, trams and railway systems, by contrast, can move far more people using less space and producing significantly lower carbon emissions per passenger. Cities such as Singapore, which have invested heavily in efficient and affordable metro systems, have successfully reduced private car dependency while keeping commuting times relatively short.\n\nIn my opinion, while road improvements may offer short-term relief, investing in public transport represents a more effective and environmentally responsible strategy in the long run. Governments should therefore prioritise funding for buses, trains and cycling infrastructure, while only expanding roads where absolutely necessary, such as for essential freight routes."
+  },
+  {
+    "category": "problem-solution-essay",
+    "prompt": "In many major cities around the world, traffic congestion has become an increasingly serious problem. What are the main causes of this problem, and what measures could be taken to solve it?",
+    "structure": [
+      "1-paragraf (Kirish): Mavzuni paraphrase qil va ikkita savolga (sabablar va yechimlar) javob berilishini bildir.",
+      "2-paragraf (Sabablar): Muammoning 2 ta asosiy sababini misollar bilan tushuntir.",
+      "3-paragraf (Yechimlar): Ushbu sabablarga mos 2 ta amaliy yechimni tushuntir.",
+      "4-paragraf (Xulosa): Sabab va yechimlarni qisqacha umumlashtirib yakunla."
+    ],
+    "phrases": [
+      "this problem stems largely from",
+      "one of the primary causes is",
+      "this is compounded by",
+      "a further contributing factor is",
+      "as a consequence",
+      "several measures could be implemented to address this issue",
+      "one effective solution would be to",
+      "this could be achieved by",
+      "in addition",
+      "another possible solution lies in",
+      "if this measure were adopted",
+      "would go a long way towards solving",
+      "authorities should consider",
+      "to sum up",
+      "unless action is taken"
+    ],
+    "sample_answer": "Traffic congestion has become a persistent difficulty in many of the world's largest cities, causing delays, pollution and frustration for millions of commuters. This essay will explore the main causes of this problem and suggest some practical solutions.\n\nOne of the primary causes of urban traffic congestion is the sheer increase in the number of private vehicles on the road. As incomes rise, more households can afford to own a car, and many people prefer the comfort and flexibility of driving over relying on public transport. This trend is compounded by rapid urbanisation, as growing city populations place enormous strain on road networks that were often not designed to accommodate such volumes of traffic. A further contributing factor is poor urban planning, with many cities lacking sufficient dedicated lanes for buses or cyclists, which forces all forms of transport to compete for the same limited road space.\n\nFortunately, several measures could be introduced to alleviate this problem. Firstly, city authorities should invest heavily in efficient, affordable and reliable public transport systems, including buses, trams and underground railways. If commuting by public transport becomes faster and more convenient than driving, a significant proportion of car owners would likely switch, thereby reducing the number of vehicles on the road. Secondly, congestion pricing, whereby drivers are charged a fee for entering busy city centres during peak hours, has proven effective in cities like London and Stockholm. This policy discourages unnecessary car journeys while generating revenue that can be reinvested in transport infrastructure.\n\nIn conclusion, traffic congestion arises mainly from rising car ownership and inadequate urban planning, but through a combination of improved public transport and pricing policies, cities can meaningfully reduce this growing problem."
+  },
+  {
+    "category": "advantage-disadvantage-essay",
+    "prompt": "An increasing number of people are choosing to work from home instead of commuting to a traditional office. Discuss the advantages and disadvantages of this trend.",
+    "structure": [
+      "1-paragraf (Kirish): Mavzuni paraphrase qil va insho afzallik va kamchiliklarni ko'rib chiqishini bildir.",
+      "2-paragraf (Afzalliklar): Uydan ishlashning 2 ta asosiy afzalligini misollar bilan tushuntir.",
+      "3-paragraf (Kamchiliklar): Uydan ishlashning 2 ta asosiy kamchiligini misollar bilan tushuntir.",
+      "4-paragraf (Xulosa): Afzallik va kamchiliklarni tarozida solishtirib, umumiy xulosa bilan yakunla."
+    ],
+    "phrases": [
+      "this trend has grown significantly in recent years",
+      "there are several notable benefits to this practice",
+      "one major advantage is that",
+      "this allows employees to",
+      "moreover",
+      "nevertheless, this trend is not without its drawbacks",
+      "a significant disadvantage is",
+      "this can lead to",
+      "in the absence of",
+      "it becomes increasingly difficult to",
+      "despite these benefits",
+      "on balance",
+      "while there are clear advantages, the disadvantages should not be overlooked",
+      "outweigh",
+      "overall, it can be concluded that"
+    ],
+    "sample_answer": "The shift towards remote work has accelerated considerably in recent years, with a growing number of employees opting to carry out their duties from home rather than commuting daily to an office. This essay will examine both the benefits and drawbacks associated with this development.\n\nOne of the most significant advantages of working from home is the amount of time and money employees save by eliminating the daily commute. Instead of spending hours travelling on crowded trains or sitting in traffic, workers can dedicate this time to their tasks, family, or personal wellbeing, which often results in a better work-life balance. In addition, remote work typically allows for a more flexible schedule, enabling employees to organise their day around personal responsibilities, such as caring for children, provided their work is completed on time. Companies also benefit financially, as they can reduce spending on office space, utilities and other overhead costs.\n\nHowever, working from home presents notable challenges as well. A key disadvantage is the potential for social isolation, since employees miss out on the daily face-to-face interactions with colleagues that occur naturally in an office environment. Over time, this lack of social contact can negatively affect mental health and reduce a sense of belonging within the organisation. Furthermore, collaboration and communication can become more difficult when teams are dispersed across different locations; misunderstandings may arise more easily through emails or video calls than in person, and spontaneous brainstorming sessions become harder to organise.\n\nOn balance, while remote work offers considerable benefits in terms of flexibility and cost savings, the potential for isolation and communication difficulties should not be underestimated. Ultimately, a hybrid model that combines both home and office work may offer the most effective solution for many organisations."
+  }
+]

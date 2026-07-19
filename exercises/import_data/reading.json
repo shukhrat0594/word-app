@@ -1,0 +1,91 @@
+[
+  {
+    "id": "reading-01",
+    "level": "A2",
+    "title": "A Day at the Market",
+    "paragraphs": [
+      { "letter": "A", "text": "Every Saturday, Malika goes to the local market with her mother. The market opens early, at six in the morning, and it is always full of people. They sell fruit, vegetables, bread, and fresh meat there." },
+      { "letter": "B", "text": "Malika's favourite part is the fruit section. She loves buying apples, grapes, and pomegranates. Her mother always checks the prices before buying anything, because she wants to save money." },
+      { "letter": "C", "text": "After shopping, they usually stop at a small cafe near the market. They drink tea and eat samsa together. Malika says this is the best part of her week." }
+    ],
+    "exercises": [
+      { "type": "multiple-choice", "question": "What time does the market open?", "options": ["Six in the morning", "Seven in the morning", "Eight in the morning", "Nine in the morning"], "correct": "Six in the morning" },
+      { "type": "multiple-choice", "question": "What is Malika's favourite part of the market?", "options": ["The bread section", "The meat section", "The fruit section", "The vegetable section"], "correct": "The fruit section" },
+      { "type": "true-false-notgiven", "statement": "Malika's mother always checks the prices before buying.", "correct": "True" }
+    ]
+  },
+  {
+    "id": "reading-02",
+    "level": "A1",
+    "title": "My Family",
+    "paragraphs": [
+      { "letter": "A", "text": "My name is Aziz. I live with my parents and my two sisters in Samarkand. My father is a teacher, and my mother works in a hospital." },
+      { "letter": "B", "text": "My older sister, Nilufar, is a student at university. She studies economics. My younger sister, Dilnoza, is still in school. She is twelve years old." },
+      { "letter": "C", "text": "On weekends, we all like to spend time together. We often go for walks in the park or watch movies at home. Family is very important to us." }
+    ],
+    "exercises": [
+      { "type": "multiple-choice", "question": "Where does Nilufar study?", "options": ["At school", "At university", "At home", "At a hospital"], "correct": "At university" },
+      { "type": "multiple-choice", "question": "How old is Dilnoza?", "options": ["Ten", "Eleven", "Twelve", "Thirteen"], "correct": "Twelve" },
+      {
+        "type": "matching-headings",
+        "headings": ["Aziz's parents and home", "Aziz's sisters", "Weekend family time", "A trip to the mountains"],
+        "correctMapping": { "A": "Aziz's parents and home", "B": "Aziz's sisters", "C": "Weekend family time" }
+      }
+    ]
+  },
+  {
+    "id": "reading-03",
+    "level": "B1",
+    "title": "A Trip to London",
+    "paragraphs": [
+      { "letter": "A", "text": "Last summer, Farrukh travelled to London for the first time. He was very excited because he had always wanted to see Big Ben and the River Thames." },
+      { "letter": "B", "text": "On his first day, he visited the British Museum. He spent almost four hours there, looking at ancient artefacts from around the world. He said it was one of the most interesting places he had ever seen." },
+      { "letter": "C", "text": "The weather in London was not what he expected. It rained almost every day, and he had to buy a new umbrella. Despite the rain, he still enjoyed walking around the city." },
+      { "letter": "D", "text": "Before returning home, Farrukh bought souvenirs for his family. He said he would love to visit London again someday, maybe in a different season." }
+    ],
+    "exercises": [
+      { "type": "multiple-choice", "question": "Which museum did Farrukh visit?", "options": ["The British Museum", "The National Gallery", "The Science Museum", "The Natural History Museum"], "correct": "The British Museum" },
+      { "type": "true-false-notgiven", "statement": "This was Farrukh's first time in London.", "correct": "True" },
+      { "type": "true-false-notgiven", "statement": "Farrukh's flight to London took ten hours.", "correct": "Not Given" }
+    ]
+  },
+  {
+    "id": "reading-04",
+    "level": "B1",
+    "title": "The Benefits of Reading",
+    "paragraphs": [
+      { "letter": "A", "text": "Reading books regularly can improve a person's vocabulary and writing skills. Studies show that people who read often use a wider range of words in their everyday speech." },
+      { "letter": "B", "text": "Beyond language skills, reading can also reduce stress. Many people find that spending twenty minutes with a good book helps them relax after a long day at work or school." },
+      { "letter": "C", "text": "Reading also helps develop empathy. When we read stories about different characters and their lives, we learn to understand other people's feelings and points of view." },
+      { "letter": "D", "text": "Finally, reading is an excellent way to gain knowledge. Non-fiction books, in particular, allow readers to learn about history, science, and many other subjects without leaving their homes." }
+    ],
+    "exercises": [
+      {
+        "type": "matching-headings",
+        "headings": ["Improving language ability", "Reducing stress levels", "Understanding other people", "Learning new knowledge", "The history of printing"],
+        "correctMapping": { "A": "Improving language ability", "B": "Reducing stress levels", "C": "Understanding other people", "D": "Learning new knowledge" }
+      },
+      { "type": "true-false-notgiven", "statement": "Reading fiction is more popular than reading non-fiction.", "correct": "Not Given" },
+      { "type": "yes-no-notgiven", "statement": "The writer believes that reading benefits are limited to language skills only.", "correct": "No" }
+    ]
+  },
+  {
+    "id": "reading-05",
+    "level": "A2",
+    "title": "Uzbek Traditions",
+    "paragraphs": [
+      { "letter": "A", "text": "Uzbekistan has many beautiful traditions that have been passed down for generations. One of the most important is hospitality — Uzbek people are famous for welcoming guests warmly into their homes." },
+      { "letter": "B", "text": "Weddings are also a big part of Uzbek culture. A traditional wedding can last for several days and includes music, dancing, and a large feast for all the guests." },
+      { "letter": "C", "text": "Food plays a central role in Uzbek traditions too. Plov, a rice dish with meat and carrots, is often served at special occasions and family gatherings." }
+    ],
+    "exercises": [
+      { "type": "multiple-choice", "question": "What is plov made from?", "options": ["Rice, meat, and carrots", "Bread and cheese", "Fish and potatoes", "Noodles and chicken"], "correct": "Rice, meat, and carrots" },
+      { "type": "multiple-choice", "question": "How long can a traditional Uzbek wedding last?", "options": ["One hour", "One day", "Several days", "One month"], "correct": "Several days" },
+      {
+        "type": "matching-headings",
+        "headings": ["Uzbek hospitality", "Wedding celebrations", "The importance of food", "Modern Uzbek cities"],
+        "correctMapping": { "A": "Uzbek hospitality", "B": "Wedding celebrations", "C": "The importance of food" }
+      }
+    ]
+  }
+]
