@@ -15,7 +15,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from config import narxlar as NARX
 
 from .models import Markaz, User
-from .permissions import owner_mi
+from .permissions import birlamchi_owner_mi, owner_mi
 
 
 def _parolni_tekshir(parol, user=None):
@@ -361,7 +361,9 @@ class FoydalanuvchiRolView(APIView):
     Cheklovlar: o'z rolini o'zgartira olmaysiz (tasodifan owner
     huquqidan mahrum bo'lmaslik uchun); owner qilishda jami owner soni
     2 tadan oshmaydi; oxirgi owner'ni pastga tushirib bo'lmaydi (kamida
-    1 owner doim qolishi kerak).
+    1 owner doim qolishi kerak); boshqa owner'ning rolini FAQAT asosiy
+    (birinchi yaratilgan) owner o'zgartira oladi — ikkinchi owner asosiy
+    owner'ni pastga tushira olmaydi.
     """
 
     permission_classes = [IsAuthenticated]
@@ -373,6 +375,11 @@ class FoydalanuvchiRolView(APIView):
         user = get_object_or_404(User, pk=pk)
         if user.pk == request.user.pk:
             return Response({"detail": "O'z rolingizni o'zgartira olmaysiz"}, status=400)
+        if user.is_superuser and not birlamchi_owner_mi(request.user):
+            return Response(
+                {"detail": "Owner'ning rolini faqat asosiy owner o'zgartira oladi"},
+                status=403,
+            )
 
         rol = request.data.get("rol") or ""
         is_super = rol == "owner"
