@@ -9,6 +9,7 @@ import Guruhlar from "./pages/Guruhlar";
 import Leaderboard from "./pages/Leaderboard";
 import Login from "./pages/Login";
 import Mashqlar from "./pages/Mashqlar";
+import MashqlarBoshqarish from "./pages/MashqlarBoshqarish";
 import MarkazSozlash from "./pages/MarkazSozlash";
 import Markazlar from "./pages/Markazlar";
 import Oyinlar from "./pages/Oyinlar";
@@ -35,6 +36,7 @@ export default function App() {
         >
           <Route index element={<BoshSahifa />} />
           <Route path="mashqlar" element={<Mashqlar />} />
+          <Route path="mashqlar-boshqarish" element={<MashqlarBoshqarish />} />
           <Route path="reyting" element={<Leaderboard />} />
           <Route path="oyinlar" element={<Oyinlar />} />
           <Route path="tarix" element={<Tarix />} />

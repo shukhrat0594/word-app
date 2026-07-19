@@ -18,6 +18,7 @@ function navlarniOl(role) {
       { yol: "/", ikon: "▦", kalit: "nav_dashboard" },
       { yol: "/guruhlar", ikon: "☰", kalit: "nav_guruhlar" },
       { yol: "/xodimlar", ikon: "🧑‍🏫", kalit: "nav_xodimlar" },
+      { yol: "/mashqlar-boshqarish", ikon: "🗂", kalit: "nav_mashqlar_boshqarish" },
       { yol: "/davomat", ikon: "🗓", kalit: "nav_davomat" },
       { yol: "/davomat-hisoboti", ikon: "📊", kalit: "nav_davomat_hisoboti" },
       { yol: "/markaz-sozlash", ikon: "🎨", kalit: "nav_markaz_sozlama" },

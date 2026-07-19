@@ -6,6 +6,8 @@ from django.db import models
 class Bolim(models.TextChoices):
     LISTENING = "listening", "Listening"
     READING = "reading", "Reading"
+    WRITING = "writing", "Writing"
+    SPEAKING = "speaking", "Speaking"
 
 
 class Tur(models.TextChoices):
@@ -16,11 +18,18 @@ class Tur(models.TextChoices):
     SHORT_ANSWER = "short_answer", "Short Answer"
     MATCHING_HEADINGS = "matching_headings", "Matching Headings"
     TFNG = "tfng", "True/False/Not Given"
+    TASK1 = "task1", "Writing Task 1"
+    TASK2 = "task2", "Writing Task 2"
+    PART1 = "part1", "Speaking Part 1"
+    PART2 = "part2", "Speaking Part 2"
+    PART3 = "part3", "Speaking Part 3"
 
 
 # Har bo'limda qaysi turlar bor (real IELTS formati, 2026-07-16).
 # Kunlik limit (B4.1) shu ro'yxat uzunligidan hisoblanadi — tur qo'shilsa
-# limit avtomatik moslashadi (qattiq kodlangan "5" yo'q).
+# limit avtomatik moslashadi (qattiq kodlangan "5" yo'q). Writing/Speaking —
+# auto-baholanmaydigan kontent banki (mavzu/namuna), shuning uchun limitga
+# kirmaydi (ular MashqYechim orqali emas, faqat o'qish uchun).
 BOLIM_TURLARI = {
     Bolim.LISTENING: [
         Tur.MULTIPLE_CHOICE,
@@ -36,7 +45,12 @@ BOLIM_TURLARI = {
         Tur.TFNG,
         Tur.SHORT_ANSWER,
     ],
+    Bolim.WRITING: [Tur.TASK1, Tur.TASK2],
+    Bolim.SPEAKING: [Tur.PART1, Tur.PART2, Tur.PART3],
 }
+
+# Auto-baholanadigan (savollar/to'g'ri javob talab qiladigan) bo'limlar.
+AVTO_BAHOLANADIGAN_BOLIMLAR = (Bolim.LISTENING, Bolim.READING)
 
 
 def javoblarni_tekshir(savollar, javoblar):
@@ -86,18 +100,26 @@ class Mashq(models.Model):
     )
 
     # Kontent (turi/bo'limiga qarab)
-    matn = models.TextField(blank=True, help_text="Reading passage / ko'rsatma")
+    matn = models.TextField(
+        blank=True, help_text="Reading passage / Writing topshirig'i / Speaking savoli"
+    )
     audio_fayl = models.FileField(upload_to="mashqlar/audio/", blank=True)
     rasm = models.ImageField(
         upload_to="mashqlar/rasm/", blank=True,
-        help_text="Plan/Map/Diagram Labelling uchun",
+        help_text="Plan/Map/Diagram Labelling yoki Writing Task 1 grafigi uchun",
+    )
+    namuna_javob = models.TextField(
+        blank=True, help_text="Writing/Speaking uchun namuna javob (ixtiyoriy)"
     )
 
     savollar = models.JSONField(
+        default=list,
+        blank=True,
         help_text=(
             'Ro\'yxat: [{"savol": "...", "variantlar": ["A", "B"], '
-            '"togri": "A"}] — "togri" ro\'yxat ham bo\'lishi mumkin'
-        )
+            '"togri": "A"}] — "togri" ro\'yxat ham bo\'lishi mumkin. '
+            "Writing/Speaking uchun bo'sh qoldirilishi mumkin."
+        ),
     )
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -118,20 +140,21 @@ class Mashq(models.Model):
 
         if self.bolim == Bolim.LISTENING and not self.audio_fayl:
             xatolar["audio_fayl"] = "Listening mashqi uchun audio majburiy."
-        if self.bolim == Bolim.READING and not self.matn:
-            xatolar["matn"] = "Reading mashqi uchun matn (passage) majburiy."
+        if self.bolim in (Bolim.READING, Bolim.WRITING, Bolim.SPEAKING) and not self.matn:
+            xatolar["matn"] = "Matn (passage/topshiriq/savol) majburiy."
         if self.tur == Tur.MAP_LABELLING and not self.rasm:
             xatolar["rasm"] = "Labelling turi uchun rasm majburiy."
 
-        if not isinstance(self.savollar, list) or not self.savollar:
-            xatolar["savollar"] = "Kamida bitta savoldan iborat ro'yxat bo'lishi kerak."
-        else:
-            for i, s in enumerate(self.savollar):
-                if not isinstance(s, dict) or "savol" not in s or "togri" not in s:
-                    xatolar["savollar"] = (
-                        f"{i + 1}-savolda 'savol' va 'togri' maydonlari majburiy."
-                    )
-                    break
+        if self.bolim in AVTO_BAHOLANADIGAN_BOLIMLAR:
+            if not isinstance(self.savollar, list) or not self.savollar:
+                xatolar["savollar"] = "Kamida bitta savoldan iborat ro'yxat bo'lishi kerak."
+            else:
+                for i, s in enumerate(self.savollar):
+                    if not isinstance(s, dict) or "savol" not in s or "togri" not in s:
+                        xatolar["savollar"] = (
+                            f"{i + 1}-savolda 'savol' va 'togri' maydonlari majburiy."
+                        )
+                        break
 
         if xatolar:
             raise ValidationError(xatolar)
@@ -234,11 +257,16 @@ def kunlik_limit_holati(talaba, bolim):
 
 
 def korinadigan_mashqlar(user):
-    """Foydalanuvchiga ko'rinadigan mashqlar (B3.1 qoidasi bilan bir xil)."""
+    """Foydalanuvchiga ko'rinadigan mashqlar (B3.1 qoidasi bilan bir xil).
+
+    Markazga biriktirilmagan foydalanuvchi (masalan "oddiy foydalanuvchi")
+    ham "hammaga ochiq" (`korinish="public"`) mashqlarni ko'radi — 9-faza
+    qoidasi: Mashqlar Utmost talabasi bo'lmaganlar uchun ham ochiq.
+    """
     from content.models import public_kontent_ochiqmi
 
     if user.markaz_id is None:
-        return Mashq.objects.none()
+        return Mashq.objects.filter(korinish="public")
     ozimniki = models.Q(markaz_id=user.markaz_id)
     if public_kontent_ochiqmi(user.markaz):
         return Mashq.objects.filter(ozimniki | models.Q(korinish="public"))
