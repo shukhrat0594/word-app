@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { mediaManzil, tokenlarniTozala } from "../api";
 import { useI18n } from "../i18n";
@@ -39,6 +39,7 @@ export default function Layout() {
   const { til, tilniQoy, t } = useI18n();
   const navigate = useNavigate();
   const { profil } = useProfil();
+  const [menyuOchiq, setMenyuOchiq] = useState(false);
 
   const markazNomi = profil?.markaz?.name || "Utmost o'quv markazi";
   // Owner markazga biriktirilmagan (markaz=null) — shu holatda ham standart
@@ -99,7 +100,11 @@ export default function Layout() {
 
   return (
     <div className="qobiq">
-      <nav className="sidebar">
+      <div
+        className={"menyu-parda" + (menyuOchiq ? " ochiq" : "")}
+        onClick={() => setMenyuOchiq(false)}
+      />
+      <nav className={"sidebar" + (menyuOchiq ? " ochiq" : "")}>
         <div className="logo">
           {markazLogo ? (
             <img className="logo-rasm" src={markazLogo} alt={markazNomi} />
@@ -117,6 +122,7 @@ export default function Layout() {
             to={n.yol}
             end={n.yol === "/"}
             className={({ isActive }) => "nav-tugma" + (isActive ? " aktiv" : "")}
+            onClick={() => setMenyuOchiq(false)}
           >
             <span className="nav-ikon">{n.ikon}</span>
             {t(n.kalit)}
@@ -131,7 +137,16 @@ export default function Layout() {
 
       <div className="asosiy">
         <header className="topbar">
-          <h1>{markazNomi}</h1>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <button
+              className="menyu-tugma"
+              onClick={() => setMenyuOchiq((v) => !v)}
+              aria-label="Menyu"
+            >
+              ☰
+            </button>
+            <h1>{markazNomi}</h1>
+          </div>
           <div className="topbar-ong">
             <div className="til-guruh" role="group" aria-label="Til">
               {["uz", "ru", "en"].map((t2) => (
