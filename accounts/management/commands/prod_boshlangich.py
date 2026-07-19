@@ -34,16 +34,19 @@ class Command(BaseCommand):
             username = config("OWNER_USERNAME", default="")
             parol = config("OWNER_PAROL", default="")
             if username and parol:
-                user = User(
-                    username=username,
-                    role=User.Role.ADMIN,
-                    markaz=markaz,
-                    is_superuser=True,
-                    is_staff=True,
-                )
-                user.set_password(parol)
+                # Hisob Google login orqali (student sifatida) allaqachon
+                # ochilgan bo'lishi mumkin — u holda owner darajasiga
+                # ko'tariladi; mavjud parolga tegilmaydi.
+                user, created = User.objects.get_or_create(username=username)
+                user.role = User.Role.ADMIN
+                user.markaz = markaz
+                user.is_superuser = True
+                user.is_staff = True
+                if created or not user.has_usable_password():
+                    user.set_password(parol)
                 user.save()
-                self.stdout.write(f"Owner yaratildi: {username}")
+                holat = "yaratildi" if created else "owner darajasiga ko'tarildi"
+                self.stdout.write(f"Owner {holat}: {username}")
             else:
                 self.stdout.write(
                     "OWNER_USERNAME/OWNER_PAROL berilmagan — owner yaratilmadi"
