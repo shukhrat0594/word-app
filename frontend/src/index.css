@@ -215,12 +215,50 @@ textarea {
 .imtihon-qism-sarlavha:first-child { margin-top: 0; }
 .imtihon-yoriqnoma { color: var(--matn-sokin); font-size: 13px; font-style: italic; margin-bottom: 10px; }
 .imtihon-guruh-sarlavha { font-weight: 700; margin: 16px 0 6px; font-size: 13.5px; }
-.imtihon-palitra { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
-.imtihon-palitra button {
-  width: 30px; height: 30px; border-radius: 6px; font-size: 12px;
-  background: var(--sirt-2); border: 1px solid var(--chiziq); cursor: pointer;
+
+.imtihon-split { display: flex; height: calc(100vh - 230px); min-height: 320px; border: 1px solid var(--chiziq); border-radius: 10px; overflow: hidden; background: var(--sirt); }
+.imtihon-panel-chap, .imtihon-panel-ong { overflow-y: auto; padding: 18px; }
+.imtihon-panel-chap { border-right: 1px solid var(--chiziq); }
+.imtihon-drag-tutqich {
+  width: 10px; flex-shrink: 0; cursor: col-resize; background: var(--sirt-2);
+  display: flex; align-items: center; justify-content: center; color: var(--matn-sokin); font-size: 11px;
 }
-.imtihon-palitra button.javob-berilgan { background: var(--sariq); border-color: var(--sariq); color: var(--komir); }
+.imtihon-drag-tutqich:hover { background: var(--chiziq); }
+
+.imtihon-pastki-panel {
+  position: sticky; bottom: 0; margin-top: 12px; display: flex; align-items: center; gap: 10px;
+  background: var(--komir); color: #F2F0EA; border-radius: 10px; padding: 10px 14px; flex-wrap: wrap;
+}
+.imtihon-pastki-panel button.strelka {
+  background: none; border: none; color: #F2F0EA; font-size: 18px; cursor: pointer; padding: 4px 8px;
+}
+.imtihon-pastki-panel button.strelka:disabled { opacity: .3; cursor: not-allowed; }
+.imtihon-part-tab { display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 8px; cursor: pointer; font-size: 13px; }
+.imtihon-part-tab.faol { background: rgba(255,255,255,.08); }
+.imtihon-part-tab .raqamlar { display: flex; flex-wrap: wrap; gap: 4px; }
+.imtihon-part-tab .raqamlar button {
+  width: 26px; height: 26px; border-radius: 5px; font-size: 11px;
+  background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.2); color: #F2F0EA; cursor: pointer;
+}
+.imtihon-part-tab .raqamlar button.javob-berilgan { background: var(--sariq); border-color: var(--sariq); color: var(--komir); }
+.imtihon-pastki-panel .tugma.katta { margin-left: auto; padding: 8px 20px; }
+
+.imtihon-oqim-matn { line-height: 2.1; font-size: 14.5px; }
+.imtihon-bosh-joy {
+  display: inline-block; min-width: 110px; padding: 3px 8px; margin: 0 3px; border-radius: 6px;
+  border: 1px dashed var(--matn-sokin); text-align: center; font-size: 12.5px; vertical-align: middle;
+  background: var(--sirt-2); cursor: pointer;
+}
+.imtihon-bosh-joy.toldirilgan { border-style: solid; border-color: var(--sariq); background: #FFF7DB; }
+.imtihon-bosh-joy.togri { border-color: var(--yaxshi); background: transparent; }
+.imtihon-bosh-joy.notogri { border-color: var(--xato); background: transparent; }
+.imtihon-bank { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0; padding: 12px; background: var(--sirt-2); border-radius: 8px; }
+.imtihon-bank-chip {
+  padding: 6px 12px; border-radius: 20px; border: 1px solid var(--chiziq); background: var(--sirt);
+  font-size: 13px; cursor: grab;
+}
+.imtihon-bank-chip.tanlangan { background: var(--sariq); border-color: var(--sariq); color: var(--komir); }
+.imtihon-bank-chip.ishlatilgan { opacity: .4; }
 
 /* ==== Leaderboard ==== */
 .lb-qator { display: flex; align-items: center; gap: 12px; padding: 9px 4px; border-bottom: 1px solid var(--chiziq); }
