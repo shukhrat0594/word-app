@@ -10,6 +10,10 @@ Uch ish qiladi, har biri faqat kerak bo'lsa:
   4. word-app-backup'dan IELTS mashqlarini import qiladi (wordapp_import,
      ichkarida o'zi idempotent — audio fayllarni esa HAR safar qayta
      nusxalaydi, chunki disk har deploy'da tozalanadi).
+  5. Gemini TTS bilan yozilgan yangi Listening mashqlarini qo'shadi
+     (listening_yangi_mashqlar) — audio fayli repo'da tayyor bo'lsa faqat
+     nusxalaydi (API chaqirmaydi), hali generatsiya qilinmagan bo'lsa
+     bepul kvota bo'yicha urinadi va tugasa xatosiz to'xtaydi.
 """
 
 from decouple import config
@@ -62,3 +66,4 @@ class Command(BaseCommand):
             self.stdout.write(f"O'yin kontenti yuklandi: {Soz.objects.count()} so'z")
 
         call_command("wordapp_import")
+        call_command("listening_yangi_mashqlar")

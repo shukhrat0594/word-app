@@ -10,6 +10,7 @@ export default function MashqBank({ bolim }) {
   const [javoblar, setJavoblar] = useState({});
   const [natija, setNatija] = useState(null);
   const [audioUrl, setAudioUrl] = useState(null);
+  const [rasmUrl, setRasmUrl] = useState(null);
   const [xato, setXato] = useState("");
   const [yuklanmoqda, setYuklanmoqda] = useState(false);
 
@@ -24,10 +25,14 @@ export default function MashqBank({ bolim }) {
     setNatija(null);
     setJavoblar({});
     setAudioUrl(null);
+    setRasmUrl(null);
     const m = await api(`/api/mashqlar/${id}/`);
     setTanlangan(m);
     if (m.audio_url) {
       apiBlobUrl(m.audio_url).then(setAudioUrl).catch(() => {});
+    }
+    if (m.rasm_url) {
+      apiBlobUrl(m.rasm_url).then(setRasmUrl).catch(() => {});
     }
   }
 
@@ -74,14 +79,18 @@ export default function MashqBank({ bolim }) {
       </div>
       <div className="karta">
         <h3>{tanlangan.name}</h3>
-        {bolim === "listening" ? (
+        {bolim === "listening" && (
           audioUrl ? (
             <audio controls src={audioUrl} style={{ width: "100%", marginBottom: 18 }} />
           ) : (
             <span className="izoh">{t("audio_yuklanmoqda")}</span>
           )
-        ) : (
+        )}
+        {bolim !== "listening" && tanlangan.matn && (
           <div className="mashq-passage">{tanlangan.matn}</div>
+        )}
+        {rasmUrl && (
+          <img src={rasmUrl} alt="" style={{ maxWidth: "100%", marginBottom: 18, borderRadius: 8 }} />
         )}
 
         {tanlangan.savollar.map((s, i) => (

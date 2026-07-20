@@ -40,7 +40,7 @@ def _mashq_qisqa(m):
         "matn": m.matn,
         "namuna_javob": m.namuna_javob,
         "audio_url": f"/api/mashqlar/{m.id}/audio/" if m.audio_fayl else None,
-        "rasm_url": m.rasm.url if m.rasm else None,
+        "rasm_url": f"/api/mashqlar/{m.id}/rasm/" if m.rasm else None,
         "savollar": m.savollar,
         "created_at": m.created_at,
     }
@@ -190,7 +190,9 @@ class MashqDetailView(APIView):
                 "audio_url": (
                     f"/api/mashqlar/{mashq.id}/audio/" if mashq.audio_fayl else None
                 ),
-                "rasm_url": mashq.rasm.url if mashq.rasm else None,
+                "rasm_url": (
+                    f"/api/mashqlar/{mashq.id}/rasm/" if mashq.rasm else None
+                ),
                 "savollar": savollar_talaba_uchun(mashq.savollar),
             }
         )
@@ -209,6 +211,24 @@ class MashqAudioView(APIView):
         if not mashq.audio_fayl:
             raise Http404
         javob = FileResponse(mashq.audio_fayl.open("rb"))
+        javob["Content-Disposition"] = "inline"
+        return javob
+
+
+class MashqRasmView(APIView):
+    """Mashq rasmi (masalan Map Labelling xaritasi) — /media/ ochiq emas
+    (faqat markaz logolari ochiq, B3.2), shuning uchun audio kabi
+    autentifikatsiyalangan stream orqali beriladi."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        from django.http import FileResponse, Http404
+
+        mashq = get_object_or_404(korinadigan_mashqlar(request.user), pk=pk)
+        if not mashq.rasm:
+            raise Http404
+        javob = FileResponse(mashq.rasm.open("rb"))
         javob["Content-Disposition"] = "inline"
         return javob
 

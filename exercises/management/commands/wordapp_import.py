@@ -127,8 +127,7 @@ class Command(BaseCommand):
         data = json.loads((IMPORT_DIR / "listening.json").read_text(encoding="utf-8"))
         soni = 0
         for item in data:
-            fayl_nomi = f"{item['id']}.mp3"
-            nisbiy_yol = self._audio_nusxala(fayl_nomi)
+            nisbiy_yol = self._audio_nusxala(item["id"])
             if not nisbiy_yol:
                 continue
             tur = LISTENING_TUR[item["type"]]
@@ -136,24 +135,32 @@ class Command(BaseCommand):
             for ex in item["exercises"]:
                 savollar.extend(savol_listening(item["type"], ex))
             name = f"[{item['level']}] {item['title']}"
-            _, yangi = self._bor_yoki_yarat(
+            mashq, yangi = self._bor_yoki_yarat(
                 markaz, name, Bolim.LISTENING, tur,
                 matn=item["transcript"], savollar=savollar, audio_fayl=nisbiy_yol,
             )
+            if not yangi and mashq.audio_fayl.name != nisbiy_yol:
+                mashq.audio_fayl.name = nisbiy_yol
+                mashq.save(update_fields=["audio_fayl"])
             soni += int(yangi)
         return soni
 
-    def _audio_nusxala(self, fayl_nomi):
+    def _audio_nusxala(self, item_id):
         """Audio faylni HAR doim manbadan qayta nusxalaydi (ephemeral disk
-        himoyasi — Render bepul rejasida disk har deploy'da tozalanadi)."""
-        manba = IMPORT_DIR / "audio" / fayl_nomi
-        if not manba.exists():
-            self.stdout.write(self.style.WARNING(f"Audio topilmadi: {fayl_nomi}"))
-            return None
-        nishab = settings.MEDIA_ROOT / "mashqlar" / "audio" / fayl_nomi
-        nishab.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(manba, nishab)
-        return f"mashqlar/audio/{fayl_nomi}"
+        himoyasi — Render bepul rejasida disk har deploy'da tozalanadi).
+
+        Gemini TTS orqali qayta yozilgan dialoglar .wav, asl word-app-backup
+        fayllari .mp3 — avval .wav'ni qidiradi (2026-07-20)."""
+        for kengaytma in (".wav", ".mp3"):
+            fayl_nomi = f"{item_id}{kengaytma}"
+            manba = IMPORT_DIR / "audio" / fayl_nomi
+            if manba.exists():
+                nishab = settings.MEDIA_ROOT / "mashqlar" / "audio" / fayl_nomi
+                nishab.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(manba, nishab)
+                return f"mashqlar/audio/{fayl_nomi}"
+        self.stdout.write(self.style.WARNING(f"Audio topilmadi: {item_id}"))
+        return None
 
     def _import_writing(self, markaz):
         data = json.loads((IMPORT_DIR / "writing.json").read_text(encoding="utf-8"))
