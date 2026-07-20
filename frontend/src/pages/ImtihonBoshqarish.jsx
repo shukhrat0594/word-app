@@ -3,6 +3,7 @@ import { api, apiForm } from "../api";
 import { useI18n } from "../i18n";
 import { useProfil } from "../profilContext";
 import ImtihonOtish from "./ImtihonOtish";
+import ImtihonYozGap from "./ImtihonYozGap";
 
 const AI_PROMT = `Men senga to'liq IELTS Reading yoki Listening testi (masalan Cambridge IELTS kitobidan) matnini/transkriptini beraman. Sen shu materialni quyidagi JSON formatiga o'girib ber — natija FAQAT valid JSON obyekt bo'lsin, hech qanday izoh, sarlavha yoki markdown belgisi (masalan \`\`\`json) qo'shma, faqat sof JSON matni qaytar.
 
@@ -90,12 +91,32 @@ function AdminBoshqaruv() {
     }
   }
 
-  async function audioBiriktir(qismId, fayl) {
-    if (!fayl) return;
+  async function qismgaAudioYukla(qismId, fayl) {
     const fd = new FormData();
     fd.append("audio_fayl", fayl);
+    await apiForm(`/api/imtihon/qism-boshqaruv/${qismId}/`, { method: "PATCH", formData: fd });
+  }
+
+  async function audioBiriktir(qismId, fayl) {
+    if (!fayl) return;
     try {
-      await apiForm(`/api/imtihon/qism-boshqaruv/${qismId}/`, { method: "PATCH", formData: fd });
+      await qismgaAudioYukla(qismId, fayl);
+      yukla(filtrBolim);
+    } catch (e) {
+      setJsonXato(e.data?.detail || t("xato_yuz_berdi"));
+    }
+  }
+
+  // Real IELTS Listening testi odatda BITTA uzluksiz audio — bo'lib
+  // olish (splitting) o'rniga xuddi shu faylning o'zi barcha qismlarga
+  // (Part 1-4) biriktiriladi, talaba istalgan qismda to'liq audioni
+  // tinglab, kerakli joyidan pauza/seek qilib javob beradi.
+  async function hammasigaAudioBiriktir(test, fayl) {
+    if (!fayl) return;
+    try {
+      for (const q of test.qismlar) {
+        await qismgaAudioYukla(q.id, fayl);
+      }
       yukla(filtrBolim);
     } catch (e) {
       setJsonXato(e.data?.detail || t("xato_yuz_berdi"));
@@ -176,6 +197,18 @@ function AdminBoshqaruv() {
                 </div>
                 {test.bolim === "listening" && (
                   <div style={{ marginTop: 8, display: "grid", gap: 6 }}>
+                    {test.qismlar.some((q) => !q.audio_url) && (
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span className="izoh" style={{ minWidth: 90 }}>{t("imtihon_audio_hammasiga")}</span>
+                        <input
+                          type="file"
+                          accept="audio/*"
+                          title={t("imtihon_audio_hammasiga_izoh")}
+                          style={{ maxWidth: 160 }}
+                          onChange={(e) => hammasigaAudioBiriktir(test, e.target.files[0])}
+                        />
+                      </div>
+                    )}
                     {test.qismlar.map((q) => (
                       <div key={q.id} style={{ display: "flex", alignItems: "center", gap: 8 }}>
                         <span className="izoh" style={{ minWidth: 90 }}>{q.sarlavha || `#${q.tartib}`}</span>
@@ -212,7 +245,7 @@ export default function ImtihonBoshqarish() {
   const { t } = useI18n();
   const { profil } = useProfil();
   const adminMi = profil?.is_owner || profil?.role === "admin";
-  const [bolim, setBolim] = useState("reading");
+  const [bolim, setBolim] = useState("writing");
 
   return (
     <div style={{ display: "grid", gap: 20 }}>
@@ -220,6 +253,12 @@ export default function ImtihonBoshqarish() {
 
       <div>
         <div className="tab-guruh" style={{ marginBottom: 12 }}>
+          <button className={bolim === "writing" ? "aktiv" : ""} onClick={() => setBolim("writing")}>
+            {t("nav_writing")}
+          </button>
+          <button className={bolim === "speaking" ? "aktiv" : ""} onClick={() => setBolim("speaking")}>
+            {t("nav_speaking")}
+          </button>
           <button className={bolim === "reading" ? "aktiv" : ""} onClick={() => setBolim("reading")}>
             {t("reading_bolimi")}
           </button>
@@ -227,7 +266,8 @@ export default function ImtihonBoshqarish() {
             {t("listening_bolimi")}
           </button>
         </div>
-        <ImtihonOtish bolim={bolim} />
+        {(bolim === "writing" || bolim === "speaking") && <ImtihonYozGap bolim={bolim} />}
+        {(bolim === "reading" || bolim === "listening") && <ImtihonOtish bolim={bolim} />}
       </div>
     </div>
   );

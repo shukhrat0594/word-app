@@ -7,7 +7,7 @@ const SVG_BELGISI = "[Grafik SVG manba kodi]\n";
 // matn ichiga yozib qo'yilgan xom SVG kodini (Writing Task1 grafiklari)
 // ajratib oladi va <img> sifatida (data URI) xavfsiz render qilish uchun
 // qaytaradi — dangerouslySetInnerHTML ishlatilmaydi.
-function svgAjrat(matn) {
+export function svgAjrat(matn) {
   const i = matn.indexOf(SVG_BELGISI);
   if (i === -1) return { matn, svgUrl: null };
   const svg = matn.slice(i + SVG_BELGISI.length).trim();

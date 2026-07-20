@@ -14,6 +14,30 @@ class WritingTekshirishView(APIView):
 
     permission_classes = [IsAuthenticated]
 
+    def _grafik_rasmini_ol(self, request):
+        """Writing Task 1 grafigini AI'ga rasm sifatida yuborish uchun bytes
+        qaytaradi — "IELTS testlari" bo'limidan `mashq_id` (Mashq.rasm fayli
+        bo'lsa) yoki `grafik_rasm` (frontendda SVG'dan aylantirilgan base64
+        PNG) yuborilishi mumkin."""
+        import base64
+
+        mashq_id = request.data.get("mashq_id")
+        if mashq_id:
+            from exercises.models import korinadigan_mashqlar
+
+            mashq = korinadigan_mashqlar(request.user).filter(pk=mashq_id).first()
+            if mashq and mashq.rasm:
+                return mashq.rasm.read(), "image/png"
+            return None, None
+
+        grafik_b64 = request.data.get("grafik_rasm")
+        if grafik_b64:
+            try:
+                return base64.b64decode(grafik_b64), "image/png"
+            except (ValueError, TypeError):
+                return None, None
+        return None, None
+
     def post(self, request):
         matn = (request.data.get("matn") or "").strip()
         if len(matn.split()) < 20:
@@ -22,9 +46,11 @@ class WritingTekshirishView(APIView):
                 status=400,
             )
 
+        rasm_bytes, rasm_mime = self._grafik_rasmini_ol(request)
+
         try:
             provider = provider_tanla(request.user)
-            baho = provider.writing_baholash(matn)
+            baho = provider.writing_baholash(matn, rasm_bytes=rasm_bytes, rasm_mime=rasm_mime)
         except ProviderXatosi as e:
             return Response({"detail": str(e)}, status=502)
 

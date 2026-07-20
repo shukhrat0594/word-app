@@ -207,7 +207,7 @@ textarea {
   padding: 10px 14px; background: var(--sirt); border: 1px solid var(--chiziq);
   border-radius: 10px; margin-bottom: 16px; position: sticky; top: 0; z-index: 5;
 }
-.imtihon-taymer { font-weight: 700; font-variant-numeric: tabular-nums; font-size: 15px; }
+.imtihon-taymer { font-weight: 700; font-variant-numeric: tabular-nums; font-size: 15px; cursor: pointer; user-select: none; }
 .imtihon-asboblar .tugma, .imtihon-asboblar .tugma.ikkinchi { padding: 6px 12px; font-size: 13px; }
 .imtihon-zoom { display: flex; align-items: center; gap: 6px; }
 .imtihon-zoom button { width: 28px; height: 28px; border-radius: 6px; }

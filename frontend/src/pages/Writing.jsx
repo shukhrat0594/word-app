@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
-import NamunaMavzular, { TURLAR } from "../components/NamunaMavzular";
+import NamunaMavzular, { svgAjrat, TURLAR } from "../components/NamunaMavzular";
 import { useI18n } from "../i18n";
+import { svgniPngGaAylantir } from "../svgRasm";
 import { xatoniAjrat } from "../xatoUtils";
 
 const TASK_NOMI = { task1: "Task 1", task2: "Task 2" };
 
-function Natija({ natija }) {
+export function Natija({ natija }) {
   const { t } = useI18n();
   const mezonlar = [
     ["task_achievement", t("task_achievement")],
@@ -81,6 +82,9 @@ function HaqiqiyMashq() {
   const [tur, setTur] = useState(turlar[0]?.tur);
   const [royxat, setRoyxat] = useState(null);
   const [mashq, setMashq] = useState(null);
+  const [mashqMatn, setMashqMatn] = useState("");
+  const [grafikUrl, setGrafikUrl] = useState(null);
+  const [grafikPng, setGrafikPng] = useState(null);
   const [matn, setMatn] = useState("");
   const [natija, setNatija] = useState(null);
   const [xato, setXato] = useState("");
@@ -98,12 +102,40 @@ function HaqiqiyMashq() {
     api(`/api/mashqlar/?bolim=writing&tur=${tur}`).then(setRoyxat).catch(() => {});
   }, [tur]);
 
+  useEffect(() => {
+    function chiqishdanOldin(e) {
+      if (!mashq || natija) return;
+      e.preventDefault();
+      e.returnValue = "";
+    }
+    window.addEventListener("beforeunload", chiqishdanOldin);
+    return () => window.removeEventListener("beforeunload", chiqishdanOldin);
+  }, [mashq, natija]);
+
+  function ortgaQaytish() {
+    if (!natija && !window.confirm(t("imtihon_ortga_tasdiq"))) return;
+    setMashq(null);
+  }
+
   async function mashqniOch(id) {
     const m = await api(`/api/mashqlar/${id}/`);
     setMashq(m);
     setMatn("");
     setNatija(null);
     setXato("");
+    setGrafikUrl(null);
+    setGrafikPng(null);
+
+    if (m.tur === "task1") {
+      const { matn: tozaMatn, svgUrl } = svgAjrat(m.matn || "");
+      setMashqMatn(tozaMatn);
+      if (svgUrl) {
+        setGrafikUrl(svgUrl);
+        svgniPngGaAylantir(svgUrl).then(setGrafikPng).catch(() => {});
+      }
+    } else {
+      setMashqMatn(m.matn || "");
+    }
   }
 
   const sozSoni = matn.trim() ? matn.trim().split(/\s+/).length : 0;
@@ -114,9 +146,16 @@ function HaqiqiyMashq() {
       setXato(t("matn_qisqa"));
       return;
     }
+    if (!window.confirm(t("imtihon_yakunlash_tasdiq"))) return;
     setYuklanmoqda(true);
     try {
-      const res = await api("/api/writing/tekshirish/", { method: "POST", body: { matn } });
+      const body = { matn };
+      if (grafikPng) {
+        body.grafik_rasm = grafikPng;
+      } else if (mashq?.rasm_url) {
+        body.mashq_id = mashq.id;
+      }
+      const res = await api("/api/writing/tekshirish/", { method: "POST", body });
       setNatija(res.natija);
       api("/api/writing/tarix/").then(setTarix).catch(() => {});
     } catch (e) {
@@ -129,10 +168,11 @@ function HaqiqiyMashq() {
   if (natija) {
     return (
       <>
-        {mashq?.matn && (
+        {mashqMatn && (
           <div className="karta" style={{ marginBottom: 14 }}>
             <h3>{mashq.name}</h3>
-            <div className="mashq-passage">{mashq.matn}</div>
+            <div className="mashq-passage">{mashqMatn}</div>
+            {grafikUrl && <img src={grafikUrl} alt="chart" style={{ maxWidth: "100%", marginTop: 10 }} />}
           </div>
         )}
         <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 4 }}>
@@ -142,6 +182,8 @@ function HaqiqiyMashq() {
               setNatija(null);
               setMashq(null);
               setMatn("");
+              setGrafikUrl(null);
+              setGrafikPng(null);
             }}
           >
             {t("yangi_tekshiruv")}
@@ -156,13 +198,14 @@ function HaqiqiyMashq() {
     return (
       <>
         <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 4 }}>
-          <button className="tugma ikkinchi" onClick={() => setMashq(null)}>
+          <button className="tugma ikkinchi" onClick={ortgaQaytish}>
             {t("ortga")}
           </button>
         </div>
         <div className="karta" style={{ marginBottom: 14 }}>
           <h3>{mashq.name}</h3>
-          {mashq.matn && <div className="mashq-passage">{mashq.matn}</div>}
+          {mashqMatn && <div className="mashq-passage">{mashqMatn}</div>}
+          {grafikUrl && <img src={grafikUrl} alt="chart" style={{ maxWidth: "100%", marginTop: 10 }} />}
         </div>
         <div className="karta">
           <textarea

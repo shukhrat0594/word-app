@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { api, apiBlobUrl } from "../api";
 import { useI18n } from "../i18n";
+import { standartVaqt } from "../imtihonVaqt";
 
-function vaqtFormat(soniya) {
+export function vaqtFormat(soniya) {
   const m = Math.floor(soniya / 60)
     .toString()
     .padStart(2, "0");
@@ -155,6 +156,7 @@ export default function ImtihonOtish({ bolim }) {
   const [fokus, setFokus] = useState(false);
   const [masshtab, setMasshtab] = useState(100);
   const [soniya, setSoniya] = useState(0);
+  const [teskariMi, setTeskariMi] = useState(false);
   const [faolQism, setFaolQism] = useState(0);
   const [chapKenglik, setChapKenglik] = useState(45);
   const taymerRef = useRef(null);
@@ -209,6 +211,7 @@ export default function ImtihonOtish({ bolim }) {
     setNatija(null);
     setJavoblar({});
     setSoniya(0);
+    setTeskariMi(false);
     setFokus(false);
     setMasshtab(100);
     setFaolQism(0);
@@ -291,7 +294,13 @@ export default function ImtihonOtish({ bolim }) {
         <button className="tugma ikkinchi" onClick={ortgaQaytish}>
           {t("ortga")}
         </button>
-        <span className="imtihon-taymer">⏱ {vaqtFormat(soniya)}</span>
+        <span
+          className="imtihon-taymer"
+          title={t("imtihon_taymer_almashtir")}
+          onClick={() => setTeskariMi((v) => !v)}
+        >
+          ⏱ {vaqtFormat(teskariMi ? Math.max(0, standartVaqt(bolim) - soniya) : soniya)}
+        </span>
         <button className="tugma ikkinchi" onClick={() => setFokus((v) => !v)}>
           {fokus ? t("fokusdan_chiqish") : t("fokus_rejimi")}
         </button>

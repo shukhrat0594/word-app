@@ -45,6 +45,14 @@ WRITING_SYSTEM_PROMPT = (
 
     "5) KUCHLI TOMONLAR: 1-2 ta ijobiy narsani ko'rsating.\n\n"
 
+    "6) GRAFIK (agar rasm sifatida berilgan bo'lsa): sizga talabaning matni "
+    "bilan birga Task 1 grafigi/jadvali/diagrammasi RASM sifatida ham "
+    "berilishi mumkin. Shunday bo'lsa, talabaning tavsifi rasmdagi haqiqiy "
+    "ma'lumotlarga (raqamlar, tendentsiyalar, taqqoslashlar) qanchalik mos "
+    "kelishini tekshiring va bu Task Achievement bahosiga bevosita ta'sir "
+    "qilsin — talaba rasmda yo'q narsani yozgan yoki asosiy tendentsiyani "
+    "noto'g'ri tasvirlagan bo'lsa, buni aniq ayting.\n\n"
+
     "Faqat quyidagi JSON qaytaring, boshqa matn yozmang:\n"
     "{\n"
     '  "task_type": "task1 yoki task2",\n'
@@ -138,14 +146,17 @@ class GeminiProvider:
         self.api_key = api_key
         self.model = model
 
-    def _generate(self, system_prompt, matn):
+    def _generate(self, system_prompt, matn, rasm_bytes=None, rasm_mime=None):
         from google import genai
         from google.genai import types
 
         client = genai.Client(api_key=self.api_key)
+        contents = matn
+        if rasm_bytes:
+            contents = [types.Part.from_bytes(data=rasm_bytes, mime_type=rasm_mime), matn]
         response = client.models.generate_content(
             model=self.model,
-            contents=matn,
+            contents=contents,
             config=types.GenerateContentConfig(
                 system_instruction=system_prompt,
                 max_output_tokens=4096,
@@ -160,8 +171,8 @@ class GeminiProvider:
             "output_tokens": usage.candidates_token_count or 0,
         }
 
-    def writing_baholash(self, matn):
-        return self._generate(WRITING_SYSTEM_PROMPT, matn)
+    def writing_baholash(self, matn, rasm_bytes=None, rasm_mime=None):
+        return self._generate(WRITING_SYSTEM_PROMPT, matn, rasm_bytes, rasm_mime)
 
     def speaking_matn_baholash(self, matn):
         return self._generate(SPEAKING_SYSTEM_PROMPT, matn)
@@ -176,15 +187,30 @@ class ClaudeProvider:
         self.api_key = api_key
         self.model = model
 
-    def _generate(self, system_prompt, matn):
+    def _generate(self, system_prompt, matn, rasm_bytes=None, rasm_mime=None):
+        import base64
+
         import anthropic
 
         client = anthropic.Anthropic(api_key=self.api_key)
+        content = matn
+        if rasm_bytes:
+            content = [
+                {
+                    "type": "image",
+                    "source": {
+                        "type": "base64",
+                        "media_type": rasm_mime,
+                        "data": base64.b64encode(rasm_bytes).decode(),
+                    },
+                },
+                {"type": "text", "text": matn},
+            ]
         response = client.messages.create(
             model=self.model,
             max_tokens=4096,
             system=system_prompt,
-            messages=[{"role": "user", "content": matn}],
+            messages=[{"role": "user", "content": content}],
         )
         return {
             "natija": javobni_parse_qil(response.content[0].text),
@@ -194,8 +220,8 @@ class ClaudeProvider:
             "output_tokens": response.usage.output_tokens,
         }
 
-    def writing_baholash(self, matn):
-        return self._generate(WRITING_SYSTEM_PROMPT, matn)
+    def writing_baholash(self, matn, rasm_bytes=None, rasm_mime=None):
+        return self._generate(WRITING_SYSTEM_PROMPT, matn, rasm_bytes, rasm_mime)
 
     def speaking_matn_baholash(self, matn):
         return self._generate(SPEAKING_SYSTEM_PROMPT, matn)

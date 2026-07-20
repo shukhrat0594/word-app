@@ -6,7 +6,7 @@ import { xatoniAjrat } from "../xatoUtils";
 
 const PART_NOMI = { part1: "Part 1", part2: "Part 2", part3: "Part 3" };
 
-function Natija({ natija }) {
+export function Natija({ natija }) {
   const { t } = useI18n();
   const mezonlar = [
     ["fluency_coherence", t("fluency_coherence")],
@@ -97,6 +97,21 @@ function HaqiqiyMashq() {
     api(`/api/mashqlar/?bolim=speaking&tur=${tur}`).then(setRoyxat).catch(() => {});
   }, [tur]);
 
+  useEffect(() => {
+    function chiqishdanOldin(e) {
+      if (!mashq || natija) return;
+      e.preventDefault();
+      e.returnValue = "";
+    }
+    window.addEventListener("beforeunload", chiqishdanOldin);
+    return () => window.removeEventListener("beforeunload", chiqishdanOldin);
+  }, [mashq, natija]);
+
+  function ortgaQaytish() {
+    if (!natija && !window.confirm(t("imtihon_ortga_tasdiq"))) return;
+    setMashq(null);
+  }
+
   async function mashqniOch(id) {
     const m = await api(`/api/mashqlar/${id}/`);
     setMashq(m);
@@ -113,6 +128,7 @@ function HaqiqiyMashq() {
       setXato(t("matn_qisqa"));
       return;
     }
+    if (!window.confirm(t("imtihon_yakunlash_tasdiq"))) return;
     setYuklanmoqda(true);
     try {
       const res = await api("/api/speaking/matn/", { method: "POST", body: { matn } });
@@ -155,7 +171,7 @@ function HaqiqiyMashq() {
     return (
       <>
         <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 4 }}>
-          <button className="tugma ikkinchi" onClick={() => setMashq(null)}>
+          <button className="tugma ikkinchi" onClick={ortgaQaytish}>
             {t("ortga")}
           </button>
         </div>
