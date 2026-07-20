@@ -20,7 +20,8 @@ function navlarniOl(role) {
       { yol: "/guruhlar", ikon: "☰", kalit: "nav_guruhlar" },
       { yol: "/xodimlar", ikon: "🧑‍🏫", kalit: "nav_xodimlar" },
       { yol: "/mashqlar-boshqarish", ikon: "🗂", kalit: "nav_mashqlar_boshqarish" },
-      { yol: "/ielts-boshqarish", ikon: "🎓", kalit: "nav_ielts_boshqarish" },
+      { yol: "/ielts", ikon: "🎓", kalit: "nav_ielts" },
+      { yol: "/ielts-boshqarish", ikon: "🗂", kalit: "nav_ielts_boshqarish" },
       { yol: "/davomat", ikon: "🗓", kalit: "nav_davomat" },
       { yol: "/davomat-hisoboti", ikon: "📊", kalit: "nav_davomat_hisoboti" },
       { yol: "/markaz-sozlash", ikon: "🎨", kalit: "nav_markaz_sozlama" },
@@ -73,12 +74,13 @@ export default function Layout() {
 
   // Owner'ning o'z markazi yo'q — "Markaz sozlash" (bitta markazga tegishli)
   // unga emas, balki "Markazlar" (barchasi) paneliga tegishli.
-  // IELTS bo'limi faqat Utmost talabalari uchun (markazga biriktirilgan) —
-  // "oddiy foydalanuvchi" (markaz=null) buni ko'rmaydi, faqat Mashqlar ochiq.
+  // IELTS bo'limi talaba/admin/owner uchun ko'rinadi — faqat "oddiy
+  // foydalanuvchi" (markazga biriktirilmagan, admin/owner emas) buni
+  // ko'rmaydi, unga faqat Mashqlar ochiq (2026-07-20 qarori).
   const asosiyNavlar = navlarniOl(profil?.role).filter(
     (n) =>
       !(profil?.is_owner && n.yol === "/markaz-sozlash") &&
-      !(n.yol === "/ielts" && !profil?.markaz)
+      !(n.yol === "/ielts" && profil?.role === "oddiy")
   );
   const navlar = [
     ...asosiyNavlar,

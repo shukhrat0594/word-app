@@ -17,7 +17,9 @@ function svgAjrat(matn) {
 
 // Bo'lim bo'yicha qaysi turlar bor — mavjud Mashq ma'lumotlari shu tur
 // qiymatlari bilan yozilgan (Speaking Part2/3 birlashtirilgan, tur="part2").
-const TURLAR = {
+// Writing.jsx/Speaking.jsx'dagi "Haqiqiy mashq" rejimi ham shu ro'yxatni
+// qayta ishlatadi (mos tur-tab'lar bo'lishi uchun).
+export const TURLAR = {
   writing: [
     { tur: "task1", kalit: "mashq_tur_task1" },
     { tur: "task2", kalit: "mashq_tur_task2" },
@@ -28,24 +30,23 @@ const TURLAR = {
   ],
 };
 
-/** Writing/Speaking uchun tayyor namuna mavzular banki — o'qish uchun, tekshiruvsiz.
- * Avval tur tanlanadi (Task1/Task2 yoki Part1/Part2-3), keyin shu turdagi
- * mavzular ro'yxati chiqadi. */
+/** Writing/Speaking uchun tayyor namuna mavzular banki — o'qish uchun,
+ * tekshiruvsiz (savol + namuna javob birga ko'rsatiladi). "Haqiqiy mashq"
+ * rejimidan farqli — bu yerda talaba hech narsa yozmaydi, faqat o'qiydi. */
 export default function NamunaMavzular({ bolim }) {
   const { t } = useI18n();
   const turlar = TURLAR[bolim] || [];
-  const [ochiq, setOchiq] = useState(false);
   const [tur, setTur] = useState(turlar[0]?.tur);
   const [royxat, setRoyxat] = useState(null);
   const [tanlangan, setTanlangan] = useState(null);
 
   useEffect(() => {
-    if (ochiq && tur) {
+    if (tur) {
       setRoyxat(null);
       setTanlangan(null);
       api(`/api/mashqlar/?bolim=${bolim}&tur=${tur}`).then(setRoyxat).catch(() => {});
     }
-  }, [ochiq, bolim, tur]);
+  }, [bolim, tur]);
 
   async function ochish(id) {
     const m = await api(`/api/mashqlar/${id}/`);
@@ -53,30 +54,24 @@ export default function NamunaMavzular({ bolim }) {
   }
 
   return (
-    <div className="karta" style={{ marginTop: 18 }}>
-      <h3 style={{ cursor: "pointer" }} onClick={() => setOchiq((v) => !v)}>
-        {t("namuna_mavzular")} {ochiq ? "▲" : "▼"}
-      </h3>
+    <>
+      <div className="tab-guruh" style={{ marginBottom: 12 }}>
+        {turlar.map((tt) => (
+          <button
+            key={tt.tur}
+            className={tur === tt.tur ? "aktiv" : ""}
+            onClick={() => {
+              setTur(tt.tur);
+              setTanlangan(null);
+            }}
+          >
+            {t(tt.kalit)}
+          </button>
+        ))}
+      </div>
 
-      {ochiq && (
-        <div className="tab-guruh" style={{ marginBottom: 12 }}>
-          {turlar.map((tt) => (
-            <button
-              key={tt.tur}
-              className={tur === tt.tur ? "aktiv" : ""}
-              onClick={() => {
-                setTur(tt.tur);
-                setTanlangan(null);
-              }}
-            >
-              {t(tt.kalit)}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {ochiq && !tanlangan && (
-        <>
+      {!tanlangan && (
+        <div className="karta">
           {royxat === null && <div className="yuklanmoqda">{t("yuklanmoqda")}</div>}
           {royxat && royxat.length === 0 && <span className="izoh">{t("namuna_royxat_boshi")}</span>}
           {royxat && royxat.map((m) => (
@@ -84,11 +79,11 @@ export default function NamunaMavzular({ bolim }) {
               <span>{m.name}</span>
             </div>
           ))}
-        </>
+        </div>
       )}
 
-      {ochiq && tanlangan && (
-        <>
+      {tanlangan && (
+        <div className="karta">
           <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
             <button className="tugma ikkinchi" onClick={() => setTanlangan(null)}>
               {t("namuna_yopish")}
@@ -111,8 +106,8 @@ export default function NamunaMavzular({ bolim }) {
               <div className="mashq-passage">{tanlangan.namuna_javob}</div>
             </>
           )}
-        </>
+        </div>
       )}
-    </div>
+    </>
   );
 }

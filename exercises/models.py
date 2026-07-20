@@ -391,12 +391,16 @@ def korinadigan_testlar(user):
     """Foydalanuvchiga ko'rinadigan to'liq testlar.
 
     Mashq bankidan farqli o'laroq (u hammaga ochiq), IELTS to'liq imtihon
-    bo'limi FAQAT markazga biriktirilgan (Utmost) talabalar uchun —
-    "oddiy foydalanuvchi" (markaz=None) hech qanday testni ko'rmaydi
-    (2026-07-19 qarori).
+    bo'limi talaba/admin/owner uchun ko'rinadi — "oddiy foydalanuvchi"
+    (markaz=None, admin/owner emas) hech qanday testni ko'rmaydi
+    (2026-07-19 qarori, 2026-07-20'da admin/owner uchun kengaytirildi).
     """
+    from accounts.models import User
+    from accounts.permissions import owner_mi
     from content.models import public_kontent_ochiqmi
 
+    if owner_mi(user) or user.role == User.Role.ADMIN:
+        return ImtihonTest.objects.all()
     if user.markaz_id is None:
         return ImtihonTest.objects.none()
     ozimniki = models.Q(markaz_id=user.markaz_id)

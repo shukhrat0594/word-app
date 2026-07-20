@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
-import NamunaMavzular from "../components/NamunaMavzular";
+import NamunaMavzular, { TURLAR } from "../components/NamunaMavzular";
 import { useI18n } from "../i18n";
 import { xatoniAjrat } from "../xatoUtils";
 
@@ -73,8 +73,14 @@ function Natija({ natija }) {
   );
 }
 
-export default function Writing() {
+/** Haqiqiy mashq — tur tanlanadi, ro'yxatdan mavzu tanlanadi (namuna javobsiz),
+ * talaba o'zi javob yozadi, AI tekshiradi. */
+function HaqiqiyMashq() {
   const { t } = useI18n();
+  const turlar = TURLAR.writing;
+  const [tur, setTur] = useState(turlar[0]?.tur);
+  const [royxat, setRoyxat] = useState(null);
+  const [mashq, setMashq] = useState(null);
   const [matn, setMatn] = useState("");
   const [natija, setNatija] = useState(null);
   const [xato, setXato] = useState("");
@@ -84,6 +90,21 @@ export default function Writing() {
   useEffect(() => {
     api("/api/writing/tarix/").then(setTarix).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    setMashq(null);
+    setNatija(null);
+    setRoyxat(null);
+    api(`/api/mashqlar/?bolim=writing&tur=${tur}`).then(setRoyxat).catch(() => {});
+  }, [tur]);
+
+  async function mashqniOch(id) {
+    const m = await api(`/api/mashqlar/${id}/`);
+    setMashq(m);
+    setMatn("");
+    setNatija(null);
+    setXato("");
+  }
 
   const sozSoni = matn.trim() ? matn.trim().split(/\s+/).length : 0;
 
@@ -95,10 +116,7 @@ export default function Writing() {
     }
     setYuklanmoqda(true);
     try {
-      const res = await api("/api/writing/tekshirish/", {
-        method: "POST",
-        body: { matn },
-      });
+      const res = await api("/api/writing/tekshirish/", { method: "POST", body: { matn } });
       setNatija(res.natija);
       api("/api/writing/tarix/").then(setTarix).catch(() => {});
     } catch (e) {
@@ -108,17 +126,45 @@ export default function Writing() {
     }
   }
 
-  function yangiTekshiruv() {
-    setNatija(null);
-    setMatn("");
-    setXato("");
+  if (natija) {
+    return (
+      <>
+        {mashq?.matn && (
+          <div className="karta" style={{ marginBottom: 14 }}>
+            <h3>{mashq.name}</h3>
+            <div className="mashq-passage">{mashq.matn}</div>
+          </div>
+        )}
+        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 4 }}>
+          <button
+            className="tugma ikkinchi"
+            onClick={() => {
+              setNatija(null);
+              setMashq(null);
+              setMatn("");
+            }}
+          >
+            {t("yangi_tekshiruv")}
+          </button>
+        </div>
+        <Natija natija={natija} />
+      </>
+    );
   }
 
-  return (
-    <>
-      {!natija && (
+  if (mashq) {
+    return (
+      <>
+        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 4 }}>
+          <button className="tugma ikkinchi" onClick={() => setMashq(null)}>
+            {t("ortga")}
+          </button>
+        </div>
+        <div className="karta" style={{ marginBottom: 14 }}>
+          <h3>{mashq.name}</h3>
+          {mashq.matn && <div className="mashq-passage">{mashq.matn}</div>}
+        </div>
         <div className="karta">
-          <h3>{t("insho_yuboring")}</h3>
           <textarea
             value={matn}
             onChange={(e) => setMatn(e.target.value)}
@@ -141,28 +187,34 @@ export default function Writing() {
           </div>
           {xato && <div className="xato-xabar" style={{ marginTop: 10 }}>{xato}</div>}
         </div>
-      )}
+      </>
+    );
+  }
 
-      {natija && (
-        <>
-          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 4 }}>
-            <button className="tugma ikkinchi" onClick={yangiTekshiruv}>
-              {t("yangi_tekshiruv")}
-            </button>
+  return (
+    <>
+      <div className="tab-guruh" style={{ marginBottom: 12 }}>
+        {turlar.map((tt) => (
+          <button key={tt.tur} className={tur === tt.tur ? "aktiv" : ""} onClick={() => setTur(tt.tur)}>
+            {t(tt.kalit)}
+          </button>
+        ))}
+      </div>
+      <div className="karta">
+        {royxat === null && <div className="yuklanmoqda">{t("yuklanmoqda")}</div>}
+        {royxat && royxat.length === 0 && <span className="izoh">{t("mashq_royxati_boshi")}</span>}
+        {royxat && royxat.map((m) => (
+          <div key={m.id} className="mashq-royxat-el" onClick={() => mashqniOch(m.id)}>
+            <span>{m.name}</span>
           </div>
-          <Natija natija={natija} />
-        </>
-      )}
+        ))}
+      </div>
 
       {tarix.length > 0 && (
-        <div className="karta">
+        <div className="karta" style={{ marginTop: 18 }}>
           <h3>{t("tarix")}</h3>
           {tarix.map((tk) => (
-            <div
-              className="tarix-el"
-              key={tk.id}
-              onClick={() => setNatija(tk.natija)}
-            >
+            <div className="tarix-el" key={tk.id} onClick={() => setNatija(tk.natija)}>
               <span>
                 {TASK_NOMI[tk.task_type] || tk.task_type || "—"} ·{" "}
                 {new Date(tk.created_at).toLocaleDateString()}
@@ -172,8 +224,29 @@ export default function Writing() {
           ))}
         </div>
       )}
+    </>
+  );
+}
 
-      <NamunaMavzular bolim="writing" />
+export default function Writing() {
+  const { t } = useI18n();
+  const [rejim, setRejim] = useState("namunaviy");
+
+  return (
+    <>
+      <div className="tab-guruh">
+        <button className={rejim === "namunaviy" ? "aktiv" : ""} onClick={() => setRejim("namunaviy")}>
+          {t("namunaviy")}
+        </button>
+        <button className={rejim === "haqiqiy" ? "aktiv" : ""} onClick={() => setRejim("haqiqiy")}>
+          {t("haqiqiy_mashq")}
+        </button>
+      </div>
+
+      <div style={{ marginTop: 16 }}>
+        {rejim === "namunaviy" && <NamunaMavzular bolim="writing" />}
+        {rejim === "haqiqiy" && <HaqiqiyMashq />}
+      </div>
     </>
   );
 }

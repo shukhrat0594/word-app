@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
-import NamunaMavzular from "../components/NamunaMavzular";
+import NamunaMavzular, { TURLAR } from "../components/NamunaMavzular";
 import { useI18n } from "../i18n";
 import { xatoniAjrat } from "../xatoUtils";
 
@@ -72,9 +72,14 @@ function Natija({ natija }) {
   );
 }
 
-export default function Speaking() {
+/** Haqiqiy mashq — tur tanlanadi, ro'yxatdan mavzu tanlanadi (namuna javobsiz),
+ * talaba o'zi javob yozadi, AI tekshiradi. */
+function HaqiqiyMashq() {
   const { t } = useI18n();
-  const [rejim, setRejim] = useState("matn");
+  const turlar = TURLAR.speaking;
+  const [tur, setTur] = useState(turlar[0]?.tur);
+  const [royxat, setRoyxat] = useState(null);
+  const [mashq, setMashq] = useState(null);
   const [matn, setMatn] = useState("");
   const [natija, setNatija] = useState(null);
   const [xato, setXato] = useState("");
@@ -84,6 +89,21 @@ export default function Speaking() {
   useEffect(() => {
     api("/api/speaking/tarix/").then(setTarix).catch(() => {});
   }, []);
+
+  useEffect(() => {
+    setMashq(null);
+    setNatija(null);
+    setRoyxat(null);
+    api(`/api/mashqlar/?bolim=speaking&tur=${tur}`).then(setRoyxat).catch(() => {});
+  }, [tur]);
+
+  async function mashqniOch(id) {
+    const m = await api(`/api/mashqlar/${id}/`);
+    setMashq(m);
+    setMatn("");
+    setNatija(null);
+    setXato("");
+  }
 
   const sozSoni = matn.trim() ? matn.trim().split(/\s+/).length : 0;
 
@@ -95,10 +115,7 @@ export default function Speaking() {
     }
     setYuklanmoqda(true);
     try {
-      const res = await api("/api/speaking/matn/", {
-        method: "POST",
-        body: { matn },
-      });
+      const res = await api("/api/speaking/matn/", { method: "POST", body: { matn } });
       setNatija(res.natija);
       api("/api/speaking/tarix/").then(setTarix).catch(() => {});
     } catch (e) {
@@ -108,29 +125,45 @@ export default function Speaking() {
     }
   }
 
-  function yangiTekshiruv() {
-    setNatija(null);
-    setMatn("");
-    setXato("");
+  if (natija) {
+    return (
+      <>
+        {mashq?.matn && (
+          <div className="karta" style={{ marginBottom: 14 }}>
+            <h3>{mashq.name}</h3>
+            <div className="mashq-passage">{mashq.matn}</div>
+          </div>
+        )}
+        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 4 }}>
+          <button
+            className="tugma ikkinchi"
+            onClick={() => {
+              setNatija(null);
+              setMashq(null);
+              setMatn("");
+            }}
+          >
+            {t("yangi_tekshiruv")}
+          </button>
+        </div>
+        <Natija natija={natija} />
+      </>
+    );
   }
 
-  return (
-    <>
-      <div className="tab-guruh">
-        <button
-          className={rejim === "matn" ? "aktiv" : ""}
-          onClick={() => setRejim("matn")}
-        >
-          {t("matn_rejimi")}
-        </button>
-        <button disabled title={t("tez_orada")}>
-          {t("tezkor_tahlil")} · {t("tez_orada")}
-        </button>
-      </div>
-
-      {rejim === "matn" && !natija && (
+  if (mashq) {
+    return (
+      <>
+        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 4 }}>
+          <button className="tugma ikkinchi" onClick={() => setMashq(null)}>
+            {t("ortga")}
+          </button>
+        </div>
+        <div className="karta" style={{ marginBottom: 14 }}>
+          <h3>{mashq.name}</h3>
+          {mashq.matn && <div className="mashq-passage">{mashq.matn}</div>}
+        </div>
         <div className="karta">
-          <h3>{t("javob_yuboring")}</h3>
           <textarea
             value={matn}
             onChange={(e) => setMatn(e.target.value)}
@@ -152,32 +185,35 @@ export default function Speaking() {
             </button>
           </div>
           {xato && <div className="xato-xabar" style={{ marginTop: 10 }}>{xato}</div>}
-          <p className="izoh" style={{ marginTop: 12 }}>
-            {t("tezkor_izoh")}
-          </p>
         </div>
-      )}
+      </>
+    );
+  }
 
-      {natija && (
-        <>
-          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 4 }}>
-            <button className="tugma ikkinchi" onClick={yangiTekshiruv}>
-              {t("yangi_tekshiruv")}
-            </button>
+  return (
+    <>
+      <div className="tab-guruh" style={{ marginBottom: 12 }}>
+        {turlar.map((tt) => (
+          <button key={tt.tur} className={tur === tt.tur ? "aktiv" : ""} onClick={() => setTur(tt.tur)}>
+            {t(tt.kalit)}
+          </button>
+        ))}
+      </div>
+      <div className="karta">
+        {royxat === null && <div className="yuklanmoqda">{t("yuklanmoqda")}</div>}
+        {royxat && royxat.length === 0 && <span className="izoh">{t("mashq_royxati_boshi")}</span>}
+        {royxat && royxat.map((m) => (
+          <div key={m.id} className="mashq-royxat-el" onClick={() => mashqniOch(m.id)}>
+            <span>{m.name}</span>
           </div>
-          <Natija natija={natija} />
-        </>
-      )}
+        ))}
+      </div>
 
       {tarix.length > 0 && (
-        <div className="karta">
+        <div className="karta" style={{ marginTop: 18 }}>
           <h3>{t("tarix")}</h3>
           {tarix.map((tk) => (
-            <div
-              className="tarix-el"
-              key={tk.id}
-              onClick={() => setNatija(tk.natija)}
-            >
+            <div className="tarix-el" key={tk.id} onClick={() => setNatija(tk.natija)}>
               <span>
                 {PART_NOMI[tk.part_type] || tk.part_type || "—"} ·{" "}
                 {new Date(tk.created_at).toLocaleDateString()}
@@ -187,8 +223,54 @@ export default function Speaking() {
           ))}
         </div>
       )}
+    </>
+  );
+}
 
-      <NamunaMavzular bolim="speaking" />
+export default function Speaking() {
+  const { t } = useI18n();
+  const [rejim, setRejim] = useState("matn");
+  const [ichkiRejim, setIchkiRejim] = useState("namunaviy");
+
+  return (
+    <>
+      <div className="tab-guruh">
+        <button
+          className={rejim === "matn" ? "aktiv" : ""}
+          onClick={() => setRejim("matn")}
+        >
+          {t("matn_rejimi")}
+        </button>
+        <button disabled title={t("tez_orada")}>
+          {t("tezkor_tahlil")} · {t("tez_orada")}
+        </button>
+      </div>
+
+      {rejim === "matn" && (
+        <div style={{ marginTop: 16 }}>
+          <div className="tab-guruh">
+            <button
+              className={ichkiRejim === "namunaviy" ? "aktiv" : ""}
+              onClick={() => setIchkiRejim("namunaviy")}
+            >
+              {t("namunaviy")}
+            </button>
+            <button
+              className={ichkiRejim === "haqiqiy" ? "aktiv" : ""}
+              onClick={() => setIchkiRejim("haqiqiy")}
+            >
+              {t("haqiqiy_mashq")}
+            </button>
+          </div>
+          <div style={{ marginTop: 16 }}>
+            {ichkiRejim === "namunaviy" && <NamunaMavzular bolim="speaking" />}
+            {ichkiRejim === "haqiqiy" && <HaqiqiyMashq />}
+          </div>
+          <p className="izoh" style={{ marginTop: 16 }}>
+            {t("tezkor_izoh")}
+          </p>
+        </div>
+      )}
     </>
   );
 }
