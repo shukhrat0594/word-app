@@ -160,6 +160,9 @@ class MashqListView(APIView):
         bolim = request.query_params.get("bolim")
         if bolim:
             qs = qs.filter(bolim=bolim)
+        tur = request.query_params.get("tur")
+        if tur:
+            qs = qs.filter(tur=tur)
         return Response(
             [
                 {"id": m.id, "name": m.name, "bolim": m.bolim, "tur": m.tur}

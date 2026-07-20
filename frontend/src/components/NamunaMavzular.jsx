@@ -15,18 +15,37 @@ function svgAjrat(matn) {
   return { matn: asosiyMatn, svgUrl: `data:image/svg+xml;utf8,${encodeURIComponent(svg)}` };
 }
 
-/** Writing/Speaking uchun tayyor namuna mavzular banki — o'qish uchun, tekshiruvsiz. */
+// Bo'lim bo'yicha qaysi turlar bor — mavjud Mashq ma'lumotlari shu tur
+// qiymatlari bilan yozilgan (Speaking Part2/3 birlashtirilgan, tur="part2").
+const TURLAR = {
+  writing: [
+    { tur: "task1", kalit: "mashq_tur_task1" },
+    { tur: "task2", kalit: "mashq_tur_task2" },
+  ],
+  speaking: [
+    { tur: "part1", kalit: "mashq_tur_part1" },
+    { tur: "part2", kalit: "mashq_tur_part23" },
+  ],
+};
+
+/** Writing/Speaking uchun tayyor namuna mavzular banki — o'qish uchun, tekshiruvsiz.
+ * Avval tur tanlanadi (Task1/Task2 yoki Part1/Part2-3), keyin shu turdagi
+ * mavzular ro'yxati chiqadi. */
 export default function NamunaMavzular({ bolim }) {
   const { t } = useI18n();
+  const turlar = TURLAR[bolim] || [];
   const [ochiq, setOchiq] = useState(false);
-  const [royxat, setRoyxat] = useState([]);
+  const [tur, setTur] = useState(turlar[0]?.tur);
+  const [royxat, setRoyxat] = useState(null);
   const [tanlangan, setTanlangan] = useState(null);
 
   useEffect(() => {
-    if (ochiq && royxat.length === 0) {
-      api(`/api/mashqlar/?bolim=${bolim}`).then(setRoyxat).catch(() => {});
+    if (ochiq && tur) {
+      setRoyxat(null);
+      setTanlangan(null);
+      api(`/api/mashqlar/?bolim=${bolim}&tur=${tur}`).then(setRoyxat).catch(() => {});
     }
-  }, [ochiq, bolim, royxat.length]);
+  }, [ochiq, bolim, tur]);
 
   async function ochish(id) {
     const m = await api(`/api/mashqlar/${id}/`);
@@ -39,10 +58,28 @@ export default function NamunaMavzular({ bolim }) {
         {t("namuna_mavzular")} {ochiq ? "▲" : "▼"}
       </h3>
 
+      {ochiq && (
+        <div className="tab-guruh" style={{ marginBottom: 12 }}>
+          {turlar.map((tt) => (
+            <button
+              key={tt.tur}
+              className={tur === tt.tur ? "aktiv" : ""}
+              onClick={() => {
+                setTur(tt.tur);
+                setTanlangan(null);
+              }}
+            >
+              {t(tt.kalit)}
+            </button>
+          ))}
+        </div>
+      )}
+
       {ochiq && !tanlangan && (
         <>
-          {royxat.length === 0 && <span className="izoh">{t("namuna_royxat_boshi")}</span>}
-          {royxat.map((m) => (
+          {royxat === null && <div className="yuklanmoqda">{t("yuklanmoqda")}</div>}
+          {royxat && royxat.length === 0 && <span className="izoh">{t("namuna_royxat_boshi")}</span>}
+          {royxat && royxat.map((m) => (
             <div key={m.id} className="mashq-royxat-el" onClick={() => ochish(m.id)}>
               <span>{m.name}</span>
             </div>
