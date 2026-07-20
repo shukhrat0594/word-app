@@ -21,6 +21,7 @@ from django.core.management import call_command
 from django.core.management.base import BaseCommand
 
 from accounts.models import Markaz, User
+from exercises.models import ImtihonTest, Mashq
 from games.models import Soz
 
 
@@ -34,6 +35,16 @@ class Command(BaseCommand):
             self.stdout.write("Markaz yaratildi: Utmost o'quv markazi")
         else:
             self.stdout.write(f"Markaz mavjud: {markaz.name}")
+
+        # Bitta markaz rejimi: barcha kontent shu yagona markazga tegishli
+        # bo'lishi shart. Eski kod ba'zan request.user.markaz'ni ishlatgan
+        # bo'lishi mumkin edi — mos kelmagan yozuvlarni tuzatamiz.
+        notogri_mashq = Mashq.objects.exclude(markaz=markaz).update(markaz=markaz)
+        notogri_test = ImtihonTest.objects.exclude(markaz=markaz).update(markaz=markaz)
+        if notogri_mashq or notogri_test:
+            self.stdout.write(
+                f"Markaz nomuvofiqligi tuzatildi: {notogri_mashq} mashq, {notogri_test} test"
+            )
 
         if User.objects.filter(is_superuser=True).exists():
             self.stdout.write("Owner mavjud — tegilmadi")

@@ -177,6 +177,16 @@ export default function ImtihonOtish({ bolim }) {
   }, [test, natija]);
 
   useEffect(() => {
+    function chiqishdanOldin(e) {
+      if (!test || natija) return;
+      e.preventDefault();
+      e.returnValue = "";
+    }
+    window.addEventListener("beforeunload", chiqishdanOldin);
+    return () => window.removeEventListener("beforeunload", chiqishdanOldin);
+  }, [test, natija]);
+
+  useEffect(() => {
     function ustidaHarakat(e) {
       if (!sudralmoqda.current || !splitRef.current) return;
       const { left, width } = splitRef.current.getBoundingClientRect();
@@ -235,6 +245,16 @@ export default function ImtihonOtish({ bolim }) {
     }
   }
 
+  function ortgaQaytish() {
+    if (!natija && !window.confirm(t("imtihon_ortga_tasdiq"))) return;
+    setTest(null);
+  }
+
+  function yuborishBosildi() {
+    if (!window.confirm(t("imtihon_yakunlash_tasdiq"))) return;
+    yuborish();
+  }
+
   function savolgaOt(qismIndex, i) {
     setFaolQism(qismIndex);
     setTimeout(() => {
@@ -268,7 +288,7 @@ export default function ImtihonOtish({ bolim }) {
   const mazmun = (
     <div style={{ fontSize: `${masshtab}%` }}>
       <div className="imtihon-asboblar">
-        <button className="tugma ikkinchi" onClick={() => setTest(null)}>
+        <button className="tugma ikkinchi" onClick={ortgaQaytish}>
           {t("ortga")}
         </button>
         <span className="imtihon-taymer">⏱ {vaqtFormat(soniya)}</span>
@@ -380,7 +400,7 @@ export default function ImtihonOtish({ bolim }) {
         </button>
 
         {!natija ? (
-          <button className="tugma katta" onClick={yuborish} disabled={yuklanmoqda}>
+          <button className="tugma katta" onClick={yuborishBosildi} disabled={yuklanmoqda}>
             {yuklanmoqda ? t("tekshirilmoqda") : t("imtihon_topshirish")}
           </button>
         ) : (

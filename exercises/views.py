@@ -67,7 +67,7 @@ class MashqBoshqaruvView(APIView):
         if not _mashq_admin_mi(request.user):
             return Response({"detail": "Faqat admin/owner uchun"}, status=403)
 
-        markaz = request.user.markaz or Markaz.objects.first()
+        markaz = Markaz.objects.first()
         if not markaz:
             return Response({"detail": "Markaz topilmadi"}, status=400)
 
@@ -365,7 +365,7 @@ class ImtihonBoshqaruvView(APIView):
         if not _mashq_admin_mi(request.user):
             return Response({"detail": "Faqat admin/owner uchun"}, status=403)
 
-        markaz = request.user.markaz or Markaz.objects.first()
+        markaz = Markaz.objects.first()
         if not markaz:
             return Response({"detail": "Markaz topilmadi"}, status=400)
 
