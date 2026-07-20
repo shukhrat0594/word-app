@@ -131,7 +131,8 @@ function HaqiqiyMashq() {
     if (!window.confirm(t("imtihon_yakunlash_tasdiq"))) return;
     setYuklanmoqda(true);
     try {
-      const res = await api("/api/speaking/matn/", { method: "POST", body: { matn } });
+      const body = { matn, savol_matni: mashq.matn, tur: mashq.tur };
+      const res = await api("/api/speaking/matn/", { method: "POST", body });
       setNatija(res.natija);
       api("/api/speaking/tarix/").then(setTarix).catch(() => {});
     } catch (e) {

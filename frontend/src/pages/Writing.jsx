@@ -149,7 +149,7 @@ function HaqiqiyMashq() {
     if (!window.confirm(t("imtihon_yakunlash_tasdiq"))) return;
     setYuklanmoqda(true);
     try {
-      const body = { matn };
+      const body = { matn, savol_matni: mashqMatn, tur: mashq.tur };
       if (grafikPng) {
         body.grafik_rasm = grafikPng;
       } else if (mashq?.rasm_url) {

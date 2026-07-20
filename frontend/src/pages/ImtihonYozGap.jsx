@@ -94,7 +94,7 @@ export default function ImtihonYozGap({ bolim }) {
     setYuklanmoqda(true);
     try {
       const yol = bolim === "writing" ? "/api/writing/tekshirish/" : "/api/speaking/matn/";
-      const body = { matn };
+      const body = { matn, savol_matni: mashqMatn, tur };
       if (bolim === "writing" && grafikPng) {
         body.grafik_rasm = grafikPng;
       } else if (bolim === "writing" && mashq?.rasm_url) {

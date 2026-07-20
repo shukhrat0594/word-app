@@ -15,37 +15,54 @@ class ProviderXatosi(Exception):
     """AI provider bilan ishlashdagi xato (kalit yo'q, javob buzuq va h.k.)."""
 
 
-# v4 prompt (2026-07-15 tanlangan) + B8.1 moslashuvi: talaba Task turini
-# oldindan tanlamaydi — AI kontekstdan Task 1 yoki Task 2 ekanini aniqlaydi.
+# v5 prompt (2026-07-20): B8.1'da talaba Task turini tanlamasligi uchun
+# AI mavzuni MATNDAN TAXMIN qilar edi — bu, savol/mavzu matni AI'ga UMUMAN
+# yuborilmagani sababli, mavzudan butunlay chetga chiqqan javoblarni ham
+# yuqori ball bilan baholab yuborish bug'iga olib kelgan (2026-07-20
+# aniqlangan: sinov — real Task 2 mavzusiga umuman aloqasi yo'q insho
+# "Mavzu to'liq yoritilgan" deb 7.0 band olgan). v5'da: talabaga berilgan
+# ASL SAVOL matni va turi (task1/task2) endi ANIQ, kontent ichida beriladi
+# — AI endi mavzuni taxmin qilmaydi, TASdiqlaydi va mavzuga moslikni
+# tekshiradi.
 WRITING_SYSTEM_PROMPT = (
-    "Siz professional IELTS imtihonchisiz. Sizga talabaning Writing javobi "
-    "beriladi. Quyidagi tartibda baholang:\n\n"
+    "Siz professional IELTS imtihonchisiz. Sizga (1) talabaga berilgan aniq "
+    "Writing SAVOL/MAVZU matni va uning turi (Task 1 yoki Task 2), (2) "
+    "talabaning shu savolga yozgan javobi beriladi. Quyidagi tartibda "
+    "baholang:\n\n"
 
-    "0) TURINI ANIQLANG: matn mazmunidan bu Task 1 (grafik/jadval/jarayon "
-    "tavsifi yoki xat, kamida 150 so'z) yoki Task 2 (fikr-mulohaza inshosi, "
-    "kamida 250 so'z) ekanini aniqlang va 'task_type' maydonida yozing.\n\n"
+    "1) MAVZUGA MOSLIK (ENG MUHIM TEKSHIRUV): talabaning javobi BERILGAN "
+    "SAVOLGA haqiqatda javob berayotganini albatta tekshiring. Agar talaba "
+    "butunlay boshqa mavzuda yozgan bo'lsa, savolni chetlab o'tgan bo'lsa "
+    "yoki savolning barcha qismlariga javob bermagan bo'lsa (masalan savol "
+    "ikki qismli bo'lsa-yu, faqat bittasiga javob bergan bo'lsa) — Task "
+    "Achievement balini KESKIN pasaytiring (bunday holatda 2-4 balldan "
+    "oshmasin) va buni izohda ANIQ ayting (masalan: \"talaba berilgan "
+    "savolga javob bermadi, butunlay boshqa mavzuda yozdi\"). Til sifati "
+    "qanchalik yaxshi bo'lishidan qat'iy nazar, javob mavzuga mos kelmasa "
+    "yuqori ball berilmasin.\n\n"
 
-    "1) SO'Z SONI: sanang. Turiga mos minimumdan (150/250) kam bo'lsa, "
+    "2) SO'Z SONI: sanang. Task 1 uchun minimal 150 so'z, Task 2 uchun "
+    "minimal 250 so'z. Sizga berilgan turga mos minimumdan kam bo'lsa, "
     "Task Achievement balini pasaytiring va buni izohda ayting.\n\n"
 
-    "2) TAHLIL (ball qo'yishdan oldin): 'analysis' maydonida har mezon "
+    "3) TAHLIL (ball qo'yishdan oldin): 'analysis' maydonida har mezon "
     "bo'yicha 1 gaplik xulosa yozing — shu asosda ball bering.\n"
     "Band yo'riqnomasi: 4-5=ko'p tizimli xato/rivojlanmagan fikr; "
     "6=tushunarli lekin sezilarli xato; 7=xato kam, fikr dalillangan; "
     "8-9=deyarli xatosiz, murakkab til.\n\n"
 
-    "3) XATOLAR: matnni qatorma-qator o'qib, BARCHA xatolarni toping "
+    "4) XATOLAR: matnni qatorma-qator o'qib, BARCHA xatolarni toping "
     "(ega-kesim, birlik/ko'plik, artikl, egalik, imlo). Har birini "
     'ANIQ shu formatda yozing: "noto\'g\'ri qism -> to\'g\'ri qism (sabab)". '
     "Bir xil xato matnda necha marta uchrasa, HAR BIRINI ALOHIDA, aniq "
     "qaysi so'z birikmasida ekanini ko'rsatib yozing.\n\n"
 
-    "4) TEKSHIRUV: xatolar ro'yxatini yozgach, matnni qayta o'qing — "
+    "5) TEKSHIRUV: xatolar ro'yxatini yozgach, matnni qayta o'qing — "
     "tashlab ketilgan xato bo'lsa qo'shing.\n\n"
 
-    "5) KUCHLI TOMONLAR: 1-2 ta ijobiy narsani ko'rsating.\n\n"
+    "6) KUCHLI TOMONLAR: 1-2 ta ijobiy narsani ko'rsating.\n\n"
 
-    "6) GRAFIK (agar rasm sifatida berilgan bo'lsa): sizga talabaning matni "
+    "7) GRAFIK (agar rasm sifatida berilgan bo'lsa): sizga talabaning matni "
     "bilan birga Task 1 grafigi/jadvali/diagrammasi RASM sifatida ham "
     "berilishi mumkin. Shunday bo'lsa, talabaning tavsifi rasmdagi haqiqiy "
     "ma'lumotlarga (raqamlar, tendentsiyalar, taqqoslashlar) qanchalik mos "
@@ -53,7 +70,9 @@ WRITING_SYSTEM_PROMPT = (
     "qilsin — talaba rasmda yo'q narsani yozgan yoki asosiy tendentsiyani "
     "noto'g'ri tasvirlagan bo'lsa, buni aniq ayting.\n\n"
 
-    "Faqat quyidagi JSON qaytaring, boshqa matn yozmang:\n"
+    "Faqat quyidagi JSON qaytaring, boshqa matn yozmang. 'task_type' "
+    "maydoniga sizga berilgan turni ('task1' yoki 'task2') aynan shu "
+    "ko'rinishda yozing (o'zingiz taxmin qilmang, sizga aniq berilgan):\n"
     "{\n"
     '  "task_type": "task1 yoki task2",\n'
     '  "word_count": 0,\n'
@@ -72,44 +91,68 @@ WRITING_SYSTEM_PROMPT = (
 )
 
 
-# Speaking matn-mazmun tahlili (B8, sinovdan o'tgan prompt 2026-07-15) +
-# B8.1: talaba Part turini tanlamaydi — AI kontekstdan aniqlaydi.
+def _writing_kontent_tuz(savol_matni, tur, matn):
+    """AI'ga yuboriladigan kontentni tuzadi — talaba javobi bilan birga
+    ASL SAVOL matni va turi (task1/task2) ANIQ beriladi, AI taxmin qilmaydi."""
+    tur_nomi = "Task 1" if tur == "task1" else "Task 2"
+    minimum = 150 if tur == "task1" else 250
+    savol_qismi = (
+        f"BERILGAN SAVOL/MAVZU MATNI:\n{savol_matni}\n\n" if savol_matni else ""
+    )
+    return (
+        f"BU — WRITING {tur_nomi.upper()} (minimal {minimum} so'z talab qilinadi).\n\n"
+        f"{savol_qismi}"
+        f"TALABANING JAVOBI (shu savolga nisbatan baholang):\n{matn}"
+    )
+
+
+# Speaking matn-mazmun tahlili — v5 (2026-07-20): Writing bilan bir xil
+# sabab bilan, AI'ga endi ASL SAVOL/MAVZU matni va turi (part1/part2) ANIQ
+# beriladi, taxmin qilinmaydi. "part2" turi — bu tizimda Part 2 (cue card
+# monolog) VA Part 3 (chuqurroq munozara) BIRLASHTIRILGAN holda saqlanadi.
 # Pronunciation BAHOLANMAYDI — u Azure vazifasi (Tezkor tahlil rejimida).
 SPEAKING_SYSTEM_PROMPT = (
-    "Siz professional IELTS Speaking imtihonchisiz. Sizga talabaning OG'ZAKI "
-    "javobining matni (transkripsiya yoki yozma kiritilgan) beriladi. FAQAT "
-    "quyidagi 3 mezon bo'yicha baholang. PRONUNCIATION (talaffuz)ni "
-    "BAHOLAMANG — u alohida audio tizim orqali baholanadi.\n\n"
+    "Siz professional IELTS Speaking imtihonchisiz. Sizga (1) talabaga "
+    "berilgan aniq savol/mavzu (cue card) matni va uning turi (Part 1, yoki "
+    "Part 2/3 — bu tizimda ular birlashtirilgan holda beriladi), (2) "
+    "talabaning OG'ZAKI javobining matni (transkripsiya yoki yozma "
+    "kiritilgan) beriladi. FAQAT quyidagi 3 mezon bo'yicha baholang. "
+    "PRONUNCIATION (talaffuz)ni BAHOLAMANG — u alohida audio tizim orqali "
+    "baholanadi.\n\n"
 
-    "0) TURINI ANIQLANG: javob mazmunidan bu Part 1 (qisqa shaxsiy savollar), "
-    "Part 2 (2 daqiqalik monolog — cue card tavsifi) yoki Part 3 (mavzu "
-    "bo'yicha chuqurroq munozara) ekanini aniqlang, 'part_type'da yozing.\n\n"
+    "1) MAVZUGA MOSLIK (ENG MUHIM TEKSHIRUV): talabaning javobi BERILGAN "
+    "SAVOL/MAVZUGA haqiqatda javob berayotganini albatta tekshiring. Agar "
+    "talaba butunlay boshqa mavzuda gapirgan bo'lsa yoki savolni chetlab "
+    "o'tgan bo'lsa — bu mezonlarning barchasiga (ayniqsa fluency_coherence) "
+    "salbiy ta'sir qilsin va buni izohda ANIQ ayting.\n\n"
 
-    "1) TAHLIL (ball qo'yishdan oldin): 'analysis' maydonida har mezon "
+    "2) TAHLIL (ball qo'yishdan oldin): 'analysis' maydonida har mezon "
     "bo'yicha 1 gaplik xulosa yozing.\n"
     "Band yo'riqnomasi: 4-5=ko'p pauza/takrorlash, oddiy bog'lovchilar, "
     "tez-tez xato; 6=tushunarli oqim lekin ba'zan ikkilanish, xato bor-yu "
     "tushunishga xalaqit bermaydi; 7=nisbatan erkin, moslashuvchan lug'at, "
     "xato kam; 8-9=deyarli erkin va tabiiy, murakkab til.\n\n"
 
-    "2) MEZONLAR: fluency_coherence (nutq oqimi, discourse markerlar, "
+    "3) MEZONLAR: fluency_coherence (nutq oqimi, discourse markerlar, "
     "izchillik), lexical_resource (so'z boyligi, idiomalar), "
     "grammatical_range (gap tuzilishi xilma-xilligi, og'zaki nutqda kichik "
     "xato kechiriladi, tizimli xato pasaytiradi).\n\n"
 
-    "3) XATOLAR: faqat GRAMMATIK va LEKSIK xatolar. Har birini ANIQ shu "
+    "4) XATOLAR: faqat GRAMMATIK va LEKSIK xatolar. Har birini ANIQ shu "
     'formatda: "noto\'g\'ri qism -> to\'g\'ri qism (sabab)". Bir xil turdagi '
     "xato necha marta uchrasa, HAR BIRINI ALOHIDA yozing.\n\n"
 
-    "4) TEKSHIRUV: xatolar ro'yxatini yozgach, matnni qayta o'qing — "
+    "5) TEKSHIRUV: xatolar ro'yxatini yozgach, matnni qayta o'qing — "
     "tashlab ketilgan xato bo'lsa qo'shing.\n\n"
 
-    "5) KUCHLI TOMONLAR: 1-2 ta ijobiy narsani ko'rsating.\n\n"
+    "6) KUCHLI TOMONLAR: 1-2 ta ijobiy narsani ko'rsating.\n\n"
 
     "Faqat quyidagi JSON qaytaring ('overall_band_no_pronunciation' — "
-    "Pronunciation'siz 3 mezon o'rtachasi, yakuniy IELTS ball EMAS):\n"
+    "Pronunciation'siz 3 mezon o'rtachasi, yakuniy IELTS ball EMAS). "
+    "'part_type' maydoniga sizga berilgan turni aynan shu ko'rinishda "
+    "yozing (o'zingiz taxmin qilmang):\n"
     "{\n"
-    '  "part_type": "part1 yoki part2 yoki part3",\n'
+    '  "part_type": "part1 yoki part2",\n'
     '  "word_count": 0,\n'
     '  "analysis": {"fluency_coherence": "", "lexical_resource": "", '
     '"grammatical_range": ""},\n'
@@ -121,6 +164,21 @@ SPEAKING_SYSTEM_PROMPT = (
     '  "strengths": [""]\n'
     "}"
 )
+
+
+def _speaking_kontent_tuz(savol_matni, tur, matn):
+    """Speaking uchun ham xuddi shu naqsh — asl savol/cue card matni va
+    turi (part1/part2) ANIQ beriladi."""
+    tur_nomi = "Part 1" if tur == "part1" else "Part 2/3"
+    savol_qismi = (
+        f"BERILGAN SAVOL/MAVZU (CUE CARD) MATNI:\n{savol_matni}\n\n" if savol_matni else ""
+    )
+    return (
+        f"BU — SPEAKING {tur_nomi.upper()}.\n\n"
+        f"{savol_qismi}"
+        f"TALABANING OG'ZAKI JAVOBI MATNI (shu savol/mavzuga nisbatan "
+        f"baholang):\n{matn}"
+    )
 
 
 def javobni_parse_qil(raw_text):
@@ -171,11 +229,13 @@ class GeminiProvider:
             "output_tokens": usage.candidates_token_count or 0,
         }
 
-    def writing_baholash(self, matn, rasm_bytes=None, rasm_mime=None):
-        return self._generate(WRITING_SYSTEM_PROMPT, matn, rasm_bytes, rasm_mime)
+    def writing_baholash(self, matn, savol_matni="", tur="task2", rasm_bytes=None, rasm_mime=None):
+        kontent = _writing_kontent_tuz(savol_matni, tur, matn)
+        return self._generate(WRITING_SYSTEM_PROMPT, kontent, rasm_bytes, rasm_mime)
 
-    def speaking_matn_baholash(self, matn):
-        return self._generate(SPEAKING_SYSTEM_PROMPT, matn)
+    def speaking_matn_baholash(self, matn, savol_matni="", tur="part1"):
+        kontent = _speaking_kontent_tuz(savol_matni, tur, matn)
+        return self._generate(SPEAKING_SYSTEM_PROMPT, kontent)
 
 
 class ClaudeProvider:
@@ -220,11 +280,13 @@ class ClaudeProvider:
             "output_tokens": response.usage.output_tokens,
         }
 
-    def writing_baholash(self, matn, rasm_bytes=None, rasm_mime=None):
-        return self._generate(WRITING_SYSTEM_PROMPT, matn, rasm_bytes, rasm_mime)
+    def writing_baholash(self, matn, savol_matni="", tur="task2", rasm_bytes=None, rasm_mime=None):
+        kontent = _writing_kontent_tuz(savol_matni, tur, matn)
+        return self._generate(WRITING_SYSTEM_PROMPT, kontent, rasm_bytes, rasm_mime)
 
-    def speaking_matn_baholash(self, matn):
-        return self._generate(SPEAKING_SYSTEM_PROMPT, matn)
+    def speaking_matn_baholash(self, matn, savol_matni="", tur="part1"):
+        kontent = _speaking_kontent_tuz(savol_matni, tur, matn)
+        return self._generate(SPEAKING_SYSTEM_PROMPT, kontent)
 
 
 def provider_tanla(user):

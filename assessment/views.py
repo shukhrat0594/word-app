@@ -9,7 +9,10 @@ from .providers import ProviderXatosi, provider_tanla
 class WritingTekshirishView(APIView):
     """Insho/xat yuboriladi -> AI baholaydi -> natija saqlanadi va qaytadi.
 
-    B8.1: talaba Task turini tanlamaydi — AI kontekstdan aniqlaydi.
+    2026-07-20 (v5): frontend `savol_matni` (mashqning asl savol matni) va
+    `tur` (task1/task2) ni ham yuboradi — AI endi mavzuni matndan taxmin
+    qilmaydi, mavzuga mos-kelishini ANIQ tekshiradi (avval mavjud bug:
+    mavzudan chetga chiqqan javoblar ham yuqori ball olar edi).
     """
 
     permission_classes = [IsAuthenticated]
@@ -47,10 +50,14 @@ class WritingTekshirishView(APIView):
             )
 
         rasm_bytes, rasm_mime = self._grafik_rasmini_ol(request)
+        savol_matni = (request.data.get("savol_matni") or "").strip()
+        tur = request.data.get("tur") or "task2"
 
         try:
             provider = provider_tanla(request.user)
-            baho = provider.writing_baholash(matn, rasm_bytes=rasm_bytes, rasm_mime=rasm_mime)
+            baho = provider.writing_baholash(
+                matn, savol_matni=savol_matni, tur=tur, rasm_bytes=rasm_bytes, rasm_mime=rasm_mime
+            )
         except ProviderXatosi as e:
             return Response({"detail": str(e)}, status=502)
 
@@ -86,7 +93,9 @@ class WritingTekshirishView(APIView):
 class SpeakingMatnView(APIView):
     """Speaking — Matn rejimi (600 so'm): matn -> 3 mezon (Pronunciation'siz).
 
-    B8.1: talaba Part turini tanlamaydi — AI kontekstdan aniqlaydi.
+    2026-07-20 (v5): Writing bilan bir xil sababga ko'ra, frontend
+    `savol_matni` (mashqning asl savol/cue card matni) va `tur`
+    (part1/part2) ni ham yuboradi — AI mavzuni taxmin qilmaydi.
     Tezkor tahlil (audio+Azure) — Azure hisobi ochilganda alohida endpoint.
     """
 
@@ -100,9 +109,12 @@ class SpeakingMatnView(APIView):
                 status=400,
             )
 
+        savol_matni = (request.data.get("savol_matni") or "").strip()
+        tur = request.data.get("tur") or "part1"
+
         try:
             provider = provider_tanla(request.user)
-            baho = provider.speaking_matn_baholash(matn)
+            baho = provider.speaking_matn_baholash(matn, savol_matni=savol_matni, tur=tur)
         except ProviderXatosi as e:
             return Response({"detail": str(e)}, status=502)
 
