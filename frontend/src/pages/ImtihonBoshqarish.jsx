@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { api, apiForm } from "../api";
 import { useI18n } from "../i18n";
+import { useProfil } from "../profilContext";
+import ImtihonOtish from "./ImtihonOtish";
 
 const AI_PROMT = `Men senga to'liq IELTS Reading yoki Listening testi (masalan Cambridge IELTS kitobidan) matnini/transkriptini beraman. Sen shu materialni quyidagi JSON formatiga o'girib ber — natija FAQAT valid JSON obyekt bo'lsin, hech qanday izoh, sarlavha yoki markdown belgisi (masalan \`\`\`json) qo'shma, faqat sof JSON matni qaytar.
 
@@ -42,7 +44,8 @@ Natijani shu JSON obyekt ko'rinishida qaytar, boshqa hech narsa yozma. Quyida te
 
 [BU YERGA TEST MATNI/TRANSKRIPTINI JOYLASHTIRING]`;
 
-export default function ImtihonBoshqarish() {
+/** Faqat admin/owner uchun — test yaratish/o'chirish/audio biriktirish. */
+function AdminBoshqaruv() {
   const { t } = useI18n();
   const [royxat, setRoyxat] = useState(null);
   const [filtrBolim, setFiltrBolim] = useState("");
@@ -197,6 +200,33 @@ export default function ImtihonBoshqarish() {
             ))}
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+/** "IELTS testlari" — yagona sahifa: admin/owner uchun boshqaruv (yuqorida,
+ * agar ruxsati bo'lsa) + talaba/admin/owner uchun yechish (pastda, hammaga). */
+export default function ImtihonBoshqarish() {
+  const { t } = useI18n();
+  const { profil } = useProfil();
+  const adminMi = profil?.is_owner || profil?.role === "admin";
+  const [bolim, setBolim] = useState("reading");
+
+  return (
+    <div style={{ display: "grid", gap: 20 }}>
+      {adminMi && <AdminBoshqaruv />}
+
+      <div>
+        <div className="tab-guruh" style={{ marginBottom: 12 }}>
+          <button className={bolim === "reading" ? "aktiv" : ""} onClick={() => setBolim("reading")}>
+            {t("reading_bolimi")}
+          </button>
+          <button className={bolim === "listening" ? "aktiv" : ""} onClick={() => setBolim("listening")}>
+            {t("listening_bolimi")}
+          </button>
+        </div>
+        <ImtihonOtish bolim={bolim} />
       </div>
     </div>
   );

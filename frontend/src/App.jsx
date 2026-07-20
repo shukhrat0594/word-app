@@ -6,7 +6,6 @@ import Davomat from "./pages/Davomat";
 import DavomatHisoboti from "./pages/DavomatHisoboti";
 import Foydalanuvchilar from "./pages/Foydalanuvchilar";
 import Guruhlar from "./pages/Guruhlar";
-import Ielts from "./pages/Ielts";
 import ImtihonBoshqarish from "./pages/ImtihonBoshqarish";
 import Leaderboard from "./pages/Leaderboard";
 import Login from "./pages/Login";
@@ -39,7 +38,6 @@ export default function App() {
           <Route index element={<BoshSahifa />} />
           <Route path="mashqlar" element={<Mashqlar />} />
           <Route path="mashqlar-boshqarish" element={<MashqlarBoshqarish />} />
-          <Route path="ielts" element={<Ielts />} />
           <Route path="ielts-boshqarish" element={<ImtihonBoshqarish />} />
           <Route path="reyting" element={<Leaderboard />} />
           <Route path="oyinlar" element={<Oyinlar />} />
