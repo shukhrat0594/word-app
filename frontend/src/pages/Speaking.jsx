@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
 import NamunaMavzular, { TURLAR } from "../components/NamunaMavzular";
+import { haqiqiyMatnniOl } from "../haqiqiyMatn";
 import { useI18n } from "../i18n";
 import { xatoniAjrat } from "../xatoUtils";
 
@@ -80,6 +81,7 @@ function HaqiqiyMashq() {
   const [tur, setTur] = useState(turlar[0]?.tur);
   const [royxat, setRoyxat] = useState(null);
   const [mashq, setMashq] = useState(null);
+  const [korsatilganMatn, setKorsatilganMatn] = useState("");
   const [matn, setMatn] = useState("");
   const [natija, setNatija] = useState(null);
   const [xato, setXato] = useState("");
@@ -115,6 +117,7 @@ function HaqiqiyMashq() {
   async function mashqniOch(id) {
     const m = await api(`/api/mashqlar/${id}/`);
     setMashq(m);
+    setKorsatilganMatn(haqiqiyMatnniOl(m.matn || ""));
     setMatn("");
     setNatija(null);
     setXato("");
@@ -145,10 +148,10 @@ function HaqiqiyMashq() {
   if (natija) {
     return (
       <>
-        {mashq?.matn && (
+        {korsatilganMatn && (
           <div className="karta" style={{ marginBottom: 14 }}>
             <h3>{mashq.name}</h3>
-            <div className="mashq-passage">{mashq.matn}</div>
+            <div className="mashq-passage">{korsatilganMatn}</div>
           </div>
         )}
         <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 4 }}>
@@ -178,7 +181,7 @@ function HaqiqiyMashq() {
         </div>
         <div className="karta" style={{ marginBottom: 14 }}>
           <h3>{mashq.name}</h3>
-          {mashq.matn && <div className="mashq-passage">{mashq.matn}</div>}
+          {korsatilganMatn && <div className="mashq-passage">{korsatilganMatn}</div>}
         </div>
         <div className="karta">
           <textarea

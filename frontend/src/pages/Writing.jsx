@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
 import NamunaMavzular, { svgAjrat, TURLAR } from "../components/NamunaMavzular";
+import { haqiqiyMatnniOl } from "../haqiqiyMatn";
 import { useI18n } from "../i18n";
 import { svgniPngGaAylantir } from "../svgRasm";
 import { xatoniAjrat } from "../xatoUtils";
@@ -83,6 +84,7 @@ function HaqiqiyMashq() {
   const [royxat, setRoyxat] = useState(null);
   const [mashq, setMashq] = useState(null);
   const [mashqMatn, setMashqMatn] = useState("");
+  const [korsatilganMatn, setKorsatilganMatn] = useState("");
   const [grafikUrl, setGrafikUrl] = useState(null);
   const [grafikPng, setGrafikPng] = useState(null);
   const [matn, setMatn] = useState("");
@@ -126,16 +128,17 @@ function HaqiqiyMashq() {
     setGrafikUrl(null);
     setGrafikPng(null);
 
+    let tozaMatn = m.matn || "";
     if (m.tur === "task1") {
-      const { matn: tozaMatn, svgUrl } = svgAjrat(m.matn || "");
-      setMashqMatn(tozaMatn);
-      if (svgUrl) {
-        setGrafikUrl(svgUrl);
-        svgniPngGaAylantir(svgUrl).then(setGrafikPng).catch(() => {});
+      const ajratilgan = svgAjrat(tozaMatn);
+      tozaMatn = ajratilgan.matn;
+      if (ajratilgan.svgUrl) {
+        setGrafikUrl(ajratilgan.svgUrl);
+        svgniPngGaAylantir(ajratilgan.svgUrl).then(setGrafikPng).catch(() => {});
       }
-    } else {
-      setMashqMatn(m.matn || "");
     }
+    setMashqMatn(tozaMatn);
+    setKorsatilganMatn(haqiqiyMatnniOl(tozaMatn));
   }
 
   const sozSoni = matn.trim() ? matn.trim().split(/\s+/).length : 0;
@@ -168,10 +171,10 @@ function HaqiqiyMashq() {
   if (natija) {
     return (
       <>
-        {mashqMatn && (
+        {korsatilganMatn && (
           <div className="karta" style={{ marginBottom: 14 }}>
             <h3>{mashq.name}</h3>
-            <div className="mashq-passage">{mashqMatn}</div>
+            <div className="mashq-passage">{korsatilganMatn}</div>
             {grafikUrl && <img src={grafikUrl} alt="chart" style={{ maxWidth: "100%", marginTop: 10 }} />}
           </div>
         )}
@@ -204,7 +207,7 @@ function HaqiqiyMashq() {
         </div>
         <div className="karta" style={{ marginBottom: 14 }}>
           <h3>{mashq.name}</h3>
-          {mashqMatn && <div className="mashq-passage">{mashqMatn}</div>}
+          {korsatilganMatn && <div className="mashq-passage">{korsatilganMatn}</div>}
           {grafikUrl && <img src={grafikUrl} alt="chart" style={{ maxWidth: "100%", marginTop: 10 }} />}
         </div>
         <div className="karta">

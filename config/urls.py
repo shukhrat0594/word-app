@@ -101,6 +101,7 @@ urlpatterns = [
     path('api/', include('gamification.urls')),
     path('api/', include('packages.urls')),
     path('api/', include('games.urls')),
+    path('api/', include('audit.urls')),
     # B3.2: media'dan FAQAT markaz logolari ochiq (brending — maxfiy emas).
     # Audio fayllar bu yo'l orqali BERILMAYDI — ular faqat autentifikatsiyalangan
     # stream endpointlar orqali (exercises.MashqAudioView).

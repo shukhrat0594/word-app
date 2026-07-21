@@ -8,6 +8,8 @@ from rest_framework.views import APIView
 
 from accounts.models import User
 from accounts.permissions import owner_mi
+from audit.models import FaoliyatYozuvi
+from audit.utils import logla, maydon_diff
 
 from .models import Davomat, Guruh
 
@@ -80,6 +82,17 @@ class GuruhlarView(APIView):
 
         guruh = Guruh.objects.create(name=name, markaz_id=markaz_id)
         _azolarni_saqla(request, guruh)
+        logla(
+            foydalanuvchi=request.user,
+            harakat=FaoliyatYozuvi.Harakat.YARATISH,
+            obyekt=guruh,
+            obyekt_turi="Guruh",
+            snapshot={
+                "name": guruh.name,
+                "oqituvchi": guruh.oqituvchi.username if guruh.oqituvchi else None,
+                "talaba_soni": guruh.talabalar.count(),
+            },
+        )
         return Response(_guruh_dict(guruh, toliq=True), status=201)
 
 
@@ -103,11 +116,32 @@ class GuruhDetailView(APIView):
         if not tahrirlay_oladimi:
             return Response({"detail": "Faqat admin tahrirlay oladi"}, status=403)
 
+        eski_nomi = guruh.name
+        eski_oqituvchi = guruh.oqituvchi.username if guruh.oqituvchi else None
+        eski_talaba_soni = guruh.talabalar.count()
+
         name = request.data.get("name")
         if name is not None:
             guruh.name = name.strip()
             guruh.save(update_fields=["name"])
         _azolarni_saqla(request, guruh)
+
+        ozgarishlar = maydon_diff({"name": eski_nomi}, {"name": guruh.name})
+        yangi_oqituvchi = guruh.oqituvchi.username if guruh.oqituvchi else None
+        if yangi_oqituvchi != eski_oqituvchi:
+            ozgarishlar["oqituvchi"] = {"eski": eski_oqituvchi, "yangi": yangi_oqituvchi}
+        yangi_talaba_soni = guruh.talabalar.count()
+        if yangi_talaba_soni != eski_talaba_soni:
+            ozgarishlar["talaba_soni"] = {"eski": eski_talaba_soni, "yangi": yangi_talaba_soni}
+        if ozgarishlar:
+            logla(
+                foydalanuvchi=request.user,
+                harakat=FaoliyatYozuvi.Harakat.OZGARTIRISH,
+                obyekt=guruh,
+                obyekt_turi="Guruh",
+                obyekt_nomi=guruh.name,
+                ozgarishlar=ozgarishlar,
+            )
         return Response(_guruh_dict(guruh, toliq=True))
 
 

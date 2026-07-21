@@ -282,10 +282,7 @@ class ImtihonTest(models.Model):
     """
 
     name = models.CharField(max_length=200)
-    bolim = models.CharField(
-        max_length=10,
-        choices=[(Bolim.READING, Bolim.READING.label), (Bolim.LISTENING, Bolim.LISTENING.label)],
-    )
+    bolim = models.CharField(max_length=10, choices=Bolim.choices)
     markaz = models.ForeignKey(
         "accounts.Markaz", on_delete=models.CASCADE, related_name="imtihon_testlari"
     )
@@ -313,13 +310,25 @@ class TestQismi(models.Model):
         max_length=300, blank=True,
         help_text="masalan 'You should spend about 20 minutes on Questions 1-13.'",
     )
-    matn = models.TextField(blank=True, help_text="Reading passage matni")
+    matn = models.TextField(
+        blank=True, help_text="Reading passage matni / Writing-Speaking uchun savol-topshiriq matni"
+    )
+    tur = models.CharField(
+        max_length=20, choices=Tur.choices, blank=True,
+        help_text="Faqat Writing/Speaking uchun: task1/task2/part1/part2/part3. Reading/Listening'da savol turlari 'savollar' ichida, bu yerda bo'sh qoladi.",
+    )
     audio_fayl = models.FileField(upload_to="imtihon/audio/", blank=True)
+    rasm = models.ImageField(
+        upload_to="imtihon/rasm/", blank=True,
+        help_text="Plan/Map/Diagram Labelling yoki Writing Task 1 grafigi uchun",
+    )
     savollar = models.JSONField(
         default=list,
+        blank=True,
         help_text=(
-            'Ro\'yxat: [{"savol": "...", "tur": "multiple_choice", '
-            '"variantlar": ["A", "B"], "togri": "A", "guruh_boshi": "Questions 1-7" (ixtiyoriy)}]'
+            'Reading/Listening uchun ro\'yxat: [{"savol": "...", "tur": "multiple_choice", '
+            '"variantlar": ["A", "B"], "togri": "A", "guruh_boshi": "Questions 1-7" (ixtiyoriy)}]. '
+            "Writing/Speaking'da bo'sh qoladi — javob AI orqali baholanadi."
         ),
     )
 
@@ -329,7 +338,7 @@ class TestQismi(models.Model):
         verbose_name_plural = "Test qismlari"
 
     def __str__(self):
-        return f"{self.test.name} — {self.sarlavha or self.tartib}"
+        return f"{self.test.name} — {self.sarlavha or self.tur or self.tartib}"
 
 
 class TestYechim(models.Model):

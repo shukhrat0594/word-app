@@ -149,6 +149,7 @@ export default function ImtihonOtish({ bolim }) {
   const [royxat, setRoyxat] = useState([]);
   const [test, setTest] = useState(null);
   const [audioUrllar, setAudioUrllar] = useState({});
+  const [rasmUrllar, setRasmUrllar] = useState({});
   const [javoblar, setJavoblar] = useState({});
   const [natija, setNatija] = useState(null);
   const [xato, setXato] = useState("");
@@ -218,12 +219,17 @@ export default function ImtihonOtish({ bolim }) {
     const t2 = await api(`/api/imtihon/testlar/${id}/`);
     setTest(t2);
     const urllar = {};
+    const rasmlar = {};
     for (const qism of t2.qismlar) {
       if (qism.audio_url) {
         urllar[qism.id] = await apiBlobUrl(qism.audio_url).catch(() => null);
       }
+      if (qism.rasm_url) {
+        rasmlar[qism.id] = await apiBlobUrl(qism.rasm_url).catch(() => null);
+      }
     }
     setAudioUrllar(urllar);
+    setRasmUrllar(rasmlar);
   }
 
   function javobniQoy(i, qiymat) {
@@ -325,6 +331,13 @@ export default function ImtihonOtish({ bolim }) {
             )
           ) : (
             faol.qism.matn && <div className="mashq-passage">{faol.qism.matn}</div>
+          )}
+          {rasmUrllar[faol.qism.id] && (
+            <img
+              src={rasmUrllar[faol.qism.id]}
+              alt={faol.qism.sarlavha}
+              style={{ maxWidth: "100%", marginTop: 10 }}
+            />
           )}
         </div>
         <div

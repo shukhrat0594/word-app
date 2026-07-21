@@ -9,6 +9,8 @@ from rest_framework.views import APIView
 
 from accounts.models import Markaz, User
 from accounts.permissions import owner_mi
+from audit.models import FaoliyatYozuvi
+from audit.utils import logla, maydon_diff
 
 from .models import (
     Bolim,
@@ -96,6 +98,13 @@ class MashqBoshqaruvView(APIView):
         except ValidationError as e:
             return Response(e.message_dict, status=400)
         mashq.save()
+        logla(
+            foydalanuvchi=request.user,
+            harakat=FaoliyatYozuvi.Harakat.YARATISH,
+            obyekt=mashq,
+            obyekt_turi="Mashq",
+            snapshot={"name": mashq.name, "bolim": mashq.bolim, "tur": mashq.tur, "korinish": mashq.korinish},
+        )
 
         return Response(_mashq_qisqa(mashq), status=201)
 
@@ -115,8 +124,11 @@ class MashqBoshqaruvDetailView(APIView):
         if not _mashq_admin_mi(request.user):
             return Response({"detail": "Faqat admin/owner uchun"}, status=403)
         mashq = get_object_or_404(Mashq, pk=pk)
+        kuzatiladigan = ("name", "bolim", "tur", "korinish", "matn", "namuna_javob")
+        eski_qiymatlar = {m: getattr(mashq, m) for m in kuzatiladigan}
+        fayl_ozgardi = {}
 
-        for maydon in ("name", "bolim", "tur", "korinish", "matn", "namuna_javob"):
+        for maydon in kuzatiladigan:
             if maydon in request.data:
                 setattr(mashq, maydon, request.data[maydon])
         if "savollar" in request.data:
@@ -124,10 +136,13 @@ class MashqBoshqaruvDetailView(APIView):
                 mashq.savollar = json.loads(request.data["savollar"])
             except json.JSONDecodeError:
                 return Response({"detail": "savollar noto'g'ri JSON"}, status=400)
+            fayl_ozgardi["savollar"] = {"eski": "—", "yangi": "yangilandi"}
         if request.FILES.get("audio_fayl"):
             mashq.audio_fayl = request.FILES["audio_fayl"]
+            fayl_ozgardi["audio_fayl"] = {"eski": "—", "yangi": "yangilandi"}
         if request.FILES.get("rasm"):
             mashq.rasm = request.FILES["rasm"]
+            fayl_ozgardi["rasm"] = {"eski": "—", "yangi": "yangilandi"}
 
         try:
             mashq.full_clean()
@@ -135,13 +150,36 @@ class MashqBoshqaruvDetailView(APIView):
             return Response(e.message_dict, status=400)
         mashq.save()
 
+        yangi_qiymatlar = {m: getattr(mashq, m) for m in kuzatiladigan}
+        ozgarishlar = maydon_diff(eski_qiymatlar, yangi_qiymatlar)
+        ozgarishlar.update(fayl_ozgardi)
+        if ozgarishlar:
+            logla(
+                foydalanuvchi=request.user,
+                harakat=FaoliyatYozuvi.Harakat.OZGARTIRISH,
+                obyekt=mashq,
+                obyekt_turi="Mashq",
+                obyekt_nomi=mashq.name,
+                ozgarishlar=ozgarishlar,
+            )
+
         return Response(_mashq_qisqa(mashq))
 
     def delete(self, request, pk):
         if not _mashq_admin_mi(request.user):
             return Response({"detail": "Faqat admin/owner uchun"}, status=403)
         mashq = get_object_or_404(Mashq, pk=pk)
+        mashq_id, nomi = mashq.id, mashq.name
+        snapshot = {"name": mashq.name, "bolim": mashq.bolim, "tur": mashq.tur}
         mashq.delete()
+        FaoliyatYozuvi.objects.create(
+            foydalanuvchi=request.user,
+            harakat=FaoliyatYozuvi.Harakat.OCHIRISH,
+            obyekt_turi="Mashq",
+            obyekt_id=mashq_id,
+            obyekt_nomi=nomi,
+            ozgarishlar=snapshot,
+        )
         return Response(status=204)
 
 
@@ -308,7 +346,9 @@ def _qism_admin_dict(q):
         "sarlavha": q.sarlavha,
         "yoriqnoma": q.yoriqnoma,
         "matn": q.matn,
+        "tur": q.tur,
         "audio_url": f"/api/imtihon/qism/{q.id}/audio/" if q.audio_fayl else None,
+        "rasm_url": f"/api/imtihon/qism/{q.id}/rasm/" if q.rasm else None,
         "savollar": q.savollar,
     }
 
@@ -331,7 +371,9 @@ def _qism_talaba_dict(q):
         "sarlavha": q.sarlavha,
         "yoriqnoma": q.yoriqnoma,
         "matn": q.matn,
+        "tur": q.tur,
         "audio_url": f"/api/imtihon/qism/{q.id}/audio/" if q.audio_fayl else None,
+        "rasm_url": f"/api/imtihon/qism/{q.id}/rasm/" if q.rasm else None,
         "savollar": savollar_talaba_uchun(q.savollar),
     }
 
@@ -345,10 +387,59 @@ def _test_talaba_dict(t):
     }
 
 
+def _test_yarat(data, markaz, rasm_fayllar=None):
+    """`ImtihonTest`+`TestQismi`larni JSON ma'lumotdan yaratadi.
+
+    `rasm_fayllar` — {fayl_nomi: ContentFile} lug'ati (ZIP orqali yuklashda,
+    qismning "rasm" maydonidagi nomga mos fayl). Oddiy JSON yuklashda None.
+
+    Writing/Speaking uchun har bir qism "tur" (task1/task2/part1/part2/part3)
+    ko'rsatishi shart — Reading/Listening'da "savollar" ishlatiladi, bu
+    ikkalasi mos ravishda bo'sh qoladi.
+
+    Xato bo'lsa (None, {"detail": "..."}) qaytaradi, aks holda (test, None).
+    """
+    rasm_fayllar = rasm_fayllar or {}
+    name = data.get("name", "")
+    bolim = data.get("bolim", "")
+    korinish = data.get("korinish", "private")
+    qismlar_data = data.get("qismlar") or []
+    if not name or bolim not in Bolim.values:
+        return None, {"detail": "name va bolim (reading/listening/writing/speaking) majburiy"}
+    if not isinstance(qismlar_data, list) or not qismlar_data:
+        return None, {"detail": "kamida bitta qism kerak"}
+
+    yozgap_mi = bolim in (Bolim.WRITING, Bolim.SPEAKING)
+    if yozgap_mi:
+        for q in qismlar_data:
+            if not q.get("tur"):
+                return None, {
+                    "detail": "Writing/Speaking qismlarida 'tur' (task1/task2/part1/part2/part3) majburiy"
+                }
+
+    test = ImtihonTest.objects.create(name=name, bolim=bolim, markaz=markaz, korinish=korinish)
+    for i, q in enumerate(qismlar_data, start=1):
+        qism = TestQismi(
+            test=test,
+            tartib=q.get("tartib") or i,
+            sarlavha=q.get("sarlavha", ""),
+            yoriqnoma=q.get("yoriqnoma", ""),
+            matn=q.get("matn", ""),
+            tur=q.get("tur", ""),
+            savollar=q.get("savollar") or [],
+        )
+        rasm_nomi = q.get("rasm")
+        if rasm_nomi and rasm_nomi in rasm_fayllar:
+            qism.rasm = rasm_fayllar[rasm_nomi]
+        qism.save()
+    return test, None
+
+
 class ImtihonBoshqaruvView(APIView):
     """Owner/admin uchun — to'liq testlar ro'yxati va yaratish (qismlari
-    bilan birga, bitta JSON so'rovda). Audio har qismga keyinroq
-    TestQismiAudioBoshqaruvView orqali biriktiriladi."""
+    bilan birga, bitta JSON so'rovda). Audio/rasm har qismga keyinroq
+    TestQismiFayllarBoshqaruvView orqali biriktiriladi (yoki ZIP yuklashda
+    — ImtihonZipBoshqaruvView — bitta so'rovda birga keladi)."""
 
     permission_classes = [IsAuthenticated]
 
@@ -369,26 +460,148 @@ class ImtihonBoshqaruvView(APIView):
         if not markaz:
             return Response({"detail": "Markaz topilmadi"}, status=400)
 
-        name = request.data.get("name", "")
-        bolim = request.data.get("bolim", "")
-        korinish = request.data.get("korinish", "private")
-        qismlar_data = request.data.get("qismlar") or []
-        if not name or bolim not in (Bolim.READING, Bolim.LISTENING):
-            return Response({"detail": "name va bolim (reading/listening) majburiy"}, status=400)
-        if not isinstance(qismlar_data, list) or not qismlar_data:
-            return Response({"detail": "kamida bitta qism kerak"}, status=400)
+        test, xato = _test_yarat(request.data, markaz)
+        if xato:
+            return Response(xato, status=400)
 
-        test = ImtihonTest.objects.create(name=name, bolim=bolim, markaz=markaz, korinish=korinish)
-        for i, q in enumerate(qismlar_data, start=1):
-            TestQismi.objects.create(
-                test=test,
-                tartib=q.get("tartib") or i,
-                sarlavha=q.get("sarlavha", ""),
-                yoriqnoma=q.get("yoriqnoma", ""),
-                matn=q.get("matn", ""),
-                savollar=q.get("savollar") or [],
-            )
+        logla(
+            foydalanuvchi=request.user,
+            harakat=FaoliyatYozuvi.Harakat.YARATISH,
+            obyekt=test,
+            obyekt_turi="ImtihonTest",
+            snapshot={"name": test.name, "bolim": test.bolim, "qismlar_soni": test.qismlar.count()},
+        )
         return Response(_test_admin_dict(test), status=201)
+
+
+def _rasm_fayllarni_ol(arxiv, fayl_nomlari):
+    """Berilgan fayl nomlari ro'yxatidan (arxiv ichidagi to'liq yo'llar)
+    rasm fayllarni {asosiy_nom: ContentFile} lug'atiga aylantiradi."""
+    from django.core.files.base import ContentFile
+
+    rasm_fayllar = {}
+    for nom in fayl_nomlari:
+        asosiy_nom = nom.rsplit("/", 1)[-1]
+        if asosiy_nom.lower().endswith((".png", ".jpg", ".jpeg", ".webp")):
+            rasm_fayllar[asosiy_nom] = ContentFile(arxiv.read(nom), name=asosiy_nom)
+    return rasm_fayllar
+
+
+class ImtihonZipBoshqaruvView(APIView):
+    """Owner/admin uchun — ZIP arxiv orqali test(lar) yaratish.
+
+    Ikki rejim (arxiv tuzilishiga qarab avtomatik aniqlanadi):
+    1. **Ko'p mashqli** — arxivning tepasida papkalar bo'lsa (masalan
+       `Mashq1/test.json`+`Mashq1/rasm1.png`, `Mashq2/test.json`+...), HAR
+       BIR papka — mustaqil bitta test (JSON + o'sha papkadagi rasmlar,
+       rasm nomlari faqat shu papka doirasida ko'riladi, papkalar orasida
+       to'qnashmaydi). Bir so'rovda bir nechta test yaratiladi.
+    2. **Yakka mashq** (eski, orqaga moslashuvchan) — arxiv tepasida
+       to'g'ridan-to'g'ri bitta .json fayl + rasm fayllar bo'lsa, xuddi
+       avvalgidek bitta test yaratiladi.
+
+    Har bir testning JSON'i — oddiy JSON yuklashdagi bilan bir xil format,
+    qismlarda ixtiyoriy "rasm": "fayl_nomi.png" maydoni bilan."""
+
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request):
+        if not _mashq_admin_mi(request.user):
+            return Response({"detail": "Faqat admin/owner uchun"}, status=403)
+
+        markaz = Markaz.objects.first()
+        if not markaz:
+            return Response({"detail": "Markaz topilmadi"}, status=400)
+
+        fayl = request.FILES.get("zip_fayl")
+        if not fayl:
+            return Response({"detail": "zip_fayl majburiy"}, status=400)
+
+        import io
+        import zipfile
+
+        try:
+            arxiv = zipfile.ZipFile(io.BytesIO(fayl.read()))
+        except zipfile.BadZipFile:
+            return Response({"detail": "Fayl to'g'ri ZIP arxiv emas"}, status=400)
+
+        # Katalog (papka) belgisi bo'lgan yozuvlarni (ular bo'sh, faqat "/"
+        # bilan tugaydi) tashlab, real fayllarni papka bo'yicha guruhlaymiz.
+        fayllar = [n for n in arxiv.namelist() if not n.endswith("/")]
+        papkalar = {}
+        tepa_json = None
+        for n in fayllar:
+            bo_laklar = n.split("/")
+            if len(bo_laklar) == 1:
+                if n.lower().endswith(".json"):
+                    tepa_json = n
+            else:
+                papkalar.setdefault(bo_laklar[0], []).append(n)
+
+        yaratilgan = []
+        xatolar = []
+
+        if papkalar:
+            for papka_nomi, papka_fayllari in papkalar.items():
+                json_nomlari = [n for n in papka_fayllari if n.lower().endswith(".json")]
+                if len(json_nomlari) != 1:
+                    xatolar.append(f"{papka_nomi}: aynan bitta .json fayl bo'lishi kerak")
+                    continue
+                try:
+                    data = json.loads(arxiv.read(json_nomlari[0]).decode("utf-8"))
+                except (json.JSONDecodeError, UnicodeDecodeError):
+                    xatolar.append(f"{papka_nomi}: JSON fayl noto'g'ri formatda")
+                    continue
+                rasm_fayllar = _rasm_fayllarni_ol(arxiv, papka_fayllari)
+                test, xato = _test_yarat(data, markaz, rasm_fayllar=rasm_fayllar)
+                if xato:
+                    xatolar.append(f"{papka_nomi}: {xato['detail']}")
+                else:
+                    yaratilgan.append(test)
+        elif tepa_json:
+            try:
+                data = json.loads(arxiv.read(tepa_json).decode("utf-8"))
+            except (json.JSONDecodeError, UnicodeDecodeError):
+                return Response({"detail": "JSON fayl noto'g'ri formatda"}, status=400)
+            rasm_fayllar = _rasm_fayllarni_ol(arxiv, fayllar)
+            test, xato = _test_yarat(data, markaz, rasm_fayllar=rasm_fayllar)
+            if xato:
+                xatolar.append(xato["detail"])
+            else:
+                yaratilgan.append(test)
+        else:
+            return Response(
+                {"detail": "Arxivda .json fayl topilmadi (tepada yoki har bir mashq papkasi ichida bo'lishi kerak)"},
+                status=400,
+            )
+
+        if not yaratilgan:
+            return Response({"detail": "; ".join(xatolar) or "Hech narsa yaratilmadi"}, status=400)
+
+        for test in yaratilgan:
+            biriktirilgan_rasmlar = sum(1 for q in test.qismlar.all() if q.rasm)
+            logla(
+                foydalanuvchi=request.user,
+                harakat=FaoliyatYozuvi.Harakat.YARATISH,
+                obyekt=test,
+                obyekt_turi="ImtihonTest",
+                snapshot={
+                    "name": test.name,
+                    "bolim": test.bolim,
+                    "qismlar_soni": test.qismlar.count(),
+                    "manba": "zip",
+                    "rasmlar_soni": biriktirilgan_rasmlar,
+                },
+            )
+
+        return Response(
+            {
+                "yaratildi": [_test_admin_dict(t) for t in yaratilgan],
+                "xatolar": xatolar,
+            },
+            status=201,
+        )
 
 
 class ImtihonBoshqaruvDetailView(APIView):
@@ -400,12 +613,22 @@ class ImtihonBoshqaruvDetailView(APIView):
         if not _mashq_admin_mi(request.user):
             return Response({"detail": "Faqat admin/owner uchun"}, status=403)
         test = get_object_or_404(ImtihonTest, pk=pk)
+        test_id, nomi, bolim = test.id, test.name, test.bolim
         test.delete()
+        FaoliyatYozuvi.objects.create(
+            foydalanuvchi=request.user,
+            harakat=FaoliyatYozuvi.Harakat.OCHIRISH,
+            obyekt_turi="ImtihonTest",
+            obyekt_id=test_id,
+            obyekt_nomi=nomi,
+            ozgarishlar={"name": nomi, "bolim": bolim},
+        )
         return Response(status=204)
 
 
-class TestQismiAudioBoshqaruvView(APIView):
-    """Owner/admin uchun — bitta test qismiga audio biriktirish (listening)."""
+class TestQismiFayllarBoshqaruvView(APIView):
+    """Owner/admin uchun — bitta test qismiga audio (listening) va/yoki
+    rasm (Map/Diagram Labelling, Writing Task 1 grafigi) biriktirish."""
 
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
@@ -414,9 +637,23 @@ class TestQismiAudioBoshqaruvView(APIView):
         if not _mashq_admin_mi(request.user):
             return Response({"detail": "Faqat admin/owner uchun"}, status=403)
         qism = get_object_or_404(TestQismi, pk=pk)
+        ozgarishlar = {}
         if request.FILES.get("audio_fayl"):
             qism.audio_fayl = request.FILES["audio_fayl"]
+            ozgarishlar["audio_fayl"] = {"eski": "—", "yangi": "yangilandi"}
+        if request.FILES.get("rasm"):
+            qism.rasm = request.FILES["rasm"]
+            ozgarishlar["rasm"] = {"eski": "—", "yangi": "yangilandi"}
+        if ozgarishlar:
             qism.save()
+            logla(
+                foydalanuvchi=request.user,
+                harakat=FaoliyatYozuvi.Harakat.OZGARTIRISH,
+                obyekt=qism.test,
+                obyekt_turi="ImtihonTest",
+                obyekt_nomi=f"{qism.test.name} — {qism.sarlavha or qism.tartib}-qism",
+                ozgarishlar=ozgarishlar,
+            )
         return Response(_qism_admin_dict(qism))
 
 
@@ -461,6 +698,24 @@ class TestQismAudioView(APIView):
         return javob
 
 
+class TestQismRasmView(APIView):
+    """Test qismi rasmi — autentifikatsiyalangan stream (B3.2 bilan bir xil)."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        from django.http import FileResponse, Http404
+
+        qism = get_object_or_404(
+            TestQismi, pk=pk, test__in=korinadigan_testlar(request.user)
+        )
+        if not qism.rasm:
+            raise Http404
+        javob = FileResponse(qism.rasm.open("rb"))
+        javob["Content-Disposition"] = "inline"
+        return javob
+
+
 class ImtihonYechishView(APIView):
     """Butun testga javob yuborish — flat ro'yxat, barcha qismlar bo'yicha
     uzluksiz tartibda. Kunlik limitga bog'liq emas (mustaqil, cheklovsiz)."""
@@ -494,5 +749,107 @@ class ImtihonYechishView(APIView):
                 "jami": natija["jami"],
                 "natijalar": natija["natijalar"],
                 "band": band,
+            }
+        )
+
+
+class ImtihonYozGapTekshirishView(APIView):
+    """Writing/Speaking to'liq testga javob — har bir qism (Task1+Task2 yoki
+    Part1/2/3) uchun AI orqali baholanadi (assessment.providers — Writing/
+    Speaking AI-tekshiruv paneli bilan bir xil mexanizm, mavzuga moslik
+    tekshiruvi bilan birga).
+
+    Har bir qism uchun alohida `WritingTekshiruv`/`SpeakingTekshiruv` yozuvi
+    yaratiladi — shunda mavjud XP/tarix/statistika infratuzilmasi (signal
+    orqali) avtomatik ishlaydi, alohida "natija" modeli kerak emas. Paket
+    (agar aktiv bo'lsa) BUTUN test uchun bir marta yechiladi (real IELTS'da
+    Writing/Speaking — bitta yaxlit sessiya, har qism uchun alohida emas)."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        from assessment.models import SpeakingTekshiruv, WritingTekshiruv
+        from assessment.providers import ProviderXatosi, provider_tanla
+        from packages.models import paketdan_ishlat
+
+        test = get_object_or_404(korinadigan_testlar(request.user), pk=pk)
+        if test.bolim not in (Bolim.WRITING, Bolim.SPEAKING):
+            return Response({"detail": "Bu endpoint faqat Writing/Speaking testlar uchun"}, status=400)
+
+        javoblar = request.data.get("javoblar")
+        if not isinstance(javoblar, dict):
+            return Response({"detail": "javoblar {qism_id: matn} lug'ati majburiy"}, status=400)
+
+        qismlar = list(test.qismlar.all())
+        for qism in qismlar:
+            matn = (javoblar.get(str(qism.id)) or "").strip()
+            if len(matn.split()) < 20:
+                return Response(
+                    {"detail": f"\"{qism.sarlavha or qism.tur}\" uchun matn juda qisqa — kamida 20 so'z"},
+                    status=400,
+                )
+
+        try:
+            provider = provider_tanla(request.user)
+        except ProviderXatosi as e:
+            return Response({"detail": str(e)}, status=502)
+
+        natijalar = []
+        bandlar = []
+        try:
+            for qism in qismlar:
+                matn = javoblar[str(qism.id)].strip()
+                if test.bolim == Bolim.WRITING:
+                    rasm_bytes, rasm_mime = None, None
+                    if qism.rasm:
+                        rasm_bytes, rasm_mime = qism.rasm.read(), "image/png"
+                    baho = provider.writing_baholash(
+                        matn, savol_matni=qism.matn, tur=qism.tur,
+                        rasm_bytes=rasm_bytes, rasm_mime=rasm_mime,
+                    )
+                    natija = baho["natija"]
+                    WritingTekshiruv.objects.create(
+                        talaba=request.user,
+                        matn=matn,
+                        natija=natija,
+                        task_type=str(natija.get("task_type", qism.tur)),
+                        overall_band=natija.get("overall_band"),
+                        provider=baho["provider"],
+                        model=baho["model"],
+                        input_tokens=baho["input_tokens"],
+                        output_tokens=baho["output_tokens"],
+                    )
+                    bandlar.append(natija.get("overall_band"))
+                else:
+                    baho = provider.speaking_matn_baholash(matn, savol_matni=qism.matn, tur=qism.tur)
+                    natija = baho["natija"]
+                    SpeakingTekshiruv.objects.create(
+                        talaba=request.user,
+                        rejim=SpeakingTekshiruv.Rejim.MATN,
+                        matn=matn,
+                        natija=natija,
+                        part_type=str(natija.get("part_type", qism.tur)),
+                        overall_band=natija.get("overall_band_no_pronunciation"),
+                        provider=baho["provider"],
+                        model=baho["model"],
+                        input_tokens=baho["input_tokens"],
+                        output_tokens=baho["output_tokens"],
+                    )
+                    bandlar.append(natija.get("overall_band_no_pronunciation"))
+                natijalar.append({"qism_id": qism.id, "tur": qism.tur, "sarlavha": qism.sarlavha, "natija": natija})
+        except ProviderXatosi as e:
+            return Response({"detail": str(e)}, status=502)
+
+        bandlar = [b for b in bandlar if b is not None]
+        umumiy_band = round(sum(bandlar) / len(bandlar) * 2) / 2 if bandlar else None
+
+        xizmat = "w" if test.bolim == Bolim.WRITING else "s"
+        paket = paketdan_ishlat(request.user, xizmat)
+
+        return Response(
+            {
+                "natijalar": natijalar,
+                "umumiy_band": umumiy_band,
+                "paketdan": paket is not None,
             }
         )

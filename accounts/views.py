@@ -12,6 +12,8 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 
+from audit.models import FaoliyatYozuvi
+from audit.utils import logla, maydon_diff
 from config import narxlar as NARX
 
 from .models import Markaz, User
@@ -131,6 +133,13 @@ class MarkazlarView(APIView):
             logo=request.data.get("logo") or None,
             tasdiqlangan=True,
         )
+        logla(
+            foydalanuvchi=request.user,
+            harakat=FaoliyatYozuvi.Harakat.YARATISH,
+            obyekt=markaz,
+            obyekt_turi="Markaz",
+            snapshot={"name": markaz.name, "ai_provider": markaz.ai_provider},
+        )
         return Response(
             {"id": markaz.id, "name": markaz.name, "ai_provider": markaz.ai_provider},
             status=201,
@@ -192,6 +201,14 @@ class MarkazTasdiqlashView(APIView):
             markaz.soruvchi.markaz = markaz
             markaz.soruvchi.save(update_fields=["role", "markaz"])
 
+        logla(
+            foydalanuvchi=request.user,
+            harakat=FaoliyatYozuvi.Harakat.OZGARTIRISH,
+            obyekt=markaz,
+            obyekt_turi="Markaz",
+            eski_qiymatlar={"tasdiqlangan": False},
+            yangi_qiymatlar={"tasdiqlangan": True},
+        )
         return Response({"id": markaz.id, "tasdiqlangan": True})
 
 
@@ -209,7 +226,17 @@ class MarkazRadEtishView(APIView):
             return Response(
                 {"detail": "Tasdiqlangan markazni bu yerdan o'chirib bo'lmaydi"}, status=400
             )
+        nomi = markaz.name
+        markaz_id = markaz.id
         markaz.delete()
+        FaoliyatYozuvi.objects.create(
+            foydalanuvchi=request.user,
+            harakat=FaoliyatYozuvi.Harakat.OCHIRISH,
+            obyekt_turi="Markaz",
+            obyekt_id=markaz_id,
+            obyekt_nomi=nomi,
+            ozgarishlar={"sabab": "so'rov rad etildi"},
+        )
         return Response({"detail": "So'rov rad etildi"})
 
 
@@ -241,13 +268,27 @@ class MarkazSozlamaView(APIView):
             return Response({"detail": "Faqat markaz admini uchun"}, status=403)
 
         m = request.user.markaz
+        eski_rang = m.brend_rang
+        logo_ozgardimi = False
         rang = request.data.get("brend_rang")
         if rang:
             m.brend_rang = rang
         logo = request.data.get("logo")
         if logo:
             m.logo = logo
+            logo_ozgardimi = True
         m.save()
+        ozgarishlar = maydon_diff({"brend_rang": eski_rang}, {"brend_rang": m.brend_rang})
+        if logo_ozgardimi:
+            ozgarishlar["logo"] = {"eski": "—", "yangi": "yangilandi"}
+        if ozgarishlar:
+            logla(
+                foydalanuvchi=request.user,
+                harakat=FaoliyatYozuvi.Harakat.OZGARTIRISH,
+                obyekt=m,
+                obyekt_turi="Markaz",
+                ozgarishlar=ozgarishlar,
+            )
         return Response(
             {
                 "id": m.id,
@@ -342,6 +383,13 @@ class FoydalanuvchiYaratishView(APIView):
                 user.markaz = markaz
         user.set_password(parol)
         user.save()
+        logla(
+            foydalanuvchi=request.user,
+            harakat=FaoliyatYozuvi.Harakat.YARATISH,
+            obyekt=user,
+            obyekt_turi="Foydalanuvchi",
+            snapshot={"username": user.username, "role": user.role},
+        )
 
         return Response(
             {
@@ -405,6 +453,8 @@ class FoydalanuvchiRolView(APIView):
                 {"detail": "Oxirgi owner'ni pastga tushirib bo'lmaydi"}, status=400
             )
 
+        eski_rol = user.role
+        eski_owner = user.is_superuser
         user.role = role_value
         user.is_superuser = is_super
         user.is_staff = is_super
@@ -413,6 +463,14 @@ class FoydalanuvchiRolView(APIView):
             if markaz:
                 user.markaz = markaz
         user.save()
+        logla(
+            foydalanuvchi=request.user,
+            harakat=FaoliyatYozuvi.Harakat.OZGARTIRISH,
+            obyekt=user,
+            obyekt_turi="Foydalanuvchi",
+            eski_qiymatlar={"role": eski_rol, "is_owner": eski_owner},
+            yangi_qiymatlar={"role": user.role, "is_owner": user.is_superuser},
+        )
 
         return Response({"id": user.id, "role": user.role, "is_owner": user.is_superuser})
 
@@ -443,7 +501,17 @@ class FoydalanuvchiOchirishView(APIView):
             )
 
         username = user.username
+        user_id = user.id
+        rol = user.role
         user.delete()
+        FaoliyatYozuvi.objects.create(
+            foydalanuvchi=request.user,
+            harakat=FaoliyatYozuvi.Harakat.OCHIRISH,
+            obyekt_turi="Foydalanuvchi",
+            obyekt_id=user_id,
+            obyekt_nomi=username,
+            ozgarishlar={"username": username, "role": rol},
+        )
         return Response({"detail": f"{username} o'chirildi"})
 
 
@@ -458,6 +526,14 @@ class OddiyStudentgaOtkazishView(APIView):
         user = get_object_or_404(User, pk=pk, role=User.Role.ODDIY)
         user.role = User.Role.STUDENT
         user.save(update_fields=["role"])
+        logla(
+            foydalanuvchi=request.user,
+            harakat=FaoliyatYozuvi.Harakat.OZGARTIRISH,
+            obyekt=user,
+            obyekt_turi="Foydalanuvchi",
+            eski_qiymatlar={"role": User.Role.ODDIY},
+            yangi_qiymatlar={"role": User.Role.STUDENT},
+        )
         return Response({"id": user.id, "role": user.role})
 
 
@@ -480,6 +556,14 @@ class FoydalanuvchiParolTiklashView(APIView):
 
         user.set_password(parol)
         user.save()
+        logla(
+            foydalanuvchi=request.user,
+            harakat=FaoliyatYozuvi.Harakat.OZGARTIRISH,
+            obyekt=user,
+            obyekt_turi="Foydalanuvchi",
+            obyekt_nomi=user.username,
+            ozgarishlar={"parol": {"eski": "***", "yangi": "o'rnatildi"}},
+        )
         return Response({"detail": "Parol o'rnatildi"})
 
 
@@ -513,12 +597,30 @@ class MarkazAdminTayinlashView(APIView):
             return Response({"detail": " ".join(xatolar)}, status=400)
 
         user, created = User.objects.get_or_create(username=username)
+        eski_rol = user.role
         user.role = User.Role.ADMIN
         user.markaz = markaz
         if ism:
             user.first_name = ism
         user.set_password(parol)
         user.save()
+        if created:
+            logla(
+                foydalanuvchi=request.user,
+                harakat=FaoliyatYozuvi.Harakat.YARATISH,
+                obyekt=user,
+                obyekt_turi="Foydalanuvchi",
+                snapshot={"username": user.username, "role": user.role, "markaz": markaz.name},
+            )
+        else:
+            logla(
+                foydalanuvchi=request.user,
+                harakat=FaoliyatYozuvi.Harakat.OZGARTIRISH,
+                obyekt=user,
+                obyekt_turi="Foydalanuvchi",
+                eski_qiymatlar={"role": eski_rol},
+                yangi_qiymatlar={"role": user.role, "markaz": markaz.name, "parol": "o'rnatildi"},
+            )
 
         return Response(
             {
@@ -593,6 +695,23 @@ class XodimlarView(APIView):
             user.first_name = ism
         user.set_password(parol)
         user.save()
+        if created:
+            logla(
+                foydalanuvchi=request.user,
+                harakat=FaoliyatYozuvi.Harakat.YARATISH,
+                obyekt=user,
+                obyekt_turi="Foydalanuvchi",
+                snapshot={"username": user.username, "role": user.role},
+            )
+        else:
+            logla(
+                foydalanuvchi=request.user,
+                harakat=FaoliyatYozuvi.Harakat.OZGARTIRISH,
+                obyekt=user,
+                obyekt_turi="Foydalanuvchi",
+                obyekt_nomi=user.username,
+                ozgarishlar={"parol": {"eski": "***", "yangi": "yangilandi"}},
+            )
 
         return Response(
             {"id": user.id, "username": user.username, "yaratildi": created},

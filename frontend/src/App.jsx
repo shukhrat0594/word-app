@@ -1,6 +1,7 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { tokenOl } from "./api";
 import Layout from "./components/Layout";
+import AuditHisobot from "./pages/AuditHisobot";
 import BoshSahifa from "./pages/BoshSahifa";
 import Davomat from "./pages/Davomat";
 import DavomatHisoboti from "./pages/DavomatHisoboti";
@@ -49,6 +50,7 @@ export default function App() {
           <Route path="xodimlar" element={<Xodimlar />} />
           <Route path="markaz-sozlash" element={<MarkazSozlash />} />
           <Route path="foydalanuvchilar" element={<Foydalanuvchilar />} />
+          <Route path="audit" element={<AuditHisobot />} />
           <Route path="profil" element={<Profil />} />
         </Route>
       </Routes>

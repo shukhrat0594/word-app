@@ -87,6 +87,7 @@ export default function Layout() {
       ? [
           { yol: "/markazlar", ikon: "🏢", kalit: "nav_markazlar" },
           { yol: "/foydalanuvchilar", ikon: "🧑‍🤝‍🧑", kalit: "nav_foydalanuvchilar" },
+          { yol: "/audit", ikon: "📜", kalit: "nav_audit" },
         ]
       : []),
     { yol: "/profil", ikon: "👤", kalit: "nav_profil" },

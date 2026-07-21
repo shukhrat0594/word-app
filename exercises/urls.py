@@ -35,8 +35,13 @@ urlpatterns = [
         name="imtihon_boshqaruv_detail",
     ),
     path(
+        "imtihon/testlar-boshqaruv-zip/",
+        views.ImtihonZipBoshqaruvView.as_view(),
+        name="imtihon_boshqaruv_zip",
+    ),
+    path(
         "imtihon/qism-boshqaruv/<int:pk>/",
-        views.TestQismiAudioBoshqaruvView.as_view(),
+        views.TestQismiFayllarBoshqaruvView.as_view(),
         name="imtihon_qism_boshqaruv",
     ),
     path("imtihon/testlar/", views.ImtihonListView.as_view(), name="imtihon_list"),
@@ -46,5 +51,11 @@ urlpatterns = [
         views.ImtihonYechishView.as_view(),
         name="imtihon_yechish",
     ),
+    path(
+        "imtihon/testlar/<int:pk>/yozgap-tekshirish/",
+        views.ImtihonYozGapTekshirishView.as_view(),
+        name="imtihon_yozgap_tekshirish",
+    ),
     path("imtihon/qism/<int:pk>/audio/", views.TestQismAudioView.as_view(), name="imtihon_qism_audio"),
+    path("imtihon/qism/<int:pk>/rasm/", views.TestQismRasmView.as_view(), name="imtihon_qism_rasm"),
 ]

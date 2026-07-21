@@ -83,6 +83,15 @@ export default function MashqlarBoshqarish() {
     yukla(filtrBolim);
   }, [filtrBolim]);
 
+  // 2026-07-21: bo'lim hozircha hammaga (owner ham) yopiq — foydalanuvchi
+  // so'rovi bilan. Kod pastda saqlanib qoladi, kerak bo'lsa qayta ochiladi.
+  return (
+    <div className="karta">
+      <h3>{t("nav_mashqlar_boshqarish")}</h3>
+      <p className="izoh">{t("mashqlar_boshqarish_yopiq")}</p>
+    </div>
+  );
+
   function bolimOzgar(bolim) {
     setDraft((d) => ({ ...d, bolim, tur: BOLIM_TURLARI[bolim][0] }));
   }
