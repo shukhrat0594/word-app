@@ -37,7 +37,10 @@ from accounts.views import (
     OddiyStudentgaOtkazishView,
     ParolOzgartirishView,
     ProfilView,
+    TalabalarExcelImportView,
+    TalabalarView,
     XodimLoginView,
+    XodimlarExcelImportView,
     XodimlarView,
 )
 
@@ -68,6 +71,9 @@ urlpatterns = [
     path('api/markaz-sorovi/', MarkazSorovView.as_view(), name='markaz_sorovi'),
     path('api/markaz-sozlama/', MarkazSozlamaView.as_view(), name='markaz_sozlama'),
     path('api/xodimlar/', XodimlarView.as_view(), name='xodimlar'),
+    path('api/xodimlar/excel-import/', XodimlarExcelImportView.as_view(), name='xodimlar_excel_import'),
+    path('api/talabalar/', TalabalarView.as_view(), name='talabalar'),
+    path('api/talabalar/excel-import/', TalabalarExcelImportView.as_view(), name='talabalar_excel_import'),
     path('api/foydalanuvchilar/', FoydalanuvchilarView.as_view(), name='foydalanuvchilar'),
     path(
         'api/foydalanuvchilar/yaratish/',

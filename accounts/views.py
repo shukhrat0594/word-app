@@ -719,6 +719,127 @@ class XodimlarView(APIView):
         )
 
 
+def _admin_markaz_ol(user):
+    """Adminning o'z markazi, yoki owner bo'lsa (markazga biriktirilmagan
+    bo'lsa ham) yagona mavjud markaz — bitta markaz rejimida owner ham
+    talaba/xodim qo'sha oladi (XodimlarView._markaz_ol bilan bir xil)."""
+    if user.markaz_id:
+        return user.markaz_id
+    if owner_mi(user):
+        markaz = Markaz.objects.first()
+        return markaz.id if markaz else None
+    return None
+
+
+class XodimlarExcelImportView(APIView):
+    """Markaz admini/owner uchun — o'qituvchilarni Excel (.xlsx) orqali
+    ommaviy kiritish. Format: A=ism, B=login, C=parol, birinchi qator
+    sarlavha. Har bir muvaffaqiyatli yaratilgan xodim uchun audit yozuvi."""
+
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request):
+        ruxsat = owner_mi(request.user) or request.user.role == User.Role.ADMIN
+        markaz_id = _admin_markaz_ol(request.user)
+        if not ruxsat or not markaz_id:
+            return Response({"detail": "Faqat markaz admini uchun"}, status=403)
+
+        fayl = request.FILES.get("excel_fayl")
+        if not fayl:
+            return Response({"detail": "excel_fayl majburiy"}, status=400)
+
+        from . import excel_import
+
+        try:
+            qatorlar = excel_import.qatorlarni_oqi(fayl)
+        except Exception:
+            return Response({"detail": "Excel fayl noto'g'ri formatda"}, status=400)
+
+        yaratilganlar, xatolar = excel_import.foydalanuvchilarni_yarat(
+            qatorlar, role=User.Role.TEACHER, markaz_id=markaz_id, User=User
+        )
+        for y in yaratilganlar:
+            FaoliyatYozuvi.objects.create(
+                foydalanuvchi=request.user,
+                harakat=FaoliyatYozuvi.Harakat.YARATISH,
+                obyekt_turi="Foydalanuvchi",
+                obyekt_id=y["id"],
+                obyekt_nomi=y["login"],
+                ozgarishlar={"username": y["login"], "role": "teacher", "manba": "excel"},
+            )
+
+        return Response({"yaratildi": yaratilganlar, "xatolar": xatolar}, status=201)
+
+
+class TalabalarView(APIView):
+    """Talabalar ro'yxati — owner/admin uchun o'z markazidagi barcha
+    talabalar, o'qituvchi uchun faqat o'z guruhlaridagi talabalar."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        u = request.user
+        if owner_mi(u) or u.role == User.Role.ADMIN:
+            markaz_id = _admin_markaz_ol(u)
+            if not markaz_id:
+                return Response({"detail": "markaz belgilanmagan"}, status=400)
+            qs = User.objects.filter(role=User.Role.STUDENT, markaz_id=markaz_id)
+        elif u.role == User.Role.TEACHER:
+            qs = User.objects.filter(
+                role=User.Role.STUDENT, talaba_guruhlari__oqituvchi=u
+            ).distinct()
+        else:
+            return Response({"detail": "Ruxsat yo'q"}, status=403)
+
+        return Response(
+            [
+                {"id": t.id, "ism": t.get_full_name() or t.username, "username": t.username}
+                for t in qs.order_by("first_name", "username")
+            ]
+        )
+
+
+class TalabalarExcelImportView(APIView):
+    """Markaz admini/owner uchun — talabalarni Excel (.xlsx) orqali ommaviy
+    kiritish. Format: A=ism, B=login, C=parol, birinchi qator sarlavha."""
+
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request):
+        ruxsat = owner_mi(request.user) or request.user.role == User.Role.ADMIN
+        markaz_id = _admin_markaz_ol(request.user)
+        if not ruxsat or not markaz_id:
+            return Response({"detail": "Faqat markaz admini uchun"}, status=403)
+
+        fayl = request.FILES.get("excel_fayl")
+        if not fayl:
+            return Response({"detail": "excel_fayl majburiy"}, status=400)
+
+        from . import excel_import
+
+        try:
+            qatorlar = excel_import.qatorlarni_oqi(fayl)
+        except Exception:
+            return Response({"detail": "Excel fayl noto'g'ri formatda"}, status=400)
+
+        yaratilganlar, xatolar = excel_import.foydalanuvchilarni_yarat(
+            qatorlar, role=User.Role.STUDENT, markaz_id=markaz_id, User=User
+        )
+        for y in yaratilganlar:
+            FaoliyatYozuvi.objects.create(
+                foydalanuvchi=request.user,
+                harakat=FaoliyatYozuvi.Harakat.YARATISH,
+                obyekt_turi="Foydalanuvchi",
+                obyekt_id=y["id"],
+                obyekt_nomi=y["login"],
+                ozgarishlar={"username": y["login"], "role": "student", "manba": "excel"},
+            )
+
+        return Response({"yaratildi": yaratilganlar, "xatolar": xatolar}, status=201)
+
+
 class ParolOzgartirishView(APIView):
     """Joriy foydalanuvchi o'z parolini o'zgartiradi.
 

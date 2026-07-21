@@ -399,20 +399,14 @@ def band_hisobla(ball, jami, bolim):
 def korinadigan_testlar(user):
     """Foydalanuvchiga ko'rinadigan to'liq testlar.
 
-    Mashq bankidan farqli o'laroq (u hammaga ochiq), IELTS to'liq imtihon
-    bo'limi talaba/admin/owner uchun ko'rinadi — "oddiy foydalanuvchi"
-    (markaz=None, admin/owner emas) hech qanday testni ko'rmaydi
-    (2026-07-19 qarori, 2026-07-20'da admin/owner uchun kengaytirildi).
+    Platforma bitta markaz rejimida ishlaydi (REJA.md) — shuning uchun
+    markaz/korinish bo'yicha filtrlash foyda bermaydi, faqat guruhga hali
+    qo'shilmagan (`markaz=None`, masalan Google orqali endigina ro'yxatdan
+    o'tgan) talabani noto'g'ri barcha testlardan mahrum qilardi. Endi
+    "oddiy foydalanuvchi" (Utmost talabasi emas) dan boshqa barcha
+    autentifikatsiyalangan foydalanuvchi (talaba/o'qituvchi/admin/owner)
+    barcha testlarni ko'radi (2026-07-21).
     """
-    from accounts.models import User
-    from accounts.permissions import owner_mi
-    from content.models import public_kontent_ochiqmi
-
-    if owner_mi(user) or user.role == User.Role.ADMIN:
-        return ImtihonTest.objects.all()
-    if user.markaz_id is None:
+    if user.role == "oddiy":
         return ImtihonTest.objects.none()
-    ozimniki = models.Q(markaz_id=user.markaz_id)
-    if public_kontent_ochiqmi(user.markaz):
-        return ImtihonTest.objects.filter(ozimniki | models.Q(korinish="public"))
-    return ImtihonTest.objects.filter(ozimniki)
+    return ImtihonTest.objects.all()

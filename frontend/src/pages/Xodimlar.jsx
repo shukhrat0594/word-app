@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api } from "../api";
+import { api, apiForm } from "../api";
 import { useI18n } from "../i18n";
 
 const BOSH_FORMA = { ism: "", username: "", parol: "" };
@@ -11,6 +11,8 @@ export default function Xodimlar() {
   const [xato, setXato] = useState("");
   const [xabar, setXabar] = useState("");
   const [band, setBand] = useState(false);
+  const [excelNatija, setExcelNatija] = useState(null);
+  const [excelYuklanmoqda, setExcelYuklanmoqda] = useState(false);
 
   function yukla() {
     api("/api/xodimlar/").then(setOqituvchilar).catch(() => {});
@@ -37,6 +39,25 @@ export default function Xodimlar() {
       setXato(e.data?.detail || t("xato_yuz_berdi"));
     } finally {
       setBand(false);
+    }
+  }
+
+  async function excelYukla(e) {
+    const fayl = e.target.files[0];
+    e.target.value = "";
+    if (!fayl) return;
+    setExcelNatija(null);
+    setExcelYuklanmoqda(true);
+    try {
+      const fd = new FormData();
+      fd.append("excel_fayl", fayl);
+      const res = await apiForm("/api/xodimlar/excel-import/", { method: "POST", formData: fd });
+      setExcelNatija(res);
+      yukla();
+    } catch (e2) {
+      setExcelNatija({ yaratildi: [], xatolar: [{ xato: e2.data?.detail || t("xato_yuz_berdi") }] });
+    } finally {
+      setExcelYuklanmoqda(false);
     }
   }
 
@@ -72,6 +93,38 @@ export default function Xodimlar() {
         </div>
         {xato && <div className="xato-xabar" style={{ marginTop: 10 }}>{xato}</div>}
         {xabar && <div className="izoh" style={{ marginTop: 10 }}>{xabar}</div>}
+      </div>
+
+      <div className="karta" style={{ marginTop: 16 }}>
+        <h3>{t("excel_orqali_kiritish")}</h3>
+        <p className="izoh" style={{ marginTop: 0 }}>{t("excel_izoh")}</p>
+        <input type="file" accept=".xlsx" onChange={excelYukla} disabled={excelYuklanmoqda} />
+        {excelNatija && (
+          <div style={{ marginTop: 12 }}>
+            {excelNatija.yaratildi.length > 0 && (
+              <>
+                <div className="izoh">{t("excel_yaratildi")}: {excelNatija.yaratildi.length}</div>
+                <div className="xato-xabar" style={{ background: "none", color: "inherit", padding: 0 }}>
+                  {t("excel_parol_eslatma")}
+                </div>
+                <div style={{ display: "grid", gap: 4, marginTop: 6 }}>
+                  {excelNatija.yaratildi.map((y) => (
+                    <div key={y.id} className="izoh">{y.ism} — {y.login}</div>
+                  ))}
+                </div>
+              </>
+            )}
+            {excelNatija.xatolar.length > 0 && (
+              <div style={{ marginTop: 10 }}>
+                {excelNatija.xatolar.map((x, i) => (
+                  <div key={i} className="xato-xabar">
+                    {x.qator ? `${t("qator")} ${x.qator}: ` : ""}{x.xato}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="karta" style={{ marginTop: 16 }}>

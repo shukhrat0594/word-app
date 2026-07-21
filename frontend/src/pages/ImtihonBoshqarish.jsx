@@ -90,7 +90,6 @@ function YozGapKiritish({ bolim, qismgaFaylYukla, royxatniYangila }) {
   const { t } = useI18n();
   const [usul, setUsul] = useState("qolda");
   const [nomi, setNomi] = useState("");
-  const [korinish, setKorinish] = useState("private");
   const [qismlar, setQismlar] = useState({});
   const [xato, setXato] = useState("");
   const [saqlanmoqda, setSaqlanmoqda] = useState(false);
@@ -133,7 +132,7 @@ function YozGapKiritish({ bolim, qismgaFaylYukla, royxatniYangila }) {
       const data = {
         name: nomi,
         bolim,
-        korinish,
+        korinish: "private",
         qismlar: turlar.map(({ tur, label }, i) => ({
           tartib: i + 1,
           tur,
@@ -211,10 +210,6 @@ function YozGapKiritish({ bolim, qismgaFaylYukla, royxatniYangila }) {
             value={nomi}
             onChange={(e) => setNomi(e.target.value)}
           />
-          <select value={korinish} onChange={(e) => setKorinish(e.target.value)}>
-            <option value="private">{t("mashq_faqat_talaba")}</option>
-            <option value="public">{t("mashq_hammaga_ochiq")}</option>
-          </select>
           {YOZGAP_TURLAR[bolim].map(({ tur, label }) => (
             <div key={tur} style={{ border: "1px solid var(--chiziq)", borderRadius: 8, padding: 10 }}>
               <strong>{label}</strong>

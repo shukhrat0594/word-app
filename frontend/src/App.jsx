@@ -15,6 +15,7 @@ import MarkazSozlash from "./pages/MarkazSozlash";
 import Markazlar from "./pages/Markazlar";
 import Oyinlar from "./pages/Oyinlar";
 import Profil from "./pages/Profil";
+import Talabalar from "./pages/Talabalar";
 import Tarix from "./pages/Tarix";
 import Xodimlar from "./pages/Xodimlar";
 
@@ -47,6 +48,7 @@ export default function App() {
           <Route path="hisobotlar" element={<Hisobotlar />} />
           <Route path="markazlar" element={<Markazlar />} />
           <Route path="xodimlar" element={<Xodimlar />} />
+          <Route path="talabalar" element={<Talabalar />} />
           <Route path="markaz-sozlash" element={<MarkazSozlash />} />
           <Route path="foydalanuvchilar" element={<Foydalanuvchilar />} />
           <Route path="profil" element={<Profil />} />
