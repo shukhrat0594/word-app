@@ -19,16 +19,20 @@ function navlarniOl(role) {
       { yol: "/", ikon: "▦", kalit: "nav_dashboard" },
       { yol: "/guruhlar", ikon: "☰", kalit: "nav_guruhlar" },
       { yol: "/xodimlar", ikon: "🧑‍🏫", kalit: "nav_xodimlar" },
-      { yol: "/mashqlar-boshqarish", ikon: "🗂", kalit: "nav_mashqlar_boshqarish" },
+      // 2026-07-21: "Mashqlar boshqarish" vaqtincha yopilgan (bo'lim o'zi
+      // ham yopiq, MashqlarBoshqarish.jsx) — nav'dan ham olib tashlandi,
+      // kerak bo'lsa qayta ochiladi.
       { yol: "/ielts-boshqarish", ikon: "🎓", kalit: "nav_ielts_boshqarish" },
-      { yol: "/davomat", ikon: "🗓", kalit: "nav_davomat" },
-      { yol: "/davomat-hisoboti", ikon: "📊", kalit: "nav_davomat_hisoboti" },
+      // 2026-07-21: Davomat endi faqat o'qituvchida (u belgilaydi);
+      // Davomat hisoboti "Hisobotlar" ostiga ko'chdi, faqat owner ko'radi.
       { yol: "/markaz-sozlash", ikon: "🎨", kalit: "nav_markaz_sozlama" },
     ];
   }
   if (role === "teacher") {
     return [
       { yol: "/", ikon: "▦", kalit: "nav_dashboard" },
+      { yol: "/ielts-boshqarish", ikon: "🎓", kalit: "nav_ielts_boshqarish" },
+      { yol: "/guruhlar", ikon: "☰", kalit: "nav_guruhlar" },
       { yol: "/davomat", ikon: "🗓", kalit: "nav_davomat" },
     ];
   }
@@ -81,13 +85,16 @@ export default function Layout() {
       !(profil?.is_owner && n.yol === "/markaz-sozlash") &&
       !(n.yol === "/ielts-boshqarish" && profil?.role === "oddiy")
   );
+  // 2026-07-21: "Markazlar" bo'limi hozircha hech kimga ko'rinmaydi (nav'dan
+  // olib tashlandi, sahifa/backend o'zi tegilmagan — kerak bo'lsa qaytariladi).
+  // "Faoliyat tarixi" (audit) alohida bo'lim emas — "Hisobotlar" ichiga
+  // ko'chdi (Davomat hisoboti bilan birga), faqat owner ko'radi.
   const navlar = [
     ...asosiyNavlar,
     ...(profil?.is_owner
       ? [
-          { yol: "/markazlar", ikon: "🏢", kalit: "nav_markazlar" },
           { yol: "/foydalanuvchilar", ikon: "🧑‍🤝‍🧑", kalit: "nav_foydalanuvchilar" },
-          { yol: "/audit", ikon: "📜", kalit: "nav_audit" },
+          { yol: "/hisobotlar", ikon: "📊", kalit: "nav_hisobotlar" },
         ]
       : []),
     { yol: "/profil", ikon: "👤", kalit: "nav_profil" },

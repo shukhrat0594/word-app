@@ -6,7 +6,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from accounts.models import User
+from accounts.models import Markaz, User
 from accounts.permissions import owner_mi
 from audit.models import FaoliyatYozuvi
 from audit.utils import logla, maydon_diff
@@ -271,6 +271,12 @@ class DavomatHisobotView(APIView):
     def get(self, request):
         if owner_mi(request.user):
             markaz_id = request.query_params.get("markaz") or request.user.markaz_id
+            if not markaz_id:
+                # Owner odatda hech qanday markazga biriktirilmagan —
+                # bitta-markaz rejimida yagona mavjud markazga tushamiz
+                # (accounts.XodimlarView._markaz_ol bilan bir xil konvensiya).
+                markaz = Markaz.objects.first()
+                markaz_id = markaz.id if markaz else None
         elif request.user.role == User.Role.ADMIN:
             markaz_id = request.user.markaz_id
         else:

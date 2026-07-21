@@ -1,13 +1,20 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
 import { useI18n } from "../i18n";
+import { useProfil } from "../profilContext";
 
 const BOSH_FORMA = { id: null, name: "", oqituvchi_id: "", talaba_idlar: [] };
 
+/** Admin/owner — to'liq boshqaruv (yaratish/tahrirlash). O'qituvchi — faqat
+ * o'z guruhlarini o'qish uchun ko'radi, tahrirlay olmaydi (backend ham shu
+ * cheklovni qo'llaydi — bu faqat mos UI). */
 export default function Guruhlar() {
   const { t } = useI18n();
+  const { profil } = useProfil();
+  const oqituvchiMi = profil?.role === "teacher";
   const [guruhlar, setGuruhlar] = useState([]);
   const [azolar, setAzolar] = useState(null);
+  const [tanlangan, setTanlangan] = useState(null);
   const [forma, setForma] = useState(null);
   const [xato, setXato] = useState("");
   const [band, setBand] = useState(false);
@@ -20,6 +27,9 @@ export default function Guruhlar() {
     guruhlarniYukla();
     // Owner markazga biriktirilmagan bo'lishi mumkin — bu holda 400 keladi,
     // sahifa "yuklanmoqda"da abadiy qolmasligi uchun bo'sh ro'yxat bilan davom etamiz.
+    // O'qituvchi uchun bu endpoint 403 qaytaradi (faqat admin) — shu sababdan
+    // ham bo'sh qiymat bilan tinch davom etiladi (tahrirlash formasi bo'lmagani
+    // uchun kerak ham emas).
     api("/api/markaz-azolari/")
       .then(setAzolar)
       .catch(() => setAzolar({ oqituvchilar: [], talabalar: [] }));
@@ -29,15 +39,23 @@ export default function Guruhlar() {
     setXato("");
     try {
       const g = await api(`/api/guruhlar/${id}/`);
-      setForma({
-        id: g.id,
-        name: g.name,
-        oqituvchi_id: g.oqituvchi?.id || "",
-        talaba_idlar: g.talabalar.map((t2) => t2.id),
-      });
+      setTanlangan(g);
+      if (!oqituvchiMi) {
+        setForma({
+          id: g.id,
+          name: g.name,
+          oqituvchi_id: g.oqituvchi?.id || "",
+          talaba_idlar: g.talabalar.map((t2) => t2.id),
+        });
+      }
     } catch {
       setXato(t("xato_yuz_berdi"));
     }
+  }
+
+  function yopish() {
+    setTanlangan(null);
+    setForma(null);
   }
 
   function talabaBelgila(id) {
@@ -67,7 +85,7 @@ export default function Guruhlar() {
       } else {
         await api("/api/guruhlar/", { method: "POST", body });
       }
-      setForma(null);
+      yopish();
       guruhlarniYukla();
     } catch {
       setXato(t("xato_yuz_berdi"));
@@ -80,7 +98,7 @@ export default function Guruhlar() {
 
   return (
     <>
-      {!forma && (
+      {!tanlangan && !oqituvchiMi && (
         <div style={{ display: "flex", justifyContent: "flex-end" }}>
           <button className="tugma" onClick={() => setForma(BOSH_FORMA)}>
             {t("yangi_guruh")}
@@ -88,7 +106,7 @@ export default function Guruhlar() {
         </div>
       )}
 
-      {forma && (
+      {forma && !oqituvchiMi && (
         <div className="karta">
           <h3>{forma.id ? forma.name : t("yangi_guruh")}</h3>
           <div style={{ display: "grid", gap: 14 }}>
@@ -131,7 +149,7 @@ export default function Guruhlar() {
               <button className="tugma" onClick={saqla} disabled={band}>
                 {forma.id ? t("saqlash") : t("yaratish")}
               </button>
-              <button className="tugma ikkinchi" onClick={() => setForma(null)}>
+              <button className="tugma ikkinchi" onClick={yopish}>
                 {t("ortga")}
               </button>
             </div>
@@ -139,7 +157,26 @@ export default function Guruhlar() {
         </div>
       )}
 
-      {!forma && (
+      {tanlangan && oqituvchiMi && (
+        <div className="karta">
+          <h3>{tanlangan.name}</h3>
+          <div className="izoh" style={{ marginBottom: 10 }}>
+            {t("oqituvchi")}: {tanlangan.oqituvchi ? tanlangan.oqituvchi.ism : `— ${t("tanlanmagan")} —`}
+          </div>
+          <div className="izoh" style={{ marginBottom: 6 }}>{t("talabalar")}</div>
+          <div style={{ display: "grid", gap: 4 }}>
+            {tanlangan.talabalar.length === 0 && <span className="izoh">{t("talaba_yoq")}</span>}
+            {tanlangan.talabalar.map((tl) => (
+              <div key={tl.id}>{tl.ism}</div>
+            ))}
+          </div>
+          <button className="tugma ikkinchi" onClick={yopish} style={{ marginTop: 14 }}>
+            {t("ortga")}
+          </button>
+        </div>
+      )}
+
+      {!tanlangan && (
         <div style={{ display: "grid", gap: 12, marginTop: 12 }}>
           {guruhlar.length === 0 && <span className="izoh">{t("guruh_yoq")}</span>}
           {guruhlar.map((g) => (

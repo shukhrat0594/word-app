@@ -82,13 +82,13 @@ const YOZGAP_TURLAR = {
   ],
 };
 
-/** Writing/Speaking uchun mashq qo'shish — 3 usul: qo'lda (matn+rasm har
- * qism uchun), JSON (bitta test), ZIP (bitta yoki bir nechta test, papka
- * bo'yicha — xuddi Reading/Listening'dagi kabi). */
-function YozGapKiritish({ qismgaFaylYukla, royxatniYangila }) {
+/** Writing/Speaking uchun mashq qo'shish — 2 usul: qo'lda (matn+rasm har
+ * qism uchun) yoki fayl yuklash (JSON bitta test, yoki ZIP — bitta/bir
+ * nechta test, papka bo'yicha). `bolim` yuqori "Kiritish paneli"dagi
+ * tab'dan keladi. */
+function YozGapKiritish({ bolim, qismgaFaylYukla, royxatniYangila }) {
   const { t } = useI18n();
   const [usul, setUsul] = useState("qolda");
-  const [bolim, setBolim] = useState("writing");
   const [nomi, setNomi] = useState("");
   const [korinish, setKorinish] = useState("private");
   const [qismlar, setQismlar] = useState({});
@@ -96,6 +96,12 @@ function YozGapKiritish({ qismgaFaylYukla, royxatniYangila }) {
   const [saqlanmoqda, setSaqlanmoqda] = useState(false);
   const [promtKorinadi, setPromtKorinadi] = useState(false);
   const [nusxalandi, setNusxalandi] = useState(false);
+
+  useEffect(() => {
+    setNomi("");
+    setQismlar({});
+    setXato("");
+  }, [bolim]);
 
   function promtNusxala() {
     navigator.clipboard?.writeText(AI_PROMT_YOZGAP).then(() => {
@@ -188,18 +194,7 @@ function YozGapKiritish({ qismgaFaylYukla, royxatniYangila }) {
   }
 
   return (
-    <div className="karta">
-      <h3>{t("imtihon_yozgap_kiritish")}</h3>
-
-      <div className="tab-guruh" style={{ marginBottom: 12 }}>
-        <button className={bolim === "writing" ? "aktiv" : ""} onClick={() => setBolim("writing")}>
-          {t("nav_writing")}
-        </button>
-        <button className={bolim === "speaking" ? "aktiv" : ""} onClick={() => setBolim("speaking")}>
-          {t("nav_speaking")}
-        </button>
-      </div>
-
+    <div>
       <div className="tab-guruh" style={{ marginBottom: 14 }}>
         <button className={usul === "qolda" ? "aktiv" : ""} onClick={() => setUsul("qolda")}>
           {t("imtihon_qolda_kiritish")}
@@ -281,12 +276,13 @@ function YozGapKiritish({ qismgaFaylYukla, royxatniYangila }) {
   );
 }
 
-/** Faqat admin/owner uchun — test yaratish/o'chirish/audio biriktirish. */
-function AdminBoshqaruv() {
+/** Reading/Listening uchun mashq qo'shish — FAQAT ZIP orqali (bitta yoki
+ * bir nechta test, papka bo'yicha). Savollar strukturasi murakkab
+ * (guruhlar, so'z banki va h.k.) bo'lgani uchun qo'lda kiritish yo'q —
+ * AI-promt yordamchisi bilan JSON tayyorlanadi, ZIP'ga solinadi. */
+function RLKiritish({ royxatniYangila }) {
   const { t } = useI18n();
-  const [royxat, setRoyxat] = useState(null);
-  const [filtrBolim, setFiltrBolim] = useState("");
-  const [jsonXato, setJsonXato] = useState("");
+  const [xato, setXato] = useState("");
   const [saqlanmoqda, setSaqlanmoqda] = useState(false);
   const [promtKorinadi, setPromtKorinadi] = useState(false);
   const [nusxalandi, setNusxalandi] = useState(false);
@@ -298,6 +294,94 @@ function AdminBoshqaruv() {
     });
   }
 
+  async function zipYukla(e) {
+    const fayl = e.target.files[0];
+    e.target.value = "";
+    if (!fayl) return;
+    setXato("");
+    setSaqlanmoqda(true);
+    try {
+      const fd = new FormData();
+      fd.append("zip_fayl", fayl);
+      await apiForm("/api/imtihon/testlar-boshqaruv-zip/", { method: "POST", formData: fd });
+      royxatniYangila();
+    } catch (err) {
+      setXato(err.data?.detail || t("imtihon_json_xato"));
+    } finally {
+      setSaqlanmoqda(false);
+    }
+  }
+
+  return (
+    <div>
+      <p className="izoh" style={{ marginTop: 0 }}>{t("imtihon_zip_izoh")}</p>
+      <input type="file" accept=".zip" onChange={zipYukla} disabled={saqlanmoqda} />
+      {xato && <div className="xato-xabar" style={{ marginTop: 8 }}>{xato}</div>}
+
+      <div style={{ marginTop: 14 }}>
+        <button type="button" className="tugma ikkinchi" onClick={() => setPromtKorinadi((v) => !v)}>
+          {promtKorinadi ? t("imtihon_promt_yashirish") : t("imtihon_promt_korsatish")}
+        </button>
+        {promtKorinadi && (
+          <div style={{ marginTop: 10 }}>
+            <p className="izoh" style={{ marginTop: 0 }}>{t("imtihon_promt_izoh")}</p>
+            <textarea
+              readOnly
+              rows={16}
+              value={AI_PROMT}
+              onClick={(e) => e.target.select()}
+              style={{ width: "100%", fontFamily: "monospace", fontSize: 12.5 }}
+            />
+            <button type="button" className="tugma" onClick={promtNusxala} style={{ marginTop: 8 }}>
+              {nusxalandi ? t("nusxalandi") : t("nusxalash")}
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** Yuqori panel — Writing/Speaking/Reading/Listening tab'lari, har biri
+ * o'z kiritish usuliga ega (W/S: qo'lda/fayl, R/L: faqat ZIP). */
+function KiritishPanel({ qismgaFaylYukla, royxatniYangila }) {
+  const { t } = useI18n();
+  const [bolim, setBolim] = useState("writing");
+
+  return (
+    <div className="karta">
+      <h3>{t("imtihon_kiritish_paneli")}</h3>
+      <div className="tab-guruh" style={{ marginBottom: 14 }}>
+        <button className={bolim === "writing" ? "aktiv" : ""} onClick={() => setBolim("writing")}>
+          {t("nav_writing")}
+        </button>
+        <button className={bolim === "speaking" ? "aktiv" : ""} onClick={() => setBolim("speaking")}>
+          {t("nav_speaking")}
+        </button>
+        <button className={bolim === "reading" ? "aktiv" : ""} onClick={() => setBolim("reading")}>
+          {t("reading_bolimi")}
+        </button>
+        <button className={bolim === "listening" ? "aktiv" : ""} onClick={() => setBolim("listening")}>
+          {t("listening_bolimi")}
+        </button>
+      </div>
+      {bolim === "writing" || bolim === "speaking" ? (
+        <YozGapKiritish bolim={bolim} qismgaFaylYukla={qismgaFaylYukla} royxatniYangila={royxatniYangila} />
+      ) : (
+        <RLKiritish royxatniYangila={royxatniYangila} />
+      )}
+    </div>
+  );
+}
+
+/** Faqat admin/owner uchun — test yaratish/o'chirish/tahrirlash. */
+function AdminBoshqaruv() {
+  const { t } = useI18n();
+  const [royxat, setRoyxat] = useState(null);
+  const [filtrBolim, setFiltrBolim] = useState("");
+  const [jsonXato, setJsonXato] = useState("");
+  const [tahrirlanayotgan, setTahrirlanayotgan] = useState(null);
+
   function yukla(bolim) {
     api(`/api/imtihon/testlar-boshqaruv/${bolim ? `?bolim=${bolim}` : ""}`)
       .then(setRoyxat)
@@ -307,42 +391,6 @@ function AdminBoshqaruv() {
   useEffect(() => {
     yukla(filtrBolim);
   }, [filtrBolim]);
-
-  async function jsonYukla(e) {
-    const fayl = e.target.files[0];
-    e.target.value = "";
-    if (!fayl) return;
-    setJsonXato("");
-    setSaqlanmoqda(true);
-    try {
-      const matn = await fayl.text();
-      const data = JSON.parse(matn);
-      await api("/api/imtihon/testlar-boshqaruv/", { method: "POST", body: data });
-      yukla(filtrBolim);
-    } catch (err) {
-      setJsonXato(err.data?.detail || t("imtihon_json_xato"));
-    } finally {
-      setSaqlanmoqda(false);
-    }
-  }
-
-  async function zipYukla(e) {
-    const fayl = e.target.files[0];
-    e.target.value = "";
-    if (!fayl) return;
-    setJsonXato("");
-    setSaqlanmoqda(true);
-    try {
-      const fd = new FormData();
-      fd.append("zip_fayl", fayl);
-      await apiForm("/api/imtihon/testlar-boshqaruv-zip/", { method: "POST", formData: fd });
-      yukla(filtrBolim);
-    } catch (err) {
-      setJsonXato(err.data?.detail || t("imtihon_json_xato"));
-    } finally {
-      setSaqlanmoqda(false);
-    }
-  }
 
   async function qismgaFaylYukla(qismId, maydon, fayl) {
     const fd = new FormData();
@@ -402,42 +450,7 @@ function AdminBoshqaruv() {
 
   return (
     <div style={{ display: "grid", gap: 20 }}>
-      <YozGapKiritish qismgaFaylYukla={qismgaFaylYukla} royxatniYangila={() => yukla(filtrBolim)} />
-
-      <div className="karta">
-        <h3>{t("imtihon_json_yuklash")}</h3>
-        <p className="izoh" style={{ marginTop: 0 }}>{t("reading_bolimi")} / {t("listening_bolimi")}</p>
-        <p className="izoh" style={{ marginTop: 0 }}>{t("imtihon_json_izoh")}</p>
-        <input type="file" accept="application/json" onChange={jsonYukla} disabled={saqlanmoqda} />
-        {jsonXato && <div className="xato-xabar" style={{ marginTop: 8 }}>{jsonXato}</div>}
-
-        <div style={{ marginTop: 14 }}>
-          <h4 style={{ marginBottom: 4 }}>{t("imtihon_zip_yuklash")}</h4>
-          <p className="izoh" style={{ marginTop: 0 }}>{t("imtihon_zip_izoh")}</p>
-          <input type="file" accept=".zip" onChange={zipYukla} disabled={saqlanmoqda} />
-        </div>
-
-        <div style={{ marginTop: 14 }}>
-          <button type="button" className="tugma ikkinchi" onClick={() => setPromtKorinadi((v) => !v)}>
-            {promtKorinadi ? t("imtihon_promt_yashirish") : t("imtihon_promt_korsatish")}
-          </button>
-          {promtKorinadi && (
-            <div style={{ marginTop: 10 }}>
-              <p className="izoh" style={{ marginTop: 0 }}>{t("imtihon_promt_izoh")}</p>
-              <textarea
-                readOnly
-                rows={16}
-                value={AI_PROMT}
-                onClick={(e) => e.target.select()}
-                style={{ width: "100%", fontFamily: "monospace", fontSize: 12.5 }}
-              />
-              <button type="button" className="tugma" onClick={promtNusxala} style={{ marginTop: 8 }}>
-                {nusxalandi ? t("nusxalandi") : t("nusxalash")}
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
+      <KiritishPanel qismgaFaylYukla={qismgaFaylYukla} royxatniYangila={() => yukla(filtrBolim)} />
 
       <div className="karta">
         <h3>{t("imtihon_mavjud_royxat")}</h3>
@@ -473,66 +486,78 @@ function AdminBoshqaruv() {
                       {t(`mashq_bolim_${test.bolim}`)} · {test.qismlar.length} {t("imtihon_qism_soni")}
                     </span>
                   </span>
-                  <button className="tugma ikkinchi" style={{ color: "#d33" }} onClick={() => ochir(test.id)}>
-                    {t("ochirish")}
-                  </button>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button
+                      className="tugma ikkinchi"
+                      onClick={() => setTahrirlanayotgan((v) => (v === test.id ? null : test.id))}
+                    >
+                      {tahrirlanayotgan === test.id ? t("yopish") : t("tahrirlash")}
+                    </button>
+                    <button className="tugma ikkinchi" style={{ color: "#d33" }} onClick={() => ochir(test.id)}>
+                      {t("ochirish")}
+                    </button>
+                  </div>
                 </div>
-                {test.bolim === "listening" && (
-                  <div style={{ marginTop: 8, display: "grid", gap: 6 }}>
-                    {test.qismlar.some((q) => !q.audio_url) && (
-                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <span className="izoh" style={{ minWidth: 90 }}>{t("imtihon_audio_hammasiga")}</span>
-                        <input
-                          type="file"
-                          accept="audio/*"
-                          title={t("imtihon_audio_hammasiga_izoh")}
-                          style={{ maxWidth: 160 }}
-                          onChange={(e) => hammasigaAudioBiriktir(test, e.target.files[0])}
-                        />
-                      </div>
-                    )}
-                    {test.qismlar.map((q) => (
-                      <div key={q.id} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <span className="izoh" style={{ minWidth: 90 }}>{q.sarlavha || `#${q.tartib}`}</span>
-                        {q.audio_url ? (
-                          <span className="izoh">🎧</span>
-                        ) : (
-                          <>
-                            <span className="izoh">{t("imtihon_audio_yoq")}</span>
+                {tahrirlanayotgan === test.id && (
+                  <>
+                    {test.bolim === "listening" && (
+                      <div style={{ marginTop: 8, display: "grid", gap: 6 }}>
+                        {test.qismlar.some((q) => !q.audio_url) && (
+                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <span className="izoh" style={{ minWidth: 90 }}>{t("imtihon_audio_hammasiga")}</span>
                             <input
                               type="file"
                               accept="audio/*"
-                              title={t("imtihon_audio_biriktir")}
+                              title={t("imtihon_audio_hammasiga_izoh")}
                               style={{ maxWidth: 160 }}
-                              onChange={(e) => audioBiriktir(q.id, e.target.files[0])}
+                              onChange={(e) => hammasigaAudioBiriktir(test, e.target.files[0])}
                             />
-                          </>
+                          </div>
                         )}
+                        {test.qismlar.map((q) => (
+                          <div key={q.id} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <span className="izoh" style={{ minWidth: 90 }}>{q.sarlavha || `#${q.tartib}`}</span>
+                            {q.audio_url ? (
+                              <span className="izoh">🎧</span>
+                            ) : (
+                              <>
+                                <span className="izoh">{t("imtihon_audio_yoq")}</span>
+                                <input
+                                  type="file"
+                                  accept="audio/*"
+                                  title={t("imtihon_audio_biriktir")}
+                                  style={{ maxWidth: 160 }}
+                                  onChange={(e) => audioBiriktir(q.id, e.target.files[0])}
+                                />
+                              </>
+                            )}
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                )}
-                <div style={{ marginTop: 8, display: "grid", gap: 6 }}>
-                  {test.qismlar.map((q) => (
-                    <div key={q.id} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <span className="izoh" style={{ minWidth: 90 }}>{q.sarlavha || `#${q.tartib}`}</span>
-                      {q.rasm_url ? (
-                        <span className="izoh">🖼️</span>
-                      ) : (
-                        <>
-                          <span className="izoh">{t("imtihon_rasm_yoq")}</span>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            title={t("imtihon_rasm_biriktir")}
-                            style={{ maxWidth: 160 }}
-                            onChange={(e) => rasmBiriktir(q.id, e.target.files[0])}
-                          />
-                        </>
-                      )}
+                    )}
+                    <div style={{ marginTop: 8, display: "grid", gap: 6 }}>
+                      {test.qismlar.map((q) => (
+                        <div key={q.id} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <span className="izoh" style={{ minWidth: 90 }}>{q.sarlavha || `#${q.tartib}`}</span>
+                          {q.rasm_url ? (
+                            <span className="izoh">🖼️</span>
+                          ) : (
+                            <>
+                              <span className="izoh">{t("imtihon_rasm_yoq")}</span>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                title={t("imtihon_rasm_biriktir")}
+                                style={{ maxWidth: 160 }}
+                                onChange={(e) => rasmBiriktir(q.id, e.target.files[0])}
+                              />
+                            </>
+                          )}
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  </>
+                )}
               </div>
             ))}
           </div>

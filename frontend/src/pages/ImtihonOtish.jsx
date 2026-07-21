@@ -319,59 +319,100 @@ export default function ImtihonOtish({ bolim }) {
 
       <h3 style={{ marginBottom: 10 }}>{test.name}</h3>
 
-      <div className="imtihon-split" ref={splitRef}>
-        <div className="imtihon-panel-chap" style={{ flexBasis: `${chapKenglik}%` }}>
-          <div className="imtihon-qism-sarlavha">{faol.qism.sarlavha}</div>
-          {faol.qism.yoriqnoma && <div className="imtihon-yoriqnoma">{faol.qism.yoriqnoma}</div>}
-          {bolim === "listening" ? (
-            audioUrllar[faol.qism.id] ? (
-              <audio controls src={audioUrllar[faol.qism.id]} style={{ width: "100%" }} />
-            ) : (
-              <span className="izoh">{t("audio_yuklanmoqda")}</span>
-            )
-          ) : (
-            faol.qism.matn && <div className="mashq-passage">{faol.qism.matn}</div>
-          )}
-          {rasmUrllar[faol.qism.id] && (
-            <img
-              src={rasmUrllar[faol.qism.id]}
-              alt={faol.qism.sarlavha}
-              style={{ maxWidth: "100%", marginTop: 10 }}
+      {(() => {
+        const savollarBlok = bloklarGaAjrat(faol.qism.savollar, faol.boshIdx).map((blok, bi) =>
+          blok.tur === "bank" ? (
+            <SozBankiBloki
+              key={bi}
+              blok={blok}
+              javoblar={javoblar}
+              javobniQoy={javobniQoy}
+              natija={natija}
+              t={t}
             />
-          )}
-        </div>
-        <div
-          className="imtihon-drag-tutqich"
-          onMouseDown={() => {
-            sudralmoqda.current = true;
-          }}
-        >
-          ⋮
-        </div>
-        <div className="imtihon-panel-ong" style={{ flex: 1 }}>
-          {bloklarGaAjrat(faol.qism.savollar, faol.boshIdx).map((blok, bi) =>
-            blok.tur === "bank" ? (
-              <SozBankiBloki
-                key={bi}
-                blok={blok}
-                javoblar={javoblar}
-                javobniQoy={javobniQoy}
-                natija={natija}
-                t={t}
-              />
-            ) : (
-              <OddiySavolBloki
-                key={bi}
-                blok={blok}
-                javoblar={javoblar}
-                javobniQoy={javobniQoy}
-                natija={natija}
-                t={t}
-              />
-            )
-          )}
-        </div>
-      </div>
+          ) : (
+            <OddiySavolBloki
+              key={bi}
+              blok={blok}
+              javoblar={javoblar}
+              javobniQoy={javobniQoy}
+              natija={natija}
+              t={t}
+            />
+          )
+        );
+
+        // Listening: audio doim yuqorida, to'liq kenglikda. Rasm (Map/
+        // Diagram Labelling) bo'lsa — pastda split (rasm chap, savollar
+        // o'ng), bo'lmasa — bitta to'liq kenglikdagi panel (split yo'q).
+        if (bolim === "listening") {
+          const rasmBormi = !!rasmUrllar[faol.qism.id];
+          return (
+            <>
+              <div className="imtihon-qism-sarlavha">{faol.qism.sarlavha}</div>
+              {faol.qism.yoriqnoma && <div className="imtihon-yoriqnoma">{faol.qism.yoriqnoma}</div>}
+              {audioUrllar[faol.qism.id] ? (
+                <audio controls src={audioUrllar[faol.qism.id]} style={{ width: "100%", marginBottom: 14 }} />
+              ) : (
+                <span className="izoh">{t("audio_yuklanmoqda")}</span>
+              )}
+              {rasmBormi ? (
+                <div className="imtihon-split" ref={splitRef}>
+                  <div className="imtihon-panel-chap" style={{ flexBasis: `${chapKenglik}%` }}>
+                    <img
+                      src={rasmUrllar[faol.qism.id]}
+                      alt={faol.qism.sarlavha}
+                      style={{ maxWidth: "100%" }}
+                    />
+                  </div>
+                  <div
+                    className="imtihon-drag-tutqich"
+                    onMouseDown={() => {
+                      sudralmoqda.current = true;
+                    }}
+                  >
+                    ⋮
+                  </div>
+                  <div className="imtihon-panel-ong" style={{ flex: 1 }}>
+                    {savollarBlok}
+                  </div>
+                </div>
+              ) : (
+                <div>{savollarBlok}</div>
+              )}
+            </>
+          );
+        }
+
+        // Reading — o'zgarishsiz: chapda passage matni, o'ngda savollar.
+        return (
+          <div className="imtihon-split" ref={splitRef}>
+            <div className="imtihon-panel-chap" style={{ flexBasis: `${chapKenglik}%` }}>
+              <div className="imtihon-qism-sarlavha">{faol.qism.sarlavha}</div>
+              {faol.qism.yoriqnoma && <div className="imtihon-yoriqnoma">{faol.qism.yoriqnoma}</div>}
+              {faol.qism.matn && <div className="mashq-passage">{faol.qism.matn}</div>}
+              {rasmUrllar[faol.qism.id] && (
+                <img
+                  src={rasmUrllar[faol.qism.id]}
+                  alt={faol.qism.sarlavha}
+                  style={{ maxWidth: "100%", marginTop: 10 }}
+                />
+              )}
+            </div>
+            <div
+              className="imtihon-drag-tutqich"
+              onMouseDown={() => {
+                sudralmoqda.current = true;
+              }}
+            >
+              ⋮
+            </div>
+            <div className="imtihon-panel-ong" style={{ flex: 1 }}>
+              {savollarBlok}
+            </div>
+          </div>
+        );
+      })()}
 
       <div className="imtihon-pastki-panel">
         <button
