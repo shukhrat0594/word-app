@@ -214,8 +214,13 @@ else:
             'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
         },
     }
-    MEDIA_ROOT = BASE_DIR / 'media'
 
+# MEDIA_ROOT har doim (R2 faol bo'lsa ham) belgilanadi — markaz logolari
+# hamon lokal diskda xizmat qiladi (config/urls.py: `media_serve`, B3.2 —
+# faqat logolar ochiq), R2 esa faqat autentifikatsiyalangan audio/rasm
+# uchun ishlatiladi. `MEDIA_ROOT` sozlanmasa Django uni bo'sh satr qilib
+# oladi, `document_root=''` xato beradi — shu sababli har doim kerak.
+MEDIA_ROOT = BASE_DIR / 'media'
 MEDIA_URL = 'media/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'

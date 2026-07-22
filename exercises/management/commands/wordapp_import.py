@@ -12,9 +12,10 @@ D:\\shuk\\Проекты\\claude ai\\word-app-backup).
 """
 
 import json
-import shutil
 
 from django.conf import settings
+from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
 from django.core.management.base import BaseCommand
 
 from accounts.models import Markaz
@@ -158,10 +159,11 @@ class Command(BaseCommand):
             fayl_nomi = f"{item_id}{kengaytma}"
             manba = IMPORT_DIR / "audio" / fayl_nomi
             if manba.exists():
-                nishab = settings.MEDIA_ROOT / "mashqlar" / "audio" / fayl_nomi
-                nishab.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(manba, nishab)
-                return f"mashqlar/audio/{fayl_nomi}"
+                nisbiy_yol = f"mashqlar/audio/{fayl_nomi}"
+                if default_storage.exists(nisbiy_yol):
+                    default_storage.delete(nisbiy_yol)
+                default_storage.save(nisbiy_yol, ContentFile(manba.read_bytes()))
+                return nisbiy_yol
         self.stdout.write(self.style.WARNING(f"Audio topilmadi: {item_id}"))
         return None
 

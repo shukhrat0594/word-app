@@ -11,9 +11,9 @@ map_labelling turi uchun rasm PIL bilan shu yerda generatsiya qilinadi
 (exercises/import_data/images/).
 """
 
-import shutil
-
 from django.conf import settings
+from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
 from django.core.management.base import BaseCommand
 from PIL import Image, ImageDraw, ImageFont
 
@@ -452,17 +452,17 @@ class Command(BaseCommand):
             wav_yol.write_bytes(wav_bytes)
             self.stdout.write(self.style.SUCCESS(f"{m['fayl']}: audio yaratildi ({len(wav_bytes)} bayt)"))
 
-        nishab = settings.MEDIA_ROOT / "mashqlar" / "audio" / f"{m['fayl']}.wav"
-        nishab.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(wav_yol, nishab)
         nisbiy_audio = f"mashqlar/audio/{m['fayl']}.wav"
+        if default_storage.exists(nisbiy_audio):
+            default_storage.delete(nisbiy_audio)
+        default_storage.save(nisbiy_audio, ContentFile(wav_yol.read_bytes()))
 
         nisbiy_rasm = None
         if rasm_yol:
-            nishab_rasm = settings.MEDIA_ROOT / "mashqlar" / "rasm" / rasm_yol.name
-            nishab_rasm.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(rasm_yol, nishab_rasm)
             nisbiy_rasm = f"mashqlar/rasm/{rasm_yol.name}"
+            if default_storage.exists(nisbiy_rasm):
+                default_storage.delete(nisbiy_rasm)
+            default_storage.save(nisbiy_rasm, ContentFile(rasm_yol.read_bytes()))
 
         mashq = Mashq.objects.filter(markaz=markaz, name=name, bolim=Bolim.LISTENING, tur=tur).first()
         if mashq:
