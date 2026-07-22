@@ -292,7 +292,7 @@ const LUGAT = {
     band_ball: "Band",
     xom_ball: "Xom ball",
     imtihon_nomi: "Test nomi",
-    imtihon_json_yuklash: "JSON orqali to'liq test yuklash",
+    imtihon_json_yuklash: "JSON yuklash",
     imtihon_json_izoh:
       "JSON fayl tanlang — test nomi va barcha qismlar (passage/audio yo'riqnomasi, savollar) bir zumda qo'shiladi. Audio fayllarni saqlagandan keyin har bir qismga alohida biriktirasiz.",
     imtihon_json_xato: "JSON fayl noto'g'ri formatda",
@@ -616,7 +616,7 @@ const LUGAT = {
     band_ball: "Балл (Band)",
     xom_ball: "Сырой балл",
     imtihon_nomi: "Название теста",
-    imtihon_json_yuklash: "Загрузить полный тест через JSON",
+    imtihon_json_yuklash: "Загрузить JSON",
     imtihon_json_izoh:
       "Выберите JSON файл — название теста и все части (текст/аудио-инструкция, вопросы) добавятся сразу. Аудиофайлы прикрепляются к каждой части отдельно после сохранения.",
     imtihon_json_xato: "Неверный формат JSON файла",
@@ -940,7 +940,7 @@ const LUGAT = {
     band_ball: "Band",
     xom_ball: "Raw score",
     imtihon_nomi: "Test name",
-    imtihon_json_yuklash: "Upload full test via JSON",
+    imtihon_json_yuklash: "Upload JSON",
     imtihon_json_izoh:
       "Choose a JSON file — the test name and all parts (passage/audio instructions, questions) are added at once. Attach audio files to each part separately after saving.",
     imtihon_json_xato: "Invalid JSON file format",

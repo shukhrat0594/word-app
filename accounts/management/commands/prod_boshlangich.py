@@ -14,6 +14,9 @@ Uch ish qiladi, har biri faqat kerak bo'lsa:
      (listening_yangi_mashqlar) — audio fayli repo'da tayyor bo'lsa faqat
      nusxalaydi (API chaqirmaydi), hali generatsiya qilinmagan bo'lsa
      bepul kvota bo'yicha urinadi va tugasa xatosiz to'xtaydi.
+  6. Kunlik bulutdagi agent qo'shgan yangi mashqlarni bazaga kiritadi
+     (kunlik_mashqlarni_ishga_tushir — 2026-07-22, /schedule orqali
+     sozlangan kunlik avtomatik mashq qo'shish tizimi).
 """
 
 from decouple import config
@@ -80,3 +83,4 @@ class Command(BaseCommand):
         call_command("listening_yangi_mashqlar")
         call_command("writing_speaking_yangi_mashqlar")
         call_command("kurslar_urugla")
+        call_command("kunlik_mashqlarni_ishga_tushir")
