@@ -79,3 +79,4 @@ class Command(BaseCommand):
         call_command("wordapp_import")
         call_command("listening_yangi_mashqlar")
         call_command("writing_speaking_yangi_mashqlar")
+        call_command("kurslar_urugla")

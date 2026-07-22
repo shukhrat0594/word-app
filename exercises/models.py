@@ -98,6 +98,16 @@ class Mashq(models.Model):
         choices=[("private", "Shaxsiy"), ("public", "Umumiy")],
         default="private",
     )
+    sun_iy_intellekt_yaratgan = models.BooleanField(
+        default=False,
+        help_text=(
+            "Mashq management-buyruq orqali (masalan wordapp_import, "
+            "listening_yangi_mashqlar, writing_speaking_yangi_mashqlar) AI "
+            "yordamida ommaviy yaratilganmi — talabaga 'SI tomonidan "
+            "tuzilgan' belgisi ko'rsatish uchun. Admin UI orqali qo'lda "
+            "kiritilgan mashqlarda False qoladi."
+        ),
+    )
 
     # Kontent (turi/bo'limiga qarab)
     matn = models.TextField(
@@ -290,6 +300,13 @@ class ImtihonTest(models.Model):
         max_length=10,
         choices=[("private", "Shaxsiy"), ("public", "Umumiy")],
         default="private",
+    )
+    yaratuvchi = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="yaratgan_imtihon_testlari",
     )
     created_at = models.DateTimeField(auto_now_add=True)
 

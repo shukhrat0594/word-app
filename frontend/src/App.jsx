@@ -7,6 +7,7 @@ import Foydalanuvchilar from "./pages/Foydalanuvchilar";
 import Guruhlar from "./pages/Guruhlar";
 import Hisobotlar from "./pages/Hisobotlar";
 import ImtihonBoshqarish from "./pages/ImtihonBoshqarish";
+import Kurslar from "./pages/Kurslar";
 import Leaderboard from "./pages/Leaderboard";
 import Login from "./pages/Login";
 import Mashqlar from "./pages/Mashqlar";
@@ -40,6 +41,7 @@ export default function App() {
           <Route path="mashqlar" element={<Mashqlar />} />
           <Route path="mashqlar-boshqarish" element={<MashqlarBoshqarish />} />
           <Route path="ielts-boshqarish" element={<ImtihonBoshqarish />} />
+          <Route path="kurslar" element={<Kurslar />} />
           <Route path="reyting" element={<Leaderboard />} />
           <Route path="oyinlar" element={<Oyinlar />} />
           <Route path="tarix" element={<Tarix />} />

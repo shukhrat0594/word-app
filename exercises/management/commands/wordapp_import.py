@@ -94,7 +94,10 @@ class Command(BaseCommand):
         mashq = Mashq.objects.filter(markaz=markaz, name=name, bolim=bolim, tur=tur).first()
         if mashq:
             return mashq, False
-        mashq = Mashq(markaz=markaz, name=name, bolim=bolim, tur=tur, korinish="public", **maydonlar)
+        mashq = Mashq(
+            markaz=markaz, name=name, bolim=bolim, tur=tur, korinish="public",
+            sun_iy_intellekt_yaratgan=True, **maydonlar,
+        )
         mashq.full_clean()
         mashq.save()
         return mashq, True

@@ -173,7 +173,10 @@ function HaqiqiyMashq() {
       <>
         {korsatilganMatn && (
           <div className="karta" style={{ marginBottom: 14 }}>
-            <h3>{mashq.name}</h3>
+            <h3>
+              {mashq.name}
+              {mashq.sun_iy_intellekt_yaratgan && <span className="si-belgi"> — {t("mashq_ai_yaratgan")}</span>}
+            </h3>
             <div className="mashq-passage">{korsatilganMatn}</div>
             {grafikUrl && <img src={grafikUrl} alt="chart" style={{ maxWidth: "100%", marginTop: 10 }} />}
           </div>
@@ -206,7 +209,10 @@ function HaqiqiyMashq() {
           </button>
         </div>
         <div className="karta" style={{ marginBottom: 14 }}>
-          <h3>{mashq.name}</h3>
+          <h3>
+            {mashq.name}
+            {mashq.sun_iy_intellekt_yaratgan && <span className="si-belgi"> — {t("mashq_ai_yaratgan")}</span>}
+          </h3>
           {korsatilganMatn && <div className="mashq-passage">{korsatilganMatn}</div>}
           {grafikUrl && <img src={grafikUrl} alt="chart" style={{ maxWidth: "100%", marginTop: 10 }} />}
         </div>

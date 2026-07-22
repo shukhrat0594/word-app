@@ -452,6 +452,9 @@ export default function MashqlarBoshqarish() {
               <div className="davomat-qator" key={m.id}>
                 <span>
                   <strong>{m.name}</strong>{" "}
+                  {m.sun_iy_intellekt_yaratgan && (
+                    <span className="si-belgi">{t("mashq_ai_yaratgan")}</span>
+                  )}{" "}
                   <span className="izoh">
                     {t(`mashq_bolim_${m.bolim}`)} · {t(`mashq_tur_${m.tur}`)} ·{" "}
                     {m.korinish === "public" ? t("mashq_hammaga_ochiq") : t("mashq_faqat_talaba")}

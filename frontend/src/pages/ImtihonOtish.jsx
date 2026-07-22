@@ -317,7 +317,7 @@ export default function ImtihonOtish({ bolim }) {
         </div>
       </div>
 
-      <h3 style={{ marginBottom: 10 }}>{test.name}</h3>
+      <h3 style={{ marginBottom: fokus ? 4 : 10 }}>{test.name}</h3>
 
       {(() => {
         const savollarBlok = bloklarGaAjrat(faol.qism.savollar, faol.boshIdx).map((blok, bi) =>
@@ -352,7 +352,11 @@ export default function ImtihonOtish({ bolim }) {
               <div className="imtihon-qism-sarlavha">{faol.qism.sarlavha}</div>
               {faol.qism.yoriqnoma && <div className="imtihon-yoriqnoma">{faol.qism.yoriqnoma}</div>}
               {audioUrllar[faol.qism.id] ? (
-                <audio controls src={audioUrllar[faol.qism.id]} style={{ width: "100%", marginBottom: 14 }} />
+                <audio
+                  controls
+                  src={audioUrllar[faol.qism.id]}
+                  style={{ width: "100%", marginBottom: fokus ? 6 : 14 }}
+                />
               ) : (
                 <span className="izoh">{t("audio_yuklanmoqda")}</span>
               )}

@@ -113,7 +113,12 @@ export default function MashqBank({ bolim }) {
         </button>
       </div>
       <div className="karta">
-        <h3>{tanlangan.name}</h3>
+        <h3>
+          {tanlangan.name}
+          {tanlangan.sun_iy_intellekt_yaratgan && (
+            <span className="si-belgi"> — {t("mashq_ai_yaratgan")}</span>
+          )}
+        </h3>
         {bolim === "listening" && (
           audioUrl ? (
             <audio controls src={audioUrl} style={{ width: "100%", marginBottom: 18 }} />

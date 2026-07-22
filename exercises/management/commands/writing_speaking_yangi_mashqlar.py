@@ -401,6 +401,7 @@ class Command(BaseCommand):
             return False
         mashq = Mashq(
             markaz=markaz, name=name, bolim=bolim, tur=tur, korinish="public",
+            sun_iy_intellekt_yaratgan=True,
             matn=matn, namuna_javob=namuna_javob,
         )
         mashq.full_clean()

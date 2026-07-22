@@ -8,6 +8,7 @@ const TALABA_NAVLAR = [
   { yol: "/", ikon: "▦", kalit: "nav_dashboard" },
   { yol: "/mashqlar", ikon: "✎", kalit: "nav_mashqlar" },
   { yol: "/ielts-boshqarish", ikon: "🎓", kalit: "nav_ielts_boshqarish" },
+  { yol: "/kurslar", ikon: "📚", kalit: "nav_kurslar" },
   { yol: "/oyinlar", ikon: "🎮", kalit: "nav_oyinlar" },
   { yol: "/tarix", ikon: "🕐", kalit: "nav_tarix" },
   { yol: "/reyting", ikon: "🏆", kalit: "nav_reyting" },
@@ -24,6 +25,7 @@ function navlarniOl(role) {
       // ham yopiq, MashqlarBoshqarish.jsx) — nav'dan ham olib tashlandi,
       // kerak bo'lsa qayta ochiladi.
       { yol: "/ielts-boshqarish", ikon: "🎓", kalit: "nav_ielts_boshqarish" },
+      { yol: "/kurslar", ikon: "📚", kalit: "nav_kurslar" },
       // 2026-07-21: Davomat endi faqat o'qituvchida (u belgilaydi);
       // Davomat hisoboti "Hisobotlar" ostiga ko'chdi, faqat owner ko'radi.
       // 2026-07-21: "Markaz" (brend sozlash) bo'limi hech kimga ko'rinmasin
@@ -34,6 +36,7 @@ function navlarniOl(role) {
     return [
       { yol: "/", ikon: "▦", kalit: "nav_dashboard" },
       { yol: "/ielts-boshqarish", ikon: "🎓", kalit: "nav_ielts_boshqarish" },
+      { yol: "/kurslar", ikon: "📚", kalit: "nav_kurslar" },
       { yol: "/guruhlar", ikon: "☰", kalit: "nav_guruhlar" },
       { yol: "/talabalar", ikon: "🎒", kalit: "nav_talabalar" },
       { yol: "/davomat", ikon: "🗓", kalit: "nav_davomat" },
@@ -78,11 +81,12 @@ export default function Layout() {
     }
   }, [markazNomi, markazLogo, t]);
 
-  // "IELTS testlari" talaba/admin/owner uchun ko'rinadi (admin/owner uchun
-  // boshqaruv + hammaga yechish, ImtihonBoshqarish.jsx) — faqat "oddiy
-  // foydalanuvchi" buni ko'rmaydi, unga faqat Mashqlar ochiq (2026-07-20).
+  // "IELTS testlari" va "Kurslar" talaba/admin/owner/teacher uchun ko'rinadi
+  // — faqat "oddiy foydalanuvchi" ularni ko'rmaydi, unga faqat Mashqlar
+  // ochiq (2026-07-20, Kurslar uchun 2026-07-21).
+  const oddiyMi = profil?.role === "oddiy";
   const asosiyNavlar = navlarniOl(profil?.role).filter(
-    (n) => !(n.yol === "/ielts-boshqarish" && profil?.role === "oddiy")
+    (n) => !(oddiyMi && (n.yol === "/ielts-boshqarish" || n.yol === "/kurslar"))
   );
   // 2026-07-21: "Markazlar" bo'limi hozircha hech kimga ko'rinmaydi (nav'dan
   // olib tashlandi, sahifa/backend o'zi tegilmagan — kerak bo'lsa qaytariladi).

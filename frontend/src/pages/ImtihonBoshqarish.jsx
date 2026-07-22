@@ -198,12 +198,15 @@ function YozGapKiritish({ bolim, qismgaFaylYukla, royxatniYangila }) {
         <button className={usul === "qolda" ? "aktiv" : ""} onClick={() => setUsul("qolda")}>
           {t("imtihon_qolda_kiritish")}
         </button>
-        <button className={usul === "fayl" ? "aktiv" : ""} onClick={() => setUsul("fayl")}>
-          {t("imtihon_fayl_yuklash")}
+        <button className={usul === "json" ? "aktiv" : ""} onClick={() => setUsul("json")}>
+          {t("imtihon_json_yuklash")}
+        </button>
+        <button className={usul === "zip" ? "aktiv" : ""} onClick={() => setUsul("zip")}>
+          {t("imtihon_zip_yuklash")}
         </button>
       </div>
 
-      {usul === "qolda" ? (
+      {usul === "qolda" && (
         <form onSubmit={qoldaYuborish} style={{ display: "grid", gap: 10 }}>
           <input
             placeholder={t("imtihon_nomi")}
@@ -233,16 +236,21 @@ function YozGapKiritish({ bolim, qismgaFaylYukla, royxatniYangila }) {
           <button className="tugma" disabled={saqlanmoqda}>{t("saqlash")}</button>
           {xato && <div className="xato-xabar">{xato}</div>}
         </form>
-      ) : (
-        <div>
-          <p className="izoh" style={{ marginTop: 0 }}>{t("imtihon_json_izoh")}</p>
-          <input type="file" accept="application/json" onChange={jsonYukla} disabled={saqlanmoqda} />
+      )}
 
-          <div style={{ marginTop: 14 }}>
-            <h4 style={{ marginBottom: 4 }}>{t("imtihon_zip_yuklash")}</h4>
-            <p className="izoh" style={{ marginTop: 0 }}>{t("imtihon_zip_izoh")}</p>
-            <input type="file" accept=".zip" onChange={zipYukla} disabled={saqlanmoqda} />
-          </div>
+      {(usul === "json" || usul === "zip") && (
+        <div>
+          {usul === "json" ? (
+            <>
+              <p className="izoh" style={{ marginTop: 0 }}>{t("imtihon_json_izoh")}</p>
+              <input type="file" accept="application/json" onChange={jsonYukla} disabled={saqlanmoqda} />
+            </>
+          ) : (
+            <>
+              <p className="izoh" style={{ marginTop: 0 }}>{t("imtihon_zip_izoh")}</p>
+              <input type="file" accept=".zip" onChange={zipYukla} disabled={saqlanmoqda} />
+            </>
+          )}
 
           {xato && <div className="xato-xabar" style={{ marginTop: 8 }}>{xato}</div>}
 
@@ -348,10 +356,10 @@ function KiritishPanel({ qismgaFaylYukla, royxatniYangila }) {
       <h3>{t("imtihon_kiritish_paneli")}</h3>
       <div className="tab-guruh" style={{ marginBottom: 14 }}>
         <button className={bolim === "writing" ? "aktiv" : ""} onClick={() => setBolim("writing")}>
-          {t("nav_writing")}
+          {t("mashq_bolim_writing")}
         </button>
         <button className={bolim === "speaking" ? "aktiv" : ""} onClick={() => setBolim("speaking")}>
-          {t("nav_speaking")}
+          {t("mashq_bolim_speaking")}
         </button>
         <button className={bolim === "reading" ? "aktiv" : ""} onClick={() => setBolim("reading")}>
           {t("reading_bolimi")}
@@ -460,10 +468,10 @@ function AdminBoshqaruv() {
             {t("listening_bolimi")}
           </button>
           <button className={filtrBolim === "writing" ? "aktiv" : ""} onClick={() => setFiltrBolim("writing")}>
-            {t("nav_writing")}
+            {t("mashq_bolim_writing")}
           </button>
           <button className={filtrBolim === "speaking" ? "aktiv" : ""} onClick={() => setFiltrBolim("speaking")}>
-            {t("nav_speaking")}
+            {t("mashq_bolim_speaking")}
           </button>
         </div>
         {!royxat ? (
@@ -479,6 +487,10 @@ function AdminBoshqaruv() {
                     <strong>{test.name}</strong>{" "}
                     <span className="izoh">
                       {t(`mashq_bolim_${test.bolim}`)} · {test.qismlar.length} {t("imtihon_qism_soni")}
+                      {" · "}
+                      {test.yaratuvchi || t("imtihon_yaratuvchi_nomalum")}
+                      {" · "}
+                      {new Date(test.created_at).toLocaleString()}
                     </span>
                   </span>
                   <div style={{ display: "flex", gap: 8 }}>

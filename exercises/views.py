@@ -1,4 +1,5 @@
 import json
+import re
 
 from django.core.exceptions import ValidationError
 from django.shortcuts import get_object_or_404
@@ -45,6 +46,7 @@ def _mashq_qisqa(m):
         "rasm_url": f"/api/mashqlar/{m.id}/rasm/" if m.rasm else None,
         "savollar": m.savollar,
         "created_at": m.created_at,
+        "sun_iy_intellekt_yaratgan": m.sun_iy_intellekt_yaratgan,
     }
 
 
@@ -235,6 +237,7 @@ class MashqDetailView(APIView):
                     f"/api/mashqlar/{mashq.id}/rasm/" if mashq.rasm else None
                 ),
                 "savollar": savollar_talaba_uchun(mashq.savollar),
+                "sun_iy_intellekt_yaratgan": mashq.sun_iy_intellekt_yaratgan,
             }
         )
 
@@ -361,6 +364,7 @@ def _test_admin_dict(t):
         "korinish": t.korinish,
         "qismlar": [_qism_admin_dict(q) for q in t.qismlar.all()],
         "created_at": t.created_at,
+        "yaratuvchi": t.yaratuvchi.username if t.yaratuvchi_id else None,
     }
 
 
@@ -387,11 +391,62 @@ def _test_talaba_dict(t):
     }
 
 
-def _test_yarat(data, markaz, rasm_fayllar=None):
+def _audioni_taqsimla(qismlar, audio_fayllar):
+    """Audio fayllarni Listening test qismlariga avtomatik taqsimlaydi:
+    arxivda 1 ta audio bo'lsa — barchasiga bir xil audio biriktiriladi;
+    qismlar soniga teng bo'lsa — fayl nomidagi raqamga qarab (u qismning
+    "tartib"iga mos kelsa), mos kelmasa — nomlarni tabiiy tartibda saralab
+    qismlarga "tartib" bo'yicha ketma-ket biriktiriladi."""
+    from django.core.files.base import ContentFile
+
+    nomlar = list(audio_fayllar.keys())
+    if not nomlar:
+        return
+
+    if len(nomlar) == 1:
+        nom = nomlar[0]
+        malumot = audio_fayllar[nom]
+        for qism in qismlar:
+            qism.audio_fayl = ContentFile(malumot, name=nom)
+            qism.save()
+        return
+
+    tartib_bolib = {q.tartib: q for q in qismlar}
+    raqam_mos = {}
+    band_raqamlar = set()
+    for nom in nomlar:
+        topilganlar = re.findall(r"\d+", nom)
+        if topilganlar:
+            raqam = int(topilganlar[-1])
+            if raqam in tartib_bolib and raqam not in band_raqamlar:
+                raqam_mos[nom] = raqam
+                band_raqamlar.add(raqam)
+
+    if len(raqam_mos) == len(nomlar):
+        for nom, raqam in raqam_mos.items():
+            tartib_bolib[raqam].audio_fayl = ContentFile(audio_fayllar[nom], name=nom)
+            tartib_bolib[raqam].save()
+        return
+
+    # Fallback: nomiga qarab aniq mos kelmasa — nomlarni tabiiy tartibda
+    # saralab, qismlarga "tartib" bo'yicha ketma-ket biriktiramiz.
+    for nom, qism in zip(sorted(nomlar), sorted(qismlar, key=lambda q: q.tartib)):
+        qism.audio_fayl = ContentFile(audio_fayllar[nom], name=nom)
+        qism.save()
+
+
+def _test_yarat(data, markaz, rasm_fayllar=None, audio_fayllar=None, yaratuvchi=None):
     """`ImtihonTest`+`TestQismi`larni JSON ma'lumotdan yaratadi.
 
     `rasm_fayllar` — {fayl_nomi: ContentFile} lug'ati (ZIP orqali yuklashda,
     qismning "rasm" maydonidagi nomga mos fayl). Oddiy JSON yuklashda None.
+
+    `audio_fayllar` — {fayl_nomi: bytes} lug'ati (ZIP orqali yuklashda,
+    Listening uchun) — `_audioni_taqsimla` orqali qismlarga avtomatik
+    taqsimlanadi.
+
+    Bir xil nomdagi test allaqachon bo'lsa — nomga avtomatik "_1", "_2" ...
+    qo'shiladi (foydalanuvchi so'rovi, 2026-07-22).
 
     Writing/Speaking uchun har bir qism "tur" (task1/task2/part1/part2/part3)
     ko'rsatishi shart — Reading/Listening'da "savollar" ishlatiladi, bu
@@ -400,6 +455,7 @@ def _test_yarat(data, markaz, rasm_fayllar=None):
     Xato bo'lsa (None, {"detail": "..."}) qaytaradi, aks holda (test, None).
     """
     rasm_fayllar = rasm_fayllar or {}
+    audio_fayllar = audio_fayllar or {}
     name = data.get("name", "")
     bolim = data.get("bolim", "")
     korinish = data.get("korinish", "private")
@@ -417,7 +473,16 @@ def _test_yarat(data, markaz, rasm_fayllar=None):
                     "detail": "Writing/Speaking qismlarida 'tur' (task1/task2/part1/part2/part3) majburiy"
                 }
 
-    test = ImtihonTest.objects.create(name=name, bolim=bolim, markaz=markaz, korinish=korinish)
+    asl_nomi = name
+    band = 1
+    while ImtihonTest.objects.filter(name=name, markaz=markaz).exists():
+        name = f"{asl_nomi}_{band}"
+        band += 1
+
+    test = ImtihonTest.objects.create(
+        name=name, bolim=bolim, markaz=markaz, korinish=korinish, yaratuvchi=yaratuvchi
+    )
+    qism_obyektlari = []
     for i, q in enumerate(qismlar_data, start=1):
         qism = TestQismi(
             test=test,
@@ -432,6 +497,11 @@ def _test_yarat(data, markaz, rasm_fayllar=None):
         if rasm_nomi and rasm_nomi in rasm_fayllar:
             qism.rasm = rasm_fayllar[rasm_nomi]
         qism.save()
+        qism_obyektlari.append(qism)
+
+    if bolim == Bolim.LISTENING and audio_fayllar:
+        _audioni_taqsimla(qism_obyektlari, audio_fayllar)
+
     return test, None
 
 
@@ -460,7 +530,7 @@ class ImtihonBoshqaruvView(APIView):
         if not markaz:
             return Response({"detail": "Markaz topilmadi"}, status=400)
 
-        test, xato = _test_yarat(request.data, markaz)
+        test, xato = _test_yarat(request.data, markaz, yaratuvchi=request.user)
         if xato:
             return Response(xato, status=400)
 
@@ -485,6 +555,18 @@ def _rasm_fayllarni_ol(arxiv, fayl_nomlari):
         if asosiy_nom.lower().endswith((".png", ".jpg", ".jpeg", ".webp")):
             rasm_fayllar[asosiy_nom] = ContentFile(arxiv.read(nom), name=asosiy_nom)
     return rasm_fayllar
+
+
+def _audio_fayllarni_ol(arxiv, fayl_nomlari):
+    """Berilgan fayl nomlari ro'yxatidan (arxiv ichidagi to'liq yo'llar)
+    audio fayllarni {asosiy_nom: bytes} lug'atiga aylantiradi — Listening
+    ZIP yuklashda `_audioni_taqsimla` orqali qismlarga taqsimlanadi."""
+    audio_fayllar = {}
+    for nom in fayl_nomlari:
+        asosiy_nom = nom.rsplit("/", 1)[-1]
+        if asosiy_nom.lower().endswith((".mp3", ".wav", ".m4a", ".ogg", ".aac")):
+            audio_fayllar[asosiy_nom] = arxiv.read(nom)
+    return audio_fayllar
 
 
 class ImtihonZipBoshqaruvView(APIView):
@@ -554,7 +636,12 @@ class ImtihonZipBoshqaruvView(APIView):
                     xatolar.append(f"{papka_nomi}: JSON fayl noto'g'ri formatda")
                     continue
                 rasm_fayllar = _rasm_fayllarni_ol(arxiv, papka_fayllari)
-                test, xato = _test_yarat(data, markaz, rasm_fayllar=rasm_fayllar)
+                audio_fayllar = _audio_fayllarni_ol(arxiv, papka_fayllari)
+                test, xato = _test_yarat(
+                    data, markaz,
+                    rasm_fayllar=rasm_fayllar, audio_fayllar=audio_fayllar,
+                    yaratuvchi=request.user,
+                )
                 if xato:
                     xatolar.append(f"{papka_nomi}: {xato['detail']}")
                 else:
@@ -565,7 +652,12 @@ class ImtihonZipBoshqaruvView(APIView):
             except (json.JSONDecodeError, UnicodeDecodeError):
                 return Response({"detail": "JSON fayl noto'g'ri formatda"}, status=400)
             rasm_fayllar = _rasm_fayllarni_ol(arxiv, fayllar)
-            test, xato = _test_yarat(data, markaz, rasm_fayllar=rasm_fayllar)
+            audio_fayllar = _audio_fayllarni_ol(arxiv, fayllar)
+            test, xato = _test_yarat(
+                data, markaz,
+                rasm_fayllar=rasm_fayllar, audio_fayllar=audio_fayllar,
+                yaratuvchi=request.user,
+            )
             if xato:
                 xatolar.append(xato["detail"])
             else:

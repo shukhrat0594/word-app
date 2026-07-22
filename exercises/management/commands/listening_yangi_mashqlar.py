@@ -480,6 +480,7 @@ class Command(BaseCommand):
 
         mashq = Mashq(
             markaz=markaz, name=name, bolim=Bolim.LISTENING, tur=tur, korinish="public",
+            sun_iy_intellekt_yaratgan=True,
             matn=m["transkript"], savollar=savollar, audio_fayl=nisbiy_audio,
         )
         if nisbiy_rasm:
