@@ -154,6 +154,7 @@ export default function ImtihonOtish({ bolim }) {
   const [natija, setNatija] = useState(null);
   const [xato, setXato] = useState("");
   const [yuklanmoqda, setYuklanmoqda] = useState(false);
+  const [tayyorlanmoqda, setTayyorlanmoqda] = useState(false);
   const [fokus, setFokus] = useState(false);
   const [masshtab, setMasshtab] = useState(100);
   const [soniya, setSoniya] = useState(0);
@@ -216,20 +217,37 @@ export default function ImtihonOtish({ bolim }) {
     setFokus(false);
     setMasshtab(100);
     setFaolQism(0);
-    const t2 = await api(`/api/imtihon/testlar/${id}/`);
-    setTest(t2);
-    const urllar = {};
-    const rasmlar = {};
-    for (const qism of t2.qismlar) {
-      if (qism.audio_url) {
-        urllar[qism.id] = await apiBlobUrl(qism.audio_url).catch(() => null);
-      }
-      if (qism.rasm_url) {
-        rasmlar[qism.id] = await apiBlobUrl(qism.rasm_url).catch(() => null);
-      }
+    setTayyorlanmoqda(true);
+    try {
+      const t2 = await api(`/api/imtihon/testlar/${id}/`);
+      const urllar = {};
+      const rasmlar = {};
+      // Barcha qismlarning audio/rasmini PARALLEL (Promise.all) yuklab
+      // olamiz, test oynasi FAQAT hammasi tayyor bo'lgandan keyin ochiladi
+      // — shunda talaba "Audio yuklanmoqda..." holatini ko'rmaydi, buning
+      // o'rniga bitta umumiy "tayyorlanmoqda" ko'rsatkichi chiqadi.
+      await Promise.all(
+        t2.qismlar.map(async (qism) => {
+          await Promise.all([
+            qism.audio_url
+              ? apiBlobUrl(qism.audio_url)
+                  .then((u) => { urllar[qism.id] = u; })
+                  .catch(() => {})
+              : Promise.resolve(),
+            qism.rasm_url
+              ? apiBlobUrl(qism.rasm_url)
+                  .then((u) => { rasmlar[qism.id] = u; })
+                  .catch(() => {})
+              : Promise.resolve(),
+          ]);
+        })
+      );
+      setAudioUrllar(urllar);
+      setRasmUrllar(rasmlar);
+      setTest(t2);
+    } finally {
+      setTayyorlanmoqda(false);
     }
-    setAudioUrllar(urllar);
-    setRasmUrllar(rasmlar);
   }
 
   function javobniQoy(i, qiymat) {
@@ -274,12 +292,18 @@ export default function ImtihonOtish({ bolim }) {
   if (!test) {
     return (
       <div className="karta">
-        {royxat.length === 0 && <span className="izoh">{t("imtihon_royxati_boshi")}</span>}
-        {royxat.map((r) => (
-          <div key={r.id} className="mashq-royxat-el" onClick={() => ochish(r.id)}>
-            <span>{r.name}</span>
-          </div>
-        ))}
+        {tayyorlanmoqda ? (
+          <div className="yuklanmoqda">{t("imtihon_tayyorlanmoqda")}</div>
+        ) : (
+          <>
+            {royxat.length === 0 && <span className="izoh">{t("imtihon_royxati_boshi")}</span>}
+            {royxat.map((r) => (
+              <div key={r.id} className="mashq-royxat-el" onClick={() => ochish(r.id)}>
+                <span>{r.name}</span>
+              </div>
+            ))}
+          </>
+        )}
       </div>
     );
   }
