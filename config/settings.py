@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework_simplejwt',
     'corsheaders',
+    'storages',
     'rest_framework_simplejwt.token_blacklist',
     'accounts',
     'academics',
@@ -170,18 +171,52 @@ USE_TZ = True
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
-STORAGES = {
-    'default': {
-        'BACKEND': 'django.core.files.storage.FileSystemStorage',
-    },
-    'staticfiles': {
-        'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
-    },
-}
+# Media fayllar (audio/rasm) — Cloudflare R2 (2026-07-22, Render'ning
+# vaqtinchalik disk muammosini hal qilish uchun: har deploy'da konteyner
+# fayl tizimi qayta yaratiladi, R2_BUCKET_NAME sozlanmagan bo'lsa esa
+# oddiy lokal diskka tushib qoladi — bu ataylab shunday: R2 environment
+# o'zgaruvchilari hali sozlanmagan bo'lsa (masalan lokal dev muhitida),
+# hech narsa buzilmaydi, avvalgidek FileSystemStorage ishlaydi).
+#
+# MUHIM (B3.2): R2 bucket OCHIQ (public) qilib SOZLANMAYDI — u shaxsiy
+# (private) qoladi. Kod hech qayerda `.url` ishlatmaydi (audio/rasm har
+# doim `/api/.../audio/` kabi autentifikatsiyalangan endpoint orqali
+# beriladi, TestQismAudioView/MashqAudioView va h.k.) — Django server R2
+# bilan faqat maxfiy kalitlari orqali "ichkaridan" gaplashadi, oldingi
+# xavfsizlik modeli (ochiq havola yo'q) to'liq saqlanib qoladi.
+R2_BUCKET_NAME = config('R2_BUCKET_NAME', default='')
 
-# Media files (markaz logotiplari, audio va h.k. — B3'da to'liq ishlatiladi)
+if R2_BUCKET_NAME:
+    STORAGES = {
+        'default': {
+            'BACKEND': 'storages.backends.s3.S3Storage',
+            'OPTIONS': {
+                'bucket_name': R2_BUCKET_NAME,
+                'access_key': config('R2_ACCESS_KEY_ID', default=''),
+                'secret_key': config('R2_SECRET_ACCESS_KEY', default=''),
+                'endpoint_url': config('R2_ENDPOINT_URL', default=''),
+                'region_name': 'auto',
+                'default_acl': None,
+                'file_overwrite': False,
+                'addressing_style': 'virtual',
+            },
+        },
+        'staticfiles': {
+            'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
+        },
+    }
+else:
+    STORAGES = {
+        'default': {
+            'BACKEND': 'django.core.files.storage.FileSystemStorage',
+        },
+        'staticfiles': {
+            'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage',
+        },
+    }
+    MEDIA_ROOT = BASE_DIR / 'media'
+
 MEDIA_URL = 'media/'
-MEDIA_ROOT = BASE_DIR / 'media'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
