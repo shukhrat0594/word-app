@@ -54,7 +54,25 @@
 
 **Muhim topilma — prompt sifati modelni "kuchaytiradi":** Gemini 3.1 Flash Lite'ga (1) so'z sonini sanashni majburiy qilib, IELTS 250-so'z jarimasini aniq tushuntirib, (2) xatolarni to'liq (birortasini tashlab ketmasdan) sanashni so'rab prompt yaxshilanganda — natija 6 ta xatodan **15 ta xatoga** (barcha modellardan ko'p!) va so'z sonini to'g'ri payqashga o'tdi. Bu — eng arzon/saxiy limitli (500/kun bepul) modelni eng sifatli natijaga olib chiqdi.
 
-**Yakuniy tanlov:** dev va asosiy ishlatish uchun **Gemini 3.1 Flash Lite + v4 prompt**. Bu prompt barcha providerlar uchun standart bo'ladi (Claude'da ham sifatni oshiradi).
+**Yakuniy tanlov (2026-07-15):** dev va asosiy ishlatish uchun **Gemini 3.1 Flash Lite + v4 prompt**. Bu prompt barcha providerlar uchun standart bo'ladi (Claude'da ham sifatni oshiradi). — **2026-07-22'da Gemma 4 26B'ga almashtirildi, pastga qarang.**
+
+#### Gemma 4 26B qayta sinovdan o'tkazildi va standart provider qilib tanlandi (2026-07-22)
+
+2026-07-15'dagi sinovda Gemma 4 26B'ning javobi uzilib qolgan va JSON qaytmagan edi. 2026-07-22'da (Kunlik mashq tizimi va R2 ishi davomida) Google'ning `gemma-4-26b-a4b-it` modelini production promti (`WRITING_SYSTEM_PROMPT`) bilan qayta, batafsilroq sinadik:
+
+**Narx va limit (aniq manba — `ai.google.dev/pricing` va foydalanuvchining Google AI Studio dashboard'i):**
+- **Butunlay bepul** — input/output/context caching hammasi $0, pullik tarif "Not available" (Google hozircha pul olmaydi)
+- **RPM: 30, TPM: 16,000, RPD: 14,400** — Gemini 3.1 Flash Lite'ning 500/kunidan ~29 baravar ko'p
+
+**Sifat sinovi (7 ta real so'rov — 3 ta Task 2 insho, 3 ta Task 1 rasm bilan — bar chart/line chart/pie chart PIL bilan generatsiya qilingan, 1 ta oldingi Gemini 3.1 Flash Lite bilan solishtirish):**
+- ✅ So'z sonini har safar to'g'ri sanadi va IELTS minimal talabidan kamligini to'g'ri payqadi (masalan 178/192/222/75 so'zli inshoларda)
+- ✅ Grammatik xatolarni aniq formatda topdi ("noto'g'ri -> to'g'ri (sabab)")
+- ✅ **Rasmli Task 1'da a'lo natija** — aniq tavsifga Band 9 berdi; talaba matni rasmdagi haqiqiy tendentsiyaga ATAYLAB zid yozilganda (grafikda 2021-2023 o'sish bor edi, talaba "hech qanday tiklanishsiz tushib bordi" deb yozgan edi) — buni **to'g'ri ushlab oldi** va Task Achievement bahosini pasaytirdi
+- ⚠️ **Ishonchlilik muammosi topildi:** 7 ta so'rovdan 2 tasida (~30%) `MAX_TOKENS` bilan bo'sh javob qaytardi (4096 token limitida) — sabab aniqlandi: model ba'zan ko'rinmas "ichki fikrlash" tokenlarini ko'p sarflaydi (haqiqiy chiqish atigi 550-590 token bo'lsa ham)
+
+**Tuzatish (sinovda tasdiqlangan):** `max_output_tokens` 4096'dan **8192**'ga oshirilganda (bepul, billing ishlatilgan tokenga qarab, limitning o'ziga emas) — bir xil "muammoli" so'rov (rasmga zid tavsif) ikkala urinishda ham (8192 va 16000) muvaffaqiyatli tugadi. Qo'shimcha ehtiyot chorasi sifatida `assessment/providers.py: GeminiProvider._generate()`ga **avtomatik qayta urinish** (javob bo'sh bo'lsa — xuddi shu model bilan 2-marta) + **zaxira modelga o'tish** (2-urinish ham muvaffaqiyatsiz bo'lsa — Gemini 3.1 Flash Lite'ga o'tadi) qo'shildi. To'liq real oqim (`provider_tanla()` orqali) sinovdan o'tkazildi.
+
+**Yakuniy tanlov (2026-07-22, yangilangan):** Writing/Speaking uchun standart provider endi **Gemma 4 26B** (`GeminiProvider` klassi, `model=GEMMA_MODEL` default), Gemini 3.1 Flash Lite esa **avtomatik zaxira** sifatida saqlanadi (kod darajasida, foydalanuvchi buni sezmaydi). WRITING_SYSTEM_PROMPT/SPEAKING_SYSTEM_PROMPT o'zgarishsiz qoladi (ikkalasiga ham mos).
 
 **Prompt evolyutsiyasi (v1→v4):**
 - v1: oddiy baholash — so'z sonini/uzunlik jarimasini payqamadi

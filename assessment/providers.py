@@ -195,16 +195,27 @@ def javobni_parse_qil(raw_text):
         raise ProviderXatosi(f"AI javobi JSON emas: {e}") from e
 
 
+# 2026-07-22: Gemma 4 26B — butunlay bepul (Google narxlar sahifasida
+# pullik tarif yo'q), kunlik limit ~14,400 so'rov (Gemini 3.1 Flash
+# Lite'ning 500'idan ~29 baravar ko'p), sifat sinovda yaxshi chiqdi
+# (rasmli Task 1'ni to'g'ri tahlil qildi, rasmga zid tavsifni ushlab
+# oldi). Kamchiligi: ba'zan (~1/3 holatda) MAX_TOKENS bilan bo'sh javob
+# qaytaradi — shuning uchun qayta urinish + zaxira model kerak (pastda).
+GEMMA_MODEL = "gemma-4-26b-a4b-it"
+GEMINI_ZAXIRA_MODEL = "gemini-3.1-flash-lite"
+MAX_OUTPUT_TOKENS = 8192
+
+
 class GeminiProvider:
     name = "gemini"
 
-    def __init__(self, api_key, model="gemini-3.1-flash-lite"):
+    def __init__(self, api_key, model=GEMMA_MODEL):
         if not api_key:
             raise ProviderXatosi("Gemini API kaliti berilmagan")
         self.api_key = api_key
         self.model = model
 
-    def _generate(self, system_prompt, matn, rasm_bytes=None, rasm_mime=None):
+    def _bitta_sorov(self, model, system_prompt, matn, rasm_bytes=None, rasm_mime=None):
         from google import genai
         from google.genai import types
 
@@ -212,19 +223,37 @@ class GeminiProvider:
         contents = matn
         if rasm_bytes:
             contents = [types.Part.from_bytes(data=rasm_bytes, mime_type=rasm_mime), matn]
-        response = client.models.generate_content(
-            model=self.model,
+        return client.models.generate_content(
+            model=model,
             contents=contents,
             config=types.GenerateContentConfig(
                 system_instruction=system_prompt,
-                max_output_tokens=4096,
+                max_output_tokens=MAX_OUTPUT_TOKENS,
             ),
         )
+
+    def _generate(self, system_prompt, matn, rasm_bytes=None, rasm_mime=None):
+        """1-urinish: asosiy model. Javob bo'sh/kesilgan bo'lsa (masalan
+        MAX_TOKENS) — 2-urinish: XUDDI SHU model bilan qayta. Yana bo'sh
+        bo'lsa va asosiy model Gemma bo'lsa — 3-urinish: barqaror zaxira
+        modelga (Gemini 3.1 Flash Lite) o'tiladi (2026-07-22 qarori)."""
+        response = self._bitta_sorov(self.model, system_prompt, matn, rasm_bytes, rasm_mime)
+        if not response.text:
+            response = self._bitta_sorov(self.model, system_prompt, matn, rasm_bytes, rasm_mime)
+
+        ishlatilgan_model = self.model
+        if not response.text and self.model != GEMINI_ZAXIRA_MODEL:
+            response = self._bitta_sorov(GEMINI_ZAXIRA_MODEL, system_prompt, matn, rasm_bytes, rasm_mime)
+            ishlatilgan_model = GEMINI_ZAXIRA_MODEL
+
+        if not response.text:
+            raise ProviderXatosi("AI javob bermadi (bo'sh javob, qayta urinish va zaxira modeldan keyin ham)")
+
         usage = response.usage_metadata
         return {
             "natija": javobni_parse_qil(response.text),
             "provider": self.name,
-            "model": self.model,
+            "model": ishlatilgan_model,
             "input_tokens": usage.prompt_token_count or 0,
             "output_tokens": usage.candidates_token_count or 0,
         }
@@ -296,6 +325,12 @@ def provider_tanla(user):
     doim platforma (owner) kaliti orqali to'lanadi, markazlar o'z kalitini
     kirita olmaydi. Shunday qilib har bir Writing/Speaking tekshiruvi
     xarajati platformaga tushadi (2026-07-17'da shunday qaror qilingan).
+
+    "gemini" provayder tanlansa — endi asosiy model **Gemma 4 26B**
+    (2026-07-22'dan, `GeminiProvider.__init__` default qiymati orqali) —
+    bepul, kunlik limiti ancha yuqori (~14,400), sifat sinovda yaxshi
+    chiqdi. Ishonchlilik uchun `GeminiProvider._generate` ichida avtomatik
+    qayta urinish + Gemini 3.1 Flash Lite'ga zaxira o'tish bor.
     """
     markaz = user.markaz
     provider_nomi = markaz.ai_provider if markaz else "gemini"
