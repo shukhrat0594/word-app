@@ -391,47 +391,66 @@ def _test_talaba_dict(t):
     }
 
 
-def _audioni_taqsimla(qismlar, audio_fayllar):
-    """Audio fayllarni Listening test qismlariga avtomatik taqsimlaydi:
-    arxivda 1 ta audio bo'lsa — barchasiga bir xil audio biriktiriladi;
-    qismlar soniga teng bo'lsa — fayl nomidagi raqamga qarab (u qismning
-    "tartib"iga mos kelsa), mos kelmasa — nomlarni tabiiy tartibda saralab
-    qismlarga "tartib" bo'yicha ketma-ket biriktiriladi."""
+def _raqam_top(nom):
+    """Fayl nomidan bo'lim/qism raqamini chiqarib olishga urinadi — avval
+    "Section N"/"Part N" andozasini qidiradi (rasm fayllarida ko'p
+    uchraydi, masalan "Listening_Section _2 _Questions _14-20.png" — bu
+    yerda to'g'ri raqam 2, matndagi oxirgi raqam emas), topilmasa nomdagi
+    ENG OXIRGI raqamni oladi (audio fayllarida odatda track raqami oxirida
+    bo'ladi, masalan "CD1Track_02"). Kengaytma (".mp3" va h.k.) qidiruvdan
+    OLDIN olib tashlanadi — aks holda "mp3"dagi "3" oxirgi raqam sifatida
+    xato o'qilib, barcha fayllarga bir xil (noto'g'ri) raqam berib qo'yardi."""
+    nom_kengaytmasiz = re.sub(r"\.[A-Za-z0-9]+$", "", nom)
+    mos = re.search(r"(?:section|part)[\s_]*0*(\d+)", nom_kengaytmasiz, re.IGNORECASE)
+    if mos:
+        return int(mos.group(1))
+    barcha = re.findall(r"\d+", nom_kengaytmasiz)
+    return int(barcha[-1]) if barcha else None
+
+
+def _fayllarni_taqsimla(qismlar, fayllar, maydon, birini_hammaga_bering=False):
+    """`fayllar` — {fayl_nomi: bytes} lug'ati, `qismlar`dan `maydon`i
+    (masalan "audio_fayl" yoki "rasm") hali bo'sh bo'lganlariga avtomatik
+    taqsimlaydi: fayl nomidagi raqam (`_raqam_top`) mos qismning "tartib"i
+    bilan taqqoslanadi; mos kelmasa nomlarni tabiiy tartibda saralab
+    ketma-ket biriktiradi. `birini_hammaga_bering=True` bo'lsa va FAQAT
+    bitta fayl bo'lsa — hammasiga bir xil fayl beriladi (masalan
+    Listening'da bitta uzluksiz audio barcha qismlarga)."""
     from django.core.files.base import ContentFile
 
-    nomlar = list(audio_fayllar.keys())
-    if not nomlar:
+    bosh_qismlar = [q for q in qismlar if not getattr(q, maydon)]
+    nomlar = list(fayllar.keys())
+    if not bosh_qismlar or not nomlar:
         return
 
-    if len(nomlar) == 1:
+    if birini_hammaga_bering and len(nomlar) == 1:
         nom = nomlar[0]
-        malumot = audio_fayllar[nom]
-        for qism in qismlar:
-            qism.audio_fayl = ContentFile(malumot, name=nom)
+        malumot = fayllar[nom]
+        for qism in bosh_qismlar:
+            setattr(qism, maydon, ContentFile(malumot, name=nom))
             qism.save()
         return
 
-    tartib_bolib = {q.tartib: q for q in qismlar}
+    tartib_bolib = {q.tartib: q for q in bosh_qismlar}
     raqam_mos = {}
     band_raqamlar = set()
     for nom in nomlar:
-        topilganlar = re.findall(r"\d+", nom)
-        if topilganlar:
-            raqam = int(topilganlar[-1])
-            if raqam in tartib_bolib and raqam not in band_raqamlar:
-                raqam_mos[nom] = raqam
-                band_raqamlar.add(raqam)
+        raqam = _raqam_top(nom)
+        if raqam is not None and raqam in tartib_bolib and raqam not in band_raqamlar:
+            raqam_mos[nom] = raqam
+            band_raqamlar.add(raqam)
 
     if len(raqam_mos) == len(nomlar):
         for nom, raqam in raqam_mos.items():
-            tartib_bolib[raqam].audio_fayl = ContentFile(audio_fayllar[nom], name=nom)
-            tartib_bolib[raqam].save()
+            qism = tartib_bolib[raqam]
+            setattr(qism, maydon, ContentFile(fayllar[nom], name=nom))
+            qism.save()
         return
 
     # Fallback: nomiga qarab aniq mos kelmasa — nomlarni tabiiy tartibda
     # saralab, qismlarga "tartib" bo'yicha ketma-ket biriktiramiz.
-    for nom, qism in zip(sorted(nomlar), sorted(qismlar, key=lambda q: q.tartib)):
-        qism.audio_fayl = ContentFile(audio_fayllar[nom], name=nom)
+    for nom, qism in zip(sorted(nomlar), sorted(bosh_qismlar, key=lambda q: q.tartib)):
+        setattr(qism, maydon, ContentFile(fayllar[nom], name=nom))
         qism.save()
 
 
@@ -442,8 +461,11 @@ def _test_yarat(data, markaz, rasm_fayllar=None, audio_fayllar=None, yaratuvchi=
     qismning "rasm" maydonidagi nomga mos fayl). Oddiy JSON yuklashda None.
 
     `audio_fayllar` — {fayl_nomi: bytes} lug'ati (ZIP orqali yuklashda,
-    Listening uchun) — `_audioni_taqsimla` orqali qismlarga avtomatik
-    taqsimlanadi.
+    Listening uchun) — `_fayllarni_taqsimla` orqali qismlarga avtomatik
+    taqsimlanadi. JSON'da "rasm" maydoni orqali aniq ko'rsatilmagan rasm
+    fayllari ham xuddi shunday (fayl nomidagi raqamga qarab) avtomatik
+    taqsimlanadi (2026-07-22, AI odatda "rasm" maydonini bilmay/unutib
+    qoldirgani uchun qo'shildi).
 
     Bir xil nomdagi test allaqachon bo'lsa — nomga avtomatik "_1", "_2" ...
     qo'shiladi (foydalanuvchi so'rovi, 2026-07-22).
@@ -483,6 +505,7 @@ def _test_yarat(data, markaz, rasm_fayllar=None, audio_fayllar=None, yaratuvchi=
         name=name, bolim=bolim, markaz=markaz, korinish=korinish, yaratuvchi=yaratuvchi
     )
     qism_obyektlari = []
+    ishlatilgan_rasm_nomlari = set()
     for i, q in enumerate(qismlar_data, start=1):
         qism = TestQismi(
             test=test,
@@ -496,11 +519,18 @@ def _test_yarat(data, markaz, rasm_fayllar=None, audio_fayllar=None, yaratuvchi=
         rasm_nomi = q.get("rasm")
         if rasm_nomi and rasm_nomi in rasm_fayllar:
             qism.rasm = rasm_fayllar[rasm_nomi]
+            ishlatilgan_rasm_nomlari.add(rasm_nomi)
         qism.save()
         qism_obyektlari.append(qism)
 
     if bolim == Bolim.LISTENING and audio_fayllar:
-        _audioni_taqsimla(qism_obyektlari, audio_fayllar)
+        _fayllarni_taqsimla(qism_obyektlari, audio_fayllar, "audio_fayl", birini_hammaga_bering=True)
+
+    qoldiq_rasm_fayllar = {
+        nom: fayl.read() for nom, fayl in rasm_fayllar.items() if nom not in ishlatilgan_rasm_nomlari
+    }
+    if qoldiq_rasm_fayllar:
+        _fayllarni_taqsimla(qism_obyektlari, qoldiq_rasm_fayllar, "rasm")
 
     return test, None
 
