@@ -3,7 +3,19 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .models import SpeakingTekshiruv, WritingTekshiruv
-from .providers import ProviderXatosi, provider_tanla
+from .providers import GEMINI_MODEL_TANLOVLARI, ProviderXatosi, gemini_provider_ol, provider_tanla
+
+
+def _tanlangan_providerlar(request):
+    """Frontend `model` maydoni bo'yicha bitta yoki ikkita (modelKaliti,
+    provider) juftligini qaytaradi. `model` yuborilmasa — eski xatti-harakat
+    (markaz sozlamasidagi provider) saqlanadi (orqaga moslik uchun)."""
+    model_kaliti = request.data.get("model")
+    if not model_kaliti:
+        return [(None, provider_tanla(request.user))]
+    if model_kaliti == "both":
+        return [(k, gemini_provider_ol(k)) for k in GEMINI_MODEL_TANLOVLARI]
+    return [(model_kaliti, gemini_provider_ol(model_kaliti))]
 
 
 class WritingTekshirishView(APIView):
@@ -54,27 +66,31 @@ class WritingTekshirishView(APIView):
         tur = request.data.get("tur") or "task2"
 
         try:
-            provider = provider_tanla(request.user)
-            baho = provider.writing_baholash(
-                matn, savol_matni=savol_matni, tur=tur, rasm_bytes=rasm_bytes, rasm_mime=rasm_mime
-            )
+            providerlar = _tanlangan_providerlar(request)
+            natijalar = []
+            for model_kaliti, provider in providerlar:
+                baho = provider.writing_baholash(
+                    matn, savol_matni=savol_matni, tur=tur, rasm_bytes=rasm_bytes, rasm_mime=rasm_mime
+                )
+                tekshiruv = WritingTekshiruv.objects.create(
+                    talaba=request.user,
+                    matn=matn,
+                    natija=baho["natija"],
+                    task_type=str(baho["natija"].get("task_type", "")),
+                    overall_band=baho["natija"].get("overall_band"),
+                    provider=baho["provider"],
+                    model=baho["model"],
+                    input_tokens=baho["input_tokens"],
+                    output_tokens=baho["output_tokens"],
+                )
+                natijalar.append(
+                    {"model_kaliti": model_kaliti, "id": tekshiruv.id, "natija": baho["natija"]}
+                )
         except ProviderXatosi as e:
             return Response({"detail": str(e)}, status=502)
 
-        natija = baho["natija"]
-        tekshiruv = WritingTekshiruv.objects.create(
-            talaba=request.user,
-            matn=matn,
-            natija=natija,
-            task_type=str(natija.get("task_type", "")),
-            overall_band=natija.get("overall_band"),
-            provider=baho["provider"],
-            model=baho["model"],
-            input_tokens=baho["input_tokens"],
-            output_tokens=baho["output_tokens"],
-        )
-
-        # B9: aktiv paket bo'lsa, undan 1 ta Writing yechiladi.
+        # B9: aktiv paket bo'lsa, undan 1 ta Writing yechiladi (nechta model
+        # tanlangan bo'lishidan qat'iy nazar — bitta foydalanuvchi harakati).
         # Paket bo'lmasa — alohida to'lov (narx: config/narxlar.WRITING_TEZKOR,
         # to'lov tizimi 2-fazada).
         from packages.models import paketdan_ishlat
@@ -82,8 +98,7 @@ class WritingTekshirishView(APIView):
         paket = paketdan_ishlat(request.user, "w")
         return Response(
             {
-                "id": tekshiruv.id,
-                "natija": natija,
+                "natijalar": natijalar,
                 "paketdan": paket is not None,
                 "paket_w_qolgan": paket.w_qolgan if paket else None,
             }
@@ -113,33 +128,36 @@ class SpeakingMatnView(APIView):
         tur = request.data.get("tur") or "part1"
 
         try:
-            provider = provider_tanla(request.user)
-            baho = provider.speaking_matn_baholash(matn, savol_matni=savol_matni, tur=tur)
+            providerlar = _tanlangan_providerlar(request)
+            natijalar = []
+            for model_kaliti, provider in providerlar:
+                baho = provider.speaking_matn_baholash(matn, savol_matni=savol_matni, tur=tur)
+                tekshiruv = SpeakingTekshiruv.objects.create(
+                    talaba=request.user,
+                    rejim=SpeakingTekshiruv.Rejim.MATN,
+                    matn=matn,
+                    natija=baho["natija"],
+                    part_type=str(baho["natija"].get("part_type", "")),
+                    overall_band=baho["natija"].get("overall_band_no_pronunciation"),
+                    provider=baho["provider"],
+                    model=baho["model"],
+                    input_tokens=baho["input_tokens"],
+                    output_tokens=baho["output_tokens"],
+                )
+                natijalar.append(
+                    {"model_kaliti": model_kaliti, "id": tekshiruv.id, "natija": baho["natija"]}
+                )
         except ProviderXatosi as e:
             return Response({"detail": str(e)}, status=502)
 
-        natija = baho["natija"]
-        tekshiruv = SpeakingTekshiruv.objects.create(
-            talaba=request.user,
-            rejim=SpeakingTekshiruv.Rejim.MATN,
-            matn=matn,
-            natija=natija,
-            part_type=str(natija.get("part_type", "")),
-            overall_band=natija.get("overall_band_no_pronunciation"),
-            provider=baho["provider"],
-            model=baho["model"],
-            input_tokens=baho["input_tokens"],
-            output_tokens=baho["output_tokens"],
-        )
-
-        # B9: aktiv paket bo'lsa, undan 1 ta Speaking yechiladi
+        # B9: aktiv paket bo'lsa, undan 1 ta Speaking yechiladi (nechta model
+        # tanlangan bo'lishidan qat'iy nazar — bitta foydalanuvchi harakati).
         from packages.models import paketdan_ishlat
 
         paket = paketdan_ishlat(request.user, "s")
         return Response(
             {
-                "id": tekshiruv.id,
-                "natija": natija,
+                "natijalar": natijalar,
                 "paketdan": paket is not None,
                 "paket_s_qolgan": paket.s_qolgan if paket else None,
             }

@@ -267,6 +267,27 @@ class GeminiProvider:
         return self._generate(SPEAKING_SYSTEM_PROMPT, kontent)
 
 
+GEMINI_MODEL_TANLOVLARI = {
+    "gemma": GEMMA_MODEL,
+    "flash_lite": GEMINI_ZAXIRA_MODEL,
+}
+
+
+def gemini_provider_ol(model_kaliti):
+    """Writing/Speaking tekshiruv ekranida foydalanuvchi aniq tanlagan Gemini
+    modeli ("gemma" yoki "flash_lite") uchun provider qaytaradi — 2026-07-24,
+    modelni solishtirish uchun UI'da ikkita tugma (+ "ikkalasida ham
+    tekshirish") qo'shilganda kiritildi. `provider_tanla()`dagi markaz
+    darajasidagi Claude/Gemini tanlovidan mustaqil ishlaydi."""
+    model = GEMINI_MODEL_TANLOVLARI.get(model_kaliti)
+    if not model:
+        raise ProviderXatosi(f"Noto'g'ri model tanlovi: {model_kaliti}")
+    kalit = getattr(settings, "GEMINI_API_KEY", "")
+    if not kalit:
+        raise ProviderXatosi("Platforma GEMINI_API_KEY sozlanmagan (.env)")
+    return GeminiProvider(kalit, model=model)
+
+
 class ClaudeProvider:
     name = "claude"
 

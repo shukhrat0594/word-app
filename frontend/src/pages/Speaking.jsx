@@ -7,6 +7,12 @@ import { xatoniAjrat } from "../xatoUtils";
 
 const PART_NOMI = { part1: "Part 1", part2: "Part 2", part3: "Part 3" };
 
+const MODEL_TUGMALAR = [
+  { kalit: "gemma", nomi: "Gemma 4 26B" },
+  { kalit: "flash_lite", nomi: "Gemini 3.1 Flash Lite" },
+  { kalit: "both", nomi: "Ikkalasida ham tekshirish" },
+];
+
 export function Natija({ natija }) {
   const { t } = useI18n();
   const mezonlar = [
@@ -83,7 +89,7 @@ function HaqiqiyMashq() {
   const [mashq, setMashq] = useState(null);
   const [korsatilganMatn, setKorsatilganMatn] = useState("");
   const [matn, setMatn] = useState("");
-  const [natija, setNatija] = useState(null);
+  const [natijalar, setNatijalar] = useState(null);
   const [xato, setXato] = useState("");
   const [yuklanmoqda, setYuklanmoqda] = useState(false);
   const [tarix, setTarix] = useState([]);
@@ -94,23 +100,23 @@ function HaqiqiyMashq() {
 
   useEffect(() => {
     setMashq(null);
-    setNatija(null);
+    setNatijalar(null);
     setRoyxat(null);
     api(`/api/mashqlar/?bolim=speaking&tur=${tur}`).then(setRoyxat).catch(() => {});
   }, [tur]);
 
   useEffect(() => {
     function chiqishdanOldin(e) {
-      if (!mashq || natija) return;
+      if (!mashq || natijalar) return;
       e.preventDefault();
       e.returnValue = "";
     }
     window.addEventListener("beforeunload", chiqishdanOldin);
     return () => window.removeEventListener("beforeunload", chiqishdanOldin);
-  }, [mashq, natija]);
+  }, [mashq, natijalar]);
 
   function ortgaQaytish() {
-    if (!natija && !window.confirm(t("imtihon_ortga_tasdiq"))) return;
+    if (!natijalar && !window.confirm(t("imtihon_ortga_tasdiq"))) return;
     setMashq(null);
   }
 
@@ -119,13 +125,13 @@ function HaqiqiyMashq() {
     setMashq(m);
     setKorsatilganMatn(haqiqiyMatnniOl(m.matn || ""));
     setMatn("");
-    setNatija(null);
+    setNatijalar(null);
     setXato("");
   }
 
   const sozSoni = matn.trim() ? matn.trim().split(/\s+/).length : 0;
 
-  async function tekshir() {
+  async function tekshir(modelKaliti) {
     setXato("");
     if (sozSoni < 20) {
       setXato(t("matn_qisqa"));
@@ -134,9 +140,9 @@ function HaqiqiyMashq() {
     if (!window.confirm(t("imtihon_yakunlash_tasdiq"))) return;
     setYuklanmoqda(true);
     try {
-      const body = { matn, savol_matni: mashq.matn, tur: mashq.tur };
+      const body = { matn, savol_matni: mashq.matn, tur: mashq.tur, model: modelKaliti };
       const res = await api("/api/speaking/matn/", { method: "POST", body });
-      setNatija(res.natija);
+      setNatijalar(res.natijalar);
       api("/api/speaking/tarix/").then(setTarix).catch(() => {});
     } catch (e) {
       setXato(e.data?.detail || t("xato_yuz_berdi"));
@@ -145,7 +151,7 @@ function HaqiqiyMashq() {
     }
   }
 
-  if (natija) {
+  if (natijalar) {
     return (
       <>
         {korsatilganMatn && (
@@ -161,7 +167,7 @@ function HaqiqiyMashq() {
           <button
             className="tugma ikkinchi"
             onClick={() => {
-              setNatija(null);
+              setNatijalar(null);
               setMashq(null);
               setMatn("");
             }}
@@ -169,7 +175,18 @@ function HaqiqiyMashq() {
             {t("yangi_tekshiruv")}
           </button>
         </div>
-        <Natija natija={natija} />
+        <div style={natijalar.length > 1 ? { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 } : undefined}>
+          {natijalar.map((n, i) => (
+            <div key={i}>
+              {n.model_kaliti && (
+                <div className="izoh" style={{ marginBottom: 8, fontWeight: 600 }}>
+                  {MODEL_TUGMALAR.find((m) => m.kalit === n.model_kaliti)?.nomi || n.model_kaliti}
+                </div>
+              )}
+              <Natija natija={n.natija} />
+            </div>
+          ))}
+        </div>
       </>
     );
   }
@@ -201,14 +218,25 @@ function HaqiqiyMashq() {
               justifyContent: "space-between",
               alignItems: "center",
               marginTop: 12,
+              flexWrap: "wrap",
+              gap: 8,
             }}
           >
             <span className="izoh">
               {sozSoni} {t("soz")}
             </span>
-            <button className="tugma katta" onClick={tekshir} disabled={yuklanmoqda}>
-              {yuklanmoqda ? t("tekshirilmoqda") : t("tekshirish")}
-            </button>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {MODEL_TUGMALAR.map((mt) => (
+                <button
+                  key={mt.kalit}
+                  className="tugma katta"
+                  onClick={() => tekshir(mt.kalit)}
+                  disabled={yuklanmoqda}
+                >
+                  {yuklanmoqda ? t("tekshirilmoqda") : mt.nomi}
+                </button>
+              ))}
+            </div>
           </div>
           {xato && <div className="xato-xabar" style={{ marginTop: 10 }}>{xato}</div>}
         </div>
@@ -239,7 +267,7 @@ function HaqiqiyMashq() {
         <div className="karta" style={{ marginTop: 18 }}>
           <h3>{t("tarix")}</h3>
           {tarix.map((tk) => (
-            <div className="tarix-el" key={tk.id} onClick={() => setNatija(tk.natija)}>
+            <div className="tarix-el" key={tk.id} onClick={() => setNatijalar([{ natija: tk.natija }])}>
               <span>
                 {PART_NOMI[tk.part_type] || tk.part_type || "—"} ·{" "}
                 {new Date(tk.created_at).toLocaleDateString()}
