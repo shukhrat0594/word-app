@@ -334,14 +334,13 @@ export default function ImtihonOtish({ bolim }) {
         <button className="tugma ikkinchi" onClick={() => setFokus((v) => !v)}>
           {fokus ? t("fokusdan_chiqish") : t("fokus_rejimi")}
         </button>
+        <span style={{ fontWeight: 700, fontSize: 15 }}>{test.name}</span>
         <div className="imtihon-zoom">
           <button onClick={() => setMasshtab((m) => Math.max(80, m - 10))}>-</button>
           <span className="izoh">{masshtab}%</span>
           <button onClick={() => setMasshtab((m) => Math.min(140, m + 10))}>+</button>
         </div>
       </div>
-
-      <h3 style={{ marginBottom: fokus ? 4 : 10 }}>{test.name}</h3>
 
       {(() => {
         const savollarBlok = bloklarGaAjrat(faol.qism.savollar, faol.boshIdx).map((blok, bi) =>
