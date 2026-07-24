@@ -59,13 +59,15 @@ function matnniBoslarGaAjrat(matn, javoblar, javobniQoy, natija) {
     const idx = parseInt(mos[1], 10) - 1;
     const holat = natija ? (natija.natijalar[idx] ? "togri" : "notogri") : "";
     return (
-      <input
-        key={i}
-        className={`imtihon-inline-input ${holat}`}
-        disabled={!!natija}
-        value={javoblar[idx] || ""}
-        onChange={(e) => javobniQoy(idx, e.target.value)}
-      />
+      <span key={i} className="imtihon-inline-juft">
+        <span className="imtihon-inline-raqam">{idx + 1}</span>
+        <input
+          className={`imtihon-inline-input ${holat}`}
+          disabled={!!natija}
+          value={javoblar[idx] || ""}
+          onChange={(e) => javobniQoy(idx, e.target.value)}
+        />
+      </span>
     );
   });
 }
@@ -115,6 +117,17 @@ function MaxsusFormatBloki({ format, javoblar, javobniQoy, natija }) {
     );
   }
 
+  if (format.tur === "matn") {
+    return (
+      <div className="imtihon-maxsus-matn-wrap">
+        {format.sarlavha && <div className="imtihon-jadval-sarlavha">{format.sarlavha}</div>}
+        <div className="imtihon-maxsus-matn">
+          {matnniBoslarGaAjrat(format.matn, javoblar, javobniQoy, natija)}
+        </div>
+      </div>
+    );
+  }
+
   return null;
 }
 
@@ -124,7 +137,12 @@ function MaxsusFormatBloki({ format, javoblar, javobniQoy, natija }) {
 function maxsusFormatIdxlari(format) {
   const idxlar = new Set();
   if (!format) return idxlar;
-  const matnlar = format.tur === "jadval" ? format.qatorlar.flat() : format.qadamlar || [];
+  const matnlar =
+    format.tur === "jadval"
+      ? format.qatorlar.flat()
+      : format.tur === "oqim"
+        ? format.qadamlar || []
+        : [format.matn || ""];
   matnlar.forEach((m) => {
     for (const mos of String(m).matchAll(/\{\{(\d+)\}\}/g)) {
       idxlar.add(parseInt(mos[1], 10) - 1);
@@ -233,7 +251,7 @@ function OddiySavolBloki({ blok, javoblar, javobniQoy, natija, t }) {
           </span>
         )}
       </div>
-      {s.variantlar && s.variantlar.length > 0 ? (
+      {s.variantlar && s.variantlar.length > 0 && s.tur !== "map_labelling" ? (
         s.variantlar.map((v) => (
           <label className="variant-qator" key={v}>
             <input
@@ -476,34 +494,56 @@ export default function ImtihonOtish({ bolim }) {
         // orqali ishlatilgan savollar ham oddiy ro'yxatda takror chiqmasin.
         const maxsusIdxlar = maxsusFormatIdxlari(faol.qism.maxsus_format);
         const yashirilganIdxlar = new Set([...pozitsiyaliIdxlar, ...maxsusIdxlar]);
-        const savollarBlok = bloklarGaAjrat(faol.qism.savollar, faol.boshIdx)
+        const boshqaBloklar = bloklarGaAjrat(faol.qism.savollar, faol.boshIdx)
           .filter((blok) => {
             if (blok.tur === "oddiy") return !yashirilganIdxlar.has(blok.idx);
             // "bank" bloki — ichidagi BARCHA savollar maxsus_format/pozitsiya
             // orqali allaqachon ko'rsatilgan bo'lsa, ro'yxatda takror chiqmasin.
             return !blok.savollar.every((_, k) => yashirilganIdxlar.has(blok.boshIdx + k));
           })
-          .map((blok, bi) =>
-          blok.tur === "bank" ? (
-            <SozBankiBloki
-              key={bi}
-              blok={blok}
-              javoblar={javoblar}
-              javobniQoy={javobniQoy}
-              natija={natija}
-              t={t}
-            />
-          ) : (
-            <OddiySavolBloki
-              key={bi}
-              blok={blok}
-              javoblar={javoblar}
-              javobniQoy={javobniQoy}
-              natija={natija}
-              t={t}
-            />
-          )
-        );
+          .map((blok, bi) => ({
+            kalit: blok.tur === "oddiy" ? blok.idx : blok.boshIdx,
+            tugun:
+              blok.tur === "bank" ? (
+                <SozBankiBloki
+                  key={`b${bi}`}
+                  blok={blok}
+                  javoblar={javoblar}
+                  javobniQoy={javobniQoy}
+                  natija={natija}
+                  t={t}
+                />
+              ) : (
+                <OddiySavolBloki
+                  key={`o${bi}`}
+                  blok={blok}
+                  javoblar={javoblar}
+                  javobniQoy={javobniQoy}
+                  natija={natija}
+                  t={t}
+                />
+              ),
+          }));
+        // maxsus_format (jadval/oqim/matn) o'z savol raqamiga qarab, boshqa
+        // bloklar orasida TO'G'RI o'rinda chiqishi uchun bitta ro'yxatga
+        // birlashtirilib, savol raqami bo'yicha saralanadi (2026-07-24) —
+        // aks holda masalan 26-30 (jadval) har doim 21-25 (oddiy)dan oldin
+        // chiqib qolardi.
+        if (faol.qism.maxsus_format && maxsusIdxlar.size > 0) {
+          boshqaBloklar.push({
+            kalit: Math.min(...maxsusIdxlar),
+            tugun: (
+              <MaxsusFormatBloki
+                key="maxsus"
+                format={faol.qism.maxsus_format}
+                javoblar={javoblar}
+                javobniQoy={javobniQoy}
+                natija={natija}
+              />
+            ),
+          });
+        }
+        const savollarBlok = boshqaBloklar.sort((a, b) => a.kalit - b.kalit).map((x) => x.tugun);
 
         // Listening: audio doim yuqorida, to'liq kenglikda. Rasm (Map/
         // Diagram Labelling) bo'lsa — pastda split (rasm chap, savollar
@@ -526,14 +566,6 @@ export default function ImtihonOtish({ bolim }) {
                 />
               ) : (
                 <span className="izoh">{t("audio_yuklanmoqda")}</span>
-              )}
-              {faol.qism.maxsus_format && (
-                <MaxsusFormatBloki
-                  format={faol.qism.maxsus_format}
-                  javoblar={javoblar}
-                  javobniQoy={javobniQoy}
-                  natija={natija}
-                />
               )}
               {rasmBormi && !ongPanelKerak ? (
                 <RasmSavollari
@@ -585,14 +617,6 @@ export default function ImtihonOtish({ bolim }) {
             <div className="imtihon-qism-sarlavha">{faol.qism.sarlavha}</div>
             {faol.qism.yoriqnoma && <div className="imtihon-yoriqnoma">{faol.qism.yoriqnoma}</div>}
             {faol.qism.matn && <div className="mashq-passage">{faol.qism.matn}</div>}
-            {faol.qism.maxsus_format && (
-              <MaxsusFormatBloki
-                format={faol.qism.maxsus_format}
-                javoblar={javoblar}
-                javobniQoy={javobniQoy}
-                natija={natija}
-              />
-            )}
             {rasmUrllar[faol.qism.id] && (
               <div style={{ marginTop: 10 }}>
                 <RasmSavollari

@@ -50,7 +50,8 @@ Qoidalar:
   - Flow-chart uchun: {"tur": "oqim", "sarlavha": "SXEMA NOMI", "qadamlar": ["1-qadam matni {{26}} bilan", "2-qadam matni {{27}} bilan", ...]} — har bir qadam alohida quti bo'lib, orasida o'q chiziladi
   - {{n}} — o'sha bo'sh joyning testdagi UMUMIY (butun test bo'yicha uzluksiz, "tartib"lar hisobga olingan holda) savol raqami, masalan 26-savol uchun {{26}} — bu raqam "savollar" massividagi mos savolning ORDER'iga aynan mos kelishi SHART
   - Bu holatda ham "savollar" massivini ODATDAGIDEK, HAR BIR bo'sh joy uchun alohida yozing (tur="fill_blanks" yoki mos tur, "togri" bilan) — "maxsus_format" faqat KO'RINISH uchun, javob tekshirish baribir "savollar"dan olinadi, ikkalasi bir-biriga zid bo'lmasligi kerak (bir xil son va tartibda)
-  - Oddiy (jadval/sxema shakli bo'lmagan, faqat uzluksiz matn+bo'sh joy) Note Completion uchun bu shart emas — faqat yuqoridagi "So'z banki" qoidasi yoki oddiy fill_blanks yetarli
+  - Oddiy (jadval/sxema shakli bo'lmagan, faqat uzluksiz matn+bo'sh joy) Note/Summary Completion uchun ("So'z banki" qoidasiga to'g'ri kelmasa, ya'ni umumiy variantlar banki YO'Q bo'lsa) — {"tur": "matn", "sarlavha": "SARLAVHA (ixtiyoriy)", "matn": "to'liq matn, bo'sh joylar {{31}} kabi, qatorlar orasida \\n, ro'yxat/bullet uchun matn boshida \"- \""} — bu ham asl kitobdagi ko'rinishni saqlaydi va HAR BIR bo'sh joy raqamlanadi
+- map_labelling turida "variantlar" (A-I harflar) yozsangiz ham, frontend ularni tanlov (radio) sifatida EMAS, oddiy qisqa matn input sifatida ko'rsatadi (asl kitobda ham talaba faqat bitta harf yozadi) — shuning uchun "variantlar" majburiy emas, xohlasangiz hujjatlashtirish uchun qoldirishingiz mumkin
 
 Natijani shu JSON obyekt ko'rinishida qaytar, boshqa hech narsa yozma. Quyida test materiali:
 
