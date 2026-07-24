@@ -83,6 +83,10 @@ class KursMashq(models.Model):
         upload_to="kurslar/mashq_rasm/", blank=True,
         help_text="Masalan darslikdagi rasmli savol (nechta narsa bor va h.k.)",
     )
+    audio = models.FileField(
+        upload_to="kurslar/mashq_audio/", blank=True,
+        help_text="Darslikdagi audio (masalan Listening bo'limi uchun)",
+    )
     savollar = models.JSONField(
         default=list,
         help_text='[{"savol": "...", "variantlar": [...] (ixtiyoriy), "togri": "..."}]',

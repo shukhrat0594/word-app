@@ -103,6 +103,35 @@ function SozBankiBloki({ blok, javoblar, javobniQoy, natija, t }) {
   );
 }
 
+// Rasm ustiga to'g'ridan-to'g'ri joylashtiriladigan savollar (Map/Diagram
+// Labelling, jadval ichidagi bo'sh joy va h.k.) — savolda "pozitsiya":
+// {"x": 0-100, "y": 0-100} (rasm eni/bo'yiga nisbatan foiz) bo'lsa, o'ng
+// paneldagi umumiy ro'yxatda emas, aynan shu nuqtada kichik input sifatida
+// ko'rsatiladi (2026-07-24).
+function RasmSavollari({ rasmUrl, sarlavha, savollar, boshIdx, javoblar, javobniQoy, natija }) {
+  return (
+    <div style={{ position: "relative", display: "inline-block", maxWidth: "100%" }}>
+      <img src={rasmUrl} alt={sarlavha} style={{ maxWidth: "100%", display: "block" }} />
+      {savollar.map((s, k) => {
+        if (!s.pozitsiya) return null;
+        const i = boshIdx + k;
+        const holat = natija ? (natija.natijalar[i] ? "togri" : "notogri") : "";
+        return (
+          <input
+            key={i}
+            className={`imtihon-rasm-input ${holat}`}
+            style={{ left: `${s.pozitsiya.x}%`, top: `${s.pozitsiya.y}%` }}
+            disabled={!!natija}
+            value={javoblar[i] || ""}
+            onChange={(e) => javobniQoy(i, e.target.value)}
+            placeholder={`${i + 1}`}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
 function OddiySavolBloki({ blok, javoblar, javobniQoy, natija, t }) {
   const { savol: s, idx: i } = blok;
   return (
@@ -343,7 +372,21 @@ export default function ImtihonOtish({ bolim }) {
       </div>
 
       {(() => {
-        const savollarBlok = bloklarGaAjrat(faol.qism.savollar, faol.boshIdx).map((blok, bi) =>
+        // "pozitsiya" faqat shu qismga rasm biriktirilgan bo'lsagina
+        // ma'noga ega — rasm bo'lmasa (masalan JSON'ni AI rasmni ko'rmasdan
+        // yozib, "pozitsiya"ni xato qo'shib qo'ysa) savol ro'yxatdan yashirin
+        // qolib, hech qayerda ko'rinmay qolmasligi uchun bu holatda pozitsiya
+        // e'tiborga olinmaydi (oddiy ro'yxatda ko'rsatiladi).
+        const rasmMavjud = !!rasmUrllar[faol.qism.id];
+        const pozitsiyaliIdxlar = new Set();
+        if (rasmMavjud) {
+          faol.qism.savollar.forEach((s, k) => {
+            if (s.pozitsiya) pozitsiyaliIdxlar.add(faol.boshIdx + k);
+          });
+        }
+        const savollarBlok = bloklarGaAjrat(faol.qism.savollar, faol.boshIdx)
+          .filter((blok) => !(blok.tur === "oddiy" && pozitsiyaliIdxlar.has(blok.idx)))
+          .map((blok, bi) =>
           blok.tur === "bank" ? (
             <SozBankiBloki
               key={bi}
@@ -368,8 +411,12 @@ export default function ImtihonOtish({ bolim }) {
         // Listening: audio doim yuqorida, to'liq kenglikda. Rasm (Map/
         // Diagram Labelling) bo'lsa — pastda split (rasm chap, savollar
         // o'ng), bo'lmasa — bitta to'liq kenglikdagi panel (split yo'q).
+        // Barcha savollar rasmga joylashtirilgan bo'lsa (pozitsiya bilan) —
+        // o'ng panel bo'sh qolib ketmasin deb, split umuman ko'rsatilmaydi,
+        // rasm to'liq kenglikda chiqadi (2026-07-24).
         if (bolim === "listening") {
           const rasmBormi = !!rasmUrllar[faol.qism.id];
+          const ongPanelKerak = savollarBlok.length > 0;
           return (
             <>
               <div className="imtihon-qism-sarlavha">{faol.qism.sarlavha}</div>
@@ -383,13 +430,27 @@ export default function ImtihonOtish({ bolim }) {
               ) : (
                 <span className="izoh">{t("audio_yuklanmoqda")}</span>
               )}
-              {rasmBormi ? (
+              {rasmBormi && !ongPanelKerak ? (
+                <RasmSavollari
+                  rasmUrl={rasmUrllar[faol.qism.id]}
+                  sarlavha={faol.qism.sarlavha}
+                  savollar={faol.qism.savollar}
+                  boshIdx={faol.boshIdx}
+                  javoblar={javoblar}
+                  javobniQoy={javobniQoy}
+                  natija={natija}
+                />
+              ) : rasmBormi ? (
                 <div className="imtihon-split" ref={splitRef}>
                   <div className="imtihon-panel-chap" style={{ flexBasis: `${chapKenglik}%` }}>
-                    <img
-                      src={rasmUrllar[faol.qism.id]}
-                      alt={faol.qism.sarlavha}
-                      style={{ maxWidth: "100%" }}
+                    <RasmSavollari
+                      rasmUrl={rasmUrllar[faol.qism.id]}
+                      sarlavha={faol.qism.sarlavha}
+                      savollar={faol.qism.savollar}
+                      boshIdx={faol.boshIdx}
+                      javoblar={javoblar}
+                      javobniQoy={javobniQoy}
+                      natija={natija}
                     />
                   </div>
                   <div
@@ -411,20 +472,38 @@ export default function ImtihonOtish({ bolim }) {
           );
         }
 
-        // Reading — o'zgarishsiz: chapda passage matni, o'ngda savollar.
+        // Reading — chapda passage matni, o'ngda savollar. Barcha savollar
+        // rasmga joylashtirilgan bo'lsa (pozitsiya bilan) va matn bo'lmasa —
+        // o'ng panel bo'sh qolmasin deb split ko'rsatilmaydi (2026-07-24).
+        const chapKontent = (
+          <>
+            <div className="imtihon-qism-sarlavha">{faol.qism.sarlavha}</div>
+            {faol.qism.yoriqnoma && <div className="imtihon-yoriqnoma">{faol.qism.yoriqnoma}</div>}
+            {faol.qism.matn && <div className="mashq-passage">{faol.qism.matn}</div>}
+            {rasmUrllar[faol.qism.id] && (
+              <div style={{ marginTop: 10 }}>
+                <RasmSavollari
+                  rasmUrl={rasmUrllar[faol.qism.id]}
+                  sarlavha={faol.qism.sarlavha}
+                  savollar={faol.qism.savollar}
+                  boshIdx={faol.boshIdx}
+                  javoblar={javoblar}
+                  javobniQoy={javobniQoy}
+                  natija={natija}
+                />
+              </div>
+            )}
+          </>
+        );
+
+        if (savollarBlok.length === 0) {
+          return <div>{chapKontent}</div>;
+        }
+
         return (
           <div className="imtihon-split" ref={splitRef}>
             <div className="imtihon-panel-chap" style={{ flexBasis: `${chapKenglik}%` }}>
-              <div className="imtihon-qism-sarlavha">{faol.qism.sarlavha}</div>
-              {faol.qism.yoriqnoma && <div className="imtihon-yoriqnoma">{faol.qism.yoriqnoma}</div>}
-              {faol.qism.matn && <div className="mashq-passage">{faol.qism.matn}</div>}
-              {rasmUrllar[faol.qism.id] && (
-                <img
-                  src={rasmUrllar[faol.qism.id]}
-                  alt={faol.qism.sarlavha}
-                  style={{ maxWidth: "100%", marginTop: 10 }}
-                />
-              )}
+              {chapKontent}
             </div>
             <div
               className="imtihon-drag-tutqich"

@@ -9,6 +9,7 @@ function TalabaMashqi({ mashq }) {
   const [javoblar, setJavoblar] = useState(mashq.savollar.map(() => ""));
   const [natija, setNatija] = useState(null);
   const [rasmUrl, setRasmUrl] = useState(null);
+  const [audioUrl, setAudioUrl] = useState(null);
   const [yuklanmoqda, setYuklanmoqda] = useState(false);
   const [xato, setXato] = useState("");
 
@@ -17,6 +18,12 @@ function TalabaMashqi({ mashq }) {
       apiBlobUrl(mashq.rasm_url).then(setRasmUrl).catch(() => {});
     }
   }, [mashq.rasm_url]);
+
+  useEffect(() => {
+    if (mashq.audio_url) {
+      apiBlobUrl(mashq.audio_url).then(setAudioUrl).catch(() => {});
+    }
+  }, [mashq.audio_url]);
 
   async function tekshir() {
     setXato("");
@@ -38,6 +45,7 @@ function TalabaMashqi({ mashq }) {
     <div style={{ border: "1px solid var(--chiziq)", borderRadius: 8, padding: 10, marginBottom: 8 }}>
       {mashq.matn && <div style={{ marginBottom: 8 }}>{mashq.matn}</div>}
       {rasmUrl && <img src={rasmUrl} alt="" style={{ maxWidth: "100%", marginBottom: 8 }} />}
+      {audioUrl && <audio controls src={audioUrl} style={{ width: "100%", marginBottom: 8 }} />}
       {mashq.savollar.map((s, i) => (
         <div key={i} style={{ marginBottom: 6 }}>
           <div className="izoh">{s.savol}</div>
@@ -91,6 +99,8 @@ function AdminMashqBoshqaruv({ tugunId }) {
   const [jsonMatn, setJsonMatn] = useState('[\n  {"matn": "", "savollar": [{"savol": "...", "togri": "..."}]}\n]');
   const [xato, setXato] = useState("");
   const [saqlanmoqda, setSaqlanmoqda] = useState(false);
+  const [audioZipXato, setAudioZipXato] = useState("");
+  const [audioZipYuklanmoqda, setAudioZipYuklanmoqda] = useState(false);
 
   function yukla() {
     api(`/api/kurslar/${tugunId}/mashq-boshqaruv/`).then(setRoyxat).catch(() => {});
@@ -137,6 +147,24 @@ function AdminMashqBoshqaruv({ tugunId }) {
     yukla();
   }
 
+  async function audioZipYukla(e) {
+    const fayl = e.target.files[0];
+    e.target.value = "";
+    if (!fayl) return;
+    setAudioZipXato("");
+    setAudioZipYuklanmoqda(true);
+    try {
+      const fd = new FormData();
+      fd.append("zip_fayl", fayl);
+      await apiForm(`/api/kurslar/${tugunId}/audio-zip/`, { method: "POST", formData: fd });
+      yukla();
+    } catch (e2) {
+      setAudioZipXato(e2.data?.detail || t("xato_yuz_berdi"));
+    } finally {
+      setAudioZipYuklanmoqda(false);
+    }
+  }
+
   return (
     <div>
       {royxat && royxat.length > 0 && (
@@ -146,6 +174,7 @@ function AdminMashqBoshqaruv({ tugunId }) {
               <span className="izoh">
                 #{m.tartib} — {m.matn ? m.matn.slice(0, 40) : ""} ({m.savollar.length} {t("kurs_savol")})
                 {m.rasm_url ? " 🖼️" : ""}
+                {m.audio_url ? " 🔊" : ""}
               </span>
               <input type="file" accept="image/*" onChange={(e) => rasmYukla(m.id, e)} style={{ maxWidth: 140 }} />
               <button className="tugma ikkinchi" style={{ color: "#d33" }} onClick={() => ochir(m.id)}>
@@ -153,6 +182,15 @@ function AdminMashqBoshqaruv({ tugunId }) {
               </button>
             </div>
           ))}
+        </div>
+      )}
+      {royxat && royxat.length > 0 && (
+        <div style={{ marginBottom: 10 }}>
+          <label className="izoh" style={{ display: "block", marginBottom: 4 }}>
+            {t("kurs_audio_zip_yuklash")}
+          </label>
+          <input type="file" accept=".zip" onChange={audioZipYukla} disabled={audioZipYuklanmoqda} />
+          {audioZipXato && <span className="xato-xabar" style={{ marginLeft: 8 }}>{audioZipXato}</span>}
         </div>
       )}
       <textarea

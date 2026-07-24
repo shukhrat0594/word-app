@@ -25,7 +25,8 @@ Format:
           "tur": "quyidagi ro'yxatdan",
           "variantlar": ["variant1", "variant2"],
           "togri": "To'g'ri javob",
-          "guruh_boshi": "Questions 1-7" (ixtiyoriy, savollar guruhi boshida sarlavha ko'rsatish uchun, faqat guruhning birinchi savolida yoz, qolganida bo'sh qoldir)
+          "guruh_boshi": "Questions 1-7" (ixtiyoriy, savollar guruhi boshida sarlavha ko'rsatish uchun, faqat guruhning birinchi savolida yoz, qolganida bo'sh qoldir),
+          "pozitsiya": {"x": 0-100, "y": 0-100} (ixtiyoriy — FAQAT sizga shu qismning rasmi (Map/Diagram Labelling yoki jadval rasmi) ilova qilingan bo'lsa va shu savolning bo'sh joyi/labeli rasmda aniq ko'rinib tursa qo'sh: rasmning chap-yuqori burchagidan boshlab, bo'sh joy/label markazining rasm eniga nisbatan foizini "x", bo'yiga nisbatan foizini "y" qilib yoz. Rasm berilmagan yoki savol matn ichida bo'lsa (rasmga bog'liq bo'lmagan) — bu maydonni umuman yozma.
         }
       ]
     }
@@ -42,6 +43,7 @@ Qoidalar:
 - "tartib" — qismning testdagi tartib raqami (1,2,3,4...), butun testda uzluksiz savol raqamlash shu tartib bo'yicha hisoblanadi
 - Har bir qismdagi savollar soni real testdagi kabi bo'lsin (masalan Reading har passage uchun ~13-14 ta, Listening har part uchun ~10 ta)
 - "korinish": aniq ko'rsatilmagan bo'lsa "private" qo'y
+- Agar sizga Map/Diagram Labelling yoki jadval-rasm biriktirilgan bo'lsa — shu rasmga tegishli har bir savolga "pozitsiya" qo'shing (yuqoridagi formatga qarang), shunda talaba javobni rasmning aynan o'sha nuqtasida yoza oladi
 
 Natijani shu JSON obyekt ko'rinishida qaytar, boshqa hech narsa yozma. Quyida test materiali:
 

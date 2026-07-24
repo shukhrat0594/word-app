@@ -247,6 +247,7 @@ def _kurs_mashq_admin_dict(m):
         "tartib": m.tartib,
         "matn": m.matn,
         "rasm_url": f"/api/kurslar/mashq/{m.id}/rasm/" if m.rasm else None,
+        "audio_url": f"/api/kurslar/mashq/{m.id}/audio/" if m.audio else None,
         "savollar": m.savollar,
     }
 
@@ -257,6 +258,7 @@ def _kurs_mashq_talaba_dict(m):
         "tartib": m.tartib,
         "matn": m.matn,
         "rasm_url": f"/api/kurslar/mashq/{m.id}/rasm/" if m.rasm else None,
+        "audio_url": f"/api/kurslar/mashq/{m.id}/audio/" if m.audio else None,
         "savollar": [{k: v for k, v in s.items() if k != "togri"} for s in m.savollar],
     }
 
@@ -346,6 +348,25 @@ class KursMashqRasmBoshqaruvView(APIView):
         return Response(_kurs_mashq_admin_dict(mashq))
 
 
+class KursMashqAudioBoshqaruvView(APIView):
+    """Admin/owner uchun — bitta mashqqa audio biriktirish (yakka fayl,
+    ZIP orqali guruh biriktirish shart bo'lmagan holatlar uchun)."""
+
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def patch(self, request, pk):
+        if not _mashq_admin_mi(request.user):
+            return Response({"detail": "Faqat admin/owner uchun"}, status=403)
+        mashq = get_object_or_404(KursMashq, pk=pk)
+        audio = request.FILES.get("audio")
+        if not audio:
+            return Response({"detail": "audio majburiy"}, status=400)
+        mashq.audio = audio
+        mashq.save()
+        return Response(_kurs_mashq_admin_dict(mashq))
+
+
 class KursMashqRasmView(APIView):
     """Mashq rasmi — autentifikatsiyalangan stream (B3.2 qoidasiga mos)."""
 
@@ -364,6 +385,84 @@ class KursMashqRasmView(APIView):
         javob = FileResponse(mashq.rasm.open("rb"))
         javob["Content-Disposition"] = "inline"
         return javob
+
+
+class KursMashqAudioView(APIView):
+    """Mashq audiosi — autentifikatsiyalangan stream (B3.2 qoidasiga mos)."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        from django.http import FileResponse, Http404
+
+        if not _kurslar_korinadimi(request.user):
+            return Response({"detail": "Ruxsat yo'q"}, status=403)
+        mashq = get_object_or_404(KursMashq, pk=pk)
+        if _talaba_tugun_qulflanganmi(request.user, mashq.tugun):
+            return Response({"detail": "Bu qism hali qulflangan"}, status=403)
+        if not mashq.audio:
+            raise Http404
+        javob = FileResponse(mashq.audio.open("rb"))
+        javob["Content-Disposition"] = "inline"
+        return javob
+
+
+class KursMashqAudioZipBoshqaruvView(APIView):
+    """Admin/owner uchun — bitta tugunning mashqlariga ZIP arxiv orqali
+    audio fayllarni birdaniga biriktirish (IELTS Listening ZIP yuklashdagi
+    bilan bir xil moslashtirish mantig'i — `_fayllarni_taqsimla`: fayl
+    nomidagi raqam mashqning "tartib"i bilan solishtiriladi, mos kelmasa
+    tabiiy tartibda ketma-ket biriktiriladi). Faqat audiosi hali yo'q
+    mashqlarga tegadi (2026-07-24)."""
+
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request, pk):
+        if not _mashq_admin_mi(request.user):
+            return Response({"detail": "Faqat admin/owner uchun"}, status=403)
+        tugun = get_object_or_404(KursTugun, pk=pk)
+        if tugun.children.exists():
+            return Response(
+                {"detail": "Faqat oxirgi qatlam (farzandsiz) tugunga audio biriktiriladi"}, status=400
+            )
+
+        fayl = request.FILES.get("zip_fayl")
+        if not fayl:
+            return Response({"detail": "zip_fayl majburiy"}, status=400)
+
+        import io
+        import zipfile
+
+        from exercises.views import _audio_fayllarni_ol, _fayllarni_taqsimla
+
+        try:
+            arxiv = zipfile.ZipFile(io.BytesIO(fayl.read()))
+        except zipfile.BadZipFile:
+            return Response({"detail": "Fayl to'g'ri ZIP arxiv emas"}, status=400)
+
+        fayl_nomlari = [n for n in arxiv.namelist() if not n.endswith("/")]
+        audio_fayllar = _audio_fayllarni_ol(arxiv, fayl_nomlari)
+        if not audio_fayllar:
+            return Response({"detail": "Arxivda audio fayl topilmadi"}, status=400)
+
+        mashqlar = list(tugun.mashqlar.all())
+        _fayllarni_taqsimla(mashqlar, audio_fayllar, "audio")
+
+        yol = []
+        node = tugun
+        while node:
+            yol.append(node.nomi)
+            node = node.parent
+        logla(
+            foydalanuvchi=request.user,
+            harakat=FaoliyatYozuvi.Harakat.OZGARTIRISH,
+            obyekt=tugun,
+            obyekt_turi="KursTugun",
+            obyekt_nomi=" > ".join(reversed(yol)),
+            ozgarishlar={"audio_zip": {"eski": "—", "yangi": f"{len(audio_fayllar)} fayl"}},
+        )
+        return Response([_kurs_mashq_admin_dict(m) for m in tugun.mashqlar.all()])
 
 
 class KursMashqRoyxatiView(APIView):
