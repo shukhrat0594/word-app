@@ -45,6 +45,94 @@ function bloklarGaAjrat(savollar, boshIdx) {
 
 const HARFLAR = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
+// "matn {{5}} davomi" ko'rinishidagi matnni bo'laklarga ajratadi — {{n}}
+// o'rniga kichik input (n — testdagi UMUMIY savol raqami, 1-based; javoblar
+// massividagi indeks n-1), \n bo'lsa qatorga o'tadi. Table/Flow-chart
+// Completion (2026-07-24) uchun.
+function matnniBoslarGaAjrat(matn, javoblar, javobniQoy, natija) {
+  if (!matn) return null;
+  const qismlar = matn.split(/(\{\{\d+\}\}|\n)/g);
+  return qismlar.map((b, i) => {
+    if (b === "\n") return <br key={i} />;
+    const mos = b.match(/^\{\{(\d+)\}\}$/);
+    if (!mos) return <span key={i}>{b}</span>;
+    const idx = parseInt(mos[1], 10) - 1;
+    const holat = natija ? (natija.natijalar[idx] ? "togri" : "notogri") : "";
+    return (
+      <input
+        key={i}
+        className={`imtihon-inline-input ${holat}`}
+        disabled={!!natija}
+        value={javoblar[idx] || ""}
+        onChange={(e) => javobniQoy(idx, e.target.value)}
+      />
+    );
+  });
+}
+
+function MaxsusFormatBloki({ format, javoblar, javobniQoy, natija }) {
+  if (format.tur === "jadval") {
+    return (
+      <div className="imtihon-jadval-wrap">
+        {format.sarlavha && <div className="imtihon-jadval-sarlavha">{format.sarlavha}</div>}
+        <table className="imtihon-jadval">
+          {format.ustunlar && (
+            <thead>
+              <tr>
+                {format.ustunlar.map((u, i) => (
+                  <th key={i}>{u}</th>
+                ))}
+              </tr>
+            </thead>
+          )}
+          <tbody>
+            {format.qatorlar.map((qator, ri) => (
+              <tr key={ri}>
+                {qator.map((katak, ci) => (
+                  <td key={ci}>{matnniBoslarGaAjrat(katak, javoblar, javobniQoy, natija)}</td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  }
+
+  if (format.tur === "oqim") {
+    return (
+      <div className="imtihon-oqim-wrap">
+        {format.sarlavha && <div className="imtihon-jadval-sarlavha">{format.sarlavha}</div>}
+        {format.qadamlar.map((qadam, i) => (
+          <div key={i}>
+            <div className="imtihon-oqim-qadam">
+              {matnniBoslarGaAjrat(qadam, javoblar, javobniQoy, natija)}
+            </div>
+            {i < format.qadamlar.length - 1 && <div className="imtihon-oqim-strelka">↓</div>}
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  return null;
+}
+
+// Matndan {{n}} orqali ishlatilgan barcha savol indekslarini (0-based)
+// to'plamiga chiqarib beradi — bular oddiy ro'yxatda takror ko'rsatilmasligi
+// uchun.
+function maxsusFormatIdxlari(format) {
+  const idxlar = new Set();
+  if (!format) return idxlar;
+  const matnlar = format.tur === "jadval" ? format.qatorlar.flat() : format.qadamlar || [];
+  matnlar.forEach((m) => {
+    for (const mos of String(m).matchAll(/\{\{(\d+)\}\}/g)) {
+      idxlar.add(parseInt(mos[1], 10) - 1);
+    }
+  });
+  return idxlar;
+}
+
 function SozBankiBloki({ blok, javoblar, javobniQoy, natija, t }) {
   const [tanlangan, setTanlangan] = useState(null);
 
@@ -384,8 +472,17 @@ export default function ImtihonOtish({ bolim }) {
             if (s.pozitsiya) pozitsiyaliIdxlar.add(faol.boshIdx + k);
           });
         }
+        // Table/Flow-chart Completion (maxsus_format) — shu blokda {{n}}
+        // orqali ishlatilgan savollar ham oddiy ro'yxatda takror chiqmasin.
+        const maxsusIdxlar = maxsusFormatIdxlari(faol.qism.maxsus_format);
+        const yashirilganIdxlar = new Set([...pozitsiyaliIdxlar, ...maxsusIdxlar]);
         const savollarBlok = bloklarGaAjrat(faol.qism.savollar, faol.boshIdx)
-          .filter((blok) => !(blok.tur === "oddiy" && pozitsiyaliIdxlar.has(blok.idx)))
+          .filter((blok) => {
+            if (blok.tur === "oddiy") return !yashirilganIdxlar.has(blok.idx);
+            // "bank" bloki — ichidagi BARCHA savollar maxsus_format/pozitsiya
+            // orqali allaqachon ko'rsatilgan bo'lsa, ro'yxatda takror chiqmasin.
+            return !blok.savollar.every((_, k) => yashirilganIdxlar.has(blok.boshIdx + k));
+          })
           .map((blok, bi) =>
           blok.tur === "bank" ? (
             <SozBankiBloki
@@ -429,6 +526,14 @@ export default function ImtihonOtish({ bolim }) {
                 />
               ) : (
                 <span className="izoh">{t("audio_yuklanmoqda")}</span>
+              )}
+              {faol.qism.maxsus_format && (
+                <MaxsusFormatBloki
+                  format={faol.qism.maxsus_format}
+                  javoblar={javoblar}
+                  javobniQoy={javobniQoy}
+                  natija={natija}
+                />
               )}
               {rasmBormi && !ongPanelKerak ? (
                 <RasmSavollari
@@ -480,6 +585,14 @@ export default function ImtihonOtish({ bolim }) {
             <div className="imtihon-qism-sarlavha">{faol.qism.sarlavha}</div>
             {faol.qism.yoriqnoma && <div className="imtihon-yoriqnoma">{faol.qism.yoriqnoma}</div>}
             {faol.qism.matn && <div className="mashq-passage">{faol.qism.matn}</div>}
+            {faol.qism.maxsus_format && (
+              <MaxsusFormatBloki
+                format={faol.qism.maxsus_format}
+                javoblar={javoblar}
+                javobniQoy={javobniQoy}
+                natija={natija}
+              />
+            )}
             {rasmUrllar[faol.qism.id] && (
               <div style={{ marginTop: 10 }}>
                 <RasmSavollari

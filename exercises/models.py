@@ -348,6 +348,21 @@ class TestQismi(models.Model):
             "Writing/Speaking'da bo'sh qoladi — javob AI orqali baholanadi."
         ),
     )
+    maxsus_format = models.JSONField(
+        null=True,
+        blank=True,
+        help_text=(
+            "Ixtiyoriy — Table/Note/Summary/Flow-chart Completion uchun, javoblarni "
+            "oddiy ro'yxat o'rniga asl kitobdagidek jadval/blok-sxema ko'rinishida "
+            "ko'rsatish (2026-07-24). Grading'ga ta'sir qilmaydi — faqat ko'rinish "
+            "(render) uchun, javob/to'g'ri javob hamon 'savollar'da saqlanadi. "
+            'Format: {"tur": "jadval", "sarlavha": "...", "ustunlar": ["...", "..."], '
+            '"qatorlar": [["katak matni {{1}} bilan", "...", "..."], ...]} yoki '
+            '{"tur": "oqim", "sarlavha": "...", "qadamlar": ["matn {{26}} bilan", "..."]}. '
+            "{{n}} — o'sha savolning testdagi UMUMIY (uzluksiz) raqami, shu joyda "
+            "kichik input avtomatik chiqadi."
+        ),
+    )
 
     class Meta:
         ordering = ["tartib"]

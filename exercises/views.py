@@ -353,6 +353,7 @@ def _qism_admin_dict(q):
         "audio_url": f"/api/imtihon/qism/{q.id}/audio/" if q.audio_fayl else None,
         "rasm_url": f"/api/imtihon/qism/{q.id}/rasm/" if q.rasm else None,
         "savollar": q.savollar,
+        "maxsus_format": q.maxsus_format,
     }
 
 
@@ -379,6 +380,7 @@ def _qism_talaba_dict(q):
         "audio_url": f"/api/imtihon/qism/{q.id}/audio/" if q.audio_fayl else None,
         "rasm_url": f"/api/imtihon/qism/{q.id}/rasm/" if q.rasm else None,
         "savollar": savollar_talaba_uchun(q.savollar),
+        "maxsus_format": q.maxsus_format,
     }
 
 
@@ -515,6 +517,7 @@ def _test_yarat(data, markaz, rasm_fayllar=None, audio_fayllar=None, yaratuvchi=
             matn=q.get("matn", ""),
             tur=q.get("tur", ""),
             savollar=q.get("savollar") or [],
+            maxsus_format=q.get("maxsus_format") or None,
         )
         rasm_nomi = q.get("rasm")
         if rasm_nomi and rasm_nomi in rasm_fayllar:

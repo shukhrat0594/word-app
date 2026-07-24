@@ -282,6 +282,27 @@ textarea {
 .imtihon-bank-chip.tanlangan { background: var(--sariq); border-color: var(--sariq); color: var(--komir); }
 .imtihon-bank-chip.ishlatilgan { opacity: .4; }
 
+/* ==== Table/Flow-chart Completion (maxsus_format, 2026-07-24) ==== */
+.imtihon-inline-input {
+  display: inline-block; width: 90px; padding: 2px 6px; margin: 0 2px; border-radius: 4px;
+  border: 1px solid var(--chiziq); background: var(--fon); font-size: 13px; text-align: center;
+}
+.imtihon-inline-input.togri { border-color: var(--yaxshi); background: color-mix(in srgb, var(--yaxshi) 15%, var(--fon)); }
+.imtihon-inline-input.notogri { border-color: var(--xato); background: color-mix(in srgb, var(--xato) 15%, var(--fon)); }
+.imtihon-jadval-sarlavha { font-weight: 700; font-size: 15px; text-align: center; margin-bottom: 10px; }
+.imtihon-jadval-wrap { margin: 14px 0; overflow-x: auto; }
+.imtihon-jadval { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.imtihon-jadval th, .imtihon-jadval td {
+  border: 1px solid var(--chiziq); padding: 8px 10px; text-align: left; vertical-align: top;
+}
+.imtihon-jadval th { background: var(--sirt-2); font-weight: 700; }
+.imtihon-oqim-wrap { margin: 14px 0; }
+.imtihon-oqim-qadam {
+  border: 1px solid var(--chiziq); border-radius: 8px; padding: 10px 14px; background: var(--sirt);
+  font-size: 13.5px; text-align: center;
+}
+.imtihon-oqim-strelka { text-align: center; font-size: 18px; color: var(--matn-sokin); line-height: 1.4; }
+
 /* ==== Leaderboard ==== */
 .lb-qator { display: flex; align-items: center; gap: 12px; padding: 9px 4px; border-bottom: 1px solid var(--chiziq); }
 .lb-qator:last-child { border-bottom: none; }

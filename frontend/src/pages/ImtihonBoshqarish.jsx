@@ -24,11 +24,12 @@ Format:
           "savol": "Savol yoki band matni",
           "tur": "quyidagi ro'yxatdan",
           "variantlar": ["variant1", "variant2"],
-          "togri": "To'g'ri javob",
+          "togri": "To'g'ri javob (yoki bir nechta qabul qilinadigan javob bo'lsa — massiv, masalan [\"20%\", \"twenty percent\"])",
           "guruh_boshi": "Questions 1-7" (ixtiyoriy, savollar guruhi boshida sarlavha ko'rsatish uchun, faqat guruhning birinchi savolida yoz, qolganida bo'sh qoldir),
           "pozitsiya": {"x": 0-100, "y": 0-100} (ixtiyoriy — FAQAT sizga shu qismning rasmi (Map/Diagram Labelling yoki jadval rasmi) ilova qilingan bo'lsa va shu savolning bo'sh joyi/labeli rasmda aniq ko'rinib tursa qo'sh: rasmning chap-yuqori burchagidan boshlab, bo'sh joy/label markazining rasm eniga nisbatan foizini "x", bo'yiga nisbatan foizini "y" qilib yoz. Rasm berilmagan yoki savol matn ichida bo'lsa (rasmga bog'liq bo'lmagan) — bu maydonni umuman yozma.
         }
-      ]
+      ],
+      "maxsus_format": {"tur": "jadval" | "oqim", "sarlavha": "...", "ustunlar": [...], "qatorlar": [[...]]} yoki {"tur": "oqim", "sarlavha": "...", "qadamlar": [...]} (ixtiyoriy — pastdagi "Table/Note/Summary/Flow-chart Completion" qoidasiga qarang)
     }
   ]
 }
@@ -44,6 +45,12 @@ Qoidalar:
 - Har bir qismdagi savollar soni real testdagi kabi bo'lsin (masalan Reading har passage uchun ~13-14 ta, Listening har part uchun ~10 ta)
 - "korinish": aniq ko'rsatilmagan bo'lsa "private" qo'y
 - Agar sizga Map/Diagram Labelling yoki jadval-rasm biriktirilgan bo'lsa — shu rasmga tegishli har bir savolga "pozitsiya" qo'shing (yuqoridagi formatga qarang), shunda talaba javobni rasmning aynan o'sha nuqtasida yoza oladi
+- **Table/Note/Summary/Flow-chart Completion (rasmsiz, asl kitobdagi jadval/blok-sxema ko'rinishida)** — agar savol turi haqiqiy JADVAL (ustun-qatorlar) yoki FLOW-CHART (ketma-ket bloklar, o'qlar bilan) bo'lsa, "pozitsiya" o'rniga shu qismga "maxsus_format" qo'shing:
+  - Jadval uchun: {"tur": "jadval", "sarlavha": "JADVAL NOMI", "ustunlar": ["Ustun1", "Ustun2", ...], "qatorlar": [["katak matni {{5}} bilan", "ikkinchi katak", ...], ...]} — har bir qator massiv, har bir element bitta katak matni
+  - Flow-chart uchun: {"tur": "oqim", "sarlavha": "SXEMA NOMI", "qadamlar": ["1-qadam matni {{26}} bilan", "2-qadam matni {{27}} bilan", ...]} — har bir qadam alohida quti bo'lib, orasida o'q chiziladi
+  - {{n}} — o'sha bo'sh joyning testdagi UMUMIY (butun test bo'yicha uzluksiz, "tartib"lar hisobga olingan holda) savol raqami, masalan 26-savol uchun {{26}} — bu raqam "savollar" massividagi mos savolning ORDER'iga aynan mos kelishi SHART
+  - Bu holatda ham "savollar" massivini ODATDAGIDEK, HAR BIR bo'sh joy uchun alohida yozing (tur="fill_blanks" yoki mos tur, "togri" bilan) — "maxsus_format" faqat KO'RINISH uchun, javob tekshirish baribir "savollar"dan olinadi, ikkalasi bir-biriga zid bo'lmasligi kerak (bir xil son va tartibda)
+  - Oddiy (jadval/sxema shakli bo'lmagan, faqat uzluksiz matn+bo'sh joy) Note Completion uchun bu shart emas — faqat yuqoridagi "So'z banki" qoidasi yoki oddiy fill_blanks yetarli
 
 Natijani shu JSON obyekt ko'rinishida qaytar, boshqa hech narsa yozma. Quyida test materiali:
 
