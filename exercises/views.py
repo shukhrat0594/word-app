@@ -15,15 +15,18 @@ from audit.utils import logla, maydon_diff
 
 from .models import (
     Bolim,
+    ImtihonMock,
     ImtihonTest,
     LimitTopUp,
     Mashq,
     MashqYechim,
+    MockYechim,
     TestQismi,
     TestYechim,
     band_hisobla,
     javoblarni_tekshir,
     korinadigan_mashqlar,
+    korinadigan_moklar,
     korinadigan_testlar,
     kunlik_limit_holati,
 )
@@ -456,6 +459,20 @@ def _fayllarni_taqsimla(qismlar, fayllar, maydon, birini_hammaga_bering=False):
         qism.save()
 
 
+def _mock_nomini_chiqar(nomlar):
+    """4 ta test nomidan (masalan "Cambridge IELTS 13 Test 1 Listening",
+    "... Reading" va h.k.) umumiy mock nomini chiqarib olishga urinadi —
+    oxiridagi bolim so'zini olib tashlaydi. Barchasi bir xilga tushmasa,
+    birinchi test nomini ishlatadi."""
+    tozalar = [
+        re.sub(r"\s*[-—]?\s*(Reading|Listening|Writing|Speaking)\s*$", "", n, flags=re.IGNORECASE).strip()
+        for n in nomlar
+    ]
+    if len(set(tozalar)) == 1 and tozalar[0]:
+        return tozalar[0]
+    return nomlar[0] if nomlar else "Mock imtihon"
+
+
 def _test_yarat(data, markaz, rasm_fayllar=None, audio_fayllar=None, yaratuvchi=None):
     """`ImtihonTest`+`TestQismi`larni JSON ma'lumotdan yaratadi.
 
@@ -704,6 +721,30 @@ class ImtihonZipBoshqaruvView(APIView):
         if not yaratilgan:
             return Response({"detail": "; ".join(xatolar) or "Hech narsa yaratilmadi"}, status=400)
 
+        # Agar ko'p-papkali ZIP'da har 4 bo'lim (L/R/W/S) aynan bittadan
+        # yaratilgan bo'lsa — bularni avtomatik bitta Mock imtihonga
+        # bog'laymiz (2026-07-25, "4 turdagi mashqni bitta mock qilish").
+        mock = None
+        if papkalar:
+            bolim_testlari = {}
+            bir_martalik = True
+            for test in yaratilgan:
+                if test.bolim in bolim_testlari:
+                    bir_martalik = False
+                    break
+                bolim_testlari[test.bolim] = test
+            if bir_martalik and set(bolim_testlari) == set(Bolim.values):
+                mock = ImtihonMock.objects.create(
+                    name=_mock_nomini_chiqar([t.name for t in yaratilgan]),
+                    markaz=markaz,
+                    listening=bolim_testlari[Bolim.LISTENING],
+                    reading=bolim_testlari[Bolim.READING],
+                    writing=bolim_testlari[Bolim.WRITING],
+                    speaking=bolim_testlari[Bolim.SPEAKING],
+                    korinish="private",
+                    yaratuvchi=request.user,
+                )
+
         for test in yaratilgan:
             biriktirilgan_rasmlar = sum(1 for q in test.qismlar.all() if q.rasm)
             logla(
@@ -724,6 +765,7 @@ class ImtihonZipBoshqaruvView(APIView):
             {
                 "yaratildi": [_test_admin_dict(t) for t in yaratilgan],
                 "xatolar": xatolar,
+                "mock": {"id": mock.id, "name": mock.name} if mock else None,
             },
             status=201,
         )
@@ -841,6 +883,42 @@ class TestQismRasmView(APIView):
         return javob
 
 
+def _mock_yechimni_yangila(user, mock_yechim_id, bolim, malumot):
+    """Mock imtihon sessiyasi davomida (agar `mock_yechim_id` yuborilgan
+    bo'lsa) shu bo'limning natijasini `MockYechim`ga yozadi, barcha kerakli
+    bo'limlar tugagan bo'lsa Overall Band'ni hisoblab, `tugallandi_at`ni
+    belgilaydi. `mock_yechim_id` bo'lmasa (mockdan tashqari, mustaqil test)
+    hech narsa qilmaydi, None qaytaradi."""
+    if not mock_yechim_id:
+        return None
+    yechim = MockYechim.objects.filter(pk=mock_yechim_id, talaba=user).select_related("mock").first()
+    if not yechim:
+        return None
+
+    if bolim == Bolim.LISTENING:
+        yechim.listening_yechim = malumot["yechim"]
+    elif bolim == Bolim.READING:
+        yechim.reading_yechim = malumot["yechim"]
+    elif bolim == Bolim.WRITING:
+        yechim.writing_band = malumot["band"]
+    elif bolim == Bolim.SPEAKING:
+        yechim.speaking_band = malumot["band"]
+
+    if yechim.hammasi_tugadimi(yechim.mock):
+        from django.utils import timezone
+
+        bandlar = yechim.band_royxati()
+        yechim.overall_band = round(sum(bandlar) / len(bandlar) * 2) / 2 if bandlar else None
+        yechim.tugallandi_at = timezone.now()
+
+    yechim.save()
+    return {
+        "id": yechim.id,
+        "tugadimi": yechim.tugallandi_at is not None,
+        "overall_band": float(yechim.overall_band) if yechim.overall_band is not None else None,
+    }
+
+
 class ImtihonYechishView(APIView):
     """Butun testga javob yuborish — flat ro'yxat, barcha qismlar bo'yicha
     uzluksiz tartibda. Kunlik limitga bog'liq emas (mustaqil, cheklovsiz)."""
@@ -859,7 +937,7 @@ class ImtihonYechishView(APIView):
 
         natija = javoblarni_tekshir(barcha_savollar, javoblar)
         band = band_hisobla(natija["ball"], natija["jami"], test.bolim)
-        TestYechim.objects.create(
+        yechim = TestYechim.objects.create(
             talaba=request.user,
             test=test,
             javoblar=javoblar,
@@ -868,12 +946,18 @@ class ImtihonYechishView(APIView):
             natijalar=natija["natijalar"],
             band=band,
         )
+
+        mock_natija = _mock_yechimni_yangila(
+            request.user, request.data.get("mock_yechim_id"), test.bolim, {"yechim": yechim}
+        )
+
         return Response(
             {
                 "ball": natija["ball"],
                 "jami": natija["jami"],
                 "natijalar": natija["natijalar"],
                 "band": band,
+                "mock": mock_natija,
             }
         )
 
@@ -971,10 +1055,124 @@ class ImtihonYozGapTekshirishView(APIView):
         xizmat = "w" if test.bolim == Bolim.WRITING else "s"
         paket = paketdan_ishlat(request.user, xizmat)
 
+        mock_natija = _mock_yechimni_yangila(
+            request.user, request.data.get("mock_yechim_id"), test.bolim, {"band": umumiy_band}
+        )
+
         return Response(
             {
                 "natijalar": natijalar,
                 "umumiy_band": umumiy_band,
                 "paketdan": paket is not None,
+                "mock": mock_natija,
             }
         )
+
+
+def _mock_admin_dict(m):
+    return {
+        "id": m.id,
+        "name": m.name,
+        "korinish": m.korinish,
+        "bolimlar": {b: {"id": t.id, "name": t.name} for b, t in m.bolimlar()},
+        "created_at": m.created_at,
+    }
+
+
+def _mock_talaba_dict(m):
+    return {
+        "id": m.id,
+        "name": m.name,
+        "bolimlar": [b for b, _ in m.bolimlar()],
+    }
+
+
+class ImtihonMockRoyxatiView(APIView):
+    """Mock imtihonlar ro'yxati — hammaga (oddiy foydalanuvchidan boshqa)
+    ko'rinadi, xuddi `korinadigan_testlar` bilan bir xil qoida."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        qs = korinadigan_moklar(request.user).order_by("-created_at")
+        dict_fn = _mock_admin_dict if _mashq_admin_mi(request.user) else _mock_talaba_dict
+        return Response([dict_fn(m) for m in qs])
+
+
+class ImtihonMockDetailView(APIView):
+    """Bitta mock imtihon — 4 bo'lim testining asosiy ma'lumoti (qismlari
+    emas, ular alohida `/api/imtihon/testlar/<id>/` orqali yuklanadi)."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        m = get_object_or_404(korinadigan_moklar(request.user), pk=pk)
+        return Response(_mock_admin_dict(m))
+
+    def delete(self, request, pk):
+        if not _mashq_admin_mi(request.user):
+            return Response({"detail": "Faqat admin/owner uchun"}, status=403)
+        m = get_object_or_404(ImtihonMock, pk=pk)
+        nomi = m.name
+        m.delete()
+        logla(
+            foydalanuvchi=request.user,
+            harakat=FaoliyatYozuvi.Harakat.OCHIRISH,
+            obyekt_turi="ImtihonMock",
+            obyekt_nomi=nomi,
+        )
+        return Response(status=204)
+
+
+class ImtihonMockBoshlashView(APIView):
+    """Talaba mock imtihonni boshlaydi — tugallanmagan urinishi bo'lsa
+    o'shani davom ettiradi (qayta boshlamaydi), bo'lmasa yangi yaratadi."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        mock = get_object_or_404(korinadigan_moklar(request.user), pk=pk)
+        if request.user.role != User.Role.STUDENT:
+            return Response({"detail": "Faqat talaba uchun"}, status=403)
+
+        yechim = (
+            MockYechim.objects.filter(talaba=request.user, mock=mock, tugallandi_at__isnull=True)
+            .order_by("-created_at")
+            .first()
+        )
+        if not yechim:
+            yechim = MockYechim.objects.create(talaba=request.user, mock=mock)
+
+        return Response(_mock_yechim_dict(yechim))
+
+
+class ImtihonMockYechimView(APIView):
+    """Mock urinishining joriy holati — bosqichma-bosqich davom ettirish
+    yoki yakuniy Overall Band'ni ko'rish uchun."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        yechim = get_object_or_404(MockYechim, pk=pk, talaba=request.user)
+        return Response(_mock_yechim_dict(yechim))
+
+
+def _mock_yechim_dict(yechim):
+    return {
+        "id": yechim.id,
+        "mock": {
+            "id": yechim.mock_id,
+            "name": yechim.mock.name,
+            "bolim_testlari": {b: t.id for b, t in yechim.mock.bolimlar()},
+        },
+        "listening_tugadimi": yechim.listening_yechim_id is not None,
+        "reading_tugadimi": yechim.reading_yechim_id is not None,
+        "writing_tugadimi": yechim.writing_band is not None,
+        "speaking_tugadimi": yechim.speaking_band is not None,
+        "listening_band": float(yechim.listening_yechim.band) if yechim.listening_yechim_id and yechim.listening_yechim.band is not None else None,
+        "reading_band": float(yechim.reading_yechim.band) if yechim.reading_yechim_id and yechim.reading_yechim.band is not None else None,
+        "writing_band": yechim.writing_band,
+        "speaking_band": yechim.speaking_band,
+        "tugadimi": yechim.tugallandi_at is not None,
+        "overall_band": float(yechim.overall_band) if yechim.overall_band is not None else None,
+    }

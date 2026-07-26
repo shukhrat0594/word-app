@@ -279,7 +279,7 @@ function OddiySavolBloki({ blok, javoblar, javobniQoy, natija, t }) {
 
 /** Cambridge-uslubidagi to'liq IELTS testi — ro'yxat, split-screen yechish
  * rejimi (chapda matn/audio, o'ngda savollar), pastki Part-navigatsiya. */
-export default function ImtihonOtish({ bolim }) {
+export default function ImtihonOtish({ bolim, testId, mockYechimId, onYakunlandi }) {
   const { t } = useI18n();
   const [royxat, setRoyxat] = useState([]);
   const [test, setTest] = useState(null);
@@ -303,8 +303,13 @@ export default function ImtihonOtish({ bolim }) {
   useEffect(() => {
     setTest(null);
     setNatija(null);
+    if (testId) {
+      ochish(testId);
+      return;
+    }
     api(`/api/imtihon/testlar/?bolim=${bolim}`).then(setRoyxat).catch(() => {});
-  }, [bolim]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bolim, testId]);
 
   useEffect(() => {
     if (!test || natija) {
@@ -397,7 +402,7 @@ export default function ImtihonOtish({ bolim }) {
       const tartib = barchaSavollar.map((_, i) => javoblar[i] || "");
       const res = await api(`/api/imtihon/testlar/${test.id}/yechish/`, {
         method: "POST",
-        body: { javoblar: tartib },
+        body: { javoblar: tartib, mock_yechim_id: mockYechimId },
       });
       setNatija(res);
     } catch (e) {
@@ -717,6 +722,11 @@ export default function ImtihonOtish({ bolim }) {
             <span style={{ fontSize: 12.5 }}>
               {t("band_ball")} · {t("xom_ball")} {natija.ball}/{natija.jami}
             </span>
+            {onYakunlandi && (
+              <button className="tugma katta" onClick={() => onYakunlandi(natija)}>
+                {t("mock_keyingi_bolim")}
+              </button>
+            )}
           </div>
         )}
       </div>

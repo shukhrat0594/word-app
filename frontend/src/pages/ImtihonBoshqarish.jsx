@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api, apiForm } from "../api";
 import { useI18n } from "../i18n";
 import { useProfil } from "../profilContext";
+import ImtihonMock from "./ImtihonMock";
 import ImtihonOtish from "./ImtihonOtish";
 import ImtihonYozGap from "./ImtihonYozGap";
 
@@ -610,9 +611,13 @@ export default function ImtihonBoshqarish() {
           <button className={bolim === "listening" ? "aktiv" : ""} onClick={() => setBolim("listening")}>
             {t("listening_bolimi")}
           </button>
+          <button className={bolim === "mock" ? "aktiv" : ""} onClick={() => setBolim("mock")}>
+            {t("mock_bolimi")}
+          </button>
         </div>
         {(bolim === "writing" || bolim === "speaking") && <ImtihonYozGap bolim={bolim} />}
         {(bolim === "reading" || bolim === "listening") && <ImtihonOtish bolim={bolim} />}
+        {bolim === "mock" && <ImtihonMock />}
       </div>
     </div>
   );

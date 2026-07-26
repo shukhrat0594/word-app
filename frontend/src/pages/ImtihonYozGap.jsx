@@ -15,7 +15,7 @@ const TASK_NOMI = { task1: "Task 1", task2: "Task 2", part1: "Part 1", part2: "P
  * Mavjud "Mashqlar" bo'limidagi (AI-import, hammaga ochiq) Writing/
  * Speaking'ga MUSTAQIL — 2026-07-21'da ataylab ajratildi. Bitta test —
  * Task1+Task2 (yoki Part1/2/3) BIRGA, haqiqiy IELTS sessiyasi kabi. */
-export default function ImtihonYozGap({ bolim }) {
+export default function ImtihonYozGap({ bolim, testId, mockYechimId, onYakunlandi }) {
   const { t } = useI18n();
   const [royxat, setRoyxat] = useState(null);
   const [test, setTest] = useState(null);
@@ -33,8 +33,13 @@ export default function ImtihonYozGap({ bolim }) {
     setTest(null);
     setNatijalar(null);
     setRoyxat(null);
+    if (testId) {
+      testniOch(testId);
+      return;
+    }
     api(`/api/imtihon/testlar/?bolim=${bolim}`).then(setRoyxat).catch(() => {});
-  }, [bolim]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bolim, testId]);
 
   useEffect(() => {
     if (!test || natijalar) return;
@@ -96,7 +101,7 @@ export default function ImtihonYozGap({ bolim }) {
     try {
       const res = await api(`/api/imtihon/testlar/${test.id}/yozgap-tekshirish/`, {
         method: "POST",
-        body: { javoblar },
+        body: { javoblar, mock_yechim_id: mockYechimId },
       });
       setNatijalar(res.natijalar);
       setUmumiyBand(res.umumiy_band);
@@ -146,8 +151,13 @@ export default function ImtihonYozGap({ bolim }) {
         {natijalar ? (
           <>
             {umumiyBand != null && (
-              <div className="karta" style={{ marginBottom: 14 }}>
+              <div className="karta" style={{ marginBottom: 14, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <strong>{t("band_ball")}: {umumiyBand}</strong>
+                {onYakunlandi && (
+                  <button className="tugma katta" onClick={() => onYakunlandi({ umumiyBand })}>
+                    {t("mock_keyingi_bolim")}
+                  </button>
+                )}
               </div>
             )}
             <div className="karta" style={{ marginBottom: 14 }}>

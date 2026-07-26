@@ -398,6 +398,104 @@ class TestYechim(models.Model):
         return f"{self.talaba} — {self.test} — {self.ball}/{self.jami} (Band {self.band})"
 
 
+class ImtihonMock(models.Model):
+    """To'liq IELTS mock imtihoni — 4 ta mustaqil ImtihonTest'ni (Listening/
+    Reading/Writing/Speaking) bitta yaxlit sessiyaga bog'laydi. Talaba ketma-
+    ket o'tadi, oxirida 4 bo'lim bandidan Overall Band hisoblanadi
+    (2026-07-25). Odatda 4-papkali ZIP yuklashda avtomatik yaratiladi."""
+
+    name = models.CharField(max_length=200)
+    markaz = models.ForeignKey(
+        "accounts.Markaz", on_delete=models.CASCADE, related_name="imtihon_moklari"
+    )
+    listening = models.ForeignKey(
+        ImtihonTest, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    reading = models.ForeignKey(
+        ImtihonTest, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    writing = models.ForeignKey(
+        ImtihonTest, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    speaking = models.ForeignKey(
+        ImtihonTest, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    korinish = models.CharField(
+        max_length=10, choices=[("private", "Shaxsiy"), ("public", "Umumiy")], default="private"
+    )
+    yaratuvchi = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    BOLIM_TARTIBI = ["listening", "reading", "writing", "speaking"]
+
+    class Meta:
+        verbose_name_plural = "Mock imtihonlar"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return self.name
+
+    def bolimlar(self):
+        """[(bolim_nomi, ImtihonTest), ...] — faqat mavjud (o'chirilmagan) bo'limlar."""
+        return [(b, getattr(self, b)) for b in self.BOLIM_TARTIBI if getattr(self, b)]
+
+
+class MockYechim(models.Model):
+    """Talabaning bitta mock imtihoniga urinishi — 4 bo'lim natijasi bosqichma-
+    bosqich to'planadi (har bo'lim tugagach tegishli maydon to'ldiriladi),
+    hammasi tugagach Overall Band hisoblanadi."""
+
+    talaba = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="mock_yechimlari",
+        limit_choices_to={"role": "student"},
+    )
+    mock = models.ForeignKey(ImtihonMock, on_delete=models.CASCADE, related_name="yechimlar")
+    listening_yechim = models.ForeignKey(
+        TestYechim, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    reading_yechim = models.ForeignKey(
+        TestYechim, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    writing_band = models.FloatField(null=True, blank=True)
+    speaking_band = models.FloatField(null=True, blank=True)
+    overall_band = models.DecimalField(max_digits=2, decimal_places=1, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    tugallandi_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name_plural = "Mock yechimlari"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.talaba} — {self.mock} (Overall {self.overall_band})"
+
+    def band_royxati(self):
+        bandlar = []
+        if self.listening_yechim and self.listening_yechim.band is not None:
+            bandlar.append(float(self.listening_yechim.band))
+        if self.reading_yechim and self.reading_yechim.band is not None:
+            bandlar.append(float(self.reading_yechim.band))
+        if self.writing_band is not None:
+            bandlar.append(self.writing_band)
+        if self.speaking_band is not None:
+            bandlar.append(self.speaking_band)
+        return bandlar
+
+    def hammasi_tugadimi(self, mock):
+        kerakli = [b for b, t in mock.bolimlar()]
+        holat = {
+            "listening": self.listening_yechim_id is not None,
+            "reading": self.reading_yechim_id is not None,
+            "writing": self.writing_band is not None,
+            "speaking": self.speaking_band is not None,
+        }
+        return all(holat[b] for b in kerakli)
+
+
 # Ommaviy IELTS tayyorgarlik manbalaridan olingan TAXMINIY xom ball -> band
 # jadvali (Academic, 40 savol asosida). Rasmiy Cambridge/IDP konvertatsiya
 # jadvali bilan ozgina farq qilishi mumkin — aniq rasmiy manba emas.
@@ -442,3 +540,10 @@ def korinadigan_testlar(user):
     if user.role == "oddiy":
         return ImtihonTest.objects.none()
     return ImtihonTest.objects.all()
+
+
+def korinadigan_moklar(user):
+    """`korinadigan_testlar` bilan bir xil qoida — bitta markaz rejimi."""
+    if user.role == "oddiy":
+        return ImtihonMock.objects.none()
+    return ImtihonMock.objects.all()

@@ -58,4 +58,16 @@ urlpatterns = [
     ),
     path("imtihon/qism/<int:pk>/audio/", views.TestQismAudioView.as_view(), name="imtihon_qism_audio"),
     path("imtihon/qism/<int:pk>/rasm/", views.TestQismRasmView.as_view(), name="imtihon_qism_rasm"),
+    path("imtihon-mock/", views.ImtihonMockRoyxatiView.as_view(), name="imtihon_mock_royxat"),
+    path("imtihon-mock/<int:pk>/", views.ImtihonMockDetailView.as_view(), name="imtihon_mock_detail"),
+    path(
+        "imtihon-mock/<int:pk>/boshlash/",
+        views.ImtihonMockBoshlashView.as_view(),
+        name="imtihon_mock_boshlash",
+    ),
+    path(
+        "imtihon-mock/yechim/<int:pk>/",
+        views.ImtihonMockYechimView.as_view(),
+        name="imtihon_mock_yechim",
+    ),
 ]
