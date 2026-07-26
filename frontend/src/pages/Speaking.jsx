@@ -5,6 +5,7 @@ import { haqiqiyMatnniOl } from "../haqiqiyMatn";
 import { useI18n } from "../i18n";
 import { IMLO_OFF } from "../imlo";
 import { xatoniAjrat } from "../xatoUtils";
+import OzMavzum from "./OzMavzum";
 
 const PART_NOMI = { part1: "Part 1", part2: "Part 2", part3: "Part 3" };
 
@@ -301,10 +302,18 @@ export default function Speaking() {
             >
               {t("haqiqiy_mashq")}
             </button>
+            <button
+              className={ichkiRejim === "oz" ? "aktiv" : ""}
+              onClick={() => setIchkiRejim("oz")}
+            >
+              {t("oz_mavzum")}
+            </button>
           </div>
           <div style={{ marginTop: 16 }}>
             {ichkiRejim === "namunaviy" && <NamunaMavzular bolim="speaking" />}
             {ichkiRejim === "haqiqiy" && <HaqiqiyMashq />}
+            {/* `Natija` prop orqali — aylanma import bo'lmasligi uchun. */}
+            {ichkiRejim === "oz" && <OzMavzum bolim="speaking" NatijaKomponenti={Natija} />}
           </div>
           <p className="izoh" style={{ marginTop: 16 }}>
             {t("tezkor_izoh")}

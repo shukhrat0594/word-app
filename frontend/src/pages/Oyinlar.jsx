@@ -4,6 +4,10 @@ import { useI18n } from "../i18n";
 
 const DARAJALAR = ["A1", "A2", "B1", "B2", "C1", "idiom"];
 
+// Ko'rinadigan nom — "idiom" ma'lumot bazasidagi qiymat (Soz.Daraja.IDIOM),
+// talabaga esa "Idioms" deb ko'rsatiladi (2026-07-27 talabi).
+const DARAJA_NOMI = { idiom: "Idioms" };
+
 function shuffle(arr) {
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) {
@@ -57,11 +61,10 @@ function JuftiniTopOyini({ sozlar, t, onQaytaOynash, onBoshqaDaraja }) {
   return (
     <div className="karta">
       {tugadi ? (
-        <div style={{ textAlign: "center", padding: "20px 0" }}>
+        <div className="oyin-natija" style={{ textAlign: "center", padding: "20px 0" }}>
           <h3>{t("tabriklaymiz")}</h3>
-          <p className="izoh">
-            {t("harakat_soni")}: {harakat}
-          </p>
+          <div className="izoh">{t("harakat_soni")}</div>
+          <div className="oyin-ball">{harakat}</div>
           <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
             <button className="tugma" onClick={onQaytaOynash}>
               {t("qayta_oynash")}
@@ -196,11 +199,11 @@ function SpeedQuizOyini({ sozlar, t, onQaytaOynash, onBoshqaDaraja }) {
 
   if (tugadi) {
     return (
-      <div className="karta" style={{ textAlign: "center", padding: "20px 0" }}>
+      <div className="karta oyin-natija" style={{ textAlign: "center", padding: "20px 0" }}>
         <h3>{t("tabriklaymiz")}</h3>
-        <p className="izoh">
+        <div className="oyin-ball">
           {ball} / {sozlar.length}
-        </p>
+        </div>
         <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
           <button className="tugma" onClick={onQaytaOynash}>
             {t("qayta_oynash")}
@@ -221,6 +224,12 @@ function SpeedQuizOyini({ sozlar, t, onQaytaOynash, onBoshqaDaraja }) {
         </span>
         <span className="chip bor">{t("toplangan_ball")}: {ball}</span>
         <span className={"chip " + (qoldi <= 3 ? "tugadi" : "bor")}>{qoldi}s</span>
+      </div>
+      {/* 2026-07-27: vaqt faqat raqam bilan ko'rsatilardi — endi tugab
+          borayotgani chiziqda ham ko'rinadi, oxirgi 3 sekundda qizarib
+          pulsatsiya qiladi. */}
+      <div className={"oyin-taymer" + (qoldi <= 3 ? " kam" : "")}>
+        <div className="oyin-taymer-ip" style={{ width: `${(qoldi / SONIYA) * 100}%` }} />
       </div>
       <h3 style={{ marginTop: 10 }}>{soz.en}</h3>
       <div style={{ display: "grid", gap: 10, maxWidth: 360 }}>
@@ -302,11 +311,11 @@ function UnscrambleOyini({ sozlar, t, onQaytaOynash, onBoshqaDaraja }) {
 
   if (tugadi) {
     return (
-      <div className="karta" style={{ textAlign: "center", padding: "20px 0" }}>
+      <div className="karta oyin-natija" style={{ textAlign: "center", padding: "20px 0" }}>
         <h3>{t("tabriklaymiz")}</h3>
-        <p className="izoh">
+        <div className="oyin-ball">
           {ball} / {sozlar.length}
-        </p>
+        </div>
         <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
           <button className="tugma" onClick={onQaytaOynash}>
             {t("qayta_oynash")}
@@ -408,11 +417,11 @@ function GrammatikaOyini({ savollar, t, onQaytaOynash, onBoshqaMavzu }) {
 
   if (tugadi) {
     return (
-      <div className="karta" style={{ textAlign: "center", padding: "20px 0" }}>
+      <div className="karta oyin-natija" style={{ textAlign: "center", padding: "20px 0" }}>
         <h3>{t("tabriklaymiz")}</h3>
-        <p className="izoh">
+        <div className="oyin-ball">
           {togriSoni} / {savollar.length}
-        </p>
+        </div>
         <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
           <button className="tugma" onClick={onQaytaOynash}>
             {t("qayta_oynash")}
@@ -528,36 +537,50 @@ export default function Oyinlar() {
       {!boshlandi && turi !== "grammatika" && (
         <div className="karta">
           <h3>{t("daraja")}</h3>
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-            <select value={daraja} onChange={(e) => setDaraja(e.target.value)}>
-              {DARAJALAR.map((d) => (
-                <option key={d} value={d}>
-                  {d}
-                </option>
-              ))}
-            </select>
-            <button className="tugma" onClick={oyinniBoshla}>
-              {t("boshlash")}
-            </button>
+          {/* 2026-07-27: avval ochiladigan <select> edi — talaba darajalarni
+              ko'rmasdi, menyuni ochishi kerak edi. Endi hammasi ko'rinib
+              turadi va bosib tanlanadi. */}
+          <div className="tanlov-royxat">
+            {DARAJALAR.map((d) => (
+              <button
+                key={d}
+                className={"tanlov-tugma" + (daraja === d ? " aktiv" : "")}
+                onClick={() => setDaraja(d)}
+              >
+                {DARAJA_NOMI[d] || d}
+              </button>
+            ))}
           </div>
+          <button className="tugma" style={{ marginTop: 14 }} onClick={oyinniBoshla}>
+            {t("boshlash")}
+          </button>
         </div>
       )}
 
       {!boshlandi && turi === "grammatika" && (
         <div className="karta">
           <h3>{t("mavzu")}</h3>
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-            <select value={mavzu} onChange={(e) => setMavzu(e.target.value)}>
-              {(mavzular || []).map((m) => (
-                <option key={m.mavzu} value={m.mavzu}>
-                  {m.mavzu} ({m.soni})
-                </option>
-              ))}
-            </select>
-            <button className="tugma" onClick={oyinniBoshla} disabled={!mavzu}>
-              {t("boshlash")}
-            </button>
+          {/* Daraja ro'yxati bilan bir xil naqsh ("qolganlarida ham" talabi) —
+              savol soni avvalgidek qavs ichida ko'rsatiladi. */}
+          <div className="tanlov-royxat">
+            {(mavzular || []).map((m) => (
+              <button
+                key={m.mavzu}
+                className={"tanlov-tugma" + (mavzu === m.mavzu ? " aktiv" : "")}
+                onClick={() => setMavzu(m.mavzu)}
+              >
+                {m.mavzu} <span className="tanlov-soni">{m.soni}</span>
+              </button>
+            ))}
           </div>
+          <button
+            className="tugma"
+            style={{ marginTop: 14 }}
+            onClick={oyinniBoshla}
+            disabled={!mavzu}
+          >
+            {t("boshlash")}
+          </button>
         </div>
       )}
 

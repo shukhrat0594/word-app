@@ -5,6 +5,7 @@ import { useI18n } from "../i18n";
 import { IMLO_OFF } from "../imlo";
 import { standartVaqt } from "../imtihonVaqt";
 import { vaqtFormat } from "./ImtihonOtish";
+import OzMavzum from "./OzMavzum";
 import { Natija as SpeakingNatija } from "./Speaking";
 import { Natija as WritingNatija } from "./Writing";
 
@@ -29,6 +30,7 @@ export default function ImtihonYozGap({ bolim, testId, mockYechimId, onYakunland
   const [yuklanmoqda, setYuklanmoqda] = useState(false);
   const [soniya, setSoniya] = useState(0);
   const [teskariMi, setTeskariMi] = useState(false);
+  const [rejim, setRejim] = useState("testlar");
 
   useEffect(() => {
     setTest(null);
@@ -203,15 +205,38 @@ export default function ImtihonYozGap({ bolim, testId, mockYechimId, onYakunland
     );
   }
 
+  // 2026-07-27: test ro'yxati yonida "O'z mavzum" tabi — talaba tayyor
+  // testlardan tashqari o'zi kiritgan mavzuni ham tekshirtira oladi.
+  // Mock oqimida (testId berilganda) bu yerga umuman kelinmaydi — test
+  // to'g'ridan-to'g'ri ochiladi, ya'ni mock jarayoniga ta'sir qilmaydi.
   return (
-    <div className="karta">
-      {royxat === null && <div className="yuklanmoqda">{t("yuklanmoqda")}</div>}
-      {royxat && royxat.length === 0 && <span className="izoh">{t("imtihon_royxati_boshi")}</span>}
-      {royxat && royxat.map((r) => (
-        <div key={r.id} className="mashq-royxat-el" onClick={() => testniOch(r.id)}>
-          <span>{r.name}</span>
-        </div>
-      ))}
-    </div>
+    <>
+      <div className="tab-guruh">
+        <button className={rejim === "testlar" ? "aktiv" : ""} onClick={() => setRejim("testlar")}>
+          {t("testlar")}
+        </button>
+        <button className={rejim === "oz" ? "aktiv" : ""} onClick={() => setRejim("oz")}>
+          {t("oz_mavzum")}
+        </button>
+      </div>
+
+      <div style={{ marginTop: 16 }}>
+        {rejim === "oz" ? (
+          <OzMavzum bolim={bolim} NatijaKomponenti={NatijaKomponenti} />
+        ) : (
+          <div className="karta">
+            {royxat === null && <div className="yuklanmoqda">{t("yuklanmoqda")}</div>}
+            {royxat && royxat.length === 0 && (
+              <span className="izoh">{t("imtihon_royxati_boshi")}</span>
+            )}
+            {royxat && royxat.map((r) => (
+              <div key={r.id} className="mashq-royxat-el" onClick={() => testniOch(r.id)}>
+                <span>{r.name}</span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </>
   );
 }

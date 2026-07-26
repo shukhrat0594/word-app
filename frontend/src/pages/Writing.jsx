@@ -6,6 +6,7 @@ import { useI18n } from "../i18n";
 import { IMLO_OFF } from "../imlo";
 import { svgniPngGaAylantir } from "../svgRasm";
 import { xatoniAjrat } from "../xatoUtils";
+import OzMavzum from "./OzMavzum";
 
 const TASK_NOMI = { task1: "Task 1", task2: "Task 2" };
 
@@ -309,11 +310,17 @@ export default function Writing() {
         <button className={rejim === "haqiqiy" ? "aktiv" : ""} onClick={() => setRejim("haqiqiy")}>
           {t("haqiqiy_mashq")}
         </button>
+        <button className={rejim === "oz" ? "aktiv" : ""} onClick={() => setRejim("oz")}>
+          {t("oz_mavzum")}
+        </button>
       </div>
 
       <div style={{ marginTop: 16 }}>
         {rejim === "namunaviy" && <NamunaMavzular bolim="writing" />}
         {rejim === "haqiqiy" && <HaqiqiyMashq />}
+        {/* `Natija` prop orqali beriladi — OzMavzum bu fayldan import
+            qilsa aylanma bog'liqlik paydo bo'lardi. */}
+        {rejim === "oz" && <OzMavzum bolim="writing" NatijaKomponenti={Natija} />}
       </div>
     </>
   );

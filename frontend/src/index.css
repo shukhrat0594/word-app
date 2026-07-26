@@ -388,6 +388,103 @@ textarea {
 }
 .unscramble-harf.tanlangan { background: var(--komir); color: var(--sariq); border-color: var(--komir); cursor: default; }
 
+/* Daraja/mavzu tanlash ro'yxati (2026-07-27) — avval ochiladigan <select>
+   edi, talaba variantlarni ko'rmasdi. Endi hammasi ko'rinib turadi. */
+.tanlov-royxat { display: flex; flex-wrap: wrap; gap: 8px; }
+.tanlov-tugma {
+  border: 1px solid var(--chiziq); background: var(--sirt); color: var(--matn-sokin);
+  border-radius: 999px; padding: 8px 18px; font: inherit; font-size: 13.5px;
+  font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 7px;
+}
+.tanlov-tugma.aktiv { background: var(--komir); color: var(--sariq); border-color: var(--komir); }
+.tanlov-soni {
+  font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 999px;
+  background: var(--sirt-2); color: var(--matn-sokin);
+}
+.tanlov-tugma.aktiv .tanlov-soni { background: rgba(255, 212, 0, .18); color: var(--sariq); }
+
+/* ==== O'yinlar — vizual effektlar (2026-07-27) ====
+   Faqat o'yinlar bo'limiga tegishli klasslar; global uslub va F1 palitrasi
+   o'zgarmaydi — qo'shilgani harakat va fokus. Fayl oxiridagi
+   `prefers-reduced-motion` qoidasi bu animatsiyalarni butunlay o'chiradi
+   (harakatga sezgir foydalanuvchilar uchun). */
+@keyframes oyin-pop {
+  from { transform: scale(.86); }
+  60% { transform: scale(1.06); }
+  to { transform: scale(1); }
+}
+@keyframes oyin-silkin {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(5px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(2px); }
+}
+@keyframes oyin-porla {
+  from { box-shadow: 0 0 0 0 rgba(46, 158, 91, .45); }
+  to { box-shadow: 0 0 0 12px rgba(46, 158, 91, 0); }
+}
+@keyframes oyin-kirish {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes oyin-tepish {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .45; }
+}
+
+/* Daraja/mavzu tanlash */
+.tanlov-tugma {
+  transition: transform .15s ease, box-shadow .15s ease,
+    background .15s ease, color .15s ease, border-color .15s ease;
+}
+.tanlov-tugma:hover { transform: translateY(-2px); box-shadow: var(--soya); border-color: var(--sariq-toq); }
+.tanlov-tugma:active { transform: translateY(0) scale(.97); }
+.tanlov-tugma.aktiv { box-shadow: 0 2px 10px rgba(43, 42, 40, .18); }
+
+/* Juftini top — karta ochilishi va topilganda porlash */
+.oyin-karta { transition: transform .18s ease, box-shadow .18s ease, background .2s ease, color .2s ease; }
+.oyin-karta:not(.ochiq):not(.topilgan):hover {
+  transform: translateY(-3px) scale(1.03);
+  box-shadow: 0 4px 14px rgba(43, 42, 40, .22);
+}
+.oyin-karta.ochiq { animation: oyin-pop .22s ease; }
+.oyin-karta.topilgan { animation: oyin-porla .5s ease; }
+
+/* Javob feedback — to'g'ri: sakrash, noto'g'ri: silkinish */
+.variant-togri { animation: oyin-pop .28s ease; }
+.variant-notogri { animation: oyin-silkin .34s ease; }
+
+/* Unscramble harflari */
+.unscramble-harf { transition: transform .15s ease, box-shadow .15s ease, background .2s ease, color .2s ease; }
+.unscramble-harf:not(.tanlangan):hover { transform: translateY(-3px); box-shadow: var(--soya); }
+.unscramble-harf.tanlangan { animation: oyin-pop .2s ease; }
+
+/* Kartochka — 3D aylanish allaqachon bor, ustiga yumshoq soya */
+.flashcard-old, .flashcard-orqa { transition: box-shadow .2s ease; }
+.flashcard:hover .flashcard-old, .flashcard:hover .flashcard-orqa {
+  box-shadow: 0 6px 18px rgba(43, 42, 40, .14);
+}
+
+/* Speed Quiz taymeri — raqam yonida ko'rinadigan chiziq */
+.oyin-taymer {
+  height: 6px; border-radius: 999px; background: var(--sirt-2);
+  overflow: hidden; margin-top: 10px;
+}
+.oyin-taymer-ip {
+  height: 100%; border-radius: 999px; background: var(--sariq);
+  transition: width 1s linear;
+}
+.oyin-taymer.kam .oyin-taymer-ip { background: var(--xato); animation: oyin-tepish .6s ease-in-out infinite; }
+
+/* Natija ekrani */
+.oyin-natija { animation: oyin-kirish .3s ease; }
+.oyin-ball {
+  font-size: 40px; font-weight: 800; color: var(--matn);
+  font-variant-numeric: tabular-nums; margin: 4px 0 14px;
+  animation: oyin-pop .4s ease .08s both;
+}
+
 /* ==== Login ==== */
 .login-ekran { display: flex; min-height: 100vh; }
 .login-brend {
