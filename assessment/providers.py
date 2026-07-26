@@ -41,9 +41,13 @@ WRITING_SYSTEM_PROMPT = (
     "qanchalik yaxshi bo'lishidan qat'iy nazar, javob mavzuga mos kelmasa "
     "yuqori ball berilmasin.\n\n"
 
-    "2) SO'Z SONI: sanang. Task 1 uchun minimal 150 so'z, Task 2 uchun "
-    "minimal 250 so'z. Sizga berilgan turga mos minimumdan kam bo'lsa, "
-    "Task Achievement balini pasaytiring va buni izohda ayting.\n\n"
+    "2) SO'Z SONI: O'ZINGIZ SANAMANG. So'z soni va uning minimumga yetgan-"
+    "yetmagani sizga kontent ichida ANIQ berilgan — uni dastur sanaydi, "
+    "sizning hisobingiz emas (2026-07-26: sinovda modellar izchil 3-6% kam "
+    "sanab, minimumdan sal yuqoridagi javoblarni NOHAQ jazolagani aniqlandi). "
+    "Faqat berilgan ma'lumotga tayaning: minimumga yetgan bo'lsa so'z soni "
+    "uchun ball PASAYTIRMANG; kam bo'lsa Task Achievement balini pasaytiring "
+    "va buni izohda ayting.\n\n"
 
     "3) TAHLIL (ball qo'yishdan oldin): 'analysis' maydonida har mezon "
     "bo'yicha 1 gaplik xulosa yozing — shu asosda ball bering.\n"
@@ -72,7 +76,9 @@ WRITING_SYSTEM_PROMPT = (
 
     "Faqat quyidagi JSON qaytaring, boshqa matn yozmang. 'task_type' "
     "maydoniga sizga berilgan turni ('task1' yoki 'task2') aynan shu "
-    "ko'rinishda yozing (o'zingiz taxmin qilmang, sizga aniq berilgan):\n"
+    "ko'rinishda yozing (o'zingiz taxmin qilmang, sizga aniq berilgan). "
+    "'word_count' maydoniga ham sizga berilgan so'z sonini AYNAN "
+    "ko'chiring — o'zingiz sanagan raqamni yozmang:\n"
     "{\n"
     '  "task_type": "task1 yoki task2",\n'
     '  "word_count": 0,\n'
@@ -91,9 +97,43 @@ WRITING_SYSTEM_PROMPT = (
 )
 
 
+def soz_sonini_sana(matn):
+    """So'zlarni sanaydi — bo'sh joy bo'yicha ajratilgan tokenlar (IELTS
+    qoidasiga yaqin: qo'shma so'z ham, son ham bitta so'z hisoblanadi).
+
+    Nega dastur sanaydi, AI emas (2026-07-26): sinovda ikkala Gemini modeli
+    ham so'zni izchil KAM sanadi (285 so'zli inshoni 272-278, 185 so'zlini
+    178-182). Natijada 250 so'z minimumidan sal yuqoridagi javob "minimumdan
+    kam" deb NOHAQ jazolanardi — 257 so'zli javobga gemini-3.1-flash-lite
+    5/5 urinishda Task Achievement'ni pasaytirgan (TA 6.0, sanash to'g'ri
+    berilganda esa 8.0). LLM aniq sanashni bilmaydi va bu prompt bilan
+    tuzatilmaydi, shuning uchun son AI'ga tayyor holda beriladi."""
+    return len(matn.split())
+
+
+def _soz_soni_qismi(matn, minimum):
+    """Kontentga qo'shiladigan so'z soni bloki — AI qayta sanamasligi va
+    minimumga yetgan javobni jazolamasligi uchun ANIQ ko'rsatma bilan."""
+    soni = soz_sonini_sana(matn)
+    if soni >= minimum:
+        holat = "MINIMUMGA YETADI — so'z soni uchun ball PASAYTIRMANG"
+    else:
+        holat = (
+            f"MINIMUMDAN {minimum - soni} SO'Z KAM — Task Achievement balini "
+            f"pasaytiring va buni izohda ALBATTA ayting"
+        )
+    return (
+        f"TALABA JAVOBIDAGI SO'Z SONI: {soni} — bu son dastur tomonidan ANIQ "
+        f"sanalgan. O'ZINGIZ QAYTA SANAMANG va boshqa raqam aytmang; "
+        f"'word_count' maydoniga aynan {soni} yozing.\n"
+        f"SO'Z SONI HOLATI: {holat}.\n\n"
+    )
+
+
 def _writing_kontent_tuz(savol_matni, tur, matn):
     """AI'ga yuboriladigan kontentni tuzadi — talaba javobi bilan birga
-    ASL SAVOL matni va turi (task1/task2) ANIQ beriladi, AI taxmin qilmaydi."""
+    ASL SAVOL matni, turi (task1/task2) va ANIQ so'z soni beriladi, AI
+    bularning hech birini taxmin qilmaydi."""
     tur_nomi = "Task 1" if tur == "task1" else "Task 2"
     minimum = 150 if tur == "task1" else 250
     savol_qismi = (
@@ -101,6 +141,7 @@ def _writing_kontent_tuz(savol_matni, tur, matn):
     )
     return (
         f"BU — WRITING {tur_nomi.upper()} (minimal {minimum} so'z talab qilinadi).\n\n"
+        f"{_soz_soni_qismi(matn, minimum)}"
         f"{savol_qismi}"
         f"TALABANING JAVOBI (shu savolga nisbatan baholang):\n{matn}"
     )
@@ -168,13 +209,19 @@ SPEAKING_SYSTEM_PROMPT = (
 
 def _speaking_kontent_tuz(savol_matni, tur, matn):
     """Speaking uchun ham xuddi shu naqsh — asl savol/cue card matni va
-    turi (part1/part2) ANIQ beriladi."""
+    turi (part1/part2) ANIQ beriladi. So'z soni ham dastur tomonidan
+    beriladi (Speaking'da minimum yo'q, lekin `word_count` maydoni
+    to'g'ri chiqishi uchun — qarang: `soz_sonini_sana`)."""
     tur_nomi = "Part 1" if tur == "part1" else "Part 2/3"
     savol_qismi = (
         f"BERILGAN SAVOL/MAVZU (CUE CARD) MATNI:\n{savol_matni}\n\n" if savol_matni else ""
     )
     return (
         f"BU — SPEAKING {tur_nomi.upper()}.\n\n"
+        f"TALABA JAVOBIDAGI SO'Z SONI: {soz_sonini_sana(matn)} — dastur ANIQ "
+        f"sanagan. O'ZINGIZ QAYTA SANAMANG; 'word_count' maydoniga aynan shu "
+        f"sonni yozing. Speaking'da minimal so'z talabi YO'Q — so'z soni "
+        f"uchun ball pasaytirmang.\n\n"
         f"{savol_qismi}"
         f"TALABANING OG'ZAKI JAVOBI MATNI (shu savol/mavzuga nisbatan "
         f"baholang):\n{matn}"
@@ -182,7 +229,13 @@ def _speaking_kontent_tuz(savol_matni, tur, matn):
 
 
 def javobni_parse_qil(raw_text):
-    """AI javobidan JSON ajratadi (```json ... ``` o'ramini olib tashlab)."""
+    """AI javobidan JSON ajratadi (```json ... ``` o'ramini olib tashlab).
+
+    `raw_decode` ishlatiladi, `json.loads` emas (2026-07-26): model ba'zan
+    to'g'ri JSON'dan keyin ortiqcha matn yoki IKKINCHI JSON obyektini ham
+    qo'shib yuboradi ("Extra data: line 38 ..."). Bunday javob amalda
+    yaroqli — birinchi obyekt to'liq va to'g'ri, ortidagi axlat esa keraksiz.
+    `raw_decode` birinchi obyektni o'qib, qolganini e'tiborsiz qoldiradi."""
     cleaned = raw_text.strip()
     if cleaned.startswith("```"):
         cleaned = cleaned.split("```")[1]
@@ -190,41 +243,62 @@ def javobni_parse_qil(raw_text):
             cleaned = cleaned[4:]
         cleaned = cleaned.strip()
     try:
-        return json.loads(cleaned)
+        natija, _ = json.JSONDecoder().raw_decode(cleaned)
     except json.JSONDecodeError as e:
         raise ProviderXatosi(f"AI javobi JSON emas: {e}") from e
+    if not isinstance(natija, dict):
+        raise ProviderXatosi("AI javobi JSON obyekt emas")
+    return natija
 
 
-# 2026-07-22: Gemma 4 26B — butunlay bepul (Google narxlar sahifasida
-# pullik tarif yo'q), kunlik limit ~14,400 so'rov (Gemini 3.1 Flash
-# Lite'ning 500'idan ~29 baravar ko'p), sifat sinovda yaxshi chiqdi
-# (rasmli Task 1'ni to'g'ri tahlil qildi, rasmga zid tavsifni ushlab
-# oldi). Kamchiligi: ba'zan (~1/3 holatda) MAX_TOKENS bilan bo'sh javob
-# qaytaradi — shuning uchun qayta urinish + zaxira model kerak (pastda).
-GEMMA_MODEL = "gemma-4-26b-a4b-it"
-GEMINI_ZAXIRA_MODEL = "gemini-3.1-flash-lite"
+# 2026-07-26: Gemma 4 26B BUTUNLAY OLIB TASHLANDI. Sabab — ishonchsizligi:
+# ba'zan (~1/3 holatda) MAX_TOKENS bilan bo'sh javob qaytarardi, shuning
+# uchun har baholash 3 martagacha ketma-ket chaqiruv talab qilardi. Bu
+# prod'da gunicorn worker'ini timeout bo'yicha o'ldirishga olib keldi
+# (Writing testi = 2 qism x 3 urinish = 6 ketma-ket chaqiruv), talaba esa
+# "Xatolik yuz berdi" xabarini ko'rardi.
+#
+# Yagona model — gemini-3.1-flash-lite. 2026-07-26 sinovi (4 xil darajadagi
+# insho + rasmli Task 1, jami 90+ chaqiruv): 3.5-flash-lite bilan sifati
+# amalda teng (Task 2'da bir xil, Task 1'da faktik xatolarni `errors`
+# ro'yxatiga qo'shgani uchun hatto foydaliroq), lekin ~20% tezroq va
+# chiqish tokenlari ~25% kam.
+GEMINI_MODEL = "gemini-3.1-flash-lite"
 MAX_OUTPUT_TOKENS = 8192
+
+# Bitta AI chaqiruvi uchun timeout (millisekund — google-genai shu birlikda
+# oladi). Sinovda odatdagi javob 2-4 sekund, lekin bir marta 45.8 sekund
+# ham kuzatilgan — cheksiz kutish worker'ni band qilib turmasligi uchun
+# aniq chegara kerak. Chegaradan oshsa, pastdagi qayta urinish ishlaydi.
+SOROV_TIMEOUT_MS = 40_000
+
+# Bo'sh yoki buzuq JSON javob uchun umumiy urinishlar soni (1 asosiy +
+# 1 qayta). Ko'proq urinish = uzoq kutish = timeout xavfi.
+URINISHLAR = 2
 
 
 class GeminiProvider:
     name = "gemini"
 
-    def __init__(self, api_key, model=GEMMA_MODEL):
+    def __init__(self, api_key, model=GEMINI_MODEL):
         if not api_key:
             raise ProviderXatosi("Gemini API kaliti berilmagan")
         self.api_key = api_key
         self.model = model
 
-    def _bitta_sorov(self, model, system_prompt, matn, rasm_bytes=None, rasm_mime=None):
+    def _bitta_sorov(self, system_prompt, matn, rasm_bytes=None, rasm_mime=None):
         from google import genai
         from google.genai import types
 
-        client = genai.Client(api_key=self.api_key)
+        client = genai.Client(
+            api_key=self.api_key,
+            http_options=types.HttpOptions(timeout=SOROV_TIMEOUT_MS),
+        )
         contents = matn
         if rasm_bytes:
             contents = [types.Part.from_bytes(data=rasm_bytes, mime_type=rasm_mime), matn]
         return client.models.generate_content(
-            model=model,
+            model=self.model,
             contents=contents,
             config=types.GenerateContentConfig(
                 system_instruction=system_prompt,
@@ -233,30 +307,37 @@ class GeminiProvider:
         )
 
     def _generate(self, system_prompt, matn, rasm_bytes=None, rasm_mime=None):
-        """1-urinish: asosiy model. Javob bo'sh/kesilgan bo'lsa (masalan
-        MAX_TOKENS) — 2-urinish: XUDDI SHU model bilan qayta. Yana bo'sh
-        bo'lsa va asosiy model Gemma bo'lsa — 3-urinish: barqaror zaxira
-        modelga (Gemini 3.1 Flash Lite) o'tiladi (2026-07-22 qarori)."""
-        response = self._bitta_sorov(self.model, system_prompt, matn, rasm_bytes, rasm_mime)
-        if not response.text:
-            response = self._bitta_sorov(self.model, system_prompt, matn, rasm_bytes, rasm_mime)
+        """`URINISHLAR` marta uradi: javob bo'sh bo'lsa (MAX_TOKENS va h.k.)
+        YOKI JSON buzuq bo'lsa — qayta uriniladi.
 
-        ishlatilgan_model = self.model
-        if not response.text and self.model != GEMINI_ZAXIRA_MODEL:
-            response = self._bitta_sorov(GEMINI_ZAXIRA_MODEL, system_prompt, matn, rasm_bytes, rasm_mime)
-            ishlatilgan_model = GEMINI_ZAXIRA_MODEL
+        2026-07-26: avval JSON buzuq bo'lsa qayta urinilmasdan darhol xato
+        qaytarilardi, holbuki sinovda buzuq JSON 15 urinishdan 1 marta
+        uchraydi va oddiy qayta urinish uni hal qiladi. Gemma'ga xos
+        "zaxira modelga o'tish" bosqichi olib tashlandi — model bittta."""
+        oxirgi_xato = None
+        for _ in range(URINISHLAR):
+            response = self._bitta_sorov(system_prompt, matn, rasm_bytes, rasm_mime)
+            if not response.text:
+                oxirgi_xato = ProviderXatosi("AI bo'sh javob qaytardi")
+                continue
+            try:
+                natija = javobni_parse_qil(response.text)
+            except ProviderXatosi as e:
+                oxirgi_xato = e
+                continue
 
-        if not response.text:
-            raise ProviderXatosi("AI javob bermadi (bo'sh javob, qayta urinish va zaxira modeldan keyin ham)")
+            usage = response.usage_metadata
+            return {
+                "natija": natija,
+                "provider": self.name,
+                "model": self.model,
+                "input_tokens": usage.prompt_token_count or 0,
+                "output_tokens": usage.candidates_token_count or 0,
+            }
 
-        usage = response.usage_metadata
-        return {
-            "natija": javobni_parse_qil(response.text),
-            "provider": self.name,
-            "model": ishlatilgan_model,
-            "input_tokens": usage.prompt_token_count or 0,
-            "output_tokens": usage.candidates_token_count or 0,
-        }
+        raise ProviderXatosi(
+            f"AI {URINISHLAR} urinishda ham yaroqli javob bermadi ({oxirgi_xato})"
+        )
 
     def writing_baholash(self, matn, savol_matni="", tur="task2", rasm_bytes=None, rasm_mime=None):
         kontent = _writing_kontent_tuz(savol_matni, tur, matn)
@@ -267,21 +348,24 @@ class GeminiProvider:
         return self._generate(SPEAKING_SYSTEM_PROMPT, kontent)
 
 
+# 2026-07-26: Gemma olib tashlanganidan keyin bitta tanlov qoldi. Lug'at
+# saqlanib turibdi, chunki `_tanlangan_providerlar` va eski frontend
+# ("both" tanlovi) shu kalitlar bilan ishlaydi — endi "both" ham amalda
+# bitta providerni qaytaradi.
 GEMINI_MODEL_TANLOVLARI = {
-    "gemma": GEMMA_MODEL,
-    "flash_lite": GEMINI_ZAXIRA_MODEL,
+    "flash_lite": GEMINI_MODEL,
 }
 
 
 def gemini_provider_ol(model_kaliti):
-    """Writing/Speaking tekshiruv ekranida foydalanuvchi aniq tanlagan Gemini
-    modeli ("gemma" yoki "flash_lite") uchun provider qaytaradi — 2026-07-24,
-    modelni solishtirish uchun UI'da ikkita tugma (+ "ikkalasida ham
-    tekshirish") qo'shilganda kiritildi. `provider_tanla()`dagi markaz
-    darajasidagi Claude/Gemini tanlovidan mustaqil ishlaydi."""
-    model = GEMINI_MODEL_TANLOVLARI.get(model_kaliti)
-    if not model:
-        raise ProviderXatosi(f"Noto'g'ri model tanlovi: {model_kaliti}")
+    """Writing/Speaking tekshiruv ekrani yuboradigan model kaliti uchun
+    provider qaytaradi.
+
+    2026-07-26: model bitta qolgani uchun notanish kalit (masalan brauzerda
+    keshlangan eski JS'dan kelgan "gemma") XATO qaytarmaydi — yagona modelga
+    tushib qoladi. Aks holda kesh yangilanmagan talaba "Noto'g'ri model
+    tanlovi" xabarini ko'rib, tekshiruvdan butunlay mahrum bo'lardi."""
+    model = GEMINI_MODEL_TANLOVLARI.get(model_kaliti, GEMINI_MODEL)
     kalit = getattr(settings, "GEMINI_API_KEY", "")
     if not kalit:
         raise ProviderXatosi("Platforma GEMINI_API_KEY sozlanmagan (.env)")
@@ -298,11 +382,16 @@ class ClaudeProvider:
         self.model = model
 
     def _generate(self, system_prompt, matn, rasm_bytes=None, rasm_mime=None):
+        """Gemini bilan bir xil naqsh (2026-07-26): aniq timeout va buzuq
+        JSON uchun qayta urinish — cheksiz kutish gunicorn worker'ini
+        o'ldirmasligi uchun."""
         import base64
 
         import anthropic
 
-        client = anthropic.Anthropic(api_key=self.api_key)
+        client = anthropic.Anthropic(
+            api_key=self.api_key, timeout=SOROV_TIMEOUT_MS / 1000
+        )
         content = matn
         if rasm_bytes:
             content = [
@@ -316,19 +405,31 @@ class ClaudeProvider:
                 },
                 {"type": "text", "text": matn},
             ]
-        response = client.messages.create(
-            model=self.model,
-            max_tokens=4096,
-            system=system_prompt,
-            messages=[{"role": "user", "content": content}],
+
+        oxirgi_xato = None
+        for _ in range(URINISHLAR):
+            response = client.messages.create(
+                model=self.model,
+                max_tokens=4096,
+                system=system_prompt,
+                messages=[{"role": "user", "content": content}],
+            )
+            try:
+                natija = javobni_parse_qil(response.content[0].text)
+            except ProviderXatosi as e:
+                oxirgi_xato = e
+                continue
+            return {
+                "natija": natija,
+                "provider": self.name,
+                "model": self.model,
+                "input_tokens": response.usage.input_tokens,
+                "output_tokens": response.usage.output_tokens,
+            }
+
+        raise ProviderXatosi(
+            f"AI {URINISHLAR} urinishda ham yaroqli javob bermadi ({oxirgi_xato})"
         )
-        return {
-            "natija": javobni_parse_qil(response.content[0].text),
-            "provider": self.name,
-            "model": self.model,
-            "input_tokens": response.usage.input_tokens,
-            "output_tokens": response.usage.output_tokens,
-        }
 
     def writing_baholash(self, matn, savol_matni="", tur="task2", rasm_bytes=None, rasm_mime=None):
         kontent = _writing_kontent_tuz(savol_matni, tur, matn)
@@ -347,11 +448,11 @@ def provider_tanla(user):
     kirita olmaydi. Shunday qilib har bir Writing/Speaking tekshiruvi
     xarajati platformaga tushadi (2026-07-17'da shunday qaror qilingan).
 
-    "gemini" provayder tanlansa — endi asosiy model **Gemma 4 26B**
-    (2026-07-22'dan, `GeminiProvider.__init__` default qiymati orqali) —
-    bepul, kunlik limiti ancha yuqori (~14,400), sifat sinovda yaxshi
-    chiqdi. Ishonchlilik uchun `GeminiProvider._generate` ichida avtomatik
-    qayta urinish + Gemini 3.1 Flash Lite'ga zaxira o'tish bor.
+    "gemini" provayder tanlansa — model **gemini-3.1-flash-lite**
+    (`GEMINI_MODEL`, 2026-07-26'dan; undan oldin Gemma 4 26B edi, u
+    ishonchsizligi va timeout muammosi uchun olib tashlandi). Ishonchlilik
+    uchun `GeminiProvider._generate` ichida bo'sh/buzuq javob bo'lsa
+    avtomatik qayta urinish bor.
     """
     markaz = user.markaz
     provider_nomi = markaz.ai_provider if markaz else "gemini"

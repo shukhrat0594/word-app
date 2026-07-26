@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api, apiBlobUrl } from "../api";
 import { haqiqiyMatnniOl } from "../haqiqiyMatn";
 import { useI18n } from "../i18n";
+import { IMLO_OFF } from "../imlo";
 import { standartVaqt } from "../imtihonVaqt";
 import { vaqtFormat } from "./ImtihonOtish";
 import { Natija as SpeakingNatija } from "./Speaking";
@@ -181,6 +182,7 @@ export default function ImtihonYozGap({ bolim, testId, mockYechimId, onYakunland
             </div>
             <div className="karta">
               <textarea
+                {...IMLO_OFF}
                 value={javoblar[qism.id] || ""}
                 onChange={(e) => javobniQoy(qism.id, e.target.value)}
                 placeholder={bolim === "writing" ? t("insho_placeholder") : t("javob_placeholder")}

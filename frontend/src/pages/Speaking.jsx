@@ -3,15 +3,14 @@ import { api } from "../api";
 import NamunaMavzular, { TURLAR } from "../components/NamunaMavzular";
 import { haqiqiyMatnniOl } from "../haqiqiyMatn";
 import { useI18n } from "../i18n";
+import { IMLO_OFF } from "../imlo";
 import { xatoniAjrat } from "../xatoUtils";
 
 const PART_NOMI = { part1: "Part 1", part2: "Part 2", part3: "Part 3" };
 
-const MODEL_TUGMALAR = [
-  { kalit: "gemma", nomi: "Gemma 4 26B" },
-  { kalit: "flash_lite", nomi: "Gemini 3.1 Flash Lite" },
-  { kalit: "both", nomi: "Ikkalasida ham tekshirish" },
-];
+// 2026-07-26: Writing.jsx bilan bir xil sabab — Gemma olib tashlangach
+// modellarni solishtiradigan uch tugma o'rnini yagona "Tekshirish" oldi.
+const MODEL_KALITI = "flash_lite";
 
 export function Natija({ natija }) {
   const { t } = useI18n();
@@ -175,18 +174,9 @@ function HaqiqiyMashq() {
             {t("yangi_tekshiruv")}
           </button>
         </div>
-        <div style={natijalar.length > 1 ? { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 } : undefined}>
-          {natijalar.map((n, i) => (
-            <div key={i}>
-              {n.model_kaliti && (
-                <div className="izoh" style={{ marginBottom: 8, fontWeight: 600 }}>
-                  {MODEL_TUGMALAR.find((m) => m.kalit === n.model_kaliti)?.nomi || n.model_kaliti}
-                </div>
-              )}
-              <Natija natija={n.natija} />
-            </div>
-          ))}
-        </div>
+        {natijalar.map((n, i) => (
+          <Natija key={i} natija={n.natija} />
+        ))}
       </>
     );
   }
@@ -208,6 +198,7 @@ function HaqiqiyMashq() {
         </div>
         <div className="karta">
           <textarea
+            {...IMLO_OFF}
             value={matn}
             onChange={(e) => setMatn(e.target.value)}
             placeholder={t("javob_placeholder")}
@@ -225,18 +216,13 @@ function HaqiqiyMashq() {
             <span className="izoh">
               {sozSoni} {t("soz")}
             </span>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              {MODEL_TUGMALAR.map((mt) => (
-                <button
-                  key={mt.kalit}
-                  className="tugma katta"
-                  onClick={() => tekshir(mt.kalit)}
-                  disabled={yuklanmoqda}
-                >
-                  {yuklanmoqda ? t("tekshirilmoqda") : mt.nomi}
-                </button>
-              ))}
-            </div>
+            <button
+              className="tugma katta"
+              onClick={() => tekshir(MODEL_KALITI)}
+              disabled={yuklanmoqda}
+            >
+              {yuklanmoqda ? t("tekshirilmoqda") : t("tekshirish")}
+            </button>
           </div>
           {xato && <div className="xato-xabar" style={{ marginTop: 10 }}>{xato}</div>}
         </div>

@@ -1,4 +1,5 @@
 import json
+import logging
 import re
 
 from django.core.exceptions import ValidationError
@@ -30,6 +31,8 @@ from .models import (
     korinadigan_testlar,
     kunlik_limit_holati,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def _mashq_admin_mi(user):
@@ -962,6 +965,19 @@ class ImtihonYechishView(APIView):
         )
 
 
+# Writing/Speaking qismlarining BAHOLASH NAVBATI (2026-07-26 talabi):
+# Writing — avval Task 1, keyin Task 2; Speaking — Part 1, keyin 2, keyin 3.
+# `TestQismi.Meta.ordering = ["tartib"]` odatda shu tartibni beradi, lekin
+# `tartib` yuklashda noto'g'ri qo'yilgan bo'lsa navbat buzilardi — shuning
+# uchun tur bo'yicha ANIQ tartib majburlanadi, `tartib` esa faqat teng
+# hollarda (yoki tur bo'sh bo'lsa) ishlatiladi.
+_YOZGAP_NAVBATI = {"task1": 0, "task2": 1, "part1": 0, "part2": 1, "part3": 2}
+
+
+def _yozgap_qism_tartibi(qism):
+    return (_YOZGAP_NAVBATI.get(qism.tur, 99), qism.tartib)
+
+
 class ImtihonYozGapTekshirishView(APIView):
     """Writing/Speaking to'liq testga javob — har bir qism (Task1+Task2 yoki
     Part1/2/3) uchun AI orqali baholanadi (assessment.providers — Writing/
@@ -972,13 +988,31 @@ class ImtihonYozGapTekshirishView(APIView):
     yaratiladi — shunda mavjud XP/tarix/statistika infratuzilmasi (signal
     orqali) avtomatik ishlaydi, alohida "natija" modeli kerak emas. Paket
     (agar aktiv bo'lsa) BUTUN test uchun bir marta yechiladi (real IELTS'da
-    Writing/Speaking — bitta yaxlit sessiya, har qism uchun alohida emas)."""
+    Writing/Speaking — bitta yaxlit sessiya, har qism uchun alohida emas).
+
+    2026-07-26 — qismlar NAVBATMA-NAVBAT baholanadi (ataylab, parallel emas).
+    Parallel variant sinab ko'rilgan va kutishni ~2-3 barobar qisqartirardi,
+    lekin rad etildi: Gemini bepul tarifining DAQIQALIK so'rov limiti bor
+    (sinovda `GenerateRequestsPerMinutePerProjectPerModel-FreeTier` 429
+    xatosi kuzatilgan) va bir necha talaba bir vaqtda topshirsa, parallel
+    rejim limitga tezroq urib, hech kimga baho bermay qolishi mumkin.
+
+    Buning narxi: bitta so'rov ichida 2 (Writing) yoki 3 (Speaking) ta
+    ketma-ket AI chaqiruvi. Shuning uchun gunicorn `--timeout` ni oshirish
+    SHART — default 30 sekundda prod'da worker o'ldirilardi (Render logida
+    `handle_abort -> SystemExit`), talaba esa generik "Xatolik yuz berdi"
+    xabarini olardi. Kutishni qisqartirish asosan Gemma'ni olib tashlash
+    bilan hal qilindi (6 chaqiruv -> 2, qarang: assessment/providers.py).
+
+    Rasm o'qish AI chaqiruvidan OLDIN, alohida bajariladi — shunda R2'dagi
+    yo'q fayl butun topshiriqni yo'qotmaydi."""
 
     permission_classes = [IsAuthenticated]
 
     def post(self, request, pk):
         from assessment.models import SpeakingTekshiruv, WritingTekshiruv
         from assessment.providers import ProviderXatosi, provider_tanla
+        from assessment.views import ai_xatosi_javobi
         from packages.models import paketdan_ishlat
 
         test = get_object_or_404(korinadigan_testlar(request.user), pk=pk)
@@ -989,7 +1023,7 @@ class ImtihonYozGapTekshirishView(APIView):
         if not isinstance(javoblar, dict):
             return Response({"detail": "javoblar {qism_id: matn} lug'ati majburiy"}, status=400)
 
-        qismlar = list(test.qismlar.all())
+        qismlar = sorted(test.qismlar.all(), key=_yozgap_qism_tartibi)
         for qism in qismlar:
             matn = (javoblar.get(str(qism.id)) or "").strip()
             if len(matn.split()) < 20:
@@ -1003,51 +1037,83 @@ class ImtihonYozGapTekshirishView(APIView):
         except ProviderXatosi as e:
             return Response({"detail": str(e)}, status=502)
 
-        natijalar = []
-        bandlar = []
+        # 1-qadam (asosiy oqim): AI chaqiruvi uchun hamma narsani tayyorlaymiz
+        # — rasm baytlari ham shu yerda o'qiladi, threadda emas.
+        ishlar = []
+        for qism in qismlar:
+            matn = javoblar[str(qism.id)].strip()
+            rasm_bytes, rasm_mime = None, None
+            if test.bolim == Bolim.WRITING and qism.rasm:
+                try:
+                    # `with` — fayl deskriptori yopilishi uchun. Yopilmasa
+                    # Windows'da fayl band bo'lib qoladi, R2'da esa ulanish
+                    # oqadi (2026-07-26 sinovida aniqlangan).
+                    with qism.rasm.open("rb") as f:
+                        rasm_bytes, rasm_mime = f.read(), "image/png"
+                except Exception:
+                    # Rasm yo'q/o'qilmadi (masalan R2'da fayl topilmadi) —
+                    # butun topshiriqni yo'qotgandan ko'ra rasmsiz baholaymiz.
+                    # ESLATMA: bu holatda AI Task 1 grafigidagi ma'lumotlarga
+                    # mosligini tekshira olmaydi, ya'ni ball yuqori chiqishi
+                    # mumkin — shuning uchun logga ALBATTA yozamiz.
+                    logger.exception(
+                        "TestQismi rasmini o'qib bo'lmadi (qism id=%s) — rasmsiz baholanadi",
+                        qism.id,
+                    )
+            ishlar.append((qism, matn, rasm_bytes, rasm_mime))
+
+        def bahoni_ol(ish):
+            qism, matn, rb, rm = ish
+            if test.bolim == Bolim.WRITING:
+                return provider.writing_baholash(
+                    matn, savol_matni=qism.matn, tur=qism.tur, rasm_bytes=rb, rasm_mime=rm
+                )
+            return provider.speaking_matn_baholash(matn, savol_matni=qism.matn, tur=qism.tur)
+
+        # 2-qadam: AI chaqiruvlari NAVBATMA-NAVBAT (daqiqalik limitni
+        # urmaslik uchun — yuqoridagi izohga qarang).
         try:
-            for qism in qismlar:
-                matn = javoblar[str(qism.id)].strip()
-                if test.bolim == Bolim.WRITING:
-                    rasm_bytes, rasm_mime = None, None
-                    if qism.rasm:
-                        rasm_bytes, rasm_mime = qism.rasm.read(), "image/png"
-                    baho = provider.writing_baholash(
-                        matn, savol_matni=qism.matn, tur=qism.tur,
-                        rasm_bytes=rasm_bytes, rasm_mime=rasm_mime,
-                    )
-                    natija = baho["natija"]
-                    WritingTekshiruv.objects.create(
-                        talaba=request.user,
-                        matn=matn,
-                        natija=natija,
-                        task_type=str(natija.get("task_type", qism.tur)),
-                        overall_band=natija.get("overall_band"),
-                        provider=baho["provider"],
-                        model=baho["model"],
-                        input_tokens=baho["input_tokens"],
-                        output_tokens=baho["output_tokens"],
-                    )
-                    bandlar.append(natija.get("overall_band"))
-                else:
-                    baho = provider.speaking_matn_baholash(matn, savol_matni=qism.matn, tur=qism.tur)
-                    natija = baho["natija"]
-                    SpeakingTekshiruv.objects.create(
-                        talaba=request.user,
-                        rejim=SpeakingTekshiruv.Rejim.MATN,
-                        matn=matn,
-                        natija=natija,
-                        part_type=str(natija.get("part_type", qism.tur)),
-                        overall_band=natija.get("overall_band_no_pronunciation"),
-                        provider=baho["provider"],
-                        model=baho["model"],
-                        input_tokens=baho["input_tokens"],
-                        output_tokens=baho["output_tokens"],
-                    )
-                    bandlar.append(natija.get("overall_band_no_pronunciation"))
-                natijalar.append({"qism_id": qism.id, "tur": qism.tur, "sarlavha": qism.sarlavha, "natija": natija})
+            baholar = [bahoni_ol(ish) for ish in ishlar]
         except ProviderXatosi as e:
             return Response({"detail": str(e)}, status=502)
+        except Exception as e:
+            return ai_xatosi_javobi(
+                e, f"Imtihon {test.bolim} tekshiruvi (test id={test.id}, talaba id={request.user.id})"
+            )
+
+        # 3-qadam (asosiy oqim): DB yozuvlari, qismlar tartibida.
+        natijalar = []
+        bandlar = []
+        for (qism, matn, _, _), baho in zip(ishlar, baholar):
+            natija = baho["natija"]
+            if test.bolim == Bolim.WRITING:
+                WritingTekshiruv.objects.create(
+                    talaba=request.user,
+                    matn=matn,
+                    natija=natija,
+                    task_type=str(natija.get("task_type", qism.tur)),
+                    overall_band=natija.get("overall_band"),
+                    provider=baho["provider"],
+                    model=baho["model"],
+                    input_tokens=baho["input_tokens"],
+                    output_tokens=baho["output_tokens"],
+                )
+                bandlar.append(natija.get("overall_band"))
+            else:
+                SpeakingTekshiruv.objects.create(
+                    talaba=request.user,
+                    rejim=SpeakingTekshiruv.Rejim.MATN,
+                    matn=matn,
+                    natija=natija,
+                    part_type=str(natija.get("part_type", qism.tur)),
+                    overall_band=natija.get("overall_band_no_pronunciation"),
+                    provider=baho["provider"],
+                    model=baho["model"],
+                    input_tokens=baho["input_tokens"],
+                    output_tokens=baho["output_tokens"],
+                )
+                bandlar.append(natija.get("overall_band_no_pronunciation"))
+            natijalar.append({"qism_id": qism.id, "tur": qism.tur, "sarlavha": qism.sarlavha, "natija": natija})
 
         bandlar = [b for b in bandlar if b is not None]
         umumiy_band = round(sum(bandlar) / len(bandlar) * 2) / 2 if bandlar else None

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, apiBlobUrl, apiForm } from "../api";
 import { useI18n } from "../i18n";
+import { IMLO_OFF } from "../imlo";
 import { useProfil } from "../profilContext";
 
 /** Talaba uchun — bitta mashqqa javob yozish va natija ko'rish. */
@@ -66,6 +67,7 @@ function TalabaMashqi({ mashq }) {
             </div>
           ) : (
             <input
+              {...IMLO_OFF}
               value={javoblar[i]}
               disabled={!!natija}
               onChange={(e) => setJavoblar((j) => j.map((x, idx) => (idx === i ? e.target.value : x)))}

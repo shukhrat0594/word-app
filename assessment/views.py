@@ -1,9 +1,36 @@
+import logging
+
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .models import SpeakingTekshiruv, WritingTekshiruv
 from .providers import GEMINI_MODEL_TANLOVLARI, ProviderXatosi, gemini_provider_ol, provider_tanla
+
+logger = logging.getLogger(__name__)
+
+
+def ai_xatosi_javobi(e, kontekst):
+    """AI chaqiruvidagi KUTILMAGAN xato uchun javob (2026-07-26).
+
+    Nega kerak: avval faqat `ProviderXatosi` ushlanardi, SDK'ning o'z
+    xatolari (429 kunlik limit, 400, tarmoq uzilishi, R2'dagi yo'q rasm)
+    esa umuman ushlanmasdan 500 ga aylanardi. 500 javobida DRF `detail`
+    bermaydi, frontend esa `detail` bo'lmasa generik "Xatolik yuz berdi,
+    qayta urinib ko'ring" ko'rsatadi — natijada haqiqiy sabab na talabaga,
+    na logga chiqmasdi.
+
+    Xato matni foydalanuvchiga BERILMAYDI (unda kalit/ichki manzil bo'lishi
+    mumkin) — faqat sinf nomi beriladi, to'liq traceback logga tushadi."""
+    logger.exception("%s — AI baholashda kutilmagan xato", kontekst)
+    return Response(
+        {
+            "detail": f"AI xizmatida kutilmagan xato ({type(e).__name__}). "
+            f"Birozdan so'ng qayta urinib ko'ring — muammo takrorlansa "
+            f"administratorga xabar bering."
+        },
+        status=502,
+    )
 
 
 def _tanlangan_providerlar(request):
@@ -42,7 +69,10 @@ class WritingTekshirishView(APIView):
 
             mashq = korinadigan_mashqlar(request.user).filter(pk=mashq_id).first()
             if mashq and mashq.rasm:
-                return mashq.rasm.read(), "image/png"
+                # `with` — deskriptor yopilishi uchun (2026-07-26): ochiq
+                # qolgan fayl Windows'da o'chirilmaydi, R2'da ulanish oqadi.
+                with mashq.rasm.open("rb") as f:
+                    return f.read(), "image/png"
             return None, None
 
         grafik_b64 = request.data.get("grafik_rasm")
@@ -88,6 +118,8 @@ class WritingTekshirishView(APIView):
                 )
         except ProviderXatosi as e:
             return Response({"detail": str(e)}, status=502)
+        except Exception as e:
+            return ai_xatosi_javobi(e, f"Writing tekshiruvi (talaba id={request.user.id})")
 
         # B9: aktiv paket bo'lsa, undan 1 ta Writing yechiladi (nechta model
         # tanlangan bo'lishidan qat'iy nazar — bitta foydalanuvchi harakati).
@@ -149,6 +181,8 @@ class SpeakingMatnView(APIView):
                 )
         except ProviderXatosi as e:
             return Response({"detail": str(e)}, status=502)
+        except Exception as e:
+            return ai_xatosi_javobi(e, f"Speaking tekshiruvi (talaba id={request.user.id})")
 
         # B9: aktiv paket bo'lsa, undan 1 ta Speaking yechiladi (nechta model
         # tanlangan bo'lishidan qat'iy nazar — bitta foydalanuvchi harakati).

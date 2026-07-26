@@ -3,16 +3,17 @@ import { api } from "../api";
 import NamunaMavzular, { svgAjrat, TURLAR } from "../components/NamunaMavzular";
 import { haqiqiyMatnniOl } from "../haqiqiyMatn";
 import { useI18n } from "../i18n";
+import { IMLO_OFF } from "../imlo";
 import { svgniPngGaAylantir } from "../svgRasm";
 import { xatoniAjrat } from "../xatoUtils";
 
 const TASK_NOMI = { task1: "Task 1", task2: "Task 2" };
 
-const MODEL_TUGMALAR = [
-  { kalit: "gemma", nomi: "Gemma 4 26B" },
-  { kalit: "flash_lite", nomi: "Gemini 3.1 Flash Lite" },
-  { kalit: "both", nomi: "Ikkalasida ham tekshirish" },
-];
+// 2026-07-26: avval uchta tugma bor edi (Gemma / Flash Lite / "ikkalasida
+// ham tekshirish") — ular modellarni solishtirish uchun vaqtincha qo'yilgan.
+// Gemma olib tashlangach solishtiradigan narsa qolmadi: bitta model, bitta
+// tugma. Kalit backendga hamon yuboriladi (`gemini_provider_ol`).
+const MODEL_KALITI = "flash_lite";
 
 export function Natija({ natija }) {
   const { t } = useI18n();
@@ -201,18 +202,9 @@ function HaqiqiyMashq() {
             {t("yangi_tekshiruv")}
           </button>
         </div>
-        <div style={natijalar.length > 1 ? { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 } : undefined}>
-          {natijalar.map((n, i) => (
-            <div key={i}>
-              {n.model_kaliti && (
-                <div className="izoh" style={{ marginBottom: 8, fontWeight: 600 }}>
-                  {MODEL_TUGMALAR.find((m) => m.kalit === n.model_kaliti)?.nomi || n.model_kaliti}
-                </div>
-              )}
-              <Natija natija={n.natija} />
-            </div>
-          ))}
-        </div>
+        {natijalar.map((n, i) => (
+          <Natija key={i} natija={n.natija} />
+        ))}
       </>
     );
   }
@@ -235,6 +227,7 @@ function HaqiqiyMashq() {
         </div>
         <div className="karta">
           <textarea
+            {...IMLO_OFF}
             value={matn}
             onChange={(e) => setMatn(e.target.value)}
             placeholder={t("insho_placeholder")}
@@ -252,18 +245,13 @@ function HaqiqiyMashq() {
             <span className="izoh">
               {sozSoni} {t("soz")}
             </span>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              {MODEL_TUGMALAR.map((mt) => (
-                <button
-                  key={mt.kalit}
-                  className="tugma katta"
-                  onClick={() => tekshir(mt.kalit)}
-                  disabled={yuklanmoqda}
-                >
-                  {yuklanmoqda ? t("tekshirilmoqda") : mt.nomi}
-                </button>
-              ))}
-            </div>
+            <button
+              className="tugma katta"
+              onClick={() => tekshir(MODEL_KALITI)}
+              disabled={yuklanmoqda}
+            >
+              {yuklanmoqda ? t("tekshirilmoqda") : t("tekshirish")}
+            </button>
           </div>
           {xato && <div className="xato-xabar" style={{ marginTop: 10 }}>{xato}</div>}
         </div>

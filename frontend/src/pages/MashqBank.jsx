@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, apiBlobUrl } from "../api";
 import { useI18n } from "../i18n";
+import { IMLO_OFF } from "../imlo";
 
 // Bo'lim bo'yicha qaysi turlar bor (BOLIM_TURLARI, exercises/models.py bilan bir xil).
 const TURLAR = {
@@ -158,6 +159,7 @@ export default function MashqBank({ bolim }) {
               ))
             ) : (
               <input
+                {...IMLO_OFF}
                 type="text"
                 placeholder={t("javob_yozing")}
                 disabled={!!natija}

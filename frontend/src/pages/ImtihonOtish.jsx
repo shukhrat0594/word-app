@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api, apiBlobUrl } from "../api";
 import { useI18n } from "../i18n";
+import { IMLO_OFF } from "../imlo";
 import { standartVaqt } from "../imtihonVaqt";
 
 export function vaqtFormat(soniya) {
@@ -62,6 +63,7 @@ function matnniBoslarGaAjrat(matn, javoblar, javobniQoy, natija) {
       <span key={i} className="imtihon-inline-juft">
         <span className="imtihon-inline-raqam">{idx + 1}</span>
         <input
+          {...IMLO_OFF}
           className={`imtihon-inline-input ${holat}`}
           disabled={!!natija}
           value={javoblar[idx] || ""}
@@ -225,6 +227,7 @@ function RasmSavollari({ rasmUrl, sarlavha, savollar, boshIdx, javoblar, javobni
         return (
           <input
             key={i}
+            {...IMLO_OFF}
             className={`imtihon-rasm-input ${holat}`}
             style={{ left: `${s.pozitsiya.x}%`, top: `${s.pozitsiya.y}%` }}
             disabled={!!natija}
@@ -266,6 +269,7 @@ function OddiySavolBloki({ blok, javoblar, javobniQoy, natija, t }) {
         ))
       ) : (
         <input
+          {...IMLO_OFF}
           type="text"
           placeholder={t("javob_yozing")}
           disabled={!!natija}
