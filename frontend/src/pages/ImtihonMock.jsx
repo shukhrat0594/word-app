@@ -17,6 +17,78 @@ const BOLIM_KALIT = {
  * ketma-ket, bitta yaxlit sessiyada o'tiladi, oxirida Overall Band
  * ko'rsatiladi (2026-07-25). Admin/owner ro'yxatdan mockni o'chira oladi
  * (4-papkali ZIP yuklashda avtomatik yaratiladi). */
+function AdminMockYaratish({ royxatniYukla }) {
+  const { t } = useI18n();
+  const [nomi, setNomi] = useState("");
+  const [tanlovlar, setTanlovlar] = useState({});
+  const [testlar, setTestlar] = useState({});
+  const [xato, setXato] = useState("");
+  const [saqlanmoqda, setSaqlanmoqda] = useState(false);
+
+  useEffect(() => {
+    BOLIM_TARTIBI.forEach((b) => {
+      api(`/api/imtihon/testlar/?bolim=${b}`).then((r) =>
+        setTestlar((prev) => ({ ...prev, [b]: r }))
+      );
+    });
+  }, []);
+
+  async function yaratish() {
+    setXato("");
+    if (!nomi.trim()) {
+      setXato(t("mock_nomi_kerak"));
+      return;
+    }
+    setSaqlanmoqda(true);
+    try {
+      await api("/api/imtihon-mock/yaratish/", {
+        method: "POST",
+        body: { name: nomi, ...tanlovlar },
+      });
+      setNomi("");
+      setTanlovlar({});
+      royxatniYukla();
+    } catch (e) {
+      setXato(e.data?.detail || t("xato_yuz_berdi"));
+    } finally {
+      setSaqlanmoqda(false);
+    }
+  }
+
+  return (
+    <div className="karta" style={{ marginBottom: 16 }}>
+      <h3>{t("mock_yaratish")}</h3>
+      <div style={{ display: "grid", gap: 10, maxWidth: 420 }}>
+        <input
+          placeholder={t("mock_nomi")}
+          value={nomi}
+          onChange={(e) => setNomi(e.target.value)}
+        />
+        {BOLIM_TARTIBI.map((b) => (
+          <label key={b} style={{ display: "grid", gap: 4 }}>
+            <span className="izoh">{t(BOLIM_KALIT[b])}</span>
+            <select
+              value={tanlovlar[b] || ""}
+              onChange={(e) => setTanlovlar((p) => ({ ...p, [b]: e.target.value }))}
+            >
+              <option value="">—</option>
+              {(testlar[b] || []).map((tst) => (
+                <option key={tst.id} value={tst.id}>
+                  {tst.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        ))}
+        <button className="tugma" onClick={yaratish} disabled={saqlanmoqda}>
+          {saqlanmoqda ? t("saqlanmoqda") : t("mock_yaratish")}
+        </button>
+        {xato && <div className="xato-xabar">{xato}</div>}
+      </div>
+    </div>
+  );
+}
+
 export default function ImtihonMock() {
   const { t } = useI18n();
   const { profil } = useProfil();
@@ -112,7 +184,9 @@ export default function ImtihonMock() {
   }
 
   return (
-    <div className="karta">
+    <>
+      {adminMi && <AdminMockYaratish royxatniYukla={royxatniYukla} />}
+      <div className="karta">
       {royxat === null && <div className="yuklanmoqda">{t("yuklanmoqda")}</div>}
       {royxat && royxat.length === 0 && <span className="izoh">{t("imtihon_royxati_boshi")}</span>}
       {royxat && royxat.map((m) => (
@@ -135,6 +209,7 @@ export default function ImtihonMock() {
         </div>
       ))}
       {xato && <div className="xato-xabar" style={{ marginTop: 10 }}>{xato}</div>}
-    </div>
+      </div>
+    </>
   );
 }

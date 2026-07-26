@@ -1087,6 +1087,59 @@ def _mock_talaba_dict(m):
     }
 
 
+class ImtihonMockYaratishView(APIView):
+    """Admin/owner uchun — mavjud (allaqachon yuklangan) testlardan qo'lda
+    mock yaratish, ZIP qayta yuklamasdan (2026-07-26). Har bo'lim ixtiyoriy —
+    kamida bittasi tanlanishi kerak, lekin to'liq mock uchun 4 tasi ham
+    berilishi tavsiya etiladi."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        if not _mashq_admin_mi(request.user):
+            return Response({"detail": "Faqat admin/owner uchun"}, status=403)
+
+        markaz = Markaz.objects.first()
+        if not markaz:
+            return Response({"detail": "Markaz topilmadi"}, status=400)
+
+        name = (request.data.get("name") or "").strip()
+        if not name:
+            return Response({"detail": "name majburiy"}, status=400)
+
+        bolim_testlari = {}
+        for b in Bolim.values:
+            tid = request.data.get(b)
+            if not tid:
+                continue
+            test = ImtihonTest.objects.filter(pk=tid, bolim=b).first()
+            if not test:
+                return Response({"detail": f"'{b}' uchun test topilmadi"}, status=400)
+            bolim_testlari[b] = test
+
+        if not bolim_testlari:
+            return Response({"detail": "Kamida bitta bo'lim tanlanishi kerak"}, status=400)
+
+        mock = ImtihonMock.objects.create(
+            name=name,
+            markaz=markaz,
+            korinish="private",
+            yaratuvchi=request.user,
+            listening=bolim_testlari.get(Bolim.LISTENING),
+            reading=bolim_testlari.get(Bolim.READING),
+            writing=bolim_testlari.get(Bolim.WRITING),
+            speaking=bolim_testlari.get(Bolim.SPEAKING),
+        )
+        logla(
+            foydalanuvchi=request.user,
+            harakat=FaoliyatYozuvi.Harakat.YARATISH,
+            obyekt=mock,
+            obyekt_turi="ImtihonMock",
+            snapshot={"name": mock.name, "bolimlar": list(bolim_testlari)},
+        )
+        return Response(_mock_admin_dict(mock), status=201)
+
+
 class ImtihonMockRoyxatiView(APIView):
     """Mock imtihonlar ro'yxati — hammaga (oddiy foydalanuvchidan boshqa)
     ko'rinadi, xuddi `korinadigan_testlar` bilan bir xil qoida."""
