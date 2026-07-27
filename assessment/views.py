@@ -78,7 +78,7 @@ class WritingTekshirishView(APIView):
         grafik_b64 = request.data.get("grafik_rasm")
         if grafik_b64:
             # 2026-07-27: MIME avval har doim "image/png" deb qattiq yozilgan
-            # edi. "O'z mavzum" bo'limida talaba o'z faylini yuklaydi va u
+            # edi. "O'z mavzuyim" bo'limida talaba o'z faylini yuklaydi va u
             # JPEG bo'lishi mumkin — noto'g'ri MIME bilan yuborsak AI rasmni
             # o'qiy olmasligi mumkin. Endi frontend `grafik_mime` yuboradi,
             # faqat oq ro'yxatdagi qiymat qabul qilinadi (yuborilmasa —

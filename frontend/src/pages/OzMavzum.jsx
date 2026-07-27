@@ -15,12 +15,12 @@ const MAX_RASM_BAYT = 5 * 1024 * 1024;
 
 const RUXSAT_MIME = ["image/png", "image/jpeg", "image/webp"];
 
-/** "O'z mavzum" — talaba tayyor mavzular ro'yxatidan tanlamaydi, o'zi
+/** "O'z mavzuyim" — talaba tayyor mavzular ro'yxatidan tanlamaydi, o'zi
  * xohlagan mavzuni kiritib javobini AI'ga tekshirtiradi (2026-07-27 talabi).
  *
  * Ikki joyda ishlatiladi (dublikat kod yozilmasligi uchun bitta komponent):
  *   1. Mashqlar > IELTS > Writing/Speaking — uchinchi tab
- *   2. IELTS testlari > Writing/Speaking — "O'z mavzum" tab
+ *   2. IELTS testlari > Writing/Speaking — "O'z mavzuyim" tab
  *
  * `NatijaKomponenti` prop orqali beriladi (import qilinmaydi): Writing.jsx
  * bu komponentni o'zi import qiladi, teskari import qilsak aylanma

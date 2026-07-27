@@ -205,7 +205,7 @@ export default function ImtihonYozGap({ bolim, testId, mockYechimId, onYakunland
     );
   }
 
-  // 2026-07-27: test ro'yxati yonida "O'z mavzum" tabi — talaba tayyor
+  // 2026-07-27: test ro'yxati yonida "O'z mavzuyim" tabi — talaba tayyor
   // testlardan tashqari o'zi kiritgan mavzuni ham tekshirtira oladi.
   // Mock oqimida (testId berilganda) bu yerga umuman kelinmaydi — test
   // to'g'ridan-to'g'ri ochiladi, ya'ni mock jarayoniga ta'sir qilmaydi.

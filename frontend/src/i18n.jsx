@@ -290,7 +290,7 @@ const LUGAT = {
     namunaviy: "Namunaviy",
     haqiqiy_mashq: "Haqiqiy mashq",
     testlar: "Testlar",
-    oz_mavzum: "O'z mavzum",
+    oz_mavzum: "O'z mavzuyim",
     oz_mavzum_izoh: "Mavzuni o'zingiz kiriting va javobingizni AI tekshirib beradi",
     oz_mavzu_placeholder: "Mavzu (savol) matnini shu yerga kiriting...",
     oz_mavzu_kerak: "Mavzu matnini kiriting",
