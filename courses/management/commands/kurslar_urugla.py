@@ -23,7 +23,7 @@ berilmagani uchun bo'sh/flat holatda qoladi, faqat bo'lim nomlari mos).
 from django.core.management.base import BaseCommand
 
 from accounts.models import Markaz
-from courses.models import KursTugun
+from courses.models import KursMashq, KursTugun
 
 INGLIZ_DARAJA_BOLIMLARI = [
     "Grammar",
@@ -35,7 +35,10 @@ INGLIZ_DARAJA_BOLIMLARI = [
 ]
 INGLIZ_DARAJALAR = ["Beginner", "Elementary", "Pre-Intermediate", "Intermediate", "Upper-Intermediate"]
 IELTS_TEXTBOOKS_QISMLARI = ["Reading", "Writing", "Listening", "Speaking", "Vocabulary", "Grammar"]
-IELTS_BOLIMLARI = ["Textbooks", "Practice tests", "Cambridge", "Vocabulary", "Mock exam"]
+# 2026-07-27: "Cambridge" va "Vocabulary" bo'limlari IELTS ostidan olib
+# tashlandi (foydalanuvchi talabi). ESLATMA: IELTS > Textbooks > Vocabulary
+# BOSHQA tugun — u `IELTS_TEXTBOOKS_QISMLARI` ichida va o'z joyida qoladi.
+IELTS_BOLIMLARI = ["Textbooks", "Practice tests", "Mock exam"]
 
 HEADWAY_BEGINNER_UNITLAR = [
     "Unit 1 — Hello!",
@@ -108,6 +111,37 @@ class Command(BaseCommand):
             if bolim_nomi == "Textbooks":
                 for j, qism_nomi in enumerate(IELTS_TEXTBOOKS_QISMLARI, start=1):
                     bor_yoki_yarat(qism_nomi, parent=bolim, tartib=j)
+
+        # 2026-07-27: ro'yxatdan olib tashlangan IELTS bo'limlarini ("Cambridge",
+        # "Vocabulary") mavjud bazadan ham o'chiramiz. Faqat ro'yxatni
+        # qisqartirish yetarli emas — `bor_yoki_yarat` hech narsa o'chirmaydi,
+        # ya'ni prod'da eski tugunlar qolib ketardi. Beginner darajasidagi
+        # `eski_bolimlarni_tozala` bilan bir xil naqsh.
+        #
+        # DIQQAT: o'chirish KASKAD — tugun ostidagi barcha kichik tugunlar,
+        # mashqlar (`KursMashq`), talaba yechimlari va progress ham ketadi.
+        # Shu sababli nima o'chirilayotgani deploy logiga yoziladi.
+        ortiqcha = list(KursTugun.objects.filter(parent=ielts).exclude(nomi__in=IELTS_BOLIMLARI))
+        if ortiqcha:
+            idlar = []
+
+            def _shoxni_yig(tugun):
+                idlar.append(tugun.id)
+                for bola in KursTugun.objects.filter(parent=tugun):
+                    _shoxni_yig(bola)
+
+            for t in ortiqcha:
+                _shoxni_yig(t)
+
+            mashq_soni = KursMashq.objects.filter(tugun_id__in=idlar).count()
+            nomlar = ", ".join(t.nomi for t in ortiqcha)
+            KursTugun.objects.filter(id__in=idlar).delete()
+            self.stdout.write(
+                self.style.WARNING(
+                    f"IELTS ostidan olib tashlandi: {nomlar} "
+                    f"({len(idlar)} tugun, {mashq_soni} mashq bilan birga)"
+                )
+            )
 
         bor_yoki_yarat("CEFR", parent=ingliz, tartib=len(INGLIZ_DARAJALAR) + 2, tez_kunda=True)
 
