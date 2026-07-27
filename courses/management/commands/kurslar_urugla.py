@@ -8,16 +8,28 @@ ulash uchun).
 kitobi bo'yicha, 14 ta unit) — har bir Unit o'zining bo'limiga ega va
 ketma-ket ochiladi (`unit_darsi=True`).
 
-2026-07-22 (2): Unit ichidagi bo'limlar darslik ("Headway") uslubiga
-moslashtirildi — Students Book/Workbook/Test-Exam o'rniga haqiqiy darslik
-bo'limlari: Grammar/Vocabulary/Reading/Listening/Speaking-Writing/Everyday
-English. Har biri — oxirgi qatlam (fayl + mashq biriktiriladigan tugun).
-"Grammar reference" (Grammar oxiridagi xulosa beti) va "Wordlist"
-(Vocabulary oxiridagi so'zlar ro'yxati) alohida tugun sifatida
-modellanmaydi — shu bo'limning umumiy fayliga (masalan darslik sahifalari
-skani) kiritiladi. Bu bo'lim to'plami Beginner'dan Upper-Intermediate'gacha
-BARCHA darajalarda bir xil (Elementary...Upper-Intermediate hali kitob
-berilmagani uchun bo'sh/flat holatda qoladi, faqat bo'lim nomlari mos).
+2026-07-27: Unit ichidagi bo'limlar QAYTA QURILDI (foydalanuvchi talabi) —
+avvalgi 6 bo'lim (Grammar/Vocabulary/Reading/Listening/Speaking-Writing/
+Everyday English) o'rniga har Unit endi 3 bo'limdan iborat:
+  * "Mashqlar"          — darslikdagi barcha mashqlar shu yerga kiradi
+                           (Reading/Listening/Grammar/Vocabulary va h.k.
+                           endi alohida bo'lim emas, hammasi "Mashqlar"
+                           ichida KursMashq sifatida). Qaysi mashqda
+                           darslikda audio belgisi bo'lsa, shu mashqqa
+                           audio biriktiriladi (har bo'lak alohida, audio
+                           umumiy emas). Rasm ustida javob kiritish
+                           (masalan "nechta narsa bor" turidagi mashqlar)
+                           `savol.pozitsiya` orqali qo'llab-quvvatlanadi
+                           (Kurslar.jsx: TalabaMashqi, IELTS testlaridagi
+                           mexanizm bilan bir xil, model o'zgarishi kerak
+                           emas — `KursMashq.savollar` erkin JSON).
+  * "Grammar reference"  — darslik Unit oxiridagi grammatika xulosa beti
+                            (fayl-only, mashq yo'q).
+  * "Wordlist"            — darslik Unit oxiridagi so'zlar ro'yxati
+                             (fayl-only, mashq yo'q).
+Bu faqat Beginner'ning Unit tuzilmasiga tegishli. Boshqa darajalar
+(Elementary...Upper-Intermediate) hali flat va eski bo'lim to'plamida
+qoladi (ular hali bo'sh, real kitob berilmagan).
 """
 
 from django.core.management.base import BaseCommand
@@ -25,6 +37,8 @@ from django.core.management.base import BaseCommand
 from accounts.models import Markaz
 from courses.models import KursMashq, KursTugun
 
+# Flat (Unit'siz) darajalarda ishlatiladigan bo'lim to'plami — hali
+# o'zgartirilmagan (Elementary...Upper-Intermediate hali bo'sh).
 INGLIZ_DARAJA_BOLIMLARI = [
     "Grammar",
     "Vocabulary",
@@ -33,6 +47,9 @@ INGLIZ_DARAJA_BOLIMLARI = [
     "Speaking/Writing",
     "Everyday English",
 ]
+# Beginner Unit'lari ichidagi bo'lim to'plami (2026-07-27 qayta qurish).
+UNIT_BOLIMLARI = ["Mashqlar", "Grammar reference", "Wordlist"]
+
 INGLIZ_DARAJALAR = ["Beginner", "Elementary", "Pre-Intermediate", "Intermediate", "Upper-Intermediate"]
 IELTS_TEXTBOOKS_QISMLARI = ["Reading", "Writing", "Listening", "Speaking", "Vocabulary", "Grammar"]
 # 2026-07-27: "Cambridge" va "Vocabulary" bo'limlari IELTS ostidan olib
@@ -58,6 +75,14 @@ HEADWAY_BEGINNER_UNITLAR = [
 ]
 
 
+def _shoxni_yig(tugun, idlar):
+    """Tugun va uning butun avlodini (rekursiv) `idlar` ro'yxatiga yig'adi
+    — kaskad o'chirishdan oldin nima yo'qolayotganini hisoblash uchun."""
+    idlar.append(tugun.id)
+    for bola in KursTugun.objects.filter(parent=tugun):
+        _shoxni_yig(bola, idlar)
+
+
 class Command(BaseCommand):
     help = "Kurslar bo'limi boshlang'ich tuzilmasini yaratadi (Ingliz tili — Beginner Unit'lar bilan, boshqa darajalar flat)"
 
@@ -74,12 +99,27 @@ class Command(BaseCommand):
             )
             return tugun
 
-        def eski_bolimlarni_tozala(ota_tugun):
+        def eski_bolimlarni_tozala(ota_tugun, mos_nomlar):
             """Ota tugun ostidagi, endi ro'yxatda yo'q (eski nomdagi)
-            bo'lim tugunlarini o'chiradi — bo'lim sxemasi o'zgarganda
-            (masalan Students Book/Workbook -> Grammar/Vocabulary/...)
-            eskisi qolib ketmasligi uchun."""
-            KursTugun.objects.filter(parent=ota_tugun).exclude(nomi__in=INGLIZ_DARAJA_BOLIMLARI).delete()
+            bo'lim tugunlarini KASKAD o'chiradi — bo'lim sxemasi
+            o'zgarganda (masalan 6 bo'lim -> 3 bo'lim) eskisi qolib
+            ketmasligi uchun. Nima o'chirilgani (tugun+mashq soni) deploy
+            logiga yoziladi, sezilmay qolmasligi uchun."""
+            ortiqcha = list(KursTugun.objects.filter(parent=ota_tugun).exclude(nomi__in=mos_nomlar))
+            if not ortiqcha:
+                return
+            idlar = []
+            for t in ortiqcha:
+                _shoxni_yig(t, idlar)
+            mashq_soni = KursMashq.objects.filter(tugun_id__in=idlar).count()
+            nomlar = ", ".join(t.nomi for t in ortiqcha)
+            KursTugun.objects.filter(id__in=idlar).delete()
+            self.stdout.write(
+                self.style.WARNING(
+                    f"\"{ota_tugun.nomi}\" ostidan olib tashlandi: {nomlar} "
+                    f"({len(idlar)} tugun, {mashq_soni} mashq bilan birga)"
+                )
+            )
 
         kurslar = bor_yoki_yarat("Kurslar", tartib=0)
 
@@ -97,11 +137,11 @@ class Command(BaseCommand):
                 KursTugun.objects.filter(parent=daraja, unit_darsi=False).delete()
                 for j, unit_nomi in enumerate(HEADWAY_BEGINNER_UNITLAR, start=1):
                     unit = bor_yoki_yarat(unit_nomi, parent=daraja, tartib=j, unit_darsi=True)
-                    eski_bolimlarni_tozala(unit)
-                    for k, bolim_nomi in enumerate(INGLIZ_DARAJA_BOLIMLARI, start=1):
+                    eski_bolimlarni_tozala(unit, UNIT_BOLIMLARI)
+                    for k, bolim_nomi in enumerate(UNIT_BOLIMLARI, start=1):
                         bor_yoki_yarat(bolim_nomi, parent=unit, tartib=k)
             else:
-                eski_bolimlarni_tozala(daraja)
+                eski_bolimlarni_tozala(daraja, INGLIZ_DARAJA_BOLIMLARI)
                 for j, bolim_nomi in enumerate(INGLIZ_DARAJA_BOLIMLARI, start=1):
                     bor_yoki_yarat(bolim_nomi, parent=daraja, tartib=j)
 
@@ -112,36 +152,9 @@ class Command(BaseCommand):
                 for j, qism_nomi in enumerate(IELTS_TEXTBOOKS_QISMLARI, start=1):
                     bor_yoki_yarat(qism_nomi, parent=bolim, tartib=j)
 
-        # 2026-07-27: ro'yxatdan olib tashlangan IELTS bo'limlarini ("Cambridge",
-        # "Vocabulary") mavjud bazadan ham o'chiramiz. Faqat ro'yxatni
-        # qisqartirish yetarli emas — `bor_yoki_yarat` hech narsa o'chirmaydi,
-        # ya'ni prod'da eski tugunlar qolib ketardi. Beginner darajasidagi
-        # `eski_bolimlarni_tozala` bilan bir xil naqsh.
-        #
-        # DIQQAT: o'chirish KASKAD — tugun ostidagi barcha kichik tugunlar,
-        # mashqlar (`KursMashq`), talaba yechimlari va progress ham ketadi.
-        # Shu sababli nima o'chirilayotgani deploy logiga yoziladi.
-        ortiqcha = list(KursTugun.objects.filter(parent=ielts).exclude(nomi__in=IELTS_BOLIMLARI))
-        if ortiqcha:
-            idlar = []
-
-            def _shoxni_yig(tugun):
-                idlar.append(tugun.id)
-                for bola in KursTugun.objects.filter(parent=tugun):
-                    _shoxni_yig(bola)
-
-            for t in ortiqcha:
-                _shoxni_yig(t)
-
-            mashq_soni = KursMashq.objects.filter(tugun_id__in=idlar).count()
-            nomlar = ", ".join(t.nomi for t in ortiqcha)
-            KursTugun.objects.filter(id__in=idlar).delete()
-            self.stdout.write(
-                self.style.WARNING(
-                    f"IELTS ostidan olib tashlandi: {nomlar} "
-                    f"({len(idlar)} tugun, {mashq_soni} mashq bilan birga)"
-                )
-            )
+        # IELTS ostidan olib tashlangan bo'limlar ("Cambridge", "Vocabulary",
+        # 2026-07-27) — bir xil naqsh, endi umumiy funksiya orqali.
+        eski_bolimlarni_tozala(ielts, IELTS_BOLIMLARI)
 
         bor_yoki_yarat("CEFR", parent=ingliz, tartib=len(INGLIZ_DARAJALAR) + 2, tez_kunda=True)
 

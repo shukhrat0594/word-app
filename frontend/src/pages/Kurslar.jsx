@@ -4,6 +4,39 @@ import { useI18n } from "../i18n";
 import { IMLO_OFF } from "../imlo";
 import { useProfil } from "../profilContext";
 
+/** Rasm ustiga to'g'ridan-to'g'ri joylashtiriladigan savollar (masalan
+ * "nechta narsa bor?" turidagi mashqlar) — savolda "pozitsiya":
+ * {"x": 0-100, "y": 0-100} bo'lsa, oddiy ro'yxatda emas, aynan shu nuqtada
+ * kichik input sifatida ko'rsatiladi (2026-07-27).
+ *
+ * IELTS testlaridagi (`ImtihonOtish.jsx: RasmSavollari`) bilan bir xil
+ * mexanizm va bir xil CSS klassi (`imtihon-rasm-input`) — nomi "imtihon"
+ * bo'lsa ham, klass sof vizual (pozitsiyalangan input), imtihonga xos
+ * mantiq yo'q, shuning uchun bu yerda ham xavfsiz qayta ishlatiladi. */
+function RasmMashqi({ rasmUrl, savollar, idxlar, javoblar, javobniQoy, natija }) {
+  return (
+    <div style={{ position: "relative", display: "inline-block", maxWidth: "100%", marginBottom: 8 }}>
+      <img src={rasmUrl} alt="" style={{ maxWidth: "100%", display: "block" }} />
+      {savollar.map((s, k) => {
+        const i = idxlar[k];
+        const holat = natija ? (natija.natijalar[i] ? "togri" : "notogri") : "";
+        return (
+          <input
+            key={i}
+            {...IMLO_OFF}
+            className={`imtihon-rasm-input ${holat}`}
+            style={{ left: `${s.pozitsiya.x}%`, top: `${s.pozitsiya.y}%` }}
+            disabled={!!natija}
+            value={javoblar[i] || ""}
+            onChange={(e) => javobniQoy(i, e.target.value)}
+            placeholder={`${i + 1}`}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
 /** Talaba uchun — bitta mashqqa javob yozish va natija ko'rish. */
 function TalabaMashqi({ mashq }) {
   const { t } = useI18n();
@@ -26,6 +59,10 @@ function TalabaMashqi({ mashq }) {
     }
   }, [mashq.audio_url]);
 
+  function javobniQoy(idx, qiymat) {
+    setJavoblar((j) => j.map((x, i) => (i === idx ? qiymat : x)));
+  }
+
   async function tekshir() {
     setXato("");
     setYuklanmoqda(true);
@@ -42,12 +79,38 @@ function TalabaMashqi({ mashq }) {
     }
   }
 
+  // Rasm ustida ko'rsatiladigan savollar ("pozitsiya" bor) va qolgan
+  // oddiy savollar alohida ajratiladi — asl indeksi (javoblar massividagi
+  // o'rni) saqlanib qoladi.
+  const rasmIdxlari = [];
+  const rasmSavollari = [];
+  const oddiySavollar = [];
+  mashq.savollar.forEach((s, i) => {
+    if (s.pozitsiya && rasmUrl) {
+      rasmIdxlari.push(i);
+      rasmSavollari.push(s);
+    } else {
+      oddiySavollar.push([s, i]);
+    }
+  });
+
   return (
     <div style={{ border: "1px solid var(--chiziq)", borderRadius: 8, padding: 10, marginBottom: 8 }}>
       {mashq.matn && <div style={{ marginBottom: 8 }}>{mashq.matn}</div>}
-      {rasmUrl && <img src={rasmUrl} alt="" style={{ maxWidth: "100%", marginBottom: 8 }} />}
+      {rasmSavollari.length > 0 ? (
+        <RasmMashqi
+          rasmUrl={rasmUrl}
+          savollar={rasmSavollari}
+          idxlar={rasmIdxlari}
+          javoblar={javoblar}
+          javobniQoy={javobniQoy}
+          natija={natija}
+        />
+      ) : (
+        rasmUrl && <img src={rasmUrl} alt="" style={{ maxWidth: "100%", marginBottom: 8 }} />
+      )}
       {audioUrl && <audio controls src={audioUrl} style={{ width: "100%", marginBottom: 8 }} />}
-      {mashq.savollar.map((s, i) => (
+      {oddiySavollar.map(([s, i]) => (
         <div key={i} style={{ marginBottom: 6 }}>
           <div className="izoh">{s.savol}</div>
           {s.variantlar && s.variantlar.length > 0 ? (
@@ -59,7 +122,7 @@ function TalabaMashqi({ mashq }) {
                     name={`mashq-${mashq.id}-${i}`}
                     checked={javoblar[i] === v}
                     disabled={!!natija}
-                    onChange={() => setJavoblar((j) => j.map((x, idx) => (idx === i ? v : x)))}
+                    onChange={() => javobniQoy(i, v)}
                   />
                   {v}
                 </label>
@@ -70,7 +133,7 @@ function TalabaMashqi({ mashq }) {
               {...IMLO_OFF}
               value={javoblar[i]}
               disabled={!!natija}
-              onChange={(e) => setJavoblar((j) => j.map((x, idx) => (idx === i ? e.target.value : x)))}
+              onChange={(e) => javobniQoy(i, e.target.value)}
               style={{ maxWidth: 260 }}
             />
           )}

@@ -348,7 +348,7 @@ qilinishi darhol tushunilishi kerak):
 | **O'YINLAR — EFFEKTLAR** | O'yinlar dizayniga chiroyliroq animatsiya/effektlar | o'rta | ✅ bajarildi 2026-07-27 |
 | **CEFR MATERIAL** | CEFR materiali topib AI'ga generatsiya qildirish | katta | keyinroqqa |
 | **AI TEST KOMPLEKTI** | 1 ta to'liq mock (L+R+W+S), band 7+, hammasi AI generatsiyasi | katta | navbatda |
-| **BEGINNER QAYTA QURISH** | Unit ostida 3 bo'lim + rasm ustiga javob kiritish | o'rta + katta kontent | navbatda |
+| **BEGINNER QAYTA QURISH** | Unit ostida 3 bo'lim + rasm ustiga javob kiritish | o'rta + katta kontent | muhandislik ✅ (2026-07-27), kontent kutilmoqda |
 | **PASTKI PANEL (footer)** | Doimiy ko'rinadigan panel, Utmost ijtimoiy tarmoqlari bilan | kichik | ✅ bajarildi 2026-07-27 |
 
 **Uchtasi ham 2026-07-27 da qurildi va brauzerda tekshirildi** — pastdagi jadvaldagi yozuvga qarang.
@@ -398,13 +398,16 @@ Talab: "qanaqadir chiroyliroq effektlar bilan". **Qamrov aniqlandi (2026-07-27):
 - **Hajmi:** taxminan 5,500 so'z original matn + 80 savol + ~20 daqiqa audio + bir nechta rasm. Bo'lib-bo'lib qilinadi (avval Listening, keyin Reading va h.k.)
 - Yetkazish: mavjud ZIP yuklash mexanizmi orqali, `manba=ai` bilan
 
-### BEGINNER QAYTA QURISH (o'rta muhandislik + katta kontent) — navbatda
+### BEGINNER QAYTA QURISH (o'rta muhandislik + katta kontent) — MUHANDISLIK QISMI ✅ BAJARILDI (2026-07-27)
 
-**Nima qilinadi:** Kurslar > Beginner tuzilishi soddalashtiriladi va darslikdagi rasmli mashqlar aynan kitobdagidek ishlaydigan qilinadi.
+**Nima qilinadi:** Kurslar > Beginner tuzilishi soddalashtirildi va darslikdagi rasmli mashqlar aynan kitobdagidek ishlaydigan qilindi.
 
-- **Tuzilma:** har Unit ostida hozirgi 6 bo'lim (Grammar/Vocabulary/Reading/Listening/Speaking-Writing/Everyday English) o'rniga **3 ta**: **Mashqlar** (audiosi bilan) · **Vocabulary** · **Grammar reference**. Oxirgi ikkitasi kitobning har Unit oxiridagi tegishli bo'limlaridan olinadi. Kontent hali yo'q, ya'ni o'chirishda yo'qotish yo'q — lekin tasdiqlash kerak
-- **Rasm ustiga javob:** darslikdagi rasmda qizil strelka ko'rsatgan bo'sh joylarga to'g'ridan-to'g'ri input qo'yish — mexanizm MAVJUD (`pozitsiya: {x,y}` + `RasmSavollari`, IELTS testlarida ishlaydi), lekin `KursMashq`ga ko'chirilishi kerak (`rasm`/`audio`/`savollar` maydonlari allaqachon bor)
-- **Bloker:** Headway audio moslashtirish muammosi hal bo'lmagan (192 fayl vs 202 mashq) + PDF fayl yo'li kerak
+**Yakuniy tuzilma (foydalanuvchi bilan aniqlashtirilgan, 2026-07-27):** har Unit ostida hozirgi 6 bo'lim (Grammar/Vocabulary/Reading/Listening/Speaking-Writing/Everyday English) o'rniga **3 ta**: **Mashqlar** (barcha mashqlar shu yerga, qaysi mashqda darslikda audio belgisi bo'lsa shu mashqqa audio biriktiriladi — HAR BIRI ALOHIDA, umumiy audio emas) · **Grammar reference** · **Wordlist** (ikkalasi fayl-only, mashqsiz). Audio har Unit uchun ALOHIDA taqdim etiladi (foydalanuvchi tomonidan) — bu avvalgi "192 fayl vs 202 mashq" moslashtirish muammosini butunlay chetlab o'tadi, chunki endi bitta umumiy 192-faylli hovuzdan mos keladiganini topish shart emas.
+
+- **`courses/management/commands/kurslar_urugla.py` qayta yozildi:** yangi `UNIT_BOLIMLARI = ["Mashqlar", "Grammar reference", "Wordlist"]`, faqat Beginner Unit'lariga tegishli (boshqa darajalar — Elementary...Upper-Intermediate — hamon eski 6-bo'lim flat tuzilmada, hali bo'sh, o'zgartirilmadi, chunki so'ralmagan). Eski bo'lim tozalash mantiqi umumlashtirildi (`eski_bolimlarni_tozala(ota_tugun, mos_nomlar)`, IELTS tozalash bilan bir xil funksiya, kaskad o'chirilgan tugun+mashq soni loglanadi).
+- **Rasm ustiga javob kiritish ishga tushirildi:** IELTS testlaridagi mexanizm bilan bir xil — savolda `"pozitsiya": {"x":0-100,"y":0-100}` bo'lsa, oddiy ro'yxatda emas, rasmning aynan shu nuqtasida kichik input chiqadi. Model o'zgarishi KERAK EMAS edi — `KursMashq.savollar` erkin JSON, `pozitsiya` allaqachon saqlanardi (faqat `togri` talabaga yashiriladi), yagona ish frontend rendering (`Kurslar.jsx`: yangi `RasmMashqi` komponenti, IELTS'dagi `.imtihon-rasm-input` CSS klassi qayta ishlatildi — sof vizual, imtihonga xos mantiqi yo'q).
+- **Tekshirildi:** buyruq ishga tushirildi — har 14 Unit'da 6→3 bo'lim, kontent yo'q edi (0 mashq har birida), idempotent (ikkinchi ishga tushirishda o'zgarish yo'q) ✓. Backend uchdan-uchiga: `pozitsiya`li savol yaratildi, rasm biriktirildi, talaba ko'rinishida `togri` yashirilgan va `pozitsiya` saqlangan holda qaytdi, yechish to'g'ri baholandi (3/3) ✓. Brauzerda: Unit 1 → Mashqlar (1) → Grammar reference → Wordlist to'g'ri chiqdi, Unit 2-14 ketma-ket qulflangan ✓; haqiqiy rasm (meva soni) ustida 2 ta input aynan belgilangan foizlarda (25%/30% va 25%/65%) chiqdi ✓; to'g'ri javob yashil, noto'g'ri qizil, ikkalasi ham tekshirgandan keyin bloklandi ✓. Sinov ma'lumotlari tozalandi.
+- **Qolgan ish — KONTENT (kutilmoqda):** haqiqiy Headway mashqlarini (14 Unit) JSON'ga o'girib kiritish, audio fayllarni (endi Unit bo'yicha alohida beriladi) biriktirish, Grammar reference/Wordlist fayllarini yuklash. Buning uchun mendan Headway Beginner PDF fayl yo'li va har Unit uchun audio fayllar kerak bo'ladi.
 
 ### PASTKI PANEL — FOOTER — ✅ BAJARILDI (2026-07-27)
 
@@ -418,7 +421,7 @@ Hozir CEFR ikki joyda "tez orada": `Mashqlar.jsx` (CEFR tab o'chirilgan) va Kurs
 Boshlashdan oldin javob kerak bo'lgan savollar: (1) qaysi imtihon — O'zbekiston Multilevel (A2–C1) yoki umumiy CEFR? (2) qanday material — Reading matnlari+savollar, Listening, Writing/Speaking topshiriqlari, lug'at, grammatika? (3) manbani kim topadi — foydalanuvchidami PDF/kitob bor, yoki internetdan rasmiy namunalar qidirilsinmi? (4) generatsiyani admin tugma bilan boshlaydimi (hozirgi `AI_PROMT` usuli) yoki talaba uchun avtomatik? (5) baho CEFR darajasi (A2/B1/B2/C1) ko'rinishidami yoki IELTS band?
 
 **Oldindan ochiq turgan ishlar (o'zgarmadi):**
-- **Headway Beginner audio moslashtirish** — 192 audio fayl bor (disk1 1-01..1-76, disk2 2-01..2-71, disk3 3-01..3-45), audio belgisi bor mashqlar soni 202 deb hisoblangan (10 ta farq, sababi aniqlanmagan). Kitobdagi "2.10" belgisining `2-22` fayliga to'g'ri kelishi tushuntirilmagan — sof ketma-ketlik gipotezasi tasdiqlanmagan. Kurslar > Beginner Unit'lariga real audio biriktirish **boshlanmagan** (infratuzilma tayyor: `KursMashq.audio` + ZIP orqali guruh yuklash)
+- **Headway Beginner audio moslashtirish** — 2026-07-27: foydalanuvchi audio har Unit uchun ALOHIDA taqdim etishga qaror qildi, ya'ni avvalgi "192 umumiy fayl vs 202 mashq" moslashtirish muammosi bu ish uchun endi bloker EMAS (mos keladiganini umumiy hovuzdan qidirish shart emas). Eski topilma o'zicha hali tushuntirilmagan qolib turadi (10 ta farq, "2.10" belgisining `2-22` fayliga to'g'ri kelishi), lekin bu endi Beginner qayta qurishga to'sqinlik qilmaydi. Kurslar > Beginner Unit'lariga real audio biriktirish hali **boshlanmagan** (infratuzilma tayyor: `KursMashq.audio`, mashq darajasida alohida-alohida)
 - **Kurslar Vocabulary rasm-mashqlari** — Beginner Unit 1'da "Write the words" (12 rasm) va "Write the numbers" (9 rasm) har biri o'z rasmiga bog'liq, hozirgi JSON-yuklash esa bitta mashqqa bitta rasm biriktiradi → 21 ta alohida mashq sifatida qayta qurish kerak, **boshlanmagan**
 
 **Navbatdagi eng katta ochiq ish:** Headway Beginner kitobidan haqiqiy mashqlarni Kurslar bo'limidagi 14 ta Unit'ga qo'lda kiritish (hali boshlanmagan — faqat qobiliyat/UI tayyor).
