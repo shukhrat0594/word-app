@@ -3,6 +3,7 @@ import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { mediaManzil, tokenlarniTozala } from "../api";
 import { useI18n } from "../i18n";
 import { useProfil } from "../profilContext";
+import IjtimoiyIkon from "./IjtimoiyIkonlar";
 
 // 2026-07-27: "Namunaviy mashqlar" (eski "Mashqlar") bo'limi VAQTINCHA
 // yopildi — hech bir rolga ko'rinmaydi. Kod, sahifa, marshrut va bazadagi
@@ -14,10 +15,10 @@ export const NAMUNAVIY_MASHQLAR_OCHIQ = false;
 // backend bilan bir xil (accounts.Markaz.IJTIMOIY_MAYDONLAR). Faqat havolasi
 // KIRITILGANLARI ko'rsatiladi; birortasi ham bo'lmasa panel umuman chiqmaydi.
 const IJTIMOIY = [
-  { kalit: "telegram", nomi: "Telegram", ikon: "✈️" },
-  { kalit: "instagram", nomi: "Instagram", ikon: "📷" },
-  { kalit: "youtube", nomi: "YouTube", ikon: "▶️" },
-  { kalit: "facebook", nomi: "Facebook", ikon: "👥" },
+  { kalit: "telegram", nomi: "Telegram" },
+  { kalit: "instagram", nomi: "Instagram" },
+  { kalit: "youtube", nomi: "YouTube" },
+  { kalit: "facebook", nomi: "Facebook" },
 ];
 
 const TALABA_NAVLAR = [
@@ -246,7 +247,7 @@ function IjtimoiyPanel({ markazNomi, havolalar }) {
             rel="noopener noreferrer"
             title={x.nomi}
           >
-            <span aria-hidden="true">{x.ikon}</span> {x.nomi}
+            <IjtimoiyIkon kalit={x.kalit} /> {x.nomi}
           </a>
         ))}
       </div>

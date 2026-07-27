@@ -506,6 +506,21 @@ textarea {
 .ijtimoiy-havolalar a:hover {
   transform: translateY(-2px); box-shadow: var(--soya); border-color: var(--sariq-toq);
 }
+
+/* Tarmoq belgisi — Utmost brendida: ko'mir kvadrat ustida sariq glif.
+   Emoji ishlatilmaydi (2026-07-27): ular tarmoqlarga mos emas va har
+   qurilmada boshqacha ko'rinadi. */
+.ijtimoiy-nishon {
+  display: inline-grid; place-items: center; flex-shrink: 0;
+  width: calc(var(--ikon-olcham) + 10px);
+  height: calc(var(--ikon-olcham) + 10px);
+  border-radius: 7px;
+  background: var(--komir); color: var(--sariq);
+  transition: background .15s ease, color .15s ease;
+}
+.ijtimoiy-havolalar a:hover .ijtimoiy-nishon {
+  background: var(--sariq); color: var(--komir);
+}
 @media (max-width: 600px) {
   .ijtimoiy-panel { padding: 12px 16px; justify-content: center; }
 }

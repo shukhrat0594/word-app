@@ -1,14 +1,15 @@
 import { useEffect, useState } from "react";
 import { api, apiForm } from "../api";
+import IjtimoiyIkon from "../components/IjtimoiyIkonlar";
 import { useI18n } from "../i18n";
 import { useProfil } from "../profilContext";
 
 // Tartib va yorliqlar backend bilan bir xil (accounts.Markaz.IJTIMOIY_MAYDONLAR).
 export const TARMOQLAR = [
-  { kalit: "telegram", nomi: "Telegram", ikon: "✈️", namuna: "t.me/utmost" },
-  { kalit: "instagram", nomi: "Instagram", ikon: "📷", namuna: "instagram.com/utmost" },
-  { kalit: "youtube", nomi: "YouTube", ikon: "▶️", namuna: "youtube.com/@utmost" },
-  { kalit: "facebook", nomi: "Facebook", ikon: "👥", namuna: "facebook.com/utmost" },
+  { kalit: "telegram", nomi: "Telegram", namuna: "t.me/utmost" },
+  { kalit: "instagram", nomi: "Instagram", namuna: "instagram.com/utmost" },
+  { kalit: "youtube", nomi: "YouTube", namuna: "youtube.com/@utmost" },
+  { kalit: "facebook", nomi: "Facebook", namuna: "facebook.com/utmost" },
 ];
 
 /** Admin/owner uchun — markazning ijtimoiy tarmoq havolalari (2026-07-27).
@@ -75,10 +76,12 @@ export default function IjtimoiyTarmoqlar() {
         <>
           <p className="izoh" style={{ marginTop: 0 }}>{t("ijtimoiy_izoh")}</p>
           <div style={{ display: "grid", gap: 10, maxWidth: 560 }}>
-            {TARMOQLAR.map(({ kalit, nomi, ikon, namuna }) => (
+            {TARMOQLAR.map(({ kalit, nomi, namuna }) => (
               <div key={kalit} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <span style={{ width: 120, fontWeight: 600 }}>
-                  {ikon} {nomi}
+                <span
+                  style={{ width: 130, fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 8 }}
+                >
+                  <IjtimoiyIkon kalit={kalit} /> {nomi}
                 </span>
                 <input
                   style={{ flex: 1, minWidth: 0 }}
