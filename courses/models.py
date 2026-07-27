@@ -42,6 +42,15 @@ class KursTugun(models.Model):
         upload_to="kurslar/fayllar/", blank=True,
         help_text="Faqat oxirgi qatlam (farzandsiz) tugunlarda ishlatiladi",
     )
+    matn = models.TextField(
+        blank=True,
+        help_text=(
+            "Sof matnli tugunlar uchun (masalan 'Grammar reference' — Unit "
+            "bo'yicha qisqa grammatika xulosasi). Fayl emas, chunki AI "
+            "buni to'g'ridan-to'g'ri matn sifatida generatsiya qiladi "
+            "(2026-07-27, Unit'ni bitta so'rovda yuklash imkoniyati)."
+        ),
+    )
 
     class Meta:
         ordering = ["tartib", "id"]
@@ -98,6 +107,32 @@ class KursMashq(models.Model):
 
     def __str__(self):
         return f"{self.tugun.nomi} — mashq #{self.tartib}"
+
+
+class KursSoz(models.Model):
+    """Bitta Unit'ning "Wordlist" bo'limiga tegishli so'z (2026-07-27,
+    foydalanuvchi talabi). `games.Soz`dan MUSTAQIL — u umumiy CEFR
+    hovuzi (A1-C1/idiom), bu esa faqat BITTA Unit'ga tegishli so'zlar.
+    O'yinlar (Juftini top/Kartochkalar/Tezkor viktorina/Harflarni
+    tartiblash) shu Unit doirasida ishlashi uchun kerak — Wordlist
+    bo'limida "O'yinlar"dagi bilan bir xil 4 o'yin ko'rsatiladi, lekin
+    faqat shu ro'yxatdagi so'zlar bilan (Grammatika testi bu yerga
+    kirmaydi — u gap-asosidagi savollarga ishlaydi, so'zga bog'liq emas).
+    """
+
+    tugun = models.ForeignKey(KursTugun, on_delete=models.CASCADE, related_name="sozlar")
+    tartib = models.PositiveSmallIntegerField(default=0)
+    en = models.CharField(max_length=200)
+    uz = models.CharField(max_length=300)
+    turkum = models.CharField(max_length=50, blank=True, help_text="So'z turkumi (ixtiyoriy)")
+    misol = models.TextField(blank=True, help_text="Namuna gap (ixtiyoriy)")
+
+    class Meta:
+        ordering = ["tartib", "id"]
+        verbose_name_plural = "Kurs so'zlari"
+
+    def __str__(self):
+        return f"{self.tugun.nomi} — {self.en}"
 
 
 class KursMashqYechim(models.Model):

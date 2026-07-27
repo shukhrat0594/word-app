@@ -21,6 +21,16 @@ urlpatterns = [
         name="kurslar_mashq_boshqaruv",
     ),
     path(
+        "kurslar/<int:pk>/unit-yuklash/",
+        views.KursUnitYuklashView.as_view(),
+        name="kurslar_unit_yuklash",
+    ),
+    path(
+        "kurslar/<int:pk>/sozlar/",
+        views.KursSozlarView.as_view(),
+        name="kurslar_sozlar",
+    ),
+    path(
         "kurslar/<int:pk>/mashqlar/",
         views.KursMashqRoyxatiView.as_view(),
         name="kurslar_mashqlar",

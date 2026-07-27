@@ -10,7 +10,7 @@ from audit.models import FaoliyatYozuvi
 from audit.utils import logla
 from exercises.models import javoblarni_tekshir
 
-from .models import KursMashq, KursMashqYechim, KursProgress, KursTugun
+from .models import KursMashq, KursMashqYechim, KursProgress, KursSoz, KursTugun
 
 OTISH_FOIZ = 0.6
 
@@ -106,6 +106,13 @@ def _tugun_dict(tugun, user, bolalar_keshi, tugatgan_idlar, qulflangan=False):
         mashqlar_soni = KursMashq.objects.filter(tugun=tugun).count()
         if mashqlar_soni:
             natija["mashqlar_soni"] = mashqlar_soni
+        # 2026-07-27: "Grammar reference" (matn) va "Wordlist" (so'zlar
+        # soni) — Unit'ning boshqa 2 bo'limi, mashq emas.
+        if tugun.matn:
+            natija["matn"] = tugun.matn
+        sozlar_soni = tugun.sozlar.count()
+        if sozlar_soni:
+            natija["sozlar_soni"] = sozlar_soni
         if user.role == User.Role.STUDENT:
             natija["tugallandimi"] = tugun.id in tugatgan_idlar
     else:
@@ -315,6 +322,126 @@ class KursMashqBoshqaruvView(APIView):
             snapshot={"yangi_mashqlar_soni": len(yaratilganlar)},
         )
         return Response([_kurs_mashq_admin_dict(m) for m in yaratilganlar], status=201)
+
+
+class KursUnitYuklashView(APIView):
+    """Admin/owner uchun — bitta Unit'ning UCHALA bo'limini (Mashqlar,
+    Grammar reference, Wordlist) BITTA so'rovda to'ldirish (2026-07-27,
+    foydalanuvchi talabi — avval har bo'lim o'z alohida JSON/fayl
+    tugmasiga ega edi, endi Unit uchun yagona "Yuklash" harakati).
+
+    So'rov tanasi — uchtasi ham ixtiyoriy, kamida bittasi kerak:
+      {"mashqlar": [...], "grammar_reference": "matn", "wordlist": [...]}
+
+    "mashqlar" va "wordlist" — mavjudlarga QO'SHILADI (append), "Mashq(lar)
+    qo'shish" bilan bir xil mantiq. "grammar_reference" — mavjudini
+    ALMASHTIRADI (bir butun matn, qo'shib borish ma'nosiz)."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        if not _mashq_admin_mi(request.user):
+            return Response({"detail": "Faqat admin/owner uchun"}, status=403)
+        unit = get_object_or_404(KursTugun, pk=pk)
+        bolalar = {b.nomi: b for b in KursTugun.objects.filter(parent=unit)}
+        kerakli = {"Mashqlar", "Grammar reference", "Wordlist"}
+        if not kerakli.issubset(bolalar):
+            return Response(
+                {"detail": "Bu tugunda Mashqlar/Grammar reference/Wordlist bo'limlari topilmadi"},
+                status=400,
+            )
+
+        mashqlar = request.data.get("mashqlar")
+        grammar_matn = request.data.get("grammar_reference")
+        wordlist = request.data.get("wordlist")
+        if not mashqlar and not grammar_matn and not wordlist:
+            return Response(
+                {"detail": "Hech narsa yuborilmadi ('mashqlar'/'grammar_reference'/'wordlist')"},
+                status=400,
+            )
+
+        natija = {}
+
+        if mashqlar:
+            if not isinstance(mashqlar, list):
+                return Response({"detail": "'mashqlar' massiv bo'lishi kerak"}, status=400)
+            mashq_tugun = bolalar["Mashqlar"]
+            boshlangich = mashq_tugun.mashqlar.count()
+            yangi_mashqlar = []
+            for i, q in enumerate(mashqlar, start=1):
+                savollar = q.get("savollar") or []
+                if not isinstance(savollar, list) or not savollar:
+                    return Response({"detail": f"{i}-mashqda savollar bo'sh"}, status=400)
+                yangi_mashqlar.append(
+                    KursMashq(
+                        tugun=mashq_tugun,
+                        tartib=q.get("tartib") or boshlangich + i,
+                        matn=q.get("matn", ""),
+                        savollar=savollar,
+                    )
+                )
+            KursMashq.objects.bulk_create(yangi_mashqlar)
+            natija["mashqlar_soni"] = len(yangi_mashqlar)
+
+        if grammar_matn:
+            if not isinstance(grammar_matn, str):
+                return Response({"detail": "'grammar_reference' matn bo'lishi kerak"}, status=400)
+            gr_tugun = bolalar["Grammar reference"]
+            gr_tugun.matn = grammar_matn
+            gr_tugun.save(update_fields=["matn"])
+            natija["grammar_reference"] = True
+
+        if wordlist:
+            if not isinstance(wordlist, list):
+                return Response({"detail": "'wordlist' massiv bo'lishi kerak"}, status=400)
+            wl_tugun = bolalar["Wordlist"]
+            boshlangich = wl_tugun.sozlar.count()
+            yangi_sozlar = []
+            for i, s in enumerate(wordlist, start=1):
+                if not s.get("en") or not s.get("uz"):
+                    return Response({"detail": f"{i}-so'zda 'en'/'uz' to'ldirilmagan"}, status=400)
+                yangi_sozlar.append(
+                    KursSoz(
+                        tugun=wl_tugun,
+                        tartib=boshlangich + i,
+                        en=s["en"],
+                        uz=s["uz"],
+                        turkum=s.get("turkum", ""),
+                        misol=s.get("misol", ""),
+                    )
+                )
+            KursSoz.objects.bulk_create(yangi_sozlar)
+            natija["wordlist_soni"] = len(yangi_sozlar)
+
+        logla(
+            foydalanuvchi=request.user,
+            harakat=FaoliyatYozuvi.Harakat.YARATISH,
+            obyekt=unit,
+            obyekt_turi="KursTugun",
+            obyekt_nomi=unit.nomi,
+            snapshot=natija,
+        )
+        return Response(natija, status=201)
+
+
+class KursSozlarView(APIView):
+    """Bitta "Wordlist" tuguniga tegishli so'zlar ro'yxati — talaba uchun
+    o'yinlarda ishlatiladi, admin uchun ro'yxatni ko'rish (2026-07-27)."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        if not _kurslar_korinadimi(request.user):
+            return Response({"detail": "Ruxsat yo'q"}, status=403)
+        tugun = get_object_or_404(KursTugun, pk=pk)
+        if _talaba_tugun_qulflanganmi(request.user, tugun):
+            return Response({"detail": "Bu qism hali qulflangan"}, status=403)
+        return Response(
+            [
+                {"id": s.id, "en": s.en, "uz": s.uz, "turkum": s.turkum, "misol": s.misol}
+                for s in tugun.sozlar.all()
+            ]
+        )
 
 
 class KursMashqDetailBoshqaruvView(APIView):
