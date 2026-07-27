@@ -66,6 +66,8 @@ class ProfilView(APIView):
                 "name": u.markaz.name,
                 "logo_url": u.markaz.logo.url if u.markaz.logo else None,
                 "brend_rang": u.markaz.brend_rang,
+                # 2026-07-27: pastki panel uchun — faqat to'ldirilganlari
+                "ijtimoiy": u.markaz.ijtimoiy_havolalar(),
             }
         return Response(
             {
@@ -240,34 +242,82 @@ class MarkazRadEtishView(APIView):
         return Response({"detail": "So'rov rad etildi"})
 
 
-class MarkazSozlamaView(APIView):
-    """Markaz admini uchun — o'z markazining brendingi (logo, rang).
+def _markaz_sozlama_dict(m):
+    return {
+        "id": m.id,
+        "name": m.name,
+        "logo_url": m.logo.url if m.logo else None,
+        "brend_rang": m.brend_rang,
+        # Bu yerda BARCHA maydonlar qaytadi (bo'shlari ham) — admin formasi
+        # to'ldirilmaganini ham ko'rsatishi kerak. Pastki panelda esa faqat
+        # to'ldirilganlari chiqadi (`ijtimoiy_havolalar`).
+        "ijtimoiy": {k: getattr(m, k) for k, _ in Markaz.IJTIMOIY_MAYDONLAR},
+    }
 
-    Owner emas, balki shu markazning admini sozlaydi — nomi/AI provayder
-    kabi biznes darajasidagi narsalar emas, faqat vizual taqdimot.
+
+def _havolani_normalla(qiymat):
+    """Admin "instagram.com/utmost" deb yozsa ham ishlasin — sxema
+    qo'shiladi. Noto'g'ri havola bo'lsa ValidationError ko'tariladi."""
+    from django.core.validators import URLValidator
+
+    qiymat = (qiymat or "").strip()
+    if not qiymat:
+        return ""
+    if not qiymat.startswith(("http://", "https://")):
+        qiymat = "https://" + qiymat
+    URLValidator()(qiymat)
+    return qiymat
+
+
+class MarkazSozlamaView(APIView):
+    """Markaz admini uchun — o'z markazining brendingi (logo, rang) va
+    ijtimoiy tarmoq havolalari.
+
+    Nomi/AI provayder kabi biznes darajasidagi narsalar bu yerda emas —
+    faqat vizual taqdimot. 2026-07-27: owner ham kira oladi (avval faqat
+    admin edi) va ijtimoiy tarmoqlar qo'shildi.
     """
 
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
 
+    def _markaz_ol(self, request):
+        if owner_mi(request.user) or request.user.role == User.Role.ADMIN:
+            markaz_id = _admin_markaz_ol(request.user)
+            if markaz_id:
+                return Markaz.objects.filter(pk=markaz_id).first()
+        return None
+
     def get(self, request):
-        if request.user.role != User.Role.ADMIN or not request.user.markaz_id:
+        m = self._markaz_ol(request)
+        if not m:
             return Response({"detail": "Faqat markaz admini uchun"}, status=403)
-        m = request.user.markaz
-        return Response(
-            {
-                "id": m.id,
-                "name": m.name,
-                "logo_url": m.logo.url if m.logo else None,
-                "brend_rang": m.brend_rang,
-            }
-        )
+        return Response(_markaz_sozlama_dict(m))
 
     def patch(self, request):
-        if request.user.role != User.Role.ADMIN or not request.user.markaz_id:
+        m = self._markaz_ol(request)
+        if not m:
             return Response({"detail": "Faqat markaz admini uchun"}, status=403)
 
-        m = request.user.markaz
+        # Ijtimoiy tarmoqlar — bo'sh satr yuborilsa havola O'CHIRILADI
+        # (panelda ko'rinmay qoladi), umuman yuborilmasa tegilmaydi.
+        from django.core.exceptions import ValidationError as DjangoValidationError
+
+        ijtimoiy_eski, ijtimoiy_yangi = {}, {}
+        for kalit, nom in Markaz.IJTIMOIY_MAYDONLAR:
+            if kalit not in request.data:
+                continue
+            try:
+                yangi = _havolani_normalla(request.data.get(kalit))
+            except DjangoValidationError:
+                return Response(
+                    {"detail": f"{nom} havolasi noto'g'ri ko'rinishda"}, status=400
+                )
+            if yangi != getattr(m, kalit):
+                ijtimoiy_eski[kalit] = getattr(m, kalit) or "—"
+                ijtimoiy_yangi[kalit] = yangi or "—"
+                setattr(m, kalit, yangi)
+
         eski_rang = m.brend_rang
         logo_ozgardimi = False
         rang = request.data.get("brend_rang")
@@ -281,6 +331,7 @@ class MarkazSozlamaView(APIView):
         ozgarishlar = maydon_diff({"brend_rang": eski_rang}, {"brend_rang": m.brend_rang})
         if logo_ozgardimi:
             ozgarishlar["logo"] = {"eski": "—", "yangi": "yangilandi"}
+        ozgarishlar.update(maydon_diff(ijtimoiy_eski, ijtimoiy_yangi))
         if ozgarishlar:
             logla(
                 foydalanuvchi=request.user,
@@ -289,14 +340,7 @@ class MarkazSozlamaView(APIView):
                 obyekt_turi="Markaz",
                 ozgarishlar=ozgarishlar,
             )
-        return Response(
-            {
-                "id": m.id,
-                "name": m.name,
-                "logo_url": m.logo.url if m.logo else None,
-                "brend_rang": m.brend_rang,
-            }
-        )
+        return Response(_markaz_sozlama_dict(m))
 
 
 class FoydalanuvchilarView(APIView):

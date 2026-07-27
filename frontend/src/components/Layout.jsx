@@ -10,6 +10,16 @@ import { useProfil } from "../profilContext";
 // kifoya (App.jsx marshruti ham shu bayroqqa qaraydi).
 export const NAMUNAVIY_MASHQLAR_OCHIQ = false;
 
+// Pastki paneldagi ijtimoiy tarmoqlar (2026-07-27) — tartib va yorliqlar
+// backend bilan bir xil (accounts.Markaz.IJTIMOIY_MAYDONLAR). Faqat havolasi
+// KIRITILGANLARI ko'rsatiladi; birortasi ham bo'lmasa panel umuman chiqmaydi.
+const IJTIMOIY = [
+  { kalit: "telegram", nomi: "Telegram", ikon: "✈️" },
+  { kalit: "instagram", nomi: "Instagram", ikon: "📷" },
+  { kalit: "youtube", nomi: "YouTube", ikon: "▶️" },
+  { kalit: "facebook", nomi: "Facebook", ikon: "👥" },
+];
+
 const TALABA_NAVLAR = [
   { yol: "/", ikon: "▦", kalit: "nav_dashboard" },
   ...(NAMUNAVIY_MASHQLAR_OCHIQ
@@ -36,6 +46,7 @@ function navlarniOl(role) {
       { yol: "/ielts-boshqarish", ikon: "🎓", kalit: "nav_ielts_boshqarish" },
       { yol: "/ai-mashqlari", ikon: "🤖", kalit: "nav_ai_mashqlari" },
       { yol: "/kurslar", ikon: "📚", kalit: "nav_kurslar" },
+      { yol: "/ijtimoiy-tarmoqlar", ikon: "🔗", kalit: "nav_ijtimoiy" },
       // 2026-07-21: Davomat endi faqat o'qituvchida (u belgilaydi);
       // Davomat hisoboti "Hisobotlar" ostiga ko'chdi, faqat owner ko'radi.
       // 2026-07-21: "Markaz" (brend sozlash) bo'limi hech kimga ko'rinmasin
@@ -107,16 +118,19 @@ export default function Layout() {
   // olib tashlandi, sahifa/backend o'zi tegilmagan — kerak bo'lsa qaytariladi).
   // "Faoliyat tarixi" (audit) alohida bo'lim emas — "Hisobotlar" ichiga
   // ko'chdi (Davomat hisoboti bilan birga), faqat owner ko'radi.
+  // Takrorlanmasin: owner roli "admin" bo'lsa "Ijtimoiy tarmoqlar" ikkala
+  // ro'yxatdan ham kelib, React'da bir xil `key` bilan ikki marta chiqardi.
   const navlar = [
     ...asosiyNavlar,
     ...(profil?.is_owner
       ? [
+          { yol: "/ijtimoiy-tarmoqlar", ikon: "🔗", kalit: "nav_ijtimoiy" },
           { yol: "/foydalanuvchilar", ikon: "🧑‍🤝‍🧑", kalit: "nav_foydalanuvchilar" },
           { yol: "/hisobotlar", ikon: "📊", kalit: "nav_hisobotlar" },
         ]
       : []),
     { yol: "/profil", ikon: "👤", kalit: "nav_profil" },
-  ];
+  ].filter((n, i, hammasi) => hammasi.findIndex((x) => x.yol === n.yol) === i);
 
   function temaAlmash() {
     const r = document.documentElement;
@@ -207,7 +221,35 @@ export default function Layout() {
           )}
           <Outlet />
         </main>
+        <IjtimoiyPanel markazNomi={markazNomi} havolalar={profil?.markaz?.ijtimoiy} />
       </div>
     </div>
+  );
+}
+
+/** Saytning pastki qismidagi doimiy panel — markazning ijtimoiy tarmoqlari
+ * (2026-07-27 talabi). Havolalar admin panelidagi "Ijtimoiy tarmoqlar"
+ * bo'limida kiritiladi; faqat to'ldirilganlari chiqadi. Birortasi ham
+ * kiritilmagan bo'lsa — panel ko'rsatilmaydi (bo'sh joy egallamasin). */
+function IjtimoiyPanel({ markazNomi, havolalar }) {
+  const bor = IJTIMOIY.filter((x) => (havolalar || {})[x.kalit]);
+  if (bor.length === 0) return null;
+  return (
+    <footer className="ijtimoiy-panel">
+      <span className="izoh">{markazNomi}</span>
+      <div className="ijtimoiy-havolalar">
+        {bor.map((x) => (
+          <a
+            key={x.kalit}
+            href={havolalar[x.kalit]}
+            target="_blank"
+            rel="noopener noreferrer"
+            title={x.nomi}
+          >
+            <span aria-hidden="true">{x.ikon}</span> {x.nomi}
+          </a>
+        ))}
+      </div>
+    </footer>
   );
 }

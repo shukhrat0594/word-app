@@ -7,6 +7,7 @@ import Foydalanuvchilar from "./pages/Foydalanuvchilar";
 import Guruhlar from "./pages/Guruhlar";
 import Hisobotlar from "./pages/Hisobotlar";
 import ImtihonBoshqarish from "./pages/ImtihonBoshqarish";
+import IjtimoiyTarmoqlar from "./pages/IjtimoiyTarmoqlar";
 import Kurslar from "./pages/Kurslar";
 import Leaderboard from "./pages/Leaderboard";
 import Login from "./pages/Login";
@@ -62,6 +63,7 @@ export default function App() {
           <Route path="xodimlar" element={<Xodimlar />} />
           <Route path="talabalar" element={<Talabalar />} />
           <Route path="markaz-sozlash" element={<MarkazSozlash />} />
+          <Route path="ijtimoiy-tarmoqlar" element={<IjtimoiyTarmoqlar />} />
           <Route path="foydalanuvchilar" element={<Foydalanuvchilar />} />
           <Route path="profil" element={<Profil />} />
         </Route>

@@ -29,6 +29,28 @@ class Markaz(models.Model):
         help_text="Qaysi AI ishlatilsa ham, xarajat doim platforma (owner) kaliti orqali to'lanadi",
     )
 
+    # Ijtimoiy tarmoqlar (2026-07-27) — saytning pastki panelida ko'rsatiladi.
+    # Bo'sh qoldirilgani ko'rsatilmaydi, ya'ni markaz faqat o'zida bor
+    # tarmoqlarni chiqaradi. Kodga qattiq yozilmagan — admin panelidan
+    # boshqariladi (logo/brend rangi bilan bir xil yondashuv).
+    telegram = models.URLField(blank=True, help_text="Telegram kanal/guruh havolasi")
+    instagram = models.URLField(blank=True, help_text="Instagram profil havolasi")
+    youtube = models.URLField(blank=True, help_text="YouTube kanal havolasi")
+    facebook = models.URLField(blank=True, help_text="Facebook sahifa havolasi")
+
+    # Pastki panelda ko'rsatish tartibi va yorlig'i — bitta joyda saqlanadi,
+    # backend ham, frontend ham shu ro'yxatga tayanadi.
+    IJTIMOIY_MAYDONLAR = [
+        ("telegram", "Telegram"),
+        ("instagram", "Instagram"),
+        ("youtube", "YouTube"),
+        ("facebook", "Facebook"),
+    ]
+
+    def ijtimoiy_havolalar(self):
+        """Faqat TO'LDIRILGAN ijtimoiy tarmoqlar — {kalit: havola}."""
+        return {k: getattr(self, k) for k, _ in self.IJTIMOIY_MAYDONLAR if getattr(self, k)}
+
     tasdiqlangan = models.BooleanField(
         default=True,
         help_text="False bo'lsa — owner tasdig'ini kutayotgan so'rov",
