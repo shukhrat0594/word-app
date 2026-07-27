@@ -31,6 +31,7 @@ from accounts.views import (
     MarkazlarView,
     MarkazRadEtishView,
     MarkazSorovView,
+    IjtimoiyHavolalarView,
     MarkazSozlamaView,
     MarkazTasdiqlashView,
     NarxlarView,
@@ -70,6 +71,9 @@ urlpatterns = [
     ),
     path('api/markaz-sorovi/', MarkazSorovView.as_view(), name='markaz_sorovi'),
     path('api/markaz-sozlama/', MarkazSozlamaView.as_view(), name='markaz_sozlama'),
+    # Ochiq — login talab qilinmaydi (pastki panel har sahifada, jumladan
+    # kirish ekranida ham ko'rinadi).
+    path('api/ijtimoiy/', IjtimoiyHavolalarView.as_view(), name='ijtimoiy_havolalar'),
     path('api/xodimlar/', XodimlarView.as_view(), name='xodimlar'),
     path('api/xodimlar/excel-import/', XodimlarExcelImportView.as_view(), name='xodimlar_excel_import'),
     path('api/talabalar/', TalabalarView.as_view(), name='talabalar'),

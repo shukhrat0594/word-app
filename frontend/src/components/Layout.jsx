@@ -3,23 +3,13 @@ import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { mediaManzil, tokenlarniTozala } from "../api";
 import { useI18n } from "../i18n";
 import { useProfil } from "../profilContext";
-import IjtimoiyIkon from "./IjtimoiyIkonlar";
+import IjtimoiyPanel from "./IjtimoiyPanel";
 
 // 2026-07-27: "Namunaviy mashqlar" (eski "Mashqlar") bo'limi VAQTINCHA
 // yopildi — hech bir rolga ko'rinmaydi. Kod, sahifa, marshrut va bazadagi
 // mashqlar joyida qoladi; qayta ochish uchun shu bayroqni `true` qilish
 // kifoya (App.jsx marshruti ham shu bayroqqa qaraydi).
 export const NAMUNAVIY_MASHQLAR_OCHIQ = false;
-
-// Pastki paneldagi ijtimoiy tarmoqlar (2026-07-27) — tartib va yorliqlar
-// backend bilan bir xil (accounts.Markaz.IJTIMOIY_MAYDONLAR). Faqat havolasi
-// KIRITILGANLARI ko'rsatiladi; birortasi ham bo'lmasa panel umuman chiqmaydi.
-const IJTIMOIY = [
-  { kalit: "telegram", nomi: "Telegram" },
-  { kalit: "instagram", nomi: "Instagram" },
-  { kalit: "youtube", nomi: "YouTube" },
-  { kalit: "facebook", nomi: "Facebook" },
-];
 
 const TALABA_NAVLAR = [
   { yol: "/", ikon: "▦", kalit: "nav_dashboard" },
@@ -225,38 +215,5 @@ export default function Layout() {
         <IjtimoiyPanel havolalar={profil?.markaz?.ijtimoiy} />
       </div>
     </div>
-  );
-}
-
-/** Saytning pastki qismidagi panel — markazning ijtimoiy tarmoqlari
- * (2026-07-27 talabi). Havolalar admin panelidagi "Ijtimoiy tarmoqlar"
- * bo'limida kiritiladi; faqat to'ldirilganlari chiqadi. Birortasi ham
- * kiritilmagan bo'lsa — panel ko'rsatilmaydi (bo'sh joy egallamasin).
- *
- * Panel DOIM EKRANDA turadi (`position: sticky`), kontenti o'rtaga
- * joylashadi va FAQAT BELGILARDAN iborat — na sarlavha, na tarmoq
- * nomlari yoziladi (2026-07-27 talabi).
- * Nomi `title`/`aria-label`da qoladi: sichqoncha ustiga kelganda ko'rinadi
- * va ekran o'quvchi uchun ham tushunarli bo'ladi. */
-function IjtimoiyPanel({ havolalar }) {
-  const bor = IJTIMOIY.filter((x) => (havolalar || {})[x.kalit]);
-  if (bor.length === 0) return null;
-  return (
-    <footer className="ijtimoiy-panel">
-      <div className="ijtimoiy-havolalar">
-        {bor.map((x) => (
-          <a
-            key={x.kalit}
-            href={havolalar[x.kalit]}
-            target="_blank"
-            rel="noopener noreferrer"
-            title={x.nomi}
-            aria-label={x.nomi}
-          >
-            <IjtimoiyIkon kalit={x.kalit} olcham={20} />
-          </a>
-        ))}
-      </div>
-    </footer>
   );
 }

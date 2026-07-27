@@ -528,7 +528,10 @@ textarea {
 }
 
 /* ==== Login ==== */
-.login-ekran { display: flex; min-height: 100vh; }
+/* Kirish ekranida ham pastki panel bo'ladi (2026-07-27) — shuning uchun
+   ekran ustun bo'lib bo'linadi: yuqorida brend+forma, pastda panel. */
+.login-qobiq { display: flex; flex-direction: column; min-height: 100vh; }
+.login-ekran { display: flex; flex: 1; min-height: 0; }
 .login-brend {
   flex: 1; background: var(--sariq); color: #2B2A28;
   display: flex; flex-direction: column; justify-content: center; padding: 60px;

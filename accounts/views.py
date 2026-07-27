@@ -255,6 +255,26 @@ def _markaz_sozlama_dict(m):
     }
 
 
+class IjtimoiyHavolalarView(APIView):
+    """OCHIQ endpoint (2026-07-27) — pastki panel uchun markazning ijtimoiy
+    tarmoq havolalari.
+
+    Nega login talab qilinmaydi: panel saytning HAMMA sahifasida, jumladan
+    login ekranida ham ko'rinishi kerak. `/api/profil/` esa
+    autentifikatsiya talab qiladi, ya'ni kirmagan mehmon uchun ishlamaydi.
+
+    Maxfiylik xavfi yo'q: bu havolalar ommaga mo'ljallangan (kanal/profil
+    sahifalari), faqat TO'LDIRILGANLARI qaytadi va boshqa hech qanday
+    markaz ma'lumoti berilmaydi.
+    """
+
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        m = Markaz.objects.first()
+        return Response(m.ijtimoiy_havolalar() if m else {})
+
+
 def _havolani_normalla(qiymat):
     """Admin "instagram.com/utmost" deb yozsa ham ishlasin — sxema
     qo'shiladi. Noto'g'ri havola bo'lsa ValidationError ko'tariladi."""

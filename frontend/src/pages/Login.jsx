@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, tokenlarniSaqla } from "../api";
 import { useI18n } from "../i18n";
+import IjtimoiyPanel from "../components/IjtimoiyPanel";
 import { useProfil } from "../profilContext";
 
 const GOOGLE_CLIENT_ID =
@@ -71,7 +72,8 @@ export default function Login() {
   }
 
   return (
-    <div className="login-ekran">
+    <div className="login-qobiq">
+      <div className="login-ekran">
       <div className="login-brend">
         <div className="login-brend-sarlavha">
           <img src="/logo.jpg" alt="Utmost" className="katta-logo" />
@@ -115,7 +117,9 @@ export default function Login() {
             </form>
           </>
         )}
+        </div>
       </div>
+      <IjtimoiyPanel />
     </div>
   );
 }
