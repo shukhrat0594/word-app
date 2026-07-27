@@ -222,22 +222,27 @@ export default function Layout() {
           )}
           <Outlet />
         </main>
-        <IjtimoiyPanel markazNomi={markazNomi} havolalar={profil?.markaz?.ijtimoiy} />
+        <IjtimoiyPanel havolalar={profil?.markaz?.ijtimoiy} t={t} />
       </div>
     </div>
   );
 }
 
-/** Saytning pastki qismidagi doimiy panel — markazning ijtimoiy tarmoqlari
+/** Saytning pastki qismidagi panel — markazning ijtimoiy tarmoqlari
  * (2026-07-27 talabi). Havolalar admin panelidagi "Ijtimoiy tarmoqlar"
  * bo'limida kiritiladi; faqat to'ldirilganlari chiqadi. Birortasi ham
- * kiritilmagan bo'lsa — panel ko'rsatilmaydi (bo'sh joy egallamasin). */
-function IjtimoiyPanel({ markazNomi, havolalar }) {
+ * kiritilmagan bo'lsa — panel ko'rsatilmaydi (bo'sh joy egallamasin).
+ *
+ * Panel DOIM EKRANDA turadi (`position: sticky`), kontenti o'rtaga
+ * joylashadi va faqat BELGILARDAN iborat — tarmoq nomlari yozilmaydi.
+ * Nomi `title`/`aria-label`da qoladi: sichqoncha ustiga kelganda ko'rinadi
+ * va ekran o'quvchi uchun ham tushunarli bo'ladi. */
+function IjtimoiyPanel({ havolalar, t }) {
   const bor = IJTIMOIY.filter((x) => (havolalar || {})[x.kalit]);
   if (bor.length === 0) return null;
   return (
     <footer className="ijtimoiy-panel">
-      <span className="izoh">{markazNomi}</span>
+      <span className="izoh">{t("ijtimoiy_sarlavha")}</span>
       <div className="ijtimoiy-havolalar">
         {bor.map((x) => (
           <a
@@ -246,8 +251,9 @@ function IjtimoiyPanel({ markazNomi, havolalar }) {
             target="_blank"
             rel="noopener noreferrer"
             title={x.nomi}
+            aria-label={x.nomi}
           >
-            <IjtimoiyIkon kalit={x.kalit} /> {x.nomi}
+            <IjtimoiyIkon kalit={x.kalit} olcham={20} />
           </a>
         ))}
       </div>
