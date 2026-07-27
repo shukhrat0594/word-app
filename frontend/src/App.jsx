@@ -1,6 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { tokenOl } from "./api";
-import Layout from "./components/Layout";
+import Layout, { NAMUNAVIY_MASHQLAR_OCHIQ } from "./components/Layout";
 import BoshSahifa from "./pages/BoshSahifa";
 import Davomat from "./pages/Davomat";
 import Foydalanuvchilar from "./pages/Foydalanuvchilar";
@@ -38,9 +38,19 @@ export default function App() {
           }
         >
           <Route index element={<BoshSahifa />} />
-          <Route path="mashqlar" element={<Mashqlar />} />
+          {/* 2026-07-27: "Namunaviy mashqlar" vaqtincha yopiq — bayroq
+              `Layout.jsx`da, uni `true` qilish bilan bo'lim to'liq (mashqlari
+              bilan) qaytadi. Yopiq holatda marshrut o'chirilmaydi, balki bosh
+              sahifaga yo'naltiradi: marshrut butunlay olib tashlansa, eski
+              xatcho'p yoki havola bo'sh oq sahifa berardi (sinovda shunday
+              chiqdi — na nav, na kontent). */}
+          <Route
+            path="mashqlar"
+            element={NAMUNAVIY_MASHQLAR_OCHIQ ? <Mashqlar /> : <Navigate to="/" replace />}
+          />
           <Route path="mashqlar-boshqarish" element={<MashqlarBoshqarish />} />
-          <Route path="ielts-boshqarish" element={<ImtihonBoshqarish />} />
+          <Route path="ielts-boshqarish" element={<ImtihonBoshqarish manba="admin" />} />
+          <Route path="ai-mashqlari" element={<ImtihonBoshqarish manba="ai" />} />
           <Route path="kurslar" element={<Kurslar />} />
           <Route path="reyting" element={<Leaderboard />} />
           <Route path="oyinlar" element={<Oyinlar />} />

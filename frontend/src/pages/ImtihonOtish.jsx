@@ -20,6 +20,30 @@ function bloklarGaAjrat(savollar, boshIdx) {
   let i = 0;
   while (i < savollar.length) {
     const s = savollar[i];
+
+    // "Choose TWO letters, A-E" (2026-07-27) — kitobda bu BITTA savol,
+    // talaba A-E dan ikkitasini tanlaydi. Javoblar kaliti esa ikkita
+    // alohida band beradi, shuning uchun bazada ikkita bir xil savol
+    // bo'lib turadi. Ketma-ket kelgan, matni va variantlari bir xil
+    // multiple_choice savollarni bitta ko'p-javobli blokka birlashtiramiz
+    // (backendda `kop_javobli_guruhlar` bilan bir xil qoida).
+    if (s.tur === "multiple_choice" && s.variantlar && s.variantlar.length > 0) {
+      let j = i + 1;
+      while (
+        j < savollar.length &&
+        savollar[j].tur === "multiple_choice" &&
+        (savollar[j].savol || "").trim() === (s.savol || "").trim() &&
+        JSON.stringify(savollar[j].variantlar) === JSON.stringify(s.variantlar)
+      ) {
+        j++;
+      }
+      if (j - i > 1) {
+        bloklar.push({ tur: "kop_javob", savollar: savollar.slice(i, j), boshIdx: boshIdx + i });
+        i = j;
+        continue;
+      }
+    }
+
     if (s.tur === "fill_blanks" && s.variantlar && s.variantlar.length > 0) {
       const guruh = [s];
       let j = i + 1;
@@ -241,6 +265,65 @@ function RasmSavollari({ rasmUrl, sarlavha, savollar, boshIdx, javoblar, javobni
   );
 }
 
+/** "Choose TWO letters, A-E" — kitobdagidek BITTA savol, bitta variantlar
+ * ro'yxati, checkbox bilan (2026-07-27). Avval bu ikkita alohida savol
+ * bo'lib chiqardi: matn ikki marta takrorlanardi va radio tugma bo'lgani
+ * uchun talaba bir xil variantni ikki marta belgilashi mumkin edi.
+ *
+ * Tanlangan variantlar guruhning javob kataklariga (19, 20) tartib bilan
+ * yoziladi; qaysi katakka tushishi ahamiyatsiz — backend ularni to'plam
+ * sifatida tekshiradi (`kop_javobli_guruhlar`). */
+function KopJavobBloki({ blok, javoblar, javobniQoy, natija, t }) {
+  const { savollar, boshIdx } = blok;
+  const soni = savollar.length;
+  const idxlar = savollar.map((_, k) => boshIdx + k);
+  const tanlangan = idxlar.map((i) => javoblar[i]).filter(Boolean);
+  const raqamlar = idxlar.map((i) => i + 1).join(" & ");
+
+  function almashtir(v) {
+    if (natija) return;
+    const yangi = tanlangan.includes(v)
+      ? tanlangan.filter((x) => x !== v)
+      : tanlangan.length >= soni
+        ? tanlangan // limitga yetdi — avval bittasini olib tashlash kerak
+        : [...tanlangan, v];
+    idxlar.forEach((i, k) => javobniQoy(i, yangi[k] || ""));
+  }
+
+  return (
+    <div className="savol-blok" id={`imtihon-savol-${boshIdx}`}>
+      {savollar[0].guruh_boshi && (
+        <div className="imtihon-guruh-sarlavha">{savollar[0].guruh_boshi}</div>
+      )}
+      <div className="savol-matni">
+        {raqamlar}. {savollar[0].savol}
+        {natija && (
+          <span className="natija-belgi">
+            {idxlar.filter((i) => natija.natijalar[i]).length}/{soni}
+          </span>
+        )}
+      </div>
+      <div className="izoh" style={{ marginBottom: 6 }}>
+        {t("kop_javob_izoh").replace("{n}", soni)}
+      </div>
+      {savollar[0].variantlar.map((v) => {
+        const belgilangan = tanlangan.includes(v);
+        return (
+          <label className="variant-qator" key={v}>
+            <input
+              type="checkbox"
+              disabled={!!natija || (!belgilangan && tanlangan.length >= soni)}
+              checked={belgilangan}
+              onChange={() => almashtir(v)}
+            />
+            {v}
+          </label>
+        );
+      })}
+    </div>
+  );
+}
+
 function OddiySavolBloki({ blok, javoblar, javobniQoy, natija, t }) {
   const { savol: s, idx: i } = blok;
   return (
@@ -283,7 +366,7 @@ function OddiySavolBloki({ blok, javoblar, javobniQoy, natija, t }) {
 
 /** Cambridge-uslubidagi to'liq IELTS testi — ro'yxat, split-screen yechish
  * rejimi (chapda matn/audio, o'ngda savollar), pastki Part-navigatsiya. */
-export default function ImtihonOtish({ bolim, testId, mockYechimId, onYakunlandi }) {
+export default function ImtihonOtish({ bolim, manba = "admin", testId, mockYechimId, onYakunlandi }) {
   const { t } = useI18n();
   const [royxat, setRoyxat] = useState([]);
   const [test, setTest] = useState(null);
@@ -311,9 +394,9 @@ export default function ImtihonOtish({ bolim, testId, mockYechimId, onYakunlandi
       ochish(testId);
       return;
     }
-    api(`/api/imtihon/testlar/?bolim=${bolim}`).then(setRoyxat).catch(() => {});
+    api(`/api/imtihon/testlar/?bolim=${bolim}&manba=${manba}`).then(setRoyxat).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bolim, testId]);
+  }, [bolim, testId, manba]);
 
   useEffect(() => {
     if (!test || natija) {
@@ -506,14 +589,24 @@ export default function ImtihonOtish({ bolim, testId, mockYechimId, onYakunlandi
         const boshqaBloklar = bloklarGaAjrat(faol.qism.savollar, faol.boshIdx)
           .filter((blok) => {
             if (blok.tur === "oddiy") return !yashirilganIdxlar.has(blok.idx);
-            // "bank" bloki — ichidagi BARCHA savollar maxsus_format/pozitsiya
-            // orqali allaqachon ko'rsatilgan bo'lsa, ro'yxatda takror chiqmasin.
+            // "bank"/"kop_javob" bloki — ichidagi BARCHA savollar
+            // maxsus_format/pozitsiya orqali allaqachon ko'rsatilgan bo'lsa,
+            // ro'yxatda takror chiqmasin.
             return !blok.savollar.every((_, k) => yashirilganIdxlar.has(blok.boshIdx + k));
           })
           .map((blok, bi) => ({
             kalit: blok.tur === "oddiy" ? blok.idx : blok.boshIdx,
             tugun:
-              blok.tur === "bank" ? (
+              blok.tur === "kop_javob" ? (
+                <KopJavobBloki
+                  key={`k${bi}`}
+                  blok={blok}
+                  javoblar={javoblar}
+                  javobniQoy={javobniQoy}
+                  natija={natija}
+                  t={t}
+                />
+              ) : blok.tur === "bank" ? (
                 <SozBankiBloki
                   key={`b${bi}`}
                   blok={blok}

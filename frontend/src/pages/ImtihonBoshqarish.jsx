@@ -97,7 +97,7 @@ const YOZGAP_TURLAR = {
  * qism uchun) yoki fayl yuklash (JSON bitta test, yoki ZIP — bitta/bir
  * nechta test, papka bo'yicha). `bolim` yuqori "Kiritish paneli"dagi
  * tab'dan keladi. */
-function YozGapKiritish({ bolim, qismgaFaylYukla, royxatniYangila }) {
+function YozGapKiritish({ bolim, manba, qismgaFaylYukla, royxatniYangila }) {
   const { t } = useI18n();
   const [usul, setUsul] = useState("qolda");
   const [nomi, setNomi] = useState("");
@@ -151,7 +151,10 @@ function YozGapKiritish({ bolim, qismgaFaylYukla, royxatniYangila }) {
           matn: qismlar[tur].matn,
         })),
       };
-      const yaratildi = await api("/api/imtihon/testlar-boshqaruv/", { method: "POST", body: data });
+      const yaratildi = await api("/api/imtihon/testlar-boshqaruv/", {
+        method: "POST",
+        body: { ...data, manba },
+      });
       for (const q of yaratildi.qismlar) {
         const rasmFayl = qismlar[q.tur]?.rasm;
         if (rasmFayl) {
@@ -176,7 +179,10 @@ function YozGapKiritish({ bolim, qismgaFaylYukla, royxatniYangila }) {
     setSaqlanmoqda(true);
     try {
       const matn = await fayl.text();
-      await api("/api/imtihon/testlar-boshqaruv/", { method: "POST", body: JSON.parse(matn) });
+      await api("/api/imtihon/testlar-boshqaruv/", {
+        method: "POST",
+        body: { ...JSON.parse(matn), manba },
+      });
       royxatniYangila();
     } catch (err) {
       setXato(err.data?.detail || t("imtihon_json_xato"));
@@ -194,6 +200,7 @@ function YozGapKiritish({ bolim, qismgaFaylYukla, royxatniYangila }) {
     try {
       const fd = new FormData();
       fd.append("zip_fayl", fayl);
+      fd.append("manba", manba);
       await apiForm("/api/imtihon/testlar-boshqaruv-zip/", { method: "POST", formData: fd });
       royxatniYangila();
     } catch (err) {
@@ -294,7 +301,7 @@ function YozGapKiritish({ bolim, qismgaFaylYukla, royxatniYangila }) {
  * bir nechta test, papka bo'yicha). Savollar strukturasi murakkab
  * (guruhlar, so'z banki va h.k.) bo'lgani uchun qo'lda kiritish yo'q —
  * AI-promt yordamchisi bilan JSON tayyorlanadi, ZIP'ga solinadi. */
-function RLKiritish({ royxatniYangila }) {
+function RLKiritish({ manba, royxatniYangila }) {
   const { t } = useI18n();
   const [xato, setXato] = useState("");
   const [saqlanmoqda, setSaqlanmoqda] = useState(false);
@@ -317,6 +324,7 @@ function RLKiritish({ royxatniYangila }) {
     try {
       const fd = new FormData();
       fd.append("zip_fayl", fayl);
+      fd.append("manba", manba);
       await apiForm("/api/imtihon/testlar-boshqaruv-zip/", { method: "POST", formData: fd });
       royxatniYangila();
     } catch (err) {
@@ -358,7 +366,7 @@ function RLKiritish({ royxatniYangila }) {
 
 /** Yuqori panel — Writing/Speaking/Reading/Listening tab'lari, har biri
  * o'z kiritish usuliga ega (W/S: qo'lda/fayl, R/L: faqat ZIP). */
-function KiritishPanel({ qismgaFaylYukla, royxatniYangila }) {
+function KiritishPanel({ manba, qismgaFaylYukla, royxatniYangila }) {
   const { t } = useI18n();
   const [bolim, setBolim] = useState("writing");
 
@@ -380,16 +388,21 @@ function KiritishPanel({ qismgaFaylYukla, royxatniYangila }) {
         </button>
       </div>
       {bolim === "writing" || bolim === "speaking" ? (
-        <YozGapKiritish bolim={bolim} qismgaFaylYukla={qismgaFaylYukla} royxatniYangila={royxatniYangila} />
+        <YozGapKiritish
+          bolim={bolim}
+          manba={manba}
+          qismgaFaylYukla={qismgaFaylYukla}
+          royxatniYangila={royxatniYangila}
+        />
       ) : (
-        <RLKiritish royxatniYangila={royxatniYangila} />
+        <RLKiritish manba={manba} royxatniYangila={royxatniYangila} />
       )}
     </div>
   );
 }
 
 /** Faqat admin/owner uchun — test yaratish/o'chirish/tahrirlash. */
-function AdminBoshqaruv() {
+function AdminBoshqaruv({ manba }) {
   const { t } = useI18n();
   const [royxat, setRoyxat] = useState(null);
   const [filtrBolim, setFiltrBolim] = useState("");
@@ -397,14 +410,15 @@ function AdminBoshqaruv() {
   const [tahrirlanayotgan, setTahrirlanayotgan] = useState(null);
 
   function yukla(bolim) {
-    api(`/api/imtihon/testlar-boshqaruv/${bolim ? `?bolim=${bolim}` : ""}`)
+    api(`/api/imtihon/testlar-boshqaruv/?manba=${manba}${bolim ? `&bolim=${bolim}` : ""}`)
       .then(setRoyxat)
       .catch(() => {});
   }
 
   useEffect(() => {
     yukla(filtrBolim);
-  }, [filtrBolim]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filtrBolim, manba]);
 
   async function qismgaFaylYukla(qismId, maydon, fayl) {
     const fd = new FormData();
@@ -464,7 +478,11 @@ function AdminBoshqaruv() {
 
   return (
     <div style={{ display: "grid", gap: 20 }}>
-      <KiritishPanel qismgaFaylYukla={qismgaFaylYukla} royxatniYangila={() => yukla(filtrBolim)} />
+      <KiritishPanel
+        manba={manba}
+        qismgaFaylYukla={qismgaFaylYukla}
+        royxatniYangila={() => yukla(filtrBolim)}
+      />
 
       <div className="karta">
         <h3>{t("imtihon_mavjud_royxat")}</h3>
@@ -587,7 +605,12 @@ function AdminBoshqaruv() {
 
 /** "IELTS testlari" — yagona sahifa: admin/owner uchun boshqaruv (yuqorida,
  * agar ruxsati bo'lsa) + talaba/admin/owner uchun yechish (pastda, hammaga). */
-export default function ImtihonBoshqarish() {
+/** Bitta komponent ikki bo'limga xizmat qiladi (2026-07-27):
+ *   manba="admin" -> "IELTS testlari" (admin/owner qo'lda yuklagan testlar)
+ *   manba="ai"    -> "AI mashqlari"   (to'liq AI generatsiya qilgan testlar)
+ * Butun mexanizm (test yechish, mock, baholash, audio, rasm) umumiy — faqat
+ * ro'yxatlar `manba` bo'yicha ajratiladi, shuning uchun kod takrorlanmaydi. */
+export default function ImtihonBoshqarish({ manba = "admin" }) {
   const { t } = useI18n();
   const { profil } = useProfil();
   const adminMi = profil?.is_owner || profil?.role === "admin";
@@ -595,7 +618,7 @@ export default function ImtihonBoshqarish() {
 
   return (
     <div style={{ display: "grid", gap: 20 }}>
-      {adminMi && <AdminBoshqaruv />}
+      {adminMi && <AdminBoshqaruv manba={manba} />}
 
       <div>
         <div className="tab-guruh" style={{ marginBottom: 12 }}>
@@ -614,10 +637,21 @@ export default function ImtihonBoshqarish() {
           <button className={bolim === "mock" ? "aktiv" : ""} onClick={() => setBolim("mock")}>
             {t("mock_bolimi")}
           </button>
+          {/* 2026-07-27: CEFR faqat "AI mashqlari"da ko'rinadi va hozircha
+              yopiq — mashqlar keyinroq qo'shiladi. */}
+          {manba === "ai" && (
+            <button disabled title={t("tez_orada")}>
+              CEFR · {t("tez_orada")}
+            </button>
+          )}
         </div>
-        {(bolim === "writing" || bolim === "speaking") && <ImtihonYozGap bolim={bolim} />}
-        {(bolim === "reading" || bolim === "listening") && <ImtihonOtish bolim={bolim} />}
-        {bolim === "mock" && <ImtihonMock />}
+        {(bolim === "writing" || bolim === "speaking") && (
+          <ImtihonYozGap bolim={bolim} manba={manba} />
+        )}
+        {(bolim === "reading" || bolim === "listening") && (
+          <ImtihonOtish bolim={bolim} manba={manba} />
+        )}
+        {bolim === "mock" && <ImtihonMock manba={manba} />}
       </div>
     </div>
   );

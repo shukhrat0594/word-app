@@ -53,6 +53,39 @@ BOLIM_TURLARI = {
 AVTO_BAHOLANADIGAN_BOLIMLAR = (Bolim.LISTENING, Bolim.READING)
 
 
+def kop_javobli_guruhlar(savollar):
+    """Ketma-ket kelgan, savol matni VA variantlari bir xil savollarni
+    guruhlaydi — bu asl kitobdagi "Choose TWO letters, A-E" kabi BITTA
+    ko'p-javobli savol (2026-07-27).
+
+    Masalan Questions 19 va 20 — kitobda bitta savol, talaba A-E dan
+    IKKITASINI tanlaydi, lekin javoblar kaliti ikkita alohida band beradi.
+    Ma'lumot bazasida ular ikkita savol bo'lib turadi, shuning uchun
+    guruhni shakli bo'yicha (bir xil matn + bir xil variantlar, yonma-yon)
+    aniqlaymiz — JSON formatiga yangi maydon qo'shish shart emas, mavjud
+    testlar ham avtomatik to'g'ri ishlaydi.
+
+    Qaytaradi: [(bosh_indeks, uzunlik), ...] — barcha savollarni qoplaydi,
+    yolg'iz savollar uchun uzunlik 1.
+    """
+    guruhlar = []
+    i = 0
+    while i < len(savollar):
+        s = savollar[i]
+        j = i + 1
+        if (s.get("variantlar") or []) and s.get("tur") == "multiple_choice":
+            while (
+                j < len(savollar)
+                and savollar[j].get("tur") == "multiple_choice"
+                and str(savollar[j].get("savol", "")).strip() == str(s.get("savol", "")).strip()
+                and (savollar[j].get("variantlar") or []) == (s.get("variantlar") or [])
+            ):
+                j += 1
+        guruhlar.append((i, j - i))
+        i = j
+    return guruhlar
+
+
 def javoblarni_tekshir(savollar, javoblar):
     """Talaba javoblarini tekshiradi (barcha turlar uchun yagona mexanizm).
 
@@ -62,17 +95,44 @@ def javoblarni_tekshir(savollar, javoblar):
 
     Qaytaradi: {"ball": int, "jami": int, "natijalar": [bool, ...]}
     Solishtirish registr/bo'shliqqa sezgir emas.
+
+    2026-07-27 — "Choose TWO letters" holati: bir xil matnli ketma-ket
+    savollar bitta guruh sifatida, TARTIBGA BOG'LIQ BO'LMAGAN holda
+    tekshiriladi. Avval 19-savolga "E", 20-savolga "B" yozgan talaba
+    (kalitda 19="B", 20="E" bo'lsa) ikkala bandni ham yo'qotardi, holbuki
+    ikkala harfni ham to'g'ri tanlagan. Endi javoblar to'plam sifatida
+    solishtiriladi; qisman ball saqlanadi (2 tadan 1 tasi to'g'ri bo'lsa —
+    1 ball, real IELTS'dagidek), takroriy javob esa faqat bir marta
+    hisoblanadi.
     """
 
     def norm(s):
         return str(s).strip().lower()
 
-    natijalar = []
-    for i, savol in enumerate(savollar):
-        togri = savol["togri"]
-        qabul = togri if isinstance(togri, list) else [togri]
-        javob = javoblar[i] if i < len(javoblar) else ""
-        natijalar.append(norm(javob) in [norm(t) for t in qabul])
+    natijalar = [False] * len(savollar)
+    for bosh, uzunlik in kop_javobli_guruhlar(savollar):
+        if uzunlik == 1:
+            savol = savollar[bosh]
+            togri = savol["togri"]
+            qabul = togri if isinstance(togri, list) else [togri]
+            javob = javoblar[bosh] if bosh < len(javoblar) else ""
+            natijalar[bosh] = norm(javob) in [norm(t) for t in qabul]
+            continue
+
+        # Guruhdagi barcha to'g'ri javoblar bitta to'plamga yig'iladi
+        qabul = set()
+        for k in range(bosh, bosh + uzunlik):
+            t = savollar[k]["togri"]
+            for x in (t if isinstance(t, list) else [t]):
+                qabul.add(norm(x))
+
+        ishlatilgan = set()
+        for k in range(bosh, bosh + uzunlik):
+            javob = norm(javoblar[k]) if k < len(javoblar) else ""
+            if javob and javob in qabul and javob not in ishlatilgan:
+                natijalar[k] = True
+                ishlatilgan.add(javob)
+
     return {
         "ball": sum(natijalar),
         "jami": len(savollar),
@@ -283,6 +343,20 @@ def korinadigan_mashqlar(user):
     return Mashq.objects.filter(ozimniki)
 
 
+class Manba(models.TextChoices):
+    """Test qayerdan kelgan (2026-07-27).
+
+    Ikkala tur ham bir xil `ImtihonTest` modelida saqlanadi — test yechish,
+    baholash, mock yig'ish, `maxsus_format`, `pozitsiya`, audio va R2
+    mexanizmlari umumiy, faqat ro'yxatlar shu maydon bo'yicha ajratiladi:
+      * ADMIN — admin/owner qo'lda yuklagan haqiqiy testlar ("IELTS testlari")
+      * AI    — to'liq AI tomonidan generatsiya qilingan ("AI mashqlari")
+    """
+
+    ADMIN = "admin", "Admin yuklagan"
+    AI = "ai", "AI generatsiya qilgan"
+
+
 class ImtihonTest(models.Model):
     """To'liq IELTS testi (masalan Cambridge uslubidagi Reading/Listening Test)
     — bir nechta TestQismi'dan iborat, uzluksiz raqamlangan yagona imtihon.
@@ -293,6 +367,10 @@ class ImtihonTest(models.Model):
 
     name = models.CharField(max_length=200)
     bolim = models.CharField(max_length=10, choices=Bolim.choices)
+    manba = models.CharField(
+        max_length=10, choices=Manba.choices, default=Manba.ADMIN,
+        help_text="Testni kim yaratgan — admin (IELTS testlari) yoki AI (AI mashqlari)",
+    )
     markaz = models.ForeignKey(
         "accounts.Markaz", on_delete=models.CASCADE, related_name="imtihon_testlari"
     )
@@ -407,6 +485,12 @@ class ImtihonMock(models.Model):
     name = models.CharField(max_length=200)
     markaz = models.ForeignKey(
         "accounts.Markaz", on_delete=models.CASCADE, related_name="imtihon_moklari"
+    )
+    # Mock ham o'z bo'limida ko'rinishi uchun (AI mocki "AI mashqlari"da,
+    # admin mocki "IELTS testlari"da) — testlar bilan bir xil ajratish.
+    manba = models.CharField(
+        max_length=10, choices=Manba.choices, default=Manba.ADMIN,
+        help_text="Mock qaysi bo'limda ko'rinadi — admin yoki AI",
     )
     listening = models.ForeignKey(
         ImtihonTest, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
@@ -526,7 +610,7 @@ def band_hisobla(ball, jami, bolim):
     return 2.0
 
 
-def korinadigan_testlar(user):
+def korinadigan_testlar(user, manba=None):
     """Foydalanuvchiga ko'rinadigan to'liq testlar.
 
     Platforma bitta markaz rejimida ishlaydi (REJA.md) — shuning uchun
@@ -536,14 +620,31 @@ def korinadigan_testlar(user):
     "oddiy foydalanuvchi" (Utmost talabasi emas) dan boshqa barcha
     autentifikatsiyalangan foydalanuvchi (talaba/o'qituvchi/admin/owner)
     barcha testlarni ko'radi (2026-07-21).
+
+    2026-07-27: `manba` berilsa — faqat o'sha manbadagi testlar ("IELTS
+    testlari" bo'limi admin testlarini, "AI mashqlari" AI testlarini
+    ko'rsatadi). Berilmasa — hammasi (ID orqali ochish, mock ichidan
+    yuklash va h.k. uchun).
+
+    2026-07-27 (2): "oddiy foydalanuvchi" (Utmost talabasi emas) endi
+    butunlay mahrum emas — unga AI generatsiya qilgan testlar OCHIQ, admin
+    yuklagan (Cambridge va h.k.) testlar esa yopiq. Avval "Namunaviy
+    mashqlar" uning yagona bo'limi edi, u yopilgach hech narsa qolmagandi.
     """
-    if user.role == "oddiy":
-        return ImtihonTest.objects.none()
-    return ImtihonTest.objects.all()
+    qs = (
+        ImtihonTest.objects.filter(manba=Manba.AI)
+        if user.role == "oddiy"
+        else ImtihonTest.objects.all()
+    )
+    return qs.filter(manba=manba) if manba else qs
 
 
-def korinadigan_moklar(user):
-    """`korinadigan_testlar` bilan bir xil qoida — bitta markaz rejimi."""
-    if user.role == "oddiy":
-        return ImtihonMock.objects.none()
-    return ImtihonMock.objects.all()
+def korinadigan_moklar(user, manba=None):
+    """`korinadigan_testlar` bilan bir xil qoida — bitta markaz rejimi,
+    "oddiy foydalanuvchi" faqat AI mocklarini ko'radi."""
+    qs = (
+        ImtihonMock.objects.filter(manba=Manba.AI)
+        if user.role == "oddiy"
+        else ImtihonMock.objects.all()
+    )
+    return qs.filter(manba=manba) if manba else qs

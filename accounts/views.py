@@ -774,7 +774,11 @@ class XodimlarExcelImportView(APIView):
 
 class TalabalarView(APIView):
     """Talabalar ro'yxati — owner/admin uchun o'z markazidagi barcha
-    talabalar, o'qituvchi uchun faqat o'z guruhlaridagi talabalar."""
+    talabalar, o'qituvchi uchun faqat o'z guruhlaridagi talabalar.
+
+    POST (2026-07-27) — admin/owner bitta talabani qo'lda qo'shadi. Avval
+    faqat Excel orqali ommaviy kiritish bor edi, bir-ikkita talaba uchun
+    esa fayl tayyorlash noqulay."""
 
     permission_classes = [IsAuthenticated]
 
@@ -798,6 +802,49 @@ class TalabalarView(APIView):
                 for t in qs.order_by("first_name", "username")
             ]
         )
+
+    def post(self, request):
+        """Bitta talaba qo'shish.
+
+        Tekshiruvlar Excel importi bilan AYNAN bir xil bo'lishi uchun
+        `excel_import.foydalanuvchilarni_yarat` qayta ishlatiladi (bitta
+        qatorli ro'yxat bilan) — login bandligi, parol kuchi va bo'sh
+        maydon qoidalari ikkala yo'lda ham bir xil ishlaydi, kod
+        takrorlanmaydi.
+
+        Mavjud login berilsa — parol ALMASHTIRILMAYDI, xato qaytadi
+        (`XodimlarView`dan farqi shu: u yerda admin o'qituvchining parolini
+        ataylab tiklay oladi, bu yerda esa mavjud talabaning parolini
+        tasodifan almashtirib yuborish xavfli)."""
+        ruxsat = owner_mi(request.user) or request.user.role == User.Role.ADMIN
+        markaz_id = _admin_markaz_ol(request.user)
+        if not ruxsat or not markaz_id:
+            return Response({"detail": "Faqat markaz admini uchun"}, status=403)
+
+        from . import excel_import
+
+        qator = {
+            "qator": 0,
+            "ism": (request.data.get("ism") or "").strip(),
+            "login": (request.data.get("login") or "").strip(),
+            "parol": (request.data.get("parol") or "").strip(),
+        }
+        yaratilganlar, xatolar = excel_import.foydalanuvchilarni_yarat(
+            [qator], role=User.Role.STUDENT, markaz_id=markaz_id, User=User
+        )
+        if xatolar:
+            return Response({"detail": xatolar[0]["xato"]}, status=400)
+
+        y = yaratilganlar[0]
+        FaoliyatYozuvi.objects.create(
+            foydalanuvchi=request.user,
+            harakat=FaoliyatYozuvi.Harakat.YARATISH,
+            obyekt_turi="Foydalanuvchi",
+            obyekt_id=y["id"],
+            obyekt_nomi=y["login"],
+            ozgarishlar={"username": y["login"], "role": "student", "manba": "qolda"},
+        )
+        return Response({"id": y["id"], "ism": y["ism"], "username": y["login"]}, status=201)
 
 
 class TalabalarExcelImportView(APIView):

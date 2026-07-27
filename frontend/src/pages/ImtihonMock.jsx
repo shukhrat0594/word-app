@@ -17,7 +17,7 @@ const BOLIM_KALIT = {
  * ketma-ket, bitta yaxlit sessiyada o'tiladi, oxirida Overall Band
  * ko'rsatiladi (2026-07-25). Admin/owner ro'yxatdan mockni o'chira oladi
  * (4-papkali ZIP yuklashda avtomatik yaratiladi). */
-function AdminMockYaratish({ royxatniYukla }) {
+function AdminMockYaratish({ manba, royxatniYukla }) {
   const { t } = useI18n();
   const [nomi, setNomi] = useState("");
   const [tanlovlar, setTanlovlar] = useState({});
@@ -27,11 +27,12 @@ function AdminMockYaratish({ royxatniYukla }) {
 
   useEffect(() => {
     BOLIM_TARTIBI.forEach((b) => {
-      api(`/api/imtihon/testlar/?bolim=${b}`).then((r) =>
+      api(`/api/imtihon/testlar/?bolim=${b}&manba=${manba}`).then((r) =>
         setTestlar((prev) => ({ ...prev, [b]: r }))
       );
     });
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [manba]);
 
   async function yaratish() {
     setXato("");
@@ -43,7 +44,7 @@ function AdminMockYaratish({ royxatniYukla }) {
     try {
       await api("/api/imtihon-mock/yaratish/", {
         method: "POST",
-        body: { name: nomi, ...tanlovlar },
+        body: { name: nomi, ...tanlovlar, manba },
       });
       setNomi("");
       setTanlovlar({});
@@ -89,7 +90,7 @@ function AdminMockYaratish({ royxatniYukla }) {
   );
 }
 
-export default function ImtihonMock() {
+export default function ImtihonMock({ manba = "admin" }) {
   const { t } = useI18n();
   const { profil } = useProfil();
   const adminMi = profil?.is_owner || profil?.role === "admin";
@@ -98,7 +99,7 @@ export default function ImtihonMock() {
   const [xato, setXato] = useState("");
 
   function royxatniYukla() {
-    api("/api/imtihon-mock/").then(setRoyxat).catch(() => {});
+    api(`/api/imtihon-mock/?manba=${manba}`).then(setRoyxat).catch(() => {});
   }
 
   useEffect(() => {
@@ -185,7 +186,7 @@ export default function ImtihonMock() {
 
   return (
     <>
-      {adminMi && <AdminMockYaratish royxatniYukla={royxatniYukla} />}
+      {adminMi && <AdminMockYaratish manba={manba} royxatniYukla={royxatniYukla} />}
       <div className="karta">
       {royxat === null && <div className="yuklanmoqda">{t("yuklanmoqda")}</div>}
       {royxat && royxat.length === 0 && <span className="izoh">{t("imtihon_royxati_boshi")}</span>}

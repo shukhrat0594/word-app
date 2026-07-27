@@ -19,6 +19,7 @@ from .models import (
     ImtihonMock,
     ImtihonTest,
     LimitTopUp,
+    Manba,
     Mashq,
     MashqYechim,
     MockYechim,
@@ -33,6 +34,17 @@ from .models import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _manba_ol(request):
+    """So'rovdan `manba` ni oladi — query parametrdan yoki tanadan
+    (2026-07-27). Noto'g'ri/bo'sh qiymatda `admin` qaytaradi, ya'ni eski
+    mijozlar (manba yubormaydiganlar) avvalgidek "IELTS testlari"ga
+    yozadi — orqaga moslik."""
+    qiymat = request.query_params.get("manba") or (
+        request.data.get("manba") if hasattr(request, "data") else None
+    )
+    return qiymat if qiymat in Manba.values else Manba.ADMIN
 
 
 def _mashq_admin_mi(user):
@@ -476,7 +488,8 @@ def _mock_nomini_chiqar(nomlar):
     return nomlar[0] if nomlar else "Mock imtihon"
 
 
-def _test_yarat(data, markaz, rasm_fayllar=None, audio_fayllar=None, yaratuvchi=None):
+def _test_yarat(data, markaz, rasm_fayllar=None, audio_fayllar=None, yaratuvchi=None,
+                manba=Manba.ADMIN):
     """`ImtihonTest`+`TestQismi`larni JSON ma'lumotdan yaratadi.
 
     `rasm_fayllar` — {fayl_nomi: ContentFile} lug'ati (ZIP orqali yuklashda,
@@ -524,7 +537,8 @@ def _test_yarat(data, markaz, rasm_fayllar=None, audio_fayllar=None, yaratuvchi=
         band += 1
 
     test = ImtihonTest.objects.create(
-        name=name, bolim=bolim, markaz=markaz, korinish=korinish, yaratuvchi=yaratuvchi
+        name=name, bolim=bolim, markaz=markaz, korinish=korinish,
+        yaratuvchi=yaratuvchi, manba=manba,
     )
     qism_obyektlari = []
     ishlatilgan_rasm_nomlari = set()
@@ -569,7 +583,7 @@ class ImtihonBoshqaruvView(APIView):
     def get(self, request):
         if not _mashq_admin_mi(request.user):
             return Response({"detail": "Faqat admin/owner uchun"}, status=403)
-        qs = ImtihonTest.objects.all().order_by("-created_at")
+        qs = ImtihonTest.objects.filter(manba=_manba_ol(request)).order_by("-created_at")
         bolim = request.query_params.get("bolim")
         if bolim:
             qs = qs.filter(bolim=bolim)
@@ -583,7 +597,9 @@ class ImtihonBoshqaruvView(APIView):
         if not markaz:
             return Response({"detail": "Markaz topilmadi"}, status=400)
 
-        test, xato = _test_yarat(request.data, markaz, yaratuvchi=request.user)
+        test, xato = _test_yarat(
+            request.data, markaz, yaratuvchi=request.user, manba=_manba_ol(request)
+        )
         if xato:
             return Response(xato, status=400)
 
@@ -649,6 +665,11 @@ class ImtihonZipBoshqaruvView(APIView):
         if not markaz:
             return Response({"detail": "Markaz topilmadi"}, status=400)
 
+        # Qaysi bo'limga yuklanmoqda — "IELTS testlari" (admin) yoki
+        # "AI mashqlari" (ai). Yaratilgan testlar va avtomatik mock ham
+        # shu manba bilan belgilanadi.
+        manba = _manba_ol(request)
+
         fayl = request.FILES.get("zip_fayl")
         if not fayl:
             return Response({"detail": "zip_fayl majburiy"}, status=400)
@@ -693,7 +714,7 @@ class ImtihonZipBoshqaruvView(APIView):
                 test, xato = _test_yarat(
                     data, markaz,
                     rasm_fayllar=rasm_fayllar, audio_fayllar=audio_fayllar,
-                    yaratuvchi=request.user,
+                    yaratuvchi=request.user, manba=manba,
                 )
                 if xato:
                     xatolar.append(f"{papka_nomi}: {xato['detail']}")
@@ -709,7 +730,7 @@ class ImtihonZipBoshqaruvView(APIView):
             test, xato = _test_yarat(
                 data, markaz,
                 rasm_fayllar=rasm_fayllar, audio_fayllar=audio_fayllar,
-                yaratuvchi=request.user,
+                yaratuvchi=request.user, manba=manba,
             )
             if xato:
                 xatolar.append(xato["detail"])
@@ -746,6 +767,7 @@ class ImtihonZipBoshqaruvView(APIView):
                     speaking=bolim_testlari[Bolim.SPEAKING],
                     korinish="private",
                     yaratuvchi=request.user,
+                    manba=manba,
                 )
 
         for test in yaratilgan:
@@ -833,7 +855,9 @@ class ImtihonListView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        qs = korinadigan_testlar(request.user)
+        # 2026-07-27: `manba` bilan "IELTS testlari" (admin) va "AI mashqlari"
+        # (ai) bo'limlari bir xil endpointdan, lekin alohida ro'yxat oladi.
+        qs = korinadigan_testlar(request.user, manba=request.query_params.get("manba"))
         bolim = request.query_params.get("bolim")
         if bolim:
             qs = qs.filter(bolim=bolim)
@@ -1191,6 +1215,7 @@ class ImtihonMockYaratishView(APIView):
             markaz=markaz,
             korinish="private",
             yaratuvchi=request.user,
+            manba=_manba_ol(request),
             listening=bolim_testlari.get(Bolim.LISTENING),
             reading=bolim_testlari.get(Bolim.READING),
             writing=bolim_testlari.get(Bolim.WRITING),
@@ -1213,7 +1238,9 @@ class ImtihonMockRoyxatiView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        qs = korinadigan_moklar(request.user).order_by("-created_at")
+        qs = korinadigan_moklar(
+            request.user, manba=request.query_params.get("manba")
+        ).order_by("-created_at")
         dict_fn = _mock_admin_dict if _mashq_admin_mi(request.user) else _mock_talaba_dict
         return Response([dict_fn(m) for m in qs])
 

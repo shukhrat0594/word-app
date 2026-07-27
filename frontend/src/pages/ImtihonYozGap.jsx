@@ -17,7 +17,7 @@ const TASK_NOMI = { task1: "Task 1", task2: "Task 2", part1: "Part 1", part2: "P
  * Mavjud "Mashqlar" bo'limidagi (AI-import, hammaga ochiq) Writing/
  * Speaking'ga MUSTAQIL — 2026-07-21'da ataylab ajratildi. Bitta test —
  * Task1+Task2 (yoki Part1/2/3) BIRGA, haqiqiy IELTS sessiyasi kabi. */
-export default function ImtihonYozGap({ bolim, testId, mockYechimId, onYakunlandi }) {
+export default function ImtihonYozGap({ bolim, manba = "admin", testId, mockYechimId, onYakunlandi }) {
   const { t } = useI18n();
   const [royxat, setRoyxat] = useState(null);
   const [test, setTest] = useState(null);
@@ -40,9 +40,9 @@ export default function ImtihonYozGap({ bolim, testId, mockYechimId, onYakunland
       testniOch(testId);
       return;
     }
-    api(`/api/imtihon/testlar/?bolim=${bolim}`).then(setRoyxat).catch(() => {});
+    api(`/api/imtihon/testlar/?bolim=${bolim}&manba=${manba}`).then(setRoyxat).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bolim, testId]);
+  }, [bolim, testId, manba]);
 
   useEffect(() => {
     if (!test || natijalar) return;

@@ -3,9 +3,11 @@ import { api, apiForm } from "../api";
 import { useI18n } from "../i18n";
 import { useProfil } from "../profilContext";
 
-/** Talabalar ro'yxati. Owner/admin — o'z markazidagi barcha talabalar +
- * Excel orqali ommaviy kiritish. O'qituvchi — faqat o'z guruhlaridagi
- * talabalar, faqat o'qish (kiritish yo'q). */
+const BOSH_FORMA = { ism: "", login: "", parol: "" };
+
+/** Talabalar ro'yxati. Owner/admin — o'z markazidagi barcha talabalar,
+ * bittalab qo'shish (2026-07-27) va Excel orqali ommaviy kiritish.
+ * O'qituvchi — faqat o'z guruhlaridagi talabalar, faqat o'qish. */
 export default function Talabalar() {
   const { t } = useI18n();
   const { profil } = useProfil();
@@ -13,6 +15,10 @@ export default function Talabalar() {
   const [talabalar, setTalabalar] = useState(null);
   const [excelNatija, setExcelNatija] = useState(null);
   const [excelYuklanmoqda, setExcelYuklanmoqda] = useState(false);
+  const [forma, setForma] = useState(BOSH_FORMA);
+  const [xato, setXato] = useState("");
+  const [xabar, setXabar] = useState("");
+  const [band, setBand] = useState(false);
 
   function yukla() {
     api("/api/talabalar/").then(setTalabalar).catch(() => {});
@@ -21,6 +27,26 @@ export default function Talabalar() {
   useEffect(() => {
     yukla();
   }, []);
+
+  async function talabaQosh() {
+    setXato("");
+    setXabar("");
+    if (!forma.ism.trim() || !forma.login.trim() || !forma.parol.trim()) {
+      setXato(t("majburiy_maydonlar"));
+      return;
+    }
+    setBand(true);
+    try {
+      const yangi = await api("/api/talabalar/", { method: "POST", body: forma });
+      setForma(BOSH_FORMA);
+      setXabar(`${t("talaba_qoshildi")}: ${yangi.ism} — ${yangi.username}`);
+      yukla();
+    } catch (e) {
+      setXato(e.data?.detail || t("xato_yuz_berdi"));
+    } finally {
+      setBand(false);
+    }
+  }
 
   async function excelYukla(e) {
     const fayl = e.target.files[0];
@@ -47,6 +73,39 @@ export default function Talabalar() {
     <>
       {boshqaruvMi && (
         <div className="karta">
+          <h3>{t("yangi_talaba")}</h3>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+            <input
+              style={{ maxWidth: 160 }}
+              placeholder={t("ism")}
+              value={forma.ism}
+              onChange={(e) => setForma({ ...forma, ism: e.target.value })}
+            />
+            <input
+              style={{ maxWidth: 160 }}
+              placeholder={t("login")}
+              value={forma.login}
+              onChange={(e) => setForma({ ...forma, login: e.target.value })}
+            />
+            <input
+              style={{ maxWidth: 160 }}
+              type="password"
+              placeholder={t("parol")}
+              value={forma.parol}
+              onChange={(e) => setForma({ ...forma, parol: e.target.value })}
+            />
+            <button className="tugma" onClick={talabaQosh} disabled={band}>
+              {t("yaratish")}
+            </button>
+          </div>
+          <p className="izoh" style={{ marginBottom: 0 }}>{t("talaba_guruh_eslatma")}</p>
+          {xato && <div className="xato-xabar" style={{ marginTop: 10 }}>{xato}</div>}
+          {xabar && <div className="izoh" style={{ marginTop: 10 }}>{xabar}</div>}
+        </div>
+      )}
+
+      {boshqaruvMi && (
+        <div className="karta" style={{ marginTop: 16 }}>
           <h3>{t("excel_orqali_kiritish")}</h3>
           <p className="izoh" style={{ marginTop: 0 }}>{t("excel_izoh")}</p>
           <input type="file" accept=".xlsx" onChange={excelYukla} disabled={excelYuklanmoqda} />
