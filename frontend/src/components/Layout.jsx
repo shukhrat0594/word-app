@@ -222,7 +222,7 @@ export default function Layout() {
           )}
           <Outlet />
         </main>
-        <IjtimoiyPanel havolalar={profil?.markaz?.ijtimoiy} t={t} />
+        <IjtimoiyPanel havolalar={profil?.markaz?.ijtimoiy} />
       </div>
     </div>
   );
@@ -234,15 +234,15 @@ export default function Layout() {
  * kiritilmagan bo'lsa — panel ko'rsatilmaydi (bo'sh joy egallamasin).
  *
  * Panel DOIM EKRANDA turadi (`position: sticky`), kontenti o'rtaga
- * joylashadi va faqat BELGILARDAN iborat — tarmoq nomlari yozilmaydi.
+ * joylashadi va FAQAT BELGILARDAN iborat — na sarlavha, na tarmoq
+ * nomlari yoziladi (2026-07-27 talabi).
  * Nomi `title`/`aria-label`da qoladi: sichqoncha ustiga kelganda ko'rinadi
  * va ekran o'quvchi uchun ham tushunarli bo'ladi. */
-function IjtimoiyPanel({ havolalar, t }) {
+function IjtimoiyPanel({ havolalar }) {
   const bor = IJTIMOIY.filter((x) => (havolalar || {})[x.kalit]);
   if (bor.length === 0) return null;
   return (
     <footer className="ijtimoiy-panel">
-      <span className="izoh">{t("ijtimoiy_sarlavha")}</span>
       <div className="ijtimoiy-havolalar">
         {bor.map((x) => (
           <a
