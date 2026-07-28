@@ -313,7 +313,9 @@ class KursMashqBoshqaruvView(APIView):
         if not _mashq_admin_mi(request.user):
             return Response({"detail": "Faqat admin/owner uchun"}, status=403)
         tugun = get_object_or_404(KursTugun, pk=pk)
-        return Response([_kurs_mashq_admin_dict(m) for m in tugun.mashqlar.all()])
+        return Response(
+            [_kurs_mashq_admin_dict(m) for m in tugun.mashqlar.prefetch_related("audiolar")]
+        )
 
     def post(self, request, pk):
         if not _mashq_admin_mi(request.user):
@@ -899,7 +901,9 @@ class KursMashqAudioZipBoshqaruvView(APIView):
             obyekt_nomi=" > ".join(reversed(yol)),
             ozgarishlar={"audio_zip": {"eski": "—", "yangi": f"{len(audio_fayllar)} fayl"}},
         )
-        return Response([_kurs_mashq_admin_dict(m) for m in tugun.mashqlar.all()])
+        return Response(
+            [_kurs_mashq_admin_dict(m) for m in tugun.mashqlar.prefetch_related("audiolar")]
+        )
 
 
 class KursMashqRoyxatiView(APIView):
@@ -913,7 +917,9 @@ class KursMashqRoyxatiView(APIView):
         tugun = get_object_or_404(KursTugun, pk=pk)
         if _talaba_tugun_qulflanganmi(request.user, tugun):
             return Response({"detail": "Bu qism hali qulflangan"}, status=403)
-        return Response([_kurs_mashq_talaba_dict(m) for m in tugun.mashqlar.all()])
+        return Response(
+            [_kurs_mashq_talaba_dict(m) for m in tugun.mashqlar.prefetch_related("audiolar")]
+        )
 
 
 class KursMashqYechishView(APIView):

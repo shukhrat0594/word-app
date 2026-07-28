@@ -251,7 +251,7 @@ def _ai_json_urin(provider, prompt, rasm_bytes, rasm_mime, tekshir):
     oxirgi_xato = None
     for _ in range(SAHIFA_URINISHLAR):
         try:
-            javob = provider._generate(prompt, "Sahifani tahlil qiling.", rasm_bytes, rasm_mime)
+            javob = provider.generate_json(prompt, "Sahifani tahlil qiling.", rasm_bytes, rasm_mime)
         except ProviderXatosi as e:
             oxirgi_xato = str(e)
             continue
@@ -262,7 +262,7 @@ def _ai_json_urin(provider, prompt, rasm_bytes, rasm_mime, tekshir):
             continue
         return natija, None
 
-    return None, oxirgi_xato or "Gemini yaroqli javob bermadi"
+    return None, oxirgi_xato or "AI yaroqli javob bermadi"
 
 
 def _sahifa_shaklini_tekshir(natija):

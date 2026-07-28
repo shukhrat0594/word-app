@@ -24,11 +24,72 @@ class ProviderXatosi(Exception):
 # ASL SAVOL matni va turi (task1/task2) endi ANIQ, kontent ichida beriladi
 # — AI endi mavzuni taxmin qilmaydi, TASdiqlaydi va mavzuga moslikni
 # tekshiradi.
-WRITING_SYSTEM_PROMPT = (
-    "Siz professional IELTS imtihonchisiz. Sizga (1) talabaga berilgan aniq "
-    "Writing SAVOL/MAVZU matni va uning turi (Task 1 yoki Task 2), (2) "
-    "talabaning shu savolga yozgan javobi beriladi. Quyidagi tartibda "
-    "baholang:\n\n"
+# 2026-07-28: Task 1 va Task 2 endi ALOHIDA promt bilan baholanadi (sinov
+# tariqasida, foydalanuvchi talabi). Sabab: ikki task butunlay boshqa
+# janr — Task 1 berilgan grafik/jadval/xatni TAVSIFLASH (o'z fikri
+# qo'shilmaydi), Task 2 esa dalilli INSHO (o'z pozitsiyasi shart). Bitta
+# umumiy promt ikkalasini bir xil o'lchov bilan baholardi.
+#
+# Rol qismi (ingliz tilida) — foydalanuvchi bergan matn, aynan saqlangan.
+# Qolgan qoidalar (mavzuga moslik, so'z soni, JSON sxemasi) OLDINGIDEK —
+# ular real buglar tuzatilgandan keyin qo'shilgan, olib tashlanmaydi
+# (pastdagi `_WRITING_UMUMIY_QOIDALAR` izohlariga qarang).
+WRITING_TASK1_ROLI = (
+    "I want you to be an experienced IELTS examiner, check my Task 1 essays, "
+    "give your assessment according to IELTS band score criteria with "
+    "explanation of my weaknesses and give exact suggestions how to improve "
+    "it to raise my score.\n\n"
+
+    "TASK 1 GA XOS MEZONLAR (bu turga xos, Task 2 bilan aralashtirmang):\n"
+    "- Task 1 — TAVSIF, insho EMAS. Talaba berilgan grafik/jadval/diagramma/"
+    "jarayon sxemasi yoki xatdagi ma'lumotni o'z so'zlari bilan tavsiflaydi. "
+    "Talaba O'Z FIKRINI, sababini yoki tavsiyasini yozgan bo'lsa — bu janrga "
+    "MOS EMAS, Task Achievement balini pasaytiring va izohda ayting.\n"
+    "- Talaba umumiy xulosa (overview) berganini tekshiring — asosiy "
+    "tendentsiya/eng katta-kichik ko'rsatkich ajratib ko'rsatilmagan bo'lsa, "
+    "Task Achievement 6 dan oshmasin (bu Task 1 da eng ko'p uchraydigan "
+    "yo'qotish).\n"
+    "- Aniq raqam va taqqoslash keltirilganini, ma'lumot to'g'ri "
+    "ko'chirilganini tekshiring.\n"
+    "- Xat (General Training) bo'lsa: ohang (rasmiy/norasmiy) mavzuga mos "
+    "kelishini va savolda so'ralgan BARCHA bandlar yoritilganini tekshiring.\n\n"
+
+    "GRAFIK (agar rasm sifatida berilgan bo'lsa): sizga talabaning matni "
+    "bilan birga Task 1 grafigi/jadvali/diagrammasi RASM sifatida ham "
+    "berilishi mumkin. Shunday bo'lsa, talabaning tavsifi rasmdagi haqiqiy "
+    "ma'lumotlarga (raqamlar, tendentsiyalar, taqqoslashlar) qanchalik mos "
+    "kelishini tekshiring va bu Task Achievement bahosiga bevosita ta'sir "
+    "qilsin — talaba rasmda yo'q narsani yozgan yoki asosiy tendentsiyani "
+    "noto'g'ri tasvirlagan bo'lsa, buni aniq ayting.\n\n"
+)
+
+WRITING_TASK2_ROLI = (
+    "I want you to be an experienced IELTS examiner, check my Task 2 essays, "
+    "give your assessment according to IELTS band score criteria with "
+    "explanation of my weaknesses and give exact suggestions how to improve "
+    "it to raise my score.\n\n"
+
+    "TASK 2 GA XOS MEZONLAR (bu turga xos, Task 1 bilan aralashtirmang):\n"
+    "- Task 2 — DALILLI INSHO. Talabaning aniq pozitsiyasi (position) "
+    "bo'lishi va u butun insho davomida IZCHIL saqlanishi shart. Pozitsiya "
+    "noaniq yoki o'zgarib ketgan bo'lsa — Task Achievement balini "
+    "pasaytiring.\n"
+    "- Savol turini aniqlang (fikr bildirish / muhokama qilish / muammo-"
+    "yechim / afzallik-kamchilik) va javob AYNAN shu turga mos "
+    "javob berayotganini tekshiring. Masalan \"discuss both views\" "
+    "so'ralganda faqat bitta tomon yoritilgan bo'lsa — bu jiddiy kamchilik.\n"
+    "- Har asosiy fikr DALIL/MISOL bilan rivojlantirilganini tekshiring — "
+    "quruq da'volar ro'yxati (misolsiz) Task Achievement va Coherence "
+    "ballarini pasaytiradi.\n"
+    "- Paragraf tuzilishi: kirish, 2-3 asosiy paragraf (har birida bitta "
+    "yetakchi fikr), xulosa. Xulosa yo'q bo'lsa yoki paragraflarga "
+    "ajratilmagan bo'lsa — Coherence & Cohesion balini pasaytiring.\n\n"
+)
+
+_WRITING_UMUMIY_QOIDALAR = (
+    "Sizga (1) talabaga berilgan aniq Writing SAVOL/MAVZU matni va uning "
+    "turi, (2) talabaning shu savolga yozgan javobi beriladi. Quyidagi "
+    "tartibda baholang:\n\n"
 
     "1) MAVZUGA MOSLIK (ENG MUHIM TEKSHIRUV): talabaning javobi BERILGAN "
     "SAVOLGA haqiqatda javob berayotganini albatta tekshiring. Agar talaba "
@@ -66,13 +127,15 @@ WRITING_SYSTEM_PROMPT = (
 
     "6) KUCHLI TOMONLAR: 1-2 ta ijobiy narsani ko'rsating.\n\n"
 
-    "7) GRAFIK (agar rasm sifatida berilgan bo'lsa): sizga talabaning matni "
-    "bilan birga Task 1 grafigi/jadvali/diagrammasi RASM sifatida ham "
-    "berilishi mumkin. Shunday bo'lsa, talabaning tavsifi rasmdagi haqiqiy "
-    "ma'lumotlarga (raqamlar, tendentsiyalar, taqqoslashlar) qanchalik mos "
-    "kelishini tekshiring va bu Task Achievement bahosiga bevosita ta'sir "
-    "qilsin — talaba rasmda yo'q narsani yozgan yoki asosiy tendentsiyani "
-    "noto'g'ri tasvirlagan bo'lsa, buni aniq ayting.\n\n"
+    "7) YAXSHILASH TAVSIYALARI: har mezon izohida ('comment') faqat "
+    "kamchilikni aytib qo'ya qolmang — ballni ko'tarish uchun talaba ANIQ "
+    "nima qilishi kerakligini ko'rsating (umumiy maslahat emas, shu "
+    "javobdagi aniq joyga bog'langan).\n\n"
+
+    "IZOH TILI: JSON ichidagi BARCHA matnli maydonlar ('analysis', har "
+    "mezonning 'comment', 'errors', 'strengths') INGLIZ TILIDA yozilsin "
+    "(2026-07-28 kelishuvi — talaba IELTS terminologiyasiga ko'nikishi "
+    "uchun). Boshqa tilda yozmang.\n\n"
 
     "Faqat quyidagi JSON qaytaring, boshqa matn yozmang. 'task_type' "
     "maydoniga sizga berilgan turni ('task1' yoki 'task2') aynan shu "
@@ -95,6 +158,15 @@ WRITING_SYSTEM_PROMPT = (
     '  "strengths": [""]\n'
     "}"
 )
+
+WRITING_TASK1_SYSTEM_PROMPT = WRITING_TASK1_ROLI + _WRITING_UMUMIY_QOIDALAR
+WRITING_TASK2_SYSTEM_PROMPT = WRITING_TASK2_ROLI + _WRITING_UMUMIY_QOIDALAR
+
+
+def writing_promt_ol(tur):
+    """Task turiga mos system promt (2026-07-28) — `_writing_kontent_tuz`
+    bilan bir xil qoida: "task1" dan boshqa hamma narsa Task 2 hisoblanadi."""
+    return WRITING_TASK1_SYSTEM_PROMPT if tur == "task1" else WRITING_TASK2_SYSTEM_PROMPT
 
 
 def soz_sonini_sana(matn):
@@ -341,11 +413,16 @@ class GeminiProvider:
 
     def writing_baholash(self, matn, savol_matni="", tur="task2", rasm_bytes=None, rasm_mime=None):
         kontent = _writing_kontent_tuz(savol_matni, tur, matn)
-        return self._generate(WRITING_SYSTEM_PROMPT, kontent, rasm_bytes, rasm_mime)
+        return self._generate(writing_promt_ol(tur), kontent, rasm_bytes, rasm_mime)
 
     def speaking_matn_baholash(self, matn, savol_matni="", tur="part1"):
         kontent = _speaking_kontent_tuz(savol_matni, tur, matn)
         return self._generate(SPEAKING_SYSTEM_PROMPT, kontent)
+
+    def generate_json(self, system_prompt, matn, rasm_bytes=None, rasm_mime=None):
+        """Boshqa app'lar (masalan `courses`) uchun ochiq interfeys — `_generate`
+        shaxsiy metod, app chegarasidan tashqarida chaqirilmasligi kerak."""
+        return self._generate(system_prompt, matn, rasm_bytes, rasm_mime)
 
 
 # 2026-07-26: Gemma olib tashlanganidan keyin bitta tanlov qoldi. Lug'at
@@ -433,11 +510,16 @@ class ClaudeProvider:
 
     def writing_baholash(self, matn, savol_matni="", tur="task2", rasm_bytes=None, rasm_mime=None):
         kontent = _writing_kontent_tuz(savol_matni, tur, matn)
-        return self._generate(WRITING_SYSTEM_PROMPT, kontent, rasm_bytes, rasm_mime)
+        return self._generate(writing_promt_ol(tur), kontent, rasm_bytes, rasm_mime)
 
     def speaking_matn_baholash(self, matn, savol_matni="", tur="part1"):
         kontent = _speaking_kontent_tuz(savol_matni, tur, matn)
         return self._generate(SPEAKING_SYSTEM_PROMPT, kontent)
+
+    def generate_json(self, system_prompt, matn, rasm_bytes=None, rasm_mime=None):
+        """Boshqa app'lar (masalan `courses`) uchun ochiq interfeys — `_generate`
+        shaxsiy metod, app chegarasidan tashqarida chaqirilmasligi kerak."""
+        return self._generate(system_prompt, matn, rasm_bytes, rasm_mime)
 
 
 def provider_tanla(user):
