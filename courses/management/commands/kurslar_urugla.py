@@ -1,6 +1,6 @@
 """Kurslar bo'limining qattiq (fixed) boshlang'ich tuzilmasini yaratadi —
 Texnik Topshiriq (2026-07-21) sxemasi bo'yicha. Idempotent: mavjud
-tugunlarni (nomi+parent bo'yicha) qayta yaratmaydi, faqat yetishmaganini
+tugunlarni (kalit+parent bo'yicha) qayta yaratmaydi, faqat yetishmaganini
 qo'shadi — xavfsiz qayta-qayta ishga tushiriladi (prod_boshlangich'ga
 ulash uchun).
 
@@ -8,25 +8,34 @@ ulash uchun).
 kitobi bo'yicha, 14 ta unit) — har bir Unit o'zining bo'limiga ega va
 ketma-ket ochiladi (`unit_darsi=True`).
 
-2026-07-27: Unit ichidagi bo'limlar QAYTA QURILDI (foydalanuvchi talabi) —
-avvalgi 6 bo'lim (Grammar/Vocabulary/Reading/Listening/Speaking-Writing/
-Everyday English) o'rniga har Unit dastlab 3 bo'limga (Mashqlar/Grammar
-reference/Wordlist) o'tkazildi.
+2026-07-27: Unit ichidagi bo'limlar qayta qurildi — avvalgi 6 bo'lim
+o'rniga Mashqlar/Grammar reference/Wordlist, so'ng (shu kuni, ikkinchi
+marta) Grammar reference va Wordlist BIRLASHTIRILDI ("Vocabulary"), Unit
+2 bo'limga tushdi.
 
-2026-07-27 (2-marta, shu kuni): darslikda Grammar reference va Wordlist
-BITTA sahifada birga kelgani aniqlandi — shu sabab ular BIRLASHTIRILDI,
-Unit endi FAQAT 2 bo'lim:
-  * "Mashqlar"    — darslikdagi barcha mashqlar (rasmdan Gemini orqali
-                     yoki qo'lda JSON bilan kiritiladi). Rasm ustida javob
-                     kiritish `savol.pozitsiya` orqali (IELTS testlaridagi
-                     mexanizm bilan bir xil).
-  * "Vocabulary"  — grammatika qisqa xulosasi (`KursTugun.matn`, ixtiyoriy)
-                     + so'zlar ro'yxati (`KursSoz`) BIRGA — talaba tarjimani
-                     o'zi yozadi, "Tekshirish" bilan tasdiqlaydi.
-Eski "Wordlist" nomidagi tugunlar (va ularning KursSoz ma'lumotlari)
-"Vocabulary"ga NOM O'ZGARTIRISH orqali (o'chirib-qayta yaratmasdan)
-ko'chiriladi. Eski "Grammar reference" tugunlari (hali real kontent
-kiritilmagan edi) kaskad o'chiriladi.
+2026-07-28 — IKKI KATTA O'ZGARISH:
+
+1) `kalit` (slug) maydoni. Avval tugunlar NOMI bo'yicha topilardi
+   (`bolalar["Mashqlar"]`, frontendda `nomi === "Vocabulary"`). Nomlar
+   3 tilda ko'rsatiladigan bo'lgach bu yo'l sinadi, shuning uchun kod
+   endi HAR DOIM `kalit`ka tayanadi. Bazadagi `nomi` o'zgarmaydi (zaxira
+   sifatida qoladi), tarjima frontendda i18n orqali qilinadi.
+
+2) Unit ichida yangi qatlam — Student's Book va Workbook, HAR IKKALASIDA
+   Mashqlar+Vocabulary:
+
+       Unit 1 — Hello!
+       ├── Student's Book
+       │   ├── Mashqlar
+       │   └── Vocabulary
+       └── Workbook
+           ├── Mashqlar
+           └── Vocabulary
+
+   MAVJUD kontent yo'qolmaydi: Unit ostida to'g'ridan-to'g'ri turgan eski
+   Mashqlar/Vocabulary tugunlari (ichidagi KursMashq, KursSoz,
+   KursMashqAudio bilan birga) Student's Book ostiga KO'CHIRILADI —
+   faqat `parent` o'zgaradi, o'chirib-qayta yaratish YO'Q.
 
 Bu faqat Beginner'ning Unit tuzilmasiga tegishli. Boshqa darajalar
 (Elementary...Upper-Intermediate) hali flat va eski bo'lim to'plamida
@@ -38,26 +47,45 @@ from django.core.management.base import BaseCommand
 from accounts.models import Markaz
 from courses.models import KursMashq, KursTugun
 
-# Flat (Unit'siz) darajalarda ishlatiladigan bo'lim to'plami — hali
-# o'zgartirilmagan (Elementary...Upper-Intermediate hali bo'sh).
+# Har bo'lim (kalit, nomi) juftligi bilan beriladi — `nomi` bazadagi
+# zaxira ko'rinish, foydalanuvchi ko'radigan matn frontendda `kalit`
+# bo'yicha tarjima qilinadi.
 INGLIZ_DARAJA_BOLIMLARI = [
-    "Grammar",
-    "Vocabulary",
-    "Reading",
-    "Listening",
-    "Speaking/Writing",
-    "Everyday English",
+    ("grammar", "Grammar"),
+    ("vocabulary", "Vocabulary"),
+    ("reading", "Reading"),
+    ("listening", "Listening"),
+    ("speaking_writing", "Speaking/Writing"),
+    ("everyday_english", "Everyday English"),
 ]
-# Beginner Unit'lari ichidagi bo'lim to'plami (2026-07-27, ikkinchi marta
-# qayta qurish — Grammar reference+Wordlist birlashtirilib "Vocabulary" bo'ldi).
-UNIT_BOLIMLARI = ["Mashqlar", "Vocabulary"]
 
-INGLIZ_DARAJALAR = ["Beginner", "Elementary", "Pre-Intermediate", "Intermediate", "Upper-Intermediate"]
-IELTS_TEXTBOOKS_QISMLARI = ["Reading", "Writing", "Listening", "Speaking", "Vocabulary", "Grammar"]
+# Unit ichidagi kitob turlari (2026-07-28) va ularning har biridagi bo'limlar.
+UNIT_KITOBLARI = [("students_book", "Student's Book"), ("workbook", "Workbook")]
+UNIT_BOLIMLARI = [("mashqlar", "Mashqlar"), ("vocabulary", "Vocabulary")]
+
+INGLIZ_DARAJALAR = [
+    ("beginner", "Beginner"),
+    ("elementary", "Elementary"),
+    ("pre_intermediate", "Pre-Intermediate"),
+    ("intermediate", "Intermediate"),
+    ("upper_intermediate", "Upper-Intermediate"),
+]
+IELTS_TEXTBOOKS_QISMLARI = [
+    ("reading", "Reading"),
+    ("writing", "Writing"),
+    ("listening", "Listening"),
+    ("speaking", "Speaking"),
+    ("vocabulary", "Vocabulary"),
+    ("grammar", "Grammar"),
+]
 # 2026-07-27: "Cambridge" va "Vocabulary" bo'limlari IELTS ostidan olib
 # tashlandi (foydalanuvchi talabi). ESLATMA: IELTS > Textbooks > Vocabulary
 # BOSHQA tugun — u `IELTS_TEXTBOOKS_QISMLARI` ichida va o'z joyida qoladi.
-IELTS_BOLIMLARI = ["Textbooks", "Practice tests", "Mock exam"]
+IELTS_BOLIMLARI = [
+    ("textbooks", "Textbooks"),
+    ("practice_tests", "Practice tests"),
+    ("mock_exam", "Mock exam"),
+]
 
 HEADWAY_BEGINNER_UNITLAR = [
     "Unit 1 — Hello!",
@@ -75,6 +103,33 @@ HEADWAY_BEGINNER_UNITLAR = [
     "Unit 13 — What's happening now?",
     "Unit 14 — Let's go!",
 ]
+
+# Eski (kalitsiz) tugunlarni bir martalik kalitlash uchun nom -> kalit
+# jadvali. Faqat `kalit` bo'sh bo'lgan tugunlarga qo'llanadi.
+NOM_KALIT = {
+    "Kurslar": "kurslar",
+    "Rus tili": "rus_tili",
+    "Matematika": "matematika",
+    "Ingliz tili": "ingliz_tili",
+    "IELTS": "ielts",
+    "CEFR": "cefr",
+    "Student's Book": "students_book",
+    "Workbook": "workbook",
+    "Mashqlar": "mashqlar",
+    "Practice tests": "practice_tests",
+    "Mock exam": "mock_exam",
+    "Textbooks": "textbooks",
+    "Speaking/Writing": "speaking_writing",
+    "Everyday English": "everyday_english",
+    "Grammar": "grammar",
+    "Vocabulary": "vocabulary",
+    "Reading": "reading",
+    "Writing": "writing",
+    "Listening": "listening",
+    "Speaking": "speaking",
+    **{nomi: f"unit_{i}" for i, nomi in enumerate(HEADWAY_BEGINNER_UNITLAR, start=1)},
+    **{nomi: kalit for kalit, nomi in INGLIZ_DARAJALAR},
+}
 
 
 def _shoxni_yig(tugun, idlar):
@@ -94,20 +149,29 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING("Markaz topilmadi — o'tkazib yuborildi"))
             return
 
-        def bor_yoki_yarat(nomi, parent=None, tartib=0, ikonka="", tez_kunda=False, unit_darsi=False):
-            tugun, yaratildi = KursTugun.objects.get_or_create(
-                nomi=nomi, parent=parent, markaz=markaz,
-                defaults={"tartib": tartib, "ikonka": ikonka, "tez_kunda": tez_kunda, "unit_darsi": unit_darsi},
-            )
-            return tugun
+        self._kalitlarni_toldir()
 
-        def eski_bolimlarni_tozala(ota_tugun, mos_nomlar):
-            """Ota tugun ostidagi, endi ro'yxatda yo'q (eski nomdagi)
-            bo'lim tugunlarini KASKAD o'chiradi — bo'lim sxemasi
-            o'zgarganda (masalan 6 bo'lim -> 3 bo'lim) eskisi qolib
+        def bor_yoki_yarat(kalit, nomi, parent=None, tartib=0, ikonka="",
+                           tez_kunda=False, unit_darsi=False):
+            """Kalit+parent bo'yicha topadi (nomi bo'yicha EMAS — nom
+            o'zgarishi mumkin, kalit esa barqaror)."""
+            tugun = KursTugun.objects.filter(
+                kalit=kalit, parent=parent, markaz=markaz).first()
+            if tugun:
+                return tugun
+            return KursTugun.objects.create(
+                kalit=kalit, nomi=nomi, parent=parent, markaz=markaz,
+                tartib=tartib, ikonka=ikonka, tez_kunda=tez_kunda,
+                unit_darsi=unit_darsi,
+            )
+
+        def eski_bolimlarni_tozala(ota_tugun, mos_kalitlar):
+            """Ota tugun ostidagi, endi ro'yxatda yo'q bo'lim tugunlarini
+            KASKAD o'chiradi — bo'lim sxemasi o'zgarganda eskisi qolib
             ketmasligi uchun. Nima o'chirilgani (tugun+mashq soni) deploy
             logiga yoziladi, sezilmay qolmasligi uchun."""
-            ortiqcha = list(KursTugun.objects.filter(parent=ota_tugun).exclude(nomi__in=mos_nomlar))
+            ortiqcha = list(
+                KursTugun.objects.filter(parent=ota_tugun).exclude(kalit__in=mos_kalitlar))
             if not ortiqcha:
                 return
             idlar = []
@@ -123,45 +187,87 @@ class Command(BaseCommand):
                 )
             )
 
-        kurslar = bor_yoki_yarat("Kurslar", tartib=0)
+        kurslar = bor_yoki_yarat("kurslar", "Kurslar", tartib=0)
 
-        bor_yoki_yarat("Rus tili", parent=kurslar, tartib=1, ikonka="🌐", tez_kunda=True)
-        bor_yoki_yarat("Matematika", parent=kurslar, tartib=2, ikonka="📐", tez_kunda=True)
+        bor_yoki_yarat("rus_tili", "Rus tili", parent=kurslar, tartib=1,
+                       ikonka="🌐", tez_kunda=True)
+        bor_yoki_yarat("matematika", "Matematika", parent=kurslar, tartib=2,
+                       ikonka="📐", tez_kunda=True)
 
-        ingliz = bor_yoki_yarat("Ingliz tili", parent=kurslar, tartib=3, ikonka="🇬🇧")
+        ingliz = bor_yoki_yarat("ingliz_tili", "Ingliz tili", parent=kurslar,
+                                tartib=3, ikonka="🇬🇧")
 
-        for i, daraja_nomi in enumerate(INGLIZ_DARAJALAR, start=1):
-            daraja = bor_yoki_yarat(daraja_nomi, parent=ingliz, tartib=i)
+        for i, (daraja_kalit, daraja_nomi) in enumerate(INGLIZ_DARAJALAR, start=1):
+            daraja = bor_yoki_yarat(daraja_kalit, daraja_nomi, parent=ingliz, tartib=i)
 
-            if daraja_nomi == "Beginner":
+            if daraja_kalit == "beginner":
                 # Eski (Unit'siz, flat) bo'limlar bo'lsa — Unit tuzilmasiga
                 # o'tishda tozalanadi (2026-07-22, hali real kontent yo'q edi).
                 KursTugun.objects.filter(parent=daraja, unit_darsi=False).delete()
                 for j, unit_nomi in enumerate(HEADWAY_BEGINNER_UNITLAR, start=1):
-                    unit = bor_yoki_yarat(unit_nomi, parent=daraja, tartib=j, unit_darsi=True)
-                    # Eski "Wordlist"ni "Vocabulary"ga NOM O'ZGARTIRISH
-                    # orqali ko'chirish — KursSoz ma'lumotlari saqlanib
-                    # qoladi (o'chirib-qayta yaratilmaydi).
-                    KursTugun.objects.filter(parent=unit, nomi="Wordlist").update(nomi="Vocabulary")
-                    eski_bolimlarni_tozala(unit, UNIT_BOLIMLARI)
-                    for k, bolim_nomi in enumerate(UNIT_BOLIMLARI, start=1):
-                        bor_yoki_yarat(bolim_nomi, parent=unit, tartib=k)
+                    unit = bor_yoki_yarat(f"unit_{j}", unit_nomi, parent=daraja,
+                                          tartib=j, unit_darsi=True)
+                    self._unitni_kitoblarga_bol(unit, bor_yoki_yarat)
+                    eski_bolimlarni_tozala(unit, [k for k, _ in UNIT_KITOBLARI])
             else:
-                eski_bolimlarni_tozala(daraja, INGLIZ_DARAJA_BOLIMLARI)
-                for j, bolim_nomi in enumerate(INGLIZ_DARAJA_BOLIMLARI, start=1):
-                    bor_yoki_yarat(bolim_nomi, parent=daraja, tartib=j)
+                eski_bolimlarni_tozala(daraja, [k for k, _ in INGLIZ_DARAJA_BOLIMLARI])
+                for j, (kalit, nomi) in enumerate(INGLIZ_DARAJA_BOLIMLARI, start=1):
+                    bor_yoki_yarat(kalit, nomi, parent=daraja, tartib=j)
 
-        ielts = bor_yoki_yarat("IELTS", parent=ingliz, tartib=len(INGLIZ_DARAJALAR) + 1)
-        for i, bolim_nomi in enumerate(IELTS_BOLIMLARI, start=1):
-            bolim = bor_yoki_yarat(bolim_nomi, parent=ielts, tartib=i)
-            if bolim_nomi == "Textbooks":
-                for j, qism_nomi in enumerate(IELTS_TEXTBOOKS_QISMLARI, start=1):
-                    bor_yoki_yarat(qism_nomi, parent=bolim, tartib=j)
+        ielts = bor_yoki_yarat("ielts", "IELTS", parent=ingliz,
+                               tartib=len(INGLIZ_DARAJALAR) + 1)
+        for i, (kalit, nomi) in enumerate(IELTS_BOLIMLARI, start=1):
+            bolim = bor_yoki_yarat(kalit, nomi, parent=ielts, tartib=i)
+            if kalit == "textbooks":
+                for j, (q_kalit, q_nomi) in enumerate(IELTS_TEXTBOOKS_QISMLARI, start=1):
+                    bor_yoki_yarat(q_kalit, q_nomi, parent=bolim, tartib=j)
 
         # IELTS ostidan olib tashlangan bo'limlar ("Cambridge", "Vocabulary",
         # 2026-07-27) — bir xil naqsh, endi umumiy funksiya orqali.
-        eski_bolimlarni_tozala(ielts, IELTS_BOLIMLARI)
+        eski_bolimlarni_tozala(ielts, [k for k, _ in IELTS_BOLIMLARI])
 
-        bor_yoki_yarat("CEFR", parent=ingliz, tartib=len(INGLIZ_DARAJALAR) + 2, tez_kunda=True)
+        bor_yoki_yarat("cefr", "CEFR", parent=ingliz,
+                       tartib=len(INGLIZ_DARAJALAR) + 2, tez_kunda=True)
 
-        self.stdout.write(self.style.SUCCESS(f"Kurslar tuzilmasi tayyor (jami {KursTugun.objects.count()} tugun)"))
+        self.stdout.write(
+            self.style.SUCCESS(f"Kurslar tuzilmasi tayyor (jami {KursTugun.objects.count()} tugun)"))
+
+    # ------------------------------------------------------------------
+
+    def _kalitlarni_toldir(self):
+        """Kaliti bo'sh mavjud tugunlarga NOM_KALIT jadvali bo'yicha kalit
+        beradi (bir martalik, keyingi ishga tushirishlarda hech narsa
+        qilmaydi). Buni tuzilma qurishdan OLDIN bajarish shart — chunki
+        `bor_yoki_yarat` endi kalit bo'yicha qidiradi va kalitsiz eski
+        tugunni topa olmay, DUBLIKAT yaratib yuborardi."""
+        yangilandi = 0
+        for nomi, kalit in NOM_KALIT.items():
+            yangilandi += KursTugun.objects.filter(
+                nomi=nomi, kalit="").update(kalit=kalit)
+        if yangilandi:
+            self.stdout.write(f"Kalit berildi: {yangilandi} ta eski tugun")
+
+    def _unitni_kitoblarga_bol(self, unit, bor_yoki_yarat):
+        """Unit ostida Student's Book / Workbook qatlamini quradi va
+        MAVJUD bo'limlarni Student's Book ostiga KO'CHIRADI (2026-07-28).
+
+        Ko'chirish `parent` ni o'zgartirish orqali bo'ladi — tugunlar
+        o'chirilmaydi, shuning uchun ichidagi KursMashq / KursSoz /
+        KursMashqAudio va talabalarning KursMashqYechim yozuvlari
+        BUTUNLIGICHA saqlanib qoladi."""
+        kitoblar = {}
+        for i, (kalit, nomi) in enumerate(UNIT_KITOBLARI, start=1):
+            kitoblar[kalit] = bor_yoki_yarat(kalit, nomi, parent=unit, tartib=i)
+
+        # Eski tuzilma: Mashqlar/Vocabulary to'g'ridan-to'g'ri Unit ostida
+        # turardi -> Student's Book ostiga ko'chiramiz.
+        kochirildi = KursTugun.objects.filter(
+            parent=unit, kalit__in=[k for k, _ in UNIT_BOLIMLARI]
+        ).update(parent=kitoblar["students_book"])
+        if kochirildi:
+            self.stdout.write(
+                f"\"{unit.nomi}\": {kochirildi} ta bo'lim Student's Book ostiga ko'chirildi")
+
+        for kitob in kitoblar.values():
+            for j, (kalit, nomi) in enumerate(UNIT_BOLIMLARI, start=1):
+                bor_yoki_yarat(kalit, nomi, parent=kitob, tartib=j)

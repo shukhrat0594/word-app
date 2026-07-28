@@ -47,14 +47,32 @@ def _mashq_admin_mi(user):
     return owner_mi(user) or user.role == User.Role.ADMIN
 
 
+def _shox_idlari(tugun):
+    """Tugun va uning BUTUN avlodining id'lari (rekursiv).
+
+    2026-07-28: Unit tuzilmasi chuqurlashdi (Unit > Student's Book /
+    Workbook > Mashqlar), shuning uchun mashqlarni bitta qatlam bo'yicha
+    (`tugun__parent_id=unit.id`) qidirish endi ISHLAMAYDI — mashq Unit'ning
+    nevarasi. Bu e'tibordan chetda qolsa, hech bir mashq topilmay,
+    `_unit_otildimi` doim False qaytarardi va BARCHA Unit'lar talabaga
+    qulflangan bo'lib qolardi."""
+    idlar = [tugun.id]
+    joriy = [tugun.id]
+    while joriy:
+        joriy = list(
+            KursTugun.objects.filter(parent_id__in=joriy).values_list("id", flat=True))
+        idlar.extend(joriy)
+    return idlar
+
+
 def _unit_otildimi(user, unit_tugun):
-    """Talaba shu Unit'ning BARCHA bo'limlaridagi (Grammar/Vocabulary/
-    Reading/Listening/Speaking-Writing/Everyday English) mashqlaridan
-    jami OTISH_FOIZ (60%) dan ko'p ball olganmi — Unit'ning har bir
-    bo'limiga qo'yilgan barcha mashqlarga javob yuborgan va o'rtacha ball
-    yetarli bo'lishi shart (bitta maxsus "Test/Exam" bo'limi endi yo'q —
-    2026-07-22, darslik bo'limlari real Headway strukturasiga moslashtirildi)."""
-    mashqlar = list(KursMashq.objects.filter(tugun__parent_id=unit_tugun.id))
+    """Talaba shu Unit'ning BARCHA bo'limlaridagi mashqlaridan jami
+    OTISH_FOIZ (60%) dan ko'p ball olganmi — Unit ichidagi har bir
+    mashqqa javob yuborgan va o'rtacha ball yetarli bo'lishi shart.
+
+    Unit ostidagi butun shox hisobga olinadi (Student's Book va Workbook
+    ikkalasi ham) — 2026-07-28 tuzilma o'zgarishidan keyin."""
+    mashqlar = list(KursMashq.objects.filter(tugun_id__in=_shox_idlari(unit_tugun)))
     if not mashqlar:
         return False
     jami_ball = 0
@@ -114,6 +132,9 @@ def _tugun_dict(tugun, user, bolalar_keshi, tugatgan_idlar, qulflangan=False):
     natija = {
         "id": tugun.id,
         "nomi": tugun.nomi,
+        # 2026-07-28: frontend nomni SHU KALIT bo'yicha tarjima qiladi
+        # (i18n), `nomi` esa kaliti yo'q tugunlar uchun zaxira.
+        "kalit": tugun.kalit,
         "ikonka": tugun.ikonka,
         "tez_kunda": tugun.tez_kunda,
         "unit_darsi": tugun.unit_darsi,
@@ -270,6 +291,30 @@ class KursTugunTugallandiView(APIView):
         return Response({"tugallandimi": True})
 
 
+def _unit_bolimlari(tugun):
+    """Kontent yuklanadigan bo'limlarni (`mashqlar`, `vocabulary`) KALIT
+    bo'yicha qaytaradi — nomi bo'yicha emas (2026-07-28: nomlar 3 tilda
+    ko'rsatiladi, shuning uchun ular kalit bo'la olmaydi).
+
+    2026-07-28 tuzilma o'zgarishi: bo'limlar endi Unit ostida EMAS,
+    kitob (Student's Book / Workbook) ostida turadi. Shuning uchun bu
+    endpointlar KITOB tugunini kutadi.
+
+    Unit tuguni berilsa — Student's Book'ga tushamiz. Sabab: eski kontent
+    aynan o'sha yerga ko'chirilgan va brauzerda keshlangan eski JS hali
+    Unit id bilan so'rov yuborishi mumkin — bunday so'rov xato bermay,
+    to'g'ri joyga tushsin."""
+    bolalar = list(KursTugun.objects.filter(parent=tugun))
+    bolimlar = {b.kalit: b for b in bolalar if b.kalit in ("mashqlar", "vocabulary")}
+    if bolimlar:
+        return bolimlar
+    kitob = next((b for b in bolalar if b.kalit == "students_book"), None)
+    if kitob:
+        return {b.kalit: b for b in KursTugun.objects.filter(parent=kitob)
+                if b.kalit in ("mashqlar", "vocabulary")}
+    return {}
+
+
 def _kurs_mashq_audiolar_royxati(m):
     """Bitta mashqqa biriktirilgan BIR NECHTA audio (2026-07-27) — yon
     panelda ro'yxat sifatida ko'rsatiladi, talaba keraklisini play qiladi."""
@@ -372,17 +417,17 @@ class KursUnitTozalashView(APIView):
         if not _mashq_admin_mi(request.user):
             return Response({"detail": "Faqat admin/owner uchun"}, status=403)
         unit = get_object_or_404(KursTugun, pk=pk)
-        bolalar = {b.nomi: b for b in KursTugun.objects.filter(parent=unit)}
+        bolalar = _unit_bolimlari(unit)
 
         mashqlar_soni = 0
         sozlar_soni = 0
 
-        mashq_tugun = bolalar.get("Mashqlar")
+        mashq_tugun = bolalar.get("mashqlar")
         if mashq_tugun:
             mashqlar_soni = mashq_tugun.mashqlar.count()
             mashq_tugun.mashqlar.all().delete()
 
-        vocab_tugun = bolalar.get("Vocabulary")
+        vocab_tugun = bolalar.get("vocabulary")
         if vocab_tugun:
             sozlar_soni = vocab_tugun.sozlar.count()
             vocab_tugun.sozlar.all().delete()
@@ -426,8 +471,8 @@ class KursUnitYuklashView(APIView):
         if not _mashq_admin_mi(request.user):
             return Response({"detail": "Faqat admin/owner uchun"}, status=403)
         unit = get_object_or_404(KursTugun, pk=pk)
-        bolalar = {b.nomi: b for b in KursTugun.objects.filter(parent=unit)}
-        kerakli = {"Mashqlar", "Vocabulary"}
+        bolalar = _unit_bolimlari(unit)
+        kerakli = {"mashqlar", "vocabulary"}
         if not kerakli.issubset(bolalar):
             return Response(
                 {"detail": "Bu tugunda Mashqlar/Vocabulary bo'limlari topilmadi"},
@@ -448,7 +493,7 @@ class KursUnitYuklashView(APIView):
         if mashqlar:
             if not isinstance(mashqlar, list):
                 return Response({"detail": "'mashqlar' massiv bo'lishi kerak"}, status=400)
-            mashq_tugun = bolalar["Mashqlar"]
+            mashq_tugun = bolalar["mashqlar"]
             boshlangich = mashq_tugun.mashqlar.count()
             yangi_mashqlar = []
             for i, q in enumerate(mashqlar, start=1):
@@ -469,7 +514,7 @@ class KursUnitYuklashView(APIView):
         if vocabulary_matn:
             if not isinstance(vocabulary_matn, str):
                 return Response({"detail": "'vocabulary_matn' matn bo'lishi kerak"}, status=400)
-            vocab_tugun = bolalar["Vocabulary"]
+            vocab_tugun = bolalar["vocabulary"]
             vocab_tugun.matn = vocabulary_matn
             vocab_tugun.save(update_fields=["matn"])
             natija["vocabulary_matn_qoshildi"] = True
@@ -477,7 +522,7 @@ class KursUnitYuklashView(APIView):
         if wordlist:
             if not isinstance(wordlist, list):
                 return Response({"detail": "'wordlist' massiv bo'lishi kerak"}, status=400)
-            vocab_tugun = bolalar["Vocabulary"]
+            vocab_tugun = bolalar["vocabulary"]
             boshlangich = vocab_tugun.sozlar.count()
             yangi_sozlar = []
             for i, s in enumerate(wordlist, start=1):
@@ -537,8 +582,8 @@ class KursZipYuklashView(APIView):
         if not _mashq_admin_mi(request.user):
             return Response({"detail": "Faqat admin/owner uchun"}, status=403)
         unit = get_object_or_404(KursTugun, pk=pk)
-        bolalar = {b.nomi: b for b in KursTugun.objects.filter(parent=unit)}
-        kerakli = {"Mashqlar", "Vocabulary"}
+        bolalar = _unit_bolimlari(unit)
+        kerakli = {"mashqlar", "vocabulary"}
         if not kerakli.issubset(bolalar):
             return Response(
                 {"detail": "Bu tugunda Mashqlar/Vocabulary bo'limlari topilmadi"},
@@ -584,8 +629,8 @@ class KursZipYuklashView(APIView):
         except ProviderXatosi as e:
             return Response({"detail": str(e)}, status=400)
 
-        mashq_tugun = bolalar["Mashqlar"]
-        vocab_tugun = bolalar["Vocabulary"]
+        mashq_tugun = bolalar["mashqlar"]
+        vocab_tugun = bolalar["vocabulary"]
 
         # === 1-BOSQICH: barcha sahifani tahlil qilish (hali bazaga yozmasdan) ===
         xato_sahifalar = []

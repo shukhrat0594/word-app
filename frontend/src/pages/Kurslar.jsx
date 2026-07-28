@@ -671,6 +671,15 @@ function UnitTozalashTugmasi({ unitId, royxatniYangila }) {
  * avvalgidek fayl+mashq ko'rinishida qoladi. */
 function Tugun({ tugun, chuqurlik, adminMi, talabaMi, royxatniYangila, ichkariUnitMi, ochiqmi, onOchish }) {
   const { t } = useI18n();
+  // Tugun nomi 3 tilda (2026-07-28) — bazadagi `nomi` o'zgarmaydi, u
+  // faqat ZAXIRA: kaliti yo'q tugunlar uchun. `t()` kalit topilmasa
+  // kalitning o'zini qaytargani uchun natijani tekshirib ko'ramiz.
+  const nomi = (() => {
+    if (!tugun.kalit) return tugun.nomi;
+    const kalit = `tugun_${tugun.kalit}`;
+    const tarjima = t(kalit);
+    return tarjima === kalit ? tugun.nomi : tarjima;
+  })();
   // Akkordeon (2026-07-27, foydalanuvchi talabi — "qolgan qismlar
   // halaqit qilyabdi") — shu tugunning FARZANDLARI orasida bir vaqtda
   // faqat BITTASI ochiq turadi: ID saqlanadi (`ochiqBolaId`), farzandning
@@ -683,7 +692,12 @@ function Tugun({ tugun, chuqurlik, adminMi, talabaMi, royxatniYangila, ichkariUn
   const [tugallandimi, setTugallandimi] = useState(tugun.tugallandimi);
 
   const otstup = 14 + chuqurlik * 20;
-  const unitBolimi = ichkariUnitMi ? tugun.nomi : null;
+  // Bo'lim turi KALIT bo'yicha aniqlanadi (2026-07-28) — nomi endi
+  // tarjima qilingani uchun u kalit bo'la olmaydi. `ichkariUnitMi` endi
+  // "ota-tugun KITOB (Student's Book/Workbook)mi" degani.
+  const unitBolimi = ichkariUnitMi ? tugun.kalit : null;
+  // Kitob tuguni — yuklash/tozalash tugmalari aynan shu darajada chiqadi.
+  const kitobmi = tugun.kalit === "students_book" || tugun.kalit === "workbook";
 
   if (tugun.tez_kunda) {
     return (
@@ -692,7 +706,7 @@ function Tugun({ tugun, chuqurlik, adminMi, talabaMi, royxatniYangila, ichkariUn
         style={{ paddingLeft: otstup, display: "flex", alignItems: "center", gap: 8, opacity: 0.55 }}
       >
         <span>{tugun.ikonka}</span>
-        <span>{tugun.nomi}</span>
+        <span>{nomi}</span>
         <span className="izoh">— {t("tez_orada")}</span>
       </div>
     );
@@ -705,7 +719,7 @@ function Tugun({ tugun, chuqurlik, adminMi, talabaMi, royxatniYangila, ichkariUn
         style={{ paddingLeft: otstup, display: "flex", alignItems: "center", gap: 8, opacity: 0.5 }}
       >
         <span>🔒</span>
-        <span>{tugun.nomi}</span>
+        <span>{nomi}</span>
         <span className="izoh">— {t("kurs_qulflangan")}</span>
       </div>
     );
@@ -713,7 +727,7 @@ function Tugun({ tugun, chuqurlik, adminMi, talabaMi, royxatniYangila, ichkariUn
 
   if (tugun.oxirgi_qatlammi) {
     // ==== Beginner Unit'iga xos 2 bo'lim — maxsus ko'rinish ====
-    if (unitBolimi === "Vocabulary") {
+    if (unitBolimi === "vocabulary") {
       return (
         <div
           className="kurs-qator kurs-qator-oxirgi"
@@ -721,7 +735,7 @@ function Tugun({ tugun, chuqurlik, adminMi, talabaMi, royxatniYangila, ichkariUn
         >
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: mashqOchiq ? 8 : 0 }}>
             <span>{tugun.ikonka}</span>
-            <span style={{ fontWeight: 600 }}>{tugun.nomi}</span>
+            <span style={{ fontWeight: 600 }}>{nomi}</span>
             <button className="tugma ikkinchi" onClick={() => setMashqOchiq((v) => !v)}>
               {mashqOchiq
                 ? t("yopish")
@@ -733,7 +747,7 @@ function Tugun({ tugun, chuqurlik, adminMi, talabaMi, royxatniYangila, ichkariUn
       );
     }
 
-    if (unitBolimi === "Mashqlar") {
+    if (unitBolimi === "mashqlar") {
       return (
         <div
           className="kurs-qator kurs-qator-oxirgi"
@@ -741,7 +755,7 @@ function Tugun({ tugun, chuqurlik, adminMi, talabaMi, royxatniYangila, ichkariUn
         >
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: mashqOchiq ? 8 : 0 }}>
             <span>{tugun.ikonka}</span>
-            <span style={{ fontWeight: 600 }}>{tugun.nomi}</span>
+            <span style={{ fontWeight: 600 }}>{nomi}</span>
             <button className="tugma ikkinchi" onClick={() => setMashqOchiq((v) => !v)}>
               {mashqOchiq
                 ? t("yopish")
@@ -792,7 +806,7 @@ function Tugun({ tugun, chuqurlik, adminMi, talabaMi, royxatniYangila, ichkariUn
           style={{ paddingLeft: otstup, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}
         >
           <span>{tugun.ikonka}</span>
-          <span>{tugun.nomi}</span>
+          <span>{nomi}</span>
           {tugun.fayl_url ? (
             <button className="tugma ikkinchi" onClick={faylniOch}>
               {t("kurs_faylni_ochish")}
@@ -841,15 +855,17 @@ function Tugun({ tugun, chuqurlik, adminMi, talabaMi, royxatniYangila, ichkariUn
       >
         <span>{ochiqmi ? "▾" : "▸"}</span>
         <span>{tugun.ikonka}</span>
-        <span style={{ fontWeight: chuqurlik < 2 ? 700 : 500 }}>{tugun.nomi}</span>
+        <span style={{ fontWeight: chuqurlik < 2 ? 700 : 500 }}>{nomi}</span>
       </div>
       {ochiqmi && (
         <div>
-          {/* Unit uchun yagona yuklash tugmasi (2026-07-28, foydalanuvchi
-              talabi — Unit ochilmaguncha ko'rinmasin, faqat ochilganda
-              chiqsin). Sarlavha qatoridan tashqarida, aks holda bosilganda
-              akkordeon ham ochilib/yopilib ketardi. */}
-          {adminMi && tugun.unit_darsi && (
+          {/* Yuklash/tozalash tugmalari KITOB darajasida (2026-07-28
+              tuzilma o'zgarishi: Unit > Student's Book/Workbook > bo'limlar).
+              Avval ular Unit darajasida edi — endi shunday qoldirilsa,
+              kontent HAR DOIM Student's Book'ga tushib, Workbook'ni
+              to'ldirib bo'lmasdi. Sarlavha qatoridan tashqarida, aks
+              holda bosilganda akkordeon ham ochilib/yopilib ketardi. */}
+          {adminMi && kitobmi && (
             <div style={{ paddingLeft: otstup + 18, display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 6 }}>
               <AdminUnitKiritish unitId={tugun.id} royxatniYangila={royxatniYangila} />
               <UnitTozalashTugmasi unitId={tugun.id} royxatniYangila={royxatniYangila} />
@@ -863,7 +879,7 @@ function Tugun({ tugun, chuqurlik, adminMi, talabaMi, royxatniYangila, ichkariUn
               adminMi={adminMi}
               talabaMi={talabaMi}
               royxatniYangila={royxatniYangila}
-              ichkariUnitMi={tugun.unit_darsi}
+              ichkariUnitMi={kitobmi}
               ochiqmi={ochiqBolaId === b.id}
               onOchish={() => setOchiqBolaId((joriy) => (joriy === b.id ? null : b.id))}
             />

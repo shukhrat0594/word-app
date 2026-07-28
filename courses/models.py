@@ -20,6 +20,19 @@ class KursTugun(models.Model):
         "accounts.Markaz", on_delete=models.CASCADE, related_name="kurs_tugunlari"
     )
     nomi = models.CharField(max_length=200)
+    kalit = models.CharField(
+        max_length=50, blank=True, db_index=True,
+        help_text=(
+            "Barqaror identifikator (masalan 'mashqlar', 'vocabulary', "
+            "'students_book'). 2026-07-28 da qo'shildi: avval tugunni NOMI "
+            "bo'yicha topardik (backendda `bolalar[\"Mashqlar\"]`, frontendda "
+            "`nomi === \"Vocabulary\"`), lekin nomlar 3 tilda ko'rsatiladigan "
+            "bo'lgach bu yo'l sinadi. Endi kod HAR DOIM shu kalitga tayanadi, "
+            "`nomi` esa faqat zaxira ko'rinish (kaliti yo'q tugunlar uchun). "
+            "Kalit GLOBAL unikal EMAS — 'vocabulary' bir necha joyda uchraydi, "
+            "muhimi bitta ota-tugun ichida takrorlanmasligi."
+        ),
+    )
     ikonka = models.CharField(
         max_length=10, blank=True, help_text="Emoji ikonka (masalan 🇬🇧, 📖)"
     )
