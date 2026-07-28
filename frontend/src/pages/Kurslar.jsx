@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, apiBlobUrl, apiForm } from "../api";
 import { AUDIO_HIMOYA } from "../audio";
+import BlokMashqi from "../components/BlokMashqi";
 import {
   FlashcardOyini,
   JuftiniTopOyini,
@@ -433,11 +434,19 @@ function MashqPaneli({ tugunId, talabaMi, jsonKiritishKorinadi = true }) {
   if (!mashqlar) return <div className="izoh">{t("yuklanmoqda")}</div>;
   if (mashqlar.length === 0) return <div className="izoh">{t("kurs_mashq_yoq")}</div>;
 
+  // 2026-07-28: `bloklar` to'ldirilgan bo'lsa — sahifa qaytadan quriladi
+  // (BlokMashqi), aks holda eski ko'rinish (sahifa rasmi + ustida
+  // pozitsiyalangan input'lar). Ikki format yonma-yon yashaydi, chunki
+  // eski usulda yuklangan kontent bor.
   return (
     <div>
-      {mashqlar.map((m, idx) => (
-        <TalabaMashqi key={m.id} mashq={m} raqam={idx + 1} />
-      ))}
+      {mashqlar.map((m, idx) =>
+        m.bloklar?.length ? (
+          <BlokMashqi key={m.id} mashq={m} raqam={idx + 1} />
+        ) : (
+          <TalabaMashqi key={m.id} mashq={m} raqam={idx + 1} />
+        ),
+      )}
     </div>
   );
 }
@@ -572,33 +581,59 @@ function AdminUnitKiritish({ unitId, royxatniYangila }) {
   const [zipXato, setZipXato] = useState("");
   const [zipXabar, setZipXabar] = useState("");
   const [zipYuklanmoqda, setZipYuklanmoqda] = useState(false);
+  const [progress, setProgress] = useState(null);
 
-  async function zipYukla(e) {
+  // Blok formatida yuklash (2026-07-28) — ZIP bir marta yuboriladi,
+  // keyin sahifalar BITTALAB qayta ishlanadi. Sabab: har sahifa AI'da
+  // ~2 daqiqa, 7-10 sahifa esa gunicorn'ning 300s timeout'iga sig'maydi.
+  // Foydalanuvchi uchun bu bitta amal bo'lib qoladi — progress ko'rinadi.
+  async function blokZipYukla(e) {
     const fayl = e.target.files[0];
     e.target.value = "";
     if (!fayl) return;
     setZipXato("");
     setZipXabar("");
     setZipYuklanmoqda(true);
+    setProgress(null);
     try {
       const fd = new FormData();
       fd.append("zip_fayl", fayl);
-      const res = await apiForm(`/api/kurslar/${unitId}/zip-yuklash/`, { method: "POST", formData: fd });
+      const boshlash = await apiForm(`/api/kurslar/${unitId}/blok-zip/`, {
+        method: "POST",
+        formData: fd,
+      });
+      const jid = boshlash.jarayon_id;
+      setProgress({ ishlangan: 0, jami: boshlash.jami_sahifa, fayl: "" });
+
+      let yakun = null;
+      for (let i = 0; i < boshlash.jami_sahifa; i += 1) {
+        // eslint-disable-next-line no-await-in-loop
+        const d = await api(`/api/kurslar/blok-jarayon/${jid}/sahifa/`, { method: "POST" });
+        setProgress({ ishlangan: d.ishlangan_sahifa, jami: d.jami_sahifa, fayl: d.joriy_fayl });
+        if (d.tugadimi) {
+          yakun = d.yakun;
+          break;
+        }
+      }
+
       const qismlar = [
-        `${res.muvaffaqiyatli_sahifalar}/${res.jami_sahifa} ${t("kurs_zip_sahifa")}`,
-        `${res.yaratilgan_mashqlar} ${t("kurs_natija_mashq")}`,
+        `${yakun.yaratilgan_mashqlar} ${t("kurs_natija_mashq")}`,
+        `${yakun.kesilgan_rasmlar} ${t("kurs_blok_rasm")}`,
       ];
-      if (res.wordlist_soni) qismlar.push(`${res.wordlist_soni} ${t("kurs_natija_soz")}`);
-      if (res.vocabulary_matn_qoshildi) qismlar.push(t("kurs_natija_grammar"));
-      if (res.moslangan_audio_soni) qismlar.push(`${res.moslangan_audio_soni} ${t("kurs_zip_audio")}`);
+      if (yakun.baholanadigan_savollar) {
+        qismlar.push(`${yakun.baholanadigan_savollar} ${t("kurs_blok_savol")}`);
+      }
+      if (yakun.moslangan_audio) {
+        qismlar.push(`${yakun.moslangan_audio} ${t("kurs_zip_audio")}`);
+      }
       let xabarMatni = qismlar.join(", ");
-      if (res.xato_sahifalar?.length) {
-        xabarMatni += ` — ⚠ ${res.xato_sahifalar.length} ${t("kurs_zip_xato_sahifa")}: ${res.xato_sahifalar
-          .map((x) => `#${x.sahifa}`)
+      if (yakun.xato_sahifalar?.length) {
+        xabarMatni += ` — ⚠ ${yakun.xato_sahifalar.length} ${t("kurs_zip_xato_sahifa")}: ${yakun.xato_sahifalar
+          .map((x) => x.fayl.split("/").pop())
           .join(", ")}`;
       }
-      if (res.moslanmagan_audio?.length) {
-        xabarMatni += ` — ⚠ ${t("kurs_zip_moslanmagan_audio")}: ${res.moslanmagan_audio.join(", ")}`;
+      if (yakun.ishlatilmagan_audio?.length) {
+        xabarMatni += ` — ⚠ ${t("kurs_zip_moslanmagan_audio")}: ${yakun.ishlatilmagan_audio.join(", ")}`;
       }
       setZipXabar(xabarMatni);
       royxatniYangila();
@@ -606,6 +641,7 @@ function AdminUnitKiritish({ unitId, royxatniYangila }) {
       setZipXato(e2.data?.detail || t("xato_yuz_berdi"));
     } finally {
       setZipYuklanmoqda(false);
+      setProgress(null);
     }
   }
 
@@ -618,8 +654,29 @@ function AdminUnitKiritish({ unitId, royxatniYangila }) {
       <label className="izoh" style={{ display: "block", marginBottom: 4 }}>
         {t("kurs_zip_yuklash_izoh")}
       </label>
-      <input type="file" accept=".zip" onChange={zipYukla} disabled={zipYuklanmoqda} />
-      {zipYuklanmoqda && <span className="izoh" style={{ marginLeft: 8 }}>{t("kurs_zip_ishlanmoqda")}</span>}
+      <input type="file" accept=".zip" onChange={blokZipYukla} disabled={zipYuklanmoqda} />
+      {zipYuklanmoqda && !progress && (
+        <span className="izoh" style={{ marginLeft: 8 }}>{t("kurs_zip_ishlanmoqda")}</span>
+      )}
+      {progress && (
+        <div style={{ marginTop: 6 }}>
+          <div className="izoh">
+            {t("kurs_blok_progress")} {progress.ishlangan}/{progress.jami}
+            {progress.fayl ? ` — ${progress.fayl}` : ""}
+          </div>
+          <div style={{ height: 6, background: "var(--sirt-2)", borderRadius: 3, marginTop: 4 }}>
+            <div
+              style={{
+                width: `${(progress.ishlangan / progress.jami) * 100}%`,
+                height: "100%",
+                background: "var(--sariq-toq)",
+                borderRadius: 3,
+                transition: "width .3s",
+              }}
+            />
+          </div>
+        </div>
+      )}
       {zipXato && <div className="xato-xabar" style={{ marginTop: 4 }}>{zipXato}</div>}
       {zipXabar && <div className="izoh" style={{ marginTop: 4 }}>✓ {zipXabar}</div>}
     </div>

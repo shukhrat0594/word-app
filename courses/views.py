@@ -324,6 +324,16 @@ def _kurs_mashq_audiolar_royxati(m):
     ]
 
 
+def _kurs_blok_rasmlari(m):
+    """Blok formatidagi sahifadan kesilgan suratlar (2026-07-28) —
+    blok JSON ichida faqat `rasm_idx` turadi, manzil shu ro'yxatdan
+    olinadi."""
+    return [
+        {"idx": r.tartib, "url": f"/api/kurslar/blok-rasm/{r.id}/", "izoh": r.izoh}
+        for r in m.rasmlar.all()
+    ]
+
+
 def _kurs_mashq_admin_dict(m):
     return {
         "id": m.id,
@@ -333,10 +343,17 @@ def _kurs_mashq_admin_dict(m):
         "audio_url": f"/api/kurslar/mashq/{m.id}/audio/" if m.audio else None,
         "audiolar": _kurs_mashq_audiolar_royxati(m),
         "savollar": m.savollar,
+        "bloklar": m.bloklar,
+        "blok_rasmlari": _kurs_blok_rasmlari(m),
     }
 
 
 def _kurs_mashq_talaba_dict(m):
+    """MUHIM: `togri` maydoni talabaga YUBORILMAYDI.
+
+    Blok formatida ham xavfsiz: bo'sh joylar bloklarda faqat `savol_idx`
+    bilan turadi (javob emas), javoblarning o'zi `savollar` ichida va u
+    shu yerda tozalanadi. Ya'ni talaba F12 bosib javobni ko'ra olmaydi."""
     return {
         "id": m.id,
         "tartib": m.tartib,
@@ -345,6 +362,8 @@ def _kurs_mashq_talaba_dict(m):
         "audio_url": f"/api/kurslar/mashq/{m.id}/audio/" if m.audio else None,
         "audiolar": _kurs_mashq_audiolar_royxati(m),
         "savollar": [{k: v for k, v in s.items() if k != "togri"} for s in m.savollar],
+        "bloklar": m.bloklar,
+        "blok_rasmlari": _kurs_blok_rasmlari(m),
     }
 
 
@@ -359,7 +378,7 @@ class KursMashqBoshqaruvView(APIView):
             return Response({"detail": "Faqat admin/owner uchun"}, status=403)
         tugun = get_object_or_404(KursTugun, pk=pk)
         return Response(
-            [_kurs_mashq_admin_dict(m) for m in tugun.mashqlar.prefetch_related("audiolar")]
+            [_kurs_mashq_admin_dict(m) for m in tugun.mashqlar.prefetch_related("audiolar", "rasmlar")]
         )
 
     def post(self, request, pk):
@@ -891,6 +910,29 @@ class KursMashqAudioKopView(APIView):
         return javob
 
 
+class KursBlokRasmView(APIView):
+    """Blok formatidagi sahifadan kesilgan surat — autentifikatsiyalangan
+    stream (B3.2 qoidasi: xom /media/ orqali berilmaydi)."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        from django.http import FileResponse, Http404
+
+        from .models import KursMashqRasmi
+
+        if not _kurslar_korinadimi(request.user):
+            return Response({"detail": "Ruxsat yo'q"}, status=403)
+        yozuv = get_object_or_404(KursMashqRasmi, pk=pk)
+        if _talaba_tugun_qulflanganmi(request.user, yozuv.mashq.tugun):
+            return Response({"detail": "Bu qism hali qulflangan"}, status=403)
+        if not yozuv.rasm:
+            raise Http404
+        javob = FileResponse(yozuv.rasm.open("rb"))
+        javob["Content-Disposition"] = "inline"
+        return javob
+
+
 class KursMashqAudioZipBoshqaruvView(APIView):
     """Admin/owner uchun — bitta tugunning mashqlariga ZIP arxiv orqali
     audio fayllarni birdaniga biriktirish (IELTS Listening ZIP yuklashdagi
@@ -947,7 +989,7 @@ class KursMashqAudioZipBoshqaruvView(APIView):
             ozgarishlar={"audio_zip": {"eski": "—", "yangi": f"{len(audio_fayllar)} fayl"}},
         )
         return Response(
-            [_kurs_mashq_admin_dict(m) for m in tugun.mashqlar.prefetch_related("audiolar")]
+            [_kurs_mashq_admin_dict(m) for m in tugun.mashqlar.prefetch_related("audiolar", "rasmlar")]
         )
 
 
@@ -963,7 +1005,7 @@ class KursMashqRoyxatiView(APIView):
         if _talaba_tugun_qulflanganmi(request.user, tugun):
             return Response({"detail": "Bu qism hali qulflangan"}, status=403)
         return Response(
-            [_kurs_mashq_talaba_dict(m) for m in tugun.mashqlar.prefetch_related("audiolar")]
+            [_kurs_mashq_talaba_dict(m) for m in tugun.mashqlar.prefetch_related("audiolar", "rasmlar")]
         )
 
 

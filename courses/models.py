@@ -114,6 +114,21 @@ class KursMashq(models.Model):
         default=list,
         help_text='[{"savol": "...", "variantlar": [...] (ixtiyoriy), "togri": "..."}]',
     )
+    bloklar = models.JSONField(
+        default=list, blank=True,
+        help_text=(
+            "Darslik sahifasining STRUKTURALI ko'rinishi (2026-07-28). Bo'sh "
+            "bo'lsa — eski ko'rinish ishlaydi (sahifa rasmi + ustida foizli "
+            "pozitsiyadagi input'lar). To'ldirilgan bo'lsa — sahifa qaytadan "
+            "quriladi: matn haqiqiy HTML matni (o'tkir, tanlanadi, "
+            "tarjima qilinadi), suratlar `KursMashqRasmi` sifatida alohida "
+            "kesib olinadi.\n\n"
+            "MUHIM: bo'sh joylar (input'lar) BU YERDA SAQLANMAYDI — ular "
+            "`savollar` massiviga yassilanadi, blok esa faqat `savol_idx` "
+            "orqali ishora qiladi. Shu tufayli javob tekshirish, ball, 60% "
+            "qoidasi va Unit qulfi mexanizmiga UMUMAN TEGILMAYDI."
+        ),
+    )
 
     class Meta:
         ordering = ["tartib", "id"]
@@ -147,6 +162,78 @@ class KursMashqAudio(models.Model):
 
     def __str__(self):
         return f"{self.mashq} — audio {self.raqam or self.tartib}"
+
+
+class KursMashqRasmi(models.Model):
+    """Blok formatidagi sahifadan KESIB OLINGAN surat (2026-07-28).
+
+    Nega alohida model: blok formatida sahifa qaytadan quriladi, ya'ni
+    butun sahifa rasmi emas, undagi har bir MAZMUNLI surat (odamlar,
+    mashq rasmlari) alohida fayl bo'lib saqlanadi. Blok JSON ichida
+    faqat shu yozuvning `tartib` raqami turadi.
+
+    Kesish AI ISHI EMAS: AI faqat suratning sahifadagi o'rnini foizda
+    aytadi, kesishni Pillow bajaradi — ya'ni piksellar asl skandan
+    olinadi, qayta chizilmaydi."""
+
+    mashq = models.ForeignKey(KursMashq, on_delete=models.CASCADE, related_name="rasmlar")
+    tartib = models.PositiveSmallIntegerField(default=0)
+    rasm = models.ImageField(upload_to="kurslar/blok_rasm/")
+    izoh = models.CharField(
+        max_length=200, blank=True,
+        help_text="Nima tasvirlangani (alt matni) — AI beradi",
+    )
+
+    class Meta:
+        ordering = ["tartib", "id"]
+        verbose_name_plural = "Kurs mashq rasmlari"
+
+    def __str__(self):
+        return f"{self.mashq} — rasm {self.tartib}"
+
+
+class KursZipJarayoni(models.Model):
+    """Blok formatida ZIP yuklashning UZOQ jarayoni (2026-07-28).
+
+    Nega kerak: bitta Unit ZIP'i 7-10 sahifa, har sahifa AI'da ~125
+    sekund => 15-20 daqiqa. `gunicorn.conf.py` da `timeout = 300`, ya'ni
+    bitta so'rovda sig'maydi. Shuning uchun ZIP BIR MARTA yuklanadi va
+    shu yerda saqlanadi, keyin sahifalar BITTALAB (har biri alohida
+    so'rov) qayta ishlanadi — frontend progress ko'rsatadi.
+
+    Celery/worker ATAYLAB ishlatilmadi: Render'da bu qo'shimcha servis va
+    xarajat, holbuki jarayonni frontend boshqarsa yetarli."""
+
+    class Holat(models.TextChoices):
+        YANGI = "yangi", "Yangi"
+        ISHLANMOQDA = "ishlanmoqda", "Ishlanmoqda"
+        TUGADI = "tugadi", "Tugadi"
+        XATO = "xato", "Xato"
+
+    tugun = models.ForeignKey(
+        KursTugun, on_delete=models.CASCADE, related_name="zip_jarayonlari",
+        help_text="KITOB tuguni (Student's Book / Workbook)",
+    )
+    zip_fayl = models.FileField(upload_to="kurslar/zip_jarayon/")
+    holat = models.CharField(max_length=20, choices=Holat.choices, default=Holat.YANGI)
+    jami_sahifa = models.PositiveSmallIntegerField(default=0)
+    ishlangan_sahifa = models.PositiveSmallIntegerField(default=0)
+    natijalar = models.JSONField(
+        default=dict, blank=True,
+        help_text=(
+            "Oraliq natijalar: sahifa tahlillari, javob kaliti bandlari, "
+            "xatolar. Javob kaliti odatda MASHQ sahifalaridan KEYIN keladi, "
+            "shuning uchun bazaga yozish oxirida bir yo'la bajariladi."
+        ),
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name_plural = "Kurs ZIP jarayonlari"
+
+    def __str__(self):
+        return f"{self.tugun.nomi} — {self.ishlangan_sahifa}/{self.jami_sahifa} ({self.holat})"
 
 
 class KursSoz(models.Model):

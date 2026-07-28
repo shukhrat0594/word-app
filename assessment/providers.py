@@ -352,11 +352,16 @@ URINISHLAR = 2
 class GeminiProvider:
     name = "gemini"
 
-    def __init__(self, api_key, model=GEMINI_MODEL):
+    def __init__(self, api_key, model=GEMINI_MODEL, timeout_ms=SOROV_TIMEOUT_MS):
+        """`timeout_ms` — 2026-07-28 da qo'shildi. Sabab: Writing/Speaking
+        baholash 40 sekundda ulguradi, lekin darslik sahifasini bloklarga
+        ajratish (Gemma 4 31B, `courses.blok_generatsiya`) ~125 sekund
+        oladi va qat'iy 40s chegara uni HAR DOIM uzib qo'yardi."""
         if not api_key:
             raise ProviderXatosi("Gemini API kaliti berilmagan")
         self.api_key = api_key
         self.model = model
+        self.timeout_ms = timeout_ms
 
     def _bitta_sorov(self, system_prompt, matn, rasm_bytes=None, rasm_mime=None):
         from google import genai
@@ -364,7 +369,7 @@ class GeminiProvider:
 
         client = genai.Client(
             api_key=self.api_key,
-            http_options=types.HttpOptions(timeout=SOROV_TIMEOUT_MS),
+            http_options=types.HttpOptions(timeout=self.timeout_ms),
         )
         contents = matn
         if rasm_bytes:

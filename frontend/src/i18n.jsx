@@ -2,6 +2,9 @@ import { createContext, useContext, useState } from "react";
 
 const LUGAT = {
   uz: {
+    kurs_blok_rasm: "rasm kesildi",
+    kurs_blok_savol: "baholanadigan savol",
+    kurs_blok_progress: "Sahifa ishlanmoqda:",
     // --- Kurslar daraxti tugunlari (2026-07-28) ---
     // Kalit `KursTugun.kalit` bilan bir xil. Backend nomni
     // o'zgartirmaydi — foydalanuvchi ko'radigan matn shu yerdan.
@@ -409,6 +412,9 @@ const LUGAT = {
       "Bu promtni nusxalab AI'ga (ChatGPT/Claude/Gemini) haqiqiy Cambridge test matnini/transkriptini bering — tayyor JSON qaytaradi, uni faylga saqlab yuqoridan yuklaysiz.",
   },
   ru: {
+    kurs_blok_rasm: "изобр. вырезано",
+    kurs_blok_savol: "оцениваемых вопросов",
+    kurs_blok_progress: "Обработка страницы:",
     // --- Kurslar daraxti tugunlari (2026-07-28) ---
     // Kalit `KursTugun.kalit` bilan bir xil. Backend nomni
     // o'zgartirmaydi — foydalanuvchi ko'radigan matn shu yerdan.
@@ -816,6 +822,9 @@ const LUGAT = {
       "Скопируйте этот промт и передайте AI (ChatGPT/Claude/Gemini) реальный текст/транскрипт теста Cambridge — он вернёт готовый JSON, сохраните его в файл и загрузите выше.",
   },
   en: {
+    kurs_blok_rasm: "images cropped",
+    kurs_blok_savol: "graded questions",
+    kurs_blok_progress: "Processing page:",
     // --- Kurslar daraxti tugunlari (2026-07-28) ---
     // Kalit `KursTugun.kalit` bilan bir xil. Backend nomni
     // o'zgartirmaydi — foydalanuvchi ko'radigan matn shu yerdan.

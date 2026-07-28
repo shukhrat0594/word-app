@@ -1,8 +1,25 @@
 from django.urls import path
 
-from . import views
+from . import blok_views, views
 
 urlpatterns = [
+    # Blok formati (2026-07-28) — ZIP bir marta yuklanadi, sahifalar
+    # BITTALAB qayta ishlanadi (gunicorn 300s timeout'iga sig'ishi uchun).
+    path(
+        "kurslar/<int:pk>/blok-zip/",
+        blok_views.KursBlokZipYuklashView.as_view(),
+        name="kurslar_blok_zip",
+    ),
+    path(
+        "kurslar/blok-jarayon/<int:pk>/sahifa/",
+        blok_views.KursBlokSahifaView.as_view(),
+        name="kurslar_blok_sahifa",
+    ),
+    path(
+        "kurslar/blok-rasm/<int:pk>/",
+        views.KursBlokRasmView.as_view(),
+        name="kurslar_blok_rasm",
+    ),
     path("kurslar/daraxt/", views.KursDaraxtiView.as_view(), name="kurslar_daraxt"),
     path("kurslar/<int:pk>/fayl/", views.KursFaylView.as_view(), name="kurslar_fayl"),
     path(

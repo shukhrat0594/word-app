@@ -579,3 +579,70 @@ textarea {
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
 }
+
+/* ===== Blok formatidagi darslik sahifasi (2026-07-28) =====
+   Sahifa RASM emas — qaytadan quriladi: matn haqiqiy HTML matni,
+   suratlar sahifadan kesib olingan alohida fayllar. Shuning uchun
+   mobilda buzilmaydi va shrift o'lchami rasmga bog'liq emas. */
+.blok-sahifa {
+  border: 1px solid var(--chiziq); border-radius: 10px; padding: 16px 18px;
+  margin-bottom: 12px; background: var(--sirt);
+}
+.blok-raqam-sarlavha { font-weight: 700; margin-bottom: 10px; }
+.blok-sarlavha { color: var(--si-rang); font-size: 20px; margin: 0 0 4px; }
+.blok-bolim { color: var(--si-rang); font-size: 16px; margin: 18px 0 4px; }
+.blok-matn { margin: 8px 0; }
+.blok-rasm {
+  max-width: 320px; width: 100%; border-radius: 6px; display: block;
+  margin: 10px 0; box-shadow: var(--soya);
+}
+.blok-korsatma { display: flex; align-items: center; gap: 8px; margin: 12px 0; flex-wrap: wrap; }
+.blok-raqam { color: var(--sariq-toq); font-weight: 800; }
+.blok-pufakcha {
+  display: inline-block; background: var(--sirt-2); border: 1.5px solid var(--chiziq);
+  border-radius: 6px; padding: 5px 11px; font-weight: 600; margin: 4px 6px 4px 0;
+}
+.blok-dialog {
+  background: var(--sirt-2); border: 1px solid var(--chiziq); border-radius: 6px;
+  padding: 10px 14px; margin: 8px 0 14px; max-width: 480px;
+}
+.blok-dialog-qator { display: flex; gap: 12px; margin-bottom: 3px; }
+.blok-dialog-kim { min-width: 62px; font-weight: 700; color: var(--matn-sokin); }
+.blok-gs { border-radius: 6px; overflow: hidden; max-width: 340px; margin: 8px 0 16px; }
+.blok-gs-bosh {
+  background: var(--si-rang); color: #fff; font-weight: 700; font-size: 12px;
+  letter-spacing: .5px; padding: 6px 13px;
+}
+.blok-gs-tan { background: color-mix(in srgb, var(--si-rang) 12%, var(--sirt)); padding: 9px 14px; line-height: 1.8; }
+.blok-mashq {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 4px;
+  background: var(--sirt-2); border: 1.5px solid var(--chiziq); border-radius: 6px;
+  padding: 9px 13px; margin: 0 0 10px; font-weight: 600;
+}
+.blok-bosh-joy {
+  border: none; border-bottom: 2px solid var(--sariq-toq); background: var(--sirt);
+  font: inherit; color: var(--matn); width: 120px; padding: 1px 6px;
+  border-radius: 3px 3px 0 0; outline: none;
+}
+.blok-bosh-joy:focus { box-shadow: 0 0 0 2px color-mix(in srgb, var(--sariq-toq) 45%, transparent); }
+/* "erkin" — talaba o'z ismini yozadi, baholanmaydi (to'g'ri javob yo'q) */
+.blok-bosh-joy.erkin { border-bottom-style: dashed; }
+.blok-bosh-joy.togri { border-bottom-color: var(--yaxshi); background: color-mix(in srgb, var(--yaxshi) 15%, var(--sirt)); }
+.blok-bosh-joy.notogri { border-bottom-color: var(--xato); background: color-mix(in srgb, var(--xato) 15%, var(--sirt)); }
+
+/* Audio — KICHIK TUGMA, o'z topshirig'i yonida (to'liq pleyer emas:
+   foydalanuvchi talabi + yuklab olish tugmasi ko'rinmasligi uchun) */
+.blok-audio-tugma {
+  display: inline-flex; align-items: center; gap: 5px; cursor: pointer;
+  background: var(--komir); color: var(--sariq); border: none; border-radius: 14px;
+  padding: 3px 10px; font-size: 12px; font-weight: 700; line-height: 1.6;
+}
+.blok-audio-tugma:disabled { opacity: .5; cursor: default; }
+.blok-audio-raqam { font-size: 11px; opacity: .85; }
+
+@media (max-width: 640px) {
+  .blok-sahifa { padding: 12px; }
+  .blok-rasm { max-width: 100%; }
+  .blok-dialog, .blok-gs, .blok-mashq { max-width: 100%; }
+  .blok-bosh-joy { width: 92px; }
+}
