@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, apiBlobUrl, apiForm } from "../api";
+import { AUDIO_HIMOYA } from "../audio";
 import {
   FlashcardOyini,
   JuftiniTopOyini,
@@ -194,11 +195,11 @@ function TalabaMashqi({ mashq, raqam }) {
             {audioPanelBorMi && (
               <div style={{ flex: "0 0 220px", display: "grid", gap: 6, padding: 8, background: "var(--sirt-2)", borderRadius: 6 }}>
                 <span className="izoh">{t("kurs_audiolar_royxati")}</span>
-                {audioUrl && <audio controls src={audioUrl} style={{ width: "100%" }} />}
+                {audioUrl && <audio {...AUDIO_HIMOYA} controls src={audioUrl} style={{ width: "100%" }} />}
                 {audioUrllar.map((a) => (
                   <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 6 }}>
                     {a.raqam && <span className="izoh" style={{ minWidth: 40 }}>{a.raqam}</span>}
-                    <audio controls src={a.url} style={{ width: "100%" }} />
+                    <audio {...AUDIO_HIMOYA} controls src={a.url} style={{ width: "100%" }} />
                   </div>
                 ))}
               </div>
@@ -568,7 +569,6 @@ function VocabularyKorinishi({ tugunId, matn }) {
  * ancha tezroq va endi haqiqiy ZIP bilan sinovdan o'tgan). */
 function AdminUnitKiritish({ unitId, royxatniYangila }) {
   const { t } = useI18n();
-  const [ochiq, setOchiq] = useState(false);
   const [zipXato, setZipXato] = useState("");
   const [zipXabar, setZipXabar] = useState("");
   const [zipYuklanmoqda, setZipYuklanmoqda] = useState(false);
@@ -609,22 +609,19 @@ function AdminUnitKiritish({ unitId, royxatniYangila }) {
     }
   }
 
+  // 2026-07-28: "Unit materialini yuklash" ochish/yopish tugmasi OLIB
+  // TASHLANDI (foydalanuvchi talabi) — fayl tanlash maydoni to'g'ridan-
+  // to'g'ri turadi. Sabab: tugma ortiqcha bosish edi, ichida baribir
+  // yagona amal (ZIP tanlash) bor.
   return (
-    <div style={{ marginTop: 4, marginBottom: 6 }} onClick={(e) => e.stopPropagation()}>
-      <button className="tugma ikkinchi" onClick={() => setOchiq((v) => !v)}>
-        {ochiq ? t("yopish") : t("kurs_unit_yuklash")}
-      </button>
-      {ochiq && (
-        <div style={{ marginTop: 8, maxWidth: 640 }}>
-          <label className="izoh" style={{ display: "block", marginBottom: 4 }}>
-            {t("kurs_zip_yuklash_izoh")}
-          </label>
-          <input type="file" accept=".zip" onChange={zipYukla} disabled={zipYuklanmoqda} />
-          {zipYuklanmoqda && <span className="izoh" style={{ marginLeft: 8 }}>{t("kurs_zip_ishlanmoqda")}</span>}
-          {zipXato && <div className="xato-xabar" style={{ marginTop: 4 }}>{zipXato}</div>}
-          {zipXabar && <div className="izoh" style={{ marginTop: 4 }}>✓ {zipXabar}</div>}
-        </div>
-      )}
+    <div style={{ marginTop: 4, marginBottom: 6, maxWidth: 640 }} onClick={(e) => e.stopPropagation()}>
+      <label className="izoh" style={{ display: "block", marginBottom: 4 }}>
+        {t("kurs_zip_yuklash_izoh")}
+      </label>
+      <input type="file" accept=".zip" onChange={zipYukla} disabled={zipYuklanmoqda} />
+      {zipYuklanmoqda && <span className="izoh" style={{ marginLeft: 8 }}>{t("kurs_zip_ishlanmoqda")}</span>}
+      {zipXato && <div className="xato-xabar" style={{ marginTop: 4 }}>{zipXato}</div>}
+      {zipXabar && <div className="izoh" style={{ marginTop: 4 }}>✓ {zipXabar}</div>}
     </div>
   );
 }

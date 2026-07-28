@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, apiBlobUrl } from "../api";
+import { AUDIO_HIMOYA } from "../audio";
 import { useI18n } from "../i18n";
 import { IMLO_OFF } from "../imlo";
 
@@ -122,7 +123,7 @@ export default function MashqBank({ bolim }) {
         </h3>
         {bolim === "listening" && (
           audioUrl ? (
-            <audio controls src={audioUrl} style={{ width: "100%", marginBottom: 18 }} />
+            <audio {...AUDIO_HIMOYA} controls src={audioUrl} style={{ width: "100%", marginBottom: 18 }} />
           ) : (
             <span className="izoh">{t("audio_yuklanmoqda")}</span>
           )
