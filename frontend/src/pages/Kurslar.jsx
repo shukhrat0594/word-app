@@ -45,46 +45,6 @@ Natijani shu JSON massiv ko'rinishida qaytar, boshqa hech narsa yozma. Quyida ma
 
 [BU YERGA MASHQ MATNINI JOYLASHTIRING YOKI SKRINSHOTNI ILOVA QILING]`;
 
-// 2026-07-27 (2-marta): Beginner Unit'lari uchun BITTA promt — mashqlar va
-// Vocabulary (Grammar reference + Wordlist BIR sahifada, birlashtirilgan)
-// BIR YO'LA generatsiya qilinadi, chunki yuklash ham Unit darajasida
-// BITTA tugma bilan bo'ladi (foydalanuvchi talabi). ESKAT: eng qulay yo'l
-// — "ZIP orqali yuklash" (pastda, avtomatik, Answer key'ni ham hisobga
-// oladi) — bu qo'lda-JSON promti FAQAT zaxira/qo'shimcha kiritish uchun.
-const AI_PROMT_UNIT = `Men senga o'quv darsligi (masalan Headway) darsligidan BITTA Unit materialini beraman — mashqlar (skrinshot va/yoki matn) va Vocabulary (Grammar reference + Wordlist, darslikda BIR sahifada birga keladi) sahifalari, alohida-alohida yoki birga bo'lishi mumkin. Sen shu materialni quyidagi JSON formatiga o'girib ber — natija FAQAT valid JSON OBYEKT bo'lsin (jingalak qavs bilan boshlanib tugasin), hech qanday izoh, sarlavha yoki markdown belgisi (masalan \`\`\`json) qo'shma, faqat sof JSON matni qaytar.
-
-Format:
-{
-  "mashqlar": [
-    {
-      "matn": "Mashq topshirig'i/sarlavhasi (ixtiyoriy, bo'lmasa bo'sh qoldir)",
-      "savollar": [
-        {
-          "savol": "Savol yoki band nomi",
-          "variantlar": ["variant1", "variant2"] (ixtiyoriy — ochiq javobli bo'lsa bo'sh massiv []),
-          "togri": "To'g'ri javob (yoki bir nechta qabul qilinadigan javob bo'lsa massiv, masalan [\\"3\\", \\"three\\"])",
-          "pozitsiya": {"x": 0-100, "y": 0-100} (ixtiyoriy — FAQAT sizga rasm (skrinshot) ilova qilingan bo'lsa va shu savolning bo'sh joyi/raqami rasmda aniq ko'rinib tursa qo'sh: rasmning chap-yuqori burchagidan boshlab, bo'sh joy markazining rasm eniga nisbatan foizini "x", bo'yiga nisbatan foizini "y" qilib yoz — piksel EMAS, foiz. Rasm berilmagan yoki savol oddiy matn ro'yxati bo'lsa — bu maydonni umuman yozma)
-        }
-      ]
-    }
-  ],
-  "vocabulary_matn": "Ushbu Unit'da o'rgatiladigan grammatika mavzusining qisqa, tushunarli xulosasi (bir necha jumla, kerak bo'lsa 1-2 misol bilan)",
-  "wordlist": [
-    {"en": "so'z", "uz": "tarjimasi", "turkum": "so'z turkumi (ixtiyoriy, masalan 'ot', 'fe'l')", "misol": "ingliz tilida namuna gap (ixtiyoriy)"}
-  ]
-}
-
-Qoidalar:
-- "mashqlar": agar sizga rasm (skrinshot) berilgan bo'lsa va mashqda bir nechta bo'sh joy/raqamlangan band rasmning turli nuqtalarida bo'lsa — HAR BIRIGA "pozitsiya" qo'shing. Oddiy savol-javob ro'yxati bo'lsa (rasmga bog'liq bo'lmagan) — "pozitsiya"ni umuman yozmang.
-- "vocabulary_matn": agar sizga Unit oxiridagi grammatika xulosa beti berilgan bo'lsa, uni qisqa va tushunarli qilib qayta yozing (so'zma-so'z ko'chirish shart emas, mazmunini saqlab qisqartiring). Berilmagan bo'lsa, shu Unit'da o'rgatilayotgan asosiy grammatik qoidani o'zingiz bir necha jumlada tushuntiring.
-- "wordlist": sizga berilgan materialda Unit oxiridagi so'zlar ro'yxati (Word list) bo'lsa, HAMMASINI shu ko'rinishda kiriting, bittasini ham tashlab ketmang.
-- Agar sizga faqat BITTA qismga oid material berilgan bo'lsa (masalan faqat mashqlar, Vocabulary/Wordlist YO'Q) — natijada FAQAT shu maydonni yozing, boshqalarini JSON'ga umuman qo'shmang (bo'sh massiv/matn ham yozmang, maydonning o'zini tashlab ketasiz)
-- "rasm" va "audio" maydonlarini HECH QACHON JSON'ga qo'shmang — ular saytda alohida (fayl sifatida, mashq yaratilgandan keyin) biriktiriladi, siz (AI) haqiqiy fayl yarata olmaysiz
-
-Natijani shu JSON obyekt ko'rinishida qaytar, boshqa hech narsa yozma. Quyida Unit materiali (matn va/yoki tasvirlangan rasmlar):
-
-[BU YERGA UNIT MATERIALINI JOYLASHTIRING YOKI SKRINSHOTLARNI ILOVA QILING]`;
-
 /** Rasm ustiga to'g'ridan-to'g'ri joylashtiriladigan savollar (masalan
  * "nechta narsa bor?" turidagi mashqlar) — savolda "pozitsiya":
  * {"x": 0-100, "y": 0-100} bo'lsa, oddiy ro'yxatda emas, aynan shu nuqtada
@@ -576,55 +536,16 @@ function VocabularyKorinishi({ tugunId, matn }) {
 }
 
 /** Admin/owner uchun — bitta Unit'ning IKKALA bo'limini (Mashqlar,
- * Vocabulary) BITTA harakatda yuklash (2026-07-27, foydalanuvchi talabi —
- * "unit uchun bitta tugma bo'lsin"). */
+ * Vocabulary) BITTA harakatda ZIP orqali yuklash (2026-07-27, foydalanuvchi
+ * talabi — "unit uchun bitta tugma bo'lsin"; 2026-07-28: qo'lda-JSON
+ * kiritish variantI OLIB TASHLANDI, ZIP+Gemini yagona yo'l qoldi — u
+ * ancha tezroq va endi haqiqiy ZIP bilan sinovdan o'tgan). */
 function AdminUnitKiritish({ unitId, royxatniYangila }) {
   const { t } = useI18n();
   const [ochiq, setOchiq] = useState(false);
-  const [promtKorinadi, setPromtKorinadi] = useState(false);
-  const [nusxalandi, setNusxalandi] = useState(false);
-  const [jsonMatn, setJsonMatn] = useState(
-    '{\n  "mashqlar": [],\n  "vocabulary_matn": "",\n  "wordlist": []\n}'
-  );
-  const [xato, setXato] = useState("");
-  const [xabar, setXabar] = useState("");
-  const [saqlanmoqda, setSaqlanmoqda] = useState(false);
   const [zipXato, setZipXato] = useState("");
   const [zipXabar, setZipXabar] = useState("");
   const [zipYuklanmoqda, setZipYuklanmoqda] = useState(false);
-
-  function promtNusxala() {
-    navigator.clipboard?.writeText(AI_PROMT_UNIT).then(() => {
-      setNusxalandi(true);
-      setTimeout(() => setNusxalandi(false), 2000);
-    });
-  }
-
-  async function yuklash() {
-    setXato("");
-    setXabar("");
-    let tana;
-    try {
-      tana = JSON.parse(jsonMatn);
-    } catch {
-      setXato(t("kurs_json_xato"));
-      return;
-    }
-    setSaqlanmoqda(true);
-    try {
-      const res = await api(`/api/kurslar/${unitId}/unit-yuklash/`, { method: "POST", body: tana });
-      const qismlar = [];
-      if (res.mashqlar_soni) qismlar.push(`${res.mashqlar_soni} ${t("kurs_natija_mashq")}`);
-      if (res.wordlist_soni) qismlar.push(`${res.wordlist_soni} ${t("kurs_natija_soz")}`);
-      if (res.vocabulary_matn_qoshildi) qismlar.push(t("kurs_natija_grammar"));
-      setXabar(qismlar.join(", "));
-      royxatniYangila();
-    } catch (e) {
-      setXato(e.data?.detail || t("xato_yuz_berdi"));
-    } finally {
-      setSaqlanmoqda(false);
-    }
-  }
 
   async function zipYukla(e) {
     const fayl = e.target.files[0];
@@ -669,48 +590,49 @@ function AdminUnitKiritish({ unitId, royxatniYangila }) {
       </button>
       {ochiq && (
         <div style={{ marginTop: 8, maxWidth: 640 }}>
-          <div style={{ marginBottom: 10, paddingBottom: 10, borderBottom: "1px solid var(--chiziq)" }}>
-            <label className="izoh" style={{ display: "block", marginBottom: 4 }}>
-              {t("kurs_zip_yuklash_izoh")}
-            </label>
-            <input type="file" accept=".zip" onChange={zipYukla} disabled={zipYuklanmoqda} />
-            {zipYuklanmoqda && <span className="izoh" style={{ marginLeft: 8 }}>{t("kurs_zip_ishlanmoqda")}</span>}
-            {zipXato && <div className="xato-xabar" style={{ marginTop: 4 }}>{zipXato}</div>}
-            {zipXabar && <div className="izoh" style={{ marginTop: 4 }}>✓ {zipXabar}</div>}
-          </div>
-          <button className="tugma ikkinchi" onClick={() => setPromtKorinadi((v) => !v)}>
-            {promtKorinadi ? t("mashq_promt_yashirish") : t("mashq_promt_korsatish")}
-          </button>
-          {promtKorinadi && (
-            <div style={{ marginTop: 8 }}>
-              <p className="izoh" style={{ marginTop: 0 }}>{t("kurs_unit_promt_izoh")}</p>
-              <textarea
-                readOnly
-                rows={8}
-                value={AI_PROMT_UNIT}
-                style={{ width: "100%", fontFamily: "monospace", fontSize: 11 }}
-              />
-              <button className="tugma ikkinchi" style={{ marginTop: 6 }} onClick={promtNusxala}>
-                {nusxalandi ? t("nusxalandi") : t("nusxalash")}
-              </button>
-            </div>
-          )}
-          <textarea
-            rows={8}
-            value={jsonMatn}
-            onChange={(e) => setJsonMatn(e.target.value)}
-            style={{ width: "100%", fontFamily: "monospace", fontSize: 12, marginTop: 8 }}
-          />
-          <div style={{ marginTop: 6 }}>
-            <button className="tugma ikkinchi" onClick={yuklash} disabled={saqlanmoqda}>
-              {t("kurs_unit_yuklash_qil")}
-            </button>
-            {xato && <span className="xato-xabar" style={{ marginLeft: 8 }}>{xato}</span>}
-            {xabar && <span className="izoh" style={{ marginLeft: 8 }}>✓ {xabar}</span>}
-          </div>
+          <label className="izoh" style={{ display: "block", marginBottom: 4 }}>
+            {t("kurs_zip_yuklash_izoh")}
+          </label>
+          <input type="file" accept=".zip" onChange={zipYukla} disabled={zipYuklanmoqda} />
+          {zipYuklanmoqda && <span className="izoh" style={{ marginLeft: 8 }}>{t("kurs_zip_ishlanmoqda")}</span>}
+          {zipXato && <div className="xato-xabar" style={{ marginTop: 4 }}>{zipXato}</div>}
+          {zipXabar && <div className="izoh" style={{ marginTop: 4 }}>✓ {zipXabar}</div>}
         </div>
       )}
     </div>
+  );
+}
+
+/** Admin/owner uchun — bitta Unit'ning BARCHA kontentini (Mashqlar +
+ * Vocabulary) BITTA tugma bilan tozalash (2026-07-28, foydalanuvchi
+ * talabi — qayta yuklashdan oldin eskisini tez o'chirish uchun). */
+function UnitTozalashTugmasi({ unitId, royxatniYangila }) {
+  const { t } = useI18n();
+  const [ochirilmoqda, setOchirilmoqda] = useState(false);
+
+  async function tozala() {
+    if (!window.confirm(t("kurs_unit_tozalash_tasdiq"))) return;
+    setOchirilmoqda(true);
+    try {
+      await api(`/api/kurslar/${unitId}/unit-tozalash/`, { method: "POST" });
+      royxatniYangila();
+    } catch {
+      // yukla() qayta chaqirilganda ro'yxat o'zi yangilanadi; alohida xato
+      // xabari shart emas — bu kamdan-kam ishlatiladigan yordamchi amal.
+    } finally {
+      setOchirilmoqda(false);
+    }
+  }
+
+  return (
+    <button
+      className="tugma ikkinchi"
+      style={{ color: "#d33" }}
+      onClick={tozala}
+      disabled={ochirilmoqda}
+    >
+      {t("kurs_unit_tozalash")}
+    </button>
   );
 }
 
@@ -895,17 +817,18 @@ function Tugun({ tugun, chuqurlik, adminMi, talabaMi, royxatniYangila, ichkariUn
         <span>{tugun.ikonka}</span>
         <span style={{ fontWeight: chuqurlik < 2 ? 700 : 500 }}>{tugun.nomi}</span>
       </div>
-      {/* Unit uchun yagona yuklash tugmasi (2026-07-27) — sarlavha
-          qatoridan tashqarida, aks holda bosilganda akkordeon ham
-          ochilib/yopilib ketardi (`stopPropagation` shu yerda ishlamaydi,
-          chunki tugma alohida qatorda). */}
-      {adminMi && tugun.unit_darsi && (
-        <div style={{ paddingLeft: otstup + 18 }}>
-          <AdminUnitKiritish unitId={tugun.id} royxatniYangila={royxatniYangila} />
-        </div>
-      )}
       {ochiqmi && (
         <div>
+          {/* Unit uchun yagona yuklash tugmasi (2026-07-28, foydalanuvchi
+              talabi — Unit ochilmaguncha ko'rinmasin, faqat ochilganda
+              chiqsin). Sarlavha qatoridan tashqarida, aks holda bosilganda
+              akkordeon ham ochilib/yopilib ketardi. */}
+          {adminMi && tugun.unit_darsi && (
+            <div style={{ paddingLeft: otstup + 18, display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 6 }}>
+              <AdminUnitKiritish unitId={tugun.id} royxatniYangila={royxatniYangila} />
+              <UnitTozalashTugmasi unitId={tugun.id} royxatniYangila={royxatniYangila} />
+            </div>
+          )}
           {tugun.children.map((b) => (
             <Tugun
               key={b.id}

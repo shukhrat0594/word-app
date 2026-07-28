@@ -20,6 +20,7 @@ from .kontent_generatsiya import (
     javob_kaliti_indeksla,
     javob_kaliti_sahifasini_tahlil_qil,
     kengaytma_turi,
+    raqam_kaliti,
     sahifani_tahlil_qil,
     savollarga_javob_kaliti_qoll,
     tabiiy_tartib_kaliti,
@@ -356,6 +357,49 @@ class KursMashqBoshqaruvView(APIView):
         return Response([_kurs_mashq_admin_dict(m) for m in yaratilganlar], status=201)
 
 
+class KursUnitTozalashView(APIView):
+    """Admin/owner uchun — bitta Unit'ning BARCHA kontentini (Mashqlar +
+    Vocabulary so'zlari + matni) BITTA harakatda o'chirish (2026-07-28,
+    foydalanuvchi talabi — qayta yuklashdan oldin eskisini tozalash uchun).
+    Tugunlarning O'ZI (Mashqlar/Vocabulary bo'lim tugunlari) qolади, faqat
+    ichidagi kontent tozalanadi — Unit tuzilmasi buzilmaydi."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        if not _mashq_admin_mi(request.user):
+            return Response({"detail": "Faqat admin/owner uchun"}, status=403)
+        unit = get_object_or_404(KursTugun, pk=pk)
+        bolalar = {b.nomi: b for b in KursTugun.objects.filter(parent=unit)}
+
+        mashqlar_soni = 0
+        sozlar_soni = 0
+
+        mashq_tugun = bolalar.get("Mashqlar")
+        if mashq_tugun:
+            mashqlar_soni = mashq_tugun.mashqlar.count()
+            mashq_tugun.mashqlar.all().delete()
+
+        vocab_tugun = bolalar.get("Vocabulary")
+        if vocab_tugun:
+            sozlar_soni = vocab_tugun.sozlar.count()
+            vocab_tugun.sozlar.all().delete()
+            if vocab_tugun.matn:
+                vocab_tugun.matn = ""
+                vocab_tugun.save(update_fields=["matn"])
+
+        natija = {"mashqlar_ochirildi": mashqlar_soni, "sozlar_ochirildi": sozlar_soni}
+        logla(
+            foydalanuvchi=request.user,
+            harakat=FaoliyatYozuvi.Harakat.OCHIRISH,
+            obyekt=unit,
+            obyekt_turi="KursTugun",
+            obyekt_nomi=f"{unit.nomi} (tozalandi)",
+            snapshot=natija,
+        )
+        return Response(natija)
+
+
 class KursUnitYuklashView(APIView):
     """Admin/owner uchun — bitta Unit'ning IKKALA bo'limini (Mashqlar,
     Vocabulary) BITTA so'rovda to'ldirish (2026-07-27, foydalanuvchi
@@ -617,20 +661,26 @@ class KursZipYuklashView(APIView):
         # bitta mashqda BIR NECHTA audio bo'lishi mumkin (2026-07-27,
         # foydalanuvchi talabi — "hammasi turishi kerak, keraklisini play
         # bosib ishlayveradi").
+        # Kalit — NORMALLASHTIRILGAN raqam (`raqam_kaliti`), satr emas:
+        # Gemini "1.1" deb qaytarishi mumkin, fayl nomi esa "1.01" (nolli)
+        # bo'ladi — satr solishtirilsa mos kelmaydi (2026-07-28, haqiqiy
+        # ZIP bilan sinovda 12 audiodan 9tasi shu sabab mos kelmagan edi).
         audio_indeks = {}
         for nom in audio_fayllari:
             asos_nom = nom.rsplit("/", 1)[-1]
             raqam = audio_raqamini_ajrat(asos_nom)
-            if raqam:
-                audio_indeks.setdefault(raqam, []).append(nom)
+            kalit = raqam_kaliti(raqam)
+            if kalit is not None:
+                audio_indeks.setdefault(kalit, []).append(nom)
 
         moslangan_audio_soni = 0
         ishlatilgan_audio = set()
         for mashq, audio_raqamlar in yaratilgan_mashqlar:
             for tartib, raqam in enumerate(audio_raqamlar, start=1):
-                if raqam not in audio_indeks:
+                kalit = raqam_kaliti(raqam)
+                if kalit is None or kalit not in audio_indeks:
                     continue
-                audio_nomi = audio_indeks[raqam][0]
+                audio_nomi = audio_indeks[kalit][0]
                 audio_bytes = arxiv.read(audio_nomi)
                 asos_nom = audio_nomi.rsplit("/", 1)[-1]
                 audio_yozuvi = KursMashqAudio(mashq=mashq, raqam=raqam, tartib=tartib)

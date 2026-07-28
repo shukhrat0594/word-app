@@ -69,15 +69,22 @@ SAHIFA_SYSTEM_PROMPT = (
     '\\"1\\" (Exercise ichida qaytadan 1dan boshlanadi)",\n'
     '      "variantlar": ["variant1", "variant2"] (ixtiyoriy — ochiq javobli bo\'lsa bo\'sh massiv []),\n'
     '      "togri": "sizning taxminingizcha to\'g\'ri javob (agar aniq bo\'lmasa ham eng yaqin javobni yozing — bu keyin javob kaliti bilan tekshiriladi)",\n'
-    '      "pozitsiya": {"x": 0-100, "y": 0-100} (FAQAT shu savolning bo\'sh '
-    "joyi/raqami sahifada aniq ko'rinib tursa). MUHIM: \"x\" va \"y\" "
-    "PIKSEL EMAS, FOIZ (0 dan 100 gacha) — rasmning HAQIQIY o'lchamidan "
-    "(piksel) MUSTAQIL nisbiy qiymat. Masalan bo'sh joy rasmning aynan "
-    "o'rtasida (gorizontal) va yuqori qismida bo'lsa — rasm 600px yoki "
-    "6000px kenglikda bo'lishidan qat'iy nazar, \"x\": 50, \"y\": 10 deb "
-    "yozing (piksel sonini emas, foizni hisoblang: piksel_x / rasm_kengligi "
-    "* 100). Aniq ayta olmasangiz yoki bo'sh joy rasmda ko'rinmasa — bu "
-    "maydonni UMUMAN yozmang.\n"
+    '      "pozitsiya": {"x": 0-100, "y": 0-100} — MAJBURIY, deyarli HAR '
+    "DOIM yozing (sahifaning BUTUN rasmi mashqga fon sifatida biriktiriladi, "
+    "savollar ANIQ shu rasm ustida ko'rsatiladi — shuning uchun HAR bir "
+    "savol o'zi tegishli matn/bo'sh joy sahifada QAYERDA joylashganini "
+    "ko'rsatishi kerak, faqat rasmli-band uchun emas, ODDIY matn savollari "
+    "uchun HAM). Savol matni yoki bo'sh joy (___) sahifaning qaysi qismida "
+    "(qaysi qatorda, tepadan pastga, chapdan o'ngga) joylashganini "
+    "baholang. MUHIM: \"x\" va \"y\" PIKSEL EMAS, FOIZ (0 dan 100 gacha) — "
+    "rasmning HAQIQIY o'lchamidan (piksel) MUSTAQIL nisbiy qiymat. Masalan "
+    "savol matni rasmning aynan o'rtasida (gorizontal) va yuqori qismida "
+    "bo'lsa — rasm 600px yoki 6000px kenglikda bo'lishidan qat'iy nazar, "
+    "\"x\": 50, \"y\": 10 deb yozing (piksel sonini emas, foizni hisoblang: "
+    "piksel_x / rasm_kengligi * 100). Bu maydonni FAQAT sahifada bu "
+    "savolga tegishli matn UMUMAN topilmasa (masalan sahifadan tashqi "
+    "kontekstdan chiqargan savol bo'lsa) tashlab ketasiz — aks holda "
+    "har doim taxminiy pozitsiya bering, aniq bo'lmasa ham.\n"
     "    }\n"
     "  ]\n"
     "}\n\n"
@@ -163,6 +170,22 @@ def audio_raqamini_ajrat(fayl_nomi):
     return mos.group(1) if mos else None
 
 
+def raqam_kaliti(raqam):
+    """Audio/track raqamini SOLISHTIRISH uchun kanonik shaklga o'giradi —
+    Gemini "1.1" deb qaytarishi mumkin, fayl nomi esa "1.01" (nolli)
+    bo'ladi (2026-07-28, haqiqiy ZIP bilan sinovda topilgan haqiqiy xato:
+    12 audiodan atigi 3tasi — 1.10/1.11/1.12 — mos kelib, qolgan 9tasi
+    "1.1"≠"1.01" kabi satr solishtirishda mos kelmagan edi). Har nuqta
+    bilan ajratilgan segmentni SONGA aylantirib solishtiramiz — "1.1" va
+    "1.01" ikkisi ham (1, 1) bo'ladi."""
+    if not raqam:
+        return None
+    try:
+        return tuple(int(qism) for qism in str(raqam).split("."))
+    except ValueError:
+        return str(raqam).strip().lower()
+
+
 def kengaytma_turi(fayl_nomi):
     """Fayl kengaytmasidan turini aniqlaydi — papka NOMIGA emas, aynan
     kengaytmaga qarab (foydalanuvchi talabi: "nomiga qaramay")."""
@@ -186,10 +209,10 @@ def gemini_provider_olish():
 def _pozitsiya_tozala(savollar):
     """Gemini ba'zan "pozitsiya"ni FOIZ (0-100) o'rniga PIKSEL sifatida
     qaytaradi (real testda kuzatilgan: 600px rasmda x=165) — bu frontendda
-    inputni butunlay noto'g'ri joyga chiqarib qo'yardi. Shu sababli
-    diapazondan (0-100) tashqari qiymatlar butunlay OLIB TASHLANADI (savol
-    o'zi qoladi, oddiy ro'yxatda ko'rinadi) — noto'g'ri joyga chiqarishdan
-    ko'ra pozitsiyasiz qolishi xavfsizroq."""
+    inputni butunlay noto'g'ri joyga chiqarib qo'yardi. Diapazondan (0-100)
+    tashqari qiymatlar OLIB TASHLANADI (keyin `_pozitsiya_toldir` avtomatik
+    o'rnini bosadi) — noto'g'ri joyga chiqarishdan ko'ra avtomatik-taxminiy
+    pozitsiya xavfsizroq."""
     for s in savollar:
         poz = s.get("pozitsiya")
         if not isinstance(poz, dict):
@@ -203,6 +226,27 @@ def _pozitsiya_tozala(savollar):
         )
         if agar_notogri:
             s.pop("pozitsiya", None)
+    return savollar
+
+
+def _pozitsiya_toldir(savollar):
+    """Gemini haqiqiy (zich matnli) sahifalarda deyarli hech qachon
+    "pozitsiya" bermaydi — promt qanchalik qattiq talab qilsa ham (2026-07-28,
+    haqiqiy ZIP bilan sinovda tasdiqlandi: 30+ savol, BIRI HAM pozitsiya
+    olmadi). Foydalanuvchi talabi — savollar HAR DOIM rasm ustida
+    ko'rinishi kerak (alohida ro'yxatda emas), shuning uchun Gemini
+    bermagan pozitsiyalarni O'ZIMIZ hisoblaymiz: savollarni sahifa
+    bo'ylab TEPADAN PASTGA tekis taqsimlaymiz (o'qish tartibi — Gemini
+    savollarni odatda sahifadagi ko'rinish tartibida qaytaradi). Bu piksel
+    aniqligida emas, lekin savol HECH QACHON rasmdan ajratilgan holda
+    (pastda, alohida ro'yxatda) qolib ketmasligini kafolatlaydi."""
+    pozitsiyasizlar = [s for s in savollar if not isinstance(s.get("pozitsiya"), dict)]
+    jami = len(pozitsiyasizlar)
+    if jami == 0:
+        return savollar
+    for i, s in enumerate(pozitsiyasizlar):
+        y = 8 + (i / jami) * 86 if jami > 1 else 45
+        s["pozitsiya"] = {"x": 50, "y": round(y, 1)}
     return savollar
 
 
@@ -253,7 +297,7 @@ def sahifani_tahlil_qil(provider, rasm_bytes, rasm_mime):
         provider, SAHIFA_SYSTEM_PROMPT, rasm_bytes, rasm_mime, _sahifa_shaklini_tekshir
     )
     if natija and natija.get("turi") == "mashq":
-        natija["savollar"] = _pozitsiya_tozala(natija["savollar"])
+        natija["savollar"] = _pozitsiya_toldir(_pozitsiya_tozala(natija["savollar"]))
     return natija, xato
 
 
@@ -274,6 +318,14 @@ def javob_kaliti_sahifasini_tahlil_qil(provider, rasm_bytes, rasm_mime):
     )
 
 
+def _mashq_band_kaliti(mashq_raqami, band_raqami):
+    """Mashq/band raqamini SOLISHTIRISH uchun kanonik shaklga o'giradi —
+    Gemini ikki xil sahifada (mashq va javob kaliti) bir xil Exercise'ni
+    turlicha yozishi mumkin ("GRAMMAR SPOT" vs "Grammar Spot", ortiqcha
+    bo'sh joy) — katta-kichik harf va bo'sh joyga sezmas solishtiramiz."""
+    return (str(mashq_raqami or "").strip().lower(), str(band_raqami or "").strip().lower())
+
+
 def javob_kaliti_indeksla(sahifa_natijalari):
     """Barcha "javob_kaliti" turidagi sahifalardan (mashq_raqami, band_raqami)
     -> javob lug'atini quradi."""
@@ -282,7 +334,7 @@ def javob_kaliti_indeksla(sahifa_natijalari):
         if natija.get("turi") != "javob_kaliti":
             continue
         for band in natija.get("javoblar", []):
-            kalit = (str(band.get("mashq_raqami", "")), str(band.get("band_raqami", "")))
+            kalit = _mashq_band_kaliti(band.get("mashq_raqami"), band.get("band_raqami"))
             if kalit != ("", "") and band.get("javob"):
                 indeks[kalit] = band["javob"]
     return indeks
@@ -293,7 +345,7 @@ def savollarga_javob_kaliti_qoll(savollar, javob_kaliti_indeksi):
     ANIQ javobni "togri" maydoniga yozadi (Gemini taxminidan ustun —
     darslikning haqiqiy javob kaliti manbasi)."""
     for s in savollar:
-        kalit = (str(s.get("mashq_raqami", "")), str(s.get("band_raqami", "")))
+        kalit = _mashq_band_kaliti(s.get("mashq_raqami"), s.get("band_raqami"))
         if kalit in javob_kaliti_indeksi:
             s["togri"] = javob_kaliti_indeksi[kalit]
     return savollar
