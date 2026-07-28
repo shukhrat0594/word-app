@@ -16,11 +16,11 @@ from exercises.models import javoblarni_tekshir
 
 from .kontent_generatsiya import (
     audio_raqamini_ajrat,
-    gemini_provider_olish,
     javob_kaliti_indeksla,
     javob_kaliti_sahifasini_tahlil_qil,
     kengaytma_turi,
     raqam_kaliti,
+    sahifa_provider_olish,
     sahifani_tahlil_qil,
     savollarga_javob_kaliti_qoll,
     tabiiy_tartib_kaliti,
@@ -578,7 +578,7 @@ class KursZipYuklashView(APIView):
             return Response({"detail": "ZIP ichida rasm fayli topilmadi"}, status=400)
 
         try:
-            provider = gemini_provider_olish()
+            provider = sahifa_provider_olish()
         except ProviderXatosi as e:
             return Response({"detail": str(e)}, status=400)
 

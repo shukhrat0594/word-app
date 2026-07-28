@@ -1,7 +1,7 @@
-"""Beginner Unit kontentini ZIP+Gemini orqali avtomatlashtirish (2026-07-27).
+"""Beginner Unit kontentini ZIP+AI orqali avtomatlashtirish (2026-07-27).
 
 Admin bitta Unit uchun ZIP yuklaydi (sahifa rasmlari + audio fayllar) —
-har sahifa rasmi ALOHIDA Gemini'ga yuboriladi ("sahifa = mashq" qoidasi:
+har sahifa rasmi ALOHIDA AI'ga yuboriladi ("sahifa = mashq" qoidasi:
 bitta sahifadagi barcha savollar BITTA `KursMashq`ga, har biri o'z
 `pozitsiya`si bilan). Unit ichida UCHTA sahifa turi bo'ladi:
 
@@ -12,24 +12,30 @@ bitta sahifadagi barcha savollar BITTA `KursMashq`ga, har biri o'z
 - "javob_kaliti" — darslik oxiridagi "Answer key" sahifasi, mashq
   raqami+band raqami bo'yicha guruhlangan to'g'ri javoblar — bularni
   tegishli mashqning "togri" maydoniga OVERRIDE qilish uchun ishlatiladi
-  (Gemini o'zi taxmin qilgan javobdan ko'ra ANIQROQ manba).
+  (AI o'zi taxmin qilgan javobdan ko'ra ANIQROQ manba).
 
 2026-07-27 (2-marta): javob kaliti rasmlari ZIP ichida ALOHIDA papkada
 ("answers" — nomida "answer" so'zi bo'lgan har qanday papka) keladi.
 Bu rasmlar UMUMIY 3-tur klassifikatorga EMAS, maxsus (faqat javob_kaliti
-kutuvchi) promtga yuboriladi — aks holda Gemini ularni "mashq" sahifasi
-deb tushunib qolishi xavfi bor edi (foydalanuvchi ogohlantirdi). Papka
+kutuvchi) promtga yuboriladi — aks holda AI ularni "mashq" sahifasi deb
+tushunib qolishi xavfi bor edi (foydalanuvchi ogohlantirdi). Papka
 yo'lidan ANIQ ma'lum bo'lgani uchun klassifikatsiya qilish shart emas.
 
-Bu modul faqat Gemini bilan ishlash va fayl nomlaridan tartib/raqam
-ajratish mantiqini o'z ichiga oladi — bazaga yozish
-(`courses/views.py: KursZipYuklashView`) alohida.
+2026-07-28: provider GEMINI'DAN CLAUDE'GA o'tkazildi — real ZIP bilan
+sinovda Gemini haqiqiy (zich matnli) sahifalarda `pozitsiya`ni DEYARLI
+HECH QACHON bermadi (promt qanchalik kuchaytirilsa ham), Claude esa
+xuddi shu sahifalarda barcha savollarga mantiqiy pozitsiya berdi (sinovda
+tasdiqlangan: 8 savolli sahifada 8tasi ham real x/y bilan qaytdi).
+
+Bu modul faqat AI bilan ishlash va fayl nomlaridan tartib/raqam ajratish
+mantiqini o'z ichiga oladi — bazaga yozish (`courses/views.py:
+KursZipYuklashView`) alohida.
 """
 
 import os
 import re
 
-from assessment.providers import GeminiProvider, ProviderXatosi
+from assessment.providers import ClaudeProvider, ProviderXatosi
 
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
 AUDIO_EXTS = {".mp3", ".wav", ".m4a", ".ogg"}
@@ -37,10 +43,10 @@ AUDIO_EXTS = {".mp3", ".wav", ".m4a", ".ogg"}
 SAHIFA_TURLARI = ("mashq", "vocabulary", "javob_kaliti")
 
 # Shape mos kelmasa (masalan "turi" yo'q/noto'g'ri) qayta urinish soni —
-# GeminiProvider._generate o'zi bo'sh/buzuq JSON uchun ICHKARIDA qayta
-# uradi (URINISHLAR=2), bu esa BIZNING shakl talabimiz mos kelmasa
-# qo'shimcha qatlam (foydalanuvchi talabi: "gemini xato json qaytarsa
-# yana bir marta so'rov yuborilsin").
+# ClaudeProvider._generate o'zi buzuq JSON uchun ICHKARIDA qayta uradi
+# (URINISHLAR=2), bu esa BIZNING shakl talabimiz mos kelmasa qo'shimcha
+# qatlam (foydalanuvchi talabi: "xato json qaytarsa yana bir marta
+# so'rov yuborilsin").
 SAHIFA_URINISHLAR = 2
 
 SAHIFA_SYSTEM_PROMPT = (
@@ -197,13 +203,16 @@ def kengaytma_turi(fayl_nomi):
     return None
 
 
-def gemini_provider_olish():
+def sahifa_provider_olish():
+    """2026-07-28: Claude ishlatiladi (Gemini emas) — real ZIP bilan
+    sinovda Gemini zich matnli sahifalarda `pozitsiya` bermadi, Claude
+    esa berdi (yuqoridagi modul docstringiga qarang)."""
     from django.conf import settings
 
-    kalit = getattr(settings, "GEMINI_API_KEY", "")
+    kalit = getattr(settings, "ANTHROPIC_API_KEY", "")
     if not kalit:
-        raise ProviderXatosi("Platforma GEMINI_API_KEY sozlanmagan (.env)")
-    return GeminiProvider(kalit)
+        raise ProviderXatosi("Platforma ANTHROPIC_API_KEY sozlanmagan (.env)")
+    return ClaudeProvider(kalit)
 
 
 def _pozitsiya_tozala(savollar):
@@ -229,37 +238,20 @@ def _pozitsiya_tozala(savollar):
     return savollar
 
 
-def _pozitsiya_toldir(savollar):
-    """Gemini haqiqiy (zich matnli) sahifalarda deyarli hech qachon
-    "pozitsiya" bermaydi — promt qanchalik qattiq talab qilsa ham (2026-07-28,
-    haqiqiy ZIP bilan sinovda tasdiqlandi: 30+ savol, BIRI HAM pozitsiya
-    olmadi). Foydalanuvchi talabi — savollar HAR DOIM rasm ustida
-    ko'rinishi kerak (alohida ro'yxatda emas), shuning uchun Gemini
-    bermagan pozitsiyalarni O'ZIMIZ hisoblaymiz: savollarni sahifa
-    bo'ylab TEPADAN PASTGA tekis taqsimlaymiz (o'qish tartibi — Gemini
-    savollarni odatda sahifadagi ko'rinish tartibida qaytaradi). Bu piksel
-    aniqligida emas, lekin savol HECH QACHON rasmdan ajratilgan holda
-    (pastda, alohida ro'yxatda) qolib ketmasligini kafolatlaydi."""
-    pozitsiyasizlar = [s for s in savollar if not isinstance(s.get("pozitsiya"), dict)]
-    jami = len(pozitsiyasizlar)
-    if jami == 0:
-        return savollar
-    for i, s in enumerate(pozitsiyasizlar):
-        y = 8 + (i / jami) * 86 if jami > 1 else 45
-        s["pozitsiya"] = {"x": 50, "y": round(y, 1)}
-    return savollar
-
-
-def _gemini_json_urin(provider, prompt, rasm_bytes, rasm_mime, tekshir):
+def _ai_json_urin(provider, prompt, rasm_bytes, rasm_mime, tekshir):
     """Umumiy retry-tsikl: `tekshir(natija)` shakl xatosi bo'lsa xato matnini
-    (str) qaytaradi, to'g'ri bo'lsa None. `GeminiProvider._generate` o'zi
-    bo'sh/buzuq JSON uchun ICHKARIDA qayta uradi — bu tashqi tsikl esa
-    BIZNING shakl talabimiz mos kelmasa qayta so'rov yuboradi (foydalanuvchi
-    talabi: "gemini xato json qaytarsa yana bir marta so'rov yuborilsin")."""
+    (str) qaytaradi, to'g'ri bo'lsa None. Provider (Claude) o'zi bo'sh/buzuq
+    JSON uchun ICHKARIDA qayta uradi — bu tashqi tsikl esa BIZNING shakl
+    talabimiz mos kelmasa qayta so'rov yuboradi (foydalanuvchi talabi:
+    "xato json qaytarsa yana bir marta so'rov yuborilsin").
+
+    Matn qismi bo'sh emas ("Sahifani tahlil qiling.") — Claude API bo'sh
+    matn blokini rad etadi (Gemini bo'sh matnga chidamli edi, lekin bu
+    matn ikkalasi uchun ham zararsiz)."""
     oxirgi_xato = None
     for _ in range(SAHIFA_URINISHLAR):
         try:
-            javob = provider._generate(prompt, "", rasm_bytes, rasm_mime)
+            javob = provider._generate(prompt, "Sahifani tahlil qiling.", rasm_bytes, rasm_mime)
         except ProviderXatosi as e:
             oxirgi_xato = str(e)
             continue
@@ -287,17 +279,17 @@ def _sahifa_shaklini_tekshir(natija):
 
 
 def sahifani_tahlil_qil(provider, rasm_bytes, rasm_mime):
-    """Bitta ODDIY (rasm/audio papkasidagi) sahifani Gemini'ga yuborib,
+    """Bitta ODDIY (rasm/audio papkasidagi) sahifani AI'ga yuborib,
     tahlil natijasini qaytaradi — turi mashq/vocabulary/javob_kaliti
-    bo'lishi mumkin (Gemini o'zi klassifikatsiya qiladi).
+    bo'lishi mumkin (AI o'zi klassifikatsiya qiladi).
 
     Qaytaradi: (natija_dict, xato_matni). Muvaffaqiyatli bo'lsa
     xato_matni None, aks holda natija_dict None."""
-    natija, xato = _gemini_json_urin(
+    natija, xato = _ai_json_urin(
         provider, SAHIFA_SYSTEM_PROMPT, rasm_bytes, rasm_mime, _sahifa_shaklini_tekshir
     )
     if natija and natija.get("turi") == "mashq":
-        natija["savollar"] = _pozitsiya_toldir(_pozitsiya_tozala(natija["savollar"]))
+        natija["savollar"] = _pozitsiya_tozala(natija["savollar"])
     return natija, xato
 
 
@@ -306,21 +298,21 @@ def javob_kaliti_sahifasini_tahlil_qil(provider, rasm_bytes, rasm_mime):
     kaliti sahifasi ekani papka yo'lidan ma'lum, shuning uchun umumiy
     3-tur klassifikatorga emas, MAXSUS (faqat javob_kaliti kutuvchi)
     promtga yuboriladi (2026-07-27, foydalanuvchi ogohlantirdi — aks
-    holda Gemini bunday sahifani "mashq" deb tushunib qolishi mumkin edi)."""
+    holda AI bunday sahifani "mashq" deb tushunib qolishi mumkin edi)."""
 
     def tekshir(natija):
         if natija.get("turi") != "javob_kaliti" or not isinstance(natija.get("javoblar"), list):
             return f"Javob kaliti shakliga mos kelmadi (kelgan: {natija!r})"
         return None
 
-    return _gemini_json_urin(
+    return _ai_json_urin(
         provider, JAVOB_KALITI_SAHIFA_PROMPT, rasm_bytes, rasm_mime, tekshir
     )
 
 
 def _mashq_band_kaliti(mashq_raqami, band_raqami):
     """Mashq/band raqamini SOLISHTIRISH uchun kanonik shaklga o'giradi —
-    Gemini ikki xil sahifada (mashq va javob kaliti) bir xil Exercise'ni
+    AI ikki xil sahifada (mashq va javob kaliti) bir xil Exercise'ni
     turlicha yozishi mumkin ("GRAMMAR SPOT" vs "Grammar Spot", ortiqcha
     bo'sh joy) — katta-kichik harf va bo'sh joyga sezmas solishtiramiz."""
     return (str(mashq_raqami or "").strip().lower(), str(band_raqami or "").strip().lower())

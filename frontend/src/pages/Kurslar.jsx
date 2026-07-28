@@ -90,16 +90,23 @@ function TalabaMashqi({ mashq, raqam }) {
   const [audioUrllar, setAudioUrllar] = useState([]);
   const [yuklanmoqda, setYuklanmoqda] = useState(false);
   const [xato, setXato] = useState("");
+  // Yuklanish holati (2026-07-28, foydalanuvchi talabi) — rasm/audio
+  // fayllar hali to'liq yuklanmagan bo'lsa, savollar UMUMAN ko'rinmaydi
+  // ("Yuklanmoqda" ko'rsatiladi) — kutilmagan bo'sh rasm/audio bilan
+  // savolga javob berishning oldini olish uchun.
+  const [rasmYuklandi, setRasmYuklandi] = useState(!mashq.rasm_url);
+  const [audioYuklandi, setAudioYuklandi] = useState(!mashq.audio_url);
+  const [audiolarYuklandi, setAudiolarYuklandi] = useState(!mashq.audiolar?.length);
 
   useEffect(() => {
     if (mashq.rasm_url) {
-      apiBlobUrl(mashq.rasm_url).then(setRasmUrl).catch(() => {});
+      apiBlobUrl(mashq.rasm_url).then(setRasmUrl).finally(() => setRasmYuklandi(true));
     }
   }, [mashq.rasm_url]);
 
   useEffect(() => {
     if (mashq.audio_url) {
-      apiBlobUrl(mashq.audio_url).then(setAudioUrl).catch(() => {});
+      apiBlobUrl(mashq.audio_url).then(setAudioUrl).finally(() => setAudioYuklandi(true));
     }
   }, [mashq.audio_url]);
 
@@ -111,8 +118,10 @@ function TalabaMashqi({ mashq, raqam }) {
     if (!mashq.audiolar || mashq.audiolar.length === 0) return;
     Promise.all(mashq.audiolar.map((a) => apiBlobUrl(a.url).then((url) => ({ ...a, url }))))
       .then(setAudioUrllar)
-      .catch(() => {});
+      .finally(() => setAudiolarYuklandi(true));
   }, [mashq.audiolar]);
+
+  const hammasiTayyor = rasmYuklandi && audioYuklandi && audiolarYuklandi;
 
   function javobniQoy(idx, qiymat) {
     setJavoblar((j) => j.map((x, i) => (i === idx ? qiymat : x)));
@@ -149,6 +158,8 @@ function TalabaMashqi({ mashq, raqam }) {
     }
   });
 
+  const audioPanelBorMi = audioUrl || audioUrllar.length > 0;
+
   return (
     <div style={{ border: "1px solid var(--chiziq)", borderRadius: 8, padding: 10, marginBottom: 8 }}>
       {raqam != null && (
@@ -157,72 +168,87 @@ function TalabaMashqi({ mashq, raqam }) {
         </div>
       )}
       {mashq.matn && <div style={{ marginBottom: 8 }}>{mashq.matn}</div>}
-      {rasmSavollari.length > 0 ? (
-        <RasmMashqi
-          rasmUrl={rasmUrl}
-          savollar={rasmSavollari}
-          idxlar={rasmIdxlari}
-          javoblar={javoblar}
-          javobniQoy={javobniQoy}
-          natija={natija}
-        />
+
+      {!hammasiTayyor ? (
+        <div className="izoh">{t("yuklanmoqda")}</div>
       ) : (
-        rasmUrl && <img src={rasmUrl} alt="" style={{ maxWidth: "100%", marginBottom: 8 }} />
-      )}
-      {audioUrl && <audio controls src={audioUrl} style={{ width: "100%", marginBottom: 8 }} />}
-      {audioUrllar.length > 0 && (
-        <div style={{ display: "grid", gap: 6, marginBottom: 8, padding: 8, background: "var(--sirt-2)", borderRadius: 6 }}>
-          <span className="izoh">{t("kurs_audiolar_royxati")}</span>
-          {audioUrllar.map((a) => (
-            <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              {a.raqam && <span className="izoh" style={{ minWidth: 44 }}>{a.raqam}</span>}
-              <audio controls src={a.url} style={{ width: "100%" }} />
+        <>
+          {/* Audio — mashq/rasmning PASTIDA emas, O'NG TOMONIDA (2026-07-28,
+              foydalanuvchi talabi). Rasm/mashq chapda (flex:1), audio(lar)
+              o'ngda alohida ustun. */}
+          <div style={{ display: "flex", gap: 12, alignItems: "flex-start", marginBottom: 8 }}>
+            <div style={{ flex: "1 1 auto", minWidth: 0, maxWidth: "calc(100% - 232px)" }}>
+              {rasmSavollari.length > 0 ? (
+                <RasmMashqi
+                  rasmUrl={rasmUrl}
+                  savollar={rasmSavollari}
+                  idxlar={rasmIdxlari}
+                  javoblar={javoblar}
+                  javobniQoy={javobniQoy}
+                  natija={natija}
+                />
+              ) : (
+                rasmUrl && <img src={rasmUrl} alt="" style={{ maxWidth: "100%", display: "block" }} />
+              )}
+            </div>
+            {audioPanelBorMi && (
+              <div style={{ flex: "0 0 220px", display: "grid", gap: 6, padding: 8, background: "var(--sirt-2)", borderRadius: 6 }}>
+                <span className="izoh">{t("kurs_audiolar_royxati")}</span>
+                {audioUrl && <audio controls src={audioUrl} style={{ width: "100%" }} />}
+                {audioUrllar.map((a) => (
+                  <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    {a.raqam && <span className="izoh" style={{ minWidth: 40 }}>{a.raqam}</span>}
+                    <audio controls src={a.url} style={{ width: "100%" }} />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {oddiySavollar.map(([s, i]) => (
+            <div key={i} style={{ marginBottom: 6 }}>
+              <div className="izoh">{s.savol}</div>
+              {s.variantlar && s.variantlar.length > 0 ? (
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                  {s.variantlar.map((v) => (
+                    <label key={v} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                      <input
+                        type="radio"
+                        name={`mashq-${mashq.id}-${i}`}
+                        checked={javoblar[i] === v}
+                        disabled={!!natija}
+                        onChange={() => javobniQoy(i, v)}
+                      />
+                      {v}
+                    </label>
+                  ))}
+                </div>
+              ) : (
+                <input
+                  {...IMLO_OFF}
+                  value={javoblar[i]}
+                  disabled={!!natija}
+                  onChange={(e) => javobniQoy(i, e.target.value)}
+                  style={{ maxWidth: 260 }}
+                />
+              )}
+              {natija && (
+                <span style={{ marginLeft: 8 }}>{natija.natijalar[i] ? "✓" : "✗"}</span>
+              )}
             </div>
           ))}
-        </div>
-      )}
-      {oddiySavollar.map(([s, i]) => (
-        <div key={i} style={{ marginBottom: 6 }}>
-          <div className="izoh">{s.savol}</div>
-          {s.variantlar && s.variantlar.length > 0 ? (
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-              {s.variantlar.map((v) => (
-                <label key={v} style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                  <input
-                    type="radio"
-                    name={`mashq-${mashq.id}-${i}`}
-                    checked={javoblar[i] === v}
-                    disabled={!!natija}
-                    onChange={() => javobniQoy(i, v)}
-                  />
-                  {v}
-                </label>
-              ))}
-            </div>
+          {!natija ? (
+            <button className="tugma ikkinchi" onClick={tekshir} disabled={yuklanmoqda}>
+              {yuklanmoqda ? t("tekshirilmoqda") : t("tekshirish")}
+            </button>
           ) : (
-            <input
-              {...IMLO_OFF}
-              value={javoblar[i]}
-              disabled={!!natija}
-              onChange={(e) => javobniQoy(i, e.target.value)}
-              style={{ maxWidth: 260 }}
-            />
+            <div className="izoh">
+              {t("band_ball")}: {natija.ball}/{natija.jami}
+            </div>
           )}
-          {natija && (
-            <span style={{ marginLeft: 8 }}>{natija.natijalar[i] ? "✓" : "✗"}</span>
-          )}
-        </div>
-      ))}
-      {!natija ? (
-        <button className="tugma ikkinchi" onClick={tekshir} disabled={yuklanmoqda}>
-          {yuklanmoqda ? t("tekshirilmoqda") : t("tekshirish")}
-        </button>
-      ) : (
-        <div className="izoh">
-          {t("band_ball")}: {natija.ball}/{natija.jami}
-        </div>
+          {xato && <div className="xato-xabar">{xato}</div>}
+        </>
       )}
-      {xato && <div className="xato-xabar">{xato}</div>}
     </div>
   );
 }
@@ -538,7 +564,7 @@ function VocabularyKorinishi({ tugunId, matn }) {
 /** Admin/owner uchun — bitta Unit'ning IKKALA bo'limini (Mashqlar,
  * Vocabulary) BITTA harakatda ZIP orqali yuklash (2026-07-27, foydalanuvchi
  * talabi — "unit uchun bitta tugma bo'lsin"; 2026-07-28: qo'lda-JSON
- * kiritish variantI OLIB TASHLANDI, ZIP+Gemini yagona yo'l qoldi — u
+ * kiritish variantI OLIB TASHLANDI, ZIP+AI yagona yo'l qoldi — u
  * ancha tezroq va endi haqiqiy ZIP bilan sinovdan o'tgan). */
 function AdminUnitKiritish({ unitId, royxatniYangila }) {
   const { t } = useI18n();
