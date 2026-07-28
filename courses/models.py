@@ -45,10 +45,11 @@ class KursTugun(models.Model):
     matn = models.TextField(
         blank=True,
         help_text=(
-            "Sof matnli tugunlar uchun (masalan 'Grammar reference' — Unit "
-            "bo'yicha qisqa grammatika xulosasi). Fayl emas, chunki AI "
-            "buni to'g'ridan-to'g'ri matn sifatida generatsiya qiladi "
-            "(2026-07-27, Unit'ni bitta so'rovda yuklash imkoniyati)."
+            "Sof matnli tugunlar uchun (masalan 'Vocabulary' — shu Unit "
+            "bo'yicha qisqa grammatika xulosasi, so'zlar ro'yxati bilan "
+            "BIR sahifada keladi). Fayl emas, chunki AI buni to'g'ridan-"
+            "to'g'ri matn sifatida generatsiya qiladi (2026-07-27, Unit'ni "
+            "bitta so'rovda yuklash imkoniyati)."
         ),
     )
 
@@ -107,6 +108,32 @@ class KursMashq(models.Model):
 
     def __str__(self):
         return f"{self.tugun.nomi} — mashq #{self.tartib}"
+
+
+class KursMashqAudio(models.Model):
+    """Bitta mashqqa tegishli BIR NECHTA audio (2026-07-27, foydalanuvchi
+    talabi). Sabab: bitta sahifa (=bitta mashq) darslikda bir nechta
+    Listening bandi/tracki bo'lishi mumkin (masalan 4 ta savol, har biri
+    o'z audiosi bilan) — talaba mashq ichida barcha tegishli audiolarni
+    yon panelda ko'rib, keraklisini navbat bilan play qiladi.
+
+    `KursMashq.audio` (yakka, eski maydon) FLAT (Unit'siz) bo'limlar uchun
+    saqlanib qolgan — u yerda odatda bitta mashqga bitta audio kifoya."""
+
+    mashq = models.ForeignKey(KursMashq, on_delete=models.CASCADE, related_name="audiolar")
+    audio = models.FileField(upload_to="kurslar/mashq_audio_royxat/")
+    raqam = models.CharField(
+        max_length=20, blank=True,
+        help_text="Darslikdagi track raqami (masalan '1.01') — faqat ma'lumot uchun",
+    )
+    tartib = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ["tartib", "id"]
+        verbose_name_plural = "Kurs mashq audiolari"
+
+    def __str__(self):
+        return f"{self.mashq} — audio {self.raqam or self.tartib}"
 
 
 class KursSoz(models.Model):

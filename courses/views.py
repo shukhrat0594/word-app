@@ -1,3 +1,6 @@
+import zipfile
+
+from django.core.files.base import ContentFile
 from django.shortcuts import get_object_or_404
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
@@ -6,11 +9,29 @@ from rest_framework.views import APIView
 
 from accounts.models import User
 from accounts.permissions import owner_mi
+from assessment.providers import ProviderXatosi
 from audit.models import FaoliyatYozuvi
 from audit.utils import logla
 from exercises.models import javoblarni_tekshir
 
-from .models import KursMashq, KursMashqYechim, KursProgress, KursSoz, KursTugun
+from .kontent_generatsiya import (
+    audio_raqamini_ajrat,
+    gemini_provider_olish,
+    javob_kaliti_indeksla,
+    javob_kaliti_sahifasini_tahlil_qil,
+    kengaytma_turi,
+    sahifani_tahlil_qil,
+    savollarga_javob_kaliti_qoll,
+    tabiiy_tartib_kaliti,
+)
+from .models import (
+    KursMashq,
+    KursMashqAudio,
+    KursMashqYechim,
+    KursProgress,
+    KursSoz,
+    KursTugun,
+)
 
 OTISH_FOIZ = 0.6
 
@@ -248,6 +269,15 @@ class KursTugunTugallandiView(APIView):
         return Response({"tugallandimi": True})
 
 
+def _kurs_mashq_audiolar_royxati(m):
+    """Bitta mashqqa biriktirilgan BIR NECHTA audio (2026-07-27) — yon
+    panelda ro'yxat sifatida ko'rsatiladi, talaba keraklisini play qiladi."""
+    return [
+        {"id": a.id, "url": f"/api/kurslar/mashq-audio/{a.id}/", "raqam": a.raqam}
+        for a in m.audiolar.all()
+    ]
+
+
 def _kurs_mashq_admin_dict(m):
     return {
         "id": m.id,
@@ -255,6 +285,7 @@ def _kurs_mashq_admin_dict(m):
         "matn": m.matn,
         "rasm_url": f"/api/kurslar/mashq/{m.id}/rasm/" if m.rasm else None,
         "audio_url": f"/api/kurslar/mashq/{m.id}/audio/" if m.audio else None,
+        "audiolar": _kurs_mashq_audiolar_royxati(m),
         "savollar": m.savollar,
     }
 
@@ -266,6 +297,7 @@ def _kurs_mashq_talaba_dict(m):
         "matn": m.matn,
         "rasm_url": f"/api/kurslar/mashq/{m.id}/rasm/" if m.rasm else None,
         "audio_url": f"/api/kurslar/mashq/{m.id}/audio/" if m.audio else None,
+        "audiolar": _kurs_mashq_audiolar_royxati(m),
         "savollar": [{k: v for k, v in s.items() if k != "togri"} for s in m.savollar],
     }
 
@@ -325,16 +357,21 @@ class KursMashqBoshqaruvView(APIView):
 
 
 class KursUnitYuklashView(APIView):
-    """Admin/owner uchun — bitta Unit'ning UCHALA bo'limini (Mashqlar,
-    Grammar reference, Wordlist) BITTA so'rovda to'ldirish (2026-07-27,
-    foydalanuvchi talabi — avval har bo'lim o'z alohida JSON/fayl
-    tugmasiga ega edi, endi Unit uchun yagona "Yuklash" harakati).
+    """Admin/owner uchun — bitta Unit'ning IKKALA bo'limini (Mashqlar,
+    Vocabulary) BITTA so'rovda to'ldirish (2026-07-27, foydalanuvchi
+    talabi — avval har bo'lim o'z alohida JSON/fayl tugmasiga ega edi,
+    endi Unit uchun yagona "Yuklash" harakati).
 
-    So'rov tanasi — uchtasi ham ixtiyoriy, kamida bittasi kerak:
-      {"mashqlar": [...], "grammar_reference": "matn", "wordlist": [...]}
+    2026-07-27 (2): Unit endi 3 EMAS, 2 bo'lim — "Grammar reference" va
+    "Wordlist" bir xil sahifada bo'lgani uchun BIRLASHTIRILDI ("Vocabulary"
+    nomi bilan). `KursTugun.matn` endi Vocabulary tuguni uchun ishlatiladi
+    (grammatika qisqa xulosasi, ixtiyoriy).
+
+    So'rov tanasi — ikkisi ham ixtiyoriy, kamida bittasi kerak:
+      {"mashqlar": [...], "vocabulary_matn": "matn", "wordlist": [...]}
 
     "mashqlar" va "wordlist" — mavjudlarga QO'SHILADI (append), "Mashq(lar)
-    qo'shish" bilan bir xil mantiq. "grammar_reference" — mavjudini
+    qo'shish" bilan bir xil mantiq. "vocabulary_matn" — mavjudini
     ALMASHTIRADI (bir butun matn, qo'shib borish ma'nosiz)."""
 
     permission_classes = [IsAuthenticated]
@@ -344,19 +381,19 @@ class KursUnitYuklashView(APIView):
             return Response({"detail": "Faqat admin/owner uchun"}, status=403)
         unit = get_object_or_404(KursTugun, pk=pk)
         bolalar = {b.nomi: b for b in KursTugun.objects.filter(parent=unit)}
-        kerakli = {"Mashqlar", "Grammar reference", "Wordlist"}
+        kerakli = {"Mashqlar", "Vocabulary"}
         if not kerakli.issubset(bolalar):
             return Response(
-                {"detail": "Bu tugunda Mashqlar/Grammar reference/Wordlist bo'limlari topilmadi"},
+                {"detail": "Bu tugunda Mashqlar/Vocabulary bo'limlari topilmadi"},
                 status=400,
             )
 
         mashqlar = request.data.get("mashqlar")
-        grammar_matn = request.data.get("grammar_reference")
+        vocabulary_matn = request.data.get("vocabulary_matn")
         wordlist = request.data.get("wordlist")
-        if not mashqlar and not grammar_matn and not wordlist:
+        if not mashqlar and not vocabulary_matn and not wordlist:
             return Response(
-                {"detail": "Hech narsa yuborilmadi ('mashqlar'/'grammar_reference'/'wordlist')"},
+                {"detail": "Hech narsa yuborilmadi ('mashqlar'/'vocabulary_matn'/'wordlist')"},
                 status=400,
             )
 
@@ -383,26 +420,26 @@ class KursUnitYuklashView(APIView):
             KursMashq.objects.bulk_create(yangi_mashqlar)
             natija["mashqlar_soni"] = len(yangi_mashqlar)
 
-        if grammar_matn:
-            if not isinstance(grammar_matn, str):
-                return Response({"detail": "'grammar_reference' matn bo'lishi kerak"}, status=400)
-            gr_tugun = bolalar["Grammar reference"]
-            gr_tugun.matn = grammar_matn
-            gr_tugun.save(update_fields=["matn"])
-            natija["grammar_reference"] = True
+        if vocabulary_matn:
+            if not isinstance(vocabulary_matn, str):
+                return Response({"detail": "'vocabulary_matn' matn bo'lishi kerak"}, status=400)
+            vocab_tugun = bolalar["Vocabulary"]
+            vocab_tugun.matn = vocabulary_matn
+            vocab_tugun.save(update_fields=["matn"])
+            natija["vocabulary_matn_qoshildi"] = True
 
         if wordlist:
             if not isinstance(wordlist, list):
                 return Response({"detail": "'wordlist' massiv bo'lishi kerak"}, status=400)
-            wl_tugun = bolalar["Wordlist"]
-            boshlangich = wl_tugun.sozlar.count()
+            vocab_tugun = bolalar["Vocabulary"]
+            boshlangich = vocab_tugun.sozlar.count()
             yangi_sozlar = []
             for i, s in enumerate(wordlist, start=1):
                 if not s.get("en") or not s.get("uz"):
                     return Response({"detail": f"{i}-so'zda 'en'/'uz' to'ldirilmagan"}, status=400)
                 yangi_sozlar.append(
                     KursSoz(
-                        tugun=wl_tugun,
+                        tugun=vocab_tugun,
                         tartib=boshlangich + i,
                         en=s["en"],
                         uz=s["uz"],
@@ -419,6 +456,210 @@ class KursUnitYuklashView(APIView):
             obyekt=unit,
             obyekt_turi="KursTugun",
             obyekt_nomi=unit.nomi,
+            snapshot=natija,
+        )
+        return Response(natija, status=201)
+
+
+class KursZipYuklashView(APIView):
+    """Admin/owner uchun — bitta Unit uchun ZIP yuklab, kontentni Gemini
+    orqali AVTOMATIK generatsiya qilish (2026-07-27, foydalanuvchi talabi).
+
+    ZIP ichida ikkita "papka" (nomi muhim emas — fayl KENGAYTMASIGA qarab
+    aniqlanadi): rasm fayllari (sahifalar, nom bo'yicha "1.jpg", "2.jpg"...
+    tartibda) va audio fayllar (nomi oxirida mashq/track raqami, masalan
+    "..._1.01.mp3"). Har SAHIFA (rasm) alohida Gemini'ga yuboriladi —
+    "sahifa = mashq" qoidasi: bitta sahifadagi barcha savollar BITTA
+    `KursMashq`ga joylanadi.
+
+    IKKI BOSQICHLI ishlaydi (2026-07-27, foydalanuvchi talabi — darslik
+    oxiridagi "Answer key" sahifalari ham rasm papkasida bo'ladi):
+    1) BARCHA sahifalar Gemini'ga yuboriladi, natijalar xotirada yig'iladi
+       (hali bazaga yozilmaydi) — chunki javob kaliti odatda oxirgi
+       sahifalarda, mashq sahifalaridan KEYIN keladi.
+    2) Javob kaliti sahifalaridan (mashq_raqami, band_raqami) -> javob
+       indeksi tuziladi, mashq sahifalarining savollariga QO'LLANILADI
+       (Gemini taxminidan ustun), SO'NGRA bazaga yoziladi.
+
+    Bitta sahifa xato bo'lsa, jarayon TO'XTAMAYDI — yakunda to'liq hisobot
+    qaytariladi."""
+
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request, pk):
+        if not _mashq_admin_mi(request.user):
+            return Response({"detail": "Faqat admin/owner uchun"}, status=403)
+        unit = get_object_or_404(KursTugun, pk=pk)
+        bolalar = {b.nomi: b for b in KursTugun.objects.filter(parent=unit)}
+        kerakli = {"Mashqlar", "Vocabulary"}
+        if not kerakli.issubset(bolalar):
+            return Response(
+                {"detail": "Bu tugunda Mashqlar/Vocabulary bo'limlari topilmadi"},
+                status=400,
+            )
+
+        zip_fayl = request.FILES.get("zip_fayl")
+        if not zip_fayl:
+            return Response({"detail": "zip_fayl majburiy"}, status=400)
+
+        try:
+            arxiv = zipfile.ZipFile(zip_fayl)
+        except zipfile.BadZipFile:
+            return Response({"detail": "Fayl yaroqli ZIP emas"}, status=400)
+
+        rasm_fayllari = []
+        javob_kaliti_fayllari = []
+        audio_fayllari = []
+        for nom in arxiv.namelist():
+            if nom.endswith("/"):
+                continue
+            asos_nom = nom.rsplit("/", 1)[-1]
+            turi = kengaytma_turi(asos_nom)
+            if turi == "rasm":
+                # "answers" (yoki nomida "answer" bo'lgan) papkadagi rasm —
+                # ANIQ javob kaliti sahifasi (2026-07-27, foydalanuvchi
+                # talabi — papka nomidan ma'lum, Gemini'ga klassifikatsiya
+                # qildirish shart emas, xato xavfini kamaytiradi).
+                if "answer" in nom.lower():
+                    javob_kaliti_fayllari.append(nom)
+                else:
+                    rasm_fayllari.append(nom)
+            elif turi == "audio":
+                audio_fayllari.append(nom)
+        rasm_fayllari.sort(key=lambda n: tabiiy_tartib_kaliti(n.rsplit("/", 1)[-1]))
+        javob_kaliti_fayllari.sort(key=lambda n: tabiiy_tartib_kaliti(n.rsplit("/", 1)[-1]))
+
+        if not rasm_fayllari:
+            return Response({"detail": "ZIP ichida rasm fayli topilmadi"}, status=400)
+
+        try:
+            provider = gemini_provider_olish()
+        except ProviderXatosi as e:
+            return Response({"detail": str(e)}, status=400)
+
+        mashq_tugun = bolalar["Mashqlar"]
+        vocab_tugun = bolalar["Vocabulary"]
+
+        # === 1-BOSQICH: barcha sahifani tahlil qilish (hali bazaga yozmasdan) ===
+        xato_sahifalar = []
+        sahifa_natijalari = []  # (nom, rasm_bytes, natija)
+        for i, nom in enumerate(rasm_fayllari, start=1):
+            rasm_bytes = arxiv.read(nom)
+            _, ext = nom.rsplit(".", 1)
+            rasm_mime = f"image/{'jpeg' if ext.lower() in ('jpg', 'jpeg') else ext.lower()}"
+
+            natija, xato = sahifani_tahlil_qil(provider, rasm_bytes, rasm_mime)
+            if xato:
+                xato_sahifalar.append({"sahifa": i, "fayl": nom, "xato": xato})
+                continue
+            sahifa_natijalari.append((nom, rasm_bytes, natija))
+
+        for i, nom in enumerate(javob_kaliti_fayllari, start=1):
+            rasm_bytes = arxiv.read(nom)
+            _, ext = nom.rsplit(".", 1)
+            rasm_mime = f"image/{'jpeg' if ext.lower() in ('jpg', 'jpeg') else ext.lower()}"
+
+            natija, xato = javob_kaliti_sahifasini_tahlil_qil(provider, rasm_bytes, rasm_mime)
+            if xato:
+                xato_sahifalar.append({"sahifa": f"javob kaliti #{i}", "fayl": nom, "xato": xato})
+                continue
+            sahifa_natijalari.append((nom, rasm_bytes, natija))
+
+        # === 2-BOSQICH: javob kaliti indeksi + bazaga yozish ===
+        javob_kaliti_indeksi = javob_kaliti_indeksla([n for _, _, n in sahifa_natijalari])
+
+        mashqlar_boshlangich = mashq_tugun.mashqlar.count()
+        sozlar_boshlangich = vocab_tugun.sozlar.count()
+
+        grammar_matnlari = []
+        yangi_sozlar = []
+        yaratilgan_mashqlar = []  # (KursMashq, audio_raqamlar) — audio moslashtirish uchun
+
+        for nom, rasm_bytes, natija in sahifa_natijalari:
+            asos_nom = nom.rsplit("/", 1)[-1]
+            if natija["turi"] == "mashq":
+                savollar = savollarga_javob_kaliti_qoll(natija["savollar"], javob_kaliti_indeksi)
+                mashq = KursMashq.objects.create(
+                    tugun=mashq_tugun,
+                    tartib=mashqlar_boshlangich + len(yaratilgan_mashqlar) + 1,
+                    matn=natija.get("matn", ""),
+                    savollar=savollar,
+                )
+                mashq.rasm.save(asos_nom, ContentFile(rasm_bytes), save=True)
+                yaratilgan_mashqlar.append((mashq, natija.get("audio_raqamlar") or []))
+            elif natija["turi"] == "vocabulary":
+                if natija.get("grammar_matn"):
+                    grammar_matnlari.append(natija["grammar_matn"])
+                for s in natija.get("wordlist", []):
+                    if not s.get("en") or not s.get("uz"):
+                        continue
+                    yangi_sozlar.append(
+                        KursSoz(
+                            tugun=vocab_tugun,
+                            tartib=sozlar_boshlangich + len(yangi_sozlar) + 1,
+                            en=s["en"],
+                            uz=s["uz"],
+                            turkum=s.get("turkum", ""),
+                            misol=s.get("misol", ""),
+                        )
+                    )
+            # "javob_kaliti" turi — bazaga alohida yozilmaydi, faqat yuqorida
+            # savollarga qo'llanildi.
+
+        if grammar_matnlari:
+            vocab_tugun.matn = "\n\n".join(grammar_matnlari)
+            vocab_tugun.save(update_fields=["matn"])
+        if yangi_sozlar:
+            KursSoz.objects.bulk_create(yangi_sozlar)
+
+        # Audio fayllarni raqami bo'yicha mos mashq(lar)ga biriktirish —
+        # bitta mashqda BIR NECHTA audio bo'lishi mumkin (2026-07-27,
+        # foydalanuvchi talabi — "hammasi turishi kerak, keraklisini play
+        # bosib ishlayveradi").
+        audio_indeks = {}
+        for nom in audio_fayllari:
+            asos_nom = nom.rsplit("/", 1)[-1]
+            raqam = audio_raqamini_ajrat(asos_nom)
+            if raqam:
+                audio_indeks.setdefault(raqam, []).append(nom)
+
+        moslangan_audio_soni = 0
+        ishlatilgan_audio = set()
+        for mashq, audio_raqamlar in yaratilgan_mashqlar:
+            for tartib, raqam in enumerate(audio_raqamlar, start=1):
+                if raqam not in audio_indeks:
+                    continue
+                audio_nomi = audio_indeks[raqam][0]
+                audio_bytes = arxiv.read(audio_nomi)
+                asos_nom = audio_nomi.rsplit("/", 1)[-1]
+                audio_yozuvi = KursMashqAudio(mashq=mashq, raqam=raqam, tartib=tartib)
+                audio_yozuvi.audio.save(asos_nom, ContentFile(audio_bytes), save=True)
+                ishlatilgan_audio.add(audio_nomi)
+                moslangan_audio_soni += 1
+
+        moslanmagan_audio = [
+            nom.rsplit("/", 1)[-1] for nom in audio_fayllari if nom not in ishlatilgan_audio
+        ]
+
+        natija = {
+            "jami_sahifa": len(rasm_fayllari) + len(javob_kaliti_fayllari),
+            "muvaffaqiyatli_sahifalar": len(sahifa_natijalari),
+            "xato_sahifalar": xato_sahifalar,
+            "yaratilgan_mashqlar": len(yaratilgan_mashqlar),
+            "wordlist_soni": len(yangi_sozlar),
+            "vocabulary_matn_qoshildi": len(grammar_matnlari) > 0,
+            "javob_kaliti_qollanganlar_soni": len(javob_kaliti_indeksi),
+            "moslangan_audio_soni": moslangan_audio_soni,
+            "moslanmagan_audio": moslanmagan_audio,
+        }
+
+        logla(
+            foydalanuvchi=request.user,
+            harakat=FaoliyatYozuvi.Harakat.YARATISH,
+            obyekt=unit,
+            obyekt_turi="KursTugun",
+            obyekt_nomi=f"{unit.nomi} (ZIP orqali)",
             snapshot=natija,
         )
         return Response(natija, status=201)
@@ -530,6 +771,25 @@ class KursMashqAudioView(APIView):
         if not mashq.audio:
             raise Http404
         javob = FileResponse(mashq.audio.open("rb"))
+        javob["Content-Disposition"] = "inline"
+        return javob
+
+
+class KursMashqAudioKopView(APIView):
+    """Bitta mashqning KO'P audiosidan (2026-07-27) BITTASI — autentifikatsiyalangan
+    stream, xuddi `KursMashqAudioView` bilan bir xil qoida (B3.2)."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        from django.http import FileResponse, Http404
+
+        if not _kurslar_korinadimi(request.user):
+            return Response({"detail": "Ruxsat yo'q"}, status=403)
+        audio_yozuvi = get_object_or_404(KursMashqAudio, pk=pk)
+        if _talaba_tugun_qulflanganmi(request.user, audio_yozuvi.mashq.tugun):
+            return Response({"detail": "Bu qism hali qulflangan"}, status=403)
+        javob = FileResponse(audio_yozuvi.audio.open("rb"))
         javob["Content-Disposition"] = "inline"
         return javob
 

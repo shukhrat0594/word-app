@@ -45,11 +45,13 @@ Natijani shu JSON massiv ko'rinishida qaytar, boshqa hech narsa yozma. Quyida ma
 
 [BU YERGA MASHQ MATNINI JOYLASHTIRING YOKI SKRINSHOTNI ILOVA QILING]`;
 
-// 2026-07-27: Beginner Unit'lari uchun BITTA promt — mashqlar, Grammar
-// reference va Wordlist BIR YO'LA generatsiya qilinadi, chunki yuklash
-// ham Unit darajasida BITTA tugma bilan bo'ladi (foydalanuvchi talabi —
-// avval har bo'lim alohida JSON+tugmaga ega edi).
-const AI_PROMT_UNIT = `Men senga o'quv darsligi (masalan Headway) darsligidan BITTA Unit materialini beraman — mashqlar (skrinshot va/yoki matn), Grammar reference (grammatika xulosasi) va Wordlist (so'zlar ro'yxati) sahifalari, alohida-alohida yoki birga bo'lishi mumkin. Sen shu materialni quyidagi JSON formatiga o'girib ber — natija FAQAT valid JSON OBYEKT bo'lsin (jingalak qavs bilan boshlanib tugasin), hech qanday izoh, sarlavha yoki markdown belgisi (masalan \`\`\`json) qo'shma, faqat sof JSON matni qaytar.
+// 2026-07-27 (2-marta): Beginner Unit'lari uchun BITTA promt — mashqlar va
+// Vocabulary (Grammar reference + Wordlist BIR sahifada, birlashtirilgan)
+// BIR YO'LA generatsiya qilinadi, chunki yuklash ham Unit darajasida
+// BITTA tugma bilan bo'ladi (foydalanuvchi talabi). ESKAT: eng qulay yo'l
+// — "ZIP orqali yuklash" (pastda, avtomatik, Answer key'ni ham hisobga
+// oladi) — bu qo'lda-JSON promti FAQAT zaxira/qo'shimcha kiritish uchun.
+const AI_PROMT_UNIT = `Men senga o'quv darsligi (masalan Headway) darsligidan BITTA Unit materialini beraman — mashqlar (skrinshot va/yoki matn) va Vocabulary (Grammar reference + Wordlist, darslikda BIR sahifada birga keladi) sahifalari, alohida-alohida yoki birga bo'lishi mumkin. Sen shu materialni quyidagi JSON formatiga o'girib ber — natija FAQAT valid JSON OBYEKT bo'lsin (jingalak qavs bilan boshlanib tugasin), hech qanday izoh, sarlavha yoki markdown belgisi (masalan \`\`\`json) qo'shma, faqat sof JSON matni qaytar.
 
 Format:
 {
@@ -61,12 +63,12 @@ Format:
           "savol": "Savol yoki band nomi",
           "variantlar": ["variant1", "variant2"] (ixtiyoriy — ochiq javobli bo'lsa bo'sh massiv []),
           "togri": "To'g'ri javob (yoki bir nechta qabul qilinadigan javob bo'lsa massiv, masalan [\\"3\\", \\"three\\"])",
-          "pozitsiya": {"x": 0-100, "y": 0-100} (ixtiyoriy — FAQAT sizga rasm (skrinshot) ilova qilingan bo'lsa va shu savolning bo'sh joyi/raqami rasmda aniq ko'rinib tursa qo'sh: rasmning chap-yuqori burchagidan boshlab, bo'sh joy markazining rasm eniga nisbatan foizini "x", bo'yiga nisbatan foizini "y" qilib yoz. Rasm berilmagan yoki savol oddiy matn ro'yxati bo'lsa — bu maydonni umuman yozma)
+          "pozitsiya": {"x": 0-100, "y": 0-100} (ixtiyoriy — FAQAT sizga rasm (skrinshot) ilova qilingan bo'lsa va shu savolning bo'sh joyi/raqami rasmda aniq ko'rinib tursa qo'sh: rasmning chap-yuqori burchagidan boshlab, bo'sh joy markazining rasm eniga nisbatan foizini "x", bo'yiga nisbatan foizini "y" qilib yoz — piksel EMAS, foiz. Rasm berilmagan yoki savol oddiy matn ro'yxati bo'lsa — bu maydonni umuman yozma)
         }
       ]
     }
   ],
-  "grammar_reference": "Ushbu Unit'da o'rgatiladigan grammatika mavzusining qisqa, tushunarli xulosasi (bir necha jumla, kerak bo'lsa 1-2 misol bilan)",
+  "vocabulary_matn": "Ushbu Unit'da o'rgatiladigan grammatika mavzusining qisqa, tushunarli xulosasi (bir necha jumla, kerak bo'lsa 1-2 misol bilan)",
   "wordlist": [
     {"en": "so'z", "uz": "tarjimasi", "turkum": "so'z turkumi (ixtiyoriy, masalan 'ot', 'fe'l')", "misol": "ingliz tilida namuna gap (ixtiyoriy)"}
   ]
@@ -74,9 +76,9 @@ Format:
 
 Qoidalar:
 - "mashqlar": agar sizga rasm (skrinshot) berilgan bo'lsa va mashqda bir nechta bo'sh joy/raqamlangan band rasmning turli nuqtalarida bo'lsa — HAR BIRIGA "pozitsiya" qo'shing. Oddiy savol-javob ro'yxati bo'lsa (rasmga bog'liq bo'lmagan) — "pozitsiya"ni umuman yozmang.
-- "grammar_reference": agar sizga Unit oxiridagi grammatika xulosa beti berilgan bo'lsa, uni qisqa va tushunarli qilib qayta yozing (so'zma-so'z ko'chirish shart emas, mazmunini saqlab qisqartiring). Berilmagan bo'lsa, shu Unit'da o'rgatilayotgan asosiy grammatik qoidani o'zingiz bir necha jumlada tushuntiring.
+- "vocabulary_matn": agar sizga Unit oxiridagi grammatika xulosa beti berilgan bo'lsa, uni qisqa va tushunarli qilib qayta yozing (so'zma-so'z ko'chirish shart emas, mazmunini saqlab qisqartiring). Berilmagan bo'lsa, shu Unit'da o'rgatilayotgan asosiy grammatik qoidani o'zingiz bir necha jumlada tushuntiring.
 - "wordlist": sizga berilgan materialda Unit oxiridagi so'zlar ro'yxati (Word list) bo'lsa, HAMMASINI shu ko'rinishda kiriting, bittasini ham tashlab ketmang.
-- Agar sizga faqat BITTA qismga oid material berilgan bo'lsa (masalan faqat mashqlar, Grammar reference/Wordlist YO'Q) — natijada FAQAT shu maydonni yozing, boshqa ikkisini JSON'ga umuman qo'shmang (bo'sh massiv/matn ham yozmang, maydonning o'zini tashlab ketasiz)
+- Agar sizga faqat BITTA qismga oid material berilgan bo'lsa (masalan faqat mashqlar, Vocabulary/Wordlist YO'Q) — natijada FAQAT shu maydonni yozing, boshqalarini JSON'ga umuman qo'shmang (bo'sh massiv/matn ham yozmang, maydonning o'zini tashlab ketasiz)
 - "rasm" va "audio" maydonlarini HECH QACHON JSON'ga qo'shmang — ular saytda alohida (fayl sifatida, mashq yaratilgandan keyin) biriktiriladi, siz (AI) haqiqiy fayl yarata olmaysiz
 
 Natijani shu JSON obyekt ko'rinishida qaytar, boshqa hech narsa yozma. Quyida Unit materiali (matn va/yoki tasvirlangan rasmlar):
@@ -125,6 +127,7 @@ function TalabaMashqi({ mashq, raqam }) {
   const [natija, setNatija] = useState(null);
   const [rasmUrl, setRasmUrl] = useState(null);
   const [audioUrl, setAudioUrl] = useState(null);
+  const [audioUrllar, setAudioUrllar] = useState([]);
   const [yuklanmoqda, setYuklanmoqda] = useState(false);
   const [xato, setXato] = useState("");
 
@@ -139,6 +142,17 @@ function TalabaMashqi({ mashq, raqam }) {
       apiBlobUrl(mashq.audio_url).then(setAudioUrl).catch(() => {});
     }
   }, [mashq.audio_url]);
+
+  // Bitta mashqqa BIR NECHTA audio biriktirilgan bo'lishi mumkin
+  // (2026-07-27, foydalanuvchi talabi — bitta sahifada bir nechta
+  // Listening bandi bo'lsa, hammasi yon panelda ro'yxat, talaba
+  // keraklisini play qiladi).
+  useEffect(() => {
+    if (!mashq.audiolar || mashq.audiolar.length === 0) return;
+    Promise.all(mashq.audiolar.map((a) => apiBlobUrl(a.url).then((url) => ({ ...a, url }))))
+      .then(setAudioUrllar)
+      .catch(() => {});
+  }, [mashq.audiolar]);
 
   function javobniQoy(idx, qiymat) {
     setJavoblar((j) => j.map((x, i) => (i === idx ? qiymat : x)));
@@ -196,6 +210,17 @@ function TalabaMashqi({ mashq, raqam }) {
         rasmUrl && <img src={rasmUrl} alt="" style={{ maxWidth: "100%", marginBottom: 8 }} />
       )}
       {audioUrl && <audio controls src={audioUrl} style={{ width: "100%", marginBottom: 8 }} />}
+      {audioUrllar.length > 0 && (
+        <div style={{ display: "grid", gap: 6, marginBottom: 8, padding: 8, background: "var(--sirt-2)", borderRadius: 6 }}>
+          <span className="izoh">{t("kurs_audiolar_royxati")}</span>
+          {audioUrllar.map((a) => (
+            <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              {a.raqam && <span className="izoh" style={{ minWidth: 44 }}>{a.raqam}</span>}
+              <audio controls src={a.url} style={{ width: "100%" }} />
+            </div>
+          ))}
+        </div>
+      )}
       {oddiySavollar.map(([s, i]) => (
         <div key={i} style={{ marginBottom: 6 }}>
           <div className="izoh">{s.savol}</div>
@@ -339,6 +364,7 @@ function AdminMashqBoshqaruv({ tugunId, jsonKiritishKorinadi = true }) {
                 #{m.tartib} — {m.matn ? m.matn.slice(0, 40) : ""} ({m.savollar.length} {t("kurs_savol")})
                 {m.rasm_url ? " 🖼️" : ""}
                 {m.audio_url ? " 🔊" : ""}
+                {m.audiolar?.length ? ` 🔊×${m.audiolar.length}` : ""}
               </span>
               <input type="file" accept="image/*" onChange={(e) => rasmYukla(m.id, e)} style={{ maxWidth: 140 }} />
               <button className="tugma ikkinchi" style={{ color: "#d33" }} onClick={() => ochir(m.id)}>
@@ -429,24 +455,59 @@ function MashqPaneli({ tugunId, talabaMi, jsonKiritishKorinadi = true }) {
   );
 }
 
-/** "Grammar reference" bo'limi ko'rinishi (2026-07-27) — bu mashq emas,
- * Unit bo'yicha qisqa grammatika xulosasi (sof matn). */
-function GrammarReferenceKorinishi({ matn }) {
+/** So'zlarni tarjima kiritib mashq qilish (2026-07-27, foydalanuvchi
+ * talabi — "kitobdagidek" so'z ro'parasida javob yozadigan joy bo'lsin).
+ * Tekshirish MIJOZ tomonida (backend so'rovi shart emas) — chunki `uz`
+ * tarjimasi allaqachon `/sozlar/` javobida keladi (o'yinlar ham xuddi
+ * shu ma'lumotdan foydalanadi), shuning uchun bu yerda yashirishning
+ * ma'nosi yo'q. */
+function SozlarniYozishMashqi({ sozlar }) {
   const { t } = useI18n();
-  if (!matn) return <div className="izoh">{t("kurs_grammar_reference_yoq")}</div>;
+  const [javoblar, setJavoblar] = useState(() => sozlar.map(() => ""));
+  const [tekshirilganmi, setTekshirilganmi] = useState(false);
+
+  function javobniQoy(i, qiymat) {
+    setJavoblar((j) => j.map((x, idx) => (idx === i ? qiymat : x)));
+  }
+
+  function togriMi(i) {
+    return javoblar[i].trim().toLowerCase() === sozlar[i].uz.trim().toLowerCase();
+  }
+
   return (
-    <div className="mashq-passage" style={{ whiteSpace: "pre-wrap" }}>
-      {matn}
+    <div style={{ display: "grid", gap: 6, marginBottom: 14, maxWidth: 420 }}>
+      {sozlar.map((s, i) => (
+        <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontWeight: 600, minWidth: 100 }}>{s.en}</span>
+          <input
+            {...IMLO_OFF}
+            value={javoblar[i]}
+            disabled={tekshirilganmi}
+            onChange={(e) => javobniQoy(i, e.target.value)}
+            style={{ flex: 1 }}
+          />
+          {tekshirilganmi && (
+            <span style={togriMi(i) ? { color: "var(--yaxshi)" } : { color: "var(--xato)" }}>
+              {togriMi(i) ? "✓" : `✗ ${s.uz}`}
+            </span>
+          )}
+        </div>
+      ))}
+      <button className="tugma ikkinchi" onClick={() => setTekshirilganmi(true)} disabled={tekshirilganmi}>
+        {t("tekshirish")}
+      </button>
     </div>
   );
 }
 
-/** "Wordlist" bo'limi ko'rinishi (2026-07-27) — bu mashq emas, Unit'ga
- * tegishli so'zlar ro'yxati + O'yinlar bo'limidagi 4 ta so'z o'yini,
- * lekin FAQAT shu ro'yxatdagi so'zlar bilan (foydalanuvchi talabi).
- * Grammatika testi bu yerga kirmaydi — u gap-asosidagi savollarga
- * ishlaydi, so'z juftlariga bog'liq emas. */
-function WordlistKorinishi({ tugunId }) {
+/** "Vocabulary" bo'limi ko'rinishi (2026-07-27, ikkinchi marta qayta
+ * ishlab chiqildi) — Grammar reference + Wordlist BIRLASHTIRILGAN
+ * (darslikda BIR sahifada birga keladi): grammatika qisqa xulosasi
+ * (bo'lsa) + so'zlarni tarjima yozib mashq qilish + O'yinlar bo'limidagi
+ * 4 ta so'z o'yini, FAQAT shu Unit so'zlari bilan. Grammatika testi bu
+ * yerga kirmaydi — u gap-asosidagi savollarga ishlaydi, so'z juftlariga
+ * bog'liq emas. */
+function VocabularyKorinishi({ tugunId, matn }) {
   const { t } = useI18n();
   const [sozlar, setSozlar] = useState(null);
   const [oyin, setOyin] = useState(null);
@@ -457,7 +518,6 @@ function WordlistKorinishi({ tugunId }) {
   }, [tugunId]);
 
   if (!sozlar) return <div className="izoh">{t("yuklanmoqda")}</div>;
-  if (sozlar.length === 0) return <div className="izoh">{t("kurs_wordlist_yoq")}</div>;
 
   if (oyin) {
     // `key={oyinKey}` — "qayta o'ynash" bosilganda komponent qayta
@@ -485,54 +545,53 @@ function WordlistKorinishi({ tugunId }) {
 
   return (
     <div>
-      <div style={{ display: "grid", gap: 4, marginBottom: 14, maxWidth: 420 }}>
-        {sozlar.map((s) => (
-          <div
-            key={s.id}
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              borderBottom: "1px solid var(--chiziq)",
-              padding: "4px 0",
-            }}
-          >
-            <span style={{ fontWeight: 600 }}>{s.en}</span>
-            <span className="izoh">{s.uz}</span>
+      {matn && (
+        <div className="mashq-passage" style={{ whiteSpace: "pre-wrap", marginBottom: 12 }}>
+          {matn}
+        </div>
+      )}
+      {sozlar.length === 0 ? (
+        <div className="izoh">{t("kurs_wordlist_yoq")}</div>
+      ) : (
+        <>
+          <SozlarniYozishMashqi sozlar={sozlar} />
+          <div className="tanlov-royxat">
+            <button className="tanlov-tugma" onClick={() => setOyin("juftini_top")}>
+              {t("juftini_top")}
+            </button>
+            <button className="tanlov-tugma" onClick={() => setOyin("flashcard")}>
+              {t("flashcard_oyin")}
+            </button>
+            <button className="tanlov-tugma" onClick={() => setOyin("speed_quiz")}>
+              {t("speed_quiz_oyin")}
+            </button>
+            <button className="tanlov-tugma" onClick={() => setOyin("unscramble")}>
+              {t("unscramble_oyin")}
+            </button>
           </div>
-        ))}
-      </div>
-      <div className="tanlov-royxat">
-        <button className="tanlov-tugma" onClick={() => setOyin("juftini_top")}>
-          {t("juftini_top")}
-        </button>
-        <button className="tanlov-tugma" onClick={() => setOyin("flashcard")}>
-          {t("flashcard_oyin")}
-        </button>
-        <button className="tanlov-tugma" onClick={() => setOyin("speed_quiz")}>
-          {t("speed_quiz_oyin")}
-        </button>
-        <button className="tanlov-tugma" onClick={() => setOyin("unscramble")}>
-          {t("unscramble_oyin")}
-        </button>
-      </div>
+        </>
+      )}
     </div>
   );
 }
 
-/** Admin/owner uchun — bitta Unit'ning UCHALA bo'limini (Mashqlar,
- * Grammar reference, Wordlist) BITTA harakatda yuklash (2026-07-27,
- * foydalanuvchi talabi — "unit uchun bitta tugma bo'lsin"). */
+/** Admin/owner uchun — bitta Unit'ning IKKALA bo'limini (Mashqlar,
+ * Vocabulary) BITTA harakatda yuklash (2026-07-27, foydalanuvchi talabi —
+ * "unit uchun bitta tugma bo'lsin"). */
 function AdminUnitKiritish({ unitId, royxatniYangila }) {
   const { t } = useI18n();
   const [ochiq, setOchiq] = useState(false);
   const [promtKorinadi, setPromtKorinadi] = useState(false);
   const [nusxalandi, setNusxalandi] = useState(false);
   const [jsonMatn, setJsonMatn] = useState(
-    '{\n  "mashqlar": [],\n  "grammar_reference": "",\n  "wordlist": []\n}'
+    '{\n  "mashqlar": [],\n  "vocabulary_matn": "",\n  "wordlist": []\n}'
   );
   const [xato, setXato] = useState("");
   const [xabar, setXabar] = useState("");
   const [saqlanmoqda, setSaqlanmoqda] = useState(false);
+  const [zipXato, setZipXato] = useState("");
+  const [zipXabar, setZipXabar] = useState("");
+  const [zipYuklanmoqda, setZipYuklanmoqda] = useState(false);
 
   function promtNusxala() {
     navigator.clipboard?.writeText(AI_PROMT_UNIT).then(() => {
@@ -557,13 +616,49 @@ function AdminUnitKiritish({ unitId, royxatniYangila }) {
       const qismlar = [];
       if (res.mashqlar_soni) qismlar.push(`${res.mashqlar_soni} ${t("kurs_natija_mashq")}`);
       if (res.wordlist_soni) qismlar.push(`${res.wordlist_soni} ${t("kurs_natija_soz")}`);
-      if (res.grammar_reference) qismlar.push(t("kurs_natija_grammar"));
+      if (res.vocabulary_matn_qoshildi) qismlar.push(t("kurs_natija_grammar"));
       setXabar(qismlar.join(", "));
       royxatniYangila();
     } catch (e) {
       setXato(e.data?.detail || t("xato_yuz_berdi"));
     } finally {
       setSaqlanmoqda(false);
+    }
+  }
+
+  async function zipYukla(e) {
+    const fayl = e.target.files[0];
+    e.target.value = "";
+    if (!fayl) return;
+    setZipXato("");
+    setZipXabar("");
+    setZipYuklanmoqda(true);
+    try {
+      const fd = new FormData();
+      fd.append("zip_fayl", fayl);
+      const res = await apiForm(`/api/kurslar/${unitId}/zip-yuklash/`, { method: "POST", formData: fd });
+      const qismlar = [
+        `${res.muvaffaqiyatli_sahifalar}/${res.jami_sahifa} ${t("kurs_zip_sahifa")}`,
+        `${res.yaratilgan_mashqlar} ${t("kurs_natija_mashq")}`,
+      ];
+      if (res.wordlist_soni) qismlar.push(`${res.wordlist_soni} ${t("kurs_natija_soz")}`);
+      if (res.vocabulary_matn_qoshildi) qismlar.push(t("kurs_natija_grammar"));
+      if (res.moslangan_audio_soni) qismlar.push(`${res.moslangan_audio_soni} ${t("kurs_zip_audio")}`);
+      let xabarMatni = qismlar.join(", ");
+      if (res.xato_sahifalar?.length) {
+        xabarMatni += ` — ⚠ ${res.xato_sahifalar.length} ${t("kurs_zip_xato_sahifa")}: ${res.xato_sahifalar
+          .map((x) => `#${x.sahifa}`)
+          .join(", ")}`;
+      }
+      if (res.moslanmagan_audio?.length) {
+        xabarMatni += ` — ⚠ ${t("kurs_zip_moslanmagan_audio")}: ${res.moslanmagan_audio.join(", ")}`;
+      }
+      setZipXabar(xabarMatni);
+      royxatniYangila();
+    } catch (e2) {
+      setZipXato(e2.data?.detail || t("xato_yuz_berdi"));
+    } finally {
+      setZipYuklanmoqda(false);
     }
   }
 
@@ -574,6 +669,15 @@ function AdminUnitKiritish({ unitId, royxatniYangila }) {
       </button>
       {ochiq && (
         <div style={{ marginTop: 8, maxWidth: 640 }}>
+          <div style={{ marginBottom: 10, paddingBottom: 10, borderBottom: "1px solid var(--chiziq)" }}>
+            <label className="izoh" style={{ display: "block", marginBottom: 4 }}>
+              {t("kurs_zip_yuklash_izoh")}
+            </label>
+            <input type="file" accept=".zip" onChange={zipYukla} disabled={zipYuklanmoqda} />
+            {zipYuklanmoqda && <span className="izoh" style={{ marginLeft: 8 }}>{t("kurs_zip_ishlanmoqda")}</span>}
+            {zipXato && <div className="xato-xabar" style={{ marginTop: 4 }}>{zipXato}</div>}
+            {zipXabar && <div className="izoh" style={{ marginTop: 4 }}>✓ {zipXabar}</div>}
+          </div>
           <button className="tugma ikkinchi" onClick={() => setPromtKorinadi((v) => !v)}>
             {promtKorinadi ? t("mashq_promt_yashirish") : t("mashq_promt_korsatish")}
           </button>
@@ -615,11 +719,16 @@ function AdminUnitKiritish({ unitId, royxatniYangila }) {
  *
  * `ichkariUnitMi` (2026-07-27) — shu tugunning BEVOSITA ota-tuguni Unit
  * (`unit_darsi=True`) bo'lsa true. Shu bo'lsa, nomi bo'yicha ("Mashqlar" /
- * "Grammar reference" / "Wordlist") maxsus ko'rinish tanlanadi — boshqa
- * (flat) bo'limlar avvalgidek fayl+mashq ko'rinishida qoladi. */
-function Tugun({ tugun, chuqurlik, adminMi, talabaMi, royxatniYangila, ichkariUnitMi }) {
+ * "Vocabulary") maxsus ko'rinish tanlanadi — boshqa (flat) bo'limlar
+ * avvalgidek fayl+mashq ko'rinishida qoladi. */
+function Tugun({ tugun, chuqurlik, adminMi, talabaMi, royxatniYangila, ichkariUnitMi, ochiqmi, onOchish }) {
   const { t } = useI18n();
-  const [ochiq, setOchiq] = useState(chuqurlik === 0);
+  // Akkordeon (2026-07-27, foydalanuvchi talabi — "qolgan qismlar
+  // halaqit qilyabdi") — shu tugunning FARZANDLARI orasida bir vaqtda
+  // faqat BITTASI ochiq turadi: ID saqlanadi (`ochiqBolaId`), farzandning
+  // o'zi ochiqligi esa OTA orqali (`ochiqmi`/`onOchish`) boshqariladi —
+  // shu tugunning o'zi qanday ochilgani esa YUQORIDAGI ota tomonidan.
+  const [ochiqBolaId, setOchiqBolaId] = useState(null);
   const [mashqOchiq, setMashqOchiq] = useState(false);
   const [faylXato, setFaylXato] = useState("");
   const [yuklanmoqda, setYuklanmoqda] = useState(false);
@@ -655,25 +764,8 @@ function Tugun({ tugun, chuqurlik, adminMi, talabaMi, royxatniYangila, ichkariUn
   }
 
   if (tugun.oxirgi_qatlammi) {
-    // ==== Beginner Unit'iga xos 3 bo'lim — maxsus ko'rinish ====
-    if (unitBolimi === "Grammar reference") {
-      return (
-        <div
-          className="kurs-qator kurs-qator-oxirgi"
-          style={{ paddingLeft: otstup, display: "block" }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-            <span>{tugun.ikonka}</span>
-            <span style={{ fontWeight: 600 }}>{tugun.nomi}</span>
-          </div>
-          <div style={{ paddingLeft: 0 }}>
-            <GrammarReferenceKorinishi matn={tugun.matn} />
-          </div>
-        </div>
-      );
-    }
-
-    if (unitBolimi === "Wordlist") {
+    // ==== Beginner Unit'iga xos 2 bo'lim — maxsus ko'rinish ====
+    if (unitBolimi === "Vocabulary") {
       return (
         <div
           className="kurs-qator kurs-qator-oxirgi"
@@ -688,7 +780,7 @@ function Tugun({ tugun, chuqurlik, adminMi, talabaMi, royxatniYangila, ichkariUn
                 : `${t("kurs_ochish")}${tugun.sozlar_soni ? ` (${tugun.sozlar_soni} ${t("kurs_soz")})` : ""}`}
             </button>
           </div>
-          {mashqOchiq && <WordlistKorinishi tugunId={tugun.id} />}
+          {mashqOchiq && <VocabularyKorinishi tugunId={tugun.id} matn={tugun.matn} />}
         </div>
       );
     }
@@ -797,9 +889,9 @@ function Tugun({ tugun, chuqurlik, adminMi, talabaMi, royxatniYangila, ichkariUn
       <div
         className="kurs-qator kurs-qator-branch"
         style={{ paddingLeft: otstup, display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}
-        onClick={() => setOchiq((v) => !v)}
+        onClick={onOchish}
       >
-        <span>{ochiq ? "▾" : "▸"}</span>
+        <span>{ochiqmi ? "▾" : "▸"}</span>
         <span>{tugun.ikonka}</span>
         <span style={{ fontWeight: chuqurlik < 2 ? 700 : 500 }}>{tugun.nomi}</span>
       </div>
@@ -812,7 +904,7 @@ function Tugun({ tugun, chuqurlik, adminMi, talabaMi, royxatniYangila, ichkariUn
           <AdminUnitKiritish unitId={tugun.id} royxatniYangila={royxatniYangila} />
         </div>
       )}
-      {ochiq && (
+      {ochiqmi && (
         <div>
           {tugun.children.map((b) => (
             <Tugun
@@ -823,6 +915,8 @@ function Tugun({ tugun, chuqurlik, adminMi, talabaMi, royxatniYangila, ichkariUn
               talabaMi={talabaMi}
               royxatniYangila={royxatniYangila}
               ichkariUnitMi={tugun.unit_darsi}
+              ochiqmi={ochiqBolaId === b.id}
+              onOchish={() => setOchiqBolaId((joriy) => (joriy === b.id ? null : b.id))}
             />
           ))}
         </div>
@@ -844,9 +938,19 @@ export default function Kurslar() {
   const adminMi = profil?.is_owner || profil?.role === "admin";
   const talabaMi = profil?.role === "student";
   const [daraxt, setDaraxt] = useState(null);
+  // Akkordeon (2026-07-27) — ildiz darajasida (Rus tili/Matematika/Ingliz
+  // tili/CEFR) ham bir vaqtda faqat bittasi ochiq turishi uchun; birinchi
+  // yuklashda "tez kunda" bo'lmagan birinchi bo'lim (hozircha — Ingliz
+  // tili) avtomatik ochiq boshlanadi, avvalgi ko'rinishni saqlab qolish
+  // uchun (qayta yuklashda tanlov o'chib qolmasin — `royxatniYangila`
+  // ko'p marta chaqiriladi).
+  const [ochiqIldizId, setOchiqIldizId] = useState(null);
 
   function yukla() {
-    api("/api/kurslar/daraxt/").then(setDaraxt).catch(() => {});
+    api("/api/kurslar/daraxt/").then((d) => {
+      setDaraxt(d);
+      setOchiqIldizId((joriy) => joriy ?? d.children.find((c) => !c.tez_kunda)?.id ?? null);
+    }).catch(() => {});
   }
 
   useEffect(() => {
@@ -867,6 +971,8 @@ export default function Kurslar() {
           talabaMi={talabaMi}
           royxatniYangila={yukla}
           ichkariUnitMi={false}
+          ochiqmi={ochiqIldizId === tugun.id}
+          onOchish={() => setOchiqIldizId((joriy) => (joriy === tugun.id ? null : tugun.id))}
         />
       ))}
     </div>

@@ -10,23 +10,24 @@ ketma-ket ochiladi (`unit_darsi=True`).
 
 2026-07-27: Unit ichidagi bo'limlar QAYTA QURILDI (foydalanuvchi talabi) —
 avvalgi 6 bo'lim (Grammar/Vocabulary/Reading/Listening/Speaking-Writing/
-Everyday English) o'rniga har Unit endi 3 bo'limdan iborat:
-  * "Mashqlar"          — darslikdagi barcha mashqlar shu yerga kiradi
-                           (Reading/Listening/Grammar/Vocabulary va h.k.
-                           endi alohida bo'lim emas, hammasi "Mashqlar"
-                           ichida KursMashq sifatida). Qaysi mashqda
-                           darslikda audio belgisi bo'lsa, shu mashqqa
-                           audio biriktiriladi (har bo'lak alohida, audio
-                           umumiy emas). Rasm ustida javob kiritish
-                           (masalan "nechta narsa bor" turidagi mashqlar)
-                           `savol.pozitsiya` orqali qo'llab-quvvatlanadi
-                           (Kurslar.jsx: TalabaMashqi, IELTS testlaridagi
-                           mexanizm bilan bir xil, model o'zgarishi kerak
-                           emas — `KursMashq.savollar` erkin JSON).
-  * "Grammar reference"  — darslik Unit oxiridagi grammatika xulosa beti
-                            (fayl-only, mashq yo'q).
-  * "Wordlist"            — darslik Unit oxiridagi so'zlar ro'yxati
-                             (fayl-only, mashq yo'q).
+Everyday English) o'rniga har Unit dastlab 3 bo'limga (Mashqlar/Grammar
+reference/Wordlist) o'tkazildi.
+
+2026-07-27 (2-marta, shu kuni): darslikda Grammar reference va Wordlist
+BITTA sahifada birga kelgani aniqlandi — shu sabab ular BIRLASHTIRILDI,
+Unit endi FAQAT 2 bo'lim:
+  * "Mashqlar"    — darslikdagi barcha mashqlar (rasmdan Gemini orqali
+                     yoki qo'lda JSON bilan kiritiladi). Rasm ustida javob
+                     kiritish `savol.pozitsiya` orqali (IELTS testlaridagi
+                     mexanizm bilan bir xil).
+  * "Vocabulary"  — grammatika qisqa xulosasi (`KursTugun.matn`, ixtiyoriy)
+                     + so'zlar ro'yxati (`KursSoz`) BIRGA — talaba tarjimani
+                     o'zi yozadi, "Tekshirish" bilan tasdiqlaydi.
+Eski "Wordlist" nomidagi tugunlar (va ularning KursSoz ma'lumotlari)
+"Vocabulary"ga NOM O'ZGARTIRISH orqali (o'chirib-qayta yaratmasdan)
+ko'chiriladi. Eski "Grammar reference" tugunlari (hali real kontent
+kiritilmagan edi) kaskad o'chiriladi.
+
 Bu faqat Beginner'ning Unit tuzilmasiga tegishli. Boshqa darajalar
 (Elementary...Upper-Intermediate) hali flat va eski bo'lim to'plamida
 qoladi (ular hali bo'sh, real kitob berilmagan).
@@ -47,8 +48,9 @@ INGLIZ_DARAJA_BOLIMLARI = [
     "Speaking/Writing",
     "Everyday English",
 ]
-# Beginner Unit'lari ichidagi bo'lim to'plami (2026-07-27 qayta qurish).
-UNIT_BOLIMLARI = ["Mashqlar", "Grammar reference", "Wordlist"]
+# Beginner Unit'lari ichidagi bo'lim to'plami (2026-07-27, ikkinchi marta
+# qayta qurish — Grammar reference+Wordlist birlashtirilib "Vocabulary" bo'ldi).
+UNIT_BOLIMLARI = ["Mashqlar", "Vocabulary"]
 
 INGLIZ_DARAJALAR = ["Beginner", "Elementary", "Pre-Intermediate", "Intermediate", "Upper-Intermediate"]
 IELTS_TEXTBOOKS_QISMLARI = ["Reading", "Writing", "Listening", "Speaking", "Vocabulary", "Grammar"]
@@ -137,6 +139,10 @@ class Command(BaseCommand):
                 KursTugun.objects.filter(parent=daraja, unit_darsi=False).delete()
                 for j, unit_nomi in enumerate(HEADWAY_BEGINNER_UNITLAR, start=1):
                     unit = bor_yoki_yarat(unit_nomi, parent=daraja, tartib=j, unit_darsi=True)
+                    # Eski "Wordlist"ni "Vocabulary"ga NOM O'ZGARTIRISH
+                    # orqali ko'chirish — KursSoz ma'lumotlari saqlanib
+                    # qoladi (o'chirib-qayta yaratilmaydi).
+                    KursTugun.objects.filter(parent=unit, nomi="Wordlist").update(nomi="Vocabulary")
                     eski_bolimlarni_tozala(unit, UNIT_BOLIMLARI)
                     for k, bolim_nomi in enumerate(UNIT_BOLIMLARI, start=1):
                         bor_yoki_yarat(bolim_nomi, parent=unit, tartib=k)
