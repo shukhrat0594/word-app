@@ -17,27 +17,19 @@ Uch ish qiladi, har biri faqat kerak bo'lsa:
   6. Kunlik bulutdagi agent qo'shgan yangi mashqlarni bazaga kiritadi
      (kunlik_mashqlarni_ishga_tushir — 2026-07-22, /schedule orqali
      sozlangan kunlik avtomatik mashq qo'shish tizimi).
-  7. BIR MARTALIK (2026-07-29(4)): Beginner...Upper-Intermediate (5 ta
-     daraja, IELTS/CEFR'dan tashqari) ostidagi BARCHA mavjud kontentni
-     (Unit, mashq, audio, rasm — nima bo'lsa) o'chiradi — foydalanuvchi
-     tasdiqlagan ("ha bo'sh qaytsin"), admin "Unit soni" mexanizmidan
-     BOSHIDAN foydalanishi uchun.
 
-     OGOHLANTIRISH — BU QADAM KEYINGI COMMIT'DA OLIB TASHLANADI: agar bu
-     shu ko'rinishda (shartsiz o'chirish) doimiy qolib ketsa, HAR
-     DEPLOY'DA admin keyinchalik yaratgan HAQIQIY Unitlarni ham
-     o'chirib yuborardi (aynan shu xato avvalgi versiyada — faqat
-     Beginner uchun — bor edi va TUZATILDI). Shuning uchun bu funksiya
-     faqat BITTA deploy uchun mo'ljallangan, keyin darhol olib
-     tashlanishi SHART.
-"""
+2026-07-29(4): Beginner...Upper-Intermediate darajalarini BIR MARTALIK
+tozalovchi qadam (`_ingliz_darajalarni_tozala`) muvaffaqiyatli ishlab,
+KEYINGI COMMIT'DA OLIB TASHLANDI (o'z vazifasini bajardi — barcha 5
+daraja bo'sh holatga qaytdi, admin "Unit soni" orqali qayta quradi).
+Endi bu qadam qoldirilsa, admin yaratadigan HAQIQIY Unitlarni ham har
+deploy'da o'chirib yuborar edi."""
 
 from decouple import config
 from django.core.management import call_command
 from django.core.management.base import BaseCommand
 
 from accounts.models import Markaz, User
-from courses.models import KursTugun
 from exercises.models import ImtihonTest, Mashq
 from games.models import Soz
 
@@ -93,42 +85,8 @@ class Command(BaseCommand):
             call_command("loaddata", "oyinlar")
             self.stdout.write(f"O'yin kontenti yuklandi: {Soz.objects.count()} so'z")
 
-        self._ingliz_darajalarni_tozala()
-
         call_command("wordapp_import")
         call_command("listening_yangi_mashqlar")
         call_command("writing_speaking_yangi_mashqlar")
         call_command("kurslar_urugla")
         call_command("kunlik_mashqlarni_ishga_tushir")
-
-    def _ingliz_darajalarni_tozala(self):
-        """2026-07-29(4), BITTA DEPLOY UCHUN: Beginner...Upper-Intermediate
-        ostidagi BARCHA mavjud tugunlarni (Unit, mashq, audio, rasm —
-        nima bo'lsa) o'chiradi — `kurslar_urugla`dan OLDIN chaqirilishi
-        SHART, aks holda kurslar_urugla eski Unit'lar hali mavjud deb
-        ularga tegmay qo'yar edi.
-
-        BU FUNKSIYA KEYINGI COMMIT'DA OLIB TASHLANISHI SHART (yuqoridagi
-        modul docstringiga qarang) — shartsiz o'chirish doimiy qolsa,
-        admin keyin yaratgan haqiqiy Unitlarni ham yo'q qilib yuborardi."""
-        daraja_kalitlari = (
-            "beginner", "elementary", "pre_intermediate",
-            "intermediate", "upper_intermediate",
-        )
-        jami = 0
-        for daraja_kalit in daraja_kalitlari:
-            daraja = KursTugun.objects.filter(kalit=daraja_kalit).first()
-            if not daraja:
-                continue
-            bolalar = KursTugun.objects.filter(parent=daraja)
-            soni = bolalar.count()
-            if soni:
-                bolalar.delete()
-                jami += soni
-        if jami:
-            self.stdout.write(
-                self.style.WARNING(
-                    f"Ingliz tili darajalari tozalandi: {jami} ta tugun o'chirildi "
-                    "(Beginner...Upper-Intermediate, admin Unit sonini qaytadan kiritadi)"
-                )
-            )

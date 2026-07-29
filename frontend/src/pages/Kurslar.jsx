@@ -1178,6 +1178,29 @@ function Tugun({ tugun, chuqurlik, adminMi, talabaMi, royxatniYangila, ichkariUn
     );
   }
 
+  // 2026-07-29(5): HAQIQIY BUG TOPILDI — Unit hali yaratilmagan
+  // Beginner...Upper-Intermediate darajasi backend'dan FARZANDSIZ
+  // qaytadi (`oxirgi_qatlammi=true`, chunki `children.length===0`),
+  // shuning uchun pastdagi umumiy "oxirgi qatlam" yo'li orqali oddiy
+  // fayl+mashq ko'rinishi chiqib qolardi — "Unit soni" input/tugma esa
+  // FAQAT quyidagi (farzandli/branch) return blokida edi, u yerga hech
+  // qachon yetib bormasdi. Shu holatni ALOHIDA, oxirgi-qatlam
+  // tekshiruvidan OLDIN ushlaymiz.
+  if (tugun.oxirgi_qatlammi && UNIT_YARATISH_MUMKIN_DARAJALAR.has(tugun.kalit)) {
+    return (
+      <div
+        className="kurs-qator"
+        style={{ paddingLeft: otstup, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}
+      >
+        <span>{tugun.ikonka}</span>
+        <span style={{ fontWeight: chuqurlik < 2 ? 700 : 500 }}>{nomi}</span>
+        {adminMi && (
+          <AdminDarajaUnitYaratish darajaId={tugun.id} royxatniYangila={royxatniYangila} />
+        )}
+      </div>
+    );
+  }
+
   if (tugun.oxirgi_qatlammi) {
     // ==== Beginner Unit'iga xos 2 bo'lim — maxsus ko'rinish ====
     if (unitBolimi === "vocabulary") {
