@@ -152,7 +152,19 @@ export default function Layout() {
           )}
           <div className="logo-nom">
             {markazNomi}
-            <small>{profil?.ism || t("platforma")}</small>
+            <small>
+              {profil?.ism || t("platforma")}
+              {/* 2026-07-29 talabi: foydalanuvchi qaysi rol nazari bilan
+                  ko'rayotganini aniqlash uchun — ayniqsa owner "Ko'rish
+                  rejimi"da bo'lganda, ekranda qaysi profilni sinab
+                  ko'rayotganini unutmasligi uchun. */}
+              {profil && (
+                <span className="rol-korsatkich">
+                  {" "}
+                  ({profil.is_owner ? t("rol_owner") : t(`rol_${profil.role}`)})
+                </span>
+              )}
+            </small>
           </div>
         </div>
         {navlar.map((n) => (

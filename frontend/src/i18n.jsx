@@ -2,6 +2,8 @@ import { createContext, useContext, useState } from "react";
 
 const LUGAT = {
   uz: {
+    korish_rejimi: "Ko'rish rejimi",
+    korish_rejimi_izoh: "Saytni boshqa rol nazari bilan ko'ring — har safar chiqib qayta kirish shart emas.",
     kurs_blok_qayta_urinish: "Uzilib qoldi, qayta urinilmoqda...",
     kurs_blok_rasm: "rasm kesildi",
     kurs_blok_savol: "baholanadigan savol",
@@ -413,6 +415,8 @@ const LUGAT = {
       "Bu promtni nusxalab AI'ga (ChatGPT/Claude/Gemini) haqiqiy Cambridge test matnini/transkriptini bering — tayyor JSON qaytaradi, uni faylga saqlab yuqoridan yuklaysiz.",
   },
   ru: {
+    korish_rejimi: "Режим просмотра",
+    korish_rejimi_izoh: "Просматривайте сайт от имени другой роли — не нужно выходить и заходить заново.",
     kurs_blok_qayta_urinish: "Обрыв, повтор попытки...",
     kurs_blok_rasm: "изобр. вырезано",
     kurs_blok_savol: "оцениваемых вопросов",
@@ -824,6 +828,8 @@ const LUGAT = {
       "Скопируйте этот промт и передайте AI (ChatGPT/Claude/Gemini) реальный текст/транскрипт теста Cambridge — он вернёт готовый JSON, сохраните его в файл и загрузите выше.",
   },
   en: {
+    korish_rejimi: "View mode",
+    korish_rejimi_izoh: "View the site as another role — no need to log out and back in.",
     kurs_blok_qayta_urinish: "Connection lost, retrying...",
     kurs_blok_rasm: "images cropped",
     kurs_blok_savol: "graded questions",

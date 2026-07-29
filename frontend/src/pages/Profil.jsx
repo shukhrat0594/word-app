@@ -3,6 +3,59 @@ import { api } from "../api";
 import { useI18n } from "../i18n";
 import { useProfil } from "../profilContext";
 
+/** Owner uchun — "Ko'rish rejimi" (View As), 2026-07-29 talabi: owner
+ * saytni tekshirayotganda har safar chiqib boshqa test-foydalanuvchidan
+ * qayta kirmasligi uchun. TO'LIQ simulyatsiya — tanlangач butun ilova
+ * (backend ham) owner'ni HAQIQATAN shu rol deb ko'radi (tafsilot:
+ * accounts/authentication.py).
+ *
+ * Tanlovdan keyin BUTUN SAHIFA qayta yuklanadi (`location.reload()`) —
+ * faqat profilni qayta so'rash yetarli emas, chunki ko'p sahifa (Kurslar
+ * daraxti, foydalanuvchilar ro'yxati va h.k.) ma'lumotni faqat BIRINCHI
+ * ochilishda o'qiydi; to'liq yangilash eng ishonchli yo'l. */
+function KorishRejimiPaneli({ profil, t }) {
+  const [band, setBand] = useState(false);
+  const [xato, setXato] = useState("");
+
+  const REJIMLAR = ["owner", "admin", "student", "oddiy"];
+
+  async function tanla(rejim) {
+    if (rejim === profil.korish_rejimi || band) return;
+    setXato("");
+    setBand(true);
+    try {
+      await api("/api/profil/korish-rejimi/", {
+        method: "POST",
+        body: { korish_rejimi: rejim },
+      });
+      window.location.reload();
+    } catch (e) {
+      setXato(e.data?.detail || t("xato_yuz_berdi"));
+      setBand(false);
+    }
+  }
+
+  return (
+    <div className="karta" style={{ marginTop: 16 }}>
+      <h3>{t("korish_rejimi")}</h3>
+      <p className="izoh" style={{ marginTop: 0 }}>{t("korish_rejimi_izoh")}</p>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        {REJIMLAR.map((r) => (
+          <button
+            key={r}
+            className={"tugma" + (profil.korish_rejimi === r ? "" : " ikkinchi")}
+            onClick={() => tanla(r)}
+            disabled={band}
+          >
+            {t(`rol_${r}`)}
+          </button>
+        ))}
+      </div>
+      {xato && <div className="xato-xabar" style={{ marginTop: 8 }}>{xato}</div>}
+    </div>
+  );
+}
+
 export default function Profil() {
   const { t } = useI18n();
   const { profil, yangila } = useProfil();
@@ -59,6 +112,11 @@ export default function Profil() {
           )}
         </div>
       </div>
+
+      {/* 2026-07-29: faqat HAQIQIY owner ko'radi (`asl_owner_mi` —
+          simulyatsiyadan mustaqil, aks holda owner "Ko'rish rejimi"ga
+          o'tgach o'zini qaytarib bo'lmay qolardi). */}
+      {profil.asl_owner_mi && <KorishRejimiPaneli profil={profil} t={t} />}
 
       <div className="karta" style={{ marginTop: 16 }}>
         <h3>{t("parolni_ozgartirish")}</h3>

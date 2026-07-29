@@ -107,6 +107,9 @@ textarea {
 }
 .logo-nom { font-weight: 700; font-size: 17px; overflow-wrap: anywhere; }
 .logo-nom small { display: block; font-weight: 400; font-size: 11px; color: #A6A29A; letter-spacing: .8px; text-transform: uppercase; }
+/* 2026-07-29: rol ko'rsatkichi (ism yonidagi qavs) — "Ko'rish rejimi"
+   faol bo'lganda owner qaysi profilni sinayotganini unutmasligi uchun. */
+.rol-korsatkich { color: var(--sariq); font-weight: 600; }
 
 .nav-tugma {
   display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 8px;
