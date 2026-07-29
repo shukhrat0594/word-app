@@ -78,7 +78,29 @@ class User(AbstractUser):
         PARENT = "parent", "Ota-ona"
         ODDIY = "oddiy", "Oddiy foydalanuvchi"
 
+    class KorishRejimi(models.TextChoices):
+        """Faqat OWNER (superuser) uchun (2026-07-29) — profil sahifasida
+        tanlab, saytni boshqa rol nazari bilan ko'rish ("View As"). Owner
+        har safar chiqib, boshqa test-foydalanuvchidan qayta kirmasligi
+        uchun.
+
+        MUHIM: bu TO'LIQ simulyatsiya — `accounts.authentication`dagi
+        maxsus autentifikatsiya klassi shu qiymat "owner"dan farqli bo'lsa,
+        SO'ROV DAVOMIDA `request.user.role`/`is_superuser`ni VAQTINCHALIK
+        (faqat xotirada, bazaga yozilmasdan) shu qiymatga almashtiradi —
+        butun ilova (backend ham, frontend ham) owner'ni HAQIQATAN shu rol
+        deb ko'radi. Batafsil izoh: accounts/authentication.py."""
+
+        OWNER = "owner", "Owner (asl holat)"
+        ADMIN = "admin", "Administrator"
+        STUDENT = "student", "Talaba"
+        ODDIY = "oddiy", "Mehmon (oddiy foydalanuvchi)"
+
     role = models.CharField(max_length=10, choices=Role.choices, default=Role.STUDENT)
+    korish_rejimi = models.CharField(
+        max_length=10, choices=KorishRejimi.choices, default=KorishRejimi.OWNER, blank=True,
+        help_text="Faqat owner uchun — 'Ko'rish rejimi' (View As) joriy tanlovi",
+    )
     markaz = models.ForeignKey(
         Markaz, on_delete=models.SET_NULL, null=True, blank=True, related_name="users"
     )

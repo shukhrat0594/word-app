@@ -11,6 +11,7 @@ yetarli (u progress ham ko'rsatadi).
 """
 
 import pathlib
+import shutil
 import zipfile
 
 from django.conf import settings
@@ -75,8 +76,13 @@ def _jarayon_arxivi(jarayon):
     qayta yuklaydi, ya'ni o'z-o'zini tuzatadi, xato bermaydi."""
     kesh = _jarayon_kesh_yoli(jarayon)
     if not kesh.exists():
-        with jarayon.zip_fayl.open("rb") as manba:
-            kesh.write_bytes(manba.read())
+        # `manba.read()` + `write_bytes()` BUTUN faylni bitta Python
+        # `bytes` ob'ekti sifatida xotirada ushlab turardi (56 MB fayl —
+        # 56 MB qo'shimcha RAM, `S3File`ning o'zi ham xuddi shuncha
+        # ishlatgandan KEYIN). `copyfileobj` kichik bo'laklarda (64 KB)
+        # o'qib-yozadi — xotirada faqat bitta bo'lak turadi.
+        with jarayon.zip_fayl.open("rb") as manba, open(kesh, "wb") as nishon:
+            shutil.copyfileobj(manba, nishon)
     return zipfile.ZipFile(kesh)
 
 

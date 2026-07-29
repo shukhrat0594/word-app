@@ -359,9 +359,12 @@ textarea {
   .oyin-karta.ochiq { font-size: 9.5px; }
 }
 
-.flashcard-sahna { perspective: 1200px; margin: 16px 0; }
+/* "Kartochkalar" o'yini kartasi — 2026-07-29 talabi bo'yicha biroz
+   kichraytirildi (200px -> 150px, matn 32px -> 24px, ichki bo'shliq
+   24px -> 18px) va kengligi cheklandi (avval butun ustunni egallardi). */
+.flashcard-sahna { perspective: 1200px; margin: 16px 0; max-width: 320px; margin-left: auto; margin-right: auto; }
 .flashcard {
-  position: relative; min-height: 200px; cursor: pointer;
+  position: relative; min-height: 150px; cursor: pointer;
   transform-style: preserve-3d; transition: transform .5s;
 }
 .flashcard.aylangan { transform: rotateY(180deg); }
@@ -369,9 +372,9 @@ textarea {
   position: absolute; inset: 0; backface-visibility: hidden;
   border: 1px solid var(--chiziq); border-radius: 14px; background: var(--sirt-2);
   display: flex; flex-direction: column; align-items: center; justify-content: center;
-  padding: 24px; text-align: center;
+  padding: 18px; text-align: center;
 }
-.flashcard-old { font-size: 32px; font-weight: 800; color: var(--matn); }
+.flashcard-old { font-size: 24px; font-weight: 800; color: var(--matn); }
 .flashcard-orqa { transform: rotateY(180deg); }
 
 .variant-togri { background: rgba(46, 158, 91, .15) !important; border-color: var(--yaxshi) !important; color: var(--yaxshi) !important; }

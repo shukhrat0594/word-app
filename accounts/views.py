@@ -16,6 +16,7 @@ from audit.models import FaoliyatYozuvi
 from audit.utils import logla, maydon_diff
 from config import narxlar as NARX
 
+from .authentication import asl_owner_mi
 from .models import Markaz, User
 from .permissions import birlamchi_owner_mi, owner_mi
 
@@ -74,12 +75,51 @@ class ProfilView(APIView):
                 "id": u.id,
                 "username": u.username,
                 "ism": u.get_full_name() or u.username,
+                # "role"/"is_owner" — SIMULYATSIYAGA BO'YSUNADI (2026-07-29,
+                # "Ko'rish rejimi" faol bo'lsa, bular butun ilova nima
+                # ko'rishini belgilaydi — accounts/authentication.py).
                 "role": u.role,
                 "markaz": markaz,
                 "is_owner": owner_mi(u),
                 "parol_bormi": u.has_usable_password(),
+                # Simulyatsiyadan MUSTAQIL — faqat "Ko'rish rejimi"
+                # tugmalarini ko'rsatish/yashirish uchun (aks holda owner
+                # simulyatsiya paytida o'zini qaytarib bo'lmay qolar edi).
+                "asl_owner_mi": asl_owner_mi(u),
+                "korish_rejimi": u.korish_rejimi,
             }
         )
+
+
+class KorishRejimiView(APIView):
+    """Owner uchun — "Ko'rish rejimi" (View As) tanlash: Owner/Admin/
+    Talaba/Mehmon (2026-07-29). Tanlangач butun ilova (backend+frontend)
+    owner'ni HAQIQATAN shu rol deb ko'radi — batafsil izoh:
+    accounts/authentication.py.
+
+    MUHIM: `request.user`ni to'g'ridan-to'g'ri SAQLAMAYMIZ — agar
+    simulyatsiya allaqachon faol bo'lsa, `request.user.role`/
+    `is_superuser` XOTIRADA soxta qiymatlarga almashtirilgan (shu
+    so'rovning o'zida ham!) va `.save()` chaqirilsa ular bazaga
+    yozilib qolardi. Shuning uchun bazadan YANGI (toza) nusxa olinadi,
+    faqat `korish_rejimi` maydoni `update_fields` bilan yoziladi."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        if not asl_owner_mi(request.user):
+            return Response({"detail": "Faqat owner uchun"}, status=403)
+
+        rejim = request.data.get("korish_rejimi")
+        if rejim not in User.KorishRejimi.values:
+            return Response({"detail": "Noto'g'ri 'korish_rejimi' qiymati"}, status=400)
+
+        # Xotiradagi (ehtimol allaqachon soxtalashtirilgan) ob'ektga emas,
+        # bazadan olingan TOZA nusxaga yozamiz.
+        haqiqiy = User.objects.get(pk=request.user.pk)
+        haqiqiy.korish_rejimi = rejim
+        haqiqiy.save(update_fields=["korish_rejimi"])
+        return Response({"korish_rejimi": rejim})
 
 
 class MarkazlarView(APIView):

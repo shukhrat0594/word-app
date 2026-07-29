@@ -62,8 +62,10 @@ PUBLIC_UNLOCK_LIMIT = 5
 AUTH_USER_MODEL = 'accounts.User'
 
 REST_FRAMEWORK = {
+    # 2026-07-29: standart JWTAuthentication o'rniga — owner uchun "Ko'rish
+    # rejimi" (View As) qatlami. Tafsilot: accounts/authentication.py.
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'accounts.authentication.KorishRejimliJWTAuthentication',
     ),
     # Brute-force himoyasi: login/parol urinishlari + umumiy so'rovlar cheklanadi.
     'DEFAULT_THROTTLE_CLASSES': (
@@ -199,6 +201,19 @@ if R2_BUCKET_NAME:
                 'default_acl': None,
                 'file_overwrite': False,
                 'addressing_style': 'virtual',
+                # 2026-07-29: standart qiymat (0) `django-storages`ni faylni
+                # O'QISH uchun ochganda uni HECH QACHON diskka o'tkazmaydigan
+                # qilib qo'yadi — sabab: kutubxona ichida
+                # `tempfile.SpooledTemporaryFile(max_size=0)` ishlatiladi,
+                # va uning shartida `if max_size and ...` — 0 handa FALSY,
+                # ya'ni "diskka o'tish" sharti HECH QACHON bajarilmaydi,
+                # fayl QANCHALIK KATTA bo'lishidan qat'iy nazar butunlay
+                # RAM'da qoladi. Haqiqiy production xatosi shu edi: 56 MB
+                # ZIP R2'dan o'qilganda butunlay xotiraga tushib, Free
+                # tarifning (~512 MB) chegarasini oshirib yuborgan (2026-07-29
+                # foydalanuvchi xabar berdi). 2 MB'dan katta har qanday fayl
+                # endi diskka yoziladi (Render diskida joy bor, RAM esa yo'q).
+                'max_memory_size': 2 * 1024 * 1024,
             },
         },
         'staticfiles': {

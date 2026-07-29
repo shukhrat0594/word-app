@@ -32,6 +32,7 @@ from accounts.views import (
     MarkazRadEtishView,
     MarkazSorovView,
     IjtimoiyHavolalarView,
+    KorishRejimiView,
     MarkazSozlamaView,
     MarkazTasdiqlashView,
     NarxlarView,
@@ -52,6 +53,7 @@ urlpatterns = [
     path('api/auth/google/', GoogleLoginView.as_view(), name='google_login'),
     path('api/profil/', ProfilView.as_view(), name='profil'),
     path('api/profil/parol/', ParolOzgartirishView.as_view(), name='parol_ozgartirish'),
+    path('api/profil/korish-rejimi/', KorishRejimiView.as_view(), name='korish_rejimi'),
     path('api/narxlar/', NarxlarView.as_view(), name='narxlar'),
     path('api/markazlar/', MarkazlarView.as_view(), name='markazlar'),
     path(
