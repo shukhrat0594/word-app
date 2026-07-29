@@ -133,6 +133,46 @@ def _zip_tarkibini_ajrat(nomlar):
     return sahifalar, javob_kaliti, audiolar
 
 
+def _zip_tarkibini_ajrat_mashq(nomlar):
+    """"Mashq bo'yicha" yuklash rejimi (2026-07-29, foydalanuvchi talabi):
+    har bir rasm — BUTUN sahifa emas, BITTA alohida mashq (masalan
+    "mashq_3.jpg" — Exercise 3). Tartib fayl nomidagi raqamdan (oxirgi
+    sonli segment, `audio_raqamini_ajrat` bilan bir xil qoida) olinadi —
+    tabiiy alfavit tartibi EMAS, aynan shu SON bo'yicha saralanadi, aks
+    holda "mashq_10.jpg" "mashq_2.jpg"dan oldin tushib qolardi.
+
+    Raqami o'qilmagan fayllar (masalan nomida raqam yo'q) alohida
+    ro'yxatda qaytariladi — admin ularni ko'rib, nomini to'g'rilashi
+    kerak (jarayonga umuman kirmaydi)."""
+    nomzodlar, javob_kaliti, audiolar, raqamsiz = [], [], [], []
+    for nom in nomlar:
+        if nom.endswith("/"):
+            continue
+        asos = nom.rsplit("/", 1)[-1]
+        turi = kengaytma_turi(asos)
+        if turi == "rasm":
+            if "answer" in nom.lower():
+                javob_kaliti.append(nom)
+                continue
+            raqam = audio_raqamini_ajrat(asos)
+            if raqam is None:
+                raqamsiz.append(asos)
+                continue
+            nomzodlar.append((raqam, nom))
+        elif turi == "audio":
+            audiolar.append(nom)
+
+    nomzodlar.sort(key=lambda r: raqam_kaliti(r[0]))
+    sahifalar = [nom for _, nom in nomzodlar]
+    mashq_raqamlari = [raqam for raqam, _ in nomzodlar]
+
+    def kalit(n):
+        return tabiiy_tartib_kaliti(n.rsplit("/", 1)[-1])
+
+    javob_kaliti.sort(key=kalit)
+    return sahifalar, mashq_raqamlari, javob_kaliti, audiolar, raqamsiz
+
+
 class KursBlokZipYuklashView(APIView):
     """1-BOSQICH: ZIP'ni qabul qilish va nima borligini sanash.
 
@@ -155,12 +195,26 @@ class KursBlokZipYuklashView(APIView):
         if not zip_fayl:
             return Response({"detail": "zip_fayl majburiy"}, status=400)
 
+        # 2026-07-29(3): "Mashq bo'yicha" rejimi — har rasm BUTUN sahifa
+        # emas, BITTA alohida mashq (fayl nomidagi raqam — masalan
+        # "mashq_3.jpg" — Exercise 3'ga mos). Admin ikkisidan birini
+        # tanlaydi (frontend, AdminUnitKiritish).
+        rejim = request.data.get("rejim") or "sahifa"
+        if rejim not in ("sahifa", "mashq"):
+            return Response({"detail": "rejim noto'g'ri (sahifa/mashq)"}, status=400)
+
         try:
             nomlar = zipfile.ZipFile(zip_fayl).namelist()
         except zipfile.BadZipFile:
             return Response({"detail": "Fayl yaroqli ZIP emas"}, status=400)
 
-        sahifalar, javob_kaliti, audiolar = _zip_tarkibini_ajrat(nomlar)
+        raqamsiz = []
+        mashq_raqamlari = []
+        if rejim == "mashq":
+            sahifalar, mashq_raqamlari, javob_kaliti, audiolar, raqamsiz = (
+                _zip_tarkibini_ajrat_mashq(nomlar))
+        else:
+            sahifalar, javob_kaliti, audiolar = _zip_tarkibini_ajrat(nomlar)
         if not sahifalar:
             return Response({"detail": "ZIP ichida rasm fayli topilmadi"}, status=400)
 
@@ -170,7 +224,9 @@ class KursBlokZipYuklashView(APIView):
             zip_fayl=zip_fayl,
             jami_sahifa=len(sahifalar) + len(javob_kaliti),
             natijalar={
+                "rejim": rejim,
                 "sahifalar": sahifalar,
+                "mashq_raqamlari": mashq_raqamlari,
                 "javob_kaliti_fayllari": javob_kaliti,
                 "audiolar": audiolar,
                 # Parallel qayta ishlash (2026-07-29): "band_qilingan" —
@@ -191,6 +247,7 @@ class KursBlokZipYuklashView(APIView):
                 "sahifa_soni": len(sahifalar),
                 "javob_kaliti_soni": len(javob_kaliti),
                 "audio_soni": len(audiolar),
+                "raqamsiz_fayllar": raqamsiz,
             },
             status=201,
         )
@@ -317,6 +374,15 @@ class KursBlokSahifaView(APIView):
                 rasm_bytes = arxiv.read(nom)
             if turi == "sahifa":
                 natija, xato = sahifani_bloklarga_ajrat(provider, rasm_bytes)
+                if not xato and d.get("rejim") == "mashq":
+                    # "Mashq bo'yicha" rejimida mashq raqami AI TAXMINIGA
+                    # emas, fayl NOMIGA ishonamiz (aniq va ishonchli —
+                    # rasm bitta kesilgan mashq bo'lgani uchun sahifada
+                    # "Exercise N" yozuvi ko'rinmasligi ham mumkin).
+                    kutilgan_raqam = d["mashq_raqamlari"][indeks]
+                    for e in natija.get("elementlar", []):
+                        if e.get("tur") == "mashq":
+                            e["mashq_raqami"] = kutilgan_raqam
             else:
                 natija, xato = javob_kaliti_sahifasi(provider, rasm_bytes)
                 if not xato and not natija.get("javoblar"):

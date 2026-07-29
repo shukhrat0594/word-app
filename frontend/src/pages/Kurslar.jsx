@@ -755,6 +755,10 @@ function AdminUnitKiritish({ unitId, royxatniYangila }) {
   const { t } = useI18n();
   const [zipXato, setZipXato] = useState("");
   const [zipXabar, setZipXabar] = useState("");
+  const [raqamsizOgohlantirish, setRaqamsizOgohlantirish] = useState("");
+  // 2026-07-29(3) talabi: "har mashq uchun alohida rasm, fayl nomidan
+  // mashq raqamini bilib qo'yish" — admin ikkisidan birini tanlaydi.
+  const [zipRejim, setZipRejim] = useState("sahifa");
   const [zipYuklanmoqda, setZipYuklanmoqda] = useState(false);
   const [progress, setProgress] = useState(null);
   // 2026-07-29 talabi: yuklash necha daqiqada ketayotganini ko'rsatish.
@@ -906,15 +910,22 @@ function AdminUnitKiritish({ unitId, royxatniYangila }) {
     if (!fayl) return;
     setZipXato("");
     setZipXabar("");
+    setRaqamsizOgohlantirish("");
     setZipYuklanmoqda(true);
     setProgress(null);
     try {
       const fd = new FormData();
       fd.append("zip_fayl", fayl);
+      fd.append("rejim", zipRejim);
       const boshlash = await apiForm(`/api/kurslar/${unitId}/blok-zip/`, {
         method: "POST",
         formData: fd,
       });
+      if (boshlash.raqamsiz_fayllar?.length) {
+        setRaqamsizOgohlantirish(
+          `${t("kurs_blok_raqamsiz_fayllar")}: ${boshlash.raqamsiz_fayllar.join(", ")}`
+        );
+      }
       const natija = await jarayonniBajar(boshlash.jarayon_id, boshlash.jami_sahifa, 0);
       if (natija.toxtatildi) {
         setZipXabar(t("kurs_blok_toxtatildi"));
@@ -965,7 +976,37 @@ function AdminUnitKiritish({ unitId, royxatniYangila }) {
       <label className="izoh" style={{ display: "block", marginBottom: 4 }}>
         {t("kurs_zip_yuklash_izoh")}
       </label>
+      <div style={{ display: "flex", gap: 14, marginBottom: 6 }}>
+        <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13 }}>
+          <input
+            type="radio"
+            name={`zip-rejim-${unitId}`}
+            checked={zipRejim === "sahifa"}
+            onChange={() => setZipRejim("sahifa")}
+            disabled={zipYuklanmoqda}
+          />
+          {t("kurs_zip_rejim_sahifa")}
+        </label>
+        <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13 }}>
+          <input
+            type="radio"
+            name={`zip-rejim-${unitId}`}
+            checked={zipRejim === "mashq"}
+            onChange={() => setZipRejim("mashq")}
+            disabled={zipYuklanmoqda}
+          />
+          {t("kurs_zip_rejim_mashq")}
+        </label>
+      </div>
+      {zipRejim === "mashq" && (
+        <p className="izoh" style={{ marginTop: 0, marginBottom: 6 }}>
+          {t("kurs_zip_rejim_mashq_izoh")}
+        </p>
+      )}
       <input type="file" accept=".zip" onChange={blokZipYukla} disabled={zipYuklanmoqda} />
+      {raqamsizOgohlantirish && (
+        <div className="xato-xabar" style={{ marginTop: 4 }}>⚠ {raqamsizOgohlantirish}</div>
+      )}
       {faolJarayon && !zipYuklanmoqda && (
         <div style={{ marginTop: 6 }}>
           <button className="tugma ikkinchi kichik" onClick={jarayonniDavomEttir}>

@@ -17,15 +17,19 @@ Uch ish qiladi, har biri faqat kerak bo'lsa:
   6. Kunlik bulutdagi agent qo'shgan yangi mashqlarni bazaga kiritadi
      (kunlik_mashqlarni_ishga_tushir — 2026-07-22, /schedule orqali
      sozlangan kunlik avtomatik mashq qo'shish tizimi).
-  7. BIR MARTALIK (2026-07-29): Beginner'ning eski, qattiq kodlangan 14 ta
-     Headway Unit'ini (talaba javoblari bilan birga) o'chiradi — Beginner
-     endi boshqa darajalar bilan bir xil "admin Unit sonini belgilaydi"
-     mexanizmiga o'tkazilmoqda (foydalanuvchi talabi, tasdiqlangan:
-     "Ha, o'chir va qaytadan qur"). `kurslar_urugla`dan OLDIN ishga
-     tushishi SHART — aks holda kurslar_urugla eski Unit'lar hali
-     mavjud deb ularga tegmay qo'yar edi. Idempotent: Beginner'da
-     unit_darsi=True tugun qolmagach, keyingi deploy'larda hech narsa
-     qilmaydi (bo'sh filter — 0 ta o'chiriladi).
+  7. BIR MARTALIK (2026-07-29(4)): Beginner...Upper-Intermediate (5 ta
+     daraja, IELTS/CEFR'dan tashqari) ostidagi BARCHA mavjud kontentni
+     (Unit, mashq, audio, rasm — nima bo'lsa) o'chiradi — foydalanuvchi
+     tasdiqlagan ("ha bo'sh qaytsin"), admin "Unit soni" mexanizmidan
+     BOSHIDAN foydalanishi uchun.
+
+     OGOHLANTIRISH — BU QADAM KEYINGI COMMIT'DA OLIB TASHLANADI: agar bu
+     shu ko'rinishda (shartsiz o'chirish) doimiy qolib ketsa, HAR
+     DEPLOY'DA admin keyinchalik yaratgan HAQIQIY Unitlarni ham
+     o'chirib yuborardi (aynan shu xato avvalgi versiyada — faqat
+     Beginner uchun — bor edi va TUZATILDI). Shuning uchun bu funksiya
+     faqat BITTA deploy uchun mo'ljallangan, keyin darhol olib
+     tashlanishi SHART.
 """
 
 from decouple import config
@@ -89,7 +93,7 @@ class Command(BaseCommand):
             call_command("loaddata", "oyinlar")
             self.stdout.write(f"O'yin kontenti yuklandi: {Soz.objects.count()} so'z")
 
-        self._beginner_eski_unitlarni_tozala()
+        self._ingliz_darajalarni_tozala()
 
         call_command("wordapp_import")
         call_command("listening_yangi_mashqlar")
@@ -97,23 +101,34 @@ class Command(BaseCommand):
         call_command("kurslar_urugla")
         call_command("kunlik_mashqlarni_ishga_tushir")
 
-    def _beginner_eski_unitlarni_tozala(self):
-        """2026-07-29, bir martalik: Beginner'ning qattiq kodlangan 14 ta
-        Headway Unit'ini (talaba javoblari bilan birga, KASKAD) o'chiradi
-        — Beginner ham endi boshqa darajalar kabi admin panelidan "Unit
-        soni" orqali qayta quriladi. `kurslar_urugla`dan OLDIN chaqirilishi
-        SHART (docstring'ga qarang)."""
-        beginner = KursTugun.objects.filter(kalit="beginner").first()
-        if not beginner:
-            return
-        eski_unitlar = KursTugun.objects.filter(parent=beginner, unit_darsi=True)
-        soni = eski_unitlar.count()
-        if not soni:
-            return  # allaqachon tozalangan (yoki hali yaratilmagan)
-        eski_unitlar.delete()
-        self.stdout.write(
-            self.style.WARNING(
-                f"Beginner'ning {soni} ta eski Unit'i o'chirildi "
-                "(yangi Unit-soni mexanizmiga o'tish, 2026-07-29)"
-            )
+    def _ingliz_darajalarni_tozala(self):
+        """2026-07-29(4), BITTA DEPLOY UCHUN: Beginner...Upper-Intermediate
+        ostidagi BARCHA mavjud tugunlarni (Unit, mashq, audio, rasm —
+        nima bo'lsa) o'chiradi — `kurslar_urugla`dan OLDIN chaqirilishi
+        SHART, aks holda kurslar_urugla eski Unit'lar hali mavjud deb
+        ularga tegmay qo'yar edi.
+
+        BU FUNKSIYA KEYINGI COMMIT'DA OLIB TASHLANISHI SHART (yuqoridagi
+        modul docstringiga qarang) — shartsiz o'chirish doimiy qolsa,
+        admin keyin yaratgan haqiqiy Unitlarni ham yo'q qilib yuborardi."""
+        daraja_kalitlari = (
+            "beginner", "elementary", "pre_intermediate",
+            "intermediate", "upper_intermediate",
         )
+        jami = 0
+        for daraja_kalit in daraja_kalitlari:
+            daraja = KursTugun.objects.filter(kalit=daraja_kalit).first()
+            if not daraja:
+                continue
+            bolalar = KursTugun.objects.filter(parent=daraja)
+            soni = bolalar.count()
+            if soni:
+                bolalar.delete()
+                jami += soni
+        if jami:
+            self.stdout.write(
+                self.style.WARNING(
+                    f"Ingliz tili darajalari tozalandi: {jami} ta tugun o'chirildi "
+                    "(Beginner...Upper-Intermediate, admin Unit sonini qaytadan kiritadi)"
+                )
+            )
