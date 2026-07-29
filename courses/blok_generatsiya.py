@@ -146,10 +146,29 @@ def tor_chiz(rasm_bytes, qadam=TOR_QADAM, kenglik=AI_RASM_KENGLIGI):
     """Rasmga pronumerlangan to'r chizadi va JPEG bytes qaytaradi.
 
     Rasm `kenglik` gacha kichraytiriladi — koordinatalar foizda bo'lgani
-    uchun aniqlik yo'qolmaydi, lekin so'rov tezlashadi."""
+    uchun aniqlik yo'qolmaydi, lekin so'rov tezlashadi.
+
+    2026-07-29 — HAQIQIY production OOM (Render: "Ran out of memory
+    (used over 512MB)") shu funksiyada topildi: `Image.open().convert()`
+    rasmni TO'LIQ o'lchamda dekodlaydi, `.thumbnail()` esa FAQAT shundan
+    KEYIN kichraytiradi. Foydalanuvchining haqiqiy skanlari 6400x8067 —
+    bitta shunday rasmni oddiy dekodlash 148 MB xom xotira talab qiladi
+    (512 MB'lik instansda yagona shu OOM'ga yetarli). `Image.draft()` —
+    JPEG dekoderiga DEKODLASH PAYTIDA kichraytirishni buyuradi (2^N
+    nisbatda, DCT darajasida) — xotira sarfi ~148 MB o'rniga bir necha
+    MB'ga tushadi. PNG/boshqa formatlar uchun `draft()` sekin no-op
+    qaytaradi (xavfsiz)."""
     from PIL import Image, ImageDraw
 
-    im = Image.open(io.BytesIO(rasm_bytes)).convert("RGB")
+    im = Image.open(io.BytesIO(rasm_bytes))
+    # `kenglik * 3` (juda keng chegara) draft'ning chuqurroq (1/4, 1/8)
+    # darajaga tushishiga TO'SQINLIK qilardi — o'lchov bilan tasdiqlangan:
+    # (1000,3000) uchun 6400x8067 rasm faqat 1/2 (36 MB) ga tushardi,
+    # (1000,1500) esa 1/4 (9 MB) ga tushadi. Darslik sahifalari deyarli
+    # doim tik (bo'yi eniga nisbatan ~1.3-1.5 barobar) — shu chegara
+    # xavfsiz.
+    im.draft("RGB", (kenglik, int(kenglik * 1.5)))  # dekodlashdan OLDIN chaqirilishi shart
+    im = im.convert("RGB")
     im.thumbnail((kenglik, kenglik * 3))
     dr = ImageDraw.Draw(im, "RGBA")
     W, H = im.size
@@ -280,10 +299,20 @@ def rasmni_kes(rasm_bytes, quti, maks_kenglik=900, sifat=85):
     """Foizdagi qutini asl (to'liq sifatli) rasmdan kesib oladi.
 
     AI faqat "qayerda" ekanini aytadi — kesish matematik amal, piksellar
-    asl skandan olinadi, hech narsa qayta chizilmaydi."""
+    asl skandan olinadi, hech narsa qayta chizilmaydi.
+
+    2026-07-29: `Image.draft()` bilan xotira sarfini cheklaymiz (tafsilot
+    — `tor_chiz()`). Bu yerda nishon `tor_chiz()`dagidan KATTAROQ
+    (1600px, yakuniy `maks_kenglik`=900px dan deyarli 2x) — kesim
+    (crop) va aniqlik uchun yetarli zaxira, lekin 6400px+ asl skanni
+    to'liq dekodlab (147 MB) keyin ulkan qismini tashlab yuborishdan
+    ANCHA tejamli (o'lchov bilan tasdiqlangan: ~9 MB, 16x kam)."""
     from PIL import Image
 
-    im = Image.open(io.BytesIO(rasm_bytes)).convert("RGB")
+    DRAFT_CHEGARA = 1600
+    im = Image.open(io.BytesIO(rasm_bytes))
+    im.draft("RGB", (DRAFT_CHEGARA, int(DRAFT_CHEGARA * 1.25)))
+    im = im.convert("RGB")
     W, H = im.size
     x1 = max(0, int(quti["x1"] / 100 * W))
     y1 = max(0, int(quti["y1"] / 100 * H))
