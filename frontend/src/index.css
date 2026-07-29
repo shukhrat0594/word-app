@@ -659,7 +659,14 @@ textarea {
    birga (sahifaning bir qismi sifatida) o'zining ostida joylashadi,
    scroll paytida esa BUTUN oyna pastiga yopishadi (sticky). */
 .blok-audio-panel {
-  position: sticky; bottom: 12px; z-index: 5; margin-top: 14px;
+  /* 2026-07-29(2): `sticky` edi — bu FAQAT o'z ota-konteyneri ko'rinishda
+     turgan payt "yopishib" turadi, konteyner skroll qilib chetga
+     chiqarilsa u ham birga ketadi (foydalanuvchi buni sahifa ichida
+     "bir joyda muzlab qolgan" deb ko'rgan). Kerakli natija — butun SAYT
+     pastida, skroll qayerda bo'lishidan qat'iy nazar doim ko'rinadigan
+     panel, shuning uchun `fixed` (viewport'ga nisbatan). */
+  position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%);
+  z-index: 60;
   display: inline-flex; align-items: center; gap: 10px;
   background: var(--komir); color: var(--sariq); border-radius: 24px;
   padding: 8px 18px 8px 8px; box-shadow: 0 3px 14px rgba(0,0,0,.3);
@@ -690,7 +697,11 @@ textarea {
 .blok-yuklash-karta {
   background: var(--sirt); border-radius: 12px; padding: 28px 34px;
   text-align: center; display: grid; gap: 6px; justify-items: center;
-  box-shadow: 0 8px 30px rgba(0,0,0,.4); max-width: 320px;
+  box-shadow: 0 8px 30px rgba(0,0,0,.4); width: 320px;
+}
+.blok-yuklash-fayl {
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .blok-yuklash-spinner {
   width: 34px; height: 34px; border-radius: 50%;

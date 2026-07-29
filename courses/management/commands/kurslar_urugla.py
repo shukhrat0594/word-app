@@ -12,36 +12,23 @@ ega, ketma-ket ochiladigan (`unit_darsi=True`).
 2026-07-29: Bu qattiq kodlash BEKOR QILINDI (foydalanuvchi talabi —
 "Beginnerni ham keyingi bo'limlar bilan bir xil qilamiz"). Beginner endi
 BOSHQA barcha Ingliz tili darajalari (Elementary...Upper-Intermediate)
-bilan BIR XIL yo'ldan o'tadi: bu buyruq faqat FLAT (bo'sh) bo'lim
-to'plamini (`INGLIZ_DARAJA_BOLIMLARI`) yaratadi, keyin admin panelidan
-(`KursDarajaUnitYaratishView`, courses/views.py) Unit sonini o'zi
-belgilab, Unit-asosli tuzilmaga (soni ixtiyoriy, nomlari generic "Unit
-N") o'tkazadi. Eski 3 ta to'ldirilgan Unit (talaba javoblari bilan
-birga) `prod_boshlangich.py`da BIR MARTALIK o'chirildi — qarang
-`_beginner_eski_unitlarni_tozala`.
+bilan BIR XIL yo'ldan o'tadi: Unit yaratilmaguncha daraja BO'SH turadi
+(hech qanday flat bo'lim yaratilmaydi — 2026-07-29(3), foydalanuvchi:
+"ortiqcha narsani olib tashla"), admin panelidan (`KursDarajaUnitYaratishView`,
+courses/views.py) Unit sonini o'zi belgilab, Unit-asosli tuzilmaga (soni
+ixtiyoriy, nomlari generic "Unit N") o'tkazadi. Eski 3 ta to'ldirilgan
+Unit (talaba javoblari bilan birga) `prod_boshlangich.py`da BIR MARTALIK
+o'chirildi — qarang `_beginner_eski_unitlarni_tozala`.
 
 Har bir daraja uchun: agar darajada ALLAQACHON Unit (`unit_darsi=True`)
 mavjud bo'lsa (admin panel orqali yaratilgan), bu buyruq UNGA TEGMAYDI —
 aks holda bu buyruq HAR DEPLOY'DA ishga tushgani uchun (prod_boshlangich),
-admin yaratgan Unitlar keyingi deploy'da o'chirilib, o'rniga bo'sh flat
-bo'limlar qayta tiklanardi."""
+admin yaratgan Unitlar keyingi deploy'da o'chirilib ketardi."""
 
 from django.core.management.base import BaseCommand
 
 from accounts.models import Markaz
 from courses.models import KursMashq, KursTugun
-
-# Har bo'lim (kalit, nomi) juftligi bilan beriladi — `nomi` bazadagi
-# zaxira ko'rinish, foydalanuvchi ko'radigan matn frontendda `kalit`
-# bo'yicha tarjima qilinadi.
-INGLIZ_DARAJA_BOLIMLARI = [
-    ("grammar", "Grammar"),
-    ("vocabulary", "Vocabulary"),
-    ("reading", "Reading"),
-    ("listening", "Listening"),
-    ("speaking_writing", "Speaking/Writing"),
-    ("everyday_english", "Everyday English"),
-]
 
 INGLIZ_DARAJALAR = [
     ("beginner", "Beginner"),
@@ -163,17 +150,16 @@ class Command(BaseCommand):
             daraja = bor_yoki_yarat(daraja_kalit, daraja_nomi, parent=ingliz, tartib=i)
 
             if KursTugun.objects.filter(parent=daraja, unit_darsi=True).exists():
-                # 2026-07-29: admin bu darajada `KursDarajaUnitYaratishView`
-                # orqali Unit-asosli tuzilma yaratgan (courses/views.py) —
-                # bu buyruq HAR DEPLOY'DA ishga tushgani uchun (prod_boshlangich),
-                # pastdagi "flat bo'limlarni tiklash" YO'LI ISHGA TUSHMASLIGI
-                # SHART, aks holda admin yaratgan Unitlar keyingi deploy'da
-                # o'chirilib, o'rniga bo'sh flat bo'limlar qayta tiklanardi.
+                # Admin bu darajada `KursDarajaUnitYaratishView` orqali
+                # Unit-asosli tuzilma yaratgan (courses/views.py) — bu
+                # buyruq HAR DEPLOY'DA ishga tushgani uchun, UNGA TEGMAYMIZ.
                 continue
 
-            eski_bolimlarni_tozala(daraja, [k for k, _ in INGLIZ_DARAJA_BOLIMLARI])
-            for j, (kalit, nomi) in enumerate(INGLIZ_DARAJA_BOLIMLARI, start=1):
-                bor_yoki_yarat(kalit, nomi, parent=daraja, tartib=j)
+            # 2026-07-29(3): Unit hali yaratilmagan bo'lsa daraja BO'SH
+            # turadi — admin panelida faqat "Unit soni" input+tugma
+            # ko'rinishi uchun (ortiqcha flat bo'lim ko'rsatilmasin).
+            # Eski versiyada qolgan flat bo'limlar bo'lsa — tozalanadi.
+            eski_bolimlarni_tozala(daraja, [])
 
         ielts = bor_yoki_yarat("ielts", "IELTS", parent=ingliz,
                                tartib=len(INGLIZ_DARAJALAR) + 1)

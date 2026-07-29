@@ -47,6 +47,7 @@ from .models import (
     KursMashq,
     KursMashqAudio,
     KursMashqRasmi,
+    KursSoz,
     KursTugun,
     KursZipJarayoni,
 )
@@ -295,20 +296,29 @@ class KursBlokSahifaView(APIView):
         # 2) UZOQ AI ishi — DB QULFISIZ (bir necha daqiqagacha cho'zilishi
         #    mumkin; qulf ushlab turilsa boshqa parallel so'rovlar
         #    tiqilib qolardi va konkurentlikdan foyda bo'lmasdi).
+        #
+        # MUHIM (2026-07-29 tuzatildi): shu blokda ISTALGAN kutilmagan
+        # xato (tarmoq, provider, ZIP o'qish va h.k.) ATAYLAB ushlanadi
+        # va pastdagi 3-bosqichga "xato" sifatida yetkaziladi. Aks holda
+        # bu yerda chiqqan xato TUTILMASA, band qilingan `indeks` HECH
+        # QACHON `tugallangan`ga yozilmasdi — u abadiy "band" holatida
+        # qolib ketardi (chunki band qilish faqat `band_qilingan`ga
+        # qaraydi), va jarayon HECH QACHON 100%ga yetmasdi. Frontend esa
+        # xato qaytgan so'rovni qayta urinib, HAR SAFAR YANGI sahifani
+        # band qilib, eskisini abadiy tashlab ketardi — production'da
+        # aynan shu sabab bilan yuklash sekinlashib/tiqilib qolgan edi
+        # (2026-07-29, foydalanuvchi kuzatgan haqiqiy holat).
+        nom = oddiy[indeks] if indeks < len(oddiy) else javob_fayllari[indeks - len(oddiy)]
+        turi = "sahifa" if indeks < len(oddiy) else "javob_kaliti"
+        natija, xato = None, None
         try:
             provider = blok_provider_olish()
-        except ProviderXatosi as e:
-            return Response({"detail": str(e)}, status=400)
-
-        with _jarayon_arxivi(jarayon) as arxiv:
-            if indeks < len(oddiy):
-                nom = oddiy[indeks]
-                turi = "sahifa"
-                natija, xato = sahifani_bloklarga_ajrat(provider, arxiv.read(nom))
+            with _jarayon_arxivi(jarayon) as arxiv:
+                rasm_bytes = arxiv.read(nom)
+            if turi == "sahifa":
+                natija, xato = sahifani_bloklarga_ajrat(provider, rasm_bytes)
             else:
-                nom = javob_fayllari[indeks - len(oddiy)]
-                turi = "javob_kaliti"
-                natija, xato = javob_kaliti_sahifasi(provider, arxiv.read(nom))
+                natija, xato = javob_kaliti_sahifasi(provider, rasm_bytes)
                 if not xato and not natija.get("javoblar"):
                     # Sahifa "answer" papkasida turibdi, lekin ichida
                     # javob yo'q. Amalda uchragan holat (2026-07-28):
@@ -317,6 +327,10 @@ class KursBlokSahifaView(APIView):
                     # lekin admin buni BILISHI kerak — aks holda javob
                     # kaliti qo'llandi deb o'ylab qoladi.
                     xato = "Javob topilmadi — bu sahifa javob kaliti emasga o'xshaydi"
+        except ProviderXatosi as e:
+            xato = str(e)
+        except Exception as e:  # noqa: BLE001 — pastdagi izohga qarang
+            xato = f"{type(e).__name__}: {e}"
 
         # 3) Natijani ATOMIK qo'shamiz — qayta o'qib-yozamiz, boshqa
         #    parallel so'rov shu oraliqda o'ziniki yozgan bo'lishi mumkin.
@@ -376,7 +390,9 @@ def _jarayonni_yakunla(jarayon, foydalanuvchi):
     yerda ATAYLAB indeks bo'yicha SARALAB o'qiladi, natijada yakuniy
     mashqlar tartibi har doim sahifa tartibiga mos bo'ladi."""
     d = jarayon.natijalar
-    mashq_tugun = _unit_bolimlari(jarayon.tugun)["mashqlar"]
+    bolimlar = _unit_bolimlari(jarayon.tugun)
+    mashq_tugun = bolimlar["mashqlar"]
+    vocab_tugun = bolimlar.get("vocabulary")
 
     tugallangan = d.get("tugallangan", {})
     tartiblangan = [tugallangan[k] for k in sorted(tugallangan, key=int)]
@@ -393,14 +409,28 @@ def _jarayonni_yakunla(jarayon, foydalanuvchi):
     boshlangich = mashq_tugun.mashqlar.count()
     yaratilgan, rasm_soni, savol_soni, qollangan = [], 0, 0, 0
 
+    # 2026-07-29 talabi: "Wordlist" sahifalari Vocabulary'ga (KursSoz)
+    # qo'shilishi kerak — avval umuman qo'shilmasdi (AI ularni ham
+    # oddiy "mashq" sifatida tahlil qilishga urinar, natija bo'sh
+    # chiqardi). Endi AI wordlist sahifasini ALOHIDA "sozlar" maydonida
+    # qaytaradi (blok_generatsiya.py, BLOK_PROMPT) — bu yerda yig'ib,
+    # Vocabulary tuguniga ALOHIDA yozamiz (KursMashq sifatida EMAS).
+    yangi_sozlar = []
+
     with _jarayon_arxivi(jarayon) as arxiv:
         i = 0
         for t in tartiblangan:
             if t["turi"] != "sahifa" or t["xato"]:
                 continue
-            i += 1
             natija = t["natija"]
-            bloklar, savollar, qutilar = bloklarni_tayyorla(natija.get("elementlar", []))
+            yangi_sozlar.extend(natija.get("sozlar") or [])
+            elementlar = natija.get("elementlar") or []
+            if not elementlar:
+                # Sof Wordlist sahifasi (faqat so'zlar, mashq elementi
+                # yo'q) — bo'sh KursMashq yaratmaymiz.
+                continue
+            i += 1
+            bloklar, savollar, qutilar = bloklarni_tayyorla(elementlar)
 
             # Javob kaliti AI taxminidan USTUN — darslikning haqiqiy manbasi.
             for s in savollar:
@@ -435,6 +465,18 @@ def _jarayonni_yakunla(jarayon, foydalanuvchi):
         moslangan, ishlatilgan = _audiolarni_biriktir(
             arxiv, d.get("audiolar", []), yaratilgan)
 
+    soz_soni = 0
+    if vocab_tugun and yangi_sozlar:
+        boshlangich_soz = vocab_tugun.sozlar.count()
+        yaratilgan_sozlar = [
+            KursSoz(tugun=vocab_tugun, tartib=boshlangich_soz + idx + 1,
+                    en=str(s.get("en") or "").strip(), uz=str(s.get("uz") or "").strip())
+            for idx, s in enumerate(yangi_sozlar)
+        ]
+        yaratilgan_sozlar = [s for s in yaratilgan_sozlar if s.en and s.uz]
+        KursSoz.objects.bulk_create(yaratilgan_sozlar)
+        soz_soni = len(yaratilgan_sozlar)
+
     jarayon.holat = KursZipJarayoni.Holat.TUGADI
     jarayon.save(update_fields=["holat"])
     _jarayon_keshini_tozala(jarayon)  # vaqtinchalik mahalliy nusxa endi kerak emas
@@ -445,6 +487,7 @@ def _jarayonni_yakunla(jarayon, foydalanuvchi):
         "baholanadigan_savollar": savol_soni,
         "javob_kaliti_qollandi": qollangan,
         "moslangan_audio": moslangan,
+        "qoshilgan_sozlar": soz_soni,
         "ishlatilmagan_audio": [
             n.rsplit("/", 1)[-1] for n in d.get("audiolar", []) if n not in ishlatilgan
         ],

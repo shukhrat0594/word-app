@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api, apiBlobUrl, apiForm } from "../api";
 import { AUDIO_HIMOYA, faqatBittaAudioIjro } from "../audio";
 import BlokMashqi from "../components/BlokMashqi";
@@ -759,6 +759,13 @@ function AdminUnitKiritish({ unitId, royxatniYangila }) {
   const [progress, setProgress] = useState(null);
   // 2026-07-29 talabi: yuklash necha daqiqada ketayotganini ko'rsatish.
   const [otganSoniya, setOtganSoniya] = useState(0);
+  // 2026-07-29(2) talabi: "to'xtatish tugmasi" — bosilganda joriy
+  // "to'lqin" (band qilingan sahifalar) fonda tugashiga ruxsat beriladi
+  // (natijalari baribir saqlanadi), lekin YANGI to'lqin boshlanmaydi va
+  // qoplama darhol yopiladi — jarayon keyinroq "Davom ettirish" bilan
+  // xuddi shu joydan davom etadi (ref, chunki holat o'zgarishi darhol,
+  // qayta render kutmay kerak — async sikl ichida o'qiladi).
+  const toxtatishRef = useRef(false);
 
   useEffect(() => {
     if (!zipYuklanmoqda) return undefined;
@@ -819,11 +826,19 @@ function AdminUnitKiritish({ unitId, royxatniYangila }) {
   // qilib beradi (courses/blok_views.py), shuning uchun bu yerda
   // sahifa indeksini o'zimiz hisoblashimiz shart emas.
   async function jarayonniBajar(jid, jamiSahifa, boshlangichIshlangan) {
+    toxtatishRef.current = false;
     let yakun = null;
     let tugadi = false;
     let oxirgiIshlangan = boshlangichIshlangan;
     setProgress({ ishlangan: boshlangichIshlangan, jami: jamiSahifa, fayl: "" });
     while (!tugadi) {
+      if (toxtatishRef.current) {
+        // 2026-07-29(2): admin "To'xtatish" bosdi — joriy to'lqindagi
+        // (band qilingan) sahifalar natijasi baribir saqlangan, faqat
+        // YANGI to'lqin boshlanmaydi. Jarayon bazada saqlanib qoladi.
+        setFaolJarayon({ id: jid, ishlangan_sahifa: oxirgiIshlangan, jami_sahifa: jamiSahifa });
+        return { toxtatildi: true };
+      }
       const vadalar = [];
       for (let k = 0; k < PARALLEL_SAHIFA_SONI; k += 1) vadalar.push(bittaSahifaniIshla(jid));
       // eslint-disable-next-line no-await-in-loop
@@ -852,7 +867,7 @@ function AdminUnitKiritish({ unitId, royxatniYangila }) {
       }
       if (!ishBorEdi) tugadi = true; // ehtiyot chorasi — hech kim ish topmadi
     }
-    return yakun;
+    return { toxtatildi: false, yakun };
   }
 
   function yakunXabariniQoy(yakun) {
@@ -865,6 +880,9 @@ function AdminUnitKiritish({ unitId, royxatniYangila }) {
     }
     if (yakun.moslangan_audio) {
       qismlar.push(`${yakun.moslangan_audio} ${t("kurs_zip_audio")}`);
+    }
+    if (yakun.qoshilgan_sozlar) {
+      qismlar.push(`${yakun.qoshilgan_sozlar} ${t("kurs_natija_soz")}`);
     }
     let xabarMatni = qismlar.join(", ");
     if (yakun.xato_sahifalar?.length) {
@@ -897,10 +915,14 @@ function AdminUnitKiritish({ unitId, royxatniYangila }) {
         method: "POST",
         formData: fd,
       });
-      const yakun = await jarayonniBajar(boshlash.jarayon_id, boshlash.jami_sahifa, 0);
-      yakunXabariniQoy(yakun);
-      setFaolJarayon(null);
-      royxatniYangila();
+      const natija = await jarayonniBajar(boshlash.jarayon_id, boshlash.jami_sahifa, 0);
+      if (natija.toxtatildi) {
+        setZipXabar(t("kurs_blok_toxtatildi"));
+      } else {
+        yakunXabariniQoy(natija.yakun);
+        setFaolJarayon(null);
+        royxatniYangila();
+      }
     } catch (e2) {
       setZipXato(e2.data?.detail || t("xato_yuz_berdi"));
     } finally {
@@ -916,12 +938,16 @@ function AdminUnitKiritish({ unitId, royxatniYangila }) {
     setZipYuklanmoqda(true);
     setProgress(null);
     try {
-      const yakun = await jarayonniBajar(
+      const natija = await jarayonniBajar(
         faolJarayon.id, faolJarayon.jami_sahifa, faolJarayon.ishlangan_sahifa,
       );
-      yakunXabariniQoy(yakun);
-      setFaolJarayon(null);
-      royxatniYangila();
+      if (natija.toxtatildi) {
+        setZipXabar(t("kurs_blok_toxtatildi"));
+      } else {
+        yakunXabariniQoy(natija.yakun);
+        setFaolJarayon(null);
+        royxatniYangila();
+      }
     } catch (e2) {
       setZipXato(e2.data?.detail || t("xato_yuz_berdi"));
     } finally {
@@ -985,11 +1011,29 @@ function AdminUnitKiritish({ unitId, royxatniYangila }) {
             <div style={{ fontWeight: 700 }}>{t("kurs_blok_yuklash_band")}</div>
             <div className="izoh">{t("kurs_blok_otgan_vaqt")}: {vaqtFormat(otganSoniya)}</div>
             {progress && (
-              <div className="izoh">
+              <div
+                className="izoh blok-yuklash-fayl"
+                title={progress.fayl || undefined}
+              >
                 {progress.ishlangan}/{progress.jami}
                 {progress.fayl ? ` — ${progress.fayl}` : ""}
               </div>
             )}
+            {/* 2026-07-29(2) talabi: to'xtatish tugmasi — joriy band
+                qilingan sahifalar fonda tugaydi (natijasi saqlanadi),
+                keyinroq "Davom ettirish" bilan xuddi shu joydan
+                davom etish mumkin. */}
+            <button
+              type="button"
+              className="tugma ikkinchi"
+              style={{ marginTop: 10 }}
+              onClick={() => {
+                toxtatishRef.current = true;
+                setZipYuklanmoqda(false);
+              }}
+            >
+              {t("kurs_blok_toxtatish")}
+            </button>
           </div>
         </div>
       )}

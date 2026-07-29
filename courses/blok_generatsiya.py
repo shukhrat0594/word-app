@@ -79,10 +79,18 @@ BLOK_PROMPT = (
     '  {"x1":8,"y1":68,"x2":30,"y2":73,"tur":"mashq","mashq_raqami":"3",'
     '"bolaklar":[{"matn":"Hello, I\'m "},{"bosh_joy":true,"javob":"",'
     '"javob_turi":"erkin","band_raqami":"1"},{"matn":"."}]}\n'
-    "]}\n\n"
+    '],"sozlar":[{"en":"friend","uz":"do\'st"}]}\n\n'
 
     "Turlar: sarlavha | bolim_sarlavha | korsatma | matn | pufakcha | "
     "dialog | grammar_spot | mashq | rasm\n\n"
+
+    '- "sozlar" — FAQAT sahifa asosan "Wordlist" (yoki shunga o\'xshash '
+    "so'zlar ro'yxati — ingliz so'zi + tarjimasi, ko'pincha Unit oxirida "
+    "bo'ladi) bo'lsa to'ldiring: har so'z {\"en\":\"inglizcha so'z\","
+    '"uz":"tarjimasi"}. Bunday sahifada "elementlar" bo\'sh yoki faqat '
+    "sarlavha bo'lishi mumkin — so'zlarni ALOHIDA \"elementlar\"ga emas, "
+    'FAQAT "sozlar"ga yozing (takrorlamang). Sahifa Wordlist EMAS bo\'lsa '
+    '— "sozlar"ni umuman yozmang (yoki bo\'sh massiv).\n'
 
     '- "rasm" — FOTOSURAT (odamlar, manzara). Uni biz sahifadan kesib '
     "olamiz, shuning uchun quti ANIQ bo'lsin: faqat suratning o'zi, "
@@ -327,6 +335,18 @@ def rasmni_kes(rasm_bytes, quti, maks_kenglik=900, sifat=85):
     return bufer.getvalue()
 
 
+def _oqish_tartibi_kaliti(e):
+    """O'qish tartibi: chap ustun TO'LIQ, keyin o'ng ustun (gazeta
+    tartibi) — Headway sahifalari ko'pincha 2 ustunli (chap/o'ng) qilib
+    joylashtiriladi. Faqat `y1` bo'yicha saralash bunday sahifalarda
+    NOTO'G'RI tartib berardi (2026-07-29, foydalanuvchi xabar berdi):
+    o'ng ustun vizual jihatdan balandroq tugasa, uning elementi (masalan
+    audio belgisi) chap ustundagisidan OLDIN chiqib qolardi, garchi
+    o'qish tartibida chapdan keyin kelishi kerak bo'lsa ham."""
+    ustun = 0 if e["x1"] < 50 else 1
+    return (ustun, e["y1"], e["x1"])
+
+
 def bloklarni_tayyorla(elementlar):
     """AI elementlarini BAZAGA YOZILADIGAN ko'rinishga o'tkazadi.
 
@@ -346,7 +366,7 @@ def bloklarni_tayyorla(elementlar):
     savollar = []
     rasm_qutilari = []
 
-    for e in sorted(elementlar, key=lambda x: (x["y1"], x["x1"])):
+    for e in sorted(elementlar, key=_oqish_tartibi_kaliti):
         tur = e.get("tur") or "matn"
         blok = {"tur": tur}
 
