@@ -28,6 +28,23 @@ timeout = 300
 # baholanayotgan insho yarim yo'lda uzilib qoladi.
 graceful_timeout = 300
 
-# Worker soni va bog'lanish manzili ATAYLAB belgilanmadi — ular Render
-# muhitiga bog'liq (xotira/CPU) va start command'da berilgan bo'lishi
-# mumkin. Bu fayl faqat timeout muammosini hal qiladi.
+# Worker SONI ATAYLAB belgilanmadi — u Render muhitiga bog'liq (xotira/
+# CPU) va start command'da berilgan bo'lishi mumkin.
+
+# 2026-07-28: Kurslar blok formatida ZIP yuklaganda (courses/blok_views.py)
+# real hodisa kuzatildi — bitta sahifani AI'ga yuborish ~2 daqiqa davom
+# etadi. Standart `sync` worker turi bu vaqt ichida BUTUN jarayonni
+# bloklaydi: bitta worker bo'lsa, boshqa hech qanday so'rov (jumladan
+# Render'ning o'z holat tekshiruvi) javob ololmaydi. Render buni "servis
+# javob bermayapti" deb, KONTEYNERNI QAYTA ISHGA TUSHIRDI — gunicorn
+# logida hech qanday Python xatosi (traceback) yo'q edi, faqat
+# "==> Running 'gunicorn ...'" qayta paydo bo'ldi (Render'ning tashqi
+# xabari, bizning kodimiz emas).
+#
+# `gthread` worker turi — bir nechta OQIM (thread) bitta jarayon ichida.
+# Xotira sarfi deyarli oshmaydi (oqimlar xotirani bo'lishadi, alohida
+# `sync` worker esa BUTUN Django + kutubxonalarni QAYTADAN yuklardi).
+# AI so'rovi TARMOQ orqali kutilayotganda Python GIL bo'shaydi, shuning
+# uchun boshqa oqim (masalan holat tekshiruvi) shu vaqtda javob bera oladi.
+worker_class = "gthread"
+threads = 4

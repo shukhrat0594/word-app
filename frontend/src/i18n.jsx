@@ -2,6 +2,7 @@ import { createContext, useContext, useState } from "react";
 
 const LUGAT = {
   uz: {
+    kurs_blok_qayta_urinish: "Uzilib qoldi, qayta urinilmoqda...",
     kurs_blok_rasm: "rasm kesildi",
     kurs_blok_savol: "baholanadigan savol",
     kurs_blok_progress: "Sahifa ishlanmoqda:",
@@ -412,6 +413,7 @@ const LUGAT = {
       "Bu promtni nusxalab AI'ga (ChatGPT/Claude/Gemini) haqiqiy Cambridge test matnini/transkriptini bering — tayyor JSON qaytaradi, uni faylga saqlab yuqoridan yuklaysiz.",
   },
   ru: {
+    kurs_blok_qayta_urinish: "Обрыв, повтор попытки...",
     kurs_blok_rasm: "изобр. вырезано",
     kurs_blok_savol: "оцениваемых вопросов",
     kurs_blok_progress: "Обработка страницы:",
@@ -822,6 +824,7 @@ const LUGAT = {
       "Скопируйте этот промт и передайте AI (ChatGPT/Claude/Gemini) реальный текст/транскрипт теста Cambridge — он вернёт готовый JSON, сохраните его в файл и загрузите выше.",
   },
   en: {
+    kurs_blok_qayta_urinish: "Connection lost, retrying...",
     kurs_blok_rasm: "images cropped",
     kurs_blok_savol: "graded questions",
     kurs_blok_progress: "Processing page:",

@@ -10,8 +10,10 @@ bu qo'shimcha servis va xarajat, holbuki jarayonni frontend boshqarsa
 yetarli (u progress ham ko'rsatadi).
 """
 
+import pathlib
 import zipfile
 
+from django.conf import settings
 from django.core.files.base import ContentFile
 from django.shortcuts import get_object_or_404
 from rest_framework.parsers import FormParser, MultiPartParser
@@ -45,6 +47,41 @@ from .models import (
     KursZipJarayoni,
 )
 from .views import _mashq_admin_mi, _unit_bolimlari
+
+
+def _jarayon_kesh_yoli(jarayon):
+    yol = pathlib.Path(settings.MEDIA_ROOT) / "tmp_blok_jarayon"
+    yol.mkdir(parents=True, exist_ok=True)
+    return yol / f"{jarayon.id}.zip"
+
+
+def _jarayon_arxivi(jarayon):
+    """ZIP faylni ochadi — R2'DAN FAQAT BIR MARTA yuklab, mahalliy diskka
+    keshlab qo'yadi (2026-07-28, haqiqiy production xatosidan keyin).
+
+    Muammo: `django-storages`ning S3Storage'i faylni O'QISH uchun
+    ochganda uni TO'LIQ QAYTA YUKLAB OLADI (`S3File._get_file` ->
+    `download_fileobj`) — bu kutubxonaning o'z ishlash tartibi, bizning
+    kod emas. Har sahifa BOSHQA HTTP so'rovda ishlangani uchun, tuzatishsiz
+    holatda ZIP R2'dan HAR SAHIFA UCHUN qaytadan yuklanardi: 56 MB'lik
+    fayl va 9 sahifalik Unit uchun bu ~500 MB ortiqcha tarmoq trafigi —
+    aynan shu sabab bilan (Free tarifda) servis qulab tushgan edi
+    (2026-07-29, foydalanuvchi xabar berdi).
+
+    Yechim: birinchi chaqiruvda R2'dan bir marta yuklab, MEDIA_ROOT
+    ichidagi vaqtinchalik faylga yoziladi; keyingi sahifalar shu
+    mahalliy nusxadan o'qiydi. Konteyner qayta ishga tushsa (disk
+    tozalanadi) — keshlangan fayl yo'qoladi va keyingi so'rov R2'dan
+    qayta yuklaydi, ya'ni o'z-o'zini tuzatadi, xato bermaydi."""
+    kesh = _jarayon_kesh_yoli(jarayon)
+    if not kesh.exists():
+        with jarayon.zip_fayl.open("rb") as manba:
+            kesh.write_bytes(manba.read())
+    return zipfile.ZipFile(kesh)
+
+
+def _jarayon_keshini_tozala(jarayon):
+    _jarayon_kesh_yoli(jarayon).unlink(missing_ok=True)
 
 
 def _zip_tarkibini_ajrat(nomlar):
@@ -162,7 +199,7 @@ class KursBlokSahifaView(APIView):
         except ProviderXatosi as e:
             return Response({"detail": str(e)}, status=400)
 
-        with zipfile.ZipFile(jarayon.zip_fayl) as arxiv:
+        with _jarayon_arxivi(jarayon) as arxiv:
             if indeks < len(oddiy):
                 nom = oddiy[indeks]
                 natija, xato = sahifani_bloklarga_ajrat(provider, arxiv.read(nom))
@@ -228,7 +265,7 @@ def _jarayonni_yakunla(jarayon, foydalanuvchi):
     boshlangich = mashq_tugun.mashqlar.count()
     yaratilgan, rasm_soni, savol_soni, qollangan = [], 0, 0, 0
 
-    with zipfile.ZipFile(jarayon.zip_fayl) as arxiv:
+    with _jarayon_arxivi(jarayon) as arxiv:
         for i, tahlil in enumerate(d.get("tahlillar", []), start=1):
             natija = tahlil["natija"]
             bloklar, savollar, qutilar = bloklarni_tayyorla(natija.get("elementlar", []))
@@ -268,6 +305,7 @@ def _jarayonni_yakunla(jarayon, foydalanuvchi):
 
     jarayon.holat = KursZipJarayoni.Holat.TUGADI
     jarayon.save(update_fields=["holat"])
+    _jarayon_keshini_tozala(jarayon)  # vaqtinchalik mahalliy nusxa endi kerak emas
 
     natija = {
         "yaratilgan_mashqlar": len(yaratilgan),

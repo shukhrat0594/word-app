@@ -605,10 +605,40 @@ function AdminUnitKiritish({ unitId, royxatniYangila }) {
       const jid = boshlash.jarayon_id;
       setProgress({ ishlangan: 0, jami: boshlash.jami_sahifa, fayl: "" });
 
+      // 2026-07-28: har sahifa AI'da ~2 daqiqa ketadi — shu vaqtda server
+      // (Render, ayniqsa bepul tarifda) vaqtincha uzilib qolishi mumkin
+      // (haqiqiy holatda kuzatilgan: gunicorn logida Python xatosi yo'q,
+      // shunchaki servis qayta ishga tushgan). Jarayon o'zi ZIP+progressni
+      // bazada/R2'da saqlagani uchun, uzilgan sahifani QAYTA SO'RASH
+      // xavfsiz — shuning uchun har sahifa uchun bir necha marta uriniladi.
+      const SAHIFA_URINISHLAR = 3;
       let yakun = null;
       for (let i = 0; i < boshlash.jami_sahifa; i += 1) {
-        // eslint-disable-next-line no-await-in-loop
-        const d = await api(`/api/kurslar/blok-jarayon/${jid}/sahifa/`, { method: "POST" });
+        let d = null;
+        let oxirgiXato = null;
+        for (let urinish = 0; urinish < SAHIFA_URINISHLAR; urinish += 1) {
+          try {
+            // eslint-disable-next-line no-await-in-loop
+            d = await api(`/api/kurslar/blok-jarayon/${jid}/sahifa/`, { method: "POST" });
+            oxirgiXato = null;
+            break;
+          } catch (sahifaXato) {
+            oxirgiXato = sahifaXato;
+            if (urinish < SAHIFA_URINISHLAR - 1) {
+              setProgress({
+                ishlangan: i,
+                jami: boshlash.jami_sahifa,
+                fayl: t("kurs_blok_qayta_urinish"),
+              });
+              // Konteyner qayta ishga tushishi (Render'da kuzatilgan holat)
+              // bir necha soniya olishi mumkin — kutish vaqti ortib boradi
+              // (5s, 10s), darhol qayta urinish befoyda bo'lmasin.
+              // eslint-disable-next-line no-await-in-loop
+              await new Promise((r) => { setTimeout(r, 5000 * (urinish + 1)); });
+            }
+          }
+        }
+        if (oxirgiXato) throw oxirgiXato;
         setProgress({ ishlangan: d.ishlangan_sahifa, jami: d.jami_sahifa, fayl: d.joriy_fayl });
         if (d.tugadimi) {
           yakun = d.yakun;
