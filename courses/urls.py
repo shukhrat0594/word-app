@@ -48,6 +48,11 @@ urlpatterns = [
         name="kurslar_unit_yuklash",
     ),
     path(
+        "kurslar/<int:pk>/daraja-unit-yaratish/",
+        views.KursDarajaUnitYaratishView.as_view(),
+        name="kurslar_daraja_unit_yaratish",
+    ),
+    path(
         "kurslar/<int:pk>/zip-yuklash/",
         views.KursZipYuklashView.as_view(),
         name="kurslar_zip_yuklash",
@@ -96,6 +101,11 @@ urlpatterns = [
         "kurslar/mashq/<int:pk>/audio-boshqaruv/",
         views.KursMashqAudioBoshqaruvView.as_view(),
         name="kurslar_mashq_audio_boshqaruv",
+    ),
+    path(
+        "kurslar/mashq/<int:pk>/javob-excel/",
+        views.KursMashqJavobExcelView.as_view(),
+        name="kurslar_mashq_javob_excel",
     ),
     path(
         "kurslar/<int:pk>/audio-zip/",

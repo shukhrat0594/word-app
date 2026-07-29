@@ -4,43 +4,27 @@ tugunlarni (kalit+parent bo'yicha) qayta yaratmaydi, faqat yetishmaganini
 qo'shadi — xavfsiz qayta-qayta ishga tushiriladi (prod_boshlangich'ga
 ulash uchun).
 
-2026-07-22: Beginner endi "Unit" asosida (Headway Beginner 5th edition
-kitobi bo'yicha, 14 ta unit) — har bir Unit o'zining bo'limiga ega va
-ketma-ket ochiladi (`unit_darsi=True`).
+2026-07-22...2026-07-28: Beginner "Unit" asosida (Headway Beginner 5th
+edition kitobi bo'yicha, 14 ta qattiq kodlangan unit nomi bilan) qurilgan
+edi — har Unit Student's Book/Workbook > Mashqlar/Vocabulary tuzilmasiga
+ega, ketma-ket ochiladigan (`unit_darsi=True`).
 
-2026-07-27: Unit ichidagi bo'limlar qayta qurildi — avvalgi 6 bo'lim
-o'rniga Mashqlar/Grammar reference/Wordlist, so'ng (shu kuni, ikkinchi
-marta) Grammar reference va Wordlist BIRLASHTIRILDI ("Vocabulary"), Unit
-2 bo'limga tushdi.
+2026-07-29: Bu qattiq kodlash BEKOR QILINDI (foydalanuvchi talabi —
+"Beginnerni ham keyingi bo'limlar bilan bir xil qilamiz"). Beginner endi
+BOSHQA barcha Ingliz tili darajalari (Elementary...Upper-Intermediate)
+bilan BIR XIL yo'ldan o'tadi: bu buyruq faqat FLAT (bo'sh) bo'lim
+to'plamini (`INGLIZ_DARAJA_BOLIMLARI`) yaratadi, keyin admin panelidan
+(`KursDarajaUnitYaratishView`, courses/views.py) Unit sonini o'zi
+belgilab, Unit-asosli tuzilmaga (soni ixtiyoriy, nomlari generic "Unit
+N") o'tkazadi. Eski 3 ta to'ldirilgan Unit (talaba javoblari bilan
+birga) `prod_boshlangich.py`da BIR MARTALIK o'chirildi — qarang
+`_beginner_eski_unitlarni_tozala`.
 
-2026-07-28 — IKKI KATTA O'ZGARISH:
-
-1) `kalit` (slug) maydoni. Avval tugunlar NOMI bo'yicha topilardi
-   (`bolalar["Mashqlar"]`, frontendda `nomi === "Vocabulary"`). Nomlar
-   3 tilda ko'rsatiladigan bo'lgach bu yo'l sinadi, shuning uchun kod
-   endi HAR DOIM `kalit`ka tayanadi. Bazadagi `nomi` o'zgarmaydi (zaxira
-   sifatida qoladi), tarjima frontendda i18n orqali qilinadi.
-
-2) Unit ichida yangi qatlam — Student's Book va Workbook, HAR IKKALASIDA
-   Mashqlar+Vocabulary:
-
-       Unit 1 — Hello!
-       ├── Student's Book
-       │   ├── Mashqlar
-       │   └── Vocabulary
-       └── Workbook
-           ├── Mashqlar
-           └── Vocabulary
-
-   MAVJUD kontent yo'qolmaydi: Unit ostida to'g'ridan-to'g'ri turgan eski
-   Mashqlar/Vocabulary tugunlari (ichidagi KursMashq, KursSoz,
-   KursMashqAudio bilan birga) Student's Book ostiga KO'CHIRILADI —
-   faqat `parent` o'zgaradi, o'chirib-qayta yaratish YO'Q.
-
-Bu faqat Beginner'ning Unit tuzilmasiga tegishli. Boshqa darajalar
-(Elementary...Upper-Intermediate) hali flat va eski bo'lim to'plamida
-qoladi (ular hali bo'sh, real kitob berilmagan).
-"""
+Har bir daraja uchun: agar darajada ALLAQACHON Unit (`unit_darsi=True`)
+mavjud bo'lsa (admin panel orqali yaratilgan), bu buyruq UNGA TEGMAYDI —
+aks holda bu buyruq HAR DEPLOY'DA ishga tushgani uchun (prod_boshlangich),
+admin yaratgan Unitlar keyingi deploy'da o'chirilib, o'rniga bo'sh flat
+bo'limlar qayta tiklanardi."""
 
 from django.core.management.base import BaseCommand
 
@@ -58,10 +42,6 @@ INGLIZ_DARAJA_BOLIMLARI = [
     ("speaking_writing", "Speaking/Writing"),
     ("everyday_english", "Everyday English"),
 ]
-
-# Unit ichidagi kitob turlari (2026-07-28) va ularning har biridagi bo'limlar.
-UNIT_KITOBLARI = [("students_book", "Student's Book"), ("workbook", "Workbook")]
-UNIT_BOLIMLARI = [("mashqlar", "Mashqlar"), ("vocabulary", "Vocabulary")]
 
 INGLIZ_DARAJALAR = [
     ("beginner", "Beginner"),
@@ -87,23 +67,6 @@ IELTS_BOLIMLARI = [
     ("mock_exam", "Mock exam"),
 ]
 
-HEADWAY_BEGINNER_UNITLAR = [
-    "Unit 1 — Hello!",
-    "Unit 2 — Your world",
-    "Unit 3 — All about you",
-    "Unit 4 — Family and friends",
-    "Unit 5 — Things I like!",
-    "Unit 6 — Every day",
-    "Unit 7 — Favourite things",
-    "Unit 8 — Home sweet home",
-    "Unit 9 — Past times",
-    "Unit 10 — We had a good time!",
-    "Unit 11 — We can do it!",
-    "Unit 12 — Thank you very much!",
-    "Unit 13 — What's happening now?",
-    "Unit 14 — Let's go!",
-]
-
 # Eski (kalitsiz) tugunlarni bir martalik kalitlash uchun nom -> kalit
 # jadvali. Faqat `kalit` bo'sh bo'lgan tugunlarga qo'llanadi.
 NOM_KALIT = {
@@ -127,7 +90,6 @@ NOM_KALIT = {
     "Writing": "writing",
     "Listening": "listening",
     "Speaking": "speaking",
-    **{nomi: f"unit_{i}" for i, nomi in enumerate(HEADWAY_BEGINNER_UNITLAR, start=1)},
     **{nomi: kalit for kalit, nomi in INGLIZ_DARAJALAR},
 }
 
@@ -141,7 +103,7 @@ def _shoxni_yig(tugun, idlar):
 
 
 class Command(BaseCommand):
-    help = "Kurslar bo'limi boshlang'ich tuzilmasini yaratadi (Ingliz tili — Beginner Unit'lar bilan, boshqa darajalar flat)"
+    help = "Kurslar bo'limi boshlang'ich tuzilmasini yaratadi (Ingliz tili darajalari — Unit yaratilmaguncha flat)"
 
     def handle(self, *args, **options):
         markaz = Markaz.objects.first()
@@ -200,19 +162,18 @@ class Command(BaseCommand):
         for i, (daraja_kalit, daraja_nomi) in enumerate(INGLIZ_DARAJALAR, start=1):
             daraja = bor_yoki_yarat(daraja_kalit, daraja_nomi, parent=ingliz, tartib=i)
 
-            if daraja_kalit == "beginner":
-                # Eski (Unit'siz, flat) bo'limlar bo'lsa — Unit tuzilmasiga
-                # o'tishda tozalanadi (2026-07-22, hali real kontent yo'q edi).
-                KursTugun.objects.filter(parent=daraja, unit_darsi=False).delete()
-                for j, unit_nomi in enumerate(HEADWAY_BEGINNER_UNITLAR, start=1):
-                    unit = bor_yoki_yarat(f"unit_{j}", unit_nomi, parent=daraja,
-                                          tartib=j, unit_darsi=True)
-                    self._unitni_kitoblarga_bol(unit, bor_yoki_yarat)
-                    eski_bolimlarni_tozala(unit, [k for k, _ in UNIT_KITOBLARI])
-            else:
-                eski_bolimlarni_tozala(daraja, [k for k, _ in INGLIZ_DARAJA_BOLIMLARI])
-                for j, (kalit, nomi) in enumerate(INGLIZ_DARAJA_BOLIMLARI, start=1):
-                    bor_yoki_yarat(kalit, nomi, parent=daraja, tartib=j)
+            if KursTugun.objects.filter(parent=daraja, unit_darsi=True).exists():
+                # 2026-07-29: admin bu darajada `KursDarajaUnitYaratishView`
+                # orqali Unit-asosli tuzilma yaratgan (courses/views.py) —
+                # bu buyruq HAR DEPLOY'DA ishga tushgani uchun (prod_boshlangich),
+                # pastdagi "flat bo'limlarni tiklash" YO'LI ISHGA TUSHMASLIGI
+                # SHART, aks holda admin yaratgan Unitlar keyingi deploy'da
+                # o'chirilib, o'rniga bo'sh flat bo'limlar qayta tiklanardi.
+                continue
+
+            eski_bolimlarni_tozala(daraja, [k for k, _ in INGLIZ_DARAJA_BOLIMLARI])
+            for j, (kalit, nomi) in enumerate(INGLIZ_DARAJA_BOLIMLARI, start=1):
+                bor_yoki_yarat(kalit, nomi, parent=daraja, tartib=j)
 
         ielts = bor_yoki_yarat("ielts", "IELTS", parent=ingliz,
                                tartib=len(INGLIZ_DARAJALAR) + 1)
@@ -246,28 +207,3 @@ class Command(BaseCommand):
                 nomi=nomi, kalit="").update(kalit=kalit)
         if yangilandi:
             self.stdout.write(f"Kalit berildi: {yangilandi} ta eski tugun")
-
-    def _unitni_kitoblarga_bol(self, unit, bor_yoki_yarat):
-        """Unit ostida Student's Book / Workbook qatlamini quradi va
-        MAVJUD bo'limlarni Student's Book ostiga KO'CHIRADI (2026-07-28).
-
-        Ko'chirish `parent` ni o'zgartirish orqali bo'ladi — tugunlar
-        o'chirilmaydi, shuning uchun ichidagi KursMashq / KursSoz /
-        KursMashqAudio va talabalarning KursMashqYechim yozuvlari
-        BUTUNLIGICHA saqlanib qoladi."""
-        kitoblar = {}
-        for i, (kalit, nomi) in enumerate(UNIT_KITOBLARI, start=1):
-            kitoblar[kalit] = bor_yoki_yarat(kalit, nomi, parent=unit, tartib=i)
-
-        # Eski tuzilma: Mashqlar/Vocabulary to'g'ridan-to'g'ri Unit ostida
-        # turardi -> Student's Book ostiga ko'chiramiz.
-        kochirildi = KursTugun.objects.filter(
-            parent=unit, kalit__in=[k for k, _ in UNIT_BOLIMLARI]
-        ).update(parent=kitoblar["students_book"])
-        if kochirildi:
-            self.stdout.write(
-                f"\"{unit.nomi}\": {kochirildi} ta bo'lim Student's Book ostiga ko'chirildi")
-
-        for kitob in kitoblar.values():
-            for j, (kalit, nomi) in enumerate(UNIT_BOLIMLARI, start=1):
-                bor_yoki_yarat(kalit, nomi, parent=kitob, tartib=j)

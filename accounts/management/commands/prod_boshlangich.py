@@ -17,6 +17,15 @@ Uch ish qiladi, har biri faqat kerak bo'lsa:
   6. Kunlik bulutdagi agent qo'shgan yangi mashqlarni bazaga kiritadi
      (kunlik_mashqlarni_ishga_tushir — 2026-07-22, /schedule orqali
      sozlangan kunlik avtomatik mashq qo'shish tizimi).
+  7. BIR MARTALIK (2026-07-29): Beginner'ning eski, qattiq kodlangan 14 ta
+     Headway Unit'ini (talaba javoblari bilan birga) o'chiradi — Beginner
+     endi boshqa darajalar bilan bir xil "admin Unit sonini belgilaydi"
+     mexanizmiga o'tkazilmoqda (foydalanuvchi talabi, tasdiqlangan:
+     "Ha, o'chir va qaytadan qur"). `kurslar_urugla`dan OLDIN ishga
+     tushishi SHART — aks holda kurslar_urugla eski Unit'lar hali
+     mavjud deb ularga tegmay qo'yar edi. Idempotent: Beginner'da
+     unit_darsi=True tugun qolmagach, keyingi deploy'larda hech narsa
+     qilmaydi (bo'sh filter — 0 ta o'chiriladi).
 """
 
 from decouple import config
@@ -24,6 +33,7 @@ from django.core.management import call_command
 from django.core.management.base import BaseCommand
 
 from accounts.models import Markaz, User
+from courses.models import KursTugun
 from exercises.models import ImtihonTest, Mashq
 from games.models import Soz
 
@@ -79,8 +89,31 @@ class Command(BaseCommand):
             call_command("loaddata", "oyinlar")
             self.stdout.write(f"O'yin kontenti yuklandi: {Soz.objects.count()} so'z")
 
+        self._beginner_eski_unitlarni_tozala()
+
         call_command("wordapp_import")
         call_command("listening_yangi_mashqlar")
         call_command("writing_speaking_yangi_mashqlar")
         call_command("kurslar_urugla")
         call_command("kunlik_mashqlarni_ishga_tushir")
+
+    def _beginner_eski_unitlarni_tozala(self):
+        """2026-07-29, bir martalik: Beginner'ning qattiq kodlangan 14 ta
+        Headway Unit'ini (talaba javoblari bilan birga, KASKAD) o'chiradi
+        — Beginner ham endi boshqa darajalar kabi admin panelidan "Unit
+        soni" orqali qayta quriladi. `kurslar_urugla`dan OLDIN chaqirilishi
+        SHART (docstring'ga qarang)."""
+        beginner = KursTugun.objects.filter(kalit="beginner").first()
+        if not beginner:
+            return
+        eski_unitlar = KursTugun.objects.filter(parent=beginner, unit_darsi=True)
+        soni = eski_unitlar.count()
+        if not soni:
+            return  # allaqachon tozalangan (yoki hali yaratilmagan)
+        eski_unitlar.delete()
+        self.stdout.write(
+            self.style.WARNING(
+                f"Beginner'ning {soni} ta eski Unit'i o'chirildi "
+                "(yangi Unit-soni mexanizmiga o'tish, 2026-07-29)"
+            )
+        )

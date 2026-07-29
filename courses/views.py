@@ -14,6 +14,7 @@ from audit.models import FaoliyatYozuvi
 from audit.utils import logla
 from exercises.models import javoblarni_tekshir
 
+from .excel_import import javob_qatorlarini_oqi, javoblarni_yangila
 from .kontent_generatsiya import (
     audio_raqamini_ajrat,
     javob_kaliti_indeksla,
@@ -33,6 +34,7 @@ from .models import (
     KursSoz,
     KursTugun,
 )
+from .unit_qurish import unit_ichki_tuzilmasini_yarat
 
 OTISH_FOIZ = 0.6
 
@@ -491,6 +493,85 @@ class KursUnitTozalashView(APIView):
         return Response(natija)
 
 
+# 2026-07-29: "Elementary...Upper-Intermediate uchun Unit sonini admin
+# belgilashi" talabi. Beginner ham 2026-07-29(2)da shu ro'yxatga
+# qo'shildi — qattiq kodlangan 14 ta Headway Unit'i bekor qilindi,
+# Beginner ham boshqa darajalar bilan BIR XIL admin-mexanizmga o'tdi
+# (IELTS/CEFR bundan mustasno — ular butunlay boshqa tuzilma).
+UNIT_YARATISH_MUMKIN_DARAJALAR = {
+    "beginner", "elementary", "pre_intermediate", "intermediate", "upper_intermediate",
+}
+
+
+class KursDarajaUnitYaratishView(APIView):
+    """Admin/owner uchun — Ingliz tili darajasida (Beginner yoki
+    Elementary...Upper-Intermediate) N ta Unit'ni (har biri Student's
+    Book/Workbook > Mashqlar/Vocabulary tuzilmasi bilan, generic "Unit N"
+    nomi bilan) BIR MARTALIK yaratadi.
+
+    Bu daraja hozircha FLAT (Grammar/Vocabulary/Reading/... to'g'ridan-to'g'ri
+    daraja ostida, kontentsiz) — Unit yaratilganda bu bo'sh flat bo'limlar
+    O'CHIRILADI (ular hali hech qanday kontentga ega emas, o'chirish
+    xavfsiz).
+
+    Faqat Unit HALI YO'Q bo'lgan darajada ishlaydi (qayta chaqirilsa —
+    xato qaytaradi): sonini keyinroq o'zgartirish shart bo'lsa, buni
+    programmatik ravishda (Django shell) qilish kerak — tasodifan qayta
+    bosib, mavjud Unitlar ustiga yana Unit qo'shib yuborishning oldini
+    olish uchun ATAYLAB shunday qilingan."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        if not _mashq_admin_mi(request.user):
+            return Response({"detail": "Faqat admin/owner uchun"}, status=403)
+        daraja = get_object_or_404(KursTugun, pk=pk)
+        if daraja.kalit not in UNIT_YARATISH_MUMKIN_DARAJALAR:
+            return Response(
+                {"detail": "Bu tugun uchun Unit yaratib bo'lmaydi"}, status=400
+            )
+        if KursTugun.objects.filter(parent=daraja, unit_darsi=True).exists():
+            return Response(
+                {"detail": "Bu darajada Unitlar allaqachon yaratilgan"}, status=400
+            )
+
+        try:
+            unit_soni = int(request.data.get("unit_soni"))
+        except (TypeError, ValueError):
+            return Response({"detail": "unit_soni butun son bo'lishi kerak"}, status=400)
+        if not 1 <= unit_soni <= 50:
+            return Response({"detail": "unit_soni 1 dan 50 gacha bo'lishi kerak"}, status=400)
+
+        # Eski (hali bo'sh) flat bo'limlarni tozalaymiz — Unit tuzilmasiga
+        # o'tishda ular endi kerak emas.
+        KursTugun.objects.filter(parent=daraja, unit_darsi=False).delete()
+
+        for j in range(1, unit_soni + 1):
+            # `kalit` GLOBAL unikal emas (faqat bir ota-tugun ichida), lekin
+            # frontend nomlarni KALIT bo'yicha (parentga qaramay) tarjima
+            # qiladi (i18n.jsx, `tugun_<kalit>`) — shuning uchun oddiy
+            # "unit_N" ishlatilsa, Beginner'ning "unit_1"="Unit 1 — Hello!"
+            # kabi haqiqiy sarlavhalari bilan TO'QNASHIB, noto'g'ri nom
+            # ko'rsatilardi (2026-07-29, sinovda aniqlandi). Daraja kaliti
+            # bilan prefikslash bu to'qnashuvni oldini oladi.
+            unit = KursTugun.objects.create(
+                kalit=f"{daraja.kalit}_unit_{j}", nomi=f"Unit {j}", parent=daraja,
+                markaz=daraja.markaz, tartib=j, unit_darsi=True,
+            )
+            unit_ichki_tuzilmasini_yarat(unit)
+
+        natija = {"yaratilgan_unit_soni": unit_soni}
+        logla(
+            foydalanuvchi=request.user,
+            harakat=FaoliyatYozuvi.Harakat.YARATISH,
+            obyekt=daraja,
+            obyekt_turi="KursTugun",
+            obyekt_nomi=f"{daraja.nomi} ({unit_soni} ta Unit)",
+            snapshot=natija,
+        )
+        return Response(natija, status=201)
+
+
 class KursUnitYuklashView(APIView):
     """Admin/owner uchun — bitta Unit'ning IKKALA bo'limini (Mashqlar,
     Vocabulary) BITTA so'rovda to'ldirish (2026-07-27, foydalanuvchi
@@ -827,7 +908,8 @@ class KursSozlarView(APIView):
 
 
 class KursMashqDetailBoshqaruvView(APIView):
-    """Admin/owner uchun — bitta mashqni o'chirish."""
+    """Admin/owner uchun — bitta mashqni o'chirish yoki (2026-07-29)
+    savollarining to'g'ri javoblarini QO'LDA tahrirlash."""
 
     permission_classes = [IsAuthenticated]
 
@@ -837,6 +919,65 @@ class KursMashqDetailBoshqaruvView(APIView):
         mashq = get_object_or_404(KursMashq, pk=pk)
         mashq.delete()
         return Response(status=204)
+
+    def patch(self, request, pk):
+        """So'rov tanasi: {"javoblar": [{"raqam": 1, "togri": "..."}, ...]}
+        — "raqam" shu mashq ICHIDAGI savol tartib raqami (1 dan boshlab,
+        `savollar` ro'yxatidagi pozitsiyaga mos)."""
+        if not _mashq_admin_mi(request.user):
+            return Response({"detail": "Faqat admin/owner uchun"}, status=403)
+        mashq = get_object_or_404(KursMashq, pk=pk)
+        yangilash = request.data.get("javoblar")
+        if not isinstance(yangilash, list) or not yangilash:
+            return Response({"detail": "'javoblar' ro'yxati majburiy"}, status=400)
+
+        savollar = mashq.savollar
+        xatolar = []
+        yangilandi = 0
+        for y in yangilash:
+            raqam = y.get("raqam")
+            togri = y.get("togri")
+            if not isinstance(raqam, int) or not 1 <= raqam <= len(savollar):
+                xatolar.append({"raqam": raqam, "xato": "savol raqami noto'g'ri"})
+                continue
+            savollar[raqam - 1]["togri"] = togri
+            yangilandi += 1
+        mashq.savollar = savollar
+        mashq.save(update_fields=["savollar"])
+        return Response({
+            "yangilandi": yangilandi, "xatolar": xatolar, "mashq": _kurs_mashq_admin_dict(mashq),
+        })
+
+
+class KursMashqJavobExcelView(APIView):
+    """Admin/owner uchun — bitta mashqning to'g'ri javoblarini Excel
+    (.xlsx) orqali ommaviy yangilash (2026-07-29 talabi). Format:
+    1-ustun — savol raqami (shu mashq ICHIDA, 1 dan boshlab), 2-ustun —
+    to'g'ri javob. Bitta qatorda xato bo'lsa (masalan mavjud bo'lmagan
+    raqam) — o'sha qator o'tkazib yuboriladi, qolganlari davom etadi
+    (`accounts/excel_import.py` bilan bir xil naqsh)."""
+
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request, pk):
+        if not _mashq_admin_mi(request.user):
+            return Response({"detail": "Faqat admin/owner uchun"}, status=403)
+        mashq = get_object_or_404(KursMashq, pk=pk)
+        fayl = request.FILES.get("fayl")
+        if not fayl:
+            return Response({"detail": "fayl majburiy"}, status=400)
+        try:
+            qatorlar = javob_qatorlarini_oqi(fayl)
+        except Exception:
+            return Response({"detail": "Fayl yaroqli Excel (.xlsx) emas"}, status=400)
+        if not qatorlar:
+            return Response({"detail": "Faylda qator topilmadi"}, status=400)
+
+        yangilandi, xatolar = javoblarni_yangila(mashq, qatorlar)
+        return Response({
+            "yangilandi": yangilandi, "xatolar": xatolar, "mashq": _kurs_mashq_admin_dict(mashq),
+        })
 
 
 class KursMashqRasmBoshqaruvView(APIView):

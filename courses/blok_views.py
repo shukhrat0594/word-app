@@ -10,12 +10,15 @@ bu qo'shimcha servis va xarajat, holbuki jarayonni frontend boshqarsa
 yetarli (u progress ham ko'rsatadi).
 """
 
+import os
 import pathlib
 import shutil
+import threading
 import zipfile
 
 from django.conf import settings
 from django.core.files.base import ContentFile
+from django.db import transaction
 from django.shortcuts import get_object_or_404
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
@@ -81,8 +84,19 @@ def _jarayon_arxivi(jarayon):
         # 56 MB qo'shimcha RAM, `S3File`ning o'zi ham xuddi shuncha
         # ishlatgandan KEYIN). `copyfileobj` kichik bo'laklarda (64 KB)
         # o'qib-yozadi — xotirada faqat bitta bo'lak turadi.
-        with jarayon.zip_fayl.open("rb") as manba, open(kesh, "wb") as nishon:
+        #
+        # Parallel sahifa ishlash qo'shilgandan keyin (2026-07-29) bir
+        # nechta so'rov shu yerga BIR VAQTDA kelishi mumkin — ikkalasi
+        # ham keshni yo'q deb topib yuklashni boshlashi mumkin. Shuning
+        # uchun avval VAQTINCHALIK faylga yozib, keyin ATOMIK ravishda
+        # (`os.replace`) asosiy nomga almashtiramiz: yarim yozilgan yoki
+        # ikki oqim aralashib ketgan fayl HECH QACHON hosil bo'lmaydi —
+        # eng yomon holatda ikkalasi ham bir xil to'liq faylni yuklab,
+        # ikkinchisi birinchisining ustidan (zararsiz) yozadi.
+        vaqtinchalik = kesh.with_suffix(f".{os.getpid()}-{threading.get_ident()}.tmp")
+        with jarayon.zip_fayl.open("rb") as manba, open(vaqtinchalik, "wb") as nishon:
             shutil.copyfileobj(manba, nishon)
+        os.replace(vaqtinchalik, kesh)
     return zipfile.ZipFile(kesh)
 
 
@@ -158,9 +172,15 @@ class KursBlokZipYuklashView(APIView):
                 "sahifalar": sahifalar,
                 "javob_kaliti_fayllari": javob_kaliti,
                 "audiolar": audiolar,
-                "tahlillar": [],
-                "javob_bandlari": [],
-                "xatolar": [],
+                # Parallel qayta ishlash (2026-07-29): "band_qilingan" —
+                # band qilib olingan sahifa indekslari (hali tugamagan
+                # bo'lishi ham mumkin); "tugallangan" — indeks(str) -> natija,
+                # tugagan sahifalar, tugallanish TARTIBIGA emas, ORIGINAL
+                # sahifa TARTIBIGA qarab saqlanadi (parallel so'rovlar har xil
+                # tartibda tugashi mumkin, lekin yakuniy mashqlar tartibi
+                # HAR DOIM sahifa tartibiga mos bo'lishi kerak).
+                "band_qilingan": [],
+                "tugallangan": {},
             },
         )
         return Response(
@@ -212,30 +232,69 @@ class KursBlokJarayonHolatiView(APIView):
 
 
 class KursBlokSahifaView(APIView):
-    """2-BOSQICH: navbatdagi BITTA sahifani qayta ishlash.
+    """2-BOSQICH: navbatdagi sahifa(lar)ni qayta ishlash.
 
-    Natijalar `jarayon.natijalar` ichida to'planadi, bazaga yozish
-    OXIRIDA bir yo'la bajariladi — sabab: javob kaliti odatda mashq
-    sahifalaridan KEYIN keladi, ya'ni mashq yaratilayotganda uning
-    to'g'ri javobi hali ma'lum bo'lmaydi.
+    2026-07-29: frontend endi BIR VAQTDA bir nechta (2-3 ta) so'rov
+    yuborishi mumkin — har bir HTTP so'rov FAQAT BITTA sahifani oladi,
+    lekin bir nechtasi PARALLEL bajarilishi mumkin. Shuning uchun:
 
-    Bitta sahifa xato bo'lsa jarayon TO'XTAMAYDI — xato ro'yxatga
-    yoziladi va keyingisiga o'tiladi."""
+    1) Navbatdagi bo'sh sahifa ATOMIK band qilinadi (`select_for_update`
+       ichida) — DB darajasidagi qulf tufayli ikkita parallel so'rov
+       HECH QACHON bir xil indeksni band qila olmaydi.
+    2) Uzoq AI chaqiruvi QULFSIZ bajariladi (~100-125s) — aks holda
+       parallel so'rovlar bir-birini navbatda kutib, konkurentlikning
+       hech qanday foydasi bo'lmasdi.
+    3) Natija yana ATOMIK o'qib-yozib qo'shiladi (`tugallangan[indeks]`)
+       — shu orqali boshqa parallel so'rov shu oraliqda yozgan natija
+       hech qachon YO'QOLMAYDI ("lost update" muammosi).
+
+    Natijalar SAHIFA INDEKSI bo'yicha saqlanadi (tugallanish tartibida
+    emas) — parallel so'rovlar turlicha tartibda tugashi mumkin, lekin
+    yakuniy mashqlar tartibi sahifa tartibiga mos bo'lishi SHART."""
 
     permission_classes = [IsAuthenticated]
 
     def post(self, request, pk):
         if not _mashq_admin_mi(request.user):
             return Response({"detail": "Faqat admin/owner uchun"}, status=403)
-        jarayon = get_object_or_404(KursZipJarayoni, pk=pk)
-        if jarayon.holat == KursZipJarayoni.Holat.TUGADI:
-            return Response({"detail": "Bu jarayon allaqachon tugagan"}, status=400)
 
-        d = jarayon.natijalar
-        oddiy = d["sahifalar"]
-        javob_fayllari = d["javob_kaliti_fayllari"]
-        indeks = jarayon.ishlangan_sahifa
+        # 1) Navbatdagi BO'SH sahifani ATOMIK band qilamiz.
+        with transaction.atomic():
+            jarayon = get_object_or_404(
+                KursZipJarayoni.objects.select_for_update(), pk=pk
+            )
+            if jarayon.holat == KursZipJarayoni.Holat.TUGADI:
+                return Response({"detail": "Bu jarayon allaqachon tugagan"}, status=400)
 
+            d = jarayon.natijalar
+            oddiy = d["sahifalar"]
+            javob_fayllari = d["javob_kaliti_fayllari"]
+            jami = len(oddiy) + len(javob_fayllari)
+            band = set(d.get("band_qilingan", []))
+            indeks = next((i for i in range(jami) if i not in band), None)
+
+            if indeks is None:
+                # Boshqa parallel so'rov(lar) allaqachon barcha sahifani
+                # band qilib bo'lgan — bu normal holat, xato emas: bu
+                # "ishchi" uchun hozircha ish qolmadi.
+                return Response(
+                    {
+                        "band_qilinadigan_sahifa_qolmadi": True,
+                        "ishlangan_sahifa": jarayon.ishlangan_sahifa,
+                        "jami_sahifa": jarayon.jami_sahifa,
+                        "tugadimi": jarayon.ishlangan_sahifa >= jarayon.jami_sahifa,
+                    }
+                )
+
+            band.add(indeks)
+            d["band_qilingan"] = sorted(band)
+            jarayon.natijalar = d
+            jarayon.holat = KursZipJarayoni.Holat.ISHLANMOQDA
+            jarayon.save(update_fields=["natijalar", "holat"])
+
+        # 2) UZOQ AI ishi — DB QULFISIZ (bir necha daqiqagacha cho'zilishi
+        #    mumkin; qulf ushlab turilsa boshqa parallel so'rovlar
+        #    tiqilib qolardi va konkurentlikdan foyda bo'lmasdi).
         try:
             provider = blok_provider_olish()
         except ProviderXatosi as e:
@@ -244,35 +303,45 @@ class KursBlokSahifaView(APIView):
         with _jarayon_arxivi(jarayon) as arxiv:
             if indeks < len(oddiy):
                 nom = oddiy[indeks]
+                turi = "sahifa"
                 natija, xato = sahifani_bloklarga_ajrat(provider, arxiv.read(nom))
-                if not xato:
-                    d["tahlillar"].append({"fayl": nom, "natija": natija})
             else:
                 nom = javob_fayllari[indeks - len(oddiy)]
+                turi = "javob_kaliti"
                 natija, xato = javob_kaliti_sahifasi(provider, arxiv.read(nom))
-                if not xato:
-                    bandlar = natija.get("javoblar", [])
-                    d["javob_bandlari"].extend(bandlar)
-                    if not bandlar:
-                        # Sahifa "answer" papkasida turibdi, lekin ichida
-                        # javob yo'q. Amalda uchragan holat (2026-07-28):
-                        # "answers/answer 1.jpg" aslida Teacher's Guide'ning
-                        # Unit Overview sahifasi edi. AI to'g'ri ish qilgan,
-                        # lekin admin buni BILISHI kerak — aks holda javob
-                        # kaliti qo'llandi deb o'ylab qoladi.
-                        xato = "Javob topilmadi — bu sahifa javob kaliti emasga o'xshaydi"
-            if xato:
-                d["xatolar"].append({"fayl": nom, "xato": xato})
+                if not xato and not natija.get("javoblar"):
+                    # Sahifa "answer" papkasida turibdi, lekin ichida
+                    # javob yo'q. Amalda uchragan holat (2026-07-28):
+                    # "answers/answer 1.jpg" aslida Teacher's Guide'ning
+                    # Unit Overview sahifasi edi. AI to'g'ri ish qilgan,
+                    # lekin admin buni BILISHI kerak — aks holda javob
+                    # kaliti qo'llandi deb o'ylab qoladi.
+                    xato = "Javob topilmadi — bu sahifa javob kaliti emasga o'xshaydi"
 
-        jarayon.ishlangan_sahifa = indeks + 1
-        jarayon.holat = KursZipJarayoni.Holat.ISHLANMOQDA
-        jarayon.natijalar = d
-        jarayon.save(update_fields=["ishlangan_sahifa", "holat", "natijalar"])
+        # 3) Natijani ATOMIK qo'shamiz — qayta o'qib-yozamiz, boshqa
+        #    parallel so'rov shu oraliqda o'ziniki yozgan bo'lishi mumkin.
+        with transaction.atomic():
+            jarayon = KursZipJarayoni.objects.select_for_update().get(pk=pk)
+            d = jarayon.natijalar
+            d.setdefault("tugallangan", {})[str(indeks)] = {
+                "turi": turi,
+                "fayl": nom,
+                "natija": natija,
+                "xato": xato,
+            }
+            jarayon.natijalar = d
+            jarayon.ishlangan_sahifa = len(d["tugallangan"])
+            jami_sahifa = jarayon.jami_sahifa
+            tugadimi = jarayon.ishlangan_sahifa >= jami_sahifa
+            if tugadimi:
+                # Yakunlashdan OLDIN belgilaymiz — boshqa parallel so'rov
+                # shu oraliqda yana bir sahifani band qilib olmasin.
+                jarayon.holat = KursZipJarayoni.Holat.TUGADI
+            jarayon.save(update_fields=["natijalar", "ishlangan_sahifa", "holat"])
 
-        tugadimi = jarayon.ishlangan_sahifa >= jarayon.jami_sahifa
         javob = {
             "ishlangan_sahifa": jarayon.ishlangan_sahifa,
-            "jami_sahifa": jarayon.jami_sahifa,
+            "jami_sahifa": jami_sahifa,
             "joriy_fayl": nom.rsplit("/", 1)[-1],
             "xato": xato,
             "tugadimi": tugadimi,
@@ -299,17 +368,38 @@ def _javob_kaliti_indeksi(bandlar):
 
 def _jarayonni_yakunla(jarayon, foydalanuvchi):
     """Yig'ilgan tahlillarni BAZAGA yozadi: mashqlar (bloklar+savollar),
-    sahifadan kesilgan rasmlar, audio biriktirish."""
+    sahifadan kesilgan rasmlar, audio biriktirish.
+
+    2026-07-29: natijalar `tugallangan` lug'atida SAHIFA INDEKSI kaliti
+    bilan saqlangan (parallel qayta ishlash tufayli tugallanish tartibi
+    original sahifa tartibiga mos kelmasligi mumkin) — shuning uchun bu
+    yerda ATAYLAB indeks bo'yicha SARALAB o'qiladi, natijada yakuniy
+    mashqlar tartibi har doim sahifa tartibiga mos bo'ladi."""
     d = jarayon.natijalar
     mashq_tugun = _unit_bolimlari(jarayon.tugun)["mashqlar"]
-    javob_indeksi = _javob_kaliti_indeksi(d.get("javob_bandlari", []))
+
+    tugallangan = d.get("tugallangan", {})
+    tartiblangan = [tugallangan[k] for k in sorted(tugallangan, key=int)]
+
+    xato_sahifalar = [
+        {"fayl": t["fayl"], "xato": t["xato"]} for t in tartiblangan if t["xato"]
+    ]
+    javob_bandlari = []
+    for t in tartiblangan:
+        if t["turi"] == "javob_kaliti" and not t["xato"]:
+            javob_bandlari.extend(t["natija"].get("javoblar", []))
+    javob_indeksi = _javob_kaliti_indeksi(javob_bandlari)
 
     boshlangich = mashq_tugun.mashqlar.count()
     yaratilgan, rasm_soni, savol_soni, qollangan = [], 0, 0, 0
 
     with _jarayon_arxivi(jarayon) as arxiv:
-        for i, tahlil in enumerate(d.get("tahlillar", []), start=1):
-            natija = tahlil["natija"]
+        i = 0
+        for t in tartiblangan:
+            if t["turi"] != "sahifa" or t["xato"]:
+                continue
+            i += 1
+            natija = t["natija"]
             bloklar, savollar, qutilar = bloklarni_tayyorla(natija.get("elementlar", []))
 
             # Javob kaliti AI taxminidan USTUN — darslikning haqiqiy manbasi.
@@ -331,7 +421,7 @@ def _jarayonni_yakunla(jarayon, foydalanuvchi):
             )
             savol_soni += len(savollar)
 
-            sahifa_bytes = arxiv.read(tahlil["fayl"])
+            sahifa_bytes = arxiv.read(t["fayl"])
             for tartib, quti in enumerate(qutilar):
                 kesilgan = rasmni_kes(sahifa_bytes, quti)
                 if not kesilgan:
@@ -358,7 +448,7 @@ def _jarayonni_yakunla(jarayon, foydalanuvchi):
         "ishlatilmagan_audio": [
             n.rsplit("/", 1)[-1] for n in d.get("audiolar", []) if n not in ishlatilgan
         ],
-        "xato_sahifalar": d.get("xatolar", []),
+        "xato_sahifalar": xato_sahifalar,
     }
     logla(
         foydalanuvchi=foydalanuvchi,

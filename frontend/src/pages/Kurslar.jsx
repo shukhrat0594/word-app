@@ -261,9 +261,104 @@ function TalabaMashqi({ mashq, raqam }) {
  * orqali qo'shish endi Unit darajasida (AdminUnitKiritish) bo'ladi, bu
  * yerda faqat ro'yxat+fayl biriktirish qoladi. Boshqa (flat) bo'limlar
  * uchun avvalgidek JSON+AI promt ko'rinadi. */
+/** Admin uchun — bitta mashqning to'g'ri javoblarini QO'LDA (har savol
+ * uchun matn maydoni) yoki Excel (.xlsx: 1-ustun savol raqami, 2-ustun
+ * javob) orqali ommaviy tahrirlash (2026-07-29 talabi). */
+function MashqJavoblariTahriri({ mashq, royxatniYangila }) {
+  const { t } = useI18n();
+  const [qiymatlar, setQiymatlar] = useState(
+    () => mashq.savollar.map((s) => (Array.isArray(s.togri) ? s.togri.join(", ") : (s.togri || "")))
+  );
+  const [saqlanmoqda, setSaqlanmoqda] = useState(false);
+  const [xato, setXato] = useState("");
+  const [natija, setNatija] = useState(null);
+
+  function natijaniKorsat(d) {
+    setNatija(d);
+    if (d.yangilandi) royxatniYangila();
+  }
+
+  async function saqlash() {
+    setXato("");
+    setSaqlanmoqda(true);
+    try {
+      const javoblar = qiymatlar.map((v, i) => ({ raqam: i + 1, togri: v }));
+      const d = await api(`/api/kurslar/mashq/${mashq.id}/`, { method: "PATCH", body: { javoblar } });
+      natijaniKorsat(d);
+    } catch (e) {
+      setXato(e.data?.detail || t("xato_yuz_berdi"));
+    } finally {
+      setSaqlanmoqda(false);
+    }
+  }
+
+  async function excelYukla(e) {
+    const fayl = e.target.files[0];
+    e.target.value = "";
+    if (!fayl) return;
+    setXato("");
+    setSaqlanmoqda(true);
+    try {
+      const fd = new FormData();
+      fd.append("fayl", fayl);
+      const d = await apiForm(`/api/kurslar/mashq/${mashq.id}/javob-excel/`, { method: "POST", formData: fd });
+      natijaniKorsat(d);
+    } catch (e2) {
+      setXato(e2.data?.detail || t("xato_yuz_berdi"));
+    } finally {
+      setSaqlanmoqda(false);
+    }
+  }
+
+  return (
+    <div style={{ marginTop: 6, marginBottom: 10, paddingLeft: 12, borderLeft: "2px solid var(--chegara, #ccc)" }}>
+      <div style={{ display: "grid", gap: 4, marginBottom: 8 }}>
+        {mashq.savollar.map((s, i) => (
+          <div key={i} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span className="izoh" style={{ minWidth: 220 }}>
+              #{i + 1} {s.savol ? `— ${s.savol.slice(0, 50)}` : ""}
+            </span>
+            <input
+              type="text"
+              value={qiymatlar[i]}
+              onChange={(e) => {
+                const v = e.target.value;
+                setQiymatlar((joriy) => joriy.map((x, j) => (j === i ? v : x)));
+              }}
+              placeholder={t("kurs_javob_kirit")}
+              style={{ flex: 1, maxWidth: 260 }}
+            />
+          </div>
+        ))}
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <button className="tugma ikkinchi" onClick={saqlash} disabled={saqlanmoqda}>
+          {t("saqlash")}
+        </button>
+        <label className="izoh">{t("kurs_javob_excel_yuklash")}</label>
+        <input type="file" accept=".xlsx" onChange={excelYukla} disabled={saqlanmoqda} style={{ maxWidth: 160 }} />
+      </div>
+      {xato && <div className="xato-xabar" style={{ marginTop: 4 }}>{xato}</div>}
+      {natija && (
+        <div className="izoh" style={{ marginTop: 4 }}>
+          {t("kurs_javob_yangilandi")}: {natija.yangilandi}
+          {natija.xatolar?.length > 0 && (
+            <span style={{ color: "#d33" }}>
+              {" "}— {natija.xatolar.length} {t("kurs_javob_xato")}: {natija.xatolar
+                .map((x) => `#${x.raqam ?? x.qator}`)
+                .join(", ")}
+            </span>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function AdminMashqBoshqaruv({ tugunId, jsonKiritishKorinadi = true }) {
   const { t } = useI18n();
   const [royxat, setRoyxat] = useState(null);
+  const [javobOchiqId, setJavobOchiqId] = useState(null);
   const [jsonMatn, setJsonMatn] = useState('[\n  {"matn": "", "savollar": [{"savol": "...", "togri": "..."}]}\n]');
   const [xato, setXato] = useState("");
   const [saqlanmoqda, setSaqlanmoqda] = useState(false);
@@ -347,17 +442,30 @@ function AdminMashqBoshqaruv({ tugunId, jsonKiritishKorinadi = true }) {
       {royxat && royxat.length > 0 && (
         <div style={{ display: "grid", gap: 6, marginBottom: 10 }}>
           {royxat.map((m) => (
-            <div key={m.id} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span className="izoh">
-                #{m.tartib} — {m.matn ? m.matn.slice(0, 40) : ""} ({m.savollar.length} {t("kurs_savol")})
-                {m.rasm_url ? " 🖼️" : ""}
-                {m.audio_url ? " 🔊" : ""}
-                {m.audiolar?.length ? ` 🔊×${m.audiolar.length}` : ""}
-              </span>
-              <input type="file" accept="image/*" onChange={(e) => rasmYukla(m.id, e)} style={{ maxWidth: 140 }} />
-              <button className="tugma ikkinchi" style={{ color: "#d33" }} onClick={() => ochir(m.id)}>
-                {t("ochirish")}
-              </button>
+            <div key={m.id}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span className="izoh">
+                  #{m.tartib} — {m.matn ? m.matn.slice(0, 40) : ""} ({m.savollar.length} {t("kurs_savol")})
+                  {m.rasm_url ? " 🖼️" : ""}
+                  {m.audio_url ? " 🔊" : ""}
+                  {m.audiolar?.length ? ` 🔊×${m.audiolar.length}` : ""}
+                </span>
+                <input type="file" accept="image/*" onChange={(e) => rasmYukla(m.id, e)} style={{ maxWidth: 140 }} />
+                {m.savollar.length > 0 && (
+                  <button
+                    className="tugma ikkinchi"
+                    onClick={() => setJavobOchiqId((joriy) => (joriy === m.id ? null : m.id))}
+                  >
+                    {javobOchiqId === m.id ? t("yopish") : t("kurs_javoblar")}
+                  </button>
+                )}
+                <button className="tugma ikkinchi" style={{ color: "#d33" }} onClick={() => ochir(m.id)}>
+                  {t("ochirish")}
+                </button>
+              </div>
+              {javobOchiqId === m.id && (
+                <MashqJavoblariTahriri mashq={m} royxatniYangila={yukla} />
+              )}
             </div>
           ))}
         </div>
@@ -576,6 +684,73 @@ function VocabularyKorinishi({ tugunId, matn }) {
  * talabi — "unit uchun bitta tugma bo'lsin"; 2026-07-28: qo'lda-JSON
  * kiritish variantI OLIB TASHLANDI, ZIP+AI yagona yo'l qoldi — u
  * ancha tezroq va endi haqiqiy ZIP bilan sinovdan o'tgan). */
+// 2026-07-29 talabi: bir vaqtda bir nechta sahifani yuborish — har bir
+// so'rov backend'da ATOMIK ravishda alohida (takrorlanmaydigan) sahifa
+// oladi (courses/blok_views.py, KursBlokSahifaView), shuning uchun bu
+// yerda parallel yuborish xavfsiz.
+const PARALLEL_SAHIFA_SONI = 3;
+
+// 2026-07-29 talabi: "Elementary...Upper-Intermediate uchun Unit sonini
+// admin belgilashi" (keyinroq Beginner ham shu ro'yxatga qo'shildi —
+// qattiq kodlangan 14 ta Headway Unit'i bekor qilindi) — courses/views.py
+// dagi `UNIT_YARATISH_MUMKIN_DARAJALAR` bilan BIR XIL ro'yxat bo'lishi kerak.
+const UNIT_YARATISH_MUMKIN_DARAJALAR = new Set([
+  "beginner", "elementary", "pre_intermediate", "intermediate", "upper_intermediate",
+]);
+
+/** Admin uchun — Elementary...Upper-Intermediate darajasida Unit soni
+ * kiritib, bir martalik Unit-asosli tuzilma yaratish (2026-07-29). Daraja
+ * ostida allaqachon Unit (`unit_darsi=True`) bo'lsa, bu komponent umuman
+ * chiqarilmaydi (Tugun'dagi shart) — qayta bosib yuborishning oldi shu
+ * yo'l bilan olinadi. */
+function AdminDarajaUnitYaratish({ darajaId, royxatniYangila }) {
+  const { t } = useI18n();
+  const [unitSoni, setUnitSoni] = useState("10");
+  const [xato, setXato] = useState("");
+  const [yuklanmoqda, setYuklanmoqda] = useState(false);
+
+  async function yarat() {
+    const son = parseInt(unitSoni, 10);
+    if (!Number.isInteger(son) || son < 1 || son > 50) {
+      setXato(t("kurs_unit_soni_notogri"));
+      return;
+    }
+    if (!window.confirm(t("kurs_unit_yaratish_tasdiq").replace("{son}", son))) return;
+    setXato("");
+    setYuklanmoqda(true);
+    try {
+      await api(`/api/kurslar/${darajaId}/daraja-unit-yaratish/`, {
+        method: "POST",
+        body: { unit_soni: son },
+      });
+      royxatniYangila();
+    } catch (e) {
+      setXato(e.data?.detail || t("xato_yuz_berdi"));
+    } finally {
+      setYuklanmoqda(false);
+    }
+  }
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+      <span className="izoh">{t("kurs_unit_soni_kirit")}</span>
+      <input
+        type="number"
+        min="1"
+        max="50"
+        value={unitSoni}
+        onChange={(e) => setUnitSoni(e.target.value)}
+        style={{ width: 70 }}
+        disabled={yuklanmoqda}
+      />
+      <button className="tugma ikkinchi" onClick={yarat} disabled={yuklanmoqda}>
+        {t("kurs_unit_yaratish")}
+      </button>
+      {xato && <span className="xato-xabar">{xato}</span>}
+    </div>
+  );
+}
+
 function AdminUnitKiritish({ unitId, royxatniYangila }) {
   const { t } = useI18n();
   const [zipXato, setZipXato] = useState("");
@@ -613,46 +788,69 @@ function AdminUnitKiritish({ unitId, royxatniYangila }) {
       .catch(() => {});
   }, [unitId]);
 
+  // Navbatdagi BITTA sahifani band qilib ishlaydi — xatoda qayta
+  // urinadi (Render konteyneri qayta ishga tushishi mumkin, bir necha
+  // soniya olishi mumkin). Bir nechta nusxasi PARALLEL chaqiriladi
+  // (backend har biriga alohida sahifani atomik beradi).
+  async function bittaSahifaniIshla(jid) {
+    const SAHIFA_URINISHLAR = 3;
+    let oxirgiXato = null;
+    for (let urinish = 0; urinish < SAHIFA_URINISHLAR; urinish += 1) {
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        return await api(`/api/kurslar/blok-jarayon/${jid}/sahifa/`, { method: "POST" });
+      } catch (sahifaXato) {
+        oxirgiXato = sahifaXato;
+        if (urinish < SAHIFA_URINISHLAR - 1) {
+          // eslint-disable-next-line no-await-in-loop
+          await new Promise((r) => { setTimeout(r, 5000 * (urinish + 1)); });
+        }
+      }
+    }
+    throw oxirgiXato;
+  }
+
   // Bitta jarayonning QOLGAN sahifalarini ishlaydi — yangi yuklashda ham
   // (0 dan), "Davom ettirish"da ham (saqlangan ishlangan_sahifadan)
   // ISHLATILADI, shuning uchun umumiy funksiyaga chiqarilgan.
+  //
+  // 2026-07-29: har "to'lqin"da PARALLEL_SAHIFA_SONI tagacha so'rov bir
+  // vaqtda yuboriladi — backend navbatdagi bo'sh sahifani ATOMIK band
+  // qilib beradi (courses/blok_views.py), shuning uchun bu yerda
+  // sahifa indeksini o'zimiz hisoblashimiz shart emas.
   async function jarayonniBajar(jid, jamiSahifa, boshlangichIshlangan) {
-    const SAHIFA_URINISHLAR = 3;
     let yakun = null;
+    let tugadi = false;
+    let oxirgiIshlangan = boshlangichIshlangan;
     setProgress({ ishlangan: boshlangichIshlangan, jami: jamiSahifa, fayl: "" });
-    for (let i = boshlangichIshlangan; i < jamiSahifa; i += 1) {
-      let d = null;
-      let oxirgiXato = null;
-      for (let urinish = 0; urinish < SAHIFA_URINISHLAR; urinish += 1) {
-        try {
-          // eslint-disable-next-line no-await-in-loop
-          d = await api(`/api/kurslar/blok-jarayon/${jid}/sahifa/`, { method: "POST" });
-          oxirgiXato = null;
-          break;
-        } catch (sahifaXato) {
-          oxirgiXato = sahifaXato;
-          if (urinish < SAHIFA_URINISHLAR - 1) {
-            setProgress({ ishlangan: i, jami: jamiSahifa, fayl: t("kurs_blok_qayta_urinish") });
-            // Konteyner qayta ishga tushishi (Render'da kuzatilgan holat)
-            // bir necha soniya olishi mumkin — kutish vaqti ortib boradi
-            // (5s, 10s), darhol qayta urinish befoyda bo'lmasin.
-            // eslint-disable-next-line no-await-in-loop
-            await new Promise((r) => { setTimeout(r, 5000 * (urinish + 1)); });
-          }
-        }
-      }
-      if (oxirgiXato) {
+    while (!tugadi) {
+      const vadalar = [];
+      for (let k = 0; k < PARALLEL_SAHIFA_SONI; k += 1) vadalar.push(bittaSahifaniIshla(jid));
+      // eslint-disable-next-line no-await-in-loop
+      const natijalar = await Promise.allSettled(vadalar);
+
+      const xatoli = natijalar.find((n) => n.status === "rejected");
+      if (xatoli) {
         // 2026-07-29: avtomatik qayta urinishlar ham tugasa, jarayon
         // BAZADA saqlanib qoladi (yo'qolmaydi) — keyinroq "Davom
         // ettirish" bilan xuddi shu joydan davom etish mumkin.
-        setFaolJarayon({ id: jid, ishlangan_sahifa: i, jami_sahifa: jamiSahifa });
-        throw oxirgiXato;
+        setFaolJarayon({ id: jid, ishlangan_sahifa: oxirgiIshlangan, jami_sahifa: jamiSahifa });
+        throw xatoli.reason;
       }
-      setProgress({ ishlangan: d.ishlangan_sahifa, jami: d.jami_sahifa, fayl: d.joriy_fayl });
-      if (d.tugadimi) {
-        yakun = d.yakun;
-        break;
+
+      let ishBorEdi = false;
+      for (const n of natijalar) {
+        const d = n.value;
+        if (d.band_qilinadigan_sahifa_qolmadi) continue; // bu "ishchi"ga ish qolmadi
+        ishBorEdi = true;
+        oxirgiIshlangan = d.ishlangan_sahifa;
+        setProgress({ ishlangan: d.ishlangan_sahifa, jami: d.jami_sahifa, fayl: d.joriy_fayl });
+        if (d.tugadimi) {
+          yakun = d.yakun;
+          tugadi = true;
+        }
       }
+      if (!ishBorEdi) tugadi = true; // ehtiyot chorasi — hech kim ish topmadi
     }
     return yakun;
   }
@@ -1039,6 +1237,16 @@ function Tugun({ tugun, chuqurlik, adminMi, talabaMi, royxatniYangila, ichkariUn
             <div style={{ paddingLeft: otstup + 18, display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 6 }}>
               <AdminUnitKiritish unitId={tugun.id} royxatniYangila={royxatniYangila} />
               <UnitTozalashTugmasi unitId={tugun.id} royxatniYangila={royxatniYangila} />
+            </div>
+          )}
+          {/* 2026-07-29: Elementary...Upper-Intermediate — Unit hali
+              yaratilmagan bo'lsa (birorta farzandda unit_darsi=True yo'q),
+              admin Unit sonini kiritib bir martalik tuzilma yaratadi. */}
+          {adminMi
+            && UNIT_YARATISH_MUMKIN_DARAJALAR.has(tugun.kalit)
+            && !tugun.children.some((b) => b.unit_darsi) && (
+            <div style={{ paddingLeft: otstup + 18, marginBottom: 6 }}>
+              <AdminDarajaUnitYaratish darajaId={tugun.id} royxatniYangila={royxatniYangila} />
             </div>
           )}
           {tugun.children.map((b) => (
