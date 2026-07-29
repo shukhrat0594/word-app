@@ -620,11 +620,17 @@ textarea {
   letter-spacing: .5px; padding: 6px 13px;
 }
 .blok-gs-tan { background: color-mix(in srgb, var(--si-rang) 12%, var(--sirt)); padding: 9px 14px; line-height: 1.8; }
+/* Har "mashq" bloki + o'z Tekshirish tugmasi/natijasi (2026-07-29) —
+   bitta guruh sifatida joylashadi, shuning uchun tugma AYNAN shu
+   mashq ostida chiqadi, sahifa oxirida emas. */
+.blok-mashq-blok { margin: 0 0 14px; }
 .blok-mashq {
   display: flex; align-items: center; flex-wrap: wrap; gap: 4px;
   background: var(--sirt-2); border: 1.5px solid var(--chiziq); border-radius: 6px;
-  padding: 9px 13px; margin: 0 0 10px; font-weight: 600;
+  padding: 9px 13px; margin: 0 0 6px; font-weight: 600;
 }
+.blok-mashq-natija { margin-left: 2px; }
+.tugma.kichik { padding: 4px 12px; font-size: 12.5px; }
 .blok-bosh-joy {
   border: none; border-bottom: 2px solid var(--sariq-toq); background: var(--sirt);
   font: inherit; color: var(--matn); width: 120px; padding: 1px 6px;
@@ -646,9 +652,49 @@ textarea {
 .blok-audio-tugma:disabled { opacity: .5; cursor: default; }
 .blok-audio-raqam { font-size: 11px; opacity: .85; }
 
+/* Sahifa pastida doim ko'rinadigan audio paneli (2026-07-29 talabi:
+   "Beginnerda audio eshitayotganda pastda audio tursin, shunga play
+   pause bosib eshitadi"). Talaba pastga aylantirib ketsa ham nazorat
+   qo'lida qoladi — inline belgi bosilgach paydo bo'ladi, mashq bilan
+   birga (sahifaning bir qismi sifatida) o'zining ostida joylashadi,
+   scroll paytida esa BUTUN oyna pastiga yopishadi (sticky). */
+.blok-audio-panel {
+  position: sticky; bottom: 12px; z-index: 5; margin-top: 14px;
+  display: inline-flex; align-items: center; gap: 10px;
+  background: var(--komir); color: var(--sariq); border-radius: 24px;
+  padding: 8px 18px 8px 8px; box-shadow: 0 3px 14px rgba(0,0,0,.3);
+}
+.blok-audio-panel-tugma {
+  width: 34px; height: 34px; border-radius: 50%; border: none;
+  background: var(--sariq); color: var(--komir); font-size: 14px;
+  display: grid; place-items: center; cursor: pointer;
+}
+.blok-audio-panel-raqam { font-weight: 700; font-size: 13px; letter-spacing: .3px; }
+
 @media (max-width: 640px) {
   .blok-sahifa { padding: 12px; }
   .blok-rasm { max-width: 100%; }
   .blok-dialog, .blok-gs, .blok-mashq { max-width: 100%; }
   .blok-bosh-joy { width: 92px; }
 }
+
+/* ZIP yuklanayotganda BUTUN saytni bloklovchi qatlam (2026-07-29 talabi:
+   "fayl yuklanib bo'lmagungacha saytda hech qanday amal bajarish mumkin
+   bo'lmasin"). position:fixed + inset:0 + yuqori z-index — DOM'dagi
+   joylashuvidan qat'iy nazar butun oynani qoplaydi va bosishlarni yutadi. */
+.blok-yuklash-qoplama {
+  position: fixed; inset: 0; z-index: 10000;
+  background: rgba(0,0,0,.55); backdrop-filter: blur(1px);
+  display: flex; align-items: center; justify-content: center;
+}
+.blok-yuklash-karta {
+  background: var(--sirt); border-radius: 12px; padding: 28px 34px;
+  text-align: center; display: grid; gap: 6px; justify-items: center;
+  box-shadow: 0 8px 30px rgba(0,0,0,.4); max-width: 320px;
+}
+.blok-yuklash-spinner {
+  width: 34px; height: 34px; border-radius: 50%;
+  border: 4px solid var(--chiziq); border-top-color: var(--sariq-toq);
+  animation: blok-aylanish 0.8s linear infinite; margin-bottom: 6px;
+}
+@keyframes blok-aylanish { to { transform: rotate(360deg); } }

@@ -175,6 +175,42 @@ class KursBlokZipYuklashView(APIView):
         )
 
 
+class KursBlokJarayonHolatiView(APIView):
+    """Kitob uchun TUGALLANMAGAN (yarim qolgan) jarayon bor-yo'qligini
+    tekshiradi (2026-07-29 talabi: "yuklanmagan qismini qo'lda yuklash
+    imkoni kerak").
+
+    Nega kerak: uzoq jarayon davomida brauzer yopilib qolsa yoki
+    tarmoq uzilsa, `KursZipJarayoni` bazada "ISHLANMOQDA" holatida
+    qolib ketadi (ZIP esa R2'da saqlangan). Admin sahifani qayta
+    ochganda buni ko'rib, "Davom ettirish" tugmasi bilan xuddi
+    o'sha jarayon_id'dan davom etishi mumkin — boshidan qayta
+    yuklash SHART EMAS."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        if not _mashq_admin_mi(request.user):
+            return Response({"detail": "Faqat admin/owner uchun"}, status=403)
+        jarayon = (
+            KursZipJarayoni.objects.filter(tugun_id=pk)
+            .exclude(holat=KursZipJarayoni.Holat.TUGADI)
+            .order_by("-created_at")
+            .first()
+        )
+        if not jarayon:
+            return Response({"faol_jarayon": None})
+        return Response(
+            {
+                "faol_jarayon": {
+                    "id": jarayon.id,
+                    "ishlangan_sahifa": jarayon.ishlangan_sahifa,
+                    "jami_sahifa": jarayon.jami_sahifa,
+                }
+            }
+        )
+
+
 class KursBlokSahifaView(APIView):
     """2-BOSQICH: navbatdagi BITTA sahifani qayta ishlash.
 

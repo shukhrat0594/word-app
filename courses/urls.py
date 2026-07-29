@@ -11,6 +11,11 @@ urlpatterns = [
         name="kurslar_blok_zip",
     ),
     path(
+        "kurslar/<int:pk>/blok-jarayon-holati/",
+        blok_views.KursBlokJarayonHolatiView.as_view(),
+        name="kurslar_blok_jarayon_holati",
+    ),
+    path(
         "kurslar/blok-jarayon/<int:pk>/sahifa/",
         blok_views.KursBlokSahifaView.as_view(),
         name="kurslar_blok_sahifa",

@@ -126,6 +126,31 @@ def _talaba_tugun_qulflanganmi(user, tugun):
     return _unit_qulflanganmi(user, unit)
 
 
+def _mashqlar_sonini_hisobla(tugun):
+    """Unit ro'yxatida ko'rsatiladigan "Mashqlar (N)" soni (2026-07-29).
+
+    Avval bu — `KursMashq.objects.filter(tugun=tugun).count()`, ya'ni har
+    SAHIFA (rasm) uchun bitta yozuv — blok formatida bitta sahifada
+    bir nechta haqiqiy mashq (Exercise 2, 3, 4...) bo'lishi mumkin, lekin
+    ularning HAMMASI bitta KursMashq qatoriga yig'iladi. Natijada son
+    "nechta sahifa" degani edi, "nechta mashq" emas — foydalanuvchi buni
+    noto'g'ri deb topdi ("rasmlar soniga qarab emas, umumiy mashqlar
+    soniga qarasin").
+
+    Endi: blok formatidagi (`bloklar` to'ldirilgan) yozuvlar uchun ichidagi
+    "mashq" turidagi bloklar soni sanaladi (har biri BlokMashqi'da alohida
+    Tekshirish tugmasiga ega — demak "mashq" degani shu). Eski (bloklar
+    bo'sh) yozuvlar uchun avvalgidek 1 ta deb hisoblanadi (orqaga
+    moslik — ular bitta yaxlit mashq edi)."""
+    jami = 0
+    for m in KursMashq.objects.filter(tugun=tugun).only("bloklar"):
+        if m.bloklar:
+            jami += sum(1 for b in m.bloklar if b.get("tur") == "mashq")
+        else:
+            jami += 1
+    return jami
+
+
 def _tugun_dict(tugun, user, bolalar_keshi, tugatgan_idlar, qulflangan=False):
     bolalar = bolalar_keshi.get(tugun.id, [])
     oxirgi_qatlammi = len(bolalar) == 0
@@ -146,7 +171,7 @@ def _tugun_dict(tugun, user, bolalar_keshi, tugatgan_idlar, qulflangan=False):
 
     if oxirgi_qatlammi:
         natija["fayl_url"] = f"/api/kurslar/{tugun.id}/fayl/" if tugun.fayl else None
-        mashqlar_soni = KursMashq.objects.filter(tugun=tugun).count()
+        mashqlar_soni = _mashqlar_sonini_hisobla(tugun)
         if mashqlar_soni:
             natija["mashqlar_soni"] = mashqlar_soni
         # 2026-07-27: "Grammar reference" (matn) va "Wordlist" (so'zlar

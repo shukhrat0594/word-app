@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { api, apiBlobUrl } from "../api";
+import { faqatBittaAudioIjro } from "../audio";
 import { useI18n } from "../i18n";
 import { IMLO_OFF } from "../imlo";
 
-/** Blok formatidagi darslik sahifasi (2026-07-28).
+/** Blok formatidagi darslik sahifasi (2026-07-28, audio/tekshirish
+ * qismlari 2026-07-29 da qayta ishlandi).
  *
  * Eski ko'rinishdan farqi: sahifa RASM emas — u qaytadan quriladi.
  * Matn haqiqiy HTML matni (o'tkir, tanlanadi, mobilda o'qiladi),
@@ -12,56 +14,37 @@ import { IMLO_OFF } from "../imlo";
  * Bo'sh joylar bloklarda faqat `savol_idx` bilan turadi (javob EMAS) —
  * javoblar serverda qoladi, ya'ni talaba F12 bosib ko'ra olmaydi.
  * "erkin" bo'sh joylar (talaba o'z ismini yozadi) baholanmaydi, lekin
- * input baribir ko'rsatiladi. */
+ * input baribir ko'rsatiladi.
+ *
+ * AUDIO (2026-07-29 talabi): bitta sahifada BITTA umumiy <audio>
+ * elementi bor (avval har tugma o'z <audio>siga ega edi). Inline
+ * belgilar shu umumiy pleyerni almashtiradi/boshqaradi; sahifa pastida
+ * doim ko'rinadigan (sticky) panel joriy trekni play/pause qiladi —
+ * talaba pastga aylantirib ketsa ham nazorat qo'lida qoladi.
+ *
+ * TEKSHIRISH (2026-07-29 talabi): endi BUTUN sahifa uchun bitta tugma
+ * emas — har "mashq" bloki O'Z ustida mustaqil Tekshirish tugmasiga
+ * ega. Backend hamon BUTUN mashqning javoblarini qabul qiladi
+ * (`/yechish/` o'zgarmagan — ball/60% qoidasi/Unit qulfi mexanizmiga
+ * tegilmadi), lekin natija FAQAT o'sha blokning bo'sh joylariga
+ * qo'llaniladi — boshqa bloklar tahrirlanadigan holicha qoladi. */
 
-/** Audio — KICHIK TUGMA (2026-07-28 talabi: "audio to'liq turmasligi
- * kerak, shunga audio tugmasi bo'lsin"). Har audio o'z topshirig'i
- * yonida turadi, hammasi yon panelda uyilib emas. */
-function AudioTugma({ url, raqam }) {
-  const audioRef = useRef(null);
-  const [chalinmoqda, setChalinmoqda] = useState(false);
-
-  useEffect(() => {
-    const a = audioRef.current;
-    if (!a) return undefined;
-    const tugadi = () => setChalinmoqda(false);
-    a.addEventListener("ended", tugadi);
-    a.addEventListener("pause", tugadi);
-    return () => {
-      a.removeEventListener("ended", tugadi);
-      a.removeEventListener("pause", tugadi);
-    };
-  }, [url]);
-
-  function bosildi() {
-    const a = audioRef.current;
-    if (!a) return;
-    if (chalinmoqda) {
-      a.pause();
-    } else {
-      a.play();
-      setChalinmoqda(true);
-    }
-  }
-
+function AudioBelgi({ raqam, faolRaqam, ijro, tanla }) {
+  const faol = raqam === faolRaqam;
   return (
     <button
       type="button"
       className="blok-audio-tugma"
-      onClick={bosildi}
-      disabled={!url}
-      title={raqam || ""}
+      onClick={() => tanla(raqam)}
+      title={raqam}
     >
-      <span aria-hidden="true">{chalinmoqda ? "⏸" : "▶"}</span>
-      {raqam && <span className="blok-audio-raqam">{raqam}</span>}
-      {/* controls YO'Q — yuklab olish tugmasi ham, to'liq pleyer ham
-          ko'rinmasin; boshqaruv faqat shu tugmada. */}
-      <audio ref={audioRef} src={url || undefined} preload="none" />
+      <span aria-hidden="true">{faol && ijro ? "⏸" : "▶"}</span>
+      <span className="blok-audio-raqam">{raqam}</span>
     </button>
   );
 }
 
-function Bolaklar({ bolaklar, javoblar, javobniQoy, natija }) {
+function Bolaklar({ bolaklar, javoblar, javobniQoy, blokNatija }) {
   return (
     <>
       {bolaklar.map((b, k) => {
@@ -71,14 +54,14 @@ function Bolaklar({ bolaklar, javoblar, javobniQoy, natija }) {
           return <input key={k} {...IMLO_OFF} className="blok-bosh-joy erkin" />;
         }
         const i = b.savol_idx;
-        const holat = natija ? (natija.natijalar[i] ? "togri" : "notogri") : "";
+        const holat = blokNatija ? (blokNatija.natijalar[i] ? "togri" : "notogri") : "";
         return (
           <input
             key={k}
             {...IMLO_OFF}
             className={`blok-bosh-joy ${holat}`}
             value={javoblar[i] || ""}
-            disabled={!!natija}
+            disabled={!!blokNatija}
             onChange={(e) => javobniQoy(i, e.target.value)}
           />
         );
@@ -87,10 +70,9 @@ function Bolaklar({ bolaklar, javoblar, javobniQoy, natija }) {
   );
 }
 
-function Blok({ blok, rasmUrllar, audioUrllar, javoblar, javobniQoy, natija }) {
-  const audio = blok.audio_raqam ? audioUrllar[blok.audio_raqam] : null;
-  const audioTugma = blok.audio_raqam ? (
-    <AudioTugma url={audio} raqam={blok.audio_raqam} />
+function Blok({ blok, blokIdx, rasmUrllar, faolRaqam, ijro, audioTanla, javoblar, javobniQoy, blokNatijalar, tekshir, yuborilayotganBlok, t }) {
+  const audioBelgi = blok.audio_raqam ? (
+    <AudioBelgi raqam={blok.audio_raqam} faolRaqam={faolRaqam} ijro={ijro} tanla={audioTanla} />
   ) : null;
 
   switch (blok.tur) {
@@ -106,14 +88,14 @@ function Blok({ blok, rasmUrllar, audioUrllar, javoblar, javobniQoy, natija }) {
       return (
         <div className="blok-korsatma">
           {blok.raqam && <span className="blok-raqam">{blok.raqam}</span>}
-          {audioTugma}
+          {audioBelgi}
           <span>{blok.matn}</span>
         </div>
       );
     case "dialog":
       return (
         <div className="blok-dialog">
-          {audioTugma}
+          {audioBelgi}
           {(blok.qatorlar || []).map((q, k) => (
             <div key={k} className="blok-dialog-qator">
               <span className="blok-dialog-kim">{q.kim}</span>
@@ -135,18 +117,35 @@ function Blok({ blok, rasmUrllar, audioUrllar, javoblar, javobniQoy, natija }) {
       );
     case "pufakcha":
       return <div className="blok-pufakcha">{blok.matn}</div>;
-    case "mashq":
+    case "mashq": {
+      const bolaklar = blok.bolaklar || [];
+      const savolIdxlari = bolaklar.filter((b) => b.bosh_joy && !b.erkin).map((b) => b.savol_idx);
+      const blokNatija = blokNatijalar[blokIdx];
       return (
-        <div className="blok-mashq">
-          {audioTugma}
-          <Bolaklar
-            bolaklar={blok.bolaklar || []}
-            javoblar={javoblar}
-            javobniQoy={javobniQoy}
-            natija={natija}
-          />
+        <div className="blok-mashq-blok">
+          <div className="blok-mashq">
+            {audioBelgi}
+            <Bolaklar bolaklar={bolaklar} javoblar={javoblar} javobniQoy={javobniQoy} blokNatija={blokNatija} />
+          </div>
+          {savolIdxlari.length > 0 && (
+            blokNatija ? (
+              <div className="izoh blok-mashq-natija">
+                {savolIdxlari.filter((i) => blokNatija.natijalar[i]).length}/{savolIdxlari.length} {t("togri")}
+              </div>
+            ) : (
+              <button
+                type="button"
+                className="tugma ikkinchi kichik"
+                onClick={() => tekshir(blokIdx, savolIdxlari)}
+                disabled={yuborilayotganBlok === blokIdx}
+              >
+                {yuborilayotganBlok === blokIdx ? t("tekshirilmoqda") : t("tekshirish")}
+              </button>
+            )
+          )}
         </div>
       );
+    }
     default:
       return blok.matn ? <div className="blok-matn">{blok.matn}</div> : null;
   }
@@ -155,16 +154,21 @@ function Blok({ blok, rasmUrllar, audioUrllar, javoblar, javobniQoy, natija }) {
 export default function BlokMashqi({ mashq, raqam }) {
   const { t } = useI18n();
   const [javoblar, setJavoblar] = useState(() => mashq.savollar.map(() => ""));
-  const [natija, setNatija] = useState(null);
+  // Har blok o'z natijasini mustaqil saqlaydi (blokIdx -> {ball,jami,natijalar})
+  // — boshqa bloklar shu bilan bog'liq emas, tahrirlanadigan holicha qoladi.
+  const [blokNatijalar, setBlokNatijalar] = useState({});
+  const [yuborilayotganBlok, setYuborilayotganBlok] = useState(null);
   const [rasmUrllar, setRasmUrllar] = useState({});
   const [audioUrllar, setAudioUrllar] = useState({});
   const [tayyor, setTayyor] = useState(false);
-  const [yuborilmoqda, setYuborilmoqda] = useState(false);
   const [xato, setXato] = useState("");
 
-  // Rasm va audiolar autentifikatsiyalangan endpointdan olinadi
-  // (`apiBlobUrl`) — xom /media/ orqali emas, ya'ni havolani tashqi
-  // odamga berib bo'lmaydi.
+  // Umumiy audio pleyer holati (2026-07-29) — bitta <audio>, inline
+  // belgilar faqat shuni boshqaradi.
+  const [faolRaqam, setFaolRaqam] = useState(null);
+  const [ijro, setIjro] = useState(false);
+  const audioRef = useRef(null);
+
   useEffect(() => {
     let bekor = false;
     const rasmlar = mashq.blok_rasmlari || [];
@@ -194,22 +198,45 @@ export default function BlokMashqi({ mashq, raqam }) {
     setJavoblar((j) => j.map((x, i) => (i === idx ? qiymat : x)));
   }
 
-  async function tekshir() {
+  function audioTanla(trekRaqami) {
+    const a = audioRef.current;
+    if (!a) return;
+    if (trekRaqami === faolRaqam) {
+      // Xuddi shu trek — play/pause almashtiriladi.
+      if (ijro) a.pause();
+      else a.play();
+      return;
+    }
+    setFaolRaqam(trekRaqami);
+    // src o'zgarishi useEffect orqali ishlaydi, keyin play chaqiriladi.
+  }
+
+  useEffect(() => {
+    const a = audioRef.current;
+    if (!a || !faolRaqam) return;
+    const url = audioUrllar[faolRaqam];
+    if (!url) return;
+    a.src = url;
+    a.play().catch(() => {});
+  }, [faolRaqam, audioUrllar]);
+
+  async function tekshir(blokIdx) {
     setXato("");
-    setYuborilmoqda(true);
+    setYuborilayotganBlok(blokIdx);
     try {
-      setNatija(
-        await api(`/api/kurslar/mashq/${mashq.id}/yechish/`, {
-          method: "POST",
-          body: { javoblar },
-        }),
-      );
+      const natija = await api(`/api/kurslar/mashq/${mashq.id}/yechish/`, {
+        method: "POST",
+        body: { javoblar },
+      });
+      setBlokNatijalar((b) => ({ ...b, [blokIdx]: natija }));
     } catch (e) {
       setXato(e.data?.detail || t("xato_yuz_berdi"));
     } finally {
-      setYuborilmoqda(false);
+      setYuborilayotganBlok(null);
     }
   }
+
+  const bloklar = mashq.bloklar || [];
 
   return (
     <div className="blok-sahifa">
@@ -222,29 +249,52 @@ export default function BlokMashqi({ mashq, raqam }) {
         <div className="izoh">{t("yuklanmoqda")}</div>
       ) : (
         <>
-          {(mashq.bloklar || []).map((b, k) => (
+          {bloklar.map((b, k) => (
             <Blok
               key={k}
               blok={b}
+              blokIdx={k}
               rasmUrllar={rasmUrllar}
-              audioUrllar={audioUrllar}
+              faolRaqam={faolRaqam}
+              ijro={ijro}
+              audioTanla={audioTanla}
               javoblar={javoblar}
               javobniQoy={javobniQoy}
-              natija={natija}
+              blokNatijalar={blokNatijalar}
+              tekshir={tekshir}
+              yuborilayotganBlok={yuborilayotganBlok}
+              t={t}
             />
           ))}
-          {mashq.savollar.length > 0 &&
-            (!natija ? (
-              <button className="tugma ikkinchi" onClick={tekshir} disabled={yuborilmoqda}>
-                {yuborilmoqda ? t("tekshirilmoqda") : t("tekshirish")}
-              </button>
-            ) : (
-              <div className="izoh">
-                {t("band_ball")}: {natija.ball}/{natija.jami}
-              </div>
-            ))}
           {xato && <div className="xato-xabar">{xato}</div>}
+
+          {/* Umumiy audio — bitta element, faqat pastdagi panel orqali
+              ko'rinadi. onPlay global "faqat bitta audio" mexanizmiga
+              ulanadi (2026-07-29) — sahifada boshqa audio chalinsa, bu
+              to'xtaydi va aksincha. */}
+          <audio
+            ref={audioRef}
+            onPlay={(e) => {
+              faqatBittaAudioIjro(e.target);
+              setIjro(true);
+            }}
+            onPause={() => setIjro(false)}
+            onEnded={() => setIjro(false)}
+          />
         </>
+      )}
+
+      {faolRaqam && (
+        <div className="blok-audio-panel">
+          <button
+            type="button"
+            className="blok-audio-panel-tugma"
+            onClick={() => audioTanla(faolRaqam)}
+          >
+            <span aria-hidden="true">{ijro ? "⏸" : "▶"}</span>
+          </button>
+          <span className="blok-audio-panel-raqam">{faolRaqam}</span>
+        </div>
       )}
     </div>
   );

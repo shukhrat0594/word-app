@@ -29,3 +29,23 @@ export const AUDIO_HIMOYA = {
   controlsList: "nodownload",
   onContextMenu: (e) => e.preventDefault(),
 };
+
+// 2026-07-29 talabi: "bitta audio eshitilayotganda boshqasiga play bosilsa
+// oldingisi to'xtasi kerak, bir paytda faqat bitta audio ishlashi kerak".
+//
+// Sahifada bir nechta <audio> elementi bo'lishi mumkin (masalan Kurslar
+// bo'limida bitta mashqda bir nechta trek, yoki turli bo'limlar). Brauzer
+// buni o'zi cheklamaydi — ikkita audio parallel chalinaverishi mumkin.
+//
+// Yechim: modul darajasidagi (React holatidan MUSTAQIL, chunki komponentlar
+// turlicha bo'lishi mumkin) yagona "hozir kim chalinyapti" o'zgaruvchisi.
+// Har bir <audio>ning "play" hodisasida shu funksiya chaqiriladi — agar
+// boshqa audio chalinayotgan bo'lsa, u pauza qilinadi.
+let hozirChalinayotgan = null;
+
+export function faqatBittaAudioIjro(audioEl) {
+  if (hozirChalinayotgan && hozirChalinayotgan !== audioEl && !hozirChalinayotgan.paused) {
+    hozirChalinayotgan.pause();
+  }
+  hozirChalinayotgan = audioEl;
+}

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, apiBlobUrl, apiForm } from "../api";
-import { AUDIO_HIMOYA } from "../audio";
+import { AUDIO_HIMOYA, faqatBittaAudioIjro } from "../audio";
 import BlokMashqi from "../components/BlokMashqi";
 import {
   FlashcardOyini,
@@ -196,11 +196,11 @@ function TalabaMashqi({ mashq, raqam }) {
             {audioPanelBorMi && (
               <div style={{ flex: "0 0 220px", display: "grid", gap: 6, padding: 8, background: "var(--sirt-2)", borderRadius: 6 }}>
                 <span className="izoh">{t("kurs_audiolar_royxati")}</span>
-                {audioUrl && <audio {...AUDIO_HIMOYA} controls src={audioUrl} style={{ width: "100%" }} />}
+                {audioUrl && <audio {...AUDIO_HIMOYA} onPlay={(e) => faqatBittaAudioIjro(e.target)} controls src={audioUrl} style={{ width: "100%" }} />}
                 {audioUrllar.map((a) => (
                   <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 6 }}>
                     {a.raqam && <span className="izoh" style={{ minWidth: 40 }}>{a.raqam}</span>}
-                    <audio {...AUDIO_HIMOYA} controls src={a.url} style={{ width: "100%" }} />
+                    <audio {...AUDIO_HIMOYA} onPlay={(e) => faqatBittaAudioIjro(e.target)} controls src={a.url} style={{ width: "100%" }} />
                   </div>
                 ))}
               </div>
@@ -582,6 +582,103 @@ function AdminUnitKiritish({ unitId, royxatniYangila }) {
   const [zipXabar, setZipXabar] = useState("");
   const [zipYuklanmoqda, setZipYuklanmoqda] = useState(false);
   const [progress, setProgress] = useState(null);
+  // 2026-07-29 talabi: yuklash necha daqiqada ketayotganini ko'rsatish.
+  const [otganSoniya, setOtganSoniya] = useState(0);
+
+  useEffect(() => {
+    if (!zipYuklanmoqda) return undefined;
+    const boshlandi = Date.now();
+    setOtganSoniya(0);
+    const taymer = setInterval(() => {
+      setOtganSoniya(Math.floor((Date.now() - boshlandi) / 1000));
+    }, 1000);
+    return () => clearInterval(taymer);
+  }, [zipYuklanmoqda]);
+
+  function vaqtFormat(soniya) {
+    const daq = Math.floor(soniya / 60);
+    const s = soniya % 60;
+    return `${daq}:${String(s).padStart(2, "0")}`;
+  }
+
+  const [faolJarayon, setFaolJarayon] = useState(null); // {id, ishlangan_sahifa, jami_sahifa}
+
+  // 2026-07-29 talabi: "yuklanmagan qismini qo'lda yuklash imkoni kerak".
+  // Sahifa ochilganda (yoki Unit qayta ko'rsatilganda) shu kitob uchun
+  // yarim qolgan (avtomatik qayta urinishlar ham tugab ketgan) jarayon
+  // bor-yo'qligi tekshiriladi — bo'lsa "Davom ettirish" tugmasi chiqadi.
+  useEffect(() => {
+    api(`/api/kurslar/${unitId}/blok-jarayon-holati/`)
+      .then((d) => setFaolJarayon(d.faol_jarayon))
+      .catch(() => {});
+  }, [unitId]);
+
+  // Bitta jarayonning QOLGAN sahifalarini ishlaydi — yangi yuklashda ham
+  // (0 dan), "Davom ettirish"da ham (saqlangan ishlangan_sahifadan)
+  // ISHLATILADI, shuning uchun umumiy funksiyaga chiqarilgan.
+  async function jarayonniBajar(jid, jamiSahifa, boshlangichIshlangan) {
+    const SAHIFA_URINISHLAR = 3;
+    let yakun = null;
+    setProgress({ ishlangan: boshlangichIshlangan, jami: jamiSahifa, fayl: "" });
+    for (let i = boshlangichIshlangan; i < jamiSahifa; i += 1) {
+      let d = null;
+      let oxirgiXato = null;
+      for (let urinish = 0; urinish < SAHIFA_URINISHLAR; urinish += 1) {
+        try {
+          // eslint-disable-next-line no-await-in-loop
+          d = await api(`/api/kurslar/blok-jarayon/${jid}/sahifa/`, { method: "POST" });
+          oxirgiXato = null;
+          break;
+        } catch (sahifaXato) {
+          oxirgiXato = sahifaXato;
+          if (urinish < SAHIFA_URINISHLAR - 1) {
+            setProgress({ ishlangan: i, jami: jamiSahifa, fayl: t("kurs_blok_qayta_urinish") });
+            // Konteyner qayta ishga tushishi (Render'da kuzatilgan holat)
+            // bir necha soniya olishi mumkin — kutish vaqti ortib boradi
+            // (5s, 10s), darhol qayta urinish befoyda bo'lmasin.
+            // eslint-disable-next-line no-await-in-loop
+            await new Promise((r) => { setTimeout(r, 5000 * (urinish + 1)); });
+          }
+        }
+      }
+      if (oxirgiXato) {
+        // 2026-07-29: avtomatik qayta urinishlar ham tugasa, jarayon
+        // BAZADA saqlanib qoladi (yo'qolmaydi) — keyinroq "Davom
+        // ettirish" bilan xuddi shu joydan davom etish mumkin.
+        setFaolJarayon({ id: jid, ishlangan_sahifa: i, jami_sahifa: jamiSahifa });
+        throw oxirgiXato;
+      }
+      setProgress({ ishlangan: d.ishlangan_sahifa, jami: d.jami_sahifa, fayl: d.joriy_fayl });
+      if (d.tugadimi) {
+        yakun = d.yakun;
+        break;
+      }
+    }
+    return yakun;
+  }
+
+  function yakunXabariniQoy(yakun) {
+    const qismlar = [
+      `${yakun.yaratilgan_mashqlar} ${t("kurs_natija_mashq")}`,
+      `${yakun.kesilgan_rasmlar} ${t("kurs_blok_rasm")}`,
+    ];
+    if (yakun.baholanadigan_savollar) {
+      qismlar.push(`${yakun.baholanadigan_savollar} ${t("kurs_blok_savol")}`);
+    }
+    if (yakun.moslangan_audio) {
+      qismlar.push(`${yakun.moslangan_audio} ${t("kurs_zip_audio")}`);
+    }
+    let xabarMatni = qismlar.join(", ");
+    if (yakun.xato_sahifalar?.length) {
+      xabarMatni += ` — ⚠ ${yakun.xato_sahifalar.length} ${t("kurs_zip_xato_sahifa")}: ${yakun.xato_sahifalar
+        .map((x) => x.fayl.split("/").pop())
+        .join(", ")}`;
+    }
+    if (yakun.ishlatilmagan_audio?.length) {
+      xabarMatni += ` — ⚠ ${t("kurs_zip_moslanmagan_audio")}: ${yakun.ishlatilmagan_audio.join(", ")}`;
+    }
+    setZipXabar(xabarMatni);
+  }
 
   // Blok formatida yuklash (2026-07-28) — ZIP bir marta yuboriladi,
   // keyin sahifalar BITTALAB qayta ishlanadi. Sabab: har sahifa AI'da
@@ -602,70 +699,30 @@ function AdminUnitKiritish({ unitId, royxatniYangila }) {
         method: "POST",
         formData: fd,
       });
-      const jid = boshlash.jarayon_id;
-      setProgress({ ishlangan: 0, jami: boshlash.jami_sahifa, fayl: "" });
+      const yakun = await jarayonniBajar(boshlash.jarayon_id, boshlash.jami_sahifa, 0);
+      yakunXabariniQoy(yakun);
+      setFaolJarayon(null);
+      royxatniYangila();
+    } catch (e2) {
+      setZipXato(e2.data?.detail || t("xato_yuz_berdi"));
+    } finally {
+      setZipYuklanmoqda(false);
+      setProgress(null);
+    }
+  }
 
-      // 2026-07-28: har sahifa AI'da ~2 daqiqa ketadi — shu vaqtda server
-      // (Render, ayniqsa bepul tarifda) vaqtincha uzilib qolishi mumkin
-      // (haqiqiy holatda kuzatilgan: gunicorn logida Python xatosi yo'q,
-      // shunchaki servis qayta ishga tushgan). Jarayon o'zi ZIP+progressni
-      // bazada/R2'da saqlagani uchun, uzilgan sahifani QAYTA SO'RASH
-      // xavfsiz — shuning uchun har sahifa uchun bir necha marta uriniladi.
-      const SAHIFA_URINISHLAR = 3;
-      let yakun = null;
-      for (let i = 0; i < boshlash.jami_sahifa; i += 1) {
-        let d = null;
-        let oxirgiXato = null;
-        for (let urinish = 0; urinish < SAHIFA_URINISHLAR; urinish += 1) {
-          try {
-            // eslint-disable-next-line no-await-in-loop
-            d = await api(`/api/kurslar/blok-jarayon/${jid}/sahifa/`, { method: "POST" });
-            oxirgiXato = null;
-            break;
-          } catch (sahifaXato) {
-            oxirgiXato = sahifaXato;
-            if (urinish < SAHIFA_URINISHLAR - 1) {
-              setProgress({
-                ishlangan: i,
-                jami: boshlash.jami_sahifa,
-                fayl: t("kurs_blok_qayta_urinish"),
-              });
-              // Konteyner qayta ishga tushishi (Render'da kuzatilgan holat)
-              // bir necha soniya olishi mumkin — kutish vaqti ortib boradi
-              // (5s, 10s), darhol qayta urinish befoyda bo'lmasin.
-              // eslint-disable-next-line no-await-in-loop
-              await new Promise((r) => { setTimeout(r, 5000 * (urinish + 1)); });
-            }
-          }
-        }
-        if (oxirgiXato) throw oxirgiXato;
-        setProgress({ ishlangan: d.ishlangan_sahifa, jami: d.jami_sahifa, fayl: d.joriy_fayl });
-        if (d.tugadimi) {
-          yakun = d.yakun;
-          break;
-        }
-      }
-
-      const qismlar = [
-        `${yakun.yaratilgan_mashqlar} ${t("kurs_natija_mashq")}`,
-        `${yakun.kesilgan_rasmlar} ${t("kurs_blok_rasm")}`,
-      ];
-      if (yakun.baholanadigan_savollar) {
-        qismlar.push(`${yakun.baholanadigan_savollar} ${t("kurs_blok_savol")}`);
-      }
-      if (yakun.moslangan_audio) {
-        qismlar.push(`${yakun.moslangan_audio} ${t("kurs_zip_audio")}`);
-      }
-      let xabarMatni = qismlar.join(", ");
-      if (yakun.xato_sahifalar?.length) {
-        xabarMatni += ` — ⚠ ${yakun.xato_sahifalar.length} ${t("kurs_zip_xato_sahifa")}: ${yakun.xato_sahifalar
-          .map((x) => x.fayl.split("/").pop())
-          .join(", ")}`;
-      }
-      if (yakun.ishlatilmagan_audio?.length) {
-        xabarMatni += ` — ⚠ ${t("kurs_zip_moslanmagan_audio")}: ${yakun.ishlatilmagan_audio.join(", ")}`;
-      }
-      setZipXabar(xabarMatni);
+  async function jarayonniDavomEttir() {
+    if (!faolJarayon) return;
+    setZipXato("");
+    setZipXabar("");
+    setZipYuklanmoqda(true);
+    setProgress(null);
+    try {
+      const yakun = await jarayonniBajar(
+        faolJarayon.id, faolJarayon.jami_sahifa, faolJarayon.ishlangan_sahifa,
+      );
+      yakunXabariniQoy(yakun);
+      setFaolJarayon(null);
       royxatniYangila();
     } catch (e2) {
       setZipXato(e2.data?.detail || t("xato_yuz_berdi"));
@@ -685,6 +742,13 @@ function AdminUnitKiritish({ unitId, royxatniYangila }) {
         {t("kurs_zip_yuklash_izoh")}
       </label>
       <input type="file" accept=".zip" onChange={blokZipYukla} disabled={zipYuklanmoqda} />
+      {faolJarayon && !zipYuklanmoqda && (
+        <div style={{ marginTop: 6 }}>
+          <button className="tugma ikkinchi kichik" onClick={jarayonniDavomEttir}>
+            {t("kurs_blok_davom_ettirish")} ({faolJarayon.ishlangan_sahifa}/{faolJarayon.jami_sahifa})
+          </button>
+        </div>
+      )}
       {zipYuklanmoqda && !progress && (
         <span className="izoh" style={{ marginLeft: 8 }}>{t("kurs_zip_ishlanmoqda")}</span>
       )}
@@ -709,6 +773,28 @@ function AdminUnitKiritish({ unitId, royxatniYangila }) {
       )}
       {zipXato && <div className="xato-xabar" style={{ marginTop: 4 }}>{zipXato}</div>}
       {zipXabar && <div className="izoh" style={{ marginTop: 4 }}>✓ {zipXabar}</div>}
+
+      {/* 2026-07-29 talabi: "fayl yuklanib bo'lmagungacha saytda hech
+          qanday amal bajarish mumkin bo'lmasin". Butun oynani qoplaydigan
+          qatlam (position:fixed + yuqori z-index) — bosishlarni yutadi,
+          shuning uchun ostidagi hech qanday tugma/havola ishlamaydi.
+          `onClick={(e)=>e.stopPropagation()}` yuqorida bor, shuning uchun
+          bu qatlam DOMning istalgan joyida bo'lsa ham to'g'ri ishlaydi. */}
+      {zipYuklanmoqda && (
+        <div className="blok-yuklash-qoplama">
+          <div className="blok-yuklash-karta">
+            <div className="blok-yuklash-spinner" aria-hidden="true" />
+            <div style={{ fontWeight: 700 }}>{t("kurs_blok_yuklash_band")}</div>
+            <div className="izoh">{t("kurs_blok_otgan_vaqt")}: {vaqtFormat(otganSoniya)}</div>
+            {progress && (
+              <div className="izoh">
+                {progress.ishlangan}/{progress.jami}
+                {progress.fayl ? ` — ${progress.fayl}` : ""}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

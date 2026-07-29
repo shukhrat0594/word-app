@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api, apiBlobUrl } from "../api";
-import { AUDIO_HIMOYA } from "../audio";
+import { AUDIO_HIMOYA, faqatBittaAudioIjro } from "../audio";
 import { useI18n } from "../i18n";
 import { IMLO_OFF } from "../imlo";
 import { standartVaqt } from "../imtihonVaqt";
@@ -663,7 +663,7 @@ export default function ImtihonOtish({ bolim, manba = "admin", testId, mockYechi
               {faol.qism.yoriqnoma && <div className="imtihon-yoriqnoma">{faol.qism.yoriqnoma}</div>}
               {audioUrllar[faol.qism.id] ? (
                 <audio
-                  {...AUDIO_HIMOYA}
+                  {...AUDIO_HIMOYA} onPlay={(e) => faqatBittaAudioIjro(e.target)}
                   controls
                   src={audioUrllar[faol.qism.id]}
                   style={{ width: "100%", marginBottom: fokus ? 6 : 14 }}
