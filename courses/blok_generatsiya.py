@@ -132,22 +132,21 @@ JAVOB_KALITI_PROMPT = (
 
 
 def blok_provider_olish():
-    """Gemma 4 31B — yuqoridagi modul docstringida asoslangan.
+    """2026-07-30: sinov sifatida Gemma'dan Claude'ga o'tkazildi (foydalanuvchi
+    talabi — Gemma juda sekin, ~125s/sahifa). Model — claude-haiku-4-5
+    (foydalanuvchi tanladi: eng tez/arzon variant).
 
-    ESLATMA: `assessment.providers.GeminiProvider` shu SDK bilan ishlaydi,
-    lekin unda model nomi konstruktordan keladi, shuning uchun qayta
-    ishlatamiz — alohida provider klassi yozish shart emas."""
+    ESLATMA: `assessment.providers.ClaudeProvider` shu SDK bilan ishlaydi,
+    `generate_json` orqali bir xil interfeys beradi — alohida provider
+    klassi yozish shart emas."""
     from django.conf import settings
 
-    from assessment.providers import GeminiProvider
+    from assessment.providers import ClaudeProvider
 
-    kalit = getattr(settings, "GEMINI_API_KEY", "")
+    kalit = getattr(settings, "ANTHROPIC_API_KEY", "")
     if not kalit:
-        raise ProviderXatosi("Platforma GEMINI_API_KEY sozlanmagan (.env)")
-    # Timeout Writing/Speaking'nikidan (40s) ANCHA uzun: Gemma sahifani
-    # ~125 sekundda ajratadi, qat'iy 40s uni har doim uzib qo'yardi
-    # (sinovda tasdiqlangan: "ReadTimeout" 44 sekundda).
-    return GeminiProvider(kalit, model="gemma-4-31b-it", timeout_ms=SAHIFA_TIMEOUT_MS)
+        raise ProviderXatosi("Platforma ANTHROPIC_API_KEY sozlanmagan (.env)")
+    return ClaudeProvider(kalit, model="claude-haiku-4-5", timeout_ms=SAHIFA_TIMEOUT_MS)
 
 
 def tor_chiz(rasm_bytes, qadam=TOR_QADAM, kenglik=AI_RASM_KENGLIGI):

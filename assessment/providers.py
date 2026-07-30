@@ -543,11 +543,15 @@ def writing_provider_ol(tur):
 class ClaudeProvider:
     name = "claude"
 
-    def __init__(self, api_key, model="claude-haiku-4-5"):
+    def __init__(self, api_key, model="claude-haiku-4-5", timeout_ms=SOROV_TIMEOUT_MS):
+        """`timeout_ms` — GeminiProvider'dagi bilan bir xil sabab
+        (2026-07-30): `courses.blok_generatsiya` kabi sekin (sahifani
+        to'r orqali o'qish) vazifalar uchun standart 40s yetarli emas."""
         if not api_key:
             raise ProviderXatosi("Claude API kaliti berilmagan")
         self.api_key = api_key
         self.model = model
+        self.timeout_ms = timeout_ms
 
     def _generate(self, system_prompt, matn, rasm_bytes=None, rasm_mime=None):
         """Gemini bilan bir xil naqsh (2026-07-26): aniq timeout va buzuq
@@ -558,7 +562,7 @@ class ClaudeProvider:
         import anthropic
 
         client = anthropic.Anthropic(
-            api_key=self.api_key, timeout=SOROV_TIMEOUT_MS / 1000
+            api_key=self.api_key, timeout=self.timeout_ms / 1000
         )
         content = matn
         if rasm_bytes:
