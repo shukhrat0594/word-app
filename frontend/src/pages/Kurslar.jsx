@@ -366,6 +366,17 @@ function AdminMashqBoshqaruv({ tugunId, jsonKiritishKorinadi = true }) {
   const [audioZipYuklanmoqda, setAudioZipYuklanmoqda] = useState(false);
   const [promtKorinadi, setPromtKorinadi] = useState(false);
   const [nusxalandi, setNusxalandi] = useState(false);
+  // 2026-07-30 talabi: ZIP shart emas — bitta rasm tanlab, bitta mashq
+  // qo'shish (AI to'r+prompt bilan o'qiydi). Aniq javobli bo'sh joy
+  // uchun AI javobni bilmasa ham savol yaratiladi ("javob talab
+  // qiladi") — shu haqda qisqa xabar ko'rsatiladi.
+  const [rasmMashqXato, setRasmMashqXato] = useState("");
+  const [rasmMashqYuklanmoqda, setRasmMashqYuklanmoqda] = useState(false);
+  const [rasmMashqXabar, setRasmMashqXabar] = useState("");
+  // 2026-07-30 talabi: har mashqni YANGI rasm bilan almashtirish (o'sha
+  // mashqning bloklari qayta hisoblanadi, o'rni/id o'zgarmaydi).
+  const [qaytaYuklanayotganId, setQaytaYuklanayotganId] = useState(null);
+  const [qaytaYuklashXato, setQaytaYuklashXato] = useState("");
 
   function promtNusxala() {
     navigator.clipboard?.writeText(AI_PROMT).then(() => {
@@ -419,6 +430,25 @@ function AdminMashqBoshqaruv({ tugunId, jsonKiritishKorinadi = true }) {
     yukla();
   }
 
+  async function mashqniQaytaYukla(id, e) {
+    const fayl = e.target.files[0];
+    e.target.value = "";
+    if (!fayl) return;
+    if (!window.confirm(t("kurs_mashq_qayta_yuklash_tasdiq"))) return;
+    setQaytaYuklashXato("");
+    setQaytaYuklanayotganId(id);
+    try {
+      const fd = new FormData();
+      fd.append("rasm", fayl);
+      await apiForm(`/api/kurslar/mashq/${id}/qayta-yuklash/`, { method: "POST", formData: fd });
+      yukla();
+    } catch (e2) {
+      setQaytaYuklashXato(e2.data?.detail || t("xato_yuz_berdi"));
+    } finally {
+      setQaytaYuklanayotganId(null);
+    }
+  }
+
   async function audioZipYukla(e) {
     const fayl = e.target.files[0];
     e.target.value = "";
@@ -437,8 +467,50 @@ function AdminMashqBoshqaruv({ tugunId, jsonKiritishKorinadi = true }) {
     }
   }
 
+  async function rasmdanMashqQoshish(e) {
+    const fayl = e.target.files[0];
+    e.target.value = "";
+    if (!fayl) return;
+    setRasmMashqXato("");
+    setRasmMashqXabar("");
+    setRasmMashqYuklanmoqda(true);
+    try {
+      const fd = new FormData();
+      fd.append("rasm", fayl);
+      const yaratilgan = await apiForm(`/api/kurslar/${tugunId}/mashq-rasm-qoshish/`, {
+        method: "POST",
+        formData: fd,
+      });
+      setRasmMashqXabar(
+        yaratilgan.javob_talab_qiluvchi_soni > 0
+          ? `${t("kurs_mashq_qoshildi")} — ${yaratilgan.javob_talab_qiluvchi_soni} ${t("kurs_javob_talab")}`
+          : t("kurs_mashq_qoshildi")
+      );
+      yukla();
+    } catch (e2) {
+      setRasmMashqXato(e2.data?.detail || t("xato_yuz_berdi"));
+    } finally {
+      setRasmMashqYuklanmoqda(false);
+    }
+  }
+
   return (
     <div>
+      <div style={{ marginBottom: 10, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <label className="tugma ikkinchi" style={{ cursor: "pointer" }}>
+          {rasmMashqYuklanmoqda ? t("yuklanmoqda") : t("kurs_rasmdan_mashq_qoshish")}
+          <input
+            type="file"
+            accept="image/*"
+            onChange={rasmdanMashqQoshish}
+            disabled={rasmMashqYuklanmoqda}
+            style={{ display: "none" }}
+          />
+        </label>
+        {rasmMashqXato && <span className="xato-xabar">{rasmMashqXato}</span>}
+        {rasmMashqXabar && <span className="izoh">✓ {rasmMashqXabar}</span>}
+        {qaytaYuklashXato && <span className="xato-xabar">{qaytaYuklashXato}</span>}
+      </div>
       {royxat && royxat.length > 0 && (
         <div style={{ display: "grid", gap: 6, marginBottom: 10 }}>
           {royxat.map((m) => (
@@ -459,6 +531,16 @@ function AdminMashqBoshqaruv({ tugunId, jsonKiritishKorinadi = true }) {
                     {javobOchiqId === m.id ? t("yopish") : t("kurs_javoblar")}
                   </button>
                 )}
+                <label className="tugma ikkinchi" style={{ cursor: "pointer" }}>
+                  {qaytaYuklanayotganId === m.id ? t("yuklanmoqda") : t("kurs_mashq_qayta_yuklash")}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => mashqniQaytaYukla(m.id, e)}
+                    disabled={qaytaYuklanayotganId === m.id}
+                    style={{ display: "none" }}
+                  />
+                </label>
                 <button className="tugma ikkinchi" style={{ color: "#d33" }} onClick={() => ochir(m.id)}>
                   {t("ochirish")}
                 </button>
@@ -751,6 +833,80 @@ function AdminDarajaUnitYaratish({ darajaId, royxatniYangila }) {
   );
 }
 
+/** Admin uchun — Unitlar ALLAQACHON yaratilgan darajada: yana Unit
+ * qo'shish (oxiriga) yoki ENG OXIRGI Unitni o'chirish (2026-07-30
+ * talabi). Faqat oxirgi Unit, va faqat u BO'SH bo'lsa o'chiriladi —
+ * backend buni tekshiradi, xato bo'lsa aniq xabar qaytaradi. */
+function AdminUnitSoniBoshqarish({ darajaId, royxatniYangila }) {
+  const { t } = useI18n();
+  const [unitSoni, setUnitSoni] = useState("5");
+  const [xato, setXato] = useState("");
+  const [yuklanmoqda, setYuklanmoqda] = useState(false);
+  const [ochirilmoqda, setOchirilmoqda] = useState(false);
+
+  async function qoshish() {
+    const son = parseInt(unitSoni, 10);
+    if (!Number.isInteger(son) || son < 1 || son > 50) {
+      setXato(t("kurs_unit_soni_notogri"));
+      return;
+    }
+    setXato("");
+    setYuklanmoqda(true);
+    try {
+      await api(`/api/kurslar/${darajaId}/daraja-unit-yaratish/`, {
+        method: "POST",
+        body: { unit_soni: son },
+      });
+      royxatniYangila();
+    } catch (e) {
+      setXato(e.data?.detail || t("xato_yuz_berdi"));
+    } finally {
+      setYuklanmoqda(false);
+    }
+  }
+
+  async function oxirginiOchir() {
+    if (!window.confirm(t("kurs_oxirgi_unit_ochirish_tasdiq"))) return;
+    setXato("");
+    setOchirilmoqda(true);
+    try {
+      await api(`/api/kurslar/${darajaId}/daraja-unit-yaratish/`, { method: "DELETE" });
+      royxatniYangila();
+    } catch (e) {
+      setXato(e.data?.detail || t("xato_yuz_berdi"));
+    } finally {
+      setOchirilmoqda(false);
+    }
+  }
+
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+      <span className="izoh">{t("kurs_yana_unit_qosh")}</span>
+      <input
+        type="number"
+        min="1"
+        max="50"
+        value={unitSoni}
+        onChange={(e) => setUnitSoni(e.target.value)}
+        style={{ width: 70 }}
+        disabled={yuklanmoqda}
+      />
+      <button className="tugma ikkinchi kichik" onClick={qoshish} disabled={yuklanmoqda}>
+        {t("kurs_unit_yaratish")}
+      </button>
+      <button
+        className="tugma ikkinchi kichik"
+        style={{ color: "#d33" }}
+        onClick={oxirginiOchir}
+        disabled={ochirilmoqda}
+      >
+        {t("kurs_oxirgi_unit_ochirish")}
+      </button>
+      {xato && <span className="xato-xabar">{xato}</span>}
+    </div>
+  );
+}
+
 function AdminUnitKiritish({ unitId, royxatniYangila }) {
   const { t } = useI18n();
   const [zipXato, setZipXato] = useState("");
@@ -758,7 +914,9 @@ function AdminUnitKiritish({ unitId, royxatniYangila }) {
   const [raqamsizOgohlantirish, setRaqamsizOgohlantirish] = useState("");
   // 2026-07-29(3) talabi: "har mashq uchun alohida rasm, fayl nomidan
   // mashq raqamini bilib qo'yish" — admin ikkisidan birini tanlaydi.
-  const [zipRejim, setZipRejim] = useState("sahifa");
+  // 2026-07-30: "mashq bo'yicha" standart rejim qilindi (foydalanuvchi
+  // talabi) — "sahifa bo'yicha" ham qoladi, admin xohlasa tanlaydi.
+  const [zipRejim, setZipRejim] = useState("mashq");
   const [zipYuklanmoqda, setZipYuklanmoqda] = useState(false);
   const [progress, setProgress] = useState(null);
   // 2026-07-29 talabi: yuklash necha daqiqada ketayotganini ko'rsatish.
@@ -1389,6 +1547,16 @@ function Tugun({ tugun, chuqurlik, adminMi, talabaMi, royxatniYangila, ichkariUn
             && !tugun.children.some((b) => b.unit_darsi) && (
             <div style={{ paddingLeft: otstup + 18, marginBottom: 6 }}>
               <AdminDarajaUnitYaratish darajaId={tugun.id} royxatniYangila={royxatniYangila} />
+            </div>
+          )}
+          {/* 2026-07-30 talabi: Unitlar allaqachon yaratilgan bo'lsa —
+              yana Unit qo'shish (oxiriga) yoki oxirgi (bo'sh) Unitni
+              o'chirish imkoni. */}
+          {adminMi
+            && UNIT_YARATISH_MUMKIN_DARAJALAR.has(tugun.kalit)
+            && tugun.children.some((b) => b.unit_darsi) && (
+            <div style={{ paddingLeft: otstup + 18, marginBottom: 6 }}>
+              <AdminUnitSoniBoshqarish darajaId={tugun.id} royxatniYangila={royxatniYangila} />
             </div>
           )}
           {tugun.children.map((b) => (

@@ -383,7 +383,15 @@ def bloklarni_tayyorla(elementlar):
                     bolaklar.append({"matn": str(b.get("matn") or "")})
                     continue
                 javob = str(b.get("javob") or "").strip()
-                erkin = b.get("javob_turi") == "erkin" or not javob
+                # 2026-07-30 talabi: "aniq" turdagi bo'sh joy AI hali
+                # javobni bilmasa ham (bu sahifada alohida javob-kaliti
+                # yo'q — masalan "mashq bo'yicha rasm" rejimida) SAVOL
+                # sifatida saqlanadi (`togri` bo'sh) — shunda u admin
+                # uchun mavjud "Javoblarni tahrirlash" panelida "javob
+                # talab qiladi" deb ko'rinadi. Avval bo'sh javob "erkin"
+                # (ochiq, tekshirilmaydigan) deb qabul qilinardi — bu
+                # javobni butunlay yashirib qo'yardi.
+                erkin = b.get("javob_turi") == "erkin"
                 if erkin:
                     bolaklar.append({"bosh_joy": True, "erkin": True})
                 else:

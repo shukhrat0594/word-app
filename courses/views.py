@@ -511,20 +511,24 @@ UNIT_YARATISH_MUMKIN_DARAJALAR = {
 
 class KursDarajaUnitYaratishView(APIView):
     """Admin/owner uchun — Ingliz tili darajasida (Beginner yoki
-    Elementary...Upper-Intermediate) N ta Unit'ni (har biri Student's
+    Elementary...Upper-Intermediate) Unit'lar (har biri Student's
     Book/Workbook > Mashqlar/Vocabulary tuzilmasi bilan, generic "Unit N"
-    nomi bilan) BIR MARTALIK yaratadi.
+    nomi bilan) yaratadi.
 
     Bu daraja hozircha FLAT (Grammar/Vocabulary/Reading/... to'g'ridan-to'g'ri
-    daraja ostida, kontentsiz) — Unit yaratilganda bu bo'sh flat bo'limlar
-    O'CHIRILADI (ular hali hech qanday kontentga ega emas, o'chirish
-    xavfsiz).
+    daraja ostida, kontentsiz) — birinchi marta Unit yaratilganda bu bo'sh
+    flat bo'limlar O'CHIRILADI (ular hali hech qanday kontentga ega emas,
+    o'chirish xavfsiz).
 
-    Faqat Unit HALI YO'Q bo'lgan darajada ishlaydi (qayta chaqirilsa —
-    xato qaytaradi): sonini keyinroq o'zgartirish shart bo'lsa, buni
-    programmatik ravishda (Django shell) qilish kerak — tasodifan qayta
-    bosib, mavjud Unitlar ustiga yana Unit qo'shib yuborishning oldini
-    olish uchun ATAYLAB shunday qilingan."""
+    2026-07-30 talabi: dastlab bu FAQAT bir martalik edi (qayta chaqirilsa
+    xato), lekin admin keyinroq ko'proq Unit qo'shishi kerak bo'lib qoldi —
+    endi Unit ALLAQACHON bo'lsa ham ishlaydi, YANGI Unitlarni MAVJUDLARNING
+    OXIRIGA (eng katta `tartib`dan keyin) qo'shadi.
+
+    `delete()` — faqat ENG OXIRGI Unitni, va FAQAT u BO'SH (mashq/so'z
+    yo'q) bo'lsa o'chiradi (2026-07-30 talabi) — o'rtadagi yoki
+    to'ldirilgan Unitni o'chirish qo'llab-quvvatlanmaydi, tasodifan
+    kontentli Unitni yo'qotib qo'yishning oldini olish uchun."""
 
     permission_classes = [IsAuthenticated]
 
@@ -536,10 +540,6 @@ class KursDarajaUnitYaratishView(APIView):
             return Response(
                 {"detail": "Bu tugun uchun Unit yaratib bo'lmaydi"}, status=400
             )
-        if KursTugun.objects.filter(parent=daraja, unit_darsi=True).exists():
-            return Response(
-                {"detail": "Bu darajada Unitlar allaqachon yaratilgan"}, status=400
-            )
 
         try:
             unit_soni = int(request.data.get("unit_soni"))
@@ -548,11 +548,16 @@ class KursDarajaUnitYaratishView(APIView):
         if not 1 <= unit_soni <= 50:
             return Response({"detail": "unit_soni 1 dan 50 gacha bo'lishi kerak"}, status=400)
 
-        # Eski (hali bo'sh) flat bo'limlarni tozalaymiz — Unit tuzilmasiga
-        # o'tishda ular endi kerak emas.
-        KursTugun.objects.filter(parent=daraja, unit_darsi=False).delete()
+        mavjud_unitlar = KursTugun.objects.filter(parent=daraja, unit_darsi=True)
+        boshlangich = mavjud_unitlar.count()
+        if boshlangich == 0:
+            # Eski (hali bo'sh) flat bo'limlarni tozalaymiz — Unit
+            # tuzilmasiga o'tishda ular endi kerak emas. Unit allaqachon
+            # bor bo'lsa bu qadam KERAK EMAS (flat bo'limlar bir marta
+            # o'chirilgach qayta paydo bo'lmaydi).
+            KursTugun.objects.filter(parent=daraja, unit_darsi=False).delete()
 
-        for j in range(1, unit_soni + 1):
+        for j in range(boshlangich + 1, boshlangich + unit_soni + 1):
             # `kalit` GLOBAL unikal emas (faqat bir ota-tugun ichida), lekin
             # frontend nomlarni KALIT bo'yicha (parentga qaramay) tarjima
             # qiladi (i18n.jsx, `tugun_<kalit>`) — shuning uchun oddiy
@@ -576,6 +581,52 @@ class KursDarajaUnitYaratishView(APIView):
             snapshot=natija,
         )
         return Response(natija, status=201)
+
+    def delete(self, request, pk):
+        if not _mashq_admin_mi(request.user):
+            return Response({"detail": "Faqat admin/owner uchun"}, status=403)
+        daraja = get_object_or_404(KursTugun, pk=pk)
+        oxirgi = (
+            KursTugun.objects.filter(parent=daraja, unit_darsi=True)
+            .order_by("-tartib")
+            .first()
+        )
+        if not oxirgi:
+            return Response({"detail": "Bu darajada Unit yo'q"}, status=400)
+
+        # `_unit_bolimlari` faqat BITTA kitobni tekshiradi (Unit'ning
+        # to'g'ridan-to'g'ri farzandi kutiladi) — bu yerda esa butun Unit
+        # (ikkala kitobi — Student's Book VA Workbook) bo'sh-yo'qligini
+        # bilish kerak, aks holda Workbook'dagi kontent payqalmay
+        # o'chirilib ketishi mumkin edi.
+        boshmi = True
+        for kitob in KursTugun.objects.filter(parent=oxirgi):
+            bolalar = _unit_bolimlari(kitob)
+            mashq_tugun = bolalar.get("mashqlar")
+            vocab_tugun = bolalar.get("vocabulary")
+            if mashq_tugun and mashq_tugun.mashqlar.exists():
+                boshmi = False
+                break
+            if vocab_tugun and (vocab_tugun.sozlar.exists() or vocab_tugun.matn):
+                boshmi = False
+                break
+        if not boshmi:
+            return Response(
+                {"detail": "Oxirgi Unit bo'sh emas (mashq/so'z bor) — avval \"Tozalash\" bilan bo'shating"},
+                status=400,
+            )
+
+        nomi = oxirgi.nomi
+        oxirgi.delete()
+        logla(
+            foydalanuvchi=request.user,
+            harakat=FaoliyatYozuvi.Harakat.OCHIRISH,
+            obyekt=daraja,
+            obyekt_turi="KursTugun",
+            obyekt_nomi=f"{daraja.nomi} — {nomi} o'chirildi",
+            snapshot={},
+        )
+        return Response({"ochirildi": nomi})
 
 
 class KursUnitYuklashView(APIView):

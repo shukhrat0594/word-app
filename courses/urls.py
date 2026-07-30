@@ -21,6 +21,16 @@ urlpatterns = [
         name="kurslar_blok_sahifa",
     ),
     path(
+        "kurslar/<int:pk>/mashq-rasm-qoshish/",
+        blok_views.KursMashqRasmdanQoshishView.as_view(),
+        name="kurslar_mashq_rasm_qoshish",
+    ),
+    path(
+        "kurslar/mashq/<int:pk>/qayta-yuklash/",
+        blok_views.KursMashqQaytaYuklashView.as_view(),
+        name="kurslar_mashq_qayta_yuklash",
+    ),
+    path(
         "kurslar/blok-rasm/<int:pk>/",
         views.KursBlokRasmView.as_view(),
         name="kurslar_blok_rasm",

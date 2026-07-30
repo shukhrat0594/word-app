@@ -53,7 +53,7 @@ from .models import (
     KursTugun,
     KursZipJarayoni,
 )
-from .views import _mashq_admin_mi, _unit_bolimlari
+from .views import _kurs_mashq_admin_dict, _mashq_admin_mi, _unit_bolimlari
 
 # 2026-07-29(6): agar bir sahifa band qilingan-u biror sababdan (masalan
 # ESKI, tuzatishdan oldingi versiyada uchragan xato) hech qachon
@@ -163,10 +163,13 @@ def _zip_tarkibini_ajrat(nomlar):
 def _zip_tarkibini_ajrat_mashq(nomlar):
     """"Mashq bo'yicha" yuklash rejimi (2026-07-29, foydalanuvchi talabi):
     har bir rasm — BUTUN sahifa emas, BITTA alohida mashq (masalan
-    "mashq_3.jpg" — Exercise 3). Tartib fayl nomidagi raqamdan (oxirgi
-    sonli segment, `audio_raqamini_ajrat` bilan bir xil qoida) olinadi —
+    "mashq_3.jpg" — Exercise 3). Tartib fayl nomidagi raqamdan olinadi —
     tabiiy alfavit tartibi EMAS, aynan shu SON bo'yicha saralanadi, aks
     holda "mashq_10.jpg" "mashq_2.jpg"dan oldin tushib qolardi.
+
+    2026-07-30: ko'p-rasmli (bitta mashq — bir nechta rasm) guruhlash
+    SINAB KO'RILDI-YU, natijasi yaxshi bo'lmadi (foydalanuvchi talabi) —
+    OLIB TASHLANDI. Har rasm — HAR DOIM alohida, mustaqil mashq.
 
     Raqami o'qilmagan fayllar (masalan nomida raqam yo'q) alohida
     ro'yxatda qaytariladi — admin ularni ko'rib, nomini to'g'rilashi
@@ -329,6 +332,145 @@ class KursBlokJarayonHolatiView(APIView):
             .delete()
         )
         return Response({"bekor_qilindi": soni})
+
+
+class KursMashqRasmdanQoshishView(APIView):
+    """2026-07-30 talabi: ZIP shart emas — admin "Mashq qo'shish" tugmasi
+    orqali BITTA rasm tanlaydi, shu rasmdan BITTA mashq yaratiladi (bir
+    martalik, sinxron so'rov — ZIP'dagi ko'p-bosqichli jarayon shart
+    emas, chunki bitta AI chaqiruvi ~1 daqiqadan oshmaydi).
+
+    Aniq javobli bo'sh joy uchun AI javobni bilmasa ham (bu yerda alohida
+    javob-kaliti sahifasi yo'q) savol baribir yaratiladi (`togri` bo'sh)
+    — admin keyin mavjud "Javoblarni tahrirlash" panelida to'ldiradi
+    (qarang: `blok_generatsiya.bloklarni_tayyorla`)."""
+
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request, pk):
+        if not _mashq_admin_mi(request.user):
+            return Response({"detail": "Faqat admin/owner uchun"}, status=403)
+        tugun = get_object_or_404(KursTugun, pk=pk)
+        if tugun.children.exists():
+            return Response(
+                {"detail": "Faqat oxirgi qatlam (farzandsiz) tugunga mashq qo'shiladi"}, status=400
+            )
+        rasm = request.FILES.get("rasm")
+        if not rasm:
+            return Response({"detail": "rasm majburiy"}, status=400)
+        rasm_bytes = rasm.read()
+
+        natija_yoki_xato = _rasmni_mashqqa_aylantir(rasm_bytes)
+        if isinstance(natija_yoki_xato, Response):
+            return natija_yoki_xato
+        sarlavha, bloklar, savollar, qutilar = natija_yoki_xato
+
+        boshlangich = tugun.mashqlar.count()
+        mashq = KursMashq.objects.create(
+            tugun=tugun,
+            tartib=boshlangich + 1,
+            matn=sarlavha,
+            savollar=savollar,
+            bloklar=bloklar,
+        )
+        rasm_soni = 0
+        for tartib, quti in enumerate(qutilar):
+            kesilgan = rasmni_kes(rasm_bytes, quti)
+            if not kesilgan:
+                continue
+            yozuv = KursMashqRasmi(mashq=mashq, tartib=tartib)
+            yozuv.rasm.save(f"{mashq.id}_{tartib}.jpg", ContentFile(kesilgan), save=True)
+            rasm_soni += 1
+
+        javob_talab_soni = sum(1 for s in savollar if not s.get("togri"))
+        logla(
+            foydalanuvchi=request.user,
+            harakat=FaoliyatYozuvi.Harakat.YARATISH,
+            obyekt=tugun,
+            obyekt_turi="KursTugun",
+            obyekt_nomi=f"{tugun.nomi} (rasmdan mashq qo'shildi)",
+            snapshot={"savollar_soni": len(savollar), "rasm_soni": rasm_soni},
+        )
+        return Response(
+            {**_kurs_mashq_admin_dict(mashq), "javob_talab_qiluvchi_soni": javob_talab_soni},
+            status=201,
+        )
+
+
+def _rasmni_mashqqa_aylantir(rasm_bytes):
+    """`KursMashqRasmdanQoshishView` va `KursMashqQaytaYuklashView`
+    ikkalasida ham bir xil AI-chaqiruv+xatolarni ushlash mantig'i —
+    muvaffaqiyat bo'lsa (sarlavha, bloklar, savollar, qutilar) qaytaradi,
+    xato bo'lsa tayyor `Response` obyektini qaytaradi (chaqiruvchi shuni
+    to'g'ridan-to'g'ri qaytarishi kifoya)."""
+    try:
+        provider = blok_provider_olish()
+        natija, xato = sahifani_bloklarga_ajrat(provider, rasm_bytes)
+    except ProviderXatosi as e:
+        return Response({"detail": str(e)}, status=502)
+    except Exception as e:  # noqa: BLE001 — kutilmagan AI/rasm xatosi
+        return Response({"detail": f"{type(e).__name__}: {e}"}, status=502)
+    if xato:
+        return Response({"detail": xato}, status=400)
+
+    elementlar = natija.get("elementlar") or []
+    if not elementlar:
+        return Response({"detail": "Rasmdan mashq elementi topilmadi"}, status=400)
+    bloklar, savollar, qutilar = bloklarni_tayyorla(elementlar)
+    return natija.get("sarlavha", ""), bloklar, savollar, qutilar
+
+
+class KursMashqQaytaYuklashView(APIView):
+    """2026-07-30 talabi: mavjud mashqni YANGI rasm bilan ALMASHTIRADI —
+    "Rasm orqali mashq qo'shish" bilan bir xil AI tahlili, lekin YANGI
+    mashq yaratish o'rniga MAVJUD mashqning bloklari/savollari/kesilgan
+    suratlari almashtiriladi (id/tartib — ro'yxatdagi o'rni — o'zgarmaydi)."""
+
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request, pk):
+        if not _mashq_admin_mi(request.user):
+            return Response({"detail": "Faqat admin/owner uchun"}, status=403)
+        mashq = get_object_or_404(KursMashq, pk=pk)
+        rasm = request.FILES.get("rasm")
+        if not rasm:
+            return Response({"detail": "rasm majburiy"}, status=400)
+        rasm_bytes = rasm.read()
+
+        natija_yoki_xato = _rasmni_mashqqa_aylantir(rasm_bytes)
+        if isinstance(natija_yoki_xato, Response):
+            return natija_yoki_xato
+        sarlavha, bloklar, savollar, qutilar = natija_yoki_xato
+
+        mashq.matn = sarlavha
+        mashq.savollar = savollar
+        mashq.bloklar = bloklar
+        mashq.save(update_fields=["matn", "savollar", "bloklar"])
+
+        mashq.rasmlar.all().delete()  # eski kesilgan suratlar — yangi rasmga mos emas
+        rasm_soni = 0
+        for tartib, quti in enumerate(qutilar):
+            kesilgan = rasmni_kes(rasm_bytes, quti)
+            if not kesilgan:
+                continue
+            yozuv = KursMashqRasmi(mashq=mashq, tartib=tartib)
+            yozuv.rasm.save(f"{mashq.id}_{tartib}.jpg", ContentFile(kesilgan), save=True)
+            rasm_soni += 1
+
+        javob_talab_soni = sum(1 for s in savollar if not s.get("togri"))
+        logla(
+            foydalanuvchi=request.user,
+            harakat=FaoliyatYozuvi.Harakat.OZGARTIRISH,
+            obyekt=mashq.tugun,
+            obyekt_turi="KursTugun",
+            obyekt_nomi=f"{mashq.tugun.nomi} (#{mashq.tartib} mashq qayta yuklandi)",
+            snapshot={"savollar_soni": len(savollar), "rasm_soni": rasm_soni},
+        )
+        return Response(
+            {**_kurs_mashq_admin_dict(mashq), "javob_talab_qiluvchi_soni": javob_talab_soni}
+        )
 
 
 class KursBlokSahifaView(APIView):
