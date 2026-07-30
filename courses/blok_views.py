@@ -15,11 +15,13 @@ import pathlib
 import shutil
 import threading
 import zipfile
+from datetime import datetime, timedelta
 
 from django.conf import settings
 from django.core.files.base import ContentFile
 from django.db import transaction
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -52,6 +54,31 @@ from .models import (
     KursZipJarayoni,
 )
 from .views import _mashq_admin_mi, _unit_bolimlari
+
+# 2026-07-29(6): agar bir sahifa band qilingan-u biror sababdan (masalan
+# ESKI, tuzatishdan oldingi versiyada uchragan xato) hech qachon
+# `tugallangan`ga yozilmasa, u band holida "muzlab" qolar edi — jarayon
+# hech qachon 100%ga yetolmasdi va HECH QANDAY xato ko'rsatmasdi (jim
+# "band_qilinadigan_sahifa_qolmadi" javobi bilan abadiy aylanardi).
+# Endi shu holat VAQT bo'yicha aniqlanadi: agar band qilingandan beri
+# shuncha soniya o'tgan bo'lsa-yu hali tugallanmagan bo'lsa — bu ODDIY
+# sekinlik emas, "muzlab qolgan" deb hisoblanadi (SAHIFA_TIMEOUT_MS —
+# blok_generatsiya.py'da 240s — va 3 marta qayta urinish + backoff'dan
+# ancha katta zaxira bilan).
+TIQILIB_QOLISH_CHEGARASI_SONIYA = 360
+
+
+def _band_vaqtlarini_ol(d):
+    """`natijalar["band_qilingan"]`ni {indeks(str): ISO vaqt} shaklida
+    qaytaradi. ESKI formatda (2026-07-29(6)dan oldin) bu oddiy ro'yxat
+    edi (vaqtsiz) — bunday yozuvlar VAQTI NOMA'LUM, ya'ni har doim
+    "juda eski" (darhol tiqilib qolgan) deb hisoblanadi, chunki ular
+    haqiqatan ham eski (tuzatishdan oldingi) jarayonlarga tegishli."""
+    band_xom = d.get("band_qilingan", [])
+    if isinstance(band_xom, dict):
+        return dict(band_xom)
+    juda_eski = (timezone.now() - timedelta(days=1)).isoformat()
+    return {str(i): juda_eski for i in band_xom}
 
 
 def _jarayon_kesh_yoli(jarayon):
@@ -328,13 +355,63 @@ class KursBlokSahifaView(APIView):
             oddiy = d["sahifalar"]
             javob_fayllari = d["javob_kaliti_fayllari"]
             jami = len(oddiy) + len(javob_fayllari)
-            band = set(d.get("band_qilingan", []))
+            band_vaqtlari = _band_vaqtlarini_ol(d)
+            band = {int(k) for k in band_vaqtlari}
             indeks = next((i for i in range(jami) if i not in band), None)
 
             if indeks is None:
-                # Boshqa parallel so'rov(lar) allaqachon barcha sahifani
-                # band qilib bo'lgan — bu normal holat, xato emas: bu
-                # "ishchi" uchun hozircha ish qolmadi.
+                # Barcha sahifa band qilingan. Lekin hali TUGALLANMAGAN
+                # (ishlangan_sahifa < jami_sahifa) bo'lsa — bu ikki xil
+                # holat bo'lishi mumkin: (a) boshqa parallel so'rovlar
+                # HOZIR ishlab turibdi (normal, tez orada tugaydi), yoki
+                # (b) qaysidir sahifa band qilingan-u ABADIY tugallanmay
+                # qolgan ("muzlab qolgan"). Ikkinchisini VAQT bo'yicha
+                # ajratamiz.
+                tugallangan_indekslar = {int(k) for k in d.get("tugallangan", {})}
+                hozir = timezone.now()
+                tiqilib_qolgan = []
+                for idx_str, vaqt_str in band_vaqtlari.items():
+                    idx = int(idx_str)
+                    if idx in tugallangan_indekslar:
+                        continue
+                    try:
+                        vaqt = datetime.fromisoformat(vaqt_str)
+                    except (TypeError, ValueError):
+                        vaqt = hozir - timedelta(days=1)
+                    if (hozir - vaqt).total_seconds() > TIQILIB_QOLISH_CHEGARASI_SONIYA:
+                        tiqilib_qolgan.append(idx)
+
+                if tiqilib_qolgan and jarayon.ishlangan_sahifa < jarayon.jami_sahifa:
+                    # Jarayonni O'CHIRAMIZ — aks holda "Davom ettirish"
+                    # tugmasi abadiy turib qolardi (Tozalash tugmasi
+                    # jarayon holatiga tegmaydi, faqat mashq kontentini
+                    # tozalaydi). ZIP faylning o'zi R2'da xavfsiz qoladi,
+                    # kerak bo'lsa admin ZIPni qaytadan yuklaydi.
+                    tiqilgan_fayllar = []
+                    for idx in sorted(tiqilib_qolgan):
+                        if idx < len(oddiy):
+                            tiqilgan_fayllar.append(oddiy[idx].rsplit("/", 1)[-1])
+                        else:
+                            tiqilgan_fayllar.append(
+                                javob_fayllari[idx - len(oddiy)].rsplit("/", 1)[-1])
+                    jarayon.delete()
+                    return Response(
+                        {
+                            "detail": (
+                                f"Yuklash tiqilib qoldi: {len(tiqilib_qolgan)} ta sahifa "
+                                f"({', '.join(tiqilgan_fayllar)}) band qilingan edi, lekin "
+                                f"{TIQILIB_QOLISH_CHEGARASI_SONIYA} soniyadan ko'proq "
+                                "tugallanmadi (server qayta ishga tushishi yoki AI xatosi "
+                                "sabab bo'lishi mumkin). Jarayon bekor qilindi — Unit "
+                                "kontentini tozalab, ZIPni qaytadan yuklang."
+                            ),
+                        },
+                        status=409,
+                    )
+
+                # Boshqa parallel so'rov(lar) HOZIR ishlab turibdi — bu
+                # normal holat, xato emas: bu "ishchi" uchun hozircha
+                # ish qolmadi.
                 return Response(
                     {
                         "band_qilinadigan_sahifa_qolmadi": True,
@@ -344,8 +421,8 @@ class KursBlokSahifaView(APIView):
                     }
                 )
 
-            band.add(indeks)
-            d["band_qilingan"] = sorted(band)
+            band_vaqtlari[str(indeks)] = timezone.now().isoformat()
+            d["band_qilingan"] = band_vaqtlari
             jarayon.natijalar = d
             jarayon.holat = KursZipJarayoni.Holat.ISHLANMOQDA
             jarayon.save(update_fields=["natijalar", "holat"])

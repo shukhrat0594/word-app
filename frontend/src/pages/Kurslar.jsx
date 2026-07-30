@@ -936,6 +936,10 @@ function AdminUnitKiritish({ unitId, royxatniYangila }) {
       }
     } catch (e2) {
       setZipXato(e2.data?.detail || t("xato_yuz_berdi"));
+      // 2026-07-29(6): 409 — backend jarayonni "tiqilib qolgan" deb
+      // aniqlab, o'zi o'chirib tashladi (qarang courses/blok_views.py) —
+      // "Davom ettirish" tugmasi endi ma'nosiz, darhol yashiramiz.
+      if (e2.status === 409) setFaolJarayon(null);
     } finally {
       setZipYuklanmoqda(false);
       setProgress(null);
@@ -961,6 +965,10 @@ function AdminUnitKiritish({ unitId, royxatniYangila }) {
       }
     } catch (e2) {
       setZipXato(e2.data?.detail || t("xato_yuz_berdi"));
+      // 2026-07-29(6): 409 — backend jarayonni "tiqilib qolgan" deb
+      // aniqlab, o'zi o'chirib tashladi (qarang courses/blok_views.py) —
+      // "Davom ettirish" tugmasi endi ma'nosiz, darhol yashiramiz.
+      if (e2.status === 409) setFaolJarayon(null);
     } finally {
       setZipYuklanmoqda(false);
       setProgress(null);

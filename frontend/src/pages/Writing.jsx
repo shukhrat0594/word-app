@@ -176,16 +176,21 @@ function HaqiqiyMashq() {
     }
   }
 
+  // 2026-07-29 talabi: Task 1'da grafik/jadval ustidagi TAVSIF MATNI
+  // ("The chart below shows...") ko'rsatilmasin — faqat rasm (grafik)
+  // qoladi. Task 2'da esa insho savoli matni avvalgidek ko'rinadi.
+  const tavsifKorinsinmi = korsatilganMatn && mashq.tur !== "task1";
+
   if (natijalar) {
     return (
       <>
-        {korsatilganMatn && (
+        {(tavsifKorinsinmi || grafikUrl) && (
           <div className="karta" style={{ marginBottom: 14 }}>
             <h3>
               {mashq.name}
               {mashq.sun_iy_intellekt_yaratgan && <span className="si-belgi"> — {t("mashq_ai_yaratgan")}</span>}
             </h3>
-            <div className="mashq-passage">{korsatilganMatn}</div>
+            {tavsifKorinsinmi && <div className="mashq-passage">{korsatilganMatn}</div>}
             {grafikUrl && <img src={grafikUrl} alt="chart" style={{ maxWidth: "100%", marginTop: 10 }} />}
           </div>
         )}
@@ -223,7 +228,7 @@ function HaqiqiyMashq() {
             {mashq.name}
             {mashq.sun_iy_intellekt_yaratgan && <span className="si-belgi"> — {t("mashq_ai_yaratgan")}</span>}
           </h3>
-          {korsatilganMatn && <div className="mashq-passage">{korsatilganMatn}</div>}
+          {tavsifKorinsinmi && <div className="mashq-passage">{korsatilganMatn}</div>}
           {grafikUrl && <img src={grafikUrl} alt="chart" style={{ maxWidth: "100%", marginTop: 10 }} />}
         </div>
         <div className="karta">
