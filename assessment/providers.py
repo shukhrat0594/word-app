@@ -349,6 +349,14 @@ SOROV_TIMEOUT_MS = 40_000
 URINISHLAR = 2
 
 
+def _limit_xatosimi(xato):
+    """`courses/blok_generatsiya.py`dagi bilan bir xil tekshiruv (2026-07-29)
+    — kunlik/daqiqalik AI so'rov limiti tugaganini aniqlaydi, aks holda
+    talaba "kutilmagan xato" degan tushunarsiz xabar ko'rardi."""
+    matn = str(xato).lower()
+    return "429" in matn or "quota" in matn or "rate" in matn or "resource_exhausted" in matn
+
+
 class GeminiProvider:
     name = "gemini"
 
@@ -416,6 +424,54 @@ class GeminiProvider:
             f"AI {URINISHLAR} urinishda ham yaroqli javob bermadi ({oxirgi_xato})"
         )
 
+    def audio_transkripsiya_qil(self, audio_bytes, audio_mime="audio/webm"):
+        """Ovoz yozuvini MATNGA o'giradi (Speaking mikrofon rejimi,
+        2026-07-29). Alohida Speech-to-Text xizmati EMAS — Gemini
+        audio-inputni to'g'ridan-to'g'ri qabul qiladi (sinovda tasdiqlandi:
+        sun'iy audio bilan aynan bir xil matnni qaytardi). JSON emas, sof
+        transkript matni qaytadi. Faqat GeminiProvider'da bor — Claude
+        audio-inputni qo'llab-quvvatlamaydi."""
+        from google import genai
+        from google.genai import types
+
+        client = genai.Client(
+            api_key=self.api_key,
+            http_options=types.HttpOptions(timeout=self.timeout_ms),
+        )
+        try:
+            response = client.models.generate_content(
+                model=self.model,
+                contents=[
+                    types.Part.from_bytes(data=audio_bytes, mime_type=audio_mime),
+                    "Transcribe exactly what is said in this audio recording. "
+                    "Return ONLY the raw transcript text, with no extra "
+                    "commentary, labels, or formatting.",
+                ],
+            )
+        except Exception as e:
+            if _limit_xatosimi(e):
+                raise ProviderXatosi(
+                    "AI kunlik so'rov limiti tugadi — birozdan so'ng qayta urinib ko'ring"
+                ) from e
+            raise ProviderXatosi(f"Audio'ni transkripsiya qilishda xato: {e}") from e
+        if not response.text or not response.text.strip():
+            raise ProviderXatosi("AI audio'dan matn ajrata olmadi (ovoz tushunarsiz yoki bo'sh)")
+        return response.text.strip()
+
+    def speaking_audio_baholash(self, audio_bytes, audio_mime, savol_matni="", tur="part1"):
+        """Mikrofon rejimi: audio -> transkript -> Matn rejimi bilan BIR
+        XIL 3 mezon (Pronunciation'siz) baholash. Natijaga `transkript`
+        maydoni qo'shiladi — talaba nima deganini ko'rishi uchun."""
+        transkript = self.audio_transkripsiya_qil(audio_bytes, audio_mime)
+        if len(transkript.split()) < 20:
+            raise ProviderXatosi(
+                f'Ovozda tushunarli gap juda kam topildi ("{transkript}") — '
+                "kamida 20 so'zlik javob ayting va qayta urinib ko'ring"
+            )
+        baho = self.speaking_matn_baholash(transkript, savol_matni=savol_matni, tur=tur)
+        baho["transkript"] = transkript
+        return baho
+
     def writing_baholash(self, matn, savol_matni="", tur="task2", rasm_bytes=None, rasm_mime=None):
         kontent = _writing_kontent_tuz(savol_matni, tur, matn)
         return self._generate(writing_promt_ol(tur), kontent, rasm_bytes, rasm_mime)
@@ -452,6 +508,36 @@ def gemini_provider_ol(model_kaliti):
     if not kalit:
         raise ProviderXatosi("Platforma GEMINI_API_KEY sozlanmagan (.env)")
     return GeminiProvider(kalit, model=model)
+
+
+# 2026-07-29(7), foydalanuvchi tasdiqlagan taqqoslashdan keyin: Writing
+# Task 1 va Task 2 ENDI TURLI model bilan tekshiriladi (avval ikkalasi ham
+# `GEMINI_MODEL`da edi). Real sinov (bir xil grafik+insho, ikkala model)
+# ko'rsatdiki: Gemma 4 31B Task 1'ni (rasm-tavsif) Gemini bilan deyarli BIR
+# XIL ishonchlilikda baholaydi (ikkalasi ham yaxshi inshoga 9, zaif inshoga
+# 2.5-3 band berdi, xatolarni bir xil topdi) — Gemma allaqachon
+# `courses/blok_generatsiya.py`da rasm-input uchun ishlatilgani uchun
+# tabiiy tanlov. Task 2 (sof matnli insho) uchun `gemini-3.5-flash`
+# sinovda `gemini-3.1-flash-lite`ga deyarli teng natija berdi.
+WRITING_TASK1_MODEL = "gemma-4-31b-it"
+WRITING_TASK2_MODEL = "gemini-3.5-flash"
+
+# Gemma matnli (rasmsiz) tahlilda ham sekin ishlaydi — WritingTekshirishView
+# SINXRON so'rov (blok pipeline'dagi kabi bosqichlab emas), shuning uchun
+# oddiy 40s o'rniga ancha kattaroq zaxira beramiz (gunicorn 300s'dan past).
+WRITING_TASK1_TIMEOUT_MS = 120_000
+
+
+def writing_provider_ol(tur):
+    """Writing tekshiruvi uchun — TASK TURIGA qarab TO'G'RIDAN-TO'G'RI
+    model tanlaydi (frontend "model" tanlovidan mustaqil — u endi Writing
+    uchun e'tiborga olinmaydi, chunki tanlov avtomatik)."""
+    kalit = getattr(settings, "GEMINI_API_KEY", "")
+    if not kalit:
+        raise ProviderXatosi("Platforma GEMINI_API_KEY sozlanmagan (.env)")
+    if tur == "task1":
+        return GeminiProvider(kalit, model=WRITING_TASK1_MODEL, timeout_ms=WRITING_TASK1_TIMEOUT_MS)
+    return GeminiProvider(kalit, model=WRITING_TASK2_MODEL)
 
 
 class ClaudeProvider:

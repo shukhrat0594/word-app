@@ -1,11 +1,21 @@
 import logging
 
+from django.conf import settings
+from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .models import SpeakingTekshiruv, WritingTekshiruv
-from .providers import GEMINI_MODEL_TANLOVLARI, ProviderXatosi, gemini_provider_ol, provider_tanla
+from .providers import (
+    GEMINI_MODEL,
+    GEMINI_MODEL_TANLOVLARI,
+    GeminiProvider,
+    ProviderXatosi,
+    gemini_provider_ol,
+    provider_tanla,
+    writing_provider_ol,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -105,26 +115,25 @@ class WritingTekshirishView(APIView):
         tur = request.data.get("tur") or "task2"
 
         try:
-            providerlar = _tanlangan_providerlar(request)
-            natijalar = []
-            for model_kaliti, provider in providerlar:
-                baho = provider.writing_baholash(
-                    matn, savol_matni=savol_matni, tur=tur, rasm_bytes=rasm_bytes, rasm_mime=rasm_mime
-                )
-                tekshiruv = WritingTekshiruv.objects.create(
-                    talaba=request.user,
-                    matn=matn,
-                    natija=baho["natija"],
-                    task_type=str(baho["natija"].get("task_type", "")),
-                    overall_band=baho["natija"].get("overall_band"),
-                    provider=baho["provider"],
-                    model=baho["model"],
-                    input_tokens=baho["input_tokens"],
-                    output_tokens=baho["output_tokens"],
-                )
-                natijalar.append(
-                    {"model_kaliti": model_kaliti, "id": tekshiruv.id, "natija": baho["natija"]}
-                )
+            # 2026-07-29(7): Task 1/Task 2 ENDI avtomatik turli model
+            # bilan tekshiriladi (frontend "model" tanlovidan mustaqil) —
+            # qarang assessment/providers.py:writing_provider_ol.
+            provider = writing_provider_ol(tur)
+            baho = provider.writing_baholash(
+                matn, savol_matni=savol_matni, tur=tur, rasm_bytes=rasm_bytes, rasm_mime=rasm_mime
+            )
+            tekshiruv = WritingTekshiruv.objects.create(
+                talaba=request.user,
+                matn=matn,
+                natija=baho["natija"],
+                task_type=str(baho["natija"].get("task_type", "")),
+                overall_band=baho["natija"].get("overall_band"),
+                provider=baho["provider"],
+                model=baho["model"],
+                input_tokens=baho["input_tokens"],
+                output_tokens=baho["output_tokens"],
+            )
+            natijalar = [{"model_kaliti": None, "id": tekshiruv.id, "natija": baho["natija"]}]
         except ProviderXatosi as e:
             return Response({"detail": str(e)}, status=502)
         except Exception as e:
@@ -201,6 +210,74 @@ class SpeakingMatnView(APIView):
         return Response(
             {
                 "natijalar": natijalar,
+                "paketdan": paket is not None,
+                "paket_s_qolgan": paket.s_qolgan if paket else None,
+            }
+        )
+
+
+class SpeakingAudioView(APIView):
+    """Speaking — Mikrofon rejimi (2026-07-29): talaba brauzerda ovoz
+    yozib oladi, audio bu yerga yuboriladi -> Gemini transkripsiya qiladi
+    -> xuddi Matn rejimidagi 3 mezon (Pronunciation'siz) bilan baholanadi.
+
+    Bu — Azure Pronunciation Assessment EMAS ("Tezkor tahlil" nomi bilan
+    rejalashtirilgan, Azure hisobi kerak) — foydalanuvchi ANIQ so'ragan
+    sodda variant: "faqat textga o'girib textni tekshirish". Shuning
+    uchun `pronunciation` maydoni bo'sh qoladi, `overall_band` esa Matn
+    rejimi bilan bir xil (Pronunciation'siz) hisoblanadi.
+
+    Har doim `gemini-3.1-flash-lite` ishlatiladi (frontend "model"
+    tanlovidan mustaqil) — Claude audio-inputni qo'llab-quvvatlamaydi,
+    va bu Writing Task1/Task2 uchun tanlangan modellardan alohida."""
+
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request):
+        audio = request.FILES.get("audio")
+        if not audio:
+            return Response({"detail": "audio fayli majburiy"}, status=400)
+
+        savol_matni = (request.data.get("savol_matni") or "").strip()
+        tur = request.data.get("tur") or "part1"
+
+        try:
+            kalit = getattr(settings, "GEMINI_API_KEY", "")
+            if not kalit:
+                raise ProviderXatosi("Platforma GEMINI_API_KEY sozlanmagan (.env)")
+            provider = GeminiProvider(kalit, model=GEMINI_MODEL)
+            baho = provider.speaking_audio_baholash(
+                audio.read(), audio.content_type or "audio/webm",
+                savol_matni=savol_matni, tur=tur,
+            )
+            tekshiruv = SpeakingTekshiruv.objects.create(
+                talaba=request.user,
+                rejim=SpeakingTekshiruv.Rejim.TEZKOR,
+                matn=baho["transkript"],
+                natija=baho["natija"],
+                part_type=str(baho["natija"].get("part_type", "")),
+                overall_band=baho["natija"].get("overall_band_no_pronunciation"),
+                provider=baho["provider"],
+                model=baho["model"],
+                input_tokens=baho["input_tokens"],
+                output_tokens=baho["output_tokens"],
+            )
+            audio.seek(0)
+            tekshiruv.audio_fayl.save(f"{tekshiruv.id}.webm", audio, save=True)
+        except ProviderXatosi as e:
+            return Response({"detail": str(e)}, status=502)
+        except Exception as e:
+            return ai_xatosi_javobi(e, f"Speaking audio tekshiruvi (talaba id={request.user.id})")
+
+        from packages.models import paketdan_ishlat
+
+        paket = paketdan_ishlat(request.user, "s")
+        return Response(
+            {
+                "transkript": baho["transkript"],
+                "natija": baho["natija"],
+                "id": tekshiruv.id,
                 "paketdan": paket is not None,
                 "paket_s_qolgan": paket.s_qolgan if paket else None,
             }
