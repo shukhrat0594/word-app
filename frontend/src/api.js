@@ -30,18 +30,36 @@ export function tokenlarniTozala() {
   localStorage.removeItem("refresh");
 }
 
+// 2026-07-30 bug: PARALLEL_SAHIFA_SONI kabi bir vaqtda bir nechta so'rov
+// ketganda, access token muddati tugagan payt HAMMASI bir vaqtda 401 oladi
+// va har biri MUSTAQIL refresh chaqirardi — backendda ROTATE_REFRESH_TOKENS +
+// BLACKLIST_AFTER_ROTATION yoqilgani uchun faqat BIRINCHI refresh muvaffaqiyatli
+// bo'lardi (eski refresh-tokenni bloklab), qolganlari eski (endi bloklangan)
+// token bilan urinib 401 olardi va foydalanuvchini beixtiyor logout qilardi.
+// Shuning uchun bir vaqtdagi barcha 401'lar BITTA umumiy refresh-so'rovni
+// kutadi (dedup) — parallel refresh chaqiruvi umuman bo'lmaydi.
+let refreshVadasi = null;
+
 async function refreshQil() {
-  const refresh = localStorage.getItem("refresh");
-  if (!refresh) return false;
-  const res = await fetch(apiManzil("/api/token/refresh/"), {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ refresh }),
-  });
-  if (!res.ok) return false;
-  const data = await res.json();
-  tokenlarniSaqla({ access: data.access });
-  return true;
+  if (refreshVadasi) return refreshVadasi;
+  refreshVadasi = (async () => {
+    const refresh = localStorage.getItem("refresh");
+    if (!refresh) return false;
+    try {
+      const res = await fetch(apiManzil("/api/token/refresh/"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refresh }),
+      });
+      if (!res.ok) return false;
+      const data = await res.json();
+      tokenlarniSaqla({ access: data.access });
+      return true;
+    } finally {
+      refreshVadasi = null;
+    }
+  })();
+  return refreshVadasi;
 }
 
 export async function api(yol, options = {}) {

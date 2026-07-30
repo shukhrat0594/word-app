@@ -175,6 +175,48 @@ export default function ImtihonYozGap({ bolim, manba = "admin", testId, mockYech
     }
   }
 
+  // 2026-07-30 talabi: Speaking — har part (Part1/2/3) ALOHIDA tekshiriladi
+  // (Writing'dagi kabi hammasi birga emas), 20-so'z sharti YO'Q (faqat
+  // bo'sh bo'lmasligi kifoya). Har part tekshirilganda paketdan alohida
+  // sarflanadi. Hammasi tekshirilgach — Mock bo'lsa umumiy bandni
+  // `mock_yakunlovchi_bandlar` orqali yakunlaymiz, aks holda mahalliy
+  // o'rtachani ko'rsatamiz.
+  async function qismniTekshir(qism) {
+    setXato("");
+    const matn = (javoblar[qism.id] || "").trim();
+    if (!matn) {
+      setXato(`"${qism.sarlavha || TASK_NOMI[qism.tur]}" — ${t("matn_kiritilmagan")}`);
+      return;
+    }
+    setYuklanmoqda(true);
+    try {
+      const res = await api(`/api/imtihon/testlar/${test.id}/yozgap-tekshirish/`, {
+        method: "POST",
+        body: { javoblar: { [qism.id]: matn } },
+      });
+      const yangiNatijalar = [...(natijalar || []), ...res.natijalar];
+      setNatijalar(yangiNatijalar);
+      if (yangiNatijalar.length === test.qismlar.length) {
+        const bandlar = yangiNatijalar
+          .map((n) => n.natija?.overall_band_no_pronunciation)
+          .filter((b) => b != null);
+        if (mockYechimId) {
+          const fin = await api(`/api/imtihon/testlar/${test.id}/yozgap-tekshirish/`, {
+            method: "POST",
+            body: { mock_yakunlovchi_bandlar: bandlar, mock_yechim_id: mockYechimId },
+          });
+          setUmumiyBand(fin.umumiy_band);
+        } else {
+          setUmumiyBand(bandlar.length ? Math.round((bandlar.reduce((a, b) => a + b, 0) / bandlar.length) * 2) / 2 : null);
+        }
+      }
+    } catch (e) {
+      setXato(e.data?.detail || t("xato_yuz_berdi"));
+    } finally {
+      setYuklanmoqda(false);
+    }
+  }
+
   const NatijaKomponenti = bolim === "writing" ? WritingNatija : SpeakingNatija;
 
   if (test) {
@@ -184,6 +226,11 @@ export default function ImtihonYozGap({ bolim, manba = "admin", testId, mockYech
     const sozSoni = (javoblar[qism.id] || "").trim()
       ? javoblar[qism.id].trim().split(/\s+/).length
       : 0;
+    // Speaking — har part alohida tekshiriladi, shuning uchun natija ham
+    // qism bo'yicha tekshiriladi (Writing'da hammasi birga tekshirilgani
+    // uchun bari bir vaqtda paydo bo'ladi, xatti-harakat o'zgarmaydi).
+    const qismNatija = natijalar?.find((n) => n.qism_id === qism.id);
+    const barchaTekshirildi = natijalar && natijalar.length === test.qismlar.length;
 
     return (
       <div>
@@ -206,87 +253,81 @@ export default function ImtihonYozGap({ bolim, manba = "admin", testId, mockYech
           {test.qismlar.map((q, i) => (
             <button key={q.id} className={faolQism === i ? "aktiv" : ""} onClick={() => setFaolQism(i)}>
               {q.sarlavha || TASK_NOMI[q.tur] || `#${q.tartib}`}
-              {natijalar && " ✓"}
+              {natijalar?.some((n) => n.qism_id === q.id) && " ✓"}
             </button>
           ))}
         </div>
 
-        {natijalar ? (
-          <>
-            {umumiyBand != null && (
-              <div className="karta" style={{ marginBottom: 14, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <strong>{t("band_ball")}: {umumiyBand}</strong>
-                {onYakunlandi && (
-                  <button className="tugma katta" onClick={() => onYakunlandi({ umumiyBand })}>
-                    {t("mock_keyingi_bolim")}
+        {barchaTekshirildi && umumiyBand != null && (
+          <div className="karta" style={{ marginBottom: 14, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <strong>{t("band_ball")}: {umumiyBand}</strong>
+            {onYakunlandi && (
+              <button className="tugma katta" onClick={() => onYakunlandi({ umumiyBand })}>
+                {t("mock_keyingi_bolim")}
+              </button>
+            )}
+          </div>
+        )}
+
+        <div className="karta" style={{ marginBottom: 14 }}>
+          <h4>{qism.sarlavha || TASK_NOMI[qism.tur]}</h4>
+          <div className="mashq-passage">{haqiqiyMatnniOl(qism.matn)}</div>
+          {rasmUrllar[qism.id] && (
+            <img src={rasmUrllar[qism.id]} alt="" style={{ maxWidth: "100%", marginTop: 10 }} />
+          )}
+        </div>
+
+        {qismNatija ? (
+          <NatijaKomponenti natija={qismNatija.natija} />
+        ) : (
+          <div className="karta">
+            {bolim === "speaking" && (
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12, flexWrap: "wrap" }}>
+                {!yozilmoqda ? (
+                  <button
+                    type="button"
+                    className="tugma ikkinchi"
+                    onClick={yozishBoshla}
+                    disabled={transkripsiyaQilinmoqda}
+                  >
+                    🎙 {t("yozib_olish")}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="tugma ikkinchi"
+                    style={{ background: "#d33", color: "#fff" }}
+                    onClick={yozishToxtat}
+                  >
+                    ⏹ {t("toxtatish")}
                   </button>
                 )}
+                {transkripsiyaQilinmoqda && (
+                  <span className="izoh">{t("tekshirilmoqda")}</span>
+                )}
+                {mikrofonXato && <span className="xato-xabar">{mikrofonXato}</span>}
               </div>
             )}
-            <div className="karta" style={{ marginBottom: 14 }}>
-              <h4>{qism.sarlavha || TASK_NOMI[qism.tur]}</h4>
-              <div className="mashq-passage">{haqiqiyMatnniOl(qism.matn)}</div>
-              {rasmUrllar[qism.id] && (
-                <img src={rasmUrllar[qism.id]} alt="" style={{ maxWidth: "100%", marginTop: 10 }} />
-              )}
+            <textarea
+              {...IMLO_OFF}
+              value={javoblar[qism.id] || ""}
+              onChange={(e) => javobniQoy(qism.id, e.target.value)}
+              placeholder={bolim === "writing" ? t("insho_placeholder") : t("javob_placeholder")}
+            />
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 12 }}>
+              <span className="izoh">
+                {sozSoni} {t("soz")}
+              </span>
+              <button
+                className="tugma katta"
+                onClick={() => (bolim === "speaking" ? qismniTekshir(qism) : tekshir())}
+                disabled={yuklanmoqda}
+              >
+                {yuklanmoqda ? t("tekshirilmoqda") : t("tekshirish")}
+              </button>
             </div>
-            {natijalar.find((n) => n.qism_id === qism.id) && (
-              <NatijaKomponenti natija={natijalar.find((n) => n.qism_id === qism.id).natija} />
-            )}
-          </>
-        ) : (
-          <>
-            <div className="karta" style={{ marginBottom: 14 }}>
-              <div className="mashq-passage">{haqiqiyMatnniOl(qism.matn)}</div>
-              {rasmUrllar[qism.id] && (
-                <img src={rasmUrllar[qism.id]} alt="" style={{ maxWidth: "100%", marginTop: 10 }} />
-              )}
-            </div>
-            <div className="karta">
-              {bolim === "speaking" && (
-                <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12, flexWrap: "wrap" }}>
-                  {!yozilmoqda ? (
-                    <button
-                      type="button"
-                      className="tugma ikkinchi"
-                      onClick={yozishBoshla}
-                      disabled={transkripsiyaQilinmoqda}
-                    >
-                      🎙 {t("yozib_olish")}
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      className="tugma ikkinchi"
-                      style={{ background: "#d33", color: "#fff" }}
-                      onClick={yozishToxtat}
-                    >
-                      ⏹ {t("toxtatish")}
-                    </button>
-                  )}
-                  {transkripsiyaQilinmoqda && (
-                    <span className="izoh">{t("tekshirilmoqda")}</span>
-                  )}
-                  {mikrofonXato && <span className="xato-xabar">{mikrofonXato}</span>}
-                </div>
-              )}
-              <textarea
-                {...IMLO_OFF}
-                value={javoblar[qism.id] || ""}
-                onChange={(e) => javobniQoy(qism.id, e.target.value)}
-                placeholder={bolim === "writing" ? t("insho_placeholder") : t("javob_placeholder")}
-              />
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 12 }}>
-                <span className="izoh">
-                  {sozSoni} {t("soz")}
-                </span>
-                <button className="tugma katta" onClick={tekshir} disabled={yuklanmoqda}>
-                  {yuklanmoqda ? t("tekshirilmoqda") : t("tekshirish")}
-                </button>
-              </div>
-              {xato && <div className="xato-xabar" style={{ marginTop: 10 }}>{xato}</div>}
-            </div>
-          </>
+            {xato && <div className="xato-xabar" style={{ marginTop: 10 }}>{xato}</div>}
+          </div>
         )}
       </div>
     );

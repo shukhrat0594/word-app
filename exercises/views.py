@@ -1043,14 +1043,46 @@ class ImtihonYozGapTekshirishView(APIView):
         if test.bolim not in (Bolim.WRITING, Bolim.SPEAKING):
             return Response({"detail": "Bu endpoint faqat Writing/Speaking testlar uchun"}, status=400)
 
+        # 2026-07-30 talabi: Speaking'da har part ALOHIDA topshirilishi
+        # mumkin (Mock/AI mashqlari/IELTS testlari — bir xil komponent).
+        # Shuning uchun Mock'dagi umumiy bandni FAQAT hamma part alohida
+        # tekshirilib bo'lgach (frontend hisoblab) yakunlash uchun alohida
+        # yo'l — qayta AI bahosi olinmaydi, faqat MockYechim yangilanadi.
+        yakunlovchi_bandlar = request.data.get("mock_yakunlovchi_bandlar")
+        if yakunlovchi_bandlar is not None:
+            if test.bolim != Bolim.SPEAKING or not isinstance(yakunlovchi_bandlar, list):
+                return Response({"detail": "Noto'g'ri so'rov"}, status=400)
+            bandlar = [b for b in yakunlovchi_bandlar if b is not None]
+            umumiy_band = round(sum(bandlar) / len(bandlar) * 2) / 2 if bandlar else None
+            mock_natija = _mock_yechimni_yangila(
+                request.user, request.data.get("mock_yechim_id"), test.bolim, {"band": umumiy_band}
+            )
+            return Response({"umumiy_band": umumiy_band, "mock": mock_natija})
+
         javoblar = request.data.get("javoblar")
         if not isinstance(javoblar, dict):
             return Response({"detail": "javoblar {qism_id: matn} lug'ati majburiy"}, status=400)
 
-        qismlar = sorted(test.qismlar.all(), key=_yozgap_qism_tartibi)
+        qismlar_hammasi = sorted(test.qismlar.all(), key=_yozgap_qism_tartibi)
+        # Writing — Task1+Task2 birga (eskicha). Speaking — `javoblar`da
+        # kelgan qism(lar)i bilan cheklanadi, shunda har part alohida
+        # "Tekshirish" bilan yuborilishi mumkin (kamida 20 so'z sharti ham
+        # faqat Writing uchun qoladi, Speaking uchun olib tashlandi).
+        if test.bolim == Bolim.SPEAKING:
+            qismlar = [q for q in qismlar_hammasi if str(q.id) in javoblar]
+            if not qismlar:
+                return Response({"detail": "javoblar bo'sh"}, status=400)
+        else:
+            qismlar = qismlar_hammasi
+
         for qism in qismlar:
             matn = (javoblar.get(str(qism.id)) or "").strip()
-            if len(matn.split()) < 20:
+            if not matn:
+                return Response(
+                    {"detail": f"\"{qism.sarlavha or qism.tur}\" uchun matn kiritilmagan"},
+                    status=400,
+                )
+            if test.bolim == Bolim.WRITING and len(matn.split()) < 20:
                 return Response(
                     {"detail": f"\"{qism.sarlavha or qism.tur}\" uchun matn juda qisqa — kamida 20 so'z"},
                     status=400,
@@ -1145,9 +1177,17 @@ class ImtihonYozGapTekshirishView(APIView):
         xizmat = "w" if test.bolim == Bolim.WRITING else "s"
         paket = paketdan_ishlat(request.user, xizmat)
 
-        mock_natija = _mock_yechimni_yangila(
-            request.user, request.data.get("mock_yechim_id"), test.bolim, {"band": umumiy_band}
-        )
+        # Speaking endi part-part topshirilishi mumkin — bu yerdagi
+        # `umumiy_band` faqat SHU so'rovda kelgan part(lar)niki, butun
+        # Speaking bo'liminiki emas. Shuning uchun MockYechim'ni bu yerda
+        # yangilash faqat Writing uchun to'g'ri (u hamon yaxlit topshiriladi);
+        # Speaking uchun yakunlash yuqoridagi `mock_yakunlovchi_bandlar`
+        # yo'li orqali, frontend hamma part tekshirilgach, alohida qiladi.
+        mock_natija = None
+        if test.bolim == Bolim.WRITING:
+            mock_natija = _mock_yechimni_yangila(
+                request.user, request.data.get("mock_yechim_id"), test.bolim, {"band": umumiy_band}
+            )
 
         return Response(
             {

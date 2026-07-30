@@ -478,11 +478,13 @@ function AdminBoshqaruv({ manba }) {
 
   return (
     <div style={{ display: "grid", gap: 20 }}>
-      <KiritishPanel
-        manba={manba}
-        qismgaFaylYukla={qismgaFaylYukla}
-        royxatniYangila={() => yukla(filtrBolim)}
-      />
+      {manba !== "ai" && (
+        <KiritishPanel
+          manba={manba}
+          qismgaFaylYukla={qismgaFaylYukla}
+          royxatniYangila={() => yukla(filtrBolim)}
+        />
+      )}
 
       <div className="karta">
         <h3>{t("imtihon_mavjud_royxat")}</h3>
