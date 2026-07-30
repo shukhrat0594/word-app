@@ -216,6 +216,38 @@ class SpeakingMatnView(APIView):
         )
 
 
+class SpeakingTranskripsiyaView(APIView):
+    """Faqat TRANSKRIPSIYA (baholashsiz), 2026-07-30: "IELTS testlari"/"AI
+    mashqlari" bo'limidagi HAQIQIY imtihon oqimi (`ImtihonYozGap.jsx`)
+    barcha Part 1/2/3'ni BITTA so'rovda ('/api/imtihon/testlar/{id}/
+    yozgap-tekshirish/') baholaydi — shuning uchun bu yerda faqat audio ->
+    matn o'giriladi, natija talabaning matn maydoniga qo'yiladi (u xohlasa
+    tahrirlaydi), keyin MAVJUD tekshirish oqimi O'ZGARISHSIZ ishlaydi.
+    Hech qanday `SpeakingTekshiruv` yozuvi SAQLANMAYDI — bu faqat
+    yordamchi vosita."""
+
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request):
+        audio = request.FILES.get("audio")
+        if not audio:
+            return Response({"detail": "audio fayli majburiy"}, status=400)
+        try:
+            kalit = getattr(settings, "GEMINI_API_KEY", "")
+            if not kalit:
+                raise ProviderXatosi("Platforma GEMINI_API_KEY sozlanmagan (.env)")
+            provider = GeminiProvider(kalit, model=GEMINI_MODEL)
+            transkript = provider.audio_transkripsiya_qil(
+                audio.read(), audio.content_type or "audio/webm"
+            )
+        except ProviderXatosi as e:
+            return Response({"detail": str(e)}, status=502)
+        except Exception as e:
+            return ai_xatosi_javobi(e, f"Audio transkripsiya (talaba id={request.user.id})")
+        return Response({"transkript": transkript})
+
+
 class SpeakingAudioView(APIView):
     """Speaking — Mikrofon rejimi (2026-07-29): talaba brauzerda ovoz
     yozib oladi, audio bu yerga yuboriladi -> Gemini transkripsiya qiladi

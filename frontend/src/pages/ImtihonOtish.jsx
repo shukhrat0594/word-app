@@ -4,6 +4,7 @@ import { AUDIO_HIMOYA, faqatBittaAudioIjro } from "../audio";
 import { useI18n } from "../i18n";
 import { IMLO_OFF } from "../imlo";
 import { standartVaqt } from "../imtihonVaqt";
+import { useTestRejimi } from "../testRejimiContext";
 
 export function vaqtFormat(soniya) {
   const m = Math.floor(soniya / 60)
@@ -417,6 +418,18 @@ export default function ImtihonOtish({ bolim, manba = "admin", testId, mockYechi
     window.addEventListener("beforeunload", chiqishdanOldin);
     return () => window.removeEventListener("beforeunload", chiqishdanOldin);
   }, [test, natija]);
+
+  // 2026-07-30 talabi: test yechilayotganda saytning boshqa bo'limiga
+  // o'tish mumkin bo'lmasin. `onYakunlandi` berilgan bo'lsa — bu komponent
+  // Mock imtihon ichida (`ImtihonMock.jsx` butun sessiya davomida holatni
+  // O'ZI boshqaradi, bo'lim almashganda qisqa "faolsiz" lahza bo'lmasin
+  // uchun), aks holda mustaqil test sifatida shu yerda boshqaradi.
+  const { setTestFaol } = useTestRejimi();
+  useEffect(() => {
+    if (onYakunlandi) return undefined;
+    setTestFaol(!!test && !natija);
+    return () => setTestFaol(false);
+  }, [test, natija, onYakunlandi, setTestFaol]);
 
   useEffect(() => {
     function ustidaHarakat(e) {

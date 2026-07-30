@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "../api";
 import { useI18n } from "../i18n";
 import { useProfil } from "../profilContext";
+import { useTestRejimi } from "../testRejimiContext";
 import ImtihonOtish from "./ImtihonOtish";
 import ImtihonYozGap from "./ImtihonYozGap";
 
@@ -97,6 +98,17 @@ export default function ImtihonMock({ manba = "admin" }) {
   const [royxat, setRoyxat] = useState(null);
   const [yechim, setYechim] = useState(null);
   const [xato, setXato] = useState("");
+  const { setTestFaol } = useTestRejimi();
+
+  // 2026-07-30 talabi: mock imtihon boshidan oxirigacha (barcha 4 bo'lim
+  // tugaguncha) navigatsiya bloklansin — bu yerda, bo'linm-darajasida
+  // EMAS (bo'lim almashganda `ImtihonOtish`/`ImtihonYozGap` qayta
+  // mount bo'ladi, ular ichida boshqarilsa qisqa "faolsiz" lahza
+  // bo'lib, o'sha lahzada navigatsiya vaqtincha ochilib qolardi).
+  useEffect(() => {
+    setTestFaol(!!yechim && !yechim.tugadimi);
+    return () => setTestFaol(false);
+  }, [yechim, setTestFaol]);
 
   function royxatniYukla() {
     api(`/api/imtihon-mock/?manba=${manba}`).then(setRoyxat).catch(() => {});

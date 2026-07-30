@@ -4,6 +4,7 @@ import './index.css'
 import App from './App.jsx'
 import { I18nProvider } from './i18n.jsx'
 import { ProfilProvider } from './profilContext.jsx'
+import { TestRejimiProvider } from './testRejimiContext.jsx'
 
 // Saqlangan tema (yorug'/qorong'u)
 const tema = localStorage.getItem('tema')
@@ -13,7 +14,9 @@ createRoot(document.getElementById('root')).render(
   <StrictMode>
     <I18nProvider>
       <ProfilProvider>
-        <App />
+        <TestRejimiProvider>
+          <App />
+        </TestRejimiProvider>
       </ProfilProvider>
     </I18nProvider>
   </StrictMode>,

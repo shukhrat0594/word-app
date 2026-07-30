@@ -118,6 +118,10 @@ textarea {
 }
 .nav-tugma:hover { background: rgba(255, 212, 0, .08); color: #fff; }
 .nav-tugma.aktiv { background: var(--sariq); color: #2B2A28; font-weight: 600; }
+/* 2026-07-30: test yechilayotganda navigatsiya bloklanadi (foydalanuvchi
+   talabi) — havola DOM'da qoladi, lekin bosilmaydigan ko'rinishga o'tadi. */
+.nav-tugma.nofaol { opacity: .4; cursor: not-allowed; }
+.nav-tugma.nofaol:hover { background: none; color: #CFCCC4; }
 .nav-ikon { width: 20px; text-align: center; flex-shrink: 0; }
 
 .asosiy { flex: 1; display: flex; flex-direction: column; min-width: 0; }

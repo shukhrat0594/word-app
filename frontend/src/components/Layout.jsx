@@ -3,6 +3,7 @@ import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { mediaManzil, tokenlarniTozala } from "../api";
 import { useI18n } from "../i18n";
 import { useProfil } from "../profilContext";
+import { useTestRejimi } from "../testRejimiContext";
 import IjtimoiyPanel from "./IjtimoiyPanel";
 
 // 2026-07-27: "Namunaviy mashqlar" (eski "Mashqlar") bo'limi VAQTINCHA
@@ -65,6 +66,7 @@ export default function Layout() {
   const { til, tilniQoy, t } = useI18n();
   const navigate = useNavigate();
   const { profil } = useProfil();
+  const { testFaol } = useTestRejimi();
   const [menyuOchiq, setMenyuOchiq] = useState(false);
 
   const markazNomi = profil?.markaz?.name || "Utmost o'quv markazi";
@@ -133,6 +135,10 @@ export default function Layout() {
   }
 
   function chiqish() {
+    if (testFaol) {
+      window.alert(t("test_faol_navigatsiya_yoq"));
+      return;
+    }
     tokenlarniTozala();
     navigate("/login");
   }
@@ -172,8 +178,22 @@ export default function Layout() {
             key={n.yol}
             to={n.yol}
             end={n.yol === "/"}
-            className={({ isActive }) => "nav-tugma" + (isActive ? " aktiv" : "")}
-            onClick={() => setMenyuOchiq(false)}
+            className={({ isActive }) =>
+              "nav-tugma" + (isActive ? " aktiv" : "") + (testFaol ? " nofaol" : "")
+            }
+            title={testFaol ? t("test_faol_navigatsiya_yoq") : undefined}
+            onClick={(e) => {
+              // 2026-07-30 talabi: test yechilayotganda boshqa bo'limga
+              // o'tish MUMKIN EMAS — havola DOM'da qoladi (fokusdan
+              // chiqib ketmasin), lekin bosilganda hech qayerga
+              // yubormaydi, faqat sababini tushuntiradi.
+              if (testFaol) {
+                e.preventDefault();
+                window.alert(t("test_faol_navigatsiya_yoq"));
+                return;
+              }
+              setMenyuOchiq(false);
+            }}
           >
             <span className="nav-ikon">{n.ikon}</span>
             {t(n.kalit)}

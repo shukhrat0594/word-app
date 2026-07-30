@@ -19,6 +19,11 @@ urlpatterns = [
         views.SpeakingAudioView.as_view(),
         name="speaking_audio",
     ),
+    path(
+        "speaking/transkripsiya/",
+        views.SpeakingTranskripsiyaView.as_view(),
+        name="speaking_transkripsiya",
+    ),
     path("speaking/tarix/", views.SpeakingTarixView.as_view(), name="speaking_tarix"),
     path("tarix/", views.TarixView.as_view(), name="tarix"),
 ]

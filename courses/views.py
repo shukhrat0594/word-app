@@ -455,7 +455,13 @@ class KursUnitTozalashView(APIView):
     Vocabulary so'zlari + matni) BITTA harakatda o'chirish (2026-07-28,
     foydalanuvchi talabi — qayta yuklashdan oldin eskisini tozalash uchun).
     Tugunlarning O'ZI (Mashqlar/Vocabulary bo'lim tugunlari) qolади, faqat
-    ichidagi kontent tozalanadi — Unit tuzilmasi buzilmaydi."""
+    ichidagi kontent tozalanadi — Unit tuzilmasi buzilmaydi.
+
+    2026-07-30: ATAYLAB tugallanmagan blok-ZIP jarayoniga TEGMAYDI — bu
+    ikkita MUSTAQIL amal (foydalanuvchi aniq ajratdi): "Tozalash" faqat
+    mashq/so'z kontentini o'chiradi, tiqilib qolgan jarayonni bekor
+    qilish uchun alohida "Bekor qilish" tugmasi bor (Davom ettirish
+    yonida, `KursBlokJarayonHolatiView.delete`)."""
 
     permission_classes = [IsAuthenticated]
 

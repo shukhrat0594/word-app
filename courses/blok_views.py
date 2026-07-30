@@ -315,6 +315,21 @@ class KursBlokJarayonHolatiView(APIView):
             }
         )
 
+    def delete(self, request, pk):
+        """2026-07-30 talabi: "Davom ettirish" yonidagi "Bekor qilish" —
+        FAQAT tugallanmagan jarayonni (ZIP holati) o'chiradi, mashqlarga
+        ASLO tegmaydi (bu "Tozalash"dan MUSTAQIL, alohida amal — admin
+        ikkalasini aniq ajratgan). Shu tufayli allaqachon tugallangan
+        sahifalardan yaratilgan mashqlar (agar bo'lsa) saqlanib qoladi."""
+        if not _mashq_admin_mi(request.user):
+            return Response({"detail": "Faqat admin/owner uchun"}, status=403)
+        soni, _ = (
+            KursZipJarayoni.objects.filter(tugun_id=pk)
+            .exclude(holat=KursZipJarayoni.Holat.TUGADI)
+            .delete()
+        )
+        return Response({"bekor_qilindi": soni})
+
 
 class KursBlokSahifaView(APIView):
     """2-BOSQICH: navbatdagi sahifa(lar)ni qayta ishlash.

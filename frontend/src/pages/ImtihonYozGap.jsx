@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
-import { api, apiBlobUrl } from "../api";
+import { useEffect, useRef, useState } from "react";
+import { api, apiBlobUrl, apiForm } from "../api";
 import { haqiqiyMatnniOl } from "../haqiqiyMatn";
 import { useI18n } from "../i18n";
 import { IMLO_OFF } from "../imlo";
 import { standartVaqt } from "../imtihonVaqt";
+import { useTestRejimi } from "../testRejimiContext";
 import { vaqtFormat } from "./ImtihonOtish";
 import OzMavzum from "./OzMavzum";
 import { Natija as SpeakingNatija } from "./Speaking";
@@ -31,6 +32,17 @@ export default function ImtihonYozGap({ bolim, manba = "admin", testId, mockYech
   const [soniya, setSoniya] = useState(0);
   const [teskariMi, setTeskariMi] = useState(false);
   const [rejim, setRejim] = useState("testlar");
+
+  // 2026-07-30 talabi: Speaking uchun mikrofon — yozib olingan ovoz
+  // FAQAT transkripsiya qilinadi (baholanmaydi!) va natija oddiy matn
+  // maydoniga qo'yiladi (talaba xohlasa tahrirlaydi) — shundan keyin
+  // MAVJUD "Tekshirish" oqimi (barcha qismlarni birga baholaydigan
+  // `/yozgap-tekshirish/`) o'ZGARISHSIZ ishlaydi.
+  const [yozilmoqda, setYozilmoqda] = useState(false);
+  const [transkripsiyaQilinmoqda, setTranskripsiyaQilinmoqda] = useState(false);
+  const [mikrofonXato, setMikrofonXato] = useState("");
+  const mediaRecorderRef = useRef(null);
+  const bolaklarRef = useRef([]);
 
   useEffect(() => {
     setTest(null);
@@ -60,6 +72,16 @@ export default function ImtihonYozGap({ bolim, manba = "admin", testId, mockYech
     return () => window.removeEventListener("beforeunload", chiqishdanOldin);
   }, [test, natijalar]);
 
+  // 2026-07-30 talabi: test yechilayotganda navigatsiya bloklansin.
+  // `onYakunlandi` bo'lsa — Mock ichida, holatni `ImtihonMock.jsx` o'zi
+  // boshqaradi (bo'lim almashganda qisqa "faolsiz" lahza bo'lmasin uchun).
+  const { setTestFaol } = useTestRejimi();
+  useEffect(() => {
+    if (onYakunlandi) return undefined;
+    setTestFaol(!!test && !natijalar);
+    return () => setTestFaol(false);
+  }, [test, natijalar, onYakunlandi, setTestFaol]);
+
   async function testniOch(id) {
     const t2 = await api(`/api/imtihon/testlar/${id}/`);
     setTest(t2);
@@ -82,6 +104,44 @@ export default function ImtihonYozGap({ bolim, manba = "admin", testId, mockYech
 
   function javobniQoy(qismId, qiymat) {
     setJavoblar((prev) => ({ ...prev, [qismId]: qiymat }));
+  }
+
+  async function yozishBoshla() {
+    setMikrofonXato("");
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mr = new MediaRecorder(stream);
+      bolaklarRef.current = [];
+      mr.ondataavailable = (e) => {
+        if (e.data.size > 0) bolaklarRef.current.push(e.data);
+      };
+      mr.onstop = async () => {
+        const blob = new Blob(bolaklarRef.current, { type: mr.mimeType || "audio/webm" });
+        stream.getTracks().forEach((tr) => tr.stop());
+        setTranskripsiyaQilinmoqda(true);
+        try {
+          const fd = new FormData();
+          fd.append("audio", blob, "yozuv.webm");
+          const res = await apiForm("/api/speaking/transkripsiya/", { method: "POST", formData: fd });
+          const qismId = test.qismlar[faolQism].id;
+          javobniQoy(qismId, ((javoblar[qismId] || "") + " " + res.transkript).trim());
+        } catch (e) {
+          setMikrofonXato(e.data?.detail || t("xato_yuz_berdi"));
+        } finally {
+          setTranskripsiyaQilinmoqda(false);
+        }
+      };
+      mediaRecorderRef.current = mr;
+      mr.start();
+      setYozilmoqda(true);
+    } catch {
+      setMikrofonXato(t("mikrofon_ruxsat_yoq"));
+    }
+  }
+
+  function yozishToxtat() {
+    mediaRecorderRef.current?.stop();
+    setYozilmoqda(false);
   }
 
   function ortgaQaytish() {
@@ -183,6 +243,33 @@ export default function ImtihonYozGap({ bolim, manba = "admin", testId, mockYech
               )}
             </div>
             <div className="karta">
+              {bolim === "speaking" && (
+                <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12, flexWrap: "wrap" }}>
+                  {!yozilmoqda ? (
+                    <button
+                      type="button"
+                      className="tugma ikkinchi"
+                      onClick={yozishBoshla}
+                      disabled={transkripsiyaQilinmoqda}
+                    >
+                      🎙 {t("yozib_olish")}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="tugma ikkinchi"
+                      style={{ background: "#d33", color: "#fff" }}
+                      onClick={yozishToxtat}
+                    >
+                      ⏹ {t("toxtatish")}
+                    </button>
+                  )}
+                  {transkripsiyaQilinmoqda && (
+                    <span className="izoh">{t("tekshirilmoqda")}</span>
+                  )}
+                  {mikrofonXato && <span className="xato-xabar">{mikrofonXato}</span>}
+                </div>
+              )}
               <textarea
                 {...IMLO_OFF}
                 value={javoblar[qism.id] || ""}

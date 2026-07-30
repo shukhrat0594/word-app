@@ -799,6 +799,24 @@ function AdminUnitKiritish({ unitId, royxatniYangila }) {
       .catch(() => {});
   }, [unitId]);
 
+  // 2026-07-30 talabi: "Davom ettirish" yonida "Bekor qilish" — FAQAT
+  // tugallanmagan jarayonni (ZIP holatini) o'chiradi, mashqlarga ASLO
+  // tegmaydi (bu "Tozalash"dan MUSTAQIL, alohida amal).
+  const [bekorQilinmoqda, setBekorQilinmoqda] = useState(false);
+  async function jarayonniBekorQil() {
+    if (!faolJarayon || !window.confirm(t("kurs_blok_bekor_qilish_tasdiq"))) return;
+    setBekorQilinmoqda(true);
+    try {
+      await api(`/api/kurslar/${unitId}/blok-jarayon-holati/`, { method: "DELETE" });
+      setFaolJarayon(null);
+    } catch {
+      // e'tiborsiz qoldirilsa ham xavfsiz — "Davom ettirish" tugmasi
+      // ekranda qolaveradi, admin xohlasa qayta urinishi mumkin.
+    } finally {
+      setBekorQilinmoqda(false);
+    }
+  }
+
   // Navbatdagi BITTA sahifani band qilib ishlaydi — xatoda qayta
   // urinadi (Render konteyneri qayta ishga tushishi mumkin, bir necha
   // soniya olishi mumkin). Bir nechta nusxasi PARALLEL chaqiriladi
@@ -1016,9 +1034,17 @@ function AdminUnitKiritish({ unitId, royxatniYangila }) {
         <div className="xato-xabar" style={{ marginTop: 4 }}>⚠ {raqamsizOgohlantirish}</div>
       )}
       {faolJarayon && !zipYuklanmoqda && (
-        <div style={{ marginTop: 6 }}>
+        <div style={{ marginTop: 6, display: "flex", gap: 8 }}>
           <button className="tugma ikkinchi kichik" onClick={jarayonniDavomEttir}>
             {t("kurs_blok_davom_ettirish")} ({faolJarayon.ishlangan_sahifa}/{faolJarayon.jami_sahifa})
+          </button>
+          <button
+            className="tugma ikkinchi kichik"
+            style={{ color: "#d33" }}
+            onClick={jarayonniBekorQil}
+            disabled={bekorQilinmoqda}
+          >
+            {t("kurs_blok_bekor_qilish")}
           </button>
         </div>
       )}
