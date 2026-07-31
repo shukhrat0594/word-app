@@ -349,10 +349,21 @@ function RLKiritish({ bolim, manba, royxatniYangila }) {
       fd.append("pdf_fayl", fayl);
       fd.append("manba", manba);
       fd.append("bolim", bolim);
-      await apiForm("/api/imtihon/testlar-boshqaruv-pdf/", { method: "POST", formData: fd });
+      const natija = await apiForm("/api/imtihon/testlar-boshqaruv-pdf/", { method: "POST", formData: fd });
       royxatniYangila();
+      // Test yaratildi, lekin ba'zi qismlar chiqmagan bo'lishi mumkin —
+      // buni JIM qoldirmaymiz (avval "faqat bir qismi yuklandi" degan
+      // tushunarsiz holat shundan kelib chiqqandi).
+      if (natija?.xatolar?.length) {
+        setXato(`${t("imtihon_pdf_qisman")}: ${natija.xatolar.join("; ")}`);
+      }
     } catch (err) {
-      setXato(err.data?.detail || t("imtihon_json_xato"));
+      // `detail` bo'lmasa — javob DRF'dan emas (proxy/gunicorn uzgan).
+      // Statusni ko'rsatamiz, aks holda sabab umuman bilinmaydi.
+      setXato(
+        err.data?.detail
+          || (err.status ? `${t("imtihon_json_xato")} (HTTP ${err.status})` : t("imtihon_json_xato"))
+      );
     } finally {
       setPdfYuklanmoqda(false);
     }

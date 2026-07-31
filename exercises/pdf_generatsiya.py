@@ -32,13 +32,22 @@ import io
 
 from assessment.providers import ProviderXatosi
 
-# To'liq IELTS Reading testi (3 passage matni + 40 savol) 4096 tokenga
-# sig'maydi — o'lchov bo'yicha ~8-12K token chiqadi.
-MAKS_TOKEN = 16000
+# 1-bosqich (reja) chiqishi juda kichik — nom + qismlar ro'yxati.
+REJA_MAKS_TOKEN = 2000
 
-# Gunicorn 300s'da worker'ni o'ldiradi — 240s zaxira bilan past (xuddi
-# `courses.blok_generatsiya.SAHIFA_TIMEOUT_MS` kabi).
-PDF_TIMEOUT_MS = 240_000
+# 2-bosqich: bitta passage matni (~900 so'z) + ~14 savol => ~4-5K token.
+# 8000 zaxira bilan yetarli; kattaroq qilish faqat kutishni uzaytiradi.
+QISM_MAKS_TOKEN = 8000
+
+# BITTA AI chaqiruvi uchun timeout. Endi har chaqiruv qisqa (bitta
+# passage), shuning uchun 240s emas, 120s — muammo bo'lsa tez bilinadi.
+PDF_TIMEOUT_MS = 120_000
+
+# BUTUN so'rov uchun vaqt budjeti. Gunicorn 300s'da worker'ni o'ldiradi;
+# 200s'da to'xtab, qolgan qismlarni "chiqarilmadi" deb aytganimiz —
+# proxy uzib qo'yib, foydalanuvchiga tushunarsiz xato ko'rsatganidan
+# yaxshiroq (2026-07-31 da aynan shu holat bo'lgan edi).
+JAMI_BUDJET_SONIYA = 200
 
 # Claude PDF hujjat blokining chegarasi (Anthropic API): 100 sahifa,
 # 32 MB. Undan kattasi so'rov yuborilmasdan, tushunarli xato bilan
@@ -47,132 +56,225 @@ MAKS_SAHIFA = 100
 MAKS_HAJM_MB = 32
 
 PASSAGE_QOIDASI = (
-    "PASSAGE/PART CHEGARASI — ENG MUHIM QOIDA, DIQQAT BILAN BAJARING:\n"
+    "PASSAGE/PART CHEGARASI — ENG MUHIM QOIDA:\n"
     "Sizga PDF'ning O'ZI berilyapti, ya'ni sahifalarni va sarlavhalarni "
-    "o'z ko'zingiz bilan ko'rasiz. Har bir passage (Reading) yoki part "
-    "(Listening) matni FAQAT o'sha passage'ga tegishli bo'lishi shart:\n"
-    "- Passage 2 ning matni Passage 3 ga O'TIB KETMASIN va aksincha. Bu "
-    "eng ko'p uchraydigan xato.\n"
-    "- Passage qayerda tugashini SARLAVHADAN aniqlang: keyingi passage "
-    "\"READING PASSAGE 3\" (yoki \"Part 3\", \"SECTION 3\") sarlavhasidan "
-    "boshlanadi — o'sha sarlavhadan OLDINGI matn oldingi passage'niki, "
-    "KEYINGI matn yangisiniki.\n"
-    "- Savollar bloki (\"Questions 14-26\") passage MATNIGA KIRMAYDI — u "
-    "faqat \"savollar\" massiviga tushadi. \"matn\" maydonida faqat "
-    "o'qish matni (passage) bo'lsin.\n"
-    "- Passage matnini QISQARTIRMANG va O'Z SO'ZINGIZ BILAN QAYTA "
-    "YOZMANG — PDF'dagi matnni AYNAN, to'liq ko'chiring (abzatslar "
-    "orasida \\n\\n). Agar passage'da A, B, C... deb belgilangan "
-    "abzatslar bo'lsa, o'sha harflarni ham saqlang.\n"
+    "o'z ko'zingiz bilan ko'rasiz. Passage qayerda tugashini SARLAVHADAN "
+    "aniqlang: keyingi passage \"READING PASSAGE 3\" (yoki \"Part 3\", "
+    "\"SECTION 3\") sarlavhasidan boshlanadi — o'sha sarlavhadan OLDINGI "
+    "matn oldingi passage'niki, KEYINGI matn yangisiniki.\n"
 )
 
-PDF_PROMPT = (
-    "Siz IELTS test materialini strukturali JSON'ga o'giruvchi "
-    "yordamchisiz. Sizga IELTS Reading yoki Listening testining PDF "
-    "fayli beriladi (Cambridge IELTS kitobidan yoki shunga o'xshash).\n\n"
+# ======================================================================
+# 1-BOSQICH: REJA
+# ======================================================================
+# Butun PDF bo'yicha FAQAT tuzilma so'raladi (nomi, nechta passage,
+# qaysi sahifalarda) — matn va savollar EMAS. Chiqish juda kichik
+# (~500 token), shuning uchun tez va xatosiz.
 
-    "FAQAT valid JSON obyekt qaytaring — hech qanday izoh, sarlavha yoki "
-    "markdown belgisi (```json) qo'shmang.\n\n"
+REJA_PROMPT = (
+    "Siz IELTS test materialini tahlil qiluvchi yordamchisiz. Sizga IELTS "
+    "Reading yoki Listening testining PDF fayli beriladi.\n\n"
 
-    "Format:\n"
-    "{\n"
-    '  "name": "Testning to\'liq nomi (masalan \'Cambridge IELTS 21 '
-    "Academic Reading Test 4'). PDF'da nom ko'rinmasa, mazmuniga qarab "
-    'mos nom o\'ylab toping",\n'
-    '  "bolim": "reading" | "listening",\n'
-    '  "korinish": "private",\n'
-    '  "qismlar": [\n'
-    "    {\n"
-    '      "tartib": 1,\n'
-    '      "sarlavha": "Passage 1" (reading) yoki "Part 1" (listening),\n'
-    '      "yoriqnoma": "You should spend about 20 minutes on Questions '
-    '1-13, which are based on Reading Passage 1 below.",\n'
-    '      "matn": "Reading uchun passage matni TO\'LIQ shu yerga. '
-    'Listening uchun bo\'sh qoldiring ("") — audio alohida yuklanadi.",\n'
-    '      "savollar": [\n'
-    "        {\n"
-    '          "savol": "Savol yoki band matni",\n'
-    '          "tur": "quyidagi ro\'yxatdan",\n'
-    '          "variantlar": ["variant1", "variant2"],\n'
-    '          "togri": "To\'g\'ri javob (bir nechta qabul qilinadigan '
-    'javob bo\'lsa — massiv, masalan ["20%", "twenty percent"])",\n'
-    '          "guruh_boshi": "Questions 1-7" (ixtiyoriy — faqat '
-    "guruhning BIRINCHI savolida yozing, qolganida bo'sh qoldiring)\n"
-    "        }\n"
-    "      ],\n"
-    '      "maxsus_format": {...} (pastdagi JADVAL qoidasiga qarang),\n'
-    '      "rasm_sahifasi": 7 (pastdagi RASM qoidasiga qarang)\n'
-    "    }\n"
-    "  ]\n"
-    "}\n\n"
+    "Vazifa: FAQAT TUZILMANI aniqlang — testning nomi va unda nechta "
+    "passage/part bor, har biri PDF'ning qaysi sahifalarida joylashgan. "
+    "Passage MATNINI va SAVOLLARNI bu bosqichda YOZMANG — ular keyin "
+    "alohida so'raladi.\n\n"
 
     + PASSAGE_QOIDASI +
 
-    "\nQolgan qoidalar:\n"
-    '- "bolim"="reading" bo\'lsa "tur": multiple_choice, tfng, '
-    "matching_headings, matching, fill_blanks, short_answer\n"
-    '- "bolim"="listening" bo\'lsa "tur": multiple_choice, fill_blanks, '
-    "matching, map_labelling, short_answer\n"
-    '- True/False/Not Given savollarida "variantlar": ["True", "False", '
-    '"Not Given"]. Yes/No/Not Given bo\'lsa mos ravishda ["Yes", "No", '
-    '"Not Given"]\n'
-    '- Ochiq javobli (fill_blanks/short_answer) savollarda "variantlar"ni '
-    "bo'sh massiv [] qoldiring\n"
-    "- **So'z banki bilan bo'sh joy to'ldirish** (Summary/Note Completion "
-    "with a word list): har bir bo'sh joy uchun ALOHIDA savol "
-    '(tur="fill_blanks"), "savol"ga o\'sha bo\'sh joygacha bo\'lgan matn '
-    'parchasi, HAMMASIGA BIR XIL "variantlar" (butun so\'z banki) — '
-    "frontend bularni avtomatik bitta oqim+bank qilib birlashtiradi\n"
-    '- Savollarni RAQAMLAMANG ("1. ..." deb yozmang) — raqamlash '
-    "frontend'da avtomatik, barcha qismlar bo'yicha uzluksiz qo'yiladi\n"
-    '- "tartib" — qismning testdagi raqami (1,2,3...)\n'
-    "- Har qismdagi savollar soni real testdagidek bo'lsin (Reading har "
-    "passage ~13-14 ta, Listening har part ~10 ta)\n"
-    "\nJADVAL / BLOK-SXEMA QOIDASI (MAJBURIY, TASHLAB KETMANG):\n"
-    "Siz PDF sahifalarini KO'RIB turibsiz. Agar savol bloki kitobda "
-    "JADVAL (ustun-qatorli to'r), BLOK-SXEMA (o'qlar bilan bog'langan "
-    "qutilar) yoki QAYD/XULOSA (Note/Summary) ko'rinishida bo'lsa — uni "
-    'oddiy savollar ro\'yxatiga AYLANTIRIB YUBORMANG. Qismga albatta '
-    '"maxsus_format" qo\'shing, shunda talaba kitobdagidek ko\'radi:\n'
-    '  - Jadval: {"tur":"jadval","sarlavha":"...","ustunlar":[...],'
-    '"qatorlar":[["katak {{5}} bilan","ikkinchi katak"],...]} — har qator '
-    "massiv, har element bitta katak matni; ustunlar soni har qatorda "
-    "bir xil bo'lsin\n"
-    '  - Blok-sxema: {"tur":"oqim","sarlavha":"...","qadamlar":["1-qadam '
-    '{{26}} bilan",...]} — har qadam alohida quti, orasida o\'q chiziladi\n'
-    '  - Oddiy matn (jadval/sxema emas, so\'z banki ham yo\'q): '
-    '{"tur":"matn","sarlavha":"...","matn":"to\'liq matn, bo\'sh joylar '
-    '{{31}} kabi, qatorlar orasida \\n, ro\'yxat uchun matn boshida "- "}\n'
-    "  - {{n}} — o'sha bo'sh joyning BUTUN TEST bo'yicha uzluksiz savol "
-    'raqami; u "savollar" massividagi mos savolning tartibiga AYNAN mos '
-    "kelishi SHART (masalan 26-savol uchun {{26}})\n"
-    '  - Bu holatda ham "savollar"ni ODATDAGIDEK har bir bo\'sh joy uchun '
-    'alohida yozing — "maxsus_format" faqat KO\'RINISH uchun, javob '
-    "tekshirish baribir \"savollar\"dan olinadi (ikkalasi bir xil SON va "
-    "TARTIBDA bo'lishi shart)\n"
-
-    "\nRASM / GRAFIK / DIAGRAMMA QOIDASI:\n"
-    "Agar qismda RASM bo'lsa — xarita (Map Labelling), diagramma, "
-    "chizma, grafik yoki jadval-rasm — uni matn bilan tasvirlashga "
-    "urinmang. Faqat u TURGAN SAHIFA raqamini yozing: "
-    '"rasm_sahifasi": 7 (PDF\'ning nechanchi sahifasi, 1 dan boshlab '
-    "sanaladi — kitobda chop etilgan sahifa raqami emas, PDF varag'ining "
-    "tartibi). Biz o'sha sahifani alohida qayta ishlab, rasmni o'zi "
-    "kesib olamiz va qismga biriktiramiz.\n"
-    "  - Qismda rasm bo'lmasa — bu maydonni UMUMAN yozmang.\n"
-    "  - Bitta qismda bir nechta rasm bo'lsa — ENG KATTA/asosiysining "
-    "sahifasini yozing.\n"
-    "  - Jadval kitobda oddiy to'r (chiziqlar) bilan chizilgan bo'lsa, u "
-    'RASM emas — yuqoridagi "maxsus_format" bilan bering.\n'
-
-    "\nQolgan qoidalar:\n"
-    "- PDF'da javoblar kaliti (Answer key) bo'lsa — undan foydalanib "
-    '"togri" maydonlarini to\'ldiring. Kalit bo\'lmasa va javobni aniq '
-    'bilmasangiz, "togri"ni bo\'sh qoldiring (admin keyin to\'ldiradi) — '
-    "javobni O'YLAB TOPMANG.\n"
-    "- PDF'da bir nechta test bo'lsa (masalan Test 1 va Test 2) — FAQAT "
-    "BIRINCHISINI oling."
+    "\nQoidalar:\n"
+    "- \"name\": testning to'liq nomi (masalan \"Cambridge IELTS 21 "
+    "Academic Reading Test 4\"). PDF'da nom ko'rinmasa mazmuniga qarab "
+    "mos nom o'ylab toping.\n"
+    "- \"bolim\": \"reading\" yoki \"listening\".\n"
+    "- Har qism uchun \"boshlanish_sahifa\" va \"tugash_sahifa\" — "
+    "PDF varag'ining tartib raqami (1 dan boshlab sanaladi, kitobda chop "
+    "etilgan sahifa raqami EMAS). Oraliq SHU passage'ning matnini HAM, "
+    "unga tegishli savollarni HAM qamrab olsin.\n"
+    "- Oraliqlar bir-birining ustiga tushmasin.\n"
+    "- \"yoriqnoma\": kitobdagi ko'rsatma (masalan \"You should spend "
+    "about 20 minutes on Questions 1-13...\"). Bo'lmasa bo'sh qoldiring.\n"
+    "- PDF'da bir nechta test bo'lsa — FAQAT BIRINCHISINI oling.\n"
+    "- Javoblar kaliti (Answer key) sahifalarini qismlarga QO'SHMANG."
 )
+
+REJA_SXEMASI = {
+    "type": "object",
+    "properties": {
+        "name": {"type": "string"},
+        "bolim": {"type": "string", "enum": ["reading", "listening"]},
+        "qismlar": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "tartib": {"type": "integer"},
+                    "sarlavha": {"type": "string"},
+                    "yoriqnoma": {"type": "string"},
+                    "boshlanish_sahifa": {"type": "integer"},
+                    "tugash_sahifa": {"type": "integer"},
+                },
+                "required": [
+                    "tartib", "sarlavha", "yoriqnoma",
+                    "boshlanish_sahifa", "tugash_sahifa",
+                ],
+                "additionalProperties": False,
+            },
+        },
+    },
+    "required": ["name", "bolim", "qismlar"],
+    "additionalProperties": False,
+}
+
+# ======================================================================
+# 2-BOSQICH: BITTA QISM
+# ======================================================================
+# Har passage uchun PDF'ning FAQAT o'sha sahifalari yuboriladi
+# (`pdf_bolagini_ol`). Ikki foydasi bor: (1) kirish tokenlari keskin
+# kamayadi, ya'ni chaqiruv tez tugaydi; (2) model faqat bitta passage'ni
+# ko'radi, ya'ni "matn qo'shni passage'ga o'tib ketishi" fizik jihatdan
+# imkonsiz bo'ladi — foydalanuvchining ASOSIY shikoyati shu edi.
+
+QISM_PROMPT = (
+    "Siz IELTS test materialini strukturali JSON'ga o'giruvchi "
+    "yordamchisiz. Sizga IELTS testining BITTA passage/part'iga tegishli "
+    "sahifalar beriladi.\n\n"
+
+    "Vazifa: shu passage'ning MATNINI va unga tegishli SAVOLLARNI "
+    "chiqaring.\n\n"
+
+    "MATN QOIDASI:\n"
+    "- \"matn\" — FAQAT o'qish matni (passage). Savollar bloki "
+    "(\"Questions 14-26\") va yo'riqnomalar unga KIRMAYDI.\n"
+    "- Matnni QISQARTIRMANG va O'Z SO'ZINGIZ BILAN QAYTA YOZMANG — "
+    "PDF'dagi matnni AYNAN, to'liq ko'chiring (abzatslar orasida \\n\\n).\n"
+    "- Passage'da A, B, C... deb belgilangan abzatslar bo'lsa, o'sha "
+    "harflarni ham saqlang.\n"
+    "- Listening bo'lsa \"matn\"ni bo'sh qoldiring (audio alohida "
+    "yuklanadi), faqat savollarni chiqaring.\n\n"
+
+    "SAVOLLAR QOIDASI:\n"
+    "- Savollarni RAQAMLAMANG (\"1. ...\" deb yozmang) — raqamlash "
+    "frontend'da avtomatik qo'yiladi.\n"
+    "- \"tur\": reading uchun multiple_choice, tfng, matching_headings, "
+    "matching, fill_blanks, short_answer; listening uchun "
+    "multiple_choice, fill_blanks, matching, map_labelling, "
+    "short_answer.\n"
+    "- True/False/Not Given savollarida \"variantlar\": [\"True\", "
+    "\"False\", \"Not Given\"]. Yes/No/Not Given bo'lsa mos ravishda.\n"
+    "- Ochiq javobli (fill_blanks/short_answer) savollarda "
+    "\"variantlar\" bo'sh massiv [].\n"
+    "- \"guruh_boshi\": guruh sarlavhasi (masalan \"Questions 1-7\") — "
+    "FAQAT guruhning BIRINCHI savolida yozing, qolganida bo'sh.\n"
+    "- **So'z banki bilan bo'sh joy to'ldirish**: har bo'sh joy uchun "
+    "ALOHIDA savol (tur=\"fill_blanks\"), \"savol\"ga o'sha bo'sh "
+    "joygacha bo'lgan matn parchasi, HAMMASIGA BIR XIL \"variantlar\" "
+    "(butun so'z banki).\n"
+    "- PDF'da javoblar kaliti bo'lsa \"togri\"ni undan to'ldiring. "
+    "Kalit bo'lmasa va javobni aniq bilmasangiz \"togri\"ni bo'sh "
+    "qoldiring — javobni O'YLAB TOPMANG.\n\n"
+
+    "JADVAL / BLOK-SXEMA QOIDASI:\n"
+    "Agar savol bloki kitobda JADVAL (ustun-qatorli to'r), BLOK-SXEMA "
+    "(o'qlar bilan bog'langan qutilar) yoki QAYD/XULOSA ko'rinishida "
+    "bo'lsa — uni oddiy savollar ro'yxatiga AYLANTIRIB YUBORMANG, "
+    "\"maxsus_format\" to'ldiring:\n"
+    "- Jadval: {\"tur\":\"jadval\",\"sarlavha\":\"...\","
+    "\"ustunlar\":[...],\"qatorlar\":[[\"katak {{5}} bilan\",\"ikkinchi "
+    "katak\"]]} — ustunlar soni har qatorda bir xil bo'lsin.\n"
+    "- Blok-sxema: {\"tur\":\"oqim\",\"sarlavha\":\"...\","
+    "\"qadamlar\":[\"1-qadam {{26}} bilan\"]}\n"
+    "- Oddiy matn (jadval/sxema emas, so'z banki ham yo'q): "
+    "{\"tur\":\"matn\",\"sarlavha\":\"...\",\"matn\":\"to'liq matn, "
+    "bo'sh joylar {{31}} kabi\"}\n"
+    "- {{n}} — BUTUN TEST bo'yicha uzluksiz savol raqami. Sizga shu "
+    "qismning birinchi savoli qaysi raqamdan boshlanishi aytiladi.\n"
+    "- \"maxsus_format\" faqat KO'RINISH uchun — javob tekshirish "
+    "baribir \"savollar\"dan olinadi, ikkalasi bir xil SON va TARTIBDA "
+    "bo'lishi shart.\n"
+    "- Jadval/sxema yo'q bo'lsa \"maxsus_format\"ni null qoldiring.\n\n"
+
+    "RASM QOIDASI:\n"
+    "Agar qismda RASM bo'lsa — xarita (Map Labelling), diagramma, "
+    "chizma yoki grafik — uni matn bilan tasvirlashga urinmang. Faqat "
+    "\"rasm_sahifasi\"ga u turgan PDF varag'ining raqamini yozing "
+    "(sizga qaysi varaqlar berilganini aytamiz). Rasm bo'lmasa null."
+)
+
+QISM_SXEMASI = {
+    "type": "object",
+    "properties": {
+        "matn": {"type": "string"},
+        # `anyOf` — hujjatda ANIQ qo'llab-quvvatlanadi deb yozilgan;
+        # {"type": ["integer","null"]} massiv shakli esa yozilmagan.
+        "rasm_sahifasi": {"anyOf": [{"type": "integer"}, {"type": "null"}]},
+        "savollar": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "savol": {"type": "string"},
+                    "tur": {"type": "string"},
+                    "variantlar": {"type": "array", "items": {"type": "string"}},
+                    # Ba'zi savollarda bir nechta javob qabul qilinadi
+                    # (masalan "20%" va "twenty percent") — shuning uchun
+                    # string HAM, massiv HAM ruxsat.
+                    "togri": {
+                        "anyOf": [
+                            {"type": "string"},
+                            {"type": "array", "items": {"type": "string"}},
+                        ]
+                    },
+                    "guruh_boshi": {"type": "string"},
+                },
+                "required": ["savol", "tur", "variantlar", "togri", "guruh_boshi"],
+                "additionalProperties": False,
+            },
+        },
+        "maxsus_format": {
+            "anyOf": [
+                {"type": "null"},
+                {
+                    "type": "object",
+                    "properties": {
+                        "tur": {"type": "string", "enum": ["jadval"]},
+                        "sarlavha": {"type": "string"},
+                        "ustunlar": {"type": "array", "items": {"type": "string"}},
+                        "qatorlar": {
+                            "type": "array",
+                            "items": {"type": "array", "items": {"type": "string"}},
+                        },
+                    },
+                    "required": ["tur", "sarlavha", "ustunlar", "qatorlar"],
+                    "additionalProperties": False,
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "tur": {"type": "string", "enum": ["oqim"]},
+                        "sarlavha": {"type": "string"},
+                        "qadamlar": {"type": "array", "items": {"type": "string"}},
+                    },
+                    "required": ["tur", "sarlavha", "qadamlar"],
+                    "additionalProperties": False,
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "tur": {"type": "string", "enum": ["matn"]},
+                        "sarlavha": {"type": "string"},
+                        "matn": {"type": "string"},
+                    },
+                    "required": ["tur", "sarlavha", "matn"],
+                    "additionalProperties": False,
+                },
+            ]
+        },
+    },
+    "required": ["matn", "rasm_sahifasi", "savollar", "maxsus_format"],
+    "additionalProperties": False,
+}
+
 
 RASM_KESISH_PROMPT = (
     "Sizga IELTS kitobining BITTA sahifasi rasm sifatida beriladi. Rasm "
@@ -303,32 +405,162 @@ def qism_rasmini_kes(pdf_bytes, sahifa_raqami):
         return None
 
 
-def pdfdan_test_chiqar(pdf_bytes, bolim=""):
-    """PDF -> IELTS test JSON'i (`_test_yarat` kutadigan format).
 
-    Qaytaradi: (data, xato_matni) — biri doim None."""
-    if len(pdf_bytes) > MAKS_HAJM_MB * 1024 * 1024:
-        return None, f"PDF juda katta (chegara {MAKS_HAJM_MB} MB)"
-    sahifalar = pdf_sahifalar_soni(pdf_bytes)
-    if sahifalar > MAKS_SAHIFA:
-        return None, (
-            f"PDF juda uzun (~{sahifalar} sahifa, chegara {MAKS_SAHIFA}) — "
-            "faqat kerakli sahifalarni ajratib yuklang"
-        )
+def pdf_bolagini_ol(pdf_bytes, boshlanish, tugash):
+    """PDF'dan FAQAT [boshlanish..tugash] sahifalarini yangi PDF qilib
+    ajratadi (1 dan boshlab, ikkala chegara ham kiradi).
 
-    topshiriq = "Shu PDF'dagi IELTS testini yuqoridagi JSON formatiga o'giring."
-    if bolim in ("reading", "listening"):
-        topshiriq += f' Bu {bolim} bo\'limi — "bolim" maydoniga "{bolim}" yozing.'
+    Nega kerak: har passage uchun butun PDF'ni qayta yuborish kirish
+    tokenlarini bir necha barobar oshiradi va chaqiruvni sekinlashtiradi.
+    Bundan tashqari model faqat bitta passage'ni ko'rsa, matn qo'shni
+    passage'ga o'tib keta olmaydi.
 
+    Chegaralar noto'g'ri bo'lsa None qaytadi — chaqiruvchi butun PDF'ga
+    qaytadi (xavfsiz zaxira)."""
+    import pypdfium2 as pdfium
+
+    manba = pdfium.PdfDocument(pdf_bytes)
     try:
-        provider = pdf_provider_olish()
-        javob = provider.generate_json_pdf(PDF_PROMPT, topshiriq, pdf_bytes, MAKS_TOKEN)
+        jami = len(manba)
+        b = max(1, min(int(boshlanish), jami))
+        t = max(b, min(int(tugash), jami))
+        if b > jami:
+            return None
+        bolak = pdfium.PdfDocument.new()
+        try:
+            bolak.import_pages(manba, list(range(b - 1, t)))
+            bufer = io.BytesIO()
+            bolak.save(bufer)
+            return bufer.getvalue()
+        finally:
+            bolak.close()
+    except Exception:  # noqa: BLE001 — zaxira yo'l bor, jarayon to'xtamasin
+        return None
+    finally:
+        manba.close()
+
+
+def _qismni_chiqar(provider, pdf_bytes, qism_rejasi, bolim, boshlangich_raqam):
+    """Bitta passage/part uchun matn + savollar. (natija, xato) qaytaradi."""
+    b = qism_rejasi.get("boshlanish_sahifa") or 1
+    t = qism_rejasi.get("tugash_sahifa") or b
+    bolak = pdf_bolagini_ol(pdf_bytes, b, t) or pdf_bytes
+
+    topshiriq = (
+        f"Bu {bolim} bo'limining \"{qism_rejasi.get('sarlavha') or ''}\" qismi.\n"
+        f"Berilgan varaqlar PDF'ning {b}-{t} sahifalari — "
+        f"\"rasm_sahifasi\"ni shu oraliqdagi raqam bilan yozing.\n"
+        f"Bu qismning birinchi savoli butun test bo'yicha "
+        f"{boshlangich_raqam}-savol — {{{{n}}}} raqamlarini shundan boshlab "
+        "sanang."
+    )
+    try:
+        javob = provider.generate_json_pdf(
+            QISM_PROMPT, topshiriq, bolak,
+            max_tokens=QISM_MAKS_TOKEN, javob_sxemasi=QISM_SXEMASI,
+        )
     except ProviderXatosi as e:
         return None, str(e)
     except Exception as e:  # noqa: BLE001 — SDK/tarmoqning kutilmagan xatosi
         return None, f"{type(e).__name__}: {e}"
 
-    data = javob.get("natija")
-    if not isinstance(data, dict):
+    natija = javob.get("natija")
+    if not isinstance(natija, dict):
         return None, "AI yaroqli JSON qaytarmadi"
-    return data, None
+    return natija, None
+
+
+def pdfdan_test_chiqar(pdf_bytes, bolim=""):
+    """PDF -> IELTS test JSON'i (`_test_yarat` kutadigan format).
+
+    IKKI BOSQICHLI (2026-07-31 da qayta yozildi). Avval BITTA katta
+    chaqiruv bor edi — u ikki sabab bilan ishlamadi (foydalanuvchi
+    production'da uchradi):
+      1) 10K+ belgilik JSON'ni model qo'lda yozganda passage matnidagi
+         qo'shtirnoqni qochirmay yuborardi -> "Expecting ',' delimiter".
+         Endi Structured Outputs (`javob_sxemasi`) yaroqli JSON'ni
+         KAFOLATLAYDI.
+      2) Bitta so'rov juda uzoq cho'zilib timeout'ga tushardi (yoki
+         chala test yaratardi). Endi har passage alohida, QISQA
+         chaqiruv — va unga PDF'ning faqat o'z sahifalari yuboriladi.
+
+    Umumiy VAQT BUDJETI bor: budjet tugasa qolgan qismlar tashlanadi va
+    `xatolar`da aniq aytiladi — gunicorn uzib qo'yishidan ko'ra
+    "nima yetishmadi" deb aytgan yaxshiroq.
+
+    Qaytaradi: (data, xato_matni, xatolar_royxati)."""
+    import time
+
+    if len(pdf_bytes) > MAKS_HAJM_MB * 1024 * 1024:
+        return None, f"PDF juda katta (chegara {MAKS_HAJM_MB} MB)", []
+    sahifalar = pdf_sahifalar_soni(pdf_bytes)
+    if sahifalar > MAKS_SAHIFA:
+        return None, (
+            f"PDF juda uzun (~{sahifalar} sahifa, chegara {MAKS_SAHIFA}) — "
+            "faqat kerakli sahifalarni ajratib yuklang"
+        ), []
+
+    boshlandi = time.monotonic()
+    try:
+        provider = pdf_provider_olish()
+    except ProviderXatosi as e:
+        return None, str(e), []
+
+    # --- 1-bosqich: reja ---
+    topshiriq = "Shu PDF'dagi IELTS testining tuzilmasini aniqlang."
+    if bolim in ("reading", "listening"):
+        topshiriq += f' Bu {bolim} bo\'limi — "bolim" maydoniga "{bolim}" yozing.'
+    try:
+        javob = provider.generate_json_pdf(
+            REJA_PROMPT, topshiriq, pdf_bytes,
+            max_tokens=REJA_MAKS_TOKEN, javob_sxemasi=REJA_SXEMASI,
+        )
+    except ProviderXatosi as e:
+        return None, str(e), []
+    except Exception as e:  # noqa: BLE001
+        return None, f"{type(e).__name__}: {e}", []
+
+    reja = javob.get("natija")
+    if not isinstance(reja, dict):
+        return None, "AI yaroqli JSON qaytarmadi", []
+    reja_qismlar = reja.get("qismlar") or []
+    if not reja_qismlar:
+        return None, "PDF'da passage/part topilmadi", []
+    reja_qismlar.sort(key=lambda q: q.get("tartib") or 0)
+
+    # --- 2-bosqich: har qism alohida ---
+    qismlar, xatolar = [], []
+    keyingi_savol_raqami = 1
+    for i, rq in enumerate(reja_qismlar, start=1):
+        nom = rq.get("sarlavha") or f"{i}-qism"
+        if time.monotonic() - boshlandi > JAMI_BUDJET_SONIYA:
+            xatolar.append(f"{nom}: vaqt budjeti tugadi, chiqarilmadi")
+            continue
+        natija, xato = _qismni_chiqar(
+            provider, pdf_bytes, rq, reja.get("bolim") or bolim or "reading",
+            keyingi_savol_raqami,
+        )
+        if xato:
+            xatolar.append(f"{nom}: {xato}")
+            continue
+        savollar = natija.get("savollar") or []
+        qismlar.append({
+            "tartib": rq.get("tartib") or i,
+            "sarlavha": nom,
+            "yoriqnoma": rq.get("yoriqnoma") or "",
+            "matn": natija.get("matn") or "",
+            "savollar": savollar,
+            "maxsus_format": natija.get("maxsus_format") or None,
+            "rasm_sahifasi": natija.get("rasm_sahifasi"),
+        })
+        keyingi_savol_raqami += len(savollar)
+
+    if not qismlar:
+        return None, "; ".join(xatolar) or "Hech qanday qism chiqarilmadi", xatolar
+
+    return {
+        "name": reja.get("name") or "IELTS test",
+        "bolim": reja.get("bolim") or bolim or "reading",
+        "korinish": "private",
+        "qismlar": qismlar,
+    }, None, xatolar

@@ -573,7 +573,7 @@ class ClaudeProvider:
         self.timeout_ms = timeout_ms
 
     def _generate(self, system_prompt, matn, rasm_bytes=None, rasm_mime=None,
-                  pdf_bytes=None, max_tokens=4096):
+                  pdf_bytes=None, max_tokens=4096, javob_sxemasi=None):
         """Gemini bilan bir xil naqsh (2026-07-26): aniq timeout va buzuq
         JSON uchun qayta urinish — cheksiz kutish gunicorn worker'ini
         o'ldirmasligi uchun.
@@ -616,6 +616,20 @@ class ClaudeProvider:
                 {"type": "text", "text": matn},
             ]
 
+        # `javob_sxemasi` (2026-07-31) — STRUCTURED OUTPUTS. Berilsa, API
+        # generatsiyani sxemaga MAJBURLAYDI va yaroqli JSON kafolatlanadi.
+        # Nega kerak: PDF'dan IELTS testi chiqarishda model passage matnini
+        # o'zi JSON string ichiga yozadi; matnda qo'shtirnoq bo'lsa (masalan
+        # the so-called "green revolution") uni qochirmay yuborardi va
+        # "Expecting ',' delimiter" xatosi chiqardi (foydalanuvchi
+        # production'da uchradi). Qayta urinish ham foyda bermaydi —
+        # bir xil matnda xato takrorlanadi.
+        qoshimcha = {}
+        if javob_sxemasi:
+            qoshimcha["output_config"] = {
+                "format": {"type": "json_schema", "schema": javob_sxemasi}
+            }
+
         oxirgi_xato = None
         for _ in range(URINISHLAR):
             response = client.messages.create(
@@ -623,7 +637,16 @@ class ClaudeProvider:
                 max_tokens=max_tokens,
                 system=system_prompt,
                 messages=[{"role": "user", "content": content}],
+                **qoshimcha,
             )
+            # Sxema berilgan bo'lsa ham chegaraga urilsa javob chala qoladi —
+            # buni tushunarli xato qilib aytamiz (aks holda "JSON emas" deb
+            # chalg'ituvchi xabar chiqardi).
+            if response.stop_reason == "max_tokens":
+                oxirgi_xato = ProviderXatosi(
+                    "AI javobi max_tokens chegarasiga urildi (javob chala qoldi)"
+                )
+                continue
             try:
                 natija = javobni_parse_qil(_matn_blokini_ol(response))
             except ProviderXatosi as e:
@@ -654,11 +677,16 @@ class ClaudeProvider:
         shaxsiy metod, app chegarasidan tashqarida chaqirilmasligi kerak."""
         return self._generate(system_prompt, matn, rasm_bytes, rasm_mime)
 
-    def generate_json_pdf(self, system_prompt, matn, pdf_bytes, max_tokens=16000):
+    def generate_json_pdf(self, system_prompt, matn, pdf_bytes, max_tokens=16000,
+                          javob_sxemasi=None):
         """PDF'dan JSON (2026-07-31, `exercises.pdf_generatsiya` uchun).
-        Faqat Claude'da bor — Gemini yo'lida PDF hujjat bloki ishlatilmaydi."""
+        Faqat Claude'da bor — Gemini yo'lida PDF hujjat bloki ishlatilmaydi.
+
+        `javob_sxemasi` berilsa Structured Outputs ishlaydi (qarang:
+        `_generate`) — yaroqli JSON kafolatlanadi."""
         return self._generate(
-            system_prompt, matn, pdf_bytes=pdf_bytes, max_tokens=max_tokens
+            system_prompt, matn, pdf_bytes=pdf_bytes, max_tokens=max_tokens,
+            javob_sxemasi=javob_sxemasi,
         )
 
 

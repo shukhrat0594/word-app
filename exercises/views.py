@@ -828,7 +828,7 @@ class ImtihonPdfBoshqaruvView(APIView):
         from .pdf_generatsiya import pdfdan_test_chiqar, qism_rasmini_kes
 
         pdf_bytes = fayl.read()
-        data, xato = pdfdan_test_chiqar(pdf_bytes, request.data.get("bolim") or "")
+        data, xato, xatolar = pdfdan_test_chiqar(pdf_bytes, request.data.get("bolim") or "")
         if xato:
             return Response({"detail": xato}, status=502)
 
@@ -872,9 +872,16 @@ class ImtihonPdfBoshqaruvView(APIView):
                 "qismlar_soni": test.qismlar.count(),
                 "manba": "pdf",
                 "rasmli_qismlar": rasmli_qismlar,
+                "xatolar": xatolar,
             },
         )
-        return Response(_test_admin_dict(test), status=201)
+        # `xatolar` — chiqarilmagan qismlar (vaqt budjeti tugadi yoki AI
+        # xato berdi). Test baribir yaratiladi, lekin admin NIMA
+        # yetishmaganini ko'rishi shart — avval bu jim qolib, "faqat bir
+        # qismi yuklandi" degan tushunarsiz holat chiqardi.
+        return Response(
+            {**_test_admin_dict(test), "xatolar": xatolar}, status=201
+        )
 
 
 class ImtihonBoshqaruvDetailView(APIView):
