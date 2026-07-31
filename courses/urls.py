@@ -113,6 +113,11 @@ urlpatterns = [
         name="kurslar_mashq_audio_boshqaruv",
     ),
     path(
+        "kurslar/mashq/<int:pk>/blok-audio-yuklash/",
+        views.KursMashqBlokAudioBoshqaruvView.as_view(),
+        name="kurslar_mashq_blok_audio_yuklash",
+    ),
+    path(
         "kurslar/mashq/<int:pk>/javob-excel/",
         views.KursMashqJavobExcelView.as_view(),
         name="kurslar_mashq_javob_excel",

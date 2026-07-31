@@ -1074,6 +1074,58 @@ class KursMashqAudioBoshqaruvView(APIView):
         return Response(_kurs_mashq_admin_dict(mashq))
 
 
+def _mashq_blok_audio_raqamlari(mashq):
+    """Mashqning blok formatidagi audio BELGILARI (audio_raqam) —
+    ketma-ketlikni saqlab, takrorsiz ro'yxat."""
+    raqamlar = []
+    for b in mashq.bloklar or []:
+        raqam = b.get("audio_raqam")
+        if raqam and raqam not in raqamlar:
+            raqamlar.append(raqam)
+    return raqamlar
+
+
+class KursMashqBlokAudioBoshqaruvView(APIView):
+    """2026-07-31 talabi: blok formatidagi mashq yaratilgach, admin
+    darslikdagi audio faylni AYNAN o'sha mashqdagi audio belgisiga
+    (`audio_raqam`) biriktirishi kerak — "Qayta yuklash" tugmasi
+    yonida. Mashqda bitta audio belgisi bo'lsa avtomatik shunga
+    biriktiriladi; bir nechta bo'lsa `raqam` majburiy (frontend
+    tanlov ko'rsatadi)."""
+
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request, pk):
+        if not _mashq_admin_mi(request.user):
+            return Response({"detail": "Faqat admin/owner uchun"}, status=403)
+        mashq = get_object_or_404(KursMashq, pk=pk)
+        audio = request.FILES.get("audio")
+        if not audio:
+            return Response({"detail": "audio majburiy"}, status=400)
+
+        raqamlar = _mashq_blok_audio_raqamlari(mashq)
+        if not raqamlar:
+            return Response({"detail": "Bu mashqda audio belgisi yo'q"}, status=400)
+        raqam = request.data.get("raqam") or raqamlar[0]
+        if raqam not in raqamlar:
+            return Response({"detail": "Noto'g'ri audio raqami"}, status=400)
+
+        yozuv, yaratildi = KursMashqAudio.objects.get_or_create(mashq=mashq, raqam=raqam)
+        if not yaratildi and yozuv.audio:
+            yozuv.audio.delete(save=False)  # eski fayl diskda "yetim" qolmasin
+        yozuv.audio.save(f"{mashq.id}_{raqam}.mp3", audio, save=True)
+
+        logla(
+            foydalanuvchi=request.user,
+            harakat=FaoliyatYozuvi.Harakat.OZGARTIRISH,
+            obyekt=mashq.tugun,
+            obyekt_turi="KursTugun",
+            obyekt_nomi=f"{mashq.tugun.nomi} (#{mashq.tartib} mashqqa audio {raqam} biriktirildi)",
+        )
+        return Response(_kurs_mashq_admin_dict(mashq))
+
+
 class KursMashqRasmView(APIView):
     """Mashq rasmi — autentifikatsiyalangan stream (B3.2 qoidasiga mos)."""
 

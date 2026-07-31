@@ -320,6 +320,96 @@ def _oqish_tartibi_kaliti(e):
     return (ustun, e["y1"], e["x1"])
 
 
+def _y_qatorda_mi(a, b, tolerans=8):
+    """Ikki rasm bir QATORDA (yonma-yon) deb hisoblanadi, agar yuqori
+    chetlari (y1) bir-biriga yaqin bo'lsa (foiz bo'yicha)."""
+    return abs(a["y1"] - b["y1"]) <= tolerans
+
+
+def _keng_kesishuv(a, b):
+    return max(0, min(a["x2"], b["x2"]) - max(a["x1"], b["x1"]))
+
+
+def _rasmga_izoh_top(rasm, nomzodlar, ishlatilgan_izoh):
+    """Rasmning ENG YAQIN tagidagi yozuvini (pufakcha/matn) topadi —
+    shu yozuv rasm bilan bitta kartochkaga birlashtiriladi."""
+    eng_yaqin = None
+    eng_yaqin_masofa = None
+    for c in nomzodlar:
+        if c.get("tur") not in ("pufakcha", "matn") or id(c) in ishlatilgan_izoh:
+            continue
+        if c["y1"] < rasm["y2"] - 2:
+            continue
+        kenglik = min(rasm["x2"] - rasm["x1"], c["x2"] - c["x1"]) or 1
+        if _keng_kesishuv(rasm, c) < 0.4 * kenglik:
+            continue
+        masofa = c["y1"] - rasm["y2"]
+        if eng_yaqin_masofa is None or masofa < eng_yaqin_masofa:
+            eng_yaqin, eng_yaqin_masofa = c, masofa
+    return eng_yaqin
+
+
+def rasm_qatorlarini_guruhla(elementlar):
+    """Yonma-yon (bir qatordagi, 2+) FOTOSURATLARNI bitta "rasm_qatori"
+    elementiga birlashtiradi — har birining tagidagi yozuvi (pufakcha)
+    bilan birga (2026-07-31 talabi).
+
+    Sabab: "3 ta odam rasmi + har birining tagida ismi" kabi sahifalarda
+    avvalgi (faqat y1 bo'yicha, 2 ustunli) o'qish tartibi rasmlarni
+    birga, yozuvlarni birga chiqarardi — tartib buzilardi. Endi har rasm
+    o'z yozuvi bilan BIRGA, guruh esa kenglik-proporsional qator sifatida
+    frontendga beriladi (mobilda pastma-past tushadi, tartib saqlanadi)."""
+    rasmlar = [e for e in elementlar if e.get("tur") == "rasm"]
+    ishlatilgan_rasm = set()
+    ishlatilgan_izoh = set()
+    qatorlar = []
+    boshqalar = [e for e in elementlar if e.get("tur") != "rasm"]
+
+    for i, r in enumerate(rasmlar):
+        if id(r) in ishlatilgan_rasm:
+            continue
+        guruh = [r]
+        band = {id(r)}
+        for r2 in rasmlar[i + 1:]:
+            if id(r2) in ishlatilgan_rasm or id(r2) in band:
+                continue
+            if _y_qatorda_mi(r, r2):
+                guruh.append(r2)
+                band.add(id(r2))
+        if len(guruh) < 2:
+            continue
+        ishlatilgan_rasm |= band
+        guruh.sort(key=lambda e: e["x1"])
+
+        qator_itemlar = []
+        pastki_y2 = max(e["y2"] for e in guruh)
+        for rr in guruh:
+            izoh_el = _rasmga_izoh_top(rr, boshqalar, ishlatilgan_izoh)
+            matn = ""
+            if izoh_el is not None:
+                matn = izoh_el.get("matn", "")
+                ishlatilgan_izoh.add(id(izoh_el))
+                pastki_y2 = max(pastki_y2, izoh_el["y2"])
+            qator_itemlar.append({
+                "x1": rr["x1"], "y1": rr["y1"], "x2": rr["x2"], "y2": rr["y2"],
+                "izoh": rr.get("izoh", ""), "matn": matn,
+            })
+        qatorlar.append({
+            "tur": "rasm_qatori",
+            "x1": min(e["x1"] for e in guruh), "y1": min(e["y1"] for e in guruh),
+            "x2": max(e["x2"] for e in guruh), "y2": pastki_y2,
+            "qator": qator_itemlar,
+        })
+
+    if not qatorlar:
+        return elementlar
+
+    natija = [e for e in elementlar
+              if id(e) not in ishlatilgan_rasm and id(e) not in ishlatilgan_izoh]
+    natija.extend(qatorlar)
+    return natija
+
+
 def bloklarni_tayyorla(elementlar):
     """AI elementlarini BAZAGA YOZILADIGAN ko'rinishga o'tkazadi.
 
@@ -335,6 +425,7 @@ def bloklarni_tayyorla(elementlar):
     ko'rsatadi.
 
     Qaytaradi: (bloklar, savollar, rasm_qutilari)"""
+    elementlar = rasm_qatorlarini_guruhla(elementlar)
     bloklar = []
     savollar = []
     rasm_qutilari = []
@@ -347,6 +438,20 @@ def bloklarni_tayyorla(elementlar):
             blok["rasm_idx"] = len(rasm_qutilari)
             blok["izoh"] = e.get("izoh", "")
             rasm_qutilari.append({k: e[k] for k in ("x1", "y1", "x2", "y2")})
+            bloklar.append(blok)
+            continue
+
+        if tur == "rasm_qatori":
+            itemlar = []
+            for it in e.get("qator", []):
+                rasm_idx = len(rasm_qutilari)
+                rasm_qutilari.append({k: it[k] for k in ("x1", "y1", "x2", "y2")})
+                keng = max(1, it["x2"] - it["x1"])
+                itemlar.append({
+                    "rasm_idx": rasm_idx, "izoh": it.get("izoh", ""),
+                    "matn": it.get("matn", ""), "keng": keng,
+                })
+            blok["qator"] = itemlar
             bloklar.append(blok)
             continue
 

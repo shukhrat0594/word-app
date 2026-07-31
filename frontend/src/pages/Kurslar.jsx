@@ -378,6 +378,10 @@ function AdminMashqBoshqaruv({ tugunId, jsonKiritishKorinadi = true }) {
   // mashqning bloklari qayta hisoblanadi, o'rni/id o'zgarmaydi).
   const [qaytaYuklanayotganId, setQaytaYuklanayotganId] = useState(null);
   const [qaytaYuklashXato, setQaytaYuklashXato] = useState("");
+  // 2026-07-31 talabi: mashq yaratilgach, uning audio belgisiga (audio_raqam)
+  // darslikdagi audio faylni to'g'ridan-to'g'ri biriktirish.
+  const [audioYuklanayotganId, setAudioYuklanayotganId] = useState(null);
+  const [audioYuklashXato, setAudioYuklashXato] = useState("");
 
   // ZIP jarayoni holati (rasm-bo'yicha yuklashning ko'p-sahifali varianti).
   const [zipYuklanmoqda, setZipYuklanmoqda] = useState(false);
@@ -666,6 +670,32 @@ function AdminMashqBoshqaruv({ tugunId, jsonKiritishKorinadi = true }) {
     }
   }
 
+  function mashqAudioRaqamlari(m) {
+    const raqamlar = [];
+    for (const b of m.bloklar || []) {
+      if (b.audio_raqam && !raqamlar.includes(b.audio_raqam)) raqamlar.push(b.audio_raqam);
+    }
+    return raqamlar;
+  }
+
+  async function mashqgaAudioYukla(id, e) {
+    const fayl = e.target.files[0];
+    e.target.value = "";
+    if (!fayl) return;
+    setAudioYuklashXato("");
+    setAudioYuklanayotganId(id);
+    try {
+      const fd = new FormData();
+      fd.append("audio", fayl);
+      await apiForm(`/api/kurslar/mashq/${id}/blok-audio-yuklash/`, { method: "POST", formData: fd });
+      yukla();
+    } catch (e2) {
+      setAudioYuklashXato(e2.data?.detail || t("xato_yuz_berdi"));
+    } finally {
+      setAudioYuklanayotganId(null);
+    }
+  }
+
   async function audioZipYukla(e) {
     const fayl = e.target.files[0];
     e.target.value = "";
@@ -715,6 +745,7 @@ function AdminMashqBoshqaruv({ tugunId, jsonKiritishKorinadi = true }) {
         {mashqXato && <span className="xato-xabar">{mashqXato}</span>}
         {mashqXabar && <span className="izoh">✓ {mashqXabar}</span>}
         {qaytaYuklashXato && <span className="xato-xabar">{qaytaYuklashXato}</span>}
+        {audioYuklashXato && <span className="xato-xabar">{audioYuklashXato}</span>}
       </div>
       {progress && (
         <div style={{ marginBottom: 10 }}>
@@ -794,6 +825,18 @@ function AdminMashqBoshqaruv({ tugunId, jsonKiritishKorinadi = true }) {
                     style={{ display: "none" }}
                   />
                 </label>
+                {mashqAudioRaqamlari(m).length > 0 && (
+                  <label className="tugma ikkinchi" style={{ cursor: "pointer" }}>
+                    {audioYuklanayotganId === m.id ? t("yuklanmoqda") : t("kurs_mashq_audio_yuklash")}
+                    <input
+                      type="file"
+                      accept="audio/*"
+                      onChange={(e) => mashqgaAudioYukla(m.id, e)}
+                      disabled={audioYuklanayotganId === m.id}
+                      style={{ display: "none" }}
+                    />
+                  </label>
+                )}
                 <button className="tugma ikkinchi" style={{ color: "#d33" }} onClick={() => ochir(m.id)}>
                   {t("ochirish")}
                 </button>

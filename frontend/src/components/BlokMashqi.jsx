@@ -84,6 +84,28 @@ function Blok({ blok, blokIdx, rasmUrllar, faolRaqam, ijro, audioTanla, javoblar
       const url = rasmUrllar[blok.rasm_idx];
       return url ? <img className="blok-rasm" src={url} alt={blok.izoh || ""} /> : null;
     }
+    case "rasm_qatori": {
+      const itemlar = blok.qator || [];
+      const jamiKeng = itemlar.reduce((j, it) => j + (it.keng || 1), 0) || 1;
+      return (
+        <div className="blok-rasm-qatori">
+          {itemlar.map((it, k) => {
+            const url = rasmUrllar[it.rasm_idx];
+            if (!url) return null;
+            return (
+              <div
+                key={k}
+                className="blok-rasm-karta"
+                style={{ flexGrow: it.keng || 1, flexBasis: `${((it.keng || 1) / jamiKeng) * 100}%` }}
+              >
+                <img className="blok-rasm" src={url} alt={it.izoh || ""} />
+                {it.matn && <div className="blok-pufakcha">{it.matn}</div>}
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
     case "korsatma":
       return (
         <div className="blok-korsatma">

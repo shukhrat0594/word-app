@@ -606,6 +606,12 @@ textarea {
   max-width: 320px; width: 100%; border-radius: 6px; display: block;
   margin: 10px 0; box-shadow: var(--soya);
 }
+.blok-rasm-qatori {
+  display: flex; gap: 10px; margin: 10px 0; flex-wrap: wrap; align-items: flex-start;
+}
+.blok-rasm-karta { display: flex; flex-direction: column; align-items: center; min-width: 110px; }
+.blok-rasm-karta .blok-rasm { margin: 0 0 6px; max-width: 100%; }
+.blok-rasm-karta .blok-pufakcha { margin: 0; }
 .blok-korsatma { display: flex; align-items: center; gap: 8px; margin: 12px 0; flex-wrap: wrap; }
 .blok-raqam { color: var(--sariq-toq); font-weight: 800; }
 .blok-pufakcha {
