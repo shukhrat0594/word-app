@@ -368,7 +368,7 @@ function OddiySavolBloki({ blok, javoblar, javobniQoy, natija, t }) {
 
 /** Cambridge-uslubidagi to'liq IELTS testi — ro'yxat, split-screen yechish
  * rejimi (chapda matn/audio, o'ngda savollar), pastki Part-navigatsiya. */
-export default function ImtihonOtish({ bolim, manba = "admin", testId, mockYechimId, onYakunlandi }) {
+export default function ImtihonOtish({ bolim, manba = "admin", testId, mockYechimId, onYakunlandi, ochirilganId }) {
   const { t } = useI18n();
   const [royxat, setRoyxat] = useState([]);
   const [test, setTest] = useState(null);
@@ -379,6 +379,9 @@ export default function ImtihonOtish({ bolim, manba = "admin", testId, mockYechi
   const [xato, setXato] = useState("");
   const [yuklanmoqda, setYuklanmoqda] = useState(false);
   const [tayyorlanmoqda, setTayyorlanmoqda] = useState(false);
+  // Test yechilayotganda bazadan yo'qolgan bo'lsa (o'chirilgan/qayta
+  // yuklangan) — "Ro'yxatga qaytish" tugmasi ko'rsatiladi.
+  const [testYoq, setTestYoq] = useState(false);
   const [fokus, setFokus] = useState(false);
   const [masshtab, setMasshtab] = useState(100);
   const [soniya, setSoniya] = useState(0);
@@ -399,6 +402,19 @@ export default function ImtihonOtish({ bolim, manba = "admin", testId, mockYechi
     api(`/api/imtihon/testlar/?bolim=${bolim}&manba=${manba}`).then(setRoyxat).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bolim, testId, manba]);
+
+  // 2026-07-31: admin paneli (shu sahifaning TEPASIDA) testni o'chirsa,
+  // pastda o'sha test ochiq qolib ketardi — "Testni yakunlash" bosilganda
+  // esa backend 404 berardi ("No ImtihonTest matches the given query").
+  // Endi ochiq test o'chirilgan bo'lsa oyna darhol yopiladi.
+  useEffect(() => {
+    if (ochirilganId != null && test && test.id === ochirilganId) {
+      setTest(null);
+      setNatija(null);
+      api(`/api/imtihon/testlar/?bolim=${bolim}&manba=${manba}`).then(setRoyxat).catch(() => {});
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ochirilganId]);
 
   useEffect(() => {
     if (!test || natija) {
@@ -451,6 +467,7 @@ export default function ImtihonOtish({ bolim, manba = "admin", testId, mockYechi
 
   async function ochish(id) {
     setXato("");
+    setTestYoq(false);
     setNatija(null);
     setJavoblar({});
     setSoniya(0);
@@ -486,6 +503,11 @@ export default function ImtihonOtish({ bolim, manba = "admin", testId, mockYechi
       setAudioUrllar(urllar);
       setRasmUrllar(rasmlar);
       setTest(t2);
+    } catch (e) {
+      // Avval catch YO'Q edi — ro'yxatdagi test oradan o'chirilgan bo'lsa
+      // (masalan tepadagi admin panelidan), sahifa jim qotib qolardi.
+      setXato(e.data?.detail || t("xato_yuz_berdi"));
+      api(`/api/imtihon/testlar/?bolim=${bolim}&manba=${manba}`).then(setRoyxat).catch(() => {});
     } finally {
       setTayyorlanmoqda(false);
     }
@@ -507,10 +529,21 @@ export default function ImtihonOtish({ bolim, manba = "admin", testId, mockYechi
       });
       setNatija(res);
     } catch (e) {
+      // 2026-07-31: test yechilayotganda o'chirilgan/qayta yuklangan bo'lsa
+      // (admin paneli shu sahifaning tepasida) — xom 404 o'rniga tushunarli
+      // xabar va ro'yxatga qaytish yo'li.
+      if (e.data?.kod === "test_topilmadi") setTestYoq(true);
       setXato(e.data?.detail || t("xato_yuz_berdi"));
     } finally {
       setYuklanmoqda(false);
     }
+  }
+
+  function royxatgaQayt() {
+    setTestYoq(false);
+    setXato("");
+    setTest(null);
+    api(`/api/imtihon/testlar/?bolim=${bolim}&manba=${manba}`).then(setRoyxat).catch(() => {});
   }
 
   function ortgaQaytish() {
@@ -845,6 +878,11 @@ export default function ImtihonOtish({ bolim, manba = "admin", testId, mockYechi
       {xato && (
         <div className="xato-xabar" style={{ marginTop: 10 }}>
           {xato}
+          {testYoq && (
+            <button className="tugma ikkinchi kichik" style={{ marginLeft: 10 }} onClick={royxatgaQayt}>
+              {t("imtihon_royxatga_qaytish")}
+            </button>
+          )}
         </div>
       )}
     </div>

@@ -40,6 +40,11 @@ urlpatterns = [
         name="imtihon_boshqaruv_zip",
     ),
     path(
+        "imtihon/testlar-boshqaruv-pdf/",
+        views.ImtihonPdfBoshqaruvView.as_view(),
+        name="imtihon_boshqaruv_pdf",
+    ),
+    path(
         "imtihon/qism-boshqaruv/<int:pk>/",
         views.TestQismiFayllarBoshqaruvView.as_view(),
         name="imtihon_qism_boshqaruv",

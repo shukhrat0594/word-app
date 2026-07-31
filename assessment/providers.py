@@ -553,10 +553,17 @@ class ClaudeProvider:
         self.model = model
         self.timeout_ms = timeout_ms
 
-    def _generate(self, system_prompt, matn, rasm_bytes=None, rasm_mime=None):
+    def _generate(self, system_prompt, matn, rasm_bytes=None, rasm_mime=None,
+                  pdf_bytes=None, max_tokens=4096):
         """Gemini bilan bir xil naqsh (2026-07-26): aniq timeout va buzuq
         JSON uchun qayta urinish — cheksiz kutish gunicorn worker'ini
-        o'ldirmasligi uchun."""
+        o'ldirmasligi uchun.
+
+        `pdf_bytes` (2026-07-31) — Claude PDF'ni O'ZI o'qiydi (`document`
+        bloki): sahifalarni rasmga aylantirish shart emas, model matnni
+        ham, sahifa tuzilishini ham ko'radi. `max_tokens` shu sabab
+        oshiriladigan qilindi — to'liq IELTS Reading testi (3 passage +
+        40 savol) 4096 tokenga sig'maydi."""
         import base64
 
         import anthropic
@@ -565,7 +572,19 @@ class ClaudeProvider:
             api_key=self.api_key, timeout=self.timeout_ms / 1000
         )
         content = matn
-        if rasm_bytes:
+        if pdf_bytes:
+            content = [
+                {
+                    "type": "document",
+                    "source": {
+                        "type": "base64",
+                        "media_type": "application/pdf",
+                        "data": base64.b64encode(pdf_bytes).decode(),
+                    },
+                },
+                {"type": "text", "text": matn},
+            ]
+        elif rasm_bytes:
             content = [
                 {
                     "type": "image",
@@ -582,7 +601,7 @@ class ClaudeProvider:
         for _ in range(URINISHLAR):
             response = client.messages.create(
                 model=self.model,
-                max_tokens=4096,
+                max_tokens=max_tokens,
                 system=system_prompt,
                 messages=[{"role": "user", "content": content}],
             )
@@ -615,6 +634,13 @@ class ClaudeProvider:
         """Boshqa app'lar (masalan `courses`) uchun ochiq interfeys — `_generate`
         shaxsiy metod, app chegarasidan tashqarida chaqirilmasligi kerak."""
         return self._generate(system_prompt, matn, rasm_bytes, rasm_mime)
+
+    def generate_json_pdf(self, system_prompt, matn, pdf_bytes, max_tokens=16000):
+        """PDF'dan JSON (2026-07-31, `exercises.pdf_generatsiya` uchun).
+        Faqat Claude'da bor — Gemini yo'lida PDF hujjat bloki ishlatilmaydi."""
+        return self._generate(
+            system_prompt, matn, pdf_bytes=pdf_bytes, max_tokens=max_tokens
+        )
 
 
 def provider_tanla(user):

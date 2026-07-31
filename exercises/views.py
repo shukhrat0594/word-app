@@ -796,6 +796,61 @@ class ImtihonZipBoshqaruvView(APIView):
         )
 
 
+class ImtihonPdfBoshqaruvView(APIView):
+    """Owner/admin uchun — Reading/Listening testini PDF'dan yaratish
+    (2026-07-31, foydalanuvchi talabi).
+
+    Prinsip Kurslar'dagi "rasmdan mashq qo'shish" bilan bir xil: bitta
+    fayl -> bitta sinxron AI chaqiruvi -> natija darhol bazaga yoziladi.
+    ZIP'dagi ko'p-bosqichli jarayon shart emas.
+
+    Farqi ZIP yo'lidan: bu yerda JSON'ni tashqi AI emas, PDF'ni O'ZI
+    ko'rgan Claude tayyorlaydi — passage chegaralari chalkashmasligi
+    uchun (tafsilot: `pdf_generatsiya` modul izohi)."""
+
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request):
+        if not _mashq_admin_mi(request.user):
+            return Response({"detail": "Faqat admin/owner uchun"}, status=403)
+
+        markaz = Markaz.objects.first()
+        if not markaz:
+            return Response({"detail": "Markaz topilmadi"}, status=400)
+
+        fayl = request.FILES.get("pdf_fayl")
+        if not fayl:
+            return Response({"detail": "pdf_fayl majburiy"}, status=400)
+
+        from .pdf_generatsiya import pdfdan_test_chiqar
+
+        data, xato = pdfdan_test_chiqar(fayl.read(), request.data.get("bolim") or "")
+        if xato:
+            return Response({"detail": xato}, status=502)
+
+        manba = _manba_ol(request)
+        test, yaratish_xatosi = _test_yarat(
+            data, markaz, yaratuvchi=request.user, manba=manba
+        )
+        if yaratish_xatosi:
+            return Response(yaratish_xatosi, status=400)
+
+        logla(
+            foydalanuvchi=request.user,
+            harakat=FaoliyatYozuvi.Harakat.YARATISH,
+            obyekt=test,
+            obyekt_turi="ImtihonTest",
+            snapshot={
+                "name": test.name,
+                "bolim": test.bolim,
+                "qismlar_soni": test.qismlar.count(),
+                "manba": "pdf",
+            },
+        )
+        return Response(_test_admin_dict(test), status=201)
+
+
 class ImtihonBoshqaruvDetailView(APIView):
     """Owner/admin uchun — to'liq testni butunlay o'chirish."""
 
@@ -946,6 +1001,34 @@ def _mock_yechimni_yangila(user, mock_yechim_id, bolim, malumot):
     }
 
 
+def _yechilayotgan_testni_ol(user, pk):
+    """Yechilayotgan testni oladi; yo'q bo'lsa TUSHUNARLI xato qaytaradi.
+
+    2026-07-31 (foydalanuvchi xabar berdi): "Testni yakunlash" bosilganda
+    xom Django xabari chiqardi — "No ImtihonTest matches the given query."
+    Bu talabaga hech narsa tushuntirmaydi. Sabab esa deyarli doim bitta:
+    test OCHIQ turganda o'chirilgan yoki qayta yuklangan (admin paneli va
+    test yechish oynasi BITTA sahifada — `ImtihonBoshqarish.jsx`).
+
+    `kod` — frontend uchun mashina o'qiy oladigan belgi: shu kod kelsa
+    test oynasi yopilib, ro'yxat yangilanadi.
+
+    Qaytaradi: (test, None) yoki (None, Response)."""
+    test = korinadigan_testlar(user).filter(pk=pk).first()
+    if test is None:
+        return None, Response(
+            {
+                "detail": (
+                    "Bu test topilmadi — u o'chirilgan yoki qayta yuklangan "
+                    "bo'lishi mumkin. Testni ro'yxatdan qaytadan oching."
+                ),
+                "kod": "test_topilmadi",
+            },
+            status=404,
+        )
+    return test, None
+
+
 class ImtihonYechishView(APIView):
     """Butun testga javob yuborish — flat ro'yxat, barcha qismlar bo'yicha
     uzluksiz tartibda. Kunlik limitga bog'liq emas (mustaqil, cheklovsiz)."""
@@ -953,7 +1036,9 @@ class ImtihonYechishView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, pk):
-        test = get_object_or_404(korinadigan_testlar(request.user), pk=pk)
+        test, xato = _yechilayotgan_testni_ol(request.user, pk)
+        if xato:
+            return xato
         javoblar = request.data.get("javoblar")
         if not isinstance(javoblar, list):
             return Response({"detail": "javoblar ro'yxati majburiy"}, status=400)
@@ -1039,7 +1124,9 @@ class ImtihonYozGapTekshirishView(APIView):
         from assessment.views import ai_xatosi_javobi
         from packages.models import paketdan_ishlat
 
-        test = get_object_or_404(korinadigan_testlar(request.user), pk=pk)
+        test, topilmadi = _yechilayotgan_testni_ol(request.user, pk)
+        if topilmadi:
+            return topilmadi
         if test.bolim not in (Bolim.WRITING, Bolim.SPEAKING):
             return Response({"detail": "Bu endpoint faqat Writing/Speaking testlar uchun"}, status=400)
 

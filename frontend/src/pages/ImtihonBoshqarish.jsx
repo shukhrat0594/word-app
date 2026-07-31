@@ -301,12 +301,16 @@ function YozGapKiritish({ bolim, manba, qismgaFaylYukla, royxatniYangila }) {
  * bir nechta test, papka bo'yicha). Savollar strukturasi murakkab
  * (guruhlar, so'z banki va h.k.) bo'lgani uchun qo'lda kiritish yo'q —
  * AI-promt yordamchisi bilan JSON tayyorlanadi, ZIP'ga solinadi. */
-function RLKiritish({ manba, royxatniYangila }) {
+function RLKiritish({ bolim, manba, royxatniYangila }) {
   const { t } = useI18n();
   const [xato, setXato] = useState("");
   const [saqlanmoqda, setSaqlanmoqda] = useState(false);
   const [promtKorinadi, setPromtKorinadi] = useState(false);
   const [nusxalandi, setNusxalandi] = useState(false);
+  // 2026-07-31: PDF'dan to'g'ridan-to'g'ri yuklash (sinov). ZIP'dan farqi —
+  // JSON'ni tashqi AI emas, PDF'ni o'zi ko'rgan Claude tayyorlaydi, shu
+  // sababli passage chegaralari chalkashmaydi.
+  const [pdfYuklanmoqda, setPdfYuklanmoqda] = useState(false);
 
   function promtNusxala() {
     navigator.clipboard?.writeText(AI_PROMT).then(() => {
@@ -334,10 +338,45 @@ function RLKiritish({ manba, royxatniYangila }) {
     }
   }
 
+  async function pdfYukla(e) {
+    const fayl = e.target.files[0];
+    e.target.value = "";
+    if (!fayl) return;
+    setXato("");
+    setPdfYuklanmoqda(true);
+    try {
+      const fd = new FormData();
+      fd.append("pdf_fayl", fayl);
+      fd.append("manba", manba);
+      fd.append("bolim", bolim);
+      await apiForm("/api/imtihon/testlar-boshqaruv-pdf/", { method: "POST", formData: fd });
+      royxatniYangila();
+    } catch (err) {
+      setXato(err.data?.detail || t("imtihon_json_xato"));
+    } finally {
+      setPdfYuklanmoqda(false);
+    }
+  }
+
   return (
     <div>
       <p className="izoh" style={{ marginTop: 0 }}>{t("imtihon_zip_izoh")}</p>
-      <input type="file" accept=".zip" onChange={zipYukla} disabled={saqlanmoqda} />
+      <input type="file" accept=".zip" onChange={zipYukla} disabled={saqlanmoqda || pdfYuklanmoqda} />
+
+      <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px solid var(--chiziq)" }}>
+        <p className="izoh" style={{ marginTop: 0 }}>{t("imtihon_pdf_izoh")}</p>
+        <label className="tugma" style={{ cursor: pdfYuklanmoqda ? "default" : "pointer" }}>
+          {pdfYuklanmoqda ? t("imtihon_pdf_yuklanmoqda") : t("imtihon_pdf_yuklash")}
+          <input
+            type="file"
+            accept="application/pdf,.pdf"
+            onChange={pdfYukla}
+            disabled={saqlanmoqda || pdfYuklanmoqda}
+            style={{ display: "none" }}
+          />
+        </label>
+      </div>
+
       {xato && <div className="xato-xabar" style={{ marginTop: 8 }}>{xato}</div>}
 
       <div style={{ marginTop: 14 }}>
@@ -395,14 +434,14 @@ function KiritishPanel({ manba, qismgaFaylYukla, royxatniYangila }) {
           royxatniYangila={royxatniYangila}
         />
       ) : (
-        <RLKiritish manba={manba} royxatniYangila={royxatniYangila} />
+        <RLKiritish bolim={bolim} manba={manba} royxatniYangila={royxatniYangila} />
       )}
     </div>
   );
 }
 
 /** Faqat admin/owner uchun — test yaratish/o'chirish/tahrirlash. */
-function AdminBoshqaruv({ manba }) {
+function AdminBoshqaruv({ manba, onOchirildi }) {
   const { t } = useI18n();
   const [royxat, setRoyxat] = useState(null);
   const [filtrBolim, setFiltrBolim] = useState("");
@@ -471,6 +510,9 @@ function AdminBoshqaruv({ manba }) {
     try {
       await api(`/api/imtihon/testlar-boshqaruv/${id}/`, { method: "DELETE" });
       yukla(filtrBolim);
+      // Pastdagi test yechish oynasi shu testni ochib turgan bo'lsa —
+      // yopilishi uchun xabar beramiz (2026-07-31).
+      onOchirildi?.(id);
     } catch {
       // sokin
     }
@@ -617,10 +659,13 @@ export default function ImtihonBoshqarish({ manba = "admin" }) {
   const { profil } = useProfil();
   const adminMi = profil?.is_owner || profil?.role === "admin";
   const [bolim, setBolim] = useState("writing");
+  // Admin yuqorida testni o'chirsa, pastdagi yechish oynasi o'sha testni
+  // ochib turgan bo'lishi mumkin — id shu yerdan pastga uzatiladi.
+  const [ochirilganId, setOchirilganId] = useState(null);
 
   return (
     <div style={{ display: "grid", gap: 20 }}>
-      {adminMi && <AdminBoshqaruv manba={manba} />}
+      {adminMi && <AdminBoshqaruv manba={manba} onOchirildi={setOchirilganId} />}
 
       <div>
         <div className="tab-guruh" style={{ marginBottom: 12 }}>
@@ -651,7 +696,7 @@ export default function ImtihonBoshqarish({ manba = "admin" }) {
           <ImtihonYozGap bolim={bolim} manba={manba} />
         )}
         {(bolim === "reading" || bolim === "listening") && (
-          <ImtihonOtish bolim={bolim} manba={manba} />
+          <ImtihonOtish bolim={bolim} manba={manba} ochirilganId={ochirilganId} />
         )}
         {bolim === "mock" && <ImtihonMock manba={manba} />}
       </div>
