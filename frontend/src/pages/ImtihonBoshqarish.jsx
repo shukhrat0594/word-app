@@ -3,7 +3,7 @@ import { api, apiForm } from "../api";
 import { useI18n } from "../i18n";
 import { useProfil } from "../profilContext";
 import ImtihonMock from "./ImtihonMock";
-import ImtihonOtish from "./ImtihonOtish";
+import ImtihonOtish, { vaqtFormat } from "./ImtihonOtish";
 import ImtihonYozGap from "./ImtihonYozGap";
 
 const AI_PROMT = `Men senga to'liq IELTS Reading yoki Listening testi (masalan Cambridge IELTS kitobidan) matnini/transkriptini beraman. Sen shu materialni quyidagi JSON formatiga o'girib ber — natija FAQAT valid JSON obyekt bo'lsin, hech qanday izoh, sarlavha yoki markdown belgisi (masalan \`\`\`json) qo'shma, faqat sof JSON matni qaytar.
@@ -301,16 +301,204 @@ function YozGapKiritish({ bolim, manba, qismgaFaylYukla, royxatniYangila }) {
  * bir nechta test, papka bo'yicha). Savollar strukturasi murakkab
  * (guruhlar, so'z banki va h.k.) bo'lgani uchun qo'lda kiritish yo'q —
  * AI-promt yordamchisi bilan JSON tayyorlanadi, ZIP'ga solinadi. */
+/** PDF yuklash oynasi (2026-07-31 talabi).
+ *
+ * Nega alohida oyna: AI test nomini ham, savol oraliqlarini ham o'zi
+ * taxmin qilardi — natijada nom noto'g'ri chiqdi va 40 o'rniga 38 savol
+ * yaratildi. Endi ikkalasini ADMIN kiritadi, ya'ni taxmin qoladigan joy
+ * yo'q: backend har qismdan AYNAN shuncha savol kutadi, kam chiqsa
+ * o'sha qismni qayta so'raydi.
+ *
+ * Oraliqlar ketma-ket: 1-qismning oxiri kiritilsa, 2-qismning boshi
+ * avtomatik "oxiri + 1" bo'ladi (3-qism ham shunday) — admin faqat
+ * oxirgi raqamlarni yozadi.
+ *
+ * Yuklash paytida oyna butun ekranni qoplaydi va yopilmaydi — bu ataylab:
+ * jarayon 2-3 daqiqa davom etadi va yarim yo'lda boshqa amal qilinsa
+ * chala test qolib ketardi. */
+function PdfYuklashOynasi({ bolim, manba, yopish, tugadi }) {
+  const { t } = useI18n();
+  // Reading — 3 passage, Listening — 4 part (IELTS standarti).
+  const qismSoni = bolim === "listening" ? 4 : 3;
+  const [nom, setNom] = useState("");
+  const [oraliqlar, setOraliqlar] = useState(() =>
+    Array.from({ length: qismSoni }, (_, i) => ({ boshi: i === 0 ? "1" : "", oxiri: "" })),
+  );
+  const [yuklanmoqda, setYuklanmoqda] = useState(false);
+  const [otganSoniya, setOtganSoniya] = useState(0);
+  const [xato, setXato] = useState("");
+
+  useEffect(() => {
+    if (!yuklanmoqda) return undefined;
+    const boshlandi = Date.now();
+    setOtganSoniya(0);
+    const taymer = setInterval(() => setOtganSoniya(Math.floor((Date.now() - boshlandi) / 1000)), 1000);
+    return () => clearInterval(taymer);
+  }, [yuklanmoqda]);
+
+  // Bir maydon o'zgarsa — keyingi qismlarning boshi zanjir bo'ylab
+  // qayta hisoblanadi (oxiri + 1).
+  function qiymatniQoy(idx, maydon, qiymat) {
+    setOraliqlar((eski) => {
+      const yangi = eski.map((o, i) => (i === idx ? { ...o, [maydon]: qiymat } : { ...o }));
+      for (let i = 0; i < yangi.length - 1; i += 1) {
+        const oxiri = Number(yangi[i].oxiri);
+        yangi[i + 1].boshi = Number.isInteger(oxiri) && oxiri > 0 ? String(oxiri + 1) : "";
+      }
+      return yangi;
+    });
+  }
+
+  const toldirilgan =
+    nom.trim().length > 0
+    && oraliqlar.every((o) => {
+      const b = Number(o.boshi);
+      const x = Number(o.oxiri);
+      return Number.isInteger(b) && Number.isInteger(x) && b > 0 && x >= b;
+    });
+
+  const jamiSavol = toldirilgan
+    ? Number(oraliqlar[oraliqlar.length - 1].oxiri) - Number(oraliqlar[0].boshi) + 1
+    : 0;
+
+  async function faylTanlandi(e) {
+    const fayl = e.target.files[0];
+    e.target.value = "";
+    if (!fayl) return;
+    setXato("");
+    setYuklanmoqda(true);
+    try {
+      const fd = new FormData();
+      fd.append("pdf_fayl", fayl);
+      fd.append("manba", manba);
+      fd.append("bolim", bolim);
+      fd.append("name", nom.trim());
+      fd.append(
+        "qismlar",
+        JSON.stringify(oraliqlar.map((o) => ({ boshi: Number(o.boshi), oxiri: Number(o.oxiri) }))),
+      );
+      const natija = await apiForm("/api/imtihon/testlar-boshqaruv-pdf/", { method: "POST", formData: fd });
+      tugadi(natija?.xatolar || []);
+    } catch (err) {
+      // `detail` bo'lmasa — javob DRF'dan emas (proxy/gunicorn uzgan).
+      // Statusni ko'rsatamiz, aks holda sabab umuman bilinmaydi.
+      setXato(
+        err.data?.detail
+          || (err.status ? `${t("imtihon_json_xato")} (HTTP ${err.status})` : t("imtihon_json_xato")),
+      );
+      setYuklanmoqda(false);
+    }
+  }
+
+  return (
+    <div className="blok-yuklash-qoplama">
+      {/* `blok-yuklash-karta` sukut bo'yicha 320px va markazga tortadi —
+          bu forma uchun to'g'ri kelmaydi, shuning uchun kengaytirib,
+          chapga tekislaymiz. */}
+      <div
+        className="blok-yuklash-karta"
+        style={{
+          width: "min(460px, calc(100vw - 32px))",
+          maxHeight: "calc(100vh - 32px)",
+          overflowY: "auto",
+          justifyItems: "stretch",
+          textAlign: "left",
+        }}
+      >
+        <div style={{ fontWeight: 700, marginBottom: 10 }}>{t("imtihon_pdf_oyna_sarlavha")}</div>
+
+        {yuklanmoqda ? (
+          <div style={{ display: "grid", justifyItems: "center", gap: 6, textAlign: "center" }}>
+            <div className="blok-yuklash-spinner" aria-hidden="true" />
+            <div className="izoh" style={{ marginTop: 8 }}>{t("imtihon_pdf_yuklanmoqda")}</div>
+            <div className="izoh">{t("kurs_blok_otgan_vaqt")}: {vaqtFormat(otganSoniya)}</div>
+            <div className="izoh" style={{ marginTop: 6 }}>{t("imtihon_pdf_kutish_izoh")}</div>
+          </div>
+        ) : (
+          <>
+            <label className="izoh" style={{ display: "block", marginBottom: 4 }}>
+              {t("imtihon_nomi")}
+            </label>
+            <input
+              value={nom}
+              onChange={(e) => setNom(e.target.value)}
+              placeholder="Cambridge IELTS 21 Reading Test 4"
+              style={{ width: "100%", marginBottom: 12 }}
+            />
+
+            <div className="izoh" style={{ marginBottom: 6 }}>{t("imtihon_pdf_oraliq_izoh")}</div>
+            {oraliqlar.map((o, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                <span className="izoh" style={{ minWidth: 78 }}>
+                  {bolim === "listening" ? `Part ${i + 1}` : `Passage ${i + 1}`}
+                </span>
+                <input
+                  type="number"
+                  min="1"
+                  value={o.boshi}
+                  onChange={(e) => qiymatniQoy(i, "boshi", e.target.value)}
+                  // 1-qismdan keyingilari avtomatik hisoblanadi.
+                  readOnly={i > 0}
+                  style={{ width: 64 }}
+                />
+                <span className="izoh">—</span>
+                <input
+                  type="number"
+                  min="1"
+                  value={o.oxiri}
+                  onChange={(e) => qiymatniQoy(i, "oxiri", e.target.value)}
+                  style={{ width: 64 }}
+                />
+              </div>
+            ))}
+            {toldirilgan && (
+              <div className="izoh" style={{ marginTop: 4 }}>
+                {t("imtihon_pdf_jami_savol")}: <strong>{jamiSavol}</strong>
+              </div>
+            )}
+
+            <div style={{ marginTop: 14, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              {toldirilgan ? (
+                <label className="tugma" style={{ cursor: "pointer" }}>
+                  {t("imtihon_pdf_yuklash")}
+                  <input
+                    type="file"
+                    accept="application/pdf,.pdf"
+                    onChange={faylTanlandi}
+                    style={{ display: "none" }}
+                  />
+                </label>
+              ) : (
+                <button type="button" className="tugma" disabled title={t("imtihon_pdf_avval_toldiring")}>
+                  {t("imtihon_pdf_yuklash")}
+                </button>
+              )}
+              <button type="button" className="tugma ikkinchi" onClick={yopish}>
+                {t("kurs_blok_bekor_qilish")}
+              </button>
+            </div>
+            {!toldirilgan && (
+              <div className="izoh" style={{ marginTop: 6 }}>{t("imtihon_pdf_avval_toldiring")}</div>
+            )}
+          </>
+        )}
+
+        {xato && <div className="xato-xabar" style={{ marginTop: 10 }}>{xato}</div>}
+      </div>
+    </div>
+  );
+}
+
 function RLKiritish({ bolim, manba, royxatniYangila }) {
   const { t } = useI18n();
   const [xato, setXato] = useState("");
   const [saqlanmoqda, setSaqlanmoqda] = useState(false);
   const [promtKorinadi, setPromtKorinadi] = useState(false);
   const [nusxalandi, setNusxalandi] = useState(false);
-  // 2026-07-31: PDF'dan to'g'ridan-to'g'ri yuklash (sinov). ZIP'dan farqi —
+  // 2026-07-31: PDF'dan to'g'ridan-to'g'ri yuklash. ZIP'dan farqi —
   // JSON'ni tashqi AI emas, PDF'ni o'zi ko'rgan Claude tayyorlaydi, shu
   // sababli passage chegaralari chalkashmaydi.
-  const [pdfYuklanmoqda, setPdfYuklanmoqda] = useState(false);
+  const [pdfOynasi, setPdfOynasi] = useState(false);
 
   function promtNusxala() {
     navigator.clipboard?.writeText(AI_PROMT).then(() => {
@@ -338,55 +526,35 @@ function RLKiritish({ bolim, manba, royxatniYangila }) {
     }
   }
 
-  async function pdfYukla(e) {
-    const fayl = e.target.files[0];
-    e.target.value = "";
-    if (!fayl) return;
-    setXato("");
-    setPdfYuklanmoqda(true);
-    try {
-      const fd = new FormData();
-      fd.append("pdf_fayl", fayl);
-      fd.append("manba", manba);
-      fd.append("bolim", bolim);
-      const natija = await apiForm("/api/imtihon/testlar-boshqaruv-pdf/", { method: "POST", formData: fd });
-      royxatniYangila();
-      // Test yaratildi, lekin ba'zi qismlar chiqmagan bo'lishi mumkin —
-      // buni JIM qoldirmaymiz (avval "faqat bir qismi yuklandi" degan
-      // tushunarsiz holat shundan kelib chiqqandi).
-      if (natija?.xatolar?.length) {
-        setXato(`${t("imtihon_pdf_qisman")}: ${natija.xatolar.join("; ")}`);
-      }
-    } catch (err) {
-      // `detail` bo'lmasa — javob DRF'dan emas (proxy/gunicorn uzgan).
-      // Statusni ko'rsatamiz, aks holda sabab umuman bilinmaydi.
-      setXato(
-        err.data?.detail
-          || (err.status ? `${t("imtihon_json_xato")} (HTTP ${err.status})` : t("imtihon_json_xato"))
-      );
-    } finally {
-      setPdfYuklanmoqda(false);
-    }
+  function pdfTugadi(xatolar) {
+    setPdfOynasi(false);
+    royxatniYangila();
+    // Test yaratildi, lekin ba'zi qismlar chala bo'lishi mumkin — buni
+    // JIM qoldirmaymiz (avval "faqat bir qismi yuklandi" degan
+    // tushunarsiz holat shundan kelib chiqqandi).
+    setXato(xatolar.length ? `${t("imtihon_pdf_qisman")}: ${xatolar.join("; ")}` : "");
   }
 
   return (
     <div>
       <p className="izoh" style={{ marginTop: 0 }}>{t("imtihon_zip_izoh")}</p>
-      <input type="file" accept=".zip" onChange={zipYukla} disabled={saqlanmoqda || pdfYuklanmoqda} />
+      <input type="file" accept=".zip" onChange={zipYukla} disabled={saqlanmoqda} />
 
       <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px solid var(--chiziq)" }}>
         <p className="izoh" style={{ marginTop: 0 }}>{t("imtihon_pdf_izoh")}</p>
-        <label className="tugma" style={{ cursor: pdfYuklanmoqda ? "default" : "pointer" }}>
-          {pdfYuklanmoqda ? t("imtihon_pdf_yuklanmoqda") : t("imtihon_pdf_yuklash")}
-          <input
-            type="file"
-            accept="application/pdf,.pdf"
-            onChange={pdfYukla}
-            disabled={saqlanmoqda || pdfYuklanmoqda}
-            style={{ display: "none" }}
-          />
-        </label>
+        <button type="button" className="tugma" onClick={() => { setXato(""); setPdfOynasi(true); }}>
+          {t("imtihon_pdf_yuklash")}
+        </button>
       </div>
+
+      {pdfOynasi && (
+        <PdfYuklashOynasi
+          bolim={bolim}
+          manba={manba}
+          yopish={() => setPdfOynasi(false)}
+          tugadi={pdfTugadi}
+        />
+      )}
 
       {xato && <div className="xato-xabar" style={{ marginTop: 8 }}>{xato}</div>}
 

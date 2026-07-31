@@ -55,6 +55,15 @@ JAMI_BUDJET_SONIYA = 200
 MAKS_SAHIFA = 100
 MAKS_HAJM_MB = 32
 
+# Bo'lak PDF'ga oxiridan qo'shiladigan ZAXIRA sahifa (2026-07-31).
+# Sabab: foydalanuvchi 40 o'rniga 38 savol oldi. Reja bosqichi
+# "tugash_sahifa"ni bir varaq kalta bergan bo'lsa, savollar blokining
+# dumi bo'lak PDF'ga UMUMAN tushmaydi — model uni ko'rmaydi ham, ya'ni
+# prompt bilan tuzatib bo'lmaydi. Bir sahifa zaxira shu holatni yopadi;
+# qo'shni passage matni kirib ketmasligi uchun promptda ALOHIDA
+# ogohlantiriladi.
+ZAXIRA_SAHIFA = 1
+
 PASSAGE_QOIDASI = (
     "PASSAGE/PART CHEGARASI — ENG MUHIM QOIDA:\n"
     "Sizga PDF'ning O'ZI berilyapti, ya'ni sahifalarni va sarlavhalarni "
@@ -94,6 +103,11 @@ REJA_PROMPT = (
     "- Oraliqlar bir-birining ustiga tushmasin.\n"
     "- \"yoriqnoma\": kitobdagi ko'rsatma (masalan \"You should spend "
     "about 20 minutes on Questions 1-13...\"). Bo'lmasa bo'sh qoldiring.\n"
+    "- \"birinchi_savol\" va \"oxirgi_savol\" — SHU qismning savol "
+    "raqamlari oralig'i (masalan Passage 2 uchun 14 va 26). Kitobda "
+    "\"Questions 14-26\" deb yozilgan bo'ladi; ko'rinmasa savollarni "
+    "sanab chiqing. BU MUHIM: shu raqamlar bo'yicha keyin har qism "
+    "TO'LIQ chiqqanini tekshiramiz.\n"
     "- PDF'da bir nechta test bo'lsa — FAQAT BIRINCHISINI oling.\n"
     "- Javoblar kaliti (Answer key) sahifalarini qismlarga QO'SHMANG."
 )
@@ -113,10 +127,13 @@ REJA_SXEMASI = {
                     "yoriqnoma": {"type": "string"},
                     "boshlanish_sahifa": {"type": "integer"},
                     "tugash_sahifa": {"type": "integer"},
+                    "birinchi_savol": {"type": "integer"},
+                    "oxirgi_savol": {"type": "integer"},
                 },
                 "required": [
                     "tartib", "sarlavha", "yoriqnoma",
                     "boshlanish_sahifa", "tugash_sahifa",
+                    "birinchi_savol", "oxirgi_savol",
                 ],
                 "additionalProperties": False,
             },
@@ -142,6 +159,14 @@ QISM_PROMPT = (
 
     "Vazifa: shu passage'ning MATNINI va unga tegishli SAVOLLARNI "
     "chiqaring.\n\n"
+
+    "DIQQAT — CHEGARA: berilgan varaqlarning oxirida QO'SHNI qismning "
+    "boshi ham ko'rinib qolishi mumkin (biz ataylab bir varaq zaxira "
+    "qo'shamiz, savollar dumi kesilib qolmasin deb). Sizga topshiriqda "
+    "AYNAN qaysi qism kerakligi va uning savol raqamlari aytiladi — "
+    "FAQAT o'shani oling. Keyingi passage sarlavhasidan (\"READING "
+    "PASSAGE ...\", \"Part ...\", \"SECTION ...\") keyingi matnni va "
+    "unga tegishli savollarni QO'SHMANG.\n\n"
 
     "MATN QOIDASI:\n"
     "- \"matn\" — FAQAT o'qish matni (passage). Savollar bloki "
@@ -440,20 +465,58 @@ def pdf_bolagini_ol(pdf_bytes, boshlanish, tugash):
         manba.close()
 
 
-def _qismni_chiqar(provider, pdf_bytes, qism_rejasi, bolim, boshlangich_raqam):
-    """Bitta passage/part uchun matn + savollar. (natija, xato) qaytaradi."""
+def _kutilgan_savol_soni(qism_rejasi):
+    """Reja aytgan savol raqamlari oralig'idan savol sonini hisoblaydi.
+    Reja bermasa yoki qiymatlar bema'ni bo'lsa None."""
+    try:
+        b = int(qism_rejasi["birinchi_savol"])
+        o = int(qism_rejasi["oxirgi_savol"])
+    except (KeyError, TypeError, ValueError):
+        return None
+    return o - b + 1 if 0 < b <= o else None
+
+
+def _qismni_chiqar(provider, pdf_bytes, qism_rejasi, bolim, boshlangich_raqam,
+                   kamchilik=None):
+    """Bitta passage/part uchun matn + savollar. (natija, xato) qaytaradi.
+
+    `kamchilik` — (chiqqan_soni, kutilgan_soni). Berilsa bu QAYTA so'rov:
+    modelga nechta savol tashlab ketgani aniq aytiladi."""
     b = qism_rejasi.get("boshlanish_sahifa") or 1
     t = qism_rejasi.get("tugash_sahifa") or b
-    bolak = pdf_bolagini_ol(pdf_bytes, b, t) or pdf_bytes
+    # Oxiriga ZAXIRA sahifa — savollar bloki keyingi varaqqa o'tib ketgan
+    # bo'lsa ham modelga ko'rinsin (tafsilot: `ZAXIRA_SAHIFA` izohi).
+    bolak = pdf_bolagini_ol(pdf_bytes, b, t + ZAXIRA_SAHIFA) or pdf_bytes
 
+    kutilgan = _kutilgan_savol_soni(qism_rejasi)
     topshiriq = (
         f"Bu {bolim} bo'limining \"{qism_rejasi.get('sarlavha') or ''}\" qismi.\n"
-        f"Berilgan varaqlar PDF'ning {b}-{t} sahifalari — "
-        f"\"rasm_sahifasi\"ni shu oraliqdagi raqam bilan yozing.\n"
+        f"Berilgan varaqlar PDF'ning {b}-{t + ZAXIRA_SAHIFA} sahifalari "
+        f"(oxirgi varaq — zaxira, unda keyingi qismning boshi bo'lishi "
+        f"mumkin). \"rasm_sahifasi\"ni shu oraliqdagi raqam bilan yozing.\n"
         f"Bu qismning birinchi savoli butun test bo'yicha "
         f"{boshlangich_raqam}-savol — {{{{n}}}} raqamlarini shundan boshlab "
         "sanang."
     )
+    if kutilgan:
+        topshiriq += (
+            f"\nBu qismda AYNAN {kutilgan} ta savol bo'lishi kerak "
+            f"({boshlangich_raqam}-{boshlangich_raqam + kutilgan - 1}). "
+            "Hammasini chiqaring — bittasini ham tashlab ketmang. Agar "
+            "savol jadval yoki blok-sxema ichidagi bo'sh joy bo'lsa, u ham "
+            "alohida savol sifatida sanaladi."
+        )
+    if kamchilik:
+        chiqqan, kerak = kamchilik
+        topshiriq += (
+            f"\n\nDIQQAT — QAYTA SO'ROV: oldingi urinishda siz {chiqqan} ta "
+            f"savol qaytardingiz, lekin {kerak} ta bo'lishi kerak. "
+            "Sahifalarni QAYTADAN, boshidan oxirigacha ko'zdan kechiring: "
+            "jadval kataklaridagi bo'sh joylar, blok-sxema qutilari, "
+            "so'z banki bilan to'ldiriladigan har bir bo'sh joy — "
+            "bularning HAR BIRI alohida savol. Keyingi varaqqa o'tib "
+            "ketgan savollarni ham qo'shing."
+        )
     try:
         javob = provider.generate_json_pdf(
             QISM_PROMPT, topshiriq, bolak,
@@ -470,7 +533,7 @@ def _qismni_chiqar(provider, pdf_bytes, qism_rejasi, bolim, boshlangich_raqam):
     return natija, None
 
 
-def pdfdan_test_chiqar(pdf_bytes, bolim=""):
+def pdfdan_test_chiqar(pdf_bytes, bolim="", nom="", oraliqlar=None):
     """PDF -> IELTS test JSON'i (`_test_yarat` kutadigan format).
 
     IKKI BOSQICHLI (2026-07-31 da qayta yozildi). Avval BITTA katta
@@ -487,6 +550,14 @@ def pdfdan_test_chiqar(pdf_bytes, bolim=""):
     Umumiy VAQT BUDJETI bor: budjet tugasa qolgan qismlar tashlanadi va
     `xatolar`da aniq aytiladi — gunicorn uzib qo'yishidan ko'ra
     "nima yetishmadi" deb aytgan yaxshiroq.
+
+    `nom` va `oraliqlar` — ADMIN yuklash oynasida bergan ma'lumot
+    (2026-07-31 talabi). `oraliqlar` = [{"boshi": 1, "oxiri": 14}, ...].
+    Nega admin beradi: AI savol oraliqlarini o'zi taxmin qilganda 40
+    o'rniga 38 savol chiqargan edi, test nomini ham noto'g'ri olgandi.
+    Admin bergan oraliq — HAQIQAT MANBASI: har qismdan aynan shuncha
+    savol kutiladi, kam chiqsa QAYTA so'raladi, baribir kam bo'lsa
+    `xatolar`da aniq aytiladi (jim 38 bo'lib qolmaydi).
 
     Qaytaradi: (data, xato_matni, xatolar_royxati)."""
     import time
@@ -528,39 +599,82 @@ def pdfdan_test_chiqar(pdf_bytes, bolim=""):
         return None, "PDF'da passage/part topilmadi", []
     reja_qismlar.sort(key=lambda q: q.get("tartib") or 0)
 
+    # Admin oraliq bergan bo'lsa — u HAQIQAT MANBASI. Rejaning o'z
+    # taxminini almashtiramiz (sahifa oraliqlari esa rejadan qoladi —
+    # admin qaysi varaqda ekanini bilmaydi).
+    oraliqlar = oraliqlar or []
+    if oraliqlar and len(oraliqlar) != len(reja_qismlar):
+        xatolar_boshlangich = [
+            f"Siz {len(oraliqlar)} ta qism kiritdingiz, PDF'da "
+            f"{len(reja_qismlar)} ta topildi — oraliqlar tartib bo'yicha "
+            "moslashtirildi"
+        ]
+    else:
+        xatolar_boshlangich = []
+    for i, rq in enumerate(reja_qismlar):
+        if i < len(oraliqlar):
+            rq["birinchi_savol"] = oraliqlar[i].get("boshi")
+            rq["oxirgi_savol"] = oraliqlar[i].get("oxiri")
+
     # --- 2-bosqich: har qism alohida ---
-    qismlar, xatolar = [], []
+    qismlar, xatolar = [], list(xatolar_boshlangich)
     keyingi_savol_raqami = 1
+    test_bolimi = reja.get("bolim") or bolim or "reading"
     for i, rq in enumerate(reja_qismlar, start=1):
-        nom = rq.get("sarlavha") or f"{i}-qism"
+        qism_nomi = rq.get("sarlavha") or f"{i}-qism"
         if time.monotonic() - boshlandi > JAMI_BUDJET_SONIYA:
-            xatolar.append(f"{nom}: vaqt budjeti tugadi, chiqarilmadi")
+            xatolar.append(f"{qism_nomi}: vaqt budjeti tugadi, chiqarilmadi")
             continue
+
+        kutilgan = _kutilgan_savol_soni(rq)
+        boshi = rq.get("birinchi_savol") or keyingi_savol_raqami
         natija, xato = _qismni_chiqar(
-            provider, pdf_bytes, rq, reja.get("bolim") or bolim or "reading",
-            keyingi_savol_raqami,
+            provider, pdf_bytes, rq, test_bolimi, boshi,
         )
         if xato:
-            xatolar.append(f"{nom}: {xato}")
+            xatolar.append(f"{qism_nomi}: {xato}")
             continue
         savollar = natija.get("savollar") or []
+
+        # Savol soni kutilganidan KAM bo'lsa BIR marta qayta so'raymiz —
+        # aynan shu holat "40 o'rniga 38" bo'lib chiqqan edi. Budjet
+        # yetmasa qayta so'ramaymiz, faqat ogohlantiramiz.
+        if (kutilgan and len(savollar) != kutilgan
+                and time.monotonic() - boshlandi <= JAMI_BUDJET_SONIYA):
+            qayta, qayta_xato = _qismni_chiqar(
+                provider, pdf_bytes, rq, test_bolimi, boshi,
+                kamchilik=(len(savollar), kutilgan),
+            )
+            if not qayta_xato:
+                qayta_savollar = qayta.get("savollar") or []
+                # Faqat YAXSHIROQ bo'lsa almashtiramiz.
+                if abs(len(qayta_savollar) - kutilgan) < abs(len(savollar) - kutilgan):
+                    natija, savollar = qayta, qayta_savollar
+        if kutilgan and len(savollar) != kutilgan:
+            xatolar.append(
+                f"{qism_nomi}: {kutilgan} ta savol kutilgandi, "
+                f"{len(savollar)} ta chiqdi — javoblarni tekshiring"
+            )
+
         qismlar.append({
             "tartib": rq.get("tartib") or i,
-            "sarlavha": nom,
+            "sarlavha": qism_nomi,
             "yoriqnoma": rq.get("yoriqnoma") or "",
             "matn": natija.get("matn") or "",
             "savollar": savollar,
             "maxsus_format": natija.get("maxsus_format") or None,
             "rasm_sahifasi": natija.get("rasm_sahifasi"),
         })
-        keyingi_savol_raqami += len(savollar)
+        keyingi_savol_raqami = boshi + len(savollar)
 
     if not qismlar:
         return None, "; ".join(xatolar) or "Hech qanday qism chiqarilmadi", xatolar
 
     return {
-        "name": reja.get("name") or "IELTS test",
-        "bolim": reja.get("bolim") or bolim or "reading",
+        # Admin nom bergan bo'lsa — o'shaniki (AI nomni noto'g'ri
+        # olayotgani uchun, 2026-07-31 foydalanuvchi xabari).
+        "name": (nom or "").strip() or reja.get("name") or "IELTS test",
+        "bolim": test_bolimi,
         "korinish": "private",
         "qismlar": qismlar,
     }, None, xatolar
