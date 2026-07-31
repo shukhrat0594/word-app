@@ -540,6 +540,25 @@ def writing_provider_ol(tur):
     return GeminiProvider(kalit, model=WRITING_TASK2_MODEL)
 
 
+def _matn_blokini_ol(response):
+    """Claude javobidan MATN bloklarini oladi.
+
+    2026-07-31 bug (foydalanuvchi PDF yuklashda uchradi): kod
+    `response.content[0].text` deb BIRINCHI blokni matn deb hisoblardi.
+    Ba'zi modellar (masalan `claude-sonnet-5`) javobni `thinking` bloki
+    bilan boshlaydi — u `.text` maydoniga ega emas, natijada
+    "AttributeError: 'ThinkingBlock' object has no attribute 'text'".
+    Endi bloklar turi bo'yicha tanlanadi (`thinking`/`redacted_thinking`
+    va boshqa matnsiz bloklar tashlab yuboriladi)."""
+    qismlar = [b.text for b in response.content if getattr(b, "type", None) == "text"]
+    if not qismlar:
+        # Zaxira: `type` kutilmagan bo'lsa ham `.text` bori ishlatiladi.
+        qismlar = [b.text for b in response.content if hasattr(b, "text")]
+    if not qismlar:
+        raise ProviderXatosi("AI javobida matn bloki yo'q")
+    return "\n".join(qismlar)
+
+
 class ClaudeProvider:
     name = "claude"
 
@@ -606,7 +625,7 @@ class ClaudeProvider:
                 messages=[{"role": "user", "content": content}],
             )
             try:
-                natija = javobni_parse_qil(response.content[0].text)
+                natija = javobni_parse_qil(_matn_blokini_ol(response))
             except ProviderXatosi as e:
                 oxirgi_xato = e
                 continue

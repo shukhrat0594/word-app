@@ -148,9 +148,13 @@ PDF_PROMPT = (
 
 def pdf_provider_olish():
     """PDF'ni o'qish uchun Claude (Gemini yo'lida `document` bloki
-    ishlatilmaydi). Model — `claude-sonnet-5`: bu yerda ANIQLIK narxdan
-    muhimroq, chunki butun passage matni aynan ko'chirilishi kerak
-    (haiku qisqartirib yuborish/chalkashtirishga moyil)."""
+    ishlatilmaydi).
+
+    Model — `claude-haiku-4-5` (2026-07-31, foydalanuvchi tanladi: tez va
+    arzon). Dastlab `claude-sonnet-5` qo'yilgandi, chunki butun passage
+    matni AYNAN ko'chirilishi kerak; haiku'da matn qisqarib qolishi yoki
+    passage chegarasi chalkashishi ehtimoli yuqoriroq — natija yomon
+    chiqsa, birinchi navbatda shu qatorni sonnet'ga qaytarib ko'ring."""
     from django.conf import settings
 
     from assessment.providers import ClaudeProvider
@@ -158,7 +162,7 @@ def pdf_provider_olish():
     kalit = getattr(settings, "ANTHROPIC_API_KEY", "")
     if not kalit:
         raise ProviderXatosi("Platforma ANTHROPIC_API_KEY sozlanmagan (.env)")
-    return ClaudeProvider(kalit, model="claude-sonnet-5", timeout_ms=PDF_TIMEOUT_MS)
+    return ClaudeProvider(kalit, model="claude-haiku-4-5", timeout_ms=PDF_TIMEOUT_MS)
 
 
 def pdf_sahifalar_soni(pdf_bytes):
