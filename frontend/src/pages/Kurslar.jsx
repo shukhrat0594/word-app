@@ -917,6 +917,11 @@ function AdminUnitKiritish({ unitId, royxatniYangila }) {
   // 2026-07-30: "mashq bo'yicha" standart rejim qilindi (foydalanuvchi
   // talabi) — "sahifa bo'yicha" ham qoladi, admin xohlasa tanlaydi.
   const [zipRejim, setZipRejim] = useState("mashq");
+  // 2026-07-30 talabi: ZIP orqali ko'p sahifani birdan yuklash endi
+  // ASOSIY usul emas ("🖼️ Rasm orqali mashq qo'shish" tugmasi — asosiy,
+  // bitta-bittadan kiritish) — shuning uchun ZIP paneli standart holda
+  // YASHIRILGAN, kerak bo'lsa "Yana bir usul" havolasi orqali ochiladi.
+  const [zipUsuliKorinadimi, setZipUsuliKorinadimi] = useState(false);
   const [zipYuklanmoqda, setZipYuklanmoqda] = useState(false);
   const [progress, setProgress] = useState(null);
   // 2026-07-29 talabi: yuklash necha daqiqada ketayotganini ko'rsatish.
@@ -1157,37 +1162,52 @@ function AdminUnitKiritish({ unitId, royxatniYangila }) {
   // yagona amal (ZIP tanlash) bor.
   return (
     <div style={{ marginTop: 4, marginBottom: 6, maxWidth: 640 }} onClick={(e) => e.stopPropagation()}>
-      <label className="izoh" style={{ display: "block", marginBottom: 4 }}>
-        {t("kurs_zip_yuklash_izoh")}
-      </label>
-      <div style={{ display: "flex", gap: 14, marginBottom: 6 }}>
-        <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13 }}>
-          <input
-            type="radio"
-            name={`zip-rejim-${unitId}`}
-            checked={zipRejim === "sahifa"}
-            onChange={() => setZipRejim("sahifa")}
-            disabled={zipYuklanmoqda}
-          />
-          {t("kurs_zip_rejim_sahifa")}
-        </label>
-        <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13 }}>
-          <input
-            type="radio"
-            name={`zip-rejim-${unitId}`}
-            checked={zipRejim === "mashq"}
-            onChange={() => setZipRejim("mashq")}
-            disabled={zipYuklanmoqda}
-          />
-          {t("kurs_zip_rejim_mashq")}
-        </label>
-      </div>
-      {zipRejim === "mashq" && (
-        <p className="izoh" style={{ marginTop: 0, marginBottom: 6 }}>
-          {t("kurs_zip_rejim_mashq_izoh")}
-        </p>
+      {/* 2026-07-30: ZIP orqali ko'p sahifani birdan yuklash endi
+          ikkinchi darajali usul — asosiy yo'l "🖼️ Rasm orqali mashq
+          qo'shish" tugmasi (bitta-bittadan). Standart holda yashirin. */}
+      {!zipUsuliKorinadimi ? (
+        <button
+          type="button"
+          className="tugma ikkinchi kichik"
+          onClick={() => setZipUsuliKorinadimi(true)}
+        >
+          {t("kurs_zip_usulini_korsat")}
+        </button>
+      ) : (
+        <>
+          <label className="izoh" style={{ display: "block", marginBottom: 4 }}>
+            {t("kurs_zip_yuklash_izoh")}
+          </label>
+          <div style={{ display: "flex", gap: 14, marginBottom: 6 }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13 }}>
+              <input
+                type="radio"
+                name={`zip-rejim-${unitId}`}
+                checked={zipRejim === "sahifa"}
+                onChange={() => setZipRejim("sahifa")}
+                disabled={zipYuklanmoqda}
+              />
+              {t("kurs_zip_rejim_sahifa")}
+            </label>
+            <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13 }}>
+              <input
+                type="radio"
+                name={`zip-rejim-${unitId}`}
+                checked={zipRejim === "mashq"}
+                onChange={() => setZipRejim("mashq")}
+                disabled={zipYuklanmoqda}
+              />
+              {t("kurs_zip_rejim_mashq")}
+            </label>
+          </div>
+          {zipRejim === "mashq" && (
+            <p className="izoh" style={{ marginTop: 0, marginBottom: 6 }}>
+              {t("kurs_zip_rejim_mashq_izoh")}
+            </p>
+          )}
+          <input type="file" accept=".zip" onChange={blokZipYukla} disabled={zipYuklanmoqda} />
+        </>
       )}
-      <input type="file" accept=".zip" onChange={blokZipYukla} disabled={zipYuklanmoqda} />
       {raqamsizOgohlantirish && (
         <div className="xato-xabar" style={{ marginTop: 4 }}>⚠ {raqamsizOgohlantirish}</div>
       )}
