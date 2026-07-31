@@ -115,8 +115,16 @@ def javoblarni_tekshir(savollar, javoblar):
             savol = savollar[bosh]
             togri = savol["togri"]
             qabul = togri if isinstance(togri, list) else [togri]
+            qabul = [norm(t) for t in qabul if str(t).strip()]
+            # "togri" bo'sh (AI hali javobni bilmay, admin to'ldirishi kutilgan
+            # savol — qarang: courses/blok_generatsiya.py) — bunday savol HECH
+            # QACHON to'g'ri deb hisoblanmaydi, talaba javob yozmagan bo'lsa
+            # ham. Aks holda "" in [""] => True bo'lib, javob umuman
+            # belgilanmagan bo'lsa ham ball berardi (2026-08-01 xatosi).
+            if not qabul:
+                continue
             javob = javoblar[bosh] if bosh < len(javoblar) else ""
-            natijalar[bosh] = norm(javob) in [norm(t) for t in qabul]
+            natijalar[bosh] = norm(javob) in qabul
             continue
 
         # Guruhdagi barcha to'g'ri javoblar bitta to'plamga yig'iladi
@@ -124,7 +132,10 @@ def javoblarni_tekshir(savollar, javoblar):
         for k in range(bosh, bosh + uzunlik):
             t = savollar[k]["togri"]
             for x in (t if isinstance(t, list) else [t]):
-                qabul.add(norm(x))
+                if str(x).strip():
+                    qabul.add(norm(x))
+        if not qabul:
+            continue
 
         ishlatilgan = set()
         for k in range(bosh, bosh + uzunlik):
