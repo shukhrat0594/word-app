@@ -326,22 +326,28 @@ RASM_KESISH_PROMPT = (
 
 
 def pdf_provider_olish():
-    """PDF'ni o'qish uchun Claude (Gemini yo'lida `document` bloki
-    ishlatilmaydi).
+    """PDF'ni o'qish uchun provider.
 
-    Model — `claude-haiku-4-5` (2026-07-31, foydalanuvchi tanladi: tez va
-    arzon). Dastlab `claude-sonnet-5` qo'yilgandi, chunki butun passage
-    matni AYNAN ko'chirilishi kerak; haiku'da matn qisqarib qolishi yoki
-    passage chegarasi chalkashishi ehtimoli yuqoriroq — natija yomon
-    chiqsa, birinchi navbatda shu qatorni sonnet'ga qaytarib ko'ring."""
+    2026-08-01: `claude-haiku-4-5`dan `gemini-3.1-flash-lite`ga
+    o'tkazildi (foydalanuvchi talabi) — Haiku savol tarkibida xato ko'p
+    qildi (savollar birlashib ketishi, noto'g'ri turdagi savollar,
+    "matn" formatidan foydalanmaslik). Gemini PDF'ni ham (`document`
+    o'rniga inline `Part.from_bytes`), ham Structured Outputs'ni
+    (`response_json_schema` — bizning Claude uchun yozilgan JSON
+    Schema'larni o'zgartirmasdan qabul qiladi) qo'llab-quvvatlaydi.
+
+    Natija yomon chiqsa — ikkita variant bor: (a) shu qatorni
+    `claude-sonnet-5`ga qaytarish (Claude'ga qaytish, kuchliroq model),
+    yoki (b) `GeminiProvider(..., model="gemini-...")` bilan boshqa
+    Gemini modelini sinash."""
     from django.conf import settings
 
-    from assessment.providers import ClaudeProvider
+    from assessment.providers import GEMINI_MODEL, GeminiProvider
 
-    kalit = getattr(settings, "ANTHROPIC_API_KEY", "")
+    kalit = getattr(settings, "GEMINI_API_KEY", "")
     if not kalit:
-        raise ProviderXatosi("Platforma ANTHROPIC_API_KEY sozlanmagan (.env)")
-    return ClaudeProvider(kalit, model="claude-haiku-4-5", timeout_ms=PDF_TIMEOUT_MS)
+        raise ProviderXatosi("Platforma GEMINI_API_KEY sozlanmagan (.env)")
+    return GeminiProvider(kalit, model=GEMINI_MODEL, timeout_ms=PDF_TIMEOUT_MS)
 
 
 def pdf_sahifalar_soni(pdf_bytes):

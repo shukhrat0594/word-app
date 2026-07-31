@@ -371,7 +371,17 @@ class GeminiProvider:
         self.model = model
         self.timeout_ms = timeout_ms
 
-    def _bitta_sorov(self, system_prompt, matn, rasm_bytes=None, rasm_mime=None):
+    def _bitta_sorov(self, system_prompt, matn, rasm_bytes=None, rasm_mime=None,
+                     pdf_bytes=None, max_output_tokens=None, javob_sxemasi=None):
+        """`pdf_bytes` (2026-08-01) — Gemini PDF'ni O'ZI o'qiydi, xuddi
+        rasm kabi `Part.from_bytes` bilan (mime_type="application/pdf").
+
+        `javob_sxemasi` — STRUCTURED OUTPUTS: `response_json_schema`
+        bizning (Claude uchun yozilgan) JSON Schema'larni O'ZGARTIRMASDAN
+        qabul qiladi (`additionalProperties`, `required`, `anyOf` —
+        hammasi qo'llab-quvvatlanadi, SDK hujjatida tasdiqlangan).
+        Google Schema (`response_schema`) EMAS — u boshqa, cheklangan
+        format."""
         from google import genai
         from google.genai import types
 
@@ -380,18 +390,28 @@ class GeminiProvider:
             http_options=types.HttpOptions(timeout=self.timeout_ms),
         )
         contents = matn
-        if rasm_bytes:
+        if pdf_bytes:
+            contents = [types.Part.from_bytes(data=pdf_bytes, mime_type="application/pdf"), matn]
+        elif rasm_bytes:
             contents = [types.Part.from_bytes(data=rasm_bytes, mime_type=rasm_mime), matn]
+
+        qoshimcha = {}
+        if javob_sxemasi:
+            qoshimcha["response_mime_type"] = "application/json"
+            qoshimcha["response_json_schema"] = javob_sxemasi
+
         return client.models.generate_content(
             model=self.model,
             contents=contents,
             config=types.GenerateContentConfig(
                 system_instruction=system_prompt,
-                max_output_tokens=MAX_OUTPUT_TOKENS,
+                max_output_tokens=max_output_tokens or MAX_OUTPUT_TOKENS,
+                **qoshimcha,
             ),
         )
 
-    def _generate(self, system_prompt, matn, rasm_bytes=None, rasm_mime=None):
+    def _generate(self, system_prompt, matn, rasm_bytes=None, rasm_mime=None,
+                  pdf_bytes=None, max_output_tokens=None, javob_sxemasi=None):
         """`URINISHLAR` marta uradi: javob bo'sh bo'lsa (MAX_TOKENS va h.k.)
         YOKI JSON buzuq bo'lsa — qayta uriniladi.
 
@@ -401,7 +421,11 @@ class GeminiProvider:
         "zaxira modelga o'tish" bosqichi olib tashlandi — model bittta."""
         oxirgi_xato = None
         for _ in range(URINISHLAR):
-            response = self._bitta_sorov(system_prompt, matn, rasm_bytes, rasm_mime)
+            response = self._bitta_sorov(
+                system_prompt, matn, rasm_bytes, rasm_mime,
+                pdf_bytes=pdf_bytes, max_output_tokens=max_output_tokens,
+                javob_sxemasi=javob_sxemasi,
+            )
             if not response.text:
                 oxirgi_xato = ProviderXatosi("AI bo'sh javob qaytardi")
                 continue
@@ -484,6 +508,16 @@ class GeminiProvider:
         """Boshqa app'lar (masalan `courses`) uchun ochiq interfeys — `_generate`
         shaxsiy metod, app chegarasidan tashqarida chaqirilmasligi kerak."""
         return self._generate(system_prompt, matn, rasm_bytes, rasm_mime)
+
+    def generate_json_pdf(self, system_prompt, matn, pdf_bytes, max_tokens=16000,
+                          javob_sxemasi=None):
+        """PDF'dan JSON — `exercises.pdf_generatsiya` uchun. `ClaudeProvider`
+        bilan BIR XIL interfeys (2026-08-01, Gemini'ga sinov o'tkazish
+        talabi — Claude Haiku savol tarkibida xato ko'p qildi)."""
+        return self._generate(
+            system_prompt, matn, pdf_bytes=pdf_bytes,
+            max_output_tokens=max_tokens, javob_sxemasi=javob_sxemasi,
+        )
 
 
 # 2026-07-26: Gemma olib tashlanganidan keyin bitta tanlov qoldi. Lug'at
