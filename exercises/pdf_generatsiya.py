@@ -173,8 +173,11 @@ QISM_PROMPT = (
     "(\"Questions 14-26\") va yo'riqnomalar unga KIRMAYDI.\n"
     "- Matnni QISQARTIRMANG va O'Z SO'ZINGIZ BILAN QAYTA YOZMANG — "
     "PDF'dagi matnni AYNAN, to'liq ko'chiring (abzatslar orasida \\n\\n).\n"
-    "- Passage'da A, B, C... deb belgilangan abzatslar bo'lsa, o'sha "
-    "harflarni ham saqlang.\n"
+    "- Passage'da A, B, C... (yoki 1., 2., 3.) deb belgilangan abzatslar "
+    "bo'lsa — bu ODDIY MATN QISMI, o'sha harf/raqamni abzats boshida "
+    "AYNAN saqlang (masalan \"A Oxytocin is a chemical...\"). Ularni "
+    "SAVOLGA aylantirmang va \"savollar\" ro'yxatiga QO'SHMANG — bu "
+    "matn tuzilishi, savol emas.\n"
     "- Listening bo'lsa \"matn\"ni bo'sh qoldiring (audio alohida "
     "yuklanadi), faqat savollarni chiqaring.\n\n"
 
@@ -191,6 +194,33 @@ QISM_PROMPT = (
     "\"variantlar\" bo'sh massiv [].\n"
     "- \"guruh_boshi\": guruh sarlavhasi (masalan \"Questions 1-7\") — "
     "FAQAT guruhning BIRINCHI savolida yozing, qolganida bo'sh.\n"
+    "- \"guruh_korsatma\" — MUHIM, ATROFLICHA TO'LDIRING: har savol "
+    "guruhi boshida kitobda TO'LIQ ko'rsatma bo'ladi (masalan \"Reading "
+    "Passage 2 has six paragraphs, A-F. Which paragraph contains the "
+    "following information? Write the correct letter, A-F, in boxes "
+    "14-17 on your answer sheet. NB You may use any letter more than "
+    "once.\" yoki \"Choose ONE WORD ONLY from the passage for each "
+    "answer.\"). Shu TO'LIQ matnni (barcha qatorlar, NB izohi, \"necha "
+    "so'z\" sharti bilan birga) \"guruh_korsatma\"ga yozing — FAQAT "
+    "guruhning BIRINCHI savolida, qolganida bo'sh qoldiring (xuddi "
+    "\"guruh_boshi\" kabi). Bu YO'RIQNOMA emas (yo'riqnoma butun "
+    "passage uchun bitta, \"20 daqiqa sarflang\" kabi) — bu HAR GURUH "
+    "ICHIDAGI o'z ko'rsatmasi. Uni tashlab ketmang — talaba nechta "
+    "so'z yozish kerakligini yoki qanday javob berishni bilmay qoladi.\n"
+    "- **MOSLASHTIRISH (matching) — variantlar TO'LIQ MATN bo'lsin, "
+    "HARF EMAS**: agar savolda \"List of researchers/companies\" kabi "
+    "tanlov qutisi berilgan bo'lsa, yoki gap oxirini moslashtirish "
+    "(\"Complete each sentence with the correct ending\") bo'lsa — "
+    "\"variantlar\"ga o'sha qutining/variantlarning TO'LIQ MATNINI "
+    "yozing (masalan [\"Coach\", \"Tesco\", \"Nike\", \"iToys\"] yoki "
+    "[\"employ a combination of strategies to maintain your consumer "
+    "base.\", \"identify the most appropriate innovation strategy to "
+    "use.\", ...]) — FAQAT harflarni (\"A\",\"B\",\"C\") YOZMANG, talaba "
+    "harf nimani anglatishini bilmay qoladi. Bitta qutidan bir nechta "
+    "savol foydalansa, HAMMASIGA BIR XIL to'liq \"variantlar\" ro'yxatini "
+    "bering. Gap oxirini moslashtirishda \"savol\" maydoniga gapning "
+    "TO'LIQ boshlanishini (stem) yozing (masalan \"If there are any "
+    "trend-related changes impacting on your category, you should\").\n"
     "- **So'z banki bilan bo'sh joy to'ldirish**: har bo'sh joy uchun "
     "ALOHIDA savol (tur=\"fill_blanks\"), \"savol\"ga o'sha bo'sh "
     "joygacha bo'lgan matn parchasi, HAMMASIGA BIR XIL \"variantlar\" "
@@ -251,8 +281,12 @@ QISM_SXEMASI = {
                         ]
                     },
                     "guruh_boshi": {"type": "string"},
+                    "guruh_korsatma": {"type": "string"},
                 },
-                "required": ["savol", "tur", "variantlar", "togri", "guruh_boshi"],
+                "required": [
+                    "savol", "tur", "variantlar", "togri",
+                    "guruh_boshi", "guruh_korsatma",
+                ],
                 "additionalProperties": False,
             },
         },

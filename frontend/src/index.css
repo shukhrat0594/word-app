@@ -236,6 +236,10 @@ textarea {
 .imtihon-qism-sarlavha:first-child { margin-top: 0; }
 .imtihon-yoriqnoma { color: var(--matn-sokin); font-size: 13px; font-style: italic; margin-bottom: 10px; }
 .imtihon-guruh-sarlavha { font-weight: 700; margin: 16px 0 6px; font-size: 13.5px; }
+.imtihon-guruh-korsatma {
+  font-style: italic; color: var(--matn-2, #666); margin: 0 0 10px;
+  font-size: 13px; white-space: pre-line;
+}
 
 .imtihon-rasm-input {
   position: absolute; transform: translate(-50%, -50%); width: 64px; padding: 2px 4px;

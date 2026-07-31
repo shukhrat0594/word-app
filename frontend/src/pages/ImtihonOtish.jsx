@@ -192,6 +192,9 @@ function SozBankiBloki({ blok, javoblar, javobniQoy, natija, t }) {
       {blok.savollar[0].guruh_boshi && (
         <div className="imtihon-guruh-sarlavha">{blok.savollar[0].guruh_boshi}</div>
       )}
+      {blok.savollar[0].guruh_korsatma && (
+        <div className="imtihon-guruh-korsatma">{blok.savollar[0].guruh_korsatma}</div>
+      )}
       <div className="imtihon-oqim-matn">
         {blok.savollar.map((s, k) => {
           const i = blok.boshIdx + k;
@@ -297,6 +300,9 @@ function KopJavobBloki({ blok, javoblar, javobniQoy, natija, t }) {
       {savollar[0].guruh_boshi && (
         <div className="imtihon-guruh-sarlavha">{savollar[0].guruh_boshi}</div>
       )}
+      {savollar[0].guruh_korsatma && (
+        <div className="imtihon-guruh-korsatma">{savollar[0].guruh_korsatma}</div>
+      )}
       <div className="savol-matni">
         {raqamlar}. {savollar[0].savol}
         {natija && (
@@ -331,6 +337,7 @@ function OddiySavolBloki({ blok, javoblar, javobniQoy, natija, t }) {
   return (
     <div className="savol-blok" id={`imtihon-savol-${i}`}>
       {s.guruh_boshi && <div className="imtihon-guruh-sarlavha">{s.guruh_boshi}</div>}
+      {s.guruh_korsatma && <div className="imtihon-guruh-korsatma">{s.guruh_korsatma}</div>}
       <div className="savol-matni">
         {i + 1}. {s.savol}
         {natija && (
