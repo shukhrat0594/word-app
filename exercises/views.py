@@ -823,9 +823,12 @@ class ImtihonPdfBoshqaruvView(APIView):
         if not fayl:
             return Response({"detail": "pdf_fayl majburiy"}, status=400)
 
-        from .pdf_generatsiya import pdfdan_test_chiqar
+        from django.core.files.base import ContentFile
 
-        data, xato = pdfdan_test_chiqar(fayl.read(), request.data.get("bolim") or "")
+        from .pdf_generatsiya import pdfdan_test_chiqar, qism_rasmini_kes
+
+        pdf_bytes = fayl.read()
+        data, xato = pdfdan_test_chiqar(pdf_bytes, request.data.get("bolim") or "")
         if xato:
             return Response({"detail": xato}, status=502)
 
@@ -835,6 +838,28 @@ class ImtihonPdfBoshqaruvView(APIView):
         )
         if yaratish_xatosi:
             return Response(yaratish_xatosi, status=400)
+
+        # 2026-07-31 talabi: PDF'dagi xarita/diagramma/grafik ham chiqsin.
+        # AI 1-chaqiruvda faqat SAHIFA raqamini aytadi, rasmning o'zi shu
+        # yerda — sahifa bo'yicha alohida chaqiruv bilan — kesib olinadi
+        # (tafsilot: `pdf_generatsiya.qism_rasmini_kes`). Bir xil sahifa
+        # bir necha qismga tegishli bo'lsa, faqat BIR MARTA kesiladi.
+        kesilganlar = {}
+        rasmli_qismlar = 0
+        qismlar_data = data.get("qismlar") or []
+        for qism, q_data in zip(test.qismlar.all(), qismlar_data):
+            sahifa = q_data.get("rasm_sahifasi")
+            if not isinstance(sahifa, int) or sahifa < 1:
+                continue
+            if sahifa not in kesilganlar:
+                kesilganlar[sahifa] = qism_rasmini_kes(pdf_bytes, sahifa)
+            kesilgan = kesilganlar[sahifa]
+            if not kesilgan:
+                continue
+            qism.rasm.save(
+                f"{test.id}_{qism.tartib}_s{sahifa}.jpg", ContentFile(kesilgan), save=True
+            )
+            rasmli_qismlar += 1
 
         logla(
             foydalanuvchi=request.user,
@@ -846,6 +871,7 @@ class ImtihonPdfBoshqaruvView(APIView):
                 "bolim": test.bolim,
                 "qismlar_soni": test.qismlar.count(),
                 "manba": "pdf",
+                "rasmli_qismlar": rasmli_qismlar,
             },
         )
         return Response(_test_admin_dict(test), status=201)

@@ -19,9 +19,16 @@ ta'kidlaydi (`PASSAGE_QOIDASI`).
 === PRINSIP ===
 
 Kurslar bo'limidagi "rasmdan mashq qo'shish" bilan bir xil (foydalanuvchi
-talabi): bitta fayl tanlanadi -> bitta sinxron AI chaqiruvi -> natija
-darhol bazaga yoziladi. Ko'p-bosqichli jarayon (ZIP'dagi kabi) yo'q.
+talabi): bitta fayl tanlanadi -> natija darhol bazaga yoziladi.
+
+Asosiy chaqiruv BITTA (butun PDF -> test JSON'i). 2026-07-31 dan yana
+QO'SHIMCHA chaqiruvlar bo'lishi mumkin: qismda xarita/diagramma bo'lsa,
+o'sha SAHIFA alohida qayta ishlanib rasm kesib olinadi
+(`qism_rasmini_kes`) — ya'ni rasmli qismlar soni qancha bo'lsa, shuncha
+qo'shimcha chaqiruv.
 """
+
+import io
 
 from assessment.providers import ProviderXatosi
 
@@ -93,7 +100,8 @@ PDF_PROMPT = (
     "guruhning BIRINCHI savolida yozing, qolganida bo'sh qoldiring)\n"
     "        }\n"
     "      ],\n"
-    '      "maxsus_format": {...} (ixtiyoriy — pastdagi qoidaga qarang)\n'
+    '      "maxsus_format": {...} (pastdagi JADVAL qoidasiga qarang),\n'
+    '      "rasm_sahifasi": 7 (pastdagi RASM qoidasiga qarang)\n'
     "    }\n"
     "  ]\n"
     "}\n\n"
@@ -120,29 +128,73 @@ PDF_PROMPT = (
     '- "tartib" — qismning testdagi raqami (1,2,3...)\n'
     "- Har qismdagi savollar soni real testdagidek bo'lsin (Reading har "
     "passage ~13-14 ta, Listening har part ~10 ta)\n"
-    "- **Table/Note/Summary/Flow-chart Completion** (asl kitobdagi "
-    'jadval/blok-sxema ko\'rinishida) — qismga "maxsus_format" qo\'shing:\n'
+    "\nJADVAL / BLOK-SXEMA QOIDASI (MAJBURIY, TASHLAB KETMANG):\n"
+    "Siz PDF sahifalarini KO'RIB turibsiz. Agar savol bloki kitobda "
+    "JADVAL (ustun-qatorli to'r), BLOK-SXEMA (o'qlar bilan bog'langan "
+    "qutilar) yoki QAYD/XULOSA (Note/Summary) ko'rinishida bo'lsa — uni "
+    'oddiy savollar ro\'yxatiga AYLANTIRIB YUBORMANG. Qismga albatta '
+    '"maxsus_format" qo\'shing, shunda talaba kitobdagidek ko\'radi:\n'
     '  - Jadval: {"tur":"jadval","sarlavha":"...","ustunlar":[...],'
-    '"qatorlar":[["katak {{5}} bilan","ikkinchi katak"],...]}\n'
-    '  - Flow-chart: {"tur":"oqim","sarlavha":"...","qadamlar":["1-qadam '
-    '{{26}} bilan",...]}\n'
-    '  - Oddiy matn (jadval/sxema emas, bank ham yo\'q): {"tur":"matn",'
-    '"sarlavha":"...","matn":"to\'liq matn, bo\'sh joylar {{31}} kabi"}\n'
+    '"qatorlar":[["katak {{5}} bilan","ikkinchi katak"],...]} — har qator '
+    "massiv, har element bitta katak matni; ustunlar soni har qatorda "
+    "bir xil bo'lsin\n"
+    '  - Blok-sxema: {"tur":"oqim","sarlavha":"...","qadamlar":["1-qadam '
+    '{{26}} bilan",...]} — har qadam alohida quti, orasida o\'q chiziladi\n'
+    '  - Oddiy matn (jadval/sxema emas, so\'z banki ham yo\'q): '
+    '{"tur":"matn","sarlavha":"...","matn":"to\'liq matn, bo\'sh joylar '
+    '{{31}} kabi, qatorlar orasida \\n, ro\'yxat uchun matn boshida "- "}\n'
     "  - {{n}} — o'sha bo'sh joyning BUTUN TEST bo'yicha uzluksiz savol "
     'raqami; u "savollar" massividagi mos savolning tartibiga AYNAN mos '
-    "kelishi SHART\n"
+    "kelishi SHART (masalan 26-savol uchun {{26}})\n"
     '  - Bu holatda ham "savollar"ni ODATDAGIDEK har bir bo\'sh joy uchun '
     'alohida yozing — "maxsus_format" faqat KO\'RINISH uchun, javob '
-    'tekshirish baribir "savollar"dan olinadi\n'
+    "tekshirish baribir \"savollar\"dan olinadi (ikkalasi bir xil SON va "
+    "TARTIBDA bo'lishi shart)\n"
+
+    "\nRASM / GRAFIK / DIAGRAMMA QOIDASI:\n"
+    "Agar qismda RASM bo'lsa — xarita (Map Labelling), diagramma, "
+    "chizma, grafik yoki jadval-rasm — uni matn bilan tasvirlashga "
+    "urinmang. Faqat u TURGAN SAHIFA raqamini yozing: "
+    '"rasm_sahifasi": 7 (PDF\'ning nechanchi sahifasi, 1 dan boshlab '
+    "sanaladi — kitobda chop etilgan sahifa raqami emas, PDF varag'ining "
+    "tartibi). Biz o'sha sahifani alohida qayta ishlab, rasmni o'zi "
+    "kesib olamiz va qismga biriktiramiz.\n"
+    "  - Qismda rasm bo'lmasa — bu maydonni UMUMAN yozmang.\n"
+    "  - Bitta qismda bir nechta rasm bo'lsa — ENG KATTA/asosiysining "
+    "sahifasini yozing.\n"
+    "  - Jadval kitobda oddiy to'r (chiziqlar) bilan chizilgan bo'lsa, u "
+    'RASM emas — yuqoridagi "maxsus_format" bilan bering.\n'
+
+    "\nQolgan qoidalar:\n"
     "- PDF'da javoblar kaliti (Answer key) bo'lsa — undan foydalanib "
     '"togri" maydonlarini to\'ldiring. Kalit bo\'lmasa va javobni aniq '
     'bilmasangiz, "togri"ni bo\'sh qoldiring (admin keyin to\'ldiradi) — '
     "javobni O'YLAB TOPMANG.\n"
     "- PDF'da bir nechta test bo'lsa (masalan Test 1 va Test 2) — FAQAT "
-    "BIRINCHISINI oling.\n"
-    "- Rasm (Map/Diagram Labelling) PDF'da bo'lsa ham uni chiqara "
-    'olmaysiz — bunday savollarni oddiy savol sifatida yozing, "rasm" '
-    "maydonini umuman yozmang (admin rasmni keyin qo'lda biriktiradi)."
+    "BIRINCHISINI oling."
+)
+
+RASM_KESISH_PROMPT = (
+    "Sizga IELTS kitobining BITTA sahifasi rasm sifatida beriladi. Rasm "
+    "ustiga PRONUMERLANGAN TO'R chizilgan: chiziqlar har 5 foizda, "
+    "chetlarida 0 dan 100 gacha raqamlar.\n\n"
+
+    "Vazifa: shu sahifadagi ASOSIY ILLYUSTRATSIYANI toping — xarita, "
+    "diagramma, chizma, grafik yoki sxema — va uning chegarasini TO'R "
+    "RAQAMLARI bo'yicha ayting.\n\n"
+
+    'FAQAT shu JSON qaytaring: {"topildi":true,"x1":10,"y1":25,'
+    '"x2":90,"y2":60}\n'
+    "Illyustratsiya umuman bo'lmasa: {\"topildi\":false}\n\n"
+
+    "Qoidalar:\n"
+    "- Chamalab yozmang — chegara qaysi chiziqqa to'g'ri kelishini QARAB "
+    "o'qing. Bu eng muhim talab.\n"
+    "- Quti illyustratsiyani TO'LIQ o'z ichiga olsin (sarlavhasi va "
+    "ichidagi yorliqlar/harflar ham kirsin), lekin atrofidagi ODDIY "
+    "MATN (savollar, yo'riqnoma, passage) KIRMASIN.\n"
+    "- Bir nechta rasm bo'lsa — eng kattasini oling.\n"
+    "- Sahifada faqat matn bo'lsa (rasm yo'q) — \"topildi\":false."
 )
 
 
@@ -175,6 +227,80 @@ def pdf_sahifalar_soni(pdf_bytes):
         return len(re.findall(rb"/Type\s*/Page[^s]", pdf_bytes))
     except Exception:  # noqa: BLE001 — hisob taxminiy, xatosi jarayonni to'xtatmasin
         return 0
+
+
+def pdf_sahifani_rasmga(pdf_bytes, sahifa_raqami, kenglik=1400):
+    """PDF'ning bitta sahifasini JPEG baytlariga aylantiradi.
+
+    `sahifa_raqami` — 1 dan boshlab (AI shunday sanaydi). Chegaradan
+    tashqarida bo'lsa None qaytadi.
+
+    `kenglik` 1400 tanlandi: `courses.blok_generatsiya.rasmni_kes`
+    kesilgan bo'lakni 900px gacha kichraytiradi, ya'ni undan sezilarli
+    kattaroq manba kesim sifatini saqlaydi; bundan ortig'i esa faqat
+    xotira va vaqt sarflaydi."""
+    import pypdfium2 as pdfium
+
+    hujjat = pdfium.PdfDocument(pdf_bytes)
+    try:
+        if not 1 <= sahifa_raqami <= len(hujjat):
+            return None
+        sahifa = hujjat[sahifa_raqami - 1]
+        en = sahifa.get_width() or 1
+        rasm = sahifa.render(scale=kenglik / en).to_pil().convert("RGB")
+        bufer = io.BytesIO()
+        rasm.save(bufer, format="JPEG", quality=88)
+        return bufer.getvalue()
+    finally:
+        hujjat.close()
+
+
+def qism_rasmini_kes(pdf_bytes, sahifa_raqami):
+    """PDF sahifasidan ASOSIY illyustratsiyani kesib oladi.
+
+    Kurslar bo'limidagi isbotlangan usul (`courses.blok_generatsiya`)
+    shu yerda qayta ishlatiladi — yangidan yozilmaydi:
+      1) sahifa rasmga aylantiriladi;
+      2) ustiga PRONUMERLANGAN TO'R chiziladi (`tor_chiz`) — busiz model
+         koordinatani ko'z bilan chamalab ±3-5% xato beradi va kesilgan
+         rasmga begona matn kirib ketadi (2026-07-28 da Kurslar'da
+         o'lchov bilan aniqlangan);
+      3) AI to'r raqamlari bo'yicha chegarani aytadi;
+      4) `rasmni_kes` asl (to'r chizilmagan) renderdan kesadi — ya'ni
+         kesilgan rasmda to'r chiziqlari BO'LMAYDI.
+
+    Qaytaradi: JPEG baytlari yoki None (rasm topilmasa/xato bo'lsa —
+    bu butun testni yo'qotmasligi kerak, shuning uchun jim None)."""
+    from courses.blok_generatsiya import rasmni_kes, tor_chiz
+
+    sahifa_bytes = pdf_sahifani_rasmga(pdf_bytes, sahifa_raqami)
+    if not sahifa_bytes:
+        return None
+    try:
+        torli = tor_chiz(sahifa_bytes)
+        provider = pdf_provider_olish()
+        javob = provider.generate_json(
+            RASM_KESISH_PROMPT,
+            "To'r raqamlaridan foydalanib, illyustratsiya chegarasini ayting.",
+            torli,
+            "image/jpeg",
+        )
+    except Exception:  # noqa: BLE001 — rasm ixtiyoriy, xatosi testni buzmasin
+        return None
+
+    natija = javob.get("natija") or {}
+    if not natija.get("topildi"):
+        return None
+    try:
+        quti = {k: float(natija[k]) for k in ("x1", "y1", "x2", "y2")}
+    except (KeyError, TypeError, ValueError):
+        return None
+    if not (0 <= quti["x1"] < quti["x2"] <= 100 and 0 <= quti["y1"] < quti["y2"] <= 100):
+        return None
+    try:
+        return rasmni_kes(sahifa_bytes, quti)
+    except Exception:  # noqa: BLE001
+        return None
 
 
 def pdfdan_test_chiqar(pdf_bytes, bolim=""):
