@@ -258,8 +258,8 @@ function TalabaMashqi({ mashq, raqam }) {
 /** Admin/owner uchun — bitta tugunning mashqlarini boshqarish (ro'yxat,
  * o'chirish, rasm/audio biriktirish). `jsonKiritishKorinadi=false`
  * (2026-07-27) — Beginner Unit'lari ichidagi "Mashqlar" bo'limida JSON
- * orqali qo'shish endi Unit darajasida (AdminUnitKiritish) bo'ladi, bu
- * yerda faqat ro'yxat+fayl biriktirish qoladi. Boshqa (flat) bo'limlar
+ * o'rniga rasm/ZIP orqali AI-mashq qo'shish (2026-07-30) ishlatiladi,
+ * bu yerda faqat ro'yxat+fayl biriktirish qoladi. Boshqa (flat) bo'limlar
  * uchun avvalgidek JSON+AI promt ko'rinadi. */
 /** Admin uchun — bitta mashqning to'g'ri javoblarini QO'LDA (har savol
  * uchun matn maydoni) yoki Excel (.xlsx: 1-ustun savol raqami, 2-ustun
@@ -366,17 +366,26 @@ function AdminMashqBoshqaruv({ tugunId, jsonKiritishKorinadi = true }) {
   const [audioZipYuklanmoqda, setAudioZipYuklanmoqda] = useState(false);
   const [promtKorinadi, setPromtKorinadi] = useState(false);
   const [nusxalandi, setNusxalandi] = useState(false);
-  // 2026-07-30 talabi: ZIP shart emas — bitta rasm tanlab, bitta mashq
-  // qo'shish (AI to'r+prompt bilan o'qiydi). Aniq javobli bo'sh joy
-  // uchun AI javobni bilmasa ham savol yaratiladi ("javob talab
-  // qiladi") — shu haqda qisqa xabar ko'rsatiladi.
-  const [rasmMashqXato, setRasmMashqXato] = useState("");
-  const [rasmMashqYuklanmoqda, setRasmMashqYuklanmoqda] = useState(false);
-  const [rasmMashqXabar, setRasmMashqXabar] = useState("");
+  // 2026-07-30 talabi: yagona fayl tanlash tugmasi — rasm TANLANSA
+  // bitta mashq (sinxron, tez), ZIP tanlansa ICHIDAGI HAR rasm alohida
+  // mashq (2-bosqichli jarayon, katta ZIP timeout'ga tushmasligi uchun).
+  // Ikkalasi ham AYNAN BIR XIL AI tahliliga tayanadi (backend'da
+  // `_rasmni_mashqqa_aylantir`) — faqat "bitta martami, ko'pmi" farq.
+  const [mashqXato, setMashqXato] = useState("");
+  const [mashqXabar, setMashqXabar] = useState("");
+  const [rasmYuklanmoqda, setRasmYuklanmoqda] = useState(false);
   // 2026-07-30 talabi: har mashqni YANGI rasm bilan almashtirish (o'sha
   // mashqning bloklari qayta hisoblanadi, o'rni/id o'zgarmaydi).
   const [qaytaYuklanayotganId, setQaytaYuklanayotganId] = useState(null);
   const [qaytaYuklashXato, setQaytaYuklashXato] = useState("");
+
+  // ZIP jarayoni holati (rasm-bo'yicha yuklashning ko'p-sahifali varianti).
+  const [zipYuklanmoqda, setZipYuklanmoqda] = useState(false);
+  const [progress, setProgress] = useState(null);
+  const [otganSoniya, setOtganSoniya] = useState(0);
+  const [faolJarayon, setFaolJarayon] = useState(null); // {id, ishlangan_sahifa, jami_sahifa}
+  const [bekorQilinmoqda, setBekorQilinmoqda] = useState(false);
+  const toxtatishRef = useRef(false);
 
   function promtNusxala() {
     navigator.clipboard?.writeText(AI_PROMT).then(() => {
@@ -393,6 +402,214 @@ function AdminMashqBoshqaruv({ tugunId, jsonKiritishKorinadi = true }) {
     yukla();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tugunId]);
+
+  // 2026-07-29 talabi: "yuklanmagan qismini qo'lda yuklash imkoni kerak".
+  // Sahifa ochilganda shu tugun uchun yarim qolgan (avtomatik qayta
+  // urinishlar ham tugab ketgan) jarayon bor-yo'qligi tekshiriladi.
+  useEffect(() => {
+    api(`/api/kurslar/${tugunId}/blok-jarayon-holati/`)
+      .then((d) => setFaolJarayon(d.faol_jarayon))
+      .catch(() => {});
+  }, [tugunId]);
+
+  useEffect(() => {
+    if (!zipYuklanmoqda) return undefined;
+    const boshlandi = Date.now();
+    setOtganSoniya(0);
+    const taymer = setInterval(() => {
+      setOtganSoniya(Math.floor((Date.now() - boshlandi) / 1000));
+    }, 1000);
+    return () => clearInterval(taymer);
+  }, [zipYuklanmoqda]);
+
+  function vaqtFormat(soniya) {
+    const daq = Math.floor(soniya / 60);
+    const s = soniya % 60;
+    return `${daq}:${String(s).padStart(2, "0")}`;
+  }
+
+  async function jarayonniBekorQil() {
+    if (!faolJarayon || !window.confirm(t("kurs_blok_bekor_qilish_tasdiq"))) return;
+    setBekorQilinmoqda(true);
+    try {
+      await api(`/api/kurslar/${tugunId}/blok-jarayon-holati/`, { method: "DELETE" });
+      setFaolJarayon(null);
+    } catch {
+      // e'tiborsiz qoldirilsa ham xavfsiz — "Davom ettirish" tugmasi
+      // ekranda qolaveradi, admin xohlasa qayta urinishi mumkin.
+    } finally {
+      setBekorQilinmoqda(false);
+    }
+  }
+
+  // Navbatdagi BITTA sahifani band qilib ishlaydi — xatoda qayta
+  // urinadi. Bir nechta nusxasi PARALLEL chaqiriladi (backend har
+  // biriga alohida sahifani atomik beradi).
+  async function bittaSahifaniIshla(jid) {
+    const SAHIFA_URINISHLAR = 3;
+    let oxirgiXato = null;
+    for (let urinish = 0; urinish < SAHIFA_URINISHLAR; urinish += 1) {
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        return await api(`/api/kurslar/blok-jarayon/${jid}/sahifa/`, { method: "POST" });
+      } catch (sahifaXato) {
+        oxirgiXato = sahifaXato;
+        if (urinish < SAHIFA_URINISHLAR - 1) {
+          // eslint-disable-next-line no-await-in-loop
+          await new Promise((r) => { setTimeout(r, 5000 * (urinish + 1)); });
+        }
+      }
+    }
+    throw oxirgiXato;
+  }
+
+  async function jarayonniBajar(jid, jamiSahifa, boshlangichIshlangan) {
+    toxtatishRef.current = false;
+    let yakun = null;
+    let tugadi = false;
+    let oxirgiIshlangan = boshlangichIshlangan;
+    setProgress({ ishlangan: boshlangichIshlangan, jami: jamiSahifa, fayl: "" });
+    while (!tugadi) {
+      if (toxtatishRef.current) {
+        setFaolJarayon({ id: jid, ishlangan_sahifa: oxirgiIshlangan, jami_sahifa: jamiSahifa });
+        return { toxtatildi: true };
+      }
+      const vadalar = [];
+      for (let k = 0; k < PARALLEL_SAHIFA_SONI; k += 1) vadalar.push(bittaSahifaniIshla(jid));
+      // eslint-disable-next-line no-await-in-loop
+      const natijalar = await Promise.allSettled(vadalar);
+
+      const xatoli = natijalar.find((n) => n.status === "rejected");
+      if (xatoli) {
+        setFaolJarayon({ id: jid, ishlangan_sahifa: oxirgiIshlangan, jami_sahifa: jamiSahifa });
+        throw xatoli.reason;
+      }
+
+      let ishBorEdi = false;
+      for (const n of natijalar) {
+        const d = n.value;
+        if (d.band_qilinadigan_sahifa_qolmadi) continue;
+        ishBorEdi = true;
+        oxirgiIshlangan = d.ishlangan_sahifa;
+        setProgress({ ishlangan: d.ishlangan_sahifa, jami: d.jami_sahifa, fayl: d.joriy_fayl });
+        if (d.tugadimi) {
+          yakun = d.yakun;
+          tugadi = true;
+        }
+      }
+      if (!ishBorEdi) tugadi = true;
+    }
+    return { toxtatildi: false, yakun };
+  }
+
+  function yakunXabariniQoy(yakun) {
+    const qismlar = [
+      `${yakun.yaratilgan_mashqlar} ${t("kurs_natija_mashq")}`,
+      `${yakun.kesilgan_rasmlar} ${t("kurs_blok_rasm")}`,
+    ];
+    if (yakun.baholanadigan_savollar) {
+      qismlar.push(`${yakun.baholanadigan_savollar} ${t("kurs_blok_savol")}`);
+    }
+    let xabarMatni = qismlar.join(", ");
+    if (yakun.xato_sahifalar?.length) {
+      xabarMatni += ` — ⚠ ${yakun.xato_sahifalar.length} ${t("kurs_zip_xato_sahifa")}: ${yakun.xato_sahifalar
+        .map((x) => x.fayl.split("/").pop())
+        .join(", ")}`;
+    }
+    setMashqXabar(xabarMatni);
+  }
+
+  async function zipYukla(fayl) {
+    setMashqXato("");
+    setMashqXabar("");
+    setZipYuklanmoqda(true);
+    setProgress(null);
+    try {
+      const fd = new FormData();
+      fd.append("zip_fayl", fayl);
+      const boshlash = await apiForm(`/api/kurslar/${tugunId}/blok-zip/`, {
+        method: "POST",
+        formData: fd,
+      });
+      const natija = await jarayonniBajar(boshlash.jarayon_id, boshlash.jami_sahifa, 0);
+      if (natija.toxtatildi) {
+        setMashqXabar(t("kurs_blok_toxtatildi"));
+      } else {
+        yakunXabariniQoy(natija.yakun);
+        setFaolJarayon(null);
+        yukla();
+      }
+    } catch (e2) {
+      setMashqXato(e2.data?.detail || t("xato_yuz_berdi"));
+      if (e2.status === 409) setFaolJarayon(null);
+    } finally {
+      setZipYuklanmoqda(false);
+      setProgress(null);
+    }
+  }
+
+  async function jarayonniDavomEttir() {
+    if (!faolJarayon) return;
+    setMashqXato("");
+    setMashqXabar("");
+    setZipYuklanmoqda(true);
+    setProgress(null);
+    try {
+      const natija = await jarayonniBajar(
+        faolJarayon.id, faolJarayon.jami_sahifa, faolJarayon.ishlangan_sahifa,
+      );
+      if (natija.toxtatildi) {
+        setMashqXabar(t("kurs_blok_toxtatildi"));
+      } else {
+        yakunXabariniQoy(natija.yakun);
+        setFaolJarayon(null);
+        yukla();
+      }
+    } catch (e2) {
+      setMashqXato(e2.data?.detail || t("xato_yuz_berdi"));
+      if (e2.status === 409) setFaolJarayon(null);
+    } finally {
+      setZipYuklanmoqda(false);
+      setProgress(null);
+    }
+  }
+
+  async function birRasmdanQoshish(fayl) {
+    setMashqXato("");
+    setMashqXabar("");
+    setRasmYuklanmoqda(true);
+    try {
+      const fd = new FormData();
+      fd.append("rasm", fayl);
+      const yaratilgan = await apiForm(`/api/kurslar/${tugunId}/mashq-rasm-qoshish/`, {
+        method: "POST",
+        formData: fd,
+      });
+      setMashqXabar(
+        yaratilgan.javob_talab_qiluvchi_soni > 0
+          ? `${t("kurs_mashq_qoshildi")} — ${yaratilgan.javob_talab_qiluvchi_soni} ${t("kurs_javob_talab")}`
+          : t("kurs_mashq_qoshildi")
+      );
+      yukla();
+    } catch (e2) {
+      setMashqXato(e2.data?.detail || t("xato_yuz_berdi"));
+    } finally {
+      setRasmYuklanmoqda(false);
+    }
+  }
+
+  // 2026-07-30 talabi: bitta tugma — rasm YOKI ZIP tanlash mumkin,
+  // fayl kengaytmasidan qaysi oqim kerakligi aniqlanadi.
+  function faylTanlandi(e) {
+    const fayl = e.target.files[0];
+    e.target.value = "";
+    if (!fayl) return;
+    if (fayl.name.toLowerCase().endsWith(".zip")) {
+      zipYukla(fayl);
+    } else {
+      birRasmdanQoshish(fayl);
+    }
+  }
 
   async function qoshish() {
     setXato("");
@@ -467,50 +684,86 @@ function AdminMashqBoshqaruv({ tugunId, jsonKiritishKorinadi = true }) {
     }
   }
 
-  async function rasmdanMashqQoshish(e) {
-    const fayl = e.target.files[0];
-    e.target.value = "";
-    if (!fayl) return;
-    setRasmMashqXato("");
-    setRasmMashqXabar("");
-    setRasmMashqYuklanmoqda(true);
-    try {
-      const fd = new FormData();
-      fd.append("rasm", fayl);
-      const yaratilgan = await apiForm(`/api/kurslar/${tugunId}/mashq-rasm-qoshish/`, {
-        method: "POST",
-        formData: fd,
-      });
-      setRasmMashqXabar(
-        yaratilgan.javob_talab_qiluvchi_soni > 0
-          ? `${t("kurs_mashq_qoshildi")} — ${yaratilgan.javob_talab_qiluvchi_soni} ${t("kurs_javob_talab")}`
-          : t("kurs_mashq_qoshildi")
-      );
-      yukla();
-    } catch (e2) {
-      setRasmMashqXato(e2.data?.detail || t("xato_yuz_berdi"));
-    } finally {
-      setRasmMashqYuklanmoqda(false);
-    }
-  }
-
   return (
     <div>
       <div style={{ marginBottom: 10, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         <label className="tugma ikkinchi" style={{ cursor: "pointer" }}>
-          {rasmMashqYuklanmoqda ? t("yuklanmoqda") : t("kurs_rasmdan_mashq_qoshish")}
+          {rasmYuklanmoqda ? t("yuklanmoqda") : t("kurs_rasmdan_mashq_qoshish")}
           <input
             type="file"
-            accept="image/*"
-            onChange={rasmdanMashqQoshish}
-            disabled={rasmMashqYuklanmoqda}
+            accept="image/*,.zip"
+            onChange={faylTanlandi}
+            disabled={rasmYuklanmoqda || zipYuklanmoqda}
             style={{ display: "none" }}
           />
         </label>
-        {rasmMashqXato && <span className="xato-xabar">{rasmMashqXato}</span>}
-        {rasmMashqXabar && <span className="izoh">✓ {rasmMashqXabar}</span>}
+        {faolJarayon && !zipYuklanmoqda && (
+          <>
+            <button className="tugma ikkinchi kichik" onClick={jarayonniDavomEttir}>
+              {t("kurs_blok_davom_ettirish")} ({faolJarayon.ishlangan_sahifa}/{faolJarayon.jami_sahifa})
+            </button>
+            <button
+              className="tugma ikkinchi kichik"
+              style={{ color: "#d33" }}
+              onClick={jarayonniBekorQil}
+              disabled={bekorQilinmoqda}
+            >
+              {t("kurs_blok_bekor_qilish")}
+            </button>
+          </>
+        )}
+        {mashqXato && <span className="xato-xabar">{mashqXato}</span>}
+        {mashqXabar && <span className="izoh">✓ {mashqXabar}</span>}
         {qaytaYuklashXato && <span className="xato-xabar">{qaytaYuklashXato}</span>}
       </div>
+      {progress && (
+        <div style={{ marginBottom: 10 }}>
+          <div className="izoh">
+            {t("kurs_blok_progress")} {progress.ishlangan}/{progress.jami}
+            {progress.fayl ? ` — ${progress.fayl}` : ""}
+          </div>
+          <div style={{ height: 6, background: "var(--sirt-2)", borderRadius: 3, marginTop: 4 }}>
+            <div
+              style={{
+                width: `${(progress.ishlangan / progress.jami) * 100}%`,
+                height: "100%",
+                background: "var(--sariq-toq)",
+                borderRadius: 3,
+                transition: "width .3s",
+              }}
+            />
+          </div>
+        </div>
+      )}
+      {/* 2026-07-29 talabi: "fayl yuklanib bo'lmagungacha saytda hech
+          qanday amal bajarish mumkin bo'lmasin" — ZIP ko'p sahifali
+          bo'lganda butun sahifani qoplaydi. */}
+      {zipYuklanmoqda && (
+        <div className="blok-yuklash-qoplama">
+          <div className="blok-yuklash-karta">
+            <div className="blok-yuklash-spinner" aria-hidden="true" />
+            <div style={{ fontWeight: 700 }}>{t("kurs_blok_yuklash_band")}</div>
+            <div className="izoh">{t("kurs_blok_otgan_vaqt")}: {vaqtFormat(otganSoniya)}</div>
+            {progress && (
+              <div className="izoh blok-yuklash-fayl" title={progress.fayl || undefined}>
+                {progress.ishlangan}/{progress.jami}
+                {progress.fayl ? ` — ${progress.fayl}` : ""}
+              </div>
+            )}
+            <button
+              type="button"
+              className="tugma ikkinchi"
+              style={{ marginTop: 10 }}
+              onClick={() => {
+                toxtatishRef.current = true;
+                setZipYuklanmoqda(false);
+              }}
+            >
+              {t("kurs_blok_toxtatish")}
+            </button>
+          </div>
+        </div>
+      )}
       {royxat && royxat.length > 0 && (
         <div style={{ display: "grid", gap: 6, marginBottom: 10 }}>
           {royxat.map((m) => (
@@ -907,393 +1160,6 @@ function AdminUnitSoniBoshqarish({ darajaId, royxatniYangila }) {
   );
 }
 
-function AdminUnitKiritish({ unitId, royxatniYangila }) {
-  const { t } = useI18n();
-  const [zipXato, setZipXato] = useState("");
-  const [zipXabar, setZipXabar] = useState("");
-  const [raqamsizOgohlantirish, setRaqamsizOgohlantirish] = useState("");
-  // 2026-07-29(3) talabi: "har mashq uchun alohida rasm, fayl nomidan
-  // mashq raqamini bilib qo'yish" — admin ikkisidan birini tanlaydi.
-  // 2026-07-30: "mashq bo'yicha" standart rejim qilindi (foydalanuvchi
-  // talabi) — "sahifa bo'yicha" ham qoladi, admin xohlasa tanlaydi.
-  const [zipRejim, setZipRejim] = useState("mashq");
-  // 2026-07-30 talabi: ZIP orqali ko'p sahifani birdan yuklash endi
-  // ASOSIY usul emas ("🖼️ Rasm orqali mashq qo'shish" tugmasi — asosiy,
-  // bitta-bittadan kiritish) — shuning uchun ZIP paneli standart holda
-  // YASHIRILGAN, kerak bo'lsa "Yana bir usul" havolasi orqali ochiladi.
-  const [zipUsuliKorinadimi, setZipUsuliKorinadimi] = useState(false);
-  const [zipYuklanmoqda, setZipYuklanmoqda] = useState(false);
-  const [progress, setProgress] = useState(null);
-  // 2026-07-29 talabi: yuklash necha daqiqada ketayotganini ko'rsatish.
-  const [otganSoniya, setOtganSoniya] = useState(0);
-  // 2026-07-29(2) talabi: "to'xtatish tugmasi" — bosilganda joriy
-  // "to'lqin" (band qilingan sahifalar) fonda tugashiga ruxsat beriladi
-  // (natijalari baribir saqlanadi), lekin YANGI to'lqin boshlanmaydi va
-  // qoplama darhol yopiladi — jarayon keyinroq "Davom ettirish" bilan
-  // xuddi shu joydan davom etadi (ref, chunki holat o'zgarishi darhol,
-  // qayta render kutmay kerak — async sikl ichida o'qiladi).
-  const toxtatishRef = useRef(false);
-
-  useEffect(() => {
-    if (!zipYuklanmoqda) return undefined;
-    const boshlandi = Date.now();
-    setOtganSoniya(0);
-    const taymer = setInterval(() => {
-      setOtganSoniya(Math.floor((Date.now() - boshlandi) / 1000));
-    }, 1000);
-    return () => clearInterval(taymer);
-  }, [zipYuklanmoqda]);
-
-  function vaqtFormat(soniya) {
-    const daq = Math.floor(soniya / 60);
-    const s = soniya % 60;
-    return `${daq}:${String(s).padStart(2, "0")}`;
-  }
-
-  const [faolJarayon, setFaolJarayon] = useState(null); // {id, ishlangan_sahifa, jami_sahifa}
-
-  // 2026-07-29 talabi: "yuklanmagan qismini qo'lda yuklash imkoni kerak".
-  // Sahifa ochilganda (yoki Unit qayta ko'rsatilganda) shu kitob uchun
-  // yarim qolgan (avtomatik qayta urinishlar ham tugab ketgan) jarayon
-  // bor-yo'qligi tekshiriladi — bo'lsa "Davom ettirish" tugmasi chiqadi.
-  useEffect(() => {
-    api(`/api/kurslar/${unitId}/blok-jarayon-holati/`)
-      .then((d) => setFaolJarayon(d.faol_jarayon))
-      .catch(() => {});
-  }, [unitId]);
-
-  // 2026-07-30 talabi: "Davom ettirish" yonida "Bekor qilish" — FAQAT
-  // tugallanmagan jarayonni (ZIP holatini) o'chiradi, mashqlarga ASLO
-  // tegmaydi (bu "Tozalash"dan MUSTAQIL, alohida amal).
-  const [bekorQilinmoqda, setBekorQilinmoqda] = useState(false);
-  async function jarayonniBekorQil() {
-    if (!faolJarayon || !window.confirm(t("kurs_blok_bekor_qilish_tasdiq"))) return;
-    setBekorQilinmoqda(true);
-    try {
-      await api(`/api/kurslar/${unitId}/blok-jarayon-holati/`, { method: "DELETE" });
-      setFaolJarayon(null);
-    } catch {
-      // e'tiborsiz qoldirilsa ham xavfsiz — "Davom ettirish" tugmasi
-      // ekranda qolaveradi, admin xohlasa qayta urinishi mumkin.
-    } finally {
-      setBekorQilinmoqda(false);
-    }
-  }
-
-  // Navbatdagi BITTA sahifani band qilib ishlaydi — xatoda qayta
-  // urinadi (Render konteyneri qayta ishga tushishi mumkin, bir necha
-  // soniya olishi mumkin). Bir nechta nusxasi PARALLEL chaqiriladi
-  // (backend har biriga alohida sahifani atomik beradi).
-  async function bittaSahifaniIshla(jid) {
-    const SAHIFA_URINISHLAR = 3;
-    let oxirgiXato = null;
-    for (let urinish = 0; urinish < SAHIFA_URINISHLAR; urinish += 1) {
-      try {
-        // eslint-disable-next-line no-await-in-loop
-        return await api(`/api/kurslar/blok-jarayon/${jid}/sahifa/`, { method: "POST" });
-      } catch (sahifaXato) {
-        oxirgiXato = sahifaXato;
-        if (urinish < SAHIFA_URINISHLAR - 1) {
-          // eslint-disable-next-line no-await-in-loop
-          await new Promise((r) => { setTimeout(r, 5000 * (urinish + 1)); });
-        }
-      }
-    }
-    throw oxirgiXato;
-  }
-
-  // Bitta jarayonning QOLGAN sahifalarini ishlaydi — yangi yuklashda ham
-  // (0 dan), "Davom ettirish"da ham (saqlangan ishlangan_sahifadan)
-  // ISHLATILADI, shuning uchun umumiy funksiyaga chiqarilgan.
-  //
-  // 2026-07-29: har "to'lqin"da PARALLEL_SAHIFA_SONI tagacha so'rov bir
-  // vaqtda yuboriladi — backend navbatdagi bo'sh sahifani ATOMIK band
-  // qilib beradi (courses/blok_views.py), shuning uchun bu yerda
-  // sahifa indeksini o'zimiz hisoblashimiz shart emas.
-  async function jarayonniBajar(jid, jamiSahifa, boshlangichIshlangan) {
-    toxtatishRef.current = false;
-    let yakun = null;
-    let tugadi = false;
-    let oxirgiIshlangan = boshlangichIshlangan;
-    setProgress({ ishlangan: boshlangichIshlangan, jami: jamiSahifa, fayl: "" });
-    while (!tugadi) {
-      if (toxtatishRef.current) {
-        // 2026-07-29(2): admin "To'xtatish" bosdi — joriy to'lqindagi
-        // (band qilingan) sahifalar natijasi baribir saqlangan, faqat
-        // YANGI to'lqin boshlanmaydi. Jarayon bazada saqlanib qoladi.
-        setFaolJarayon({ id: jid, ishlangan_sahifa: oxirgiIshlangan, jami_sahifa: jamiSahifa });
-        return { toxtatildi: true };
-      }
-      const vadalar = [];
-      for (let k = 0; k < PARALLEL_SAHIFA_SONI; k += 1) vadalar.push(bittaSahifaniIshla(jid));
-      // eslint-disable-next-line no-await-in-loop
-      const natijalar = await Promise.allSettled(vadalar);
-
-      const xatoli = natijalar.find((n) => n.status === "rejected");
-      if (xatoli) {
-        // 2026-07-29: avtomatik qayta urinishlar ham tugasa, jarayon
-        // BAZADA saqlanib qoladi (yo'qolmaydi) — keyinroq "Davom
-        // ettirish" bilan xuddi shu joydan davom etish mumkin.
-        setFaolJarayon({ id: jid, ishlangan_sahifa: oxirgiIshlangan, jami_sahifa: jamiSahifa });
-        throw xatoli.reason;
-      }
-
-      let ishBorEdi = false;
-      for (const n of natijalar) {
-        const d = n.value;
-        if (d.band_qilinadigan_sahifa_qolmadi) continue; // bu "ishchi"ga ish qolmadi
-        ishBorEdi = true;
-        oxirgiIshlangan = d.ishlangan_sahifa;
-        setProgress({ ishlangan: d.ishlangan_sahifa, jami: d.jami_sahifa, fayl: d.joriy_fayl });
-        if (d.tugadimi) {
-          yakun = d.yakun;
-          tugadi = true;
-        }
-      }
-      if (!ishBorEdi) tugadi = true; // ehtiyot chorasi — hech kim ish topmadi
-    }
-    return { toxtatildi: false, yakun };
-  }
-
-  function yakunXabariniQoy(yakun) {
-    const qismlar = [
-      `${yakun.yaratilgan_mashqlar} ${t("kurs_natija_mashq")}`,
-      `${yakun.kesilgan_rasmlar} ${t("kurs_blok_rasm")}`,
-    ];
-    if (yakun.baholanadigan_savollar) {
-      qismlar.push(`${yakun.baholanadigan_savollar} ${t("kurs_blok_savol")}`);
-    }
-    if (yakun.moslangan_audio) {
-      qismlar.push(`${yakun.moslangan_audio} ${t("kurs_zip_audio")}`);
-    }
-    if (yakun.qoshilgan_sozlar) {
-      qismlar.push(`${yakun.qoshilgan_sozlar} ${t("kurs_natija_soz")}`);
-    }
-    let xabarMatni = qismlar.join(", ");
-    if (yakun.xato_sahifalar?.length) {
-      xabarMatni += ` — ⚠ ${yakun.xato_sahifalar.length} ${t("kurs_zip_xato_sahifa")}: ${yakun.xato_sahifalar
-        .map((x) => x.fayl.split("/").pop())
-        .join(", ")}`;
-    }
-    if (yakun.ishlatilmagan_audio?.length) {
-      xabarMatni += ` — ⚠ ${t("kurs_zip_moslanmagan_audio")}: ${yakun.ishlatilmagan_audio.join(", ")}`;
-    }
-    setZipXabar(xabarMatni);
-  }
-
-  // Blok formatida yuklash (2026-07-28) — ZIP bir marta yuboriladi,
-  // keyin sahifalar BITTALAB qayta ishlanadi. Sabab: har sahifa AI'da
-  // ~2 daqiqa, 7-10 sahifa esa gunicorn'ning 300s timeout'iga sig'maydi.
-  // Foydalanuvchi uchun bu bitta amal bo'lib qoladi — progress ko'rinadi.
-  async function blokZipYukla(e) {
-    const fayl = e.target.files[0];
-    e.target.value = "";
-    if (!fayl) return;
-    setZipXato("");
-    setZipXabar("");
-    setRaqamsizOgohlantirish("");
-    setZipYuklanmoqda(true);
-    setProgress(null);
-    try {
-      const fd = new FormData();
-      fd.append("zip_fayl", fayl);
-      fd.append("rejim", zipRejim);
-      const boshlash = await apiForm(`/api/kurslar/${unitId}/blok-zip/`, {
-        method: "POST",
-        formData: fd,
-      });
-      if (boshlash.raqamsiz_fayllar?.length) {
-        setRaqamsizOgohlantirish(
-          `${t("kurs_blok_raqamsiz_fayllar")}: ${boshlash.raqamsiz_fayllar.join(", ")}`
-        );
-      }
-      const natija = await jarayonniBajar(boshlash.jarayon_id, boshlash.jami_sahifa, 0);
-      if (natija.toxtatildi) {
-        setZipXabar(t("kurs_blok_toxtatildi"));
-      } else {
-        yakunXabariniQoy(natija.yakun);
-        setFaolJarayon(null);
-        royxatniYangila();
-      }
-    } catch (e2) {
-      setZipXato(e2.data?.detail || t("xato_yuz_berdi"));
-      // 2026-07-29(6): 409 — backend jarayonni "tiqilib qolgan" deb
-      // aniqlab, o'zi o'chirib tashladi (qarang courses/blok_views.py) —
-      // "Davom ettirish" tugmasi endi ma'nosiz, darhol yashiramiz.
-      if (e2.status === 409) setFaolJarayon(null);
-    } finally {
-      setZipYuklanmoqda(false);
-      setProgress(null);
-    }
-  }
-
-  async function jarayonniDavomEttir() {
-    if (!faolJarayon) return;
-    setZipXato("");
-    setZipXabar("");
-    setZipYuklanmoqda(true);
-    setProgress(null);
-    try {
-      const natija = await jarayonniBajar(
-        faolJarayon.id, faolJarayon.jami_sahifa, faolJarayon.ishlangan_sahifa,
-      );
-      if (natija.toxtatildi) {
-        setZipXabar(t("kurs_blok_toxtatildi"));
-      } else {
-        yakunXabariniQoy(natija.yakun);
-        setFaolJarayon(null);
-        royxatniYangila();
-      }
-    } catch (e2) {
-      setZipXato(e2.data?.detail || t("xato_yuz_berdi"));
-      // 2026-07-29(6): 409 — backend jarayonni "tiqilib qolgan" deb
-      // aniqlab, o'zi o'chirib tashladi (qarang courses/blok_views.py) —
-      // "Davom ettirish" tugmasi endi ma'nosiz, darhol yashiramiz.
-      if (e2.status === 409) setFaolJarayon(null);
-    } finally {
-      setZipYuklanmoqda(false);
-      setProgress(null);
-    }
-  }
-
-  // 2026-07-28: "Unit materialini yuklash" ochish/yopish tugmasi OLIB
-  // TASHLANDI (foydalanuvchi talabi) — fayl tanlash maydoni to'g'ridan-
-  // to'g'ri turadi. Sabab: tugma ortiqcha bosish edi, ichida baribir
-  // yagona amal (ZIP tanlash) bor.
-  return (
-    <div style={{ marginTop: 4, marginBottom: 6, maxWidth: 640 }} onClick={(e) => e.stopPropagation()}>
-      {/* 2026-07-30: ZIP orqali ko'p sahifani birdan yuklash endi
-          ikkinchi darajali usul — asosiy yo'l "🖼️ Rasm orqali mashq
-          qo'shish" tugmasi (bitta-bittadan). Standart holda yashirin. */}
-      {!zipUsuliKorinadimi ? (
-        <button
-          type="button"
-          className="tugma ikkinchi kichik"
-          onClick={() => setZipUsuliKorinadimi(true)}
-        >
-          {t("kurs_zip_usulini_korsat")}
-        </button>
-      ) : (
-        <>
-          <label className="izoh" style={{ display: "block", marginBottom: 4 }}>
-            {t("kurs_zip_yuklash_izoh")}
-          </label>
-          <div style={{ display: "flex", gap: 14, marginBottom: 6 }}>
-            <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13 }}>
-              <input
-                type="radio"
-                name={`zip-rejim-${unitId}`}
-                checked={zipRejim === "sahifa"}
-                onChange={() => setZipRejim("sahifa")}
-                disabled={zipYuklanmoqda}
-              />
-              {t("kurs_zip_rejim_sahifa")}
-            </label>
-            <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 13 }}>
-              <input
-                type="radio"
-                name={`zip-rejim-${unitId}`}
-                checked={zipRejim === "mashq"}
-                onChange={() => setZipRejim("mashq")}
-                disabled={zipYuklanmoqda}
-              />
-              {t("kurs_zip_rejim_mashq")}
-            </label>
-          </div>
-          {zipRejim === "mashq" && (
-            <p className="izoh" style={{ marginTop: 0, marginBottom: 6 }}>
-              {t("kurs_zip_rejim_mashq_izoh")}
-            </p>
-          )}
-          <input type="file" accept=".zip" onChange={blokZipYukla} disabled={zipYuklanmoqda} />
-        </>
-      )}
-      {raqamsizOgohlantirish && (
-        <div className="xato-xabar" style={{ marginTop: 4 }}>⚠ {raqamsizOgohlantirish}</div>
-      )}
-      {faolJarayon && !zipYuklanmoqda && (
-        <div style={{ marginTop: 6, display: "flex", gap: 8 }}>
-          <button className="tugma ikkinchi kichik" onClick={jarayonniDavomEttir}>
-            {t("kurs_blok_davom_ettirish")} ({faolJarayon.ishlangan_sahifa}/{faolJarayon.jami_sahifa})
-          </button>
-          <button
-            className="tugma ikkinchi kichik"
-            style={{ color: "#d33" }}
-            onClick={jarayonniBekorQil}
-            disabled={bekorQilinmoqda}
-          >
-            {t("kurs_blok_bekor_qilish")}
-          </button>
-        </div>
-      )}
-      {zipYuklanmoqda && !progress && (
-        <span className="izoh" style={{ marginLeft: 8 }}>{t("kurs_zip_ishlanmoqda")}</span>
-      )}
-      {progress && (
-        <div style={{ marginTop: 6 }}>
-          <div className="izoh">
-            {t("kurs_blok_progress")} {progress.ishlangan}/{progress.jami}
-            {progress.fayl ? ` — ${progress.fayl}` : ""}
-          </div>
-          <div style={{ height: 6, background: "var(--sirt-2)", borderRadius: 3, marginTop: 4 }}>
-            <div
-              style={{
-                width: `${(progress.ishlangan / progress.jami) * 100}%`,
-                height: "100%",
-                background: "var(--sariq-toq)",
-                borderRadius: 3,
-                transition: "width .3s",
-              }}
-            />
-          </div>
-        </div>
-      )}
-      {zipXato && <div className="xato-xabar" style={{ marginTop: 4 }}>{zipXato}</div>}
-      {zipXabar && <div className="izoh" style={{ marginTop: 4 }}>✓ {zipXabar}</div>}
-
-      {/* 2026-07-29 talabi: "fayl yuklanib bo'lmagungacha saytda hech
-          qanday amal bajarish mumkin bo'lmasin". Butun oynani qoplaydigan
-          qatlam (position:fixed + yuqori z-index) — bosishlarni yutadi,
-          shuning uchun ostidagi hech qanday tugma/havola ishlamaydi.
-          `onClick={(e)=>e.stopPropagation()}` yuqorida bor, shuning uchun
-          bu qatlam DOMning istalgan joyida bo'lsa ham to'g'ri ishlaydi. */}
-      {zipYuklanmoqda && (
-        <div className="blok-yuklash-qoplama">
-          <div className="blok-yuklash-karta">
-            <div className="blok-yuklash-spinner" aria-hidden="true" />
-            <div style={{ fontWeight: 700 }}>{t("kurs_blok_yuklash_band")}</div>
-            <div className="izoh">{t("kurs_blok_otgan_vaqt")}: {vaqtFormat(otganSoniya)}</div>
-            {progress && (
-              <div
-                className="izoh blok-yuklash-fayl"
-                title={progress.fayl || undefined}
-              >
-                {progress.ishlangan}/{progress.jami}
-                {progress.fayl ? ` — ${progress.fayl}` : ""}
-              </div>
-            )}
-            {/* 2026-07-29(2) talabi: to'xtatish tugmasi — joriy band
-                qilingan sahifalar fonda tugaydi (natijasi saqlanadi),
-                keyinroq "Davom ettirish" bilan xuddi shu joydan
-                davom etish mumkin. */}
-            <button
-              type="button"
-              className="tugma ikkinchi"
-              style={{ marginTop: 10 }}
-              onClick={() => {
-                toxtatishRef.current = true;
-                setZipYuklanmoqda(false);
-              }}
-            >
-              {t("kurs_blok_toxtatish")}
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
 /** Admin/owner uchun — bitta Unit'ning BARCHA kontentini (Mashqlar +
  * Vocabulary) BITTA tugma bilan tozalash (2026-07-28, foydalanuvchi
  * talabi — qayta yuklashdan oldin eskisini tez o'chirish uchun). */
@@ -1547,15 +1413,12 @@ function Tugun({ tugun, chuqurlik, adminMi, talabaMi, royxatniYangila, ichkariUn
       </div>
       {ochiqmi && (
         <div>
-          {/* Yuklash/tozalash tugmalari KITOB darajasida (2026-07-28
-              tuzilma o'zgarishi: Unit > Student's Book/Workbook > bo'limlar).
-              Avval ular Unit darajasida edi — endi shunday qoldirilsa,
-              kontent HAR DOIM Student's Book'ga tushib, Workbook'ni
-              to'ldirib bo'lmasdi. Sarlavha qatoridan tashqarida, aks
-              holda bosilganda akkordeon ham ochilib/yopilib ketardi. */}
+          {/* Tozalash tugmasi KITOB darajasida (2026-07-28 tuzilma
+              o'zgarishi: Unit > Student's Book/Workbook > bo'limlar).
+              Mashq qo'shish (rasm/ZIP) endi "Mashqlar" bo'limining o'zida
+              (AdminMashqBoshqaruv, 2026-07-30). */}
           {adminMi && kitobmi && (
             <div style={{ paddingLeft: otstup + 18, display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 6 }}>
-              <AdminUnitKiritish unitId={tugun.id} royxatniYangila={royxatniYangila} />
               <UnitTozalashTugmasi unitId={tugun.id} royxatniYangila={royxatniYangila} />
             </div>
           )}

@@ -32,28 +32,19 @@ from audit.models import FaoliyatYozuvi
 from audit.utils import logla
 
 from .blok_generatsiya import (
-    audio_raqamlarini_yig,
     blok_provider_olish,
     bloklarni_tayyorla,
-    javob_kaliti_sahifasi,
     rasmni_kes,
     sahifani_bloklarga_ajrat,
 )
-from .kontent_generatsiya import (
-    audio_raqamini_ajrat,
-    kengaytma_turi,
-    raqam_kaliti,
-    tabiiy_tartib_kaliti,
-)
+from .kontent_generatsiya import kengaytma_turi, tabiiy_tartib_kaliti
 from .models import (
     KursMashq,
-    KursMashqAudio,
     KursMashqRasmi,
-    KursSoz,
     KursTugun,
     KursZipJarayoni,
 )
-from .views import _kurs_mashq_admin_dict, _mashq_admin_mi, _unit_bolimlari
+from .views import _kurs_mashq_admin_dict, _mashq_admin_mi
 
 # 2026-07-29(6): agar bir sahifa band qilingan-u biror sababdan (masalan
 # ESKI, tuzatishdan oldingi versiyada uchragan xato) hech qachon
@@ -132,81 +123,27 @@ def _jarayon_keshini_tozala(jarayon):
     _jarayon_kesh_yoli(jarayon).unlink(missing_ok=True)
 
 
-def _zip_tarkibini_ajrat(nomlar):
-    """ZIP ichidagi fayllarni uch guruhga ajratadi — mavjud
-    `KursZipYuklashView` bilan BIR XIL qoida bo'yicha (ataylab
-    o'zgartirilmadi: admin shu tuzilmaga o'rgangan):
-
-    * tur fayl KENGAYTMASIDAN aniqlanadi (papka nomiga qaralmaydi);
-    * nomida "answer" bo'lgan rasm — javob kaliti sahifasi (papka
-      nomidan ANIQ ma'lum, AI'ga klassifikatsiya qildirish shart emas);
-    * tartib — fayl nomidagi raqam bo'yicha tabiiy ("10" > "2")."""
-    sahifalar, javob_kaliti, audiolar = [], [], []
-    for nom in nomlar:
-        if nom.endswith("/"):
-            continue
-        asos = nom.rsplit("/", 1)[-1]
-        turi = kengaytma_turi(asos)
-        if turi == "rasm":
-            (javob_kaliti if "answer" in nom.lower() else sahifalar).append(nom)
-        elif turi == "audio":
-            audiolar.append(nom)
-
-    def kalit(n):
-        return tabiiy_tartib_kaliti(n.rsplit("/", 1)[-1])
-
-    sahifalar.sort(key=kalit)
-    javob_kaliti.sort(key=kalit)
-    return sahifalar, javob_kaliti, audiolar
-
-
-def _zip_tarkibini_ajrat_mashq(nomlar):
-    """"Mashq bo'yicha" yuklash rejimi (2026-07-29, foydalanuvchi talabi):
-    har bir rasm — BUTUN sahifa emas, BITTA alohida mashq (masalan
-    "mashq_3.jpg" — Exercise 3). Tartib fayl nomidagi raqamdan olinadi —
-    tabiiy alfavit tartibi EMAS, aynan shu SON bo'yicha saralanadi, aks
-    holda "mashq_10.jpg" "mashq_2.jpg"dan oldin tushib qolardi.
-
-    2026-07-30: ko'p-rasmli (bitta mashq — bir nechta rasm) guruhlash
-    SINAB KO'RILDI-YU, natijasi yaxshi bo'lmadi (foydalanuvchi talabi) —
-    OLIB TASHLANDI. Har rasm — HAR DOIM alohida, mustaqil mashq.
-
-    Raqami o'qilmagan fayllar (masalan nomida raqam yo'q) alohida
-    ro'yxatda qaytariladi — admin ularni ko'rib, nomini to'g'rilashi
-    kerak (jarayonga umuman kirmaydi)."""
-    nomzodlar, javob_kaliti, audiolar, raqamsiz = [], [], [], []
-    for nom in nomlar:
-        if nom.endswith("/"):
-            continue
-        asos = nom.rsplit("/", 1)[-1]
-        turi = kengaytma_turi(asos)
-        if turi == "rasm":
-            if "answer" in nom.lower():
-                javob_kaliti.append(nom)
-                continue
-            raqam = audio_raqamini_ajrat(asos)
-            if raqam is None:
-                raqamsiz.append(asos)
-                continue
-            nomzodlar.append((raqam, nom))
-        elif turi == "audio":
-            audiolar.append(nom)
-
-    nomzodlar.sort(key=lambda r: raqam_kaliti(r[0]))
-    sahifalar = [nom for _, nom in nomzodlar]
-    mashq_raqamlari = [raqam for raqam, _ in nomzodlar]
-
-    def kalit(n):
-        return tabiiy_tartib_kaliti(n.rsplit("/", 1)[-1])
-
-    javob_kaliti.sort(key=kalit)
-    return sahifalar, mashq_raqamlari, javob_kaliti, audiolar, raqamsiz
+def _zip_ichidagi_rasmlarni_ajrat(nomlar):
+    """2026-07-30 talabi: ZIP endi FAQAT rasmlar uchun — javob-kaliti
+    papkasi, audio, "rejim" tanlovi va h.k. hammasi OLIB TASHLANDI
+    (sodda: har rasm — alohida mashq, "🖼️ Rasm orqali mashq qo'shish"
+    bilan BIR XIL AI tahlili). Rasmlar fayl nomi bo'yicha TABIIY
+    tartibda saralanadi ("10.jpg" "2.jpg"dan keyin keladi)."""
+    rasmlar = [
+        nom for nom in nomlar
+        if not nom.endswith("/") and kengaytma_turi(nom.rsplit("/", 1)[-1]) == "rasm"
+    ]
+    rasmlar.sort(key=lambda n: tabiiy_tartib_kaliti(n.rsplit("/", 1)[-1]))
+    return rasmlar
 
 
 class KursBlokZipYuklashView(APIView):
     """1-BOSQICH: ZIP'ni qabul qilish va nima borligini sanash.
 
-    `pk` — KITOB tuguni (Student's Book / Workbook)."""
+    `pk` — MASHQLAR tuguni (oxirgi qatlam) — 2026-07-30dan buyon KITOB
+    emas: ZIP endi faqat rasmlardan iborat (javob-kaliti/vocabulary/audio
+    ajratish yo'q), shuning uchun to'g'ridan-to'g'ri "🖼️ Rasm orqali
+    mashq qo'shish" bilan BIR XIL tugunga ishlaydi."""
 
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
@@ -214,51 +151,32 @@ class KursBlokZipYuklashView(APIView):
     def post(self, request, pk):
         if not _mashq_admin_mi(request.user):
             return Response({"detail": "Faqat admin/owner uchun"}, status=403)
-        kitob = get_object_or_404(KursTugun, pk=pk)
-        if not {"mashqlar", "vocabulary"}.issubset(_unit_bolimlari(kitob)):
+        tugun = get_object_or_404(KursTugun, pk=pk)
+        if tugun.children.exists():
             return Response(
-                {"detail": "Bu tugunda Mashqlar/Vocabulary bo'limlari topilmadi"},
-                status=400,
+                {"detail": "Faqat oxirgi qatlam (farzandsiz) tugunga mashq qo'shiladi"}, status=400
             )
 
         zip_fayl = request.FILES.get("zip_fayl")
         if not zip_fayl:
             return Response({"detail": "zip_fayl majburiy"}, status=400)
 
-        # 2026-07-29(3): "Mashq bo'yicha" rejimi — har rasm BUTUN sahifa
-        # emas, BITTA alohida mashq (fayl nomidagi raqam — masalan
-        # "mashq_3.jpg" — Exercise 3'ga mos). Admin ikkisidan birini
-        # tanlaydi (frontend, AdminUnitKiritish).
-        rejim = request.data.get("rejim") or "sahifa"
-        if rejim not in ("sahifa", "mashq"):
-            return Response({"detail": "rejim noto'g'ri (sahifa/mashq)"}, status=400)
-
         try:
             nomlar = zipfile.ZipFile(zip_fayl).namelist()
         except zipfile.BadZipFile:
             return Response({"detail": "Fayl yaroqli ZIP emas"}, status=400)
 
-        raqamsiz = []
-        mashq_raqamlari = []
-        if rejim == "mashq":
-            sahifalar, mashq_raqamlari, javob_kaliti, audiolar, raqamsiz = (
-                _zip_tarkibini_ajrat_mashq(nomlar))
-        else:
-            sahifalar, javob_kaliti, audiolar = _zip_tarkibini_ajrat(nomlar)
+        sahifalar = _zip_ichidagi_rasmlarni_ajrat(nomlar)
         if not sahifalar:
             return Response({"detail": "ZIP ichida rasm fayli topilmadi"}, status=400)
 
         zip_fayl.seek(0)
         jarayon = KursZipJarayoni.objects.create(
-            tugun=kitob,
+            tugun=tugun,
             zip_fayl=zip_fayl,
-            jami_sahifa=len(sahifalar) + len(javob_kaliti),
+            jami_sahifa=len(sahifalar),
             natijalar={
-                "rejim": rejim,
                 "sahifalar": sahifalar,
-                "mashq_raqamlari": mashq_raqamlari,
-                "javob_kaliti_fayllari": javob_kaliti,
-                "audiolar": audiolar,
                 # Parallel qayta ishlash (2026-07-29): "band_qilingan" —
                 # band qilib olingan sahifa indekslari (hali tugamagan
                 # bo'lishi ham mumkin); "tugallangan" — indeks(str) -> natija,
@@ -275,9 +193,6 @@ class KursBlokZipYuklashView(APIView):
                 "jarayon_id": jarayon.id,
                 "jami_sahifa": jarayon.jami_sahifa,
                 "sahifa_soni": len(sahifalar),
-                "javob_kaliti_soni": len(javob_kaliti),
-                "audio_soni": len(audiolar),
-                "raqamsiz_fayllar": raqamsiz,
             },
             status=201,
         )
@@ -510,8 +425,7 @@ class KursBlokSahifaView(APIView):
 
             d = jarayon.natijalar
             oddiy = d["sahifalar"]
-            javob_fayllari = d["javob_kaliti_fayllari"]
-            jami = len(oddiy) + len(javob_fayllari)
+            jami = len(oddiy)
             band_vaqtlari = _band_vaqtlarini_ol(d)
             band = {int(k) for k in band_vaqtlari}
             indeks = next((i for i in range(jami) if i not in band), None)
@@ -544,13 +458,9 @@ class KursBlokSahifaView(APIView):
                     # jarayon holatiga tegmaydi, faqat mashq kontentini
                     # tozalaydi). ZIP faylning o'zi R2'da xavfsiz qoladi,
                     # kerak bo'lsa admin ZIPni qaytadan yuklaydi.
-                    tiqilgan_fayllar = []
-                    for idx in sorted(tiqilib_qolgan):
-                        if idx < len(oddiy):
-                            tiqilgan_fayllar.append(oddiy[idx].rsplit("/", 1)[-1])
-                        else:
-                            tiqilgan_fayllar.append(
-                                javob_fayllari[idx - len(oddiy)].rsplit("/", 1)[-1])
+                    tiqilgan_fayllar = [
+                        oddiy[idx].rsplit("/", 1)[-1] for idx in sorted(tiqilib_qolgan)
+                    ]
                     jarayon.delete()
                     return Response(
                         {
@@ -599,34 +509,22 @@ class KursBlokSahifaView(APIView):
         # band qilib, eskisini abadiy tashlab ketardi — production'da
         # aynan shu sabab bilan yuklash sekinlashib/tiqilib qolgan edi
         # (2026-07-29, foydalanuvchi kuzatgan haqiqiy holat).
-        nom = oddiy[indeks] if indeks < len(oddiy) else javob_fayllari[indeks - len(oddiy)]
-        turi = "sahifa" if indeks < len(oddiy) else "javob_kaliti"
-        natija, xato = None, None
+        nom = oddiy[indeks]
+        # 2026-07-30: "🖼️ Rasm orqali mashq qo'shish" bilan BIR XIL
+        # tahlil (`_rasmni_mashqqa_aylantir`) — bloklar/savollar/rasm-
+        # qutilari shu YERDA (AI chaqiruvi bilan birga) tayyorlanadi;
+        # kesish (rasm-qutilarni haqiqiy rasmdan olish) esa yakunlashda
+        # (`_jarayonni_yakunla`) amalga oshadi, arxiv bir marta ochilgani
+        # uchun.
+        sarlavha, bloklar, savollar, qutilar, xato = None, None, None, None, None
         try:
-            provider = blok_provider_olish()
             with _jarayon_arxivi(jarayon) as arxiv:
                 rasm_bytes = arxiv.read(nom)
-            if turi == "sahifa":
-                natija, xato = sahifani_bloklarga_ajrat(provider, rasm_bytes)
-                if not xato and d.get("rejim") == "mashq":
-                    # "Mashq bo'yicha" rejimida mashq raqami AI TAXMINIGA
-                    # emas, fayl NOMIGA ishonamiz (aniq va ishonchli —
-                    # rasm bitta kesilgan mashq bo'lgani uchun sahifada
-                    # "Exercise N" yozuvi ko'rinmasligi ham mumkin).
-                    kutilgan_raqam = d["mashq_raqamlari"][indeks]
-                    for e in natija.get("elementlar", []):
-                        if e.get("tur") == "mashq":
-                            e["mashq_raqami"] = kutilgan_raqam
+            natija_yoki_xato = _rasmni_mashqqa_aylantir(rasm_bytes)
+            if isinstance(natija_yoki_xato, Response):
+                xato = natija_yoki_xato.data.get("detail", "AI xato qaytardi")
             else:
-                natija, xato = javob_kaliti_sahifasi(provider, rasm_bytes)
-                if not xato and not natija.get("javoblar"):
-                    # Sahifa "answer" papkasida turibdi, lekin ichida
-                    # javob yo'q. Amalda uchragan holat (2026-07-28):
-                    # "answers/answer 1.jpg" aslida Teacher's Guide'ning
-                    # Unit Overview sahifasi edi. AI to'g'ri ish qilgan,
-                    # lekin admin buni BILISHI kerak — aks holda javob
-                    # kaliti qo'llandi deb o'ylab qoladi.
-                    xato = "Javob topilmadi — bu sahifa javob kaliti emasga o'xshaydi"
+                sarlavha, bloklar, savollar, qutilar = natija_yoki_xato
         except ProviderXatosi as e:
             xato = str(e)
         except Exception as e:  # noqa: BLE001 — pastdagi izohga qarang
@@ -638,9 +536,11 @@ class KursBlokSahifaView(APIView):
             jarayon = KursZipJarayoni.objects.select_for_update().get(pk=pk)
             d = jarayon.natijalar
             d.setdefault("tugallangan", {})[str(indeks)] = {
-                "turi": turi,
                 "fayl": nom,
-                "natija": natija,
+                "sarlavha": sarlavha,
+                "bloklar": bloklar,
+                "savollar": savollar,
+                "qutilar": qutilar,
                 "xato": xato,
             }
             jarayon.natijalar = d
@@ -665,34 +565,23 @@ class KursBlokSahifaView(APIView):
         return Response(javob)
 
 
-def _javob_kaliti_indeksi(bandlar):
-    """(mashq_raqami, band_raqami) -> javob. Katta-kichik harfga sezmas
-    (2026-07-27 da topilgan haqiqiy nomuvofiqlik: "GRAMMAR SPOT" va
-    "Grammar Spot" bir xil band edi, lekin mos kelmagan)."""
-    indeks = {}
-    for b in bandlar:
-        kalit = (
-            str(b.get("mashq_raqami") or "").strip().lower(),
-            str(b.get("band_raqami") or "").strip().lower(),
-        )
-        if kalit != ("", "") and b.get("javob"):
-            indeks[kalit] = b["javob"]
-    return indeks
-
-
 def _jarayonni_yakunla(jarayon, foydalanuvchi):
-    """Yig'ilgan tahlillarni BAZAGA yozadi: mashqlar (bloklar+savollar),
-    sahifadan kesilgan rasmlar, audio biriktirish.
+    """Yig'ilgan tahlillarni BAZAGA yozadi: har sahifa/rasm — BITTA
+    KursMashq (bloklar+savollar allaqachon `KursBlokSahifaView`da AI
+    chaqiruvi bilan birga tayyorlangan) + undan kesilgan rasmlar.
 
-    2026-07-29: natijalar `tugallangan` lug'atida SAHIFA INDEKSI kaliti
-    bilan saqlangan (parallel qayta ishlash tufayli tugallanish tartibi
+    2026-07-30: sodda ZIP oqimi — javob-kaliti, audio moslashtirish,
+    wordlist ajratish OLIB TASHLANDI (foydalanuvchi talabi: "ZIP ichida
+    faqat rasmlar"). Vocabulary so'zlarini kiritish uchun mavjud
+    `/api/kurslar/{pk}/unit-yuklash/` (wordlist maydoni) ishlatiladi.
+
+    Natijalar `tugallangan` lug'atida SAHIFA INDEKSI kaliti bilan
+    saqlangan (parallel qayta ishlash tufayli tugallanish tartibi
     original sahifa tartibiga mos kelmasligi mumkin) — shuning uchun bu
     yerda ATAYLAB indeks bo'yicha SARALAB o'qiladi, natijada yakuniy
     mashqlar tartibi har doim sahifa tartibiga mos bo'ladi."""
     d = jarayon.natijalar
-    bolimlar = _unit_bolimlari(jarayon.tugun)
-    mashq_tugun = bolimlar["mashqlar"]
-    vocab_tugun = bolimlar.get("vocabulary")
+    mashq_tugun = jarayon.tugun  # 2026-07-30: jarayon endi to'g'ridan-to'g'ri mashqlar tuguniga bog'lanadi
 
     tugallangan = d.get("tugallangan", {})
     tartiblangan = [tugallangan[k] for k in sorted(tugallangan, key=int)]
@@ -700,97 +589,42 @@ def _jarayonni_yakunla(jarayon, foydalanuvchi):
     xato_sahifalar = [
         {"fayl": t["fayl"], "xato": t["xato"]} for t in tartiblangan if t["xato"]
     ]
-    javob_bandlari = []
-    for t in tartiblangan:
-        if t["turi"] == "javob_kaliti" and not t["xato"]:
-            javob_bandlari.extend(t["natija"].get("javoblar", []))
-    javob_indeksi = _javob_kaliti_indeksi(javob_bandlari)
 
     boshlangich = mashq_tugun.mashqlar.count()
-    yaratilgan, rasm_soni, savol_soni, qollangan = [], 0, 0, 0
-
-    # 2026-07-29 talabi: "Wordlist" sahifalari Vocabulary'ga (KursSoz)
-    # qo'shilishi kerak — avval umuman qo'shilmasdi (AI ularni ham
-    # oddiy "mashq" sifatida tahlil qilishga urinar, natija bo'sh
-    # chiqardi). Endi AI wordlist sahifasini ALOHIDA "sozlar" maydonida
-    # qaytaradi (blok_generatsiya.py, BLOK_PROMPT) — bu yerda yig'ib,
-    # Vocabulary tuguniga ALOHIDA yozamiz (KursMashq sifatida EMAS).
-    yangi_sozlar = []
+    yaratilgan_soni, rasm_soni, savol_soni = 0, 0, 0
 
     with _jarayon_arxivi(jarayon) as arxiv:
-        i = 0
         for t in tartiblangan:
-            if t["turi"] != "sahifa" or t["xato"]:
+            if t["xato"]:
                 continue
-            natija = t["natija"]
-            yangi_sozlar.extend(natija.get("sozlar") or [])
-            elementlar = natija.get("elementlar") or []
-            if not elementlar:
-                # Sof Wordlist sahifasi (faqat so'zlar, mashq elementi
-                # yo'q) — bo'sh KursMashq yaratmaymiz.
-                continue
-            i += 1
-            bloklar, savollar, qutilar = bloklarni_tayyorla(elementlar)
-
-            # Javob kaliti AI taxminidan USTUN — darslikning haqiqiy manbasi.
-            for s in savollar:
-                kalit = (
-                    str(s.get("mashq_raqami") or "").strip().lower(),
-                    str(s.get("band_raqami") or "").strip().lower(),
-                )
-                if kalit in javob_indeksi:
-                    s["togri"] = javob_indeksi[kalit]
-                    qollangan += 1
-
             mashq = KursMashq.objects.create(
                 tugun=mashq_tugun,
-                tartib=boshlangich + i,
-                matn=natija.get("sarlavha", ""),
-                savollar=savollar,
-                bloklar=bloklar,
+                tartib=boshlangich + yaratilgan_soni + 1,
+                matn=t["sarlavha"] or "",
+                savollar=t["savollar"] or [],
+                bloklar=t["bloklar"] or [],
             )
-            savol_soni += len(savollar)
+            savol_soni += len(t["savollar"] or [])
 
-            sahifa_bytes = arxiv.read(t["fayl"])
-            for tartib, quti in enumerate(qutilar):
-                kesilgan = rasmni_kes(sahifa_bytes, quti)
+            rasm_bytes = arxiv.read(t["fayl"])
+            for tartib, quti in enumerate(t["qutilar"] or []):
+                kesilgan = rasmni_kes(rasm_bytes, quti)
                 if not kesilgan:
                     continue
                 yozuv = KursMashqRasmi(mashq=mashq, tartib=tartib)
                 yozuv.rasm.save(f"{mashq.id}_{tartib}.jpg", ContentFile(kesilgan), save=True)
                 rasm_soni += 1
 
-            yaratilgan.append((mashq, audio_raqamlarini_yig(bloklar)))
-
-        moslangan, ishlatilgan = _audiolarni_biriktir(
-            arxiv, d.get("audiolar", []), yaratilgan)
-
-    soz_soni = 0
-    if vocab_tugun and yangi_sozlar:
-        boshlangich_soz = vocab_tugun.sozlar.count()
-        yaratilgan_sozlar = [
-            KursSoz(tugun=vocab_tugun, tartib=boshlangich_soz + idx + 1,
-                    en=str(s.get("en") or "").strip(), uz=str(s.get("uz") or "").strip())
-            for idx, s in enumerate(yangi_sozlar)
-        ]
-        yaratilgan_sozlar = [s for s in yaratilgan_sozlar if s.en and s.uz]
-        KursSoz.objects.bulk_create(yaratilgan_sozlar)
-        soz_soni = len(yaratilgan_sozlar)
+            yaratilgan_soni += 1
 
     jarayon.holat = KursZipJarayoni.Holat.TUGADI
     jarayon.save(update_fields=["holat"])
     _jarayon_keshini_tozala(jarayon)  # vaqtinchalik mahalliy nusxa endi kerak emas
 
     natija = {
-        "yaratilgan_mashqlar": len(yaratilgan),
+        "yaratilgan_mashqlar": yaratilgan_soni,
         "kesilgan_rasmlar": rasm_soni,
         "baholanadigan_savollar": savol_soni,
-        "javob_kaliti_qollandi": qollangan,
-        "moslangan_audio": moslangan,
-        "qoshilgan_sozlar": soz_soni,
-        "ishlatilmagan_audio": [
-            n.rsplit("/", 1)[-1] for n in d.get("audiolar", []) if n not in ishlatilgan
-        ],
         "xato_sahifalar": xato_sahifalar,
     }
     logla(
@@ -802,29 +636,3 @@ def _jarayonni_yakunla(jarayon, foydalanuvchi):
         snapshot=natija,
     )
     return natija
-
-
-def _audiolarni_biriktir(arxiv, audio_nomlari, yaratilgan):
-    """Audio fayllarni raqami bo'yicha mos mashqqa biriktiradi.
-
-    Kalit — NORMALLASHTIRILGAN raqam (`raqam_kaliti`), satr EMAS: AI
-    "1.1" deb qaytaradi, fayl nomi esa "1.01" (nolli) bo'ladi — satr
-    solishtirilsa mos kelmaydi (2026-07-28 da haqiqiy ZIP bilan sinovda
-    12 audiodan 9tasi aynan shu sabab mos kelmagan edi)."""
-    indeks = {}
-    for nom in audio_nomlari:
-        kalit = raqam_kaliti(audio_raqamini_ajrat(nom.rsplit("/", 1)[-1]))
-        if kalit is not None:
-            indeks.setdefault(kalit, nom)
-
-    moslangan, ishlatilgan = 0, set()
-    for mashq, raqamlar in yaratilgan:
-        for tartib, raqam in enumerate(raqamlar, start=1):
-            nom = indeks.get(raqam_kaliti(raqam))
-            if not nom:
-                continue
-            yozuv = KursMashqAudio(mashq=mashq, raqam=raqam, tartib=tartib)
-            yozuv.audio.save(nom.rsplit("/", 1)[-1], ContentFile(arxiv.read(nom)), save=True)
-            ishlatilgan.add(nom)
-            moslangan += 1
-    return moslangan, ishlatilgan

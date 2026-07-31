@@ -118,19 +118,6 @@ BLOK_PROMPT = (
     "- Sahifa raqami va pastki kolontitulni ham kiriting."
 )
 
-JAVOB_KALITI_PROMPT = (
-    "Siz ingliz tili darsligining \"Answer key\" (javoblar) sahifasini "
-    "JSON'ga o'giruvchi yordamchisiz. Sahifada odatda har Exercise uchun "
-    "alohida raqamlangan to'g'ri javoblar ro'yxati bor. FAQAT quyidagi "
-    "JSON qaytaring:\n"
-    '{"turi":"javob_kaliti","javoblar":['
-    '{"mashq_raqami":"3","band_raqami":"1","javob":"is"}]}\n'
-    "\"mashq_raqami\" — Exercise raqami, \"band_raqami\" — shu Exercise "
-    "ICHIDAGI band raqami (har Exercise'da qaytadan 1dan boshlanadi). "
-    "Sahifadagi BARCHA Exercise va bandlarni kiriting."
-)
-
-
 def blok_provider_olish():
     """2026-07-30: sinov sifatida Gemma'dan Claude'ga o'tkazildi (foydalanuvchi
     talabi — Gemma juda sekin, ~125s/sahifa). Model — claude-haiku-4-5
@@ -238,19 +225,6 @@ def sahifani_bloklarga_ajrat(provider, rasm_bytes):
     if not elementlar:
         return None, "Sahifada yaroqli element topilmadi"
     natija["elementlar"] = rasm_qutilarini_qirq(elementlar)
-    return natija, None
-
-
-def javob_kaliti_sahifasi(provider, rasm_bytes):
-    """"answer" papkasidagi sahifa — maxsus promt (klassifikatsiya shart
-    emas, papka nomidan ma'lum)."""
-    natija, xato = _ai_sorov(
-        provider, JAVOB_KALITI_PROMPT, tor_chiz(rasm_bytes),
-        "Javoblar ro'yxatini chiqaring.")
-    if xato:
-        return None, xato
-    if not isinstance(natija.get("javoblar"), list):
-        return None, "Javob kaliti shakliga mos kelmadi"
     return natija, None
 
 
@@ -433,11 +407,3 @@ def _savol_matni(bolaklar):
     return "".join(qismlar).strip() or "___"
 
 
-def audio_raqamlarini_yig(bloklar):
-    """Sahifadagi barcha `audio_raqam` qiymatlari (takrorsiz, tartibda)."""
-    korilgan = []
-    for b in bloklar:
-        raqam = b.get("audio_raqam")
-        if raqam and raqam not in korilgan:
-            korilgan.append(raqam)
-    return korilgan
