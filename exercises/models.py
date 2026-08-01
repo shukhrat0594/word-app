@@ -405,6 +405,37 @@ class Manba(models.TextChoices):
     AI = "ai", "AI generatsiya qilgan"
 
 
+class TestPapkasi(models.Model):
+    """Testlarni guruhlash uchun papka (2026-08-01, foydalanuvchi talabi).
+
+    TEKIS (flat) — papka ichida faqat testlar bo'ladi, boshqa papka
+    QO'SHILMAYDI (foydalanuvchi aniq shunday so'radi: "papka ko'p
+    ierarxik bo'lishi kerak emas"). Shu sababli `parent` maydoni yo'q —
+    kerak bo'lib qolsa keyin qo'shiladi, hozir soddaligi afzal.
+
+    Har papka BITTA bo'limga (reading/listening/writing/speaking) VA
+    bitta manbaga (admin — "IELTS testlari", ai — "AI mashqlari")
+    tegishli: admin panelidagi tab'lar shu ikkisi bo'yicha ajratilgan,
+    papkalar ham xuddi shunday ajratilishi kerak.
+    """
+
+    nomi = models.CharField(max_length=120)
+    bolim = models.CharField(max_length=10, choices=Bolim.choices)
+    manba = models.CharField(max_length=10, choices=Manba.choices, default=Manba.ADMIN)
+    markaz = models.ForeignKey(
+        "accounts.Markaz", on_delete=models.CASCADE, related_name="test_papkalari"
+    )
+    tartib = models.PositiveSmallIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["tartib", "nomi"]
+        verbose_name_plural = "Test papkalari"
+
+    def __str__(self):
+        return f"{self.nomi} [{self.get_bolim_display()}]"
+
+
 class ImtihonTest(models.Model):
     """To'liq IELTS testi (masalan Cambridge uslubidagi Reading/Listening Test)
     — bir nechta TestQismi'dan iborat, uzluksiz raqamlangan yagona imtihon.
@@ -421,6 +452,13 @@ class ImtihonTest(models.Model):
     )
     markaz = models.ForeignKey(
         "accounts.Markaz", on_delete=models.CASCADE, related_name="imtihon_testlari"
+    )
+    # Papka O'CHIRILSA testlar YO'QOLMAYDI — faqat papkasiz holatga
+    # qaytadi (SET_NULL). Test qimmatli kontent, papka esa shunchaki
+    # tartibga solish vositasi.
+    papka = models.ForeignKey(
+        "TestPapkasi", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="testlar",
     )
     korinish = models.CharField(
         max_length=10,

@@ -730,10 +730,18 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
   const [filtrBolim, setFiltrBolim] = useState("");
   const [jsonXato, setJsonXato] = useState("");
   const [tahrirlanayotgan, setTahrirlanayotgan] = useState(null);
+  // Papkalar (2026-08-01) — TEKIS, har bo'lim uchun alohida. Papka
+  // yaratish uchun bo'lim tanlangan bo'lishi shart ("Hammasi" filtrida
+  // qaysi bo'limga tegishli ekani noaniq bo'lardi).
+  const [papkalar, setPapkalar] = useState([]);
+  const [yangiPapka, setYangiPapka] = useState("");
 
   function yukla(bolim) {
     api(`/api/imtihon/testlar-boshqaruv/?manba=${manba}${bolim ? `&bolim=${bolim}` : ""}`)
       .then(setRoyxat)
+      .catch(() => {});
+    api(`/api/imtihon/papkalar/?manba=${manba}${bolim ? `&bolim=${bolim}` : ""}`)
+      .then(setPapkalar)
       .catch(() => {});
   }
 
@@ -741,6 +749,43 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
     yukla(filtrBolim);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filtrBolim, manba]);
+
+  async function papkaYarat() {
+    const nomi = yangiPapka.trim();
+    if (!nomi || !filtrBolim) return;
+    try {
+      await api("/api/imtihon/papkalar/", {
+        method: "POST",
+        body: { nomi, bolim: filtrBolim, manba },
+      });
+      setYangiPapka("");
+      yukla(filtrBolim);
+    } catch (e) {
+      setJsonXato(e.data?.detail || t("xato_yuz_berdi"));
+    }
+  }
+
+  async function papkaOchir(id) {
+    if (!window.confirm(t("imtihon_papka_ochirish_tasdiq"))) return;
+    try {
+      await api(`/api/imtihon/papkalar/${id}/`, { method: "DELETE" });
+      yukla(filtrBolim);
+    } catch (e) {
+      setJsonXato(e.data?.detail || t("xato_yuz_berdi"));
+    }
+  }
+
+  async function papkagaKochir(testId, papkaId) {
+    try {
+      await api(`/api/imtihon/testlar-boshqaruv/${testId}/`, {
+        method: "PATCH",
+        body: { papka: papkaId || null },
+      });
+      yukla(filtrBolim);
+    } catch (e) {
+      setJsonXato(e.data?.detail || t("xato_yuz_berdi"));
+    }
+  }
 
   async function qismgaFaylYukla(qismId, maydon, fayl) {
     const fd = new FormData();
@@ -830,6 +875,62 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
             {t("mashq_bolim_speaking")}
           </button>
         </div>
+
+        {/* Papkalar (2026-08-01) — har bo'lim uchun alohida, shuning uchun
+            "Hammasi" filtrida yaratib bo'lmaydi (qaysi bo'limga tegishli
+            ekani noaniq bo'lardi). */}
+        <div style={{ marginBottom: 14, padding: 10, background: "var(--sirt-2)", borderRadius: 8 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <strong style={{ fontSize: 14 }}>{t("imtihon_papkalar")}</strong>
+            {filtrBolim ? (
+              <>
+                <input
+                  placeholder={t("imtihon_papka_nomi")}
+                  value={yangiPapka}
+                  onChange={(e) => setYangiPapka(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && papkaYarat()}
+                  style={{ maxWidth: 220 }}
+                />
+                <button type="button" className="tugma" onClick={papkaYarat} disabled={!yangiPapka.trim()}>
+                  {t("imtihon_papka_qoshish")}
+                </button>
+              </>
+            ) : (
+              <span className="izoh">{t("imtihon_papka_bolim_tanlang")}</span>
+            )}
+          </div>
+          {papkalar.length > 0 && (
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
+              {papkalar.map((p) => (
+                <span
+                  key={p.id}
+                  style={{
+                    display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px",
+                    border: "1px solid var(--chiziq)", borderRadius: 20, background: "var(--sirt)",
+                    fontSize: 13,
+                  }}
+                >
+                  📁 {p.nomi}
+                  <span className="izoh">
+                    ({royxat?.filter((x) => x.papka === p.id).length || 0})
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => papkaOchir(p.id)}
+                    title={t("ochirish")}
+                    style={{
+                      border: "none", background: "none", color: "#d33", cursor: "pointer",
+                      fontSize: 15, lineHeight: 1, padding: 0,
+                    }}
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+
         {!royxat ? (
           <div className="yuklanmoqda">{t("yuklanmoqda")}</div>
         ) : royxat.length === 0 ? (
@@ -849,7 +950,25 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
                       {new Date(test.created_at).toLocaleString()}
                     </span>
                   </span>
-                  <div style={{ display: "flex", gap: 8 }}>
+                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    {/* Papkaga ko'chirish — faqat shu testning bo'limiga
+                        tegishli papkalar ko'rsatiladi (backend ham
+                        boshqa bo'lim papkasini rad qiladi). */}
+                    {papkalar.some((p) => p.bolim === test.bolim) && (
+                      <select
+                        value={test.papka || ""}
+                        onChange={(e) => papkagaKochir(test.id, e.target.value)}
+                        title={t("imtihon_papkaga_kochir")}
+                        style={{ maxWidth: 170 }}
+                      >
+                        <option value="">{t("imtihon_papkasiz")}</option>
+                        {papkalar
+                          .filter((p) => p.bolim === test.bolim)
+                          .map((p) => (
+                            <option key={p.id} value={p.id}>📁 {p.nomi}</option>
+                          ))}
+                      </select>
+                    )}
                     <button
                       className="tugma ikkinchi"
                       onClick={() => setTahrirlanayotgan((v) => (v === test.id ? null : test.id))}

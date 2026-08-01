@@ -202,6 +202,15 @@ textarea {
 .mashq-royxat-el { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--chiziq); font-size: 13.5px; cursor: pointer; }
 .mashq-royxat-el:last-child { border-bottom: none; }
 .mashq-royxat-el:hover { color: var(--sariq); }
+/* Testlar ro'yxatidagi papkalar (2026-08-01) — tekis, accordion. */
+.imtihon-papka { border-bottom: 1px solid var(--chiziq); }
+.imtihon-papka:last-child { border-bottom: none; }
+.imtihon-papka-sarlavha {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 0; font-size: 13.5px; font-weight: 600; cursor: pointer;
+}
+.imtihon-papka-sarlavha:hover { color: var(--sariq); }
+.imtihon-papka-ichi { padding-left: 18px; }
 .mashq-passage { white-space: pre-wrap; line-height: 1.6; font-size: 14px; margin-bottom: 18px; }
 .savol-blok { padding: 14px 0; border-bottom: 1px solid var(--chiziq); }
 .savol-blok:last-child { border-bottom: none; }

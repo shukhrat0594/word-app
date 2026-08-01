@@ -23,6 +23,7 @@ from .models import (
     Mashq,
     MashqYechim,
     MockYechim,
+    TestPapkasi,
     TestQismi,
     TestYechim,
     band_hisobla,
@@ -381,6 +382,7 @@ def _test_admin_dict(t):
         "name": t.name,
         "bolim": t.bolim,
         "korinish": t.korinish,
+        "papka": t.papka_id,
         "qismlar": [_qism_admin_dict(q) for q in t.qismlar.all()],
         "created_at": t.created_at,
         "yaratuvchi": t.yaratuvchi.username if t.yaratuvchi_id else None,
@@ -914,10 +916,100 @@ class ImtihonPdfBoshqaruvView(APIView):
         )
 
 
-class ImtihonBoshqaruvDetailView(APIView):
-    """Owner/admin uchun — to'liq testni butunlay o'chirish."""
+class TestPapkaBoshqaruvView(APIView):
+    """Owner/admin uchun — test papkalari ro'yxati va yaratish (2026-08-01).
+
+    Papkalar TEKIS (ichma-ich emas) va har biri bitta bo'lim + manbaga
+    tegishli — `TestPapkasi` izohiga qarang."""
 
     permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if not _mashq_admin_mi(request.user):
+            return Response({"detail": "Faqat admin/owner uchun"}, status=403)
+        qs = TestPapkasi.objects.filter(manba=_manba_ol(request))
+        bolim = request.query_params.get("bolim")
+        if bolim:
+            qs = qs.filter(bolim=bolim)
+        return Response(
+            [{"id": p.id, "nomi": p.nomi, "bolim": p.bolim, "tartib": p.tartib} for p in qs]
+        )
+
+    def post(self, request):
+        if not _mashq_admin_mi(request.user):
+            return Response({"detail": "Faqat admin/owner uchun"}, status=403)
+        markaz = Markaz.objects.first()
+        if not markaz:
+            return Response({"detail": "Markaz topilmadi"}, status=400)
+        nomi = (request.data.get("nomi") or "").strip()
+        bolim = request.data.get("bolim") or ""
+        if not nomi:
+            return Response({"detail": "Papka nomi majburiy"}, status=400)
+        if bolim not in Bolim.values:
+            return Response({"detail": "bolim noto'g'ri"}, status=400)
+        papka = TestPapkasi.objects.create(
+            nomi=nomi, bolim=bolim, manba=_manba_ol(request), markaz=markaz,
+        )
+        return Response(
+            {"id": papka.id, "nomi": papka.nomi, "bolim": papka.bolim, "tartib": papka.tartib},
+            status=201,
+        )
+
+
+class TestPapkaDetailView(APIView):
+    """Owner/admin uchun — papkani o'chirish/nomini o'zgartirish.
+
+    O'chirilganda ichidagi testlar YO'QOLMAYDI — `papka` maydoni null
+    bo'lib, ular "papkasiz" ro'yxatiga qaytadi (`SET_NULL`)."""
+
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request, pk):
+        if not _mashq_admin_mi(request.user):
+            return Response({"detail": "Faqat admin/owner uchun"}, status=403)
+        papka = get_object_or_404(TestPapkasi, pk=pk)
+        nomi = (request.data.get("nomi") or "").strip()
+        if not nomi:
+            return Response({"detail": "Papka nomi majburiy"}, status=400)
+        papka.nomi = nomi
+        papka.save(update_fields=["nomi"])
+        return Response({"id": papka.id, "nomi": papka.nomi, "bolim": papka.bolim})
+
+    def delete(self, request, pk):
+        if not _mashq_admin_mi(request.user):
+            return Response({"detail": "Faqat admin/owner uchun"}, status=403)
+        papka = get_object_or_404(TestPapkasi, pk=pk)
+        papka.delete()
+        return Response(status=204)
+
+
+class ImtihonBoshqaruvDetailView(APIView):
+    """Owner/admin uchun — to'liq testni o'chirish yoki papkaga ko'chirish."""
+
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request, pk):
+        """Testni papkaga ko'chirish (2026-08-01). `papka`: papka id yoki
+        null (papkadan chiqarish)."""
+        if not _mashq_admin_mi(request.user):
+            return Response({"detail": "Faqat admin/owner uchun"}, status=403)
+        test = get_object_or_404(ImtihonTest, pk=pk)
+        if "papka" not in request.data:
+            return Response({"detail": "papka maydoni kerak"}, status=400)
+        papka_id = request.data.get("papka")
+        if papka_id in (None, "", "null"):
+            test.papka = None
+        else:
+            papka = get_object_or_404(TestPapkasi, pk=papka_id)
+            # Papka boshqa bo'limga tegishli bo'lsa — testni u yerga
+            # solish talabaga chalkash ro'yxat beradi, shuning uchun rad.
+            if papka.bolim != test.bolim:
+                return Response(
+                    {"detail": "Papka boshqa bo'limga tegishli"}, status=400
+                )
+            test.papka = papka
+        test.save(update_fields=["papka"])
+        return Response(_test_admin_dict(test))
 
     def delete(self, request, pk):
         if not _mashq_admin_mi(request.user):
@@ -968,7 +1060,11 @@ class TestQismiFayllarBoshqaruvView(APIView):
 
 
 class ImtihonListView(APIView):
-    """Talabaga ko'rinadigan to'liq testlar ro'yxati (nomi, bo'limi)."""
+    """Talabaga ko'rinadigan to'liq testlar ro'yxati (nomi, bo'limi).
+
+    2026-08-01: har test qaysi papkada ekani ham qaytadi (`papka` — id,
+    `papka_nomi`) — talaba tomonida papkalar accordion bo'lib ko'rsatiladi.
+    Papkasiz testlar `papka: null` bilan keladi."""
 
     permission_classes = [IsAuthenticated]
 
@@ -979,7 +1075,17 @@ class ImtihonListView(APIView):
         bolim = request.query_params.get("bolim")
         if bolim:
             qs = qs.filter(bolim=bolim)
-        return Response([{"id": t.id, "name": t.name, "bolim": t.bolim} for t in qs])
+        qs = qs.select_related("papka")
+        return Response([
+            {
+                "id": t.id,
+                "name": t.name,
+                "bolim": t.bolim,
+                "papka": t.papka_id,
+                "papka_nomi": t.papka.nomi if t.papka_id else None,
+            }
+            for t in qs
+        ])
 
 
 class ImtihonDetailView(APIView):

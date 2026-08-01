@@ -468,6 +468,63 @@ function OddiySavolBloki({ blok, javoblar, javobniQoy, natija, t }) {
   );
 }
 
+/** Testlar ro'yxati — papkalar bo'yicha guruhlangan (2026-08-01).
+ *
+ * Papkalar TEKIS (ichma-ich emas): har papka bosilganda ochiladi/yopiladi
+ * (accordion), ichida faqat testlar bo'ladi. Papkaga solinmagan testlar
+ * ro'yxat OXIRIDA, papkasiz holda ko'rsatiladi — ular ham yo'qolmasligi
+ * kerak. Papka umuman bo'lmasa, ro'yxat avvalgidek oddiy chiqadi. */
+function PapkaliRoyxat({ royxat, ochish, t }) {
+  const [ochiq, setOchiq] = useState({});
+
+  // Papka tartibi — testlar ro'yxatida birinchi uchragan tartibda
+  // (backend `tartib`, keyin nom bo'yicha saralab beradi).
+  const papkalar = [];
+  const papkasiz = [];
+  for (const r of royxat) {
+    if (!r.papka) {
+      papkasiz.push(r);
+      continue;
+    }
+    let p = papkalar.find((x) => x.id === r.papka);
+    if (!p) {
+      p = { id: r.papka, nomi: r.papka_nomi || "—", testlar: [] };
+      papkalar.push(p);
+    }
+    p.testlar.push(r);
+  }
+
+  return (
+    <>
+      {papkalar.map((p) => (
+        <div key={p.id} className="imtihon-papka">
+          <div
+            className="imtihon-papka-sarlavha"
+            onClick={() => setOchiq((v) => ({ ...v, [p.id]: !v[p.id] }))}
+          >
+            <span>{ochiq[p.id] ? "▾" : "▸"} 📁 {p.nomi}</span>
+            <span className="izoh">{p.testlar.length}</span>
+          </div>
+          {ochiq[p.id] && (
+            <div className="imtihon-papka-ichi">
+              {p.testlar.map((r) => (
+                <div key={r.id} className="mashq-royxat-el" onClick={() => ochish(r.id)}>
+                  <span>{r.name}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ))}
+      {papkasiz.map((r) => (
+        <div key={r.id} className="mashq-royxat-el" onClick={() => ochish(r.id)}>
+          <span>{r.name}</span>
+        </div>
+      ))}
+    </>
+  );
+}
+
 /** Cambridge-uslubidagi to'liq IELTS testi — ro'yxat, split-screen yechish
  * rejimi (chapda matn/audio, o'ngda savollar), pastki Part-navigatsiya. */
 export default function ImtihonOtish({ bolim, manba = "admin", testId, mockYechimId, onYakunlandi, ochirilganId }) {
@@ -673,11 +730,7 @@ export default function ImtihonOtish({ bolim, manba = "admin", testId, mockYechi
         ) : (
           <>
             {royxat.length === 0 && <span className="izoh">{t("imtihon_royxati_boshi")}</span>}
-            {royxat.map((r) => (
-              <div key={r.id} className="mashq-royxat-el" onClick={() => ochish(r.id)}>
-                <span>{r.name}</span>
-              </div>
-            ))}
+            <PapkaliRoyxat royxat={royxat} ochish={ochish} t={t} />
           </>
         )}
       </div>
