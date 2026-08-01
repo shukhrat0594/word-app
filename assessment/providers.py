@@ -240,7 +240,9 @@ SPEAKING_SYSTEM_PROMPT = (
     "salbiy ta'sir qilsin va buni izohda ANIQ ayting.\n\n"
 
     "2) TAHLIL (ball qo'yishdan oldin): 'analysis' maydonida har mezon "
-    "bo'yicha 1 gaplik xulosa yozing.\n"
+    "bo'yicha 2-3 gaplik ATROFLICHA xulosa yozing — nima yaxshi, nima "
+    "kamchilik, aniq misollar bilan (bir gaplik yuzaki xulosa YETARLI "
+    "EMAS).\n"
     "Band yo'riqnomasi: 4-5=ko'p pauza/takrorlash, oddiy bog'lovchilar, "
     "tez-tez xato; 6=tushunarli oqim lekin ba'zan ikkilanish, xato bor-yu "
     "tushunishga xalaqit bermaydi; 7=nisbatan erkin, moslashuvchan lug'at, "
@@ -251,14 +253,28 @@ SPEAKING_SYSTEM_PROMPT = (
     "grammatical_range (gap tuzilishi xilma-xilligi, og'zaki nutqda kichik "
     "xato kechiriladi, tizimli xato pasaytiradi).\n\n"
 
-    "4) XATOLAR: faqat GRAMMATIK va LEKSIK xatolar. Har birini ANIQ shu "
-    'formatda: "noto\'g\'ri qism -> to\'g\'ri qism (sabab)". Bir xil turdagi '
-    "xato necha marta uchrasa, HAR BIRINI ALOHIDA yozing.\n\n"
+    "4) XATOLAR: faqat GRAMMATIK va LEKSIK xatolar, TOPGANLARINGIZNI "
+    "TO'LIQ sanab o'ting (kam bo'lsa kamini, ko'p bo'lsa hammasini — "
+    "sun'iy ravishda 1-2 taga cheklab qo'ymang). Har biri uchun aniq "
+    "noto'g'ri va to'g'ri shaklni ko'rsating.\n\n"
 
     "5) TEKSHIRUV: xatolar ro'yxatini yozgach, matnni qayta o'qing — "
     "tashlab ketilgan xato bo'lsa qo'shing.\n\n"
 
-    "6) KUCHLI TOMONLAR: 1-2 ta ijobiy narsani ko'rsating.\n\n"
+    "6) KUCHLI TOMONLAR: 2-3 ta ijobiy narsani, aniq misol bilan "
+    "ko'rsating (talaba nimani to'g'ri qilgan — shu joyni ANIQ ko'rsating, "
+    "\"yaxshi gapirdi\" kabi umumiy gap yozmang).\n\n"
+
+    "7) UCH TILDA YOZISH — MAJBURIY: JSON ichidagi BARCHA izoh/tahlil "
+    "matnlari (pastda ko'rsatilgan) BITTA satr EMAS, quyidagicha UCHTA "
+    "tilda BIR XIL MA'NODA yoziladigan OBYEKT bo'lsin: "
+    '{"en": "...", "uz": "...", "ru": "..."} — \'en\' asosiy (talaba shuni '
+    "birinchi ko'radi), \"uz\" va \"ru\" xuddi shu mazmunni o'zbek/rus "
+    "tilida tabiiy tarjima qilib beradi (so'zma-so'z emas, tabiiy "
+    "tushunarli tilda). Talabaning gapidan iqtibos olingan xato/tuzatish "
+    "so'zlarini (\"xato\"/\"tuzatish\" maydonlarini) TARJIMA QILMANG — ular "
+    "har doim inglizcha (talaba gapirgan/tuzatilgan asl so'zlar), FAQAT "
+    "sabab izohi (\"izoh\") uch tilda bo'lsin.\n\n"
 
     "Faqat quyidagi JSON qaytaring ('overall_band_no_pronunciation' — "
     "Pronunciation'siz 3 mezon o'rtachasi, yakuniy IELTS ball EMAS). "
@@ -267,14 +283,21 @@ SPEAKING_SYSTEM_PROMPT = (
     "{\n"
     '  "part_type": "part1 yoki part2",\n'
     '  "word_count": 0,\n'
-    '  "analysis": {"fluency_coherence": "", "lexical_resource": "", '
-    '"grammatical_range": ""},\n'
-    '  "fluency_coherence": {"score": 0, "comment": ""},\n'
-    '  "lexical_resource": {"score": 0, "comment": ""},\n'
-    '  "grammatical_range": {"score": 0, "comment": ""},\n'
+    '  "analysis": {\n'
+    '    "fluency_coherence": {"en": "", "uz": "", "ru": ""},\n'
+    '    "lexical_resource": {"en": "", "uz": "", "ru": ""},\n'
+    '    "grammatical_range": {"en": "", "uz": "", "ru": ""}\n'
+    "  },\n"
+    '  "fluency_coherence": {"score": 0, "comment": {"en": "", "uz": "", "ru": ""}},\n'
+    '  "lexical_resource": {"score": 0, "comment": {"en": "", "uz": "", "ru": ""}},\n'
+    '  "grammatical_range": {"score": 0, "comment": {"en": "", "uz": "", "ru": ""}},\n'
     '  "overall_band_no_pronunciation": 0,\n'
-    '  "errors": ["noto\'g\'ri -> to\'g\'ri (sabab)"],\n'
-    '  "strengths": [""]\n'
+    '  "errors": [\n'
+    '    {"xato": "talaba aytgan noto\'g\'ri qism (inglizcha, tarjima qilinmaydi)", '
+    '"tuzatish": "to\'g\'ri shakl (inglizcha, tarjima qilinmaydi)", '
+    '"izoh": {"en": "", "uz": "", "ru": ""}}\n'
+    "  ],\n"
+    '  "strengths": [{"en": "", "uz": "", "ru": ""}]\n'
     "}"
 )
 

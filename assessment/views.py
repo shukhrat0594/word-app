@@ -332,6 +332,7 @@ class SpeakingTarixView(APIView):
                     "overall_band": t.overall_band,
                     "created_at": t.created_at,
                     "natija": t.natija,
+                    "matn": t.matn,
                     "audio_url": t.audio_fayl.url if t.audio_fayl else None,
                 }
                 for t in qs
