@@ -285,6 +285,11 @@ textarea {
 .imtihon-bosh-joy.toldirilgan { border-style: solid; border-color: var(--sariq); background: #FFF7DB; }
 .imtihon-bosh-joy.togri { border-color: var(--yaxshi); background: transparent; }
 .imtihon-bosh-joy.notogri { border-color: var(--xato); background: transparent; }
+.imtihon-moslashtirish-royxat { display: grid; gap: 10px; margin: 10px 0; }
+.imtihon-moslashtirish-qator {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 6px;
+}
+.imtihon-moslashtirish-matn { font-size: 14.5px; }
 .imtihon-bank { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0; padding: 12px; background: var(--sirt-2); border-radius: 8px; }
 .imtihon-bank-chip {
   padding: 6px 12px; border-radius: 20px; border: 1px solid var(--chiziq); background: var(--sirt);
@@ -292,6 +297,17 @@ textarea {
 }
 .imtihon-bank-chip.tanlangan { background: var(--sariq); border-color: var(--sariq); color: var(--komir); }
 .imtihon-bank-chip.ishlatilgan { opacity: .4; }
+.imtihon-moslashtirish-variantlar {
+  display: grid; gap: 4px; margin: 14px 0; padding: 14px 18px;
+  background: var(--sirt-2); border: 1px solid var(--chiziq); border-radius: 8px;
+}
+.imtihon-moslashtirish-variant {
+  display: grid; grid-template-columns: 22px 1fr; gap: 10px; padding: 4px 6px;
+  border-radius: 6px; cursor: grab; font-size: 14px;
+}
+.imtihon-moslashtirish-variant-harf { font-weight: 700; }
+.imtihon-moslashtirish-variant.tanlangan { background: var(--sariq); color: var(--komir); }
+.imtihon-moslashtirish-variant.ishlatilgan { opacity: .4; }
 
 /* ==== Table/Flow-chart Completion (maxsus_format, 2026-07-24) ==== */
 .imtihon-inline-juft { display: inline-flex; align-items: center; gap: 3px; margin: 0 2px; vertical-align: middle; }

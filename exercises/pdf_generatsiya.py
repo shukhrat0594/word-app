@@ -64,6 +64,11 @@ MAKS_HAJM_MB = 32
 # ogohlantiriladi.
 ZAXIRA_SAHIFA = 1
 
+# Savol raqamida muammo (yo'q/takror) topilsa, necha marta QAYTA
+# so'raladi. 2 — jami 3 ta urinish (1 asosiy + 2 qayta), vaqt budjeti
+# ichida qolgan holda.
+RAQAM_QAYTA_URINISH_SONI = 2
+
 PASSAGE_QOIDASI = (
     "PASSAGE/PART CHEGARASI — ENG MUHIM QOIDA:\n"
     "Sizga PDF'ning O'ZI berilyapti, ya'ni sahifalarni va sarlavhalarni "
@@ -182,8 +187,16 @@ QISM_PROMPT = (
     "yuklanadi), faqat savollarni chiqaring.\n\n"
 
     "SAVOLLAR QOIDASI:\n"
-    "- Savollarni RAQAMLAMANG (\"1. ...\" deb yozmang) — raqamlash "
-    "frontend'da avtomatik qo'yiladi.\n"
+    "- \"savol\" matniga raqam YOZMANG (\"1. ...\" deb boshlamang) — "
+    "matn ko'rinishida raqamlash frontend'da avtomatik qo'yiladi.\n"
+    "- \"raqam\" — MUHIM, HAR savolda: shu savolning BUTUN TEST bo'yicha "
+    "raqami (butun son). Sizga shu qismning birinchi savoli qaysi "
+    "raqamdan boshlanishi va nechta savol kutilishi aytiladi — "
+    "\"raqam\"larni O'SHA oraliqda, UZLUKSIZ, TAKRORSIZ bering (masalan "
+    "qism 14-dan boshlansa: 14, 15, 16, ...). BITTA TASHLAB KETILGAN "
+    "yoki IKKI MARTA TAKRORLANGAN raqam — ENG JIDDIY xato, testni "
+    "buzadi. Yozishdan oldin ro'yxatni tekshiring: raqamlar ketma-ket "
+    "bo'shliqsiz ekaniga ishonch hosil qiling.\n"
     "- \"tur\": reading uchun multiple_choice, tfng, matching_headings, "
     "matching, fill_blanks, short_answer; listening uchun "
     "multiple_choice, fill_blanks, matching, map_labelling, "
@@ -242,12 +255,31 @@ QISM_PROMPT = (
     "- Oddiy matn (jadval/sxema emas, so'z banki ham yo'q): "
     "{\"tur\":\"matn\",\"sarlavha\":\"...\",\"matn\":\"to'liq matn, "
     "bo'sh joylar {{31}} kabi\"}\n"
-    "- {{n}} — BUTUN TEST bo'yicha uzluksiz savol raqami. Sizga shu "
-    "qismning birinchi savoli qaysi raqamdan boshlanishi aytiladi.\n"
+    "- {{n}} — o'sha bo'sh joyning \"raqam\" maydonidagi QIYMATI bilan "
+    "AYNAN bir xil bo'lsin (masalan bo'sh joy \"raqam\":26 bo'lsa, "
+    "maxsus_format ichida {{26}} yozing).\n"
     "- \"maxsus_format\" faqat KO'RINISH uchun — javob tekshirish "
     "baribir \"savollar\"dan olinadi, ikkalasi bir xil SON va TARTIBDA "
     "bo'lishi shart.\n"
+    "- MUHIM, ENG KO'P UCHRAYDIGAN XATO: maxsus_format ichida {{n}} "
+    "bilan ishlatilgan har bo'sh joy uchun \"savollar\" ro'yxatida "
+    "BITTA (va FAQAT BITTA) yozuv bo'lsin. Uni IKKINCHI marta yana "
+    "alohida oddiy savol qilib QO'SHMANG — bu savolni ikki marta "
+    "ko'rsatadi. Bunday savolning \"savol\" maydoniga {{n}} belgisini "
+    "YOZMANG — o'rniga \"___\" bilan qisqa gap yozing (masalan "
+    "\"traders took it to ___ and sold it to destinations\"), chunki "
+    "\"savol\" maydoni {{n}}ni avtomatik inputga aylantirmaydi, xom "
+    "matn holida ko'rinib qoladi.\n"
     "- Jadval/sxema yo'q bo'lsa \"maxsus_format\"ni null qoldiring.\n\n"
+
+    "NOTE COMPLETION QATOR QOIDASI (\"matn\" turi uchun):\n"
+    "Agar matn ichida \"Biblical times:\", \"Middle Ages:\" kabi "
+    "TOIFA/BO'LIM nomlari bo'lsa (chapda alohida ustunda yoki qalin "
+    "yozilgan) — ular albatta o'z QATORIDA bo'lsin: toifa nomidan "
+    "keyin \\n qo'ying, undan keyingi har bir bo'sh-joyli qator ham "
+    "\\n bilan ajratilsin. Toifa nomini keyingi matnga BITTA qatorga "
+    "YOPISHTIRMANG (masalan \"Biblical times: added to 1___\" emas, "
+    "\"Biblical times:\\nadded to 1___\").\n\n"
 
     "RASM QOIDASI:\n"
     "Agar qismda RASM bo'lsa — xarita (Map Labelling), diagramma, "
@@ -268,6 +300,7 @@ QISM_SXEMASI = {
             "items": {
                 "type": "object",
                 "properties": {
+                    "raqam": {"type": "integer"},
                     "savol": {"type": "string"},
                     "tur": {"type": "string"},
                     "variantlar": {"type": "array", "items": {"type": "string"}},
@@ -284,7 +317,7 @@ QISM_SXEMASI = {
                     "guruh_korsatma": {"type": "string"},
                 },
                 "required": [
-                    "savol", "tur", "variantlar", "togri",
+                    "raqam", "savol", "tur", "variantlar", "togri",
                     "guruh_boshi", "guruh_korsatma",
                 ],
                 "additionalProperties": False,
@@ -516,12 +549,61 @@ def _kutilgan_savol_soni(qism_rejasi):
     return o - b + 1 if 0 < b <= o else None
 
 
+def _raqam_tahlili(savollar, boshi, kutilgan):
+    """Savollar ro'yxatidagi "raqam" maydonlarini kutilgan oraliq bilan
+    solishtiradi. Qaytaradi: (yoqolgan, takror, tashqari, raqamsiz) —
+    barchasi ro'yxat, hammasi bo'sh bo'lsa muammo yo'q.
+
+    Nega SHUNCHAKI SON EMAS: avval faqat `len(savollar) == kutilgan`
+    tekshirilardi — bu YOLG'ON XOTIRJAMLIK berardi: AI bitta savolni
+    (masalan 18) tashlab, boshqa joyda ortiqcha bitta savol qo'shsa,
+    UZUNLIK mos kelib qoladi-yu, aslida 18-savol yo'qolib, undan
+    keyingi HAMMA savol raqami -1 siljib qoladi (2026-08-01,
+    foydalanuvchi screenshot bilan ko'rsatdi). Endi HAR BIR raqam
+    aniq tekshiriladi."""
+    if not kutilgan:
+        return [], [], [], []
+    kutilgan_royxat = set(range(boshi, boshi + kutilgan))
+    raqamsiz = [i for i, s in enumerate(savollar) if not isinstance(s.get("raqam"), int)]
+    kelgan = [s["raqam"] for s in savollar if isinstance(s.get("raqam"), int)]
+    yoqolgan = sorted(kutilgan_royxat - set(kelgan))
+    tashqari = sorted(set(kelgan) - kutilgan_royxat)
+    korilgan, takror = set(), []
+    for n in kelgan:
+        if n in korilgan and n not in takror:
+            takror.append(n)
+        korilgan.add(n)
+    return yoqolgan, sorted(takror), tashqari, raqamsiz
+
+
+def _muammo_bormi(tahlil):
+    return any(tahlil)
+
+
+def _muammo_ogirligi(tahlil):
+    return sum(len(x) for x in tahlil)
+
+
+def _muammo_matni(tahlil):
+    yoqolgan, takror, tashqari, raqamsiz = tahlil
+    qismlar = []
+    if yoqolgan:
+        qismlar.append(f"yo'q: {', '.join(map(str, yoqolgan))}")
+    if takror:
+        qismlar.append(f"takror: {', '.join(map(str, takror))}")
+    if tashqari:
+        qismlar.append(f"kutilgan oraliqdan tashqari: {', '.join(map(str, tashqari))}")
+    if raqamsiz:
+        qismlar.append(f"{len(raqamsiz)} ta savolda raqam yo'q")
+    return "; ".join(qismlar)
+
+
 def _qismni_chiqar(provider, pdf_bytes, qism_rejasi, bolim, boshlangich_raqam,
-                   kamchilik=None):
+                   muammo_matni=None):
     """Bitta passage/part uchun matn + savollar. (natija, xato) qaytaradi.
 
-    `kamchilik` — (chiqqan_soni, kutilgan_soni). Berilsa bu QAYTA so'rov:
-    modelga nechta savol tashlab ketgani aniq aytiladi."""
+    `muammo_matni` — oldingi urinishdagi aniq raqam xatosi (masalan
+    "yo'q: 18; takror: 25"). Berilsa bu QAYTA so'rov."""
     b = qism_rejasi.get("boshlanish_sahifa") or 1
     t = qism_rejasi.get("tugash_sahifa") or b
     # Oxiriga ZAXIRA sahifa — savollar bloki keyingi varaqqa o'tib ketgan
@@ -535,27 +617,31 @@ def _qismni_chiqar(provider, pdf_bytes, qism_rejasi, bolim, boshlangich_raqam,
         f"(oxirgi varaq — zaxira, unda keyingi qismning boshi bo'lishi "
         f"mumkin). \"rasm_sahifasi\"ni shu oraliqdagi raqam bilan yozing.\n"
         f"Bu qismning birinchi savoli butun test bo'yicha "
-        f"{boshlangich_raqam}-savol — {{{{n}}}} raqamlarini shundan boshlab "
-        "sanang."
+        f"{boshlangich_raqam}-savol — har savolning \"raqam\"ini "
+        "shundan boshlab uzluksiz bering."
     )
     if kutilgan:
         topshiriq += (
             f"\nBu qismda AYNAN {kutilgan} ta savol bo'lishi kerak "
-            f"({boshlangich_raqam}-{boshlangich_raqam + kutilgan - 1}). "
-            "Hammasini chiqaring — bittasini ham tashlab ketmang. Agar "
-            "savol jadval yoki blok-sxema ichidagi bo'sh joy bo'lsa, u ham "
-            "alohida savol sifatida sanaladi."
+            f"(\"raqam\": {boshlangich_raqam} dan "
+            f"{boshlangich_raqam + kutilgan - 1} gacha, BO'SHLIQSIZ va "
+            "TAKRORSIZ). Hammasini chiqaring — bittasini ham tashlab "
+            "ketmang. Agar savol jadval yoki blok-sxema ichidagi bo'sh "
+            "joy bo'lsa, u ham alohida savol sifatida sanaladi va o'z "
+            "\"raqam\"iga ega bo'ladi."
         )
-    if kamchilik:
-        chiqqan, kerak = kamchilik
+    if muammo_matni:
         topshiriq += (
-            f"\n\nDIQQAT — QAYTA SO'ROV: oldingi urinishda siz {chiqqan} ta "
-            f"savol qaytardingiz, lekin {kerak} ta bo'lishi kerak. "
+            f"\n\nDIQQAT — QAYTA SO'ROV: oldingi urinishda savol "
+            f"raqamlarida ANIQ xato bor edi ({muammo_matni}). "
             "Sahifalarni QAYTADAN, boshidan oxirigacha ko'zdan kechiring: "
             "jadval kataklaridagi bo'sh joylar, blok-sxema qutilari, "
             "so'z banki bilan to'ldiriladigan har bir bo'sh joy — "
-            "bularning HAR BIRI alohida savol. Keyingi varaqqa o'tib "
-            "ketgan savollarni ham qo'shing."
+            "bularning HAR BIRI alohida savol va o'z \"raqam\"iga ega. "
+            "Keyingi varaqqa o'tib ketgan savollarni ham qo'shing. "
+            "Yozib bo'lgach, raqamlar ro'yxatini QAYTA TEKSHIRING — "
+            "yuqorida ko'rsatilgan yo'qolgan/takror raqamlar to'g'ri "
+            "joylashganiga ishonch hosil qiling."
         )
     try:
         javob = provider.generate_json_pdf(
@@ -676,25 +762,47 @@ def pdfdan_test_chiqar(pdf_bytes, bolim="", nom="", oraliqlar=None):
             continue
         savollar = natija.get("savollar") or []
 
-        # Savol soni kutilganidan KAM bo'lsa BIR marta qayta so'raymiz —
-        # aynan shu holat "40 o'rniga 38" bo'lib chiqqan edi. Budjet
-        # yetmasa qayta so'ramaymiz, faqat ogohlantiramiz.
-        if (kutilgan and len(savollar) != kutilgan
-                and time.monotonic() - boshlandi <= JAMI_BUDJET_SONIYA):
+        # Savol raqamlarida muammo bo'lsa (yo'q/takror/tashqari) — bir
+        # necha marta QAYTA so'raymiz, HAR safar model qaysi aniq
+        # raqam(lar) noto'g'ri ekanini bilib turadi. Shunchaki UZUNLIK
+        # solishtirishdan farqli — bu bitta yo'qolib, o'rniga boshqa
+        # joyda ortiqcha savol qo'shilgan holatni ham ushlaydi (2026-08-01,
+        # foydalanuvchi screenshot bilan ko'rsatgan "18-savol yo'qolgani"
+        # aynan shu edi).
+        tahlil = _raqam_tahlili(savollar, boshi, kutilgan)
+        urinish = 0
+        while (_muammo_bormi(tahlil) and urinish < RAQAM_QAYTA_URINISH_SONI
+               and time.monotonic() - boshlandi <= JAMI_BUDJET_SONIYA):
+            urinish += 1
             qayta, qayta_xato = _qismni_chiqar(
                 provider, pdf_bytes, rq, test_bolimi, boshi,
-                kamchilik=(len(savollar), kutilgan),
+                muammo_matni=_muammo_matni(tahlil),
             )
-            if not qayta_xato:
-                qayta_savollar = qayta.get("savollar") or []
-                # Faqat YAXSHIROQ bo'lsa almashtiramiz.
-                if abs(len(qayta_savollar) - kutilgan) < abs(len(savollar) - kutilgan):
-                    natija, savollar = qayta, qayta_savollar
-        if kutilgan and len(savollar) != kutilgan:
+            if qayta_xato:
+                break
+            qayta_savollar = qayta.get("savollar") or []
+            qayta_tahlil = _raqam_tahlili(qayta_savollar, boshi, kutilgan)
+            # Faqat YAXSHIROQ (yoki hammasi tuzalgan) bo'lsa almashtiramiz —
+            # aks holda urinishning foydasi yo'q, to'xtaymiz.
+            if _muammo_ogirligi(qayta_tahlil) >= _muammo_ogirligi(tahlil):
+                break
+            natija, savollar, tahlil = qayta, qayta_savollar, qayta_tahlil
+
+        if kutilgan and (_muammo_bormi(tahlil) or len(savollar) != kutilgan):
             xatolar.append(
                 f"{qism_nomi}: {kutilgan} ta savol kutilgandi, "
-                f"{len(savollar)} ta chiqdi — javoblarni tekshiring"
+                f"{len(savollar)} ta chiqdi ({_muammo_matni(tahlil) or 'raqamlar mos kelmadi'}) "
+                "— javoblarni tekshiring"
             )
+
+        # Raqam bo'yicha saralash — model ba'zan tartibsiz qaytarishi
+        # mumkin, lekin ro'yxatdagi POZITSIYA keyinchalik javob
+        # tekshirishda ishlatiladi (savol_idx), shuning uchun aniq
+        # tartib muhim. "raqam" o'zi bazaga yozilmaydi — faqat shu
+        # tekshiruv/tartiblash uchun ishlatildi.
+        savollar = sorted(savollar, key=lambda s: s.get("raqam") if isinstance(s.get("raqam"), int) else 10**9)
+        for s in savollar:
+            s.pop("raqam", None)
 
         qismlar.append({
             "tartib": rq.get("tartib") or i,

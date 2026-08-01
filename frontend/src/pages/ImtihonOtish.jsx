@@ -46,6 +46,33 @@ function bloklarGaAjrat(savollar, boshIdx) {
       }
     }
 
+    // Moslashtirish (matching/matching_headings) — kitobda BARCHA
+    // savollar (bayonotlar) ketma-ket ro'yxat qilinib, VARIANTLAR
+    // (masalan "List of companies") FAQAT BIR MARTA, pastda alohida
+    // qutida ko'rsatiladi. Avval har savol o'z variantlar ro'yxatini
+    // TO'LIQ TAKRORLAB chiqarardi (2026-08-01, foydalanuvchi original
+    // kitob skrinshoti bilan ko'rsatdi — bir xil emas edi). Endi
+    // "so'z banki" bilan bir xil UX: variantlar pastda chip sifatida,
+    // bosib tanlab, savolga bosib joylashtiriladi.
+    if (
+      (s.tur === "matching" || s.tur === "matching_headings") &&
+      s.variantlar && s.variantlar.length > 1
+    ) {
+      let j = i + 1;
+      while (
+        j < savollar.length &&
+        (savollar[j].tur === "matching" || savollar[j].tur === "matching_headings") &&
+        JSON.stringify(savollar[j].variantlar) === JSON.stringify(s.variantlar)
+      ) {
+        j++;
+      }
+      if (j - i > 1) {
+        bloklar.push({ tur: "moslashtirish", savollar: savollar.slice(i, j), boshIdx: boshIdx + i });
+        i = j;
+        continue;
+      }
+    }
+
     if (s.tur === "fill_blanks" && s.variantlar && s.variantlar.length > 0) {
       const guruh = [s];
       let j = i + 1;
@@ -240,6 +267,75 @@ function SozBankiBloki({ blok, javoblar, javobniQoy, natija, t }) {
   );
 }
 
+/** Moslashtirish (matching/matching_headings) guruhi — asl kitobdagidek:
+ * bayonotlar RO'YXAT qilib chiqadi, variantlar (masalan "List of
+ * companies") FAQAT BIR MARTA, pastda umumiy chip-qutida. `SozBankiBloki`
+ * bilan bir xil bosib-tanlash/sudrab-tashlash mexanizmi — farqi shunda,
+ * bu yerda har bayonot O'Z QATORIDA (oqim matn emas, ro'yxat). */
+function MoslashtirishBloki({ blok, javoblar, javobniQoy, natija, t }) {
+  const [tanlangan, setTanlangan] = useState(null);
+
+  function bloshgaQoy(idx, qiymat) {
+    javobniQoy(idx, qiymat);
+    setTanlangan(null);
+  }
+
+  return (
+    <div className="savol-blok">
+      {blok.savollar[0].guruh_boshi && (
+        <div className="imtihon-guruh-sarlavha">{blok.savollar[0].guruh_boshi}</div>
+      )}
+      {blok.savollar[0].guruh_korsatma && (
+        <div className="imtihon-guruh-korsatma">{blok.savollar[0].guruh_korsatma}</div>
+      )}
+      <div className="imtihon-moslashtirish-royxat">
+        {blok.savollar.map((s, k) => {
+          const i = blok.boshIdx + k;
+          const holat = natija ? (natija.natijalar[i] ? "togri" : "notogri") : javoblar[i] ? "toldirilgan" : "";
+          return (
+            <div key={i} className="imtihon-moslashtirish-qator">
+              <span className="imtihon-moslashtirish-matn">
+                {i + 1}. {s.savol}
+              </span>
+              <span
+                id={`imtihon-savol-${i}`}
+                className={`imtihon-bosh-joy ${holat}`}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  if (natija) return;
+                  bloshgaQoy(i, e.dataTransfer.getData("text/plain"));
+                }}
+                onClick={() => {
+                  if (natija) return;
+                  if (tanlangan) bloshgaQoy(i, tanlangan);
+                }}
+              >
+                {javoblar[i] || t("javob_yozing")}
+                {natija && <span className={`natija-belgi ${holat}`}>{natija.natijalar[i] ? "✓" : "✗"}</span>}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+      <div className="imtihon-moslashtirish-variantlar">
+        {blok.savollar[0].variantlar.map((v, vi) => (
+          <div
+            key={v}
+            className={`imtihon-moslashtirish-variant ${tanlangan === v ? "tanlangan" : ""}`}
+            draggable={!natija}
+            onDragStart={(e) => e.dataTransfer.setData("text/plain", v)}
+            onClick={() => !natija && setTanlangan((prev) => (prev === v ? null : v))}
+          >
+            <span className="imtihon-moslashtirish-variant-harf">{HARFLAR[vi]}</span>
+            <span className="imtihon-moslashtirish-variant-matn">{v}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // Rasm ustiga to'g'ridan-to'g'ri joylashtiriladigan savollar (Map/Diagram
 // Labelling, jadval ichidagi bo'sh joy va h.k.) — savolda "pozitsiya":
 // {"x": 0-100, "y": 0-100} (rasm eni/bo'yiga nisbatan foiz) bo'lsa, o'ng
@@ -314,7 +410,7 @@ function KopJavobBloki({ blok, javoblar, javobniQoy, natija, t }) {
       <div className="izoh" style={{ marginBottom: 6 }}>
         {t("kop_javob_izoh").replace("{n}", soni)}
       </div>
-      {savollar[0].variantlar.map((v) => {
+      {savollar[0].variantlar.map((v, vi) => {
         const belgilangan = tanlangan.includes(v);
         return (
           <label className="variant-qator" key={v}>
@@ -324,7 +420,7 @@ function KopJavobBloki({ blok, javoblar, javobniQoy, natija, t }) {
               checked={belgilangan}
               onChange={() => almashtir(v)}
             />
-            {v}
+            {HARFLAR[vi]}. {v}
           </label>
         );
       })}
@@ -347,7 +443,7 @@ function OddiySavolBloki({ blok, javoblar, javobniQoy, natija, t }) {
         )}
       </div>
       {s.variantlar && s.variantlar.length > 0 && s.tur !== "map_labelling" ? (
-        s.variantlar.map((v) => (
+        s.variantlar.map((v, vi) => (
           <label className="variant-qator" key={v}>
             <input
               type="radio"
@@ -356,7 +452,7 @@ function OddiySavolBloki({ blok, javoblar, javobniQoy, natija, t }) {
               checked={javoblar[i] === v}
               onChange={() => javobniQoy(i, v)}
             />
-            {v}
+            {HARFLAR[vi]}. {v}
           </label>
         ))
       ) : (
@@ -663,6 +759,15 @@ export default function ImtihonOtish({ bolim, manba = "admin", testId, mockYechi
               ) : blok.tur === "bank" ? (
                 <SozBankiBloki
                   key={`b${bi}`}
+                  blok={blok}
+                  javoblar={javoblar}
+                  javobniQoy={javobniQoy}
+                  natija={natija}
+                  t={t}
+                />
+              ) : blok.tur === "moslashtirish" ? (
+                <MoslashtirishBloki
+                  key={`m${bi}`}
                   blok={blok}
                   javoblar={javoblar}
                   javobniQoy={javobniQoy}

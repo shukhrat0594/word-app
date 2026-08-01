@@ -361,6 +361,24 @@ function PdfYuklashOynasi({ bolim, manba, yopish, tugadi }) {
     ? Number(oraliqlar[oraliqlar.length - 1].oxiri) - Number(oraliqlar[0].boshi) + 1
     : 0;
 
+  // Jarayon haqida taxminiy bosqich xabari (2026-08-01 talabi). Backend
+  // BITTA sinxron so'rov (real progress-endpoint yo'q), shuning uchun
+  // bu HAQIQIY server holati emas — qism sonidan va o'rtacha vaqtdan
+  // kelib chiqib TAXMIN qilinadi. Shu sabab "taxminan" deb ochiq
+  // yoziladi, aldash bo'lmasin.
+  const REJA_TAXMIN_SONIYA = 12; // 1-bosqich: reja (kichik so'rov)
+  const QISM_TAXMIN_SONIYA = 35; // har passage ~1 AI chaqiruvi
+  function bosqichXabari() {
+    if (otganSoniya < REJA_TAXMIN_SONIYA) {
+      return t("imtihon_pdf_bosqich_reja");
+    }
+    const oShu = otganSoniya - REJA_TAXMIN_SONIYA;
+    const qismIdx = Math.min(oraliqlar.length - 1, Math.floor(oShu / QISM_TAXMIN_SONIYA));
+    return t("imtihon_pdf_bosqich_qism")
+      .replace("{n}", qismIdx + 1)
+      .replace("{jami}", oraliqlar.length);
+  }
+
   async function faylTanlandi(e) {
     const fayl = e.target.files[0];
     e.target.value = "";
@@ -412,6 +430,7 @@ function PdfYuklashOynasi({ bolim, manba, yopish, tugadi }) {
             <div className="blok-yuklash-spinner" aria-hidden="true" />
             <div className="izoh" style={{ marginTop: 8 }}>{t("imtihon_pdf_yuklanmoqda")}</div>
             <div className="izoh">{t("kurs_blok_otgan_vaqt")}: {vaqtFormat(otganSoniya)}</div>
+            <div style={{ fontWeight: 600, marginTop: 4 }}>{bosqichXabari()}</div>
             <div className="izoh" style={{ marginTop: 6 }}>{t("imtihon_pdf_kutish_izoh")}</div>
           </div>
         ) : (
