@@ -111,31 +111,41 @@ _WRITING_UMUMIY_QOIDALAR = (
     "va buni izohda ayting.\n\n"
 
     "3) TAHLIL (ball qo'yishdan oldin): 'analysis' maydonida har mezon "
-    "bo'yicha 1 gaplik xulosa yozing — shu asosda ball bering.\n"
+    "bo'yicha 2-3 gaplik ATROFLICHA xulosa yozing — nima yaxshi, nima "
+    "kamchilik, aniq misollar bilan (bir gaplik yuzaki xulosa YETARLI "
+    "EMAS) — shu asosda ball bering.\n"
     "Band yo'riqnomasi: 4-5=ko'p tizimli xato/rivojlanmagan fikr; "
     "6=tushunarli lekin sezilarli xato; 7=xato kam, fikr dalillangan; "
     "8-9=deyarli xatosiz, murakkab til.\n\n"
 
     "4) XATOLAR: matnni qatorma-qator o'qib, BARCHA xatolarni toping "
-    "(ega-kesim, birlik/ko'plik, artikl, egalik, imlo). Har birini "
-    'ANIQ shu formatda yozing: "noto\'g\'ri qism -> to\'g\'ri qism (sabab)". '
-    "Bir xil xato matnda necha marta uchrasa, HAR BIRINI ALOHIDA, aniq "
-    "qaysi so'z birikmasida ekanini ko'rsatib yozing.\n\n"
+    "(ega-kesim, birlik/ko'plik, artikl, egalik, imlo), TOPGANLARINGIZNI "
+    "TO'LIQ sanab o'ting (sun'iy ravishda cheklab qo'ymang). Bir xil xato "
+    "matnda necha marta uchrasa, HAR BIRINI ALOHIDA, aniq qaysi so'z "
+    "birikmasida ekanini ko'rsatib yozing.\n\n"
 
     "5) TEKSHIRUV: xatolar ro'yxatini yozgach, matnni qayta o'qing — "
     "tashlab ketilgan xato bo'lsa qo'shing.\n\n"
 
-    "6) KUCHLI TOMONLAR: 1-2 ta ijobiy narsani ko'rsating.\n\n"
+    "6) KUCHLI TOMONLAR: 2-3 ta ijobiy narsani, aniq misol bilan "
+    "ko'rsating (talaba nimani to'g'ri qilgan — shu joyni ANIQ "
+    "ko'rsating, umumiy gap yozmang).\n\n"
 
     "7) YAXSHILASH TAVSIYALARI: har mezon izohida ('comment') faqat "
     "kamchilikni aytib qo'ya qolmang — ballni ko'tarish uchun talaba ANIQ "
     "nima qilishi kerakligini ko'rsating (umumiy maslahat emas, shu "
     "javobdagi aniq joyga bog'langan).\n\n"
 
-    "IZOH TILI: JSON ichidagi BARCHA matnli maydonlar ('analysis', har "
-    "mezonning 'comment', 'errors', 'strengths') INGLIZ TILIDA yozilsin "
-    "(2026-07-28 kelishuvi — talaba IELTS terminologiyasiga ko'nikishi "
-    "uchun). Boshqa tilda yozmang.\n\n"
+    "8) UCH TILDA YOZISH — MAJBURIY: JSON ichidagi BARCHA izoh/tahlil "
+    "matnlari (pastda ko'rsatilgan) BITTA satr EMAS, quyidagicha UCHTA "
+    "tilda BIR XIL MA'NODA yoziladigan OBYEKT bo'lsin: "
+    '{"en": "...", "uz": "...", "ru": "..."} — \'en\' asosiy (talaba shuni '
+    "birinchi ko'radi), \"uz\" va \"ru\" xuddi shu mazmunni o'zbek/rus "
+    "tilida tabiiy tarjima qilib beradi (so'zma-so'z emas, tabiiy "
+    "tushunarli tilda). Talabaning matnidan iqtibos olingan xato/tuzatish "
+    "so'zlarini (\"xato\"/\"tuzatish\" maydonlarini) TARJIMA QILMANG — ular "
+    "har doim inglizcha (talaba yozgan/tuzatilgan asl so'zlar), FAQAT "
+    "sabab izohi (\"izoh\") uch tilda bo'lsin.\n\n"
 
     "Faqat quyidagi JSON qaytaring, boshqa matn yozmang. 'task_type' "
     "maydoniga sizga berilgan turni ('task1' yoki 'task2') aynan shu "
@@ -146,16 +156,22 @@ _WRITING_UMUMIY_QOIDALAR = (
     '  "task_type": "task1 yoki task2",\n'
     '  "word_count": 0,\n'
     '  "analysis": {\n'
-    '    "task_achievement": "", "coherence_cohesion": "",\n'
-    '    "lexical_resource": "", "grammatical_range": ""\n'
+    '    "task_achievement": {"en": "", "uz": "", "ru": ""},\n'
+    '    "coherence_cohesion": {"en": "", "uz": "", "ru": ""},\n'
+    '    "lexical_resource": {"en": "", "uz": "", "ru": ""},\n'
+    '    "grammatical_range": {"en": "", "uz": "", "ru": ""}\n'
     "  },\n"
-    '  "task_achievement": {"score": 0, "comment": ""},\n'
-    '  "coherence_cohesion": {"score": 0, "comment": ""},\n'
-    '  "lexical_resource": {"score": 0, "comment": ""},\n'
-    '  "grammatical_range": {"score": 0, "comment": ""},\n'
+    '  "task_achievement": {"score": 0, "comment": {"en": "", "uz": "", "ru": ""}},\n'
+    '  "coherence_cohesion": {"score": 0, "comment": {"en": "", "uz": "", "ru": ""}},\n'
+    '  "lexical_resource": {"score": 0, "comment": {"en": "", "uz": "", "ru": ""}},\n'
+    '  "grammatical_range": {"score": 0, "comment": {"en": "", "uz": "", "ru": ""}},\n'
     '  "overall_band": 0,\n'
-    '  "errors": ["noto\'g\'ri -> to\'g\'ri (sabab)"],\n'
-    '  "strengths": [""]\n'
+    '  "errors": [\n'
+    '    {"xato": "talaba yozgan noto\'g\'ri qism (inglizcha, tarjima qilinmaydi)", '
+    '"tuzatish": "to\'g\'ri shakl (inglizcha, tarjima qilinmaydi)", '
+    '"izoh": {"en": "", "uz": "", "ru": ""}}\n'
+    "  ],\n"
+    '  "strengths": [{"en": "", "uz": "", "ru": ""}]\n'
     "}"
 )
 

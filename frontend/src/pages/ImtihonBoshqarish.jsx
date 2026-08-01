@@ -191,6 +191,31 @@ function YozGapKiritish({ bolim, manba, qismgaFaylYukla, royxatniYangila }) {
     }
   }
 
+  async function pdfYukla(e) {
+    const fayl = e.target.files[0];
+    e.target.value = "";
+    if (!fayl) return;
+    setXato("");
+    setSaqlanmoqda(true);
+    try {
+      const fd = new FormData();
+      fd.append("pdf_fayl", fayl);
+      fd.append("manba", manba);
+      fd.append("bolim", bolim);
+      fd.append("name", nomi.trim());
+      await apiForm("/api/imtihon/testlar-boshqaruv-pdf/", { method: "POST", formData: fd });
+      setNomi("");
+      royxatniYangila();
+    } catch (err) {
+      setXato(
+        err.data?.detail
+          || (err.status ? `${t("imtihon_json_xato")} (HTTP ${err.status})` : t("imtihon_json_xato")),
+      );
+    } finally {
+      setSaqlanmoqda(false);
+    }
+  }
+
   async function zipYukla(e) {
     const fayl = e.target.files[0];
     e.target.value = "";
@@ -222,7 +247,26 @@ function YozGapKiritish({ bolim, manba, qismgaFaylYukla, royxatniYangila }) {
         <button className={usul === "zip" ? "aktiv" : ""} onClick={() => setUsul("zip")}>
           {t("imtihon_zip_yuklash")}
         </button>
+        <button className={usul === "pdf" ? "aktiv" : ""} onClick={() => setUsul("pdf")}>
+          {t("imtihon_pdf_yuklash")}
+        </button>
       </div>
+
+      {usul === "pdf" && (
+        <div>
+          <p className="izoh" style={{ marginTop: 0 }}>{t("imtihon_pdf_yozgap_izoh")}</p>
+          <input
+            placeholder={t("imtihon_nomi") + " (" + t("imtihon_ixtiyoriy") + ")"}
+            value={nomi}
+            onChange={(e) => setNomi(e.target.value)}
+            style={{ marginBottom: 10, width: "100%" }}
+            disabled={saqlanmoqda}
+          />
+          <input type="file" accept="application/pdf,.pdf" onChange={pdfYukla} disabled={saqlanmoqda} />
+          {saqlanmoqda && <div className="izoh" style={{ marginTop: 8 }}>{t("imtihon_pdf_yuklanmoqda")}</div>}
+          {xato && <div className="xato-xabar" style={{ marginTop: 8 }}>{xato}</div>}
+        </div>
+      )}
 
       {usul === "qolda" && (
         <form onSubmit={qoldaYuborish} style={{ display: "grid", gap: 10 }}>

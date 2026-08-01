@@ -825,33 +825,40 @@ class ImtihonPdfBoshqaruvView(APIView):
 
         from django.core.files.base import ContentFile
 
-        from .pdf_generatsiya import pdfdan_test_chiqar, qism_rasmini_kes
+        from .pdf_generatsiya import pdfdan_test_chiqar, pdfdan_yozgap_chiqar, qism_rasmini_kes
 
-        # Admin yuklash oynasida test nomini va har qismning savol
-        # oralig'ini kiritadi (2026-07-31). Bular AI taxminidan ustun —
-        # AI nomni noto'g'ri olib, 40 o'rniga 38 savol chiqargan edi.
         nom = (request.data.get("name") or "").strip()
-        try:
-            oraliqlar = json.loads(request.data.get("qismlar") or "[]")
-        except (json.JSONDecodeError, TypeError):
-            return Response({"detail": "qismlar noto'g'ri formatda"}, status=400)
-        if not isinstance(oraliqlar, list):
-            return Response({"detail": "qismlar ro'yxat bo'lishi kerak"}, status=400)
-        for o in oraliqlar:
-            if (not isinstance(o, dict)
-                    or not isinstance(o.get("boshi"), int)
-                    or not isinstance(o.get("oxiri"), int)
-                    or not 0 < o["boshi"] <= o["oxiri"]):
-                return Response(
-                    {"detail": "Har qism uchun to'g'ri savol oralig'i kerak"},
-                    status=400,
-                )
-
+        bolim = request.data.get("bolim") or ""
         pdf_bytes = fayl.read()
-        data, xato, xatolar = pdfdan_test_chiqar(
-            pdf_bytes, request.data.get("bolim") or "",
-            nom=nom, oraliqlar=oraliqlar,
-        )
+
+        if bolim in (Bolim.WRITING, Bolim.SPEAKING):
+            # Writing/Speaking'da savol raqamlash yo'q (Task1/Task2 yoki
+            # Part1/2/3 — sonli tugun), shuning uchun Reading/Listening'dagi
+            # "qismlar" (savol oraliqlari) shart emas.
+            data, xato = pdfdan_yozgap_chiqar(pdf_bytes, bolim, nom=nom)
+            xatolar = []
+        else:
+            # Admin yuklash oynasida test nomini va har qismning savol
+            # oralig'ini kiritadi (2026-07-31). Bular AI taxminidan ustun —
+            # AI nomni noto'g'ri olib, 40 o'rniga 38 savol chiqargan edi.
+            try:
+                oraliqlar = json.loads(request.data.get("qismlar") or "[]")
+            except (json.JSONDecodeError, TypeError):
+                return Response({"detail": "qismlar noto'g'ri formatda"}, status=400)
+            if not isinstance(oraliqlar, list):
+                return Response({"detail": "qismlar ro'yxat bo'lishi kerak"}, status=400)
+            for o in oraliqlar:
+                if (not isinstance(o, dict)
+                        or not isinstance(o.get("boshi"), int)
+                        or not isinstance(o.get("oxiri"), int)
+                        or not 0 < o["boshi"] <= o["oxiri"]):
+                    return Response(
+                        {"detail": "Har qism uchun to'g'ri savol oralig'i kerak"},
+                        status=400,
+                    )
+            data, xato, xatolar = pdfdan_test_chiqar(
+                pdf_bytes, bolim, nom=nom, oraliqlar=oraliqlar,
+            )
         if xato:
             return Response({"detail": xato}, status=502)
 

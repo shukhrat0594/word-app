@@ -866,3 +866,131 @@ def pdfdan_test_chiqar(pdf_bytes, bolim="", nom="", oraliqlar=None):
         "korinish": "private",
         "qismlar": qismlar,
     }, None, xatolar
+
+
+# ======================================================================
+# WRITING/SPEAKING — PDF'dan (2026-08-01)
+# ======================================================================
+# Reading/Listening'dan farqi: savol raqamlash yo'q (Task1/Task2 yoki
+# Part1/2/3 — sonli tugun), matn qisqa (1-2 sahifa/task) — shuning uchun
+# ikki bosqichli reja+qism SHART emas, BITTA chaqiruv yetarli.
+
+YOZGAP_PROMPT = (
+    "Siz IELTS test materialini PDF'dan aniqlaydigan yordamchisiz. Sizga "
+    "IELTS testi kitobining PDF fayli (yoki bir qismi) beriladi — bu "
+    "kitobda Reading/Listening sahifalari ham bo'lishi mumkin, ULARNI "
+    "E'TIBORSIZ QOLDIRING, FAQAT Writing yoki Speaking bo'limini toping.\n\n"
+
+    "AGAR WRITING bo'lsa: Task 1 va Task 2 topshiriqlarini toping. Har "
+    "biri uchun to'liq topshiriq matnini PDF'dagidek AYNAN ko'chiring "
+    "(o'z so'zingiz bilan qayta yozmang, qisqartirmang). Task 1'da "
+    "grafik/jadval/diagramma bo'lsa, uni SO'Z BILAN TASVIRLASHGA "
+    "URINMANG — faqat shu rasm turgan PDF varag'ining tartib raqamini "
+    "\"rasm_sahifasi\"ga yozing (1 dan boshlab, kitobda chop etilgan "
+    "sahifa raqami EMAS).\n\n"
+
+    "AGAR SPEAKING bo'lsa: Part 1 (oddiy savollar to'plami), Part 2 "
+    "(cue card — mavzu + ostidagi izohlar/savollar) va Part 3 (chuqurroq "
+    "munozara savollari) ni toping. Har biri uchun to'liq matnini AYNAN "
+    "ko'chiring.\n\n"
+
+    "Qoidalar:\n"
+    "- \"name\": testning to'liq nomi (masalan \"Cambridge IELTS 13 "
+    "Academic Writing Test 2\"). Ko'rinmasa mazmuniga qarab mos nom "
+    "o'ylab toping.\n"
+    "- \"bolim\": \"writing\" yoki \"speaking\" — qaysi bo'lim topilsa "
+    "shuni yozing.\n"
+    "- Har bir qism uchun \"tur\": Writing bo'lsa \"task1\"/\"task2\", "
+    "Speaking bo'lsa \"part1\"/\"part2\"/\"part3\".\n"
+    "- \"matn\": topshiriq/savol matni to'liq.\n"
+    "- \"rasm_sahifasi\": grafik/jadval bo'lsa PDF varag'i raqami, "
+    "bo'lmasa null.\n"
+    "- PDF'da bir nechta test bo'lsa — FAQAT BIRINCHISINI oling.\n"
+    "- Writing/Speaking bo'limi umuman topilmasa — \"qismlar\"ni bo'sh "
+    "massiv qoldiring."
+)
+
+YOZGAP_SXEMASI = {
+    "type": "object",
+    "properties": {
+        "name": {"type": "string"},
+        "bolim": {"type": "string", "enum": ["writing", "speaking"]},
+        "qismlar": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "tur": {
+                        "type": "string",
+                        "enum": ["task1", "task2", "part1", "part2", "part3"],
+                    },
+                    "matn": {"type": "string"},
+                    "rasm_sahifasi": {"anyOf": [{"type": "integer"}, {"type": "null"}]},
+                },
+                "required": ["tur", "matn", "rasm_sahifasi"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    "required": ["name", "bolim", "qismlar"],
+    "additionalProperties": False,
+}
+
+
+def pdfdan_yozgap_chiqar(pdf_bytes, bolim="", nom=""):
+    """PDF -> Writing/Speaking test JSON'i (`_test_yarat` kutadigan
+    format — har qismda "tur" bor, "savollar"/"maxsus_format" bo'sh).
+
+    Reading/Listening'dagi `pdfdan_test_chiqar`dan farqli — BITTA chaqiruv
+    (reja+qism ikki bosqichi shart emas, savol raqamlash yo'q).
+
+    Qaytaradi: (data, xato_matni)."""
+    if len(pdf_bytes) > MAKS_HAJM_MB * 1024 * 1024:
+        return None, f"PDF juda katta (chegara {MAKS_HAJM_MB} MB)"
+    sahifalar = pdf_sahifalar_soni(pdf_bytes)
+    if sahifalar > MAKS_SAHIFA:
+        return None, (
+            f"PDF juda uzun (~{sahifalar} sahifa, chegara {MAKS_SAHIFA}) — "
+            "faqat kerakli sahifalarni ajratib yuklang"
+        )
+
+    try:
+        provider = pdf_provider_olish()
+    except ProviderXatosi as e:
+        return None, str(e)
+
+    topshiriq = "Shu PDF'dagi IELTS Writing/Speaking topshiriqlarini aniqlang."
+    if bolim in ("writing", "speaking"):
+        topshiriq += f' Bu {bolim} bo\'limi — "bolim" maydoniga "{bolim}" yozing.'
+    try:
+        javob = provider.generate_json_pdf(
+            YOZGAP_PROMPT, topshiriq, pdf_bytes,
+            max_tokens=REJA_MAKS_TOKEN * 2, javob_sxemasi=YOZGAP_SXEMASI,
+        )
+    except ProviderXatosi as e:
+        return None, str(e)
+    except Exception as e:  # noqa: BLE001
+        return None, f"{type(e).__name__}: {e}"
+
+    natija = javob.get("natija")
+    if not isinstance(natija, dict):
+        return None, "AI yaroqli JSON qaytarmadi"
+    qismlar_data = natija.get("qismlar") or []
+    if not qismlar_data:
+        return None, "PDF'da Writing/Speaking topshirig'i topilmadi"
+
+    qismlar = []
+    for i, q in enumerate(qismlar_data, start=1):
+        qismlar.append({
+            "tartib": i,
+            "tur": q.get("tur") or "",
+            "matn": q.get("matn") or "",
+            "rasm_sahifasi": q.get("rasm_sahifasi"),
+        })
+
+    return {
+        "name": (nom or "").strip() or natija.get("name") or "IELTS test",
+        "bolim": natija.get("bolim") or bolim or "writing",
+        "korinish": "private",
+        "qismlar": qismlar,
+    }, None

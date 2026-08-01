@@ -16,8 +16,23 @@ const TASK_NOMI = { task1: "Task 1", task2: "Task 2" };
 // tugma. Kalit backendga hamon yuboriladi (`gemini_provider_ol`).
 const MODEL_KALITI = "flash_lite";
 
+// Speaking.jsx'dagi bilan bir xil (2026-08-01): matnli maydonlar endi
+// {en,uz,ru} obyekti bo'lib keladi — ikkisini ham qo'llab-quvvatlaydi.
+function T(qiymat, til) {
+  if (qiymat == null) return "";
+  if (typeof qiymat === "object") return qiymat[til] ?? qiymat.en ?? "";
+  return qiymat;
+}
+
+const TIL_TUGMALAR = [
+  ["en", "EN"],
+  ["uz", "UZ"],
+  ["ru", "RU"],
+];
+
 export function Natija({ natija }) {
   const { t } = useI18n();
+  const [til, setTil] = useState("en");
   const mezonlar = [
     ["task_achievement", t("task_achievement")],
     ["coherence_cohesion", t("coherence_cohesion")],
@@ -25,9 +40,26 @@ export function Natija({ natija }) {
     ["grammatical_range", t("grammatical_range")],
   ];
   const taskNomi = TASK_NOMI[natija.task_type] || natija.task_type || "";
+  const koTillik = Object.values(natija.analysis || {}).some(
+    (v) => v && typeof v === "object",
+  );
 
   return (
     <>
+      {koTillik && (
+        <div className="til-guruh" style={{ marginBottom: 10, width: "fit-content" }}>
+          {TIL_TUGMALAR.map(([kod, nomi]) => (
+            <button
+              key={kod}
+              type="button"
+              className={til === kod ? "aktiv" : ""}
+              onClick={() => setTil(kod)}
+            >
+              {nomi}
+            </button>
+          ))}
+        </div>
+      )}
       <div className="umumiy-band">
         <span className="u-ball">{natija.overall_band ?? "—"}</span>
         <div>
@@ -58,7 +90,10 @@ export function Natija({ natija }) {
             <span className="izoh">{t("xato_topilmadi")}</span>
           )}
           {(natija.errors || []).map((qator, i) => {
-            const { notogri, togri, sabab } = xatoniAjrat(qator);
+            const kop = typeof qator === "object" && "izoh" in qator;
+            const { notogri, togri, sabab } = kop
+              ? { notogri: qator.xato, togri: qator.tuzatish, sabab: T(qator.izoh, til) }
+              : xatoniAjrat(qator);
             return (
               <div className="xato-el" key={i}>
                 <span className="xato-notogri">{notogri}</span>
@@ -71,11 +106,11 @@ export function Natija({ natija }) {
         <div className="karta">
           <h3>{t("kuchli")}</h3>
           {(natija.strengths || []).map((s, i) => (
-            <div className="xato-el" key={i}>✓ {s}</div>
+            <div className="xato-el" key={i}>✓ {T(s, til)}</div>
           ))}
           <h3 style={{ marginTop: 20 }}>{t("tahlil")}</h3>
           <p className="izoh" style={{ margin: 0 }}>
-            {Object.values(natija.analysis || {}).join(" ")}
+            {Object.values(natija.analysis || {}).map((v) => T(v, til)).join(" ")}
           </p>
         </div>
       </div>
