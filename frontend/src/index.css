@@ -282,7 +282,7 @@ textarea {
   border: 1px dashed var(--matn-sokin); text-align: center; font-size: 12.5px; vertical-align: middle;
   background: var(--sirt-2); cursor: pointer;
 }
-.imtihon-bosh-joy.toldirilgan { border-style: solid; border-color: var(--sariq); background: #FFF7DB; }
+.imtihon-bosh-joy.toldirilgan { border-style: solid; border-color: var(--sariq); background: #FFF7DB; color: var(--komir); }
 .imtihon-bosh-joy.togri { border-color: var(--yaxshi); background: transparent; }
 .imtihon-bosh-joy.notogri { border-color: var(--xato); background: transparent; }
 .imtihon-moslashtirish-royxat { display: grid; gap: 10px; margin: 10px 0; }

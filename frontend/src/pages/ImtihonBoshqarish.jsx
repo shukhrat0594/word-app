@@ -327,6 +327,17 @@ function PdfYuklashOynasi({ bolim, manba, yopish, tugadi }) {
   const [yuklanmoqda, setYuklanmoqda] = useState(false);
   const [otganSoniya, setOtganSoniya] = useState(0);
   const [xato, setXato] = useState("");
+  // AI natijasini yopishdan oldin ko'rib/nusxalab olish uchun (diagnostika,
+  // 2026-08-01 talabi) — muvaffaqiyatli yuklashdan keyin darhol yopilmaydi.
+  const [natijaJson, setNatijaJson] = useState(null);
+  const [nusxalandi, setNusxalandi] = useState(false);
+
+  function jsonNusxala() {
+    navigator.clipboard?.writeText(JSON.stringify(natijaJson, null, 2)).then(() => {
+      setNusxalandi(true);
+      setTimeout(() => setNusxalandi(false), 2000);
+    });
+  }
 
   useEffect(() => {
     if (!yuklanmoqda) return undefined;
@@ -396,7 +407,8 @@ function PdfYuklashOynasi({ bolim, manba, yopish, tugadi }) {
         JSON.stringify(oraliqlar.map((o) => ({ boshi: Number(o.boshi), oxiri: Number(o.oxiri) }))),
       );
       const natija = await apiForm("/api/imtihon/testlar-boshqaruv-pdf/", { method: "POST", formData: fd });
-      tugadi(natija?.xatolar || []);
+      setYuklanmoqda(false);
+      setNatijaJson(natija);
     } catch (err) {
       // `detail` bo'lmasa — javob DRF'dan emas (proxy/gunicorn uzgan).
       // Statusni ko'rsatamiz, aks holda sabab umuman bilinmaydi.
@@ -425,7 +437,30 @@ function PdfYuklashOynasi({ bolim, manba, yopish, tugadi }) {
       >
         <div style={{ fontWeight: 700, marginBottom: 10 }}>{t("imtihon_pdf_oyna_sarlavha")}</div>
 
-        {yuklanmoqda ? (
+        {natijaJson ? (
+          <div>
+            <div className="izoh" style={{ marginBottom: 10 }}>
+              {t("imtihon_pdf_tayyor")}: <strong>{natijaJson.name}</strong>
+            </div>
+            {natijaJson.xatolar?.length > 0 && (
+              <div className="xato-xabar" style={{ marginBottom: 10 }}>
+                {natijaJson.xatolar.join("; ")}
+              </div>
+            )}
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <button type="button" className="tugma ikkinchi" onClick={jsonNusxala}>
+                {nusxalandi ? t("nusxalandi") : t("imtihon_pdf_json_nusxala")}
+              </button>
+              <button
+                type="button"
+                className="tugma"
+                onClick={() => tugadi(natijaJson.xatolar || [])}
+              >
+                {t("yopish")}
+              </button>
+            </div>
+          </div>
+        ) : yuklanmoqda ? (
           <div style={{ display: "grid", justifyItems: "center", gap: 6, textAlign: "center" }}>
             <div className="blok-yuklash-spinner" aria-hidden="true" />
             <div className="izoh" style={{ marginTop: 8 }}>{t("imtihon_pdf_yuklanmoqda")}</div>
