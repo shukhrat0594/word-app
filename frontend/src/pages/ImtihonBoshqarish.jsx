@@ -321,8 +321,14 @@ function PdfYuklashOynasi({ bolim, manba, yopish, tugadi }) {
   // Reading — 3 passage, Listening — 4 part (IELTS standarti).
   const qismSoni = bolim === "listening" ? 4 : 3;
   const [nom, setNom] = useState("");
+  // IELTS standarti — Reading/Listening ikkisi ham JAMI 40 savoldan iborat,
+  // shuning uchun oxirgi qismning oxiri 40 deb oldindan to'ldiriladi (admin
+  // xohlasa o'zgartirishi mumkin, faqat qulaylik uchun).
   const [oraliqlar, setOraliqlar] = useState(() =>
-    Array.from({ length: qismSoni }, (_, i) => ({ boshi: i === 0 ? "1" : "", oxiri: "" })),
+    Array.from({ length: qismSoni }, (_, i) => ({
+      boshi: i === 0 ? "1" : "",
+      oxiri: i === qismSoni - 1 ? "40" : "",
+    })),
   );
   const [yuklanmoqda, setYuklanmoqda] = useState(false);
   const [otganSoniya, setOtganSoniya] = useState(0);

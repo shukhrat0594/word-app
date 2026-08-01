@@ -273,11 +273,21 @@ function SozBankiBloki({ blok, javoblar, javobniQoy, natija, t }) {
  * bilan bir xil bosib-tanlash/sudrab-tashlash mexanizmi — farqi shunda,
  * bu yerda har bayonot O'Z QATORIDA (oqim matn emas, ro'yxat). */
 function MoslashtirishBloki({ blok, javoblar, javobniQoy, natija, t }) {
-  const [tanlangan, setTanlangan] = useState(null);
-
   function bloshgaQoy(idx, qiymat) {
     javobniQoy(idx, qiymat);
-    setTanlangan(null);
+  }
+
+  // Chip bosilganda — birinchi BO'SH javobga qulaylik uchun avtomatik
+  // qo'yiladi (yozish bilan bir qatorda, majburiy emas).
+  function chipBosildi(v) {
+    if (natija) return;
+    const boshIdx = blok.boshIdx;
+    for (let k = 0; k < blok.savollar.length; k += 1) {
+      if (!javoblar[boshIdx + k]) {
+        bloshgaQoy(boshIdx + k, v);
+        return;
+      }
+    }
   }
 
   return (
@@ -298,20 +308,24 @@ function MoslashtirishBloki({ blok, javoblar, javobniQoy, natija, t }) {
                 {i + 1}. {s.savol}
               </span>
               <span
-                id={`imtihon-savol-${i}`}
-                className={`imtihon-bosh-joy ${holat}`}
+                className="imtihon-moslashtirish-javob-qutisi"
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={(e) => {
                   e.preventDefault();
                   if (natija) return;
                   bloshgaQoy(i, e.dataTransfer.getData("text/plain"));
                 }}
-                onClick={() => {
-                  if (natija) return;
-                  if (tanlangan) bloshgaQoy(i, tanlangan);
-                }}
               >
-                {javoblar[i] || t("javob_yozing")}
+                <input
+                  {...IMLO_OFF}
+                  id={`imtihon-savol-${i}`}
+                  type="text"
+                  className={`imtihon-bosh-joy ${holat}`}
+                  placeholder={t("javob_yozing")}
+                  disabled={!!natija}
+                  value={javoblar[i] || ""}
+                  onChange={(e) => javobniQoy(i, e.target.value)}
+                />
                 {natija && <span className={`natija-belgi ${holat}`}>{natija.natijalar[i] ? "✓" : "✗"}</span>}
               </span>
             </div>
@@ -322,10 +336,10 @@ function MoslashtirishBloki({ blok, javoblar, javobniQoy, natija, t }) {
         {blok.savollar[0].variantlar.map((v, vi) => (
           <div
             key={v}
-            className={`imtihon-moslashtirish-variant ${tanlangan === v ? "tanlangan" : ""}`}
+            className="imtihon-moslashtirish-variant"
             draggable={!natija}
             onDragStart={(e) => e.dataTransfer.setData("text/plain", v)}
-            onClick={() => !natija && setTanlangan((prev) => (prev === v ? null : v))}
+            onClick={() => chipBosildi(v)}
           >
             <span className="imtihon-moslashtirish-variant-harf">{HARFLAR[vi]}</span>
             <span className="imtihon-moslashtirish-variant-matn">{v}</span>
