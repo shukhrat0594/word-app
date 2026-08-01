@@ -86,6 +86,41 @@ def kop_javobli_guruhlar(savollar):
     return guruhlar
 
 
+HARFLAR = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+
+def _harf_va_matn_qabul(savol, qabul):
+    """Variantli savolda HARF ham, VARIANT MATNI ham qabul qilinsin
+    (2026-08-01).
+
+    Nega kerak: asl kitobda moslashtirish savollariga talaba HARF yozadi
+    ("Write the correct letter, A-F, in boxes 18-20"), lekin AI javob
+    kalitini ba'zan harf ("A"), ba'zan to'liq matn ("Markus Heinrichs")
+    qilib saqlagan — bir xil test ichida ham turlicha. Talaba to'g'ri
+    javob bergani holda faqat shu nomuvofiqlik tufayli ball yo'qotmasligi
+    uchun ikkala shakl ham qabul qilinadi.
+
+    `qabul` — normalizatsiya qilingan (kichik harf, trim) to'plam/ro'yxat.
+    Qaytaradi: kengaytirilgan to'plam."""
+    variantlar = savol.get("variantlar") or []
+    if not variantlar:
+        return set(qabul)
+    kengaytirilgan = set(qabul)
+    past_variantlar = [str(v).strip().lower() for v in variantlar]
+    for t in qabul:
+        # Kalit to'liq matn bo'lsa — mos harfni ham qabul qilamiz.
+        if t in past_variantlar:
+            idx = past_variantlar.index(t)
+            if idx < len(HARFLAR):
+                kengaytirilgan.add(HARFLAR[idx].lower())
+        # Kalit harf bo'lsa — mos variant matnini ham qabul qilamiz.
+        elif len(t) == 1 and t.upper() in HARFLAR:
+            idx = HARFLAR.index(t.upper())
+            if idx < len(past_variantlar):
+                kengaytirilgan.add(past_variantlar[idx])
+    return kengaytirilgan
+
+
 def javoblarni_tekshir(savollar, javoblar):
     """Talaba javoblarini tekshiradi (barcha turlar uchun yagona mexanizm).
 
@@ -123,6 +158,7 @@ def javoblarni_tekshir(savollar, javoblar):
             # belgilanmagan bo'lsa ham ball berardi (2026-08-01 xatosi).
             if not qabul:
                 continue
+            qabul = _harf_va_matn_qabul(savol, qabul)
             javob = javoblar[bosh] if bosh < len(javoblar) else ""
             natijalar[bosh] = norm(javob) in qabul
             continue
@@ -136,6 +172,7 @@ def javoblarni_tekshir(savollar, javoblar):
                     qabul.add(norm(x))
         if not qabul:
             continue
+        qabul = _harf_va_matn_qabul(savollar[bosh], qabul)
 
         ishlatilgan = set()
         for k in range(bosh, bosh + uzunlik):

@@ -269,16 +269,23 @@ function SozBankiBloki({ blok, javoblar, javobniQoy, natija, t }) {
 
 /** Moslashtirish (matching/matching_headings) guruhi — asl kitobdagidek:
  * bayonotlar RO'YXAT qilib chiqadi, variantlar (masalan "List of
- * companies") FAQAT BIR MARTA, pastda umumiy chip-qutida. `SozBankiBloki`
- * bilan bir xil bosib-tanlash/sudrab-tashlash mexanizmi — farqi shunda,
- * bu yerda har bayonot O'Z QATORIDA (oqim matn emas, ro'yxat). */
+ * companies") FAQAT BIR MARTA, pastda umumiy qutida.
+ *
+ * Javob YOZILADI, sudrab tashlanmaydi (2026-08-01, foydalanuvchi qarori):
+ * asl kitobda talaba har doim HARF yozadi ("Write the correct letter, A-F,
+ * in boxes 18-20"), pastdagi quti esa faqat MA'LUMOTNOMA — qaysi harf
+ * kimga/nimaga tegishlini ko'rsatadi. Shu sababli javob katakchasi oddiy
+ * input, quti esa bosilmaydigan ro'yxat. Ro'yxatsiz turlarda (masalan
+ * "Which paragraph contains...") variantlar umuman bo'sh keladi va bu
+ * savollar bu blokka tushmaydi — oddiy savol sifatida chiqadi. */
 function MoslashtirishBloki({ blok, javoblar, javobniQoy, natija, t }) {
-  const [tanlangan, setTanlangan] = useState(null);
-
-  function bloshgaQoy(idx, qiymat) {
-    javobniQoy(idx, qiymat);
-    setTanlangan(null);
-  }
+  // ESKI TESTLAR uchun (2026-08-01): avvalgi promt ro'yxatsiz turlarda ham
+  // variantlarga harflarning O'ZINI yozdirardi (["A","B","C"...]). Bunday
+  // ro'yxat "A → A, B → B" bo'lib chiqadi va hech qanday ma'lumot bermaydi.
+  // Yangi yuklashlarda variantlar bo'sh keladi, lekin bazadagi eski testlar
+  // qayta yuklanmaydi — shuning uchun bu yerda ham tekshiramiz.
+  const variantlar = blok.savollar[0].variantlar || [];
+  const foydaliRoyxat = variantlar.some((v, i) => String(v).trim() !== HARFLAR[i]);
 
   return (
     <div className="savol-blok">
@@ -297,41 +304,33 @@ function MoslashtirishBloki({ blok, javoblar, javobniQoy, natija, t }) {
               <span className="imtihon-moslashtirish-matn">
                 {i + 1}. {s.savol}
               </span>
-              <span
-                id={`imtihon-savol-${i}`}
-                className={`imtihon-bosh-joy ${holat}`}
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  if (natija) return;
-                  bloshgaQoy(i, e.dataTransfer.getData("text/plain"));
-                }}
-                onClick={() => {
-                  if (natija) return;
-                  if (tanlangan) bloshgaQoy(i, tanlangan);
-                }}
-              >
-                {javoblar[i] || t("javob_yozing")}
+              <span className="imtihon-moslashtirish-javob">
+                <input
+                  {...IMLO_OFF}
+                  id={`imtihon-savol-${i}`}
+                  type="text"
+                  className={`imtihon-bosh-joy ${holat}`}
+                  placeholder={t("javob_yozing")}
+                  disabled={!!natija}
+                  value={javoblar[i] || ""}
+                  onChange={(e) => javobniQoy(i, e.target.value)}
+                />
                 {natija && <span className={`natija-belgi ${holat}`}>{natija.natijalar[i] ? "✓" : "✗"}</span>}
               </span>
             </div>
           );
         })}
       </div>
-      <div className="imtihon-moslashtirish-variantlar">
-        {blok.savollar[0].variantlar.map((v, vi) => (
-          <div
-            key={v}
-            className={`imtihon-moslashtirish-variant ${tanlangan === v ? "tanlangan" : ""}`}
-            draggable={!natija}
-            onDragStart={(e) => e.dataTransfer.setData("text/plain", v)}
-            onClick={() => !natija && setTanlangan((prev) => (prev === v ? null : v))}
-          >
-            <span className="imtihon-moslashtirish-variant-harf">{HARFLAR[vi]}</span>
-            <span className="imtihon-moslashtirish-variant-matn">{v}</span>
-          </div>
-        ))}
-      </div>
+      {foydaliRoyxat && (
+        <div className="imtihon-moslashtirish-variantlar">
+          {variantlar.map((v, vi) => (
+            <div key={v} className="imtihon-moslashtirish-variant">
+              <span className="imtihon-moslashtirish-variant-harf">{HARFLAR[vi]}</span>
+              <span className="imtihon-moslashtirish-variant-matn">{v}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

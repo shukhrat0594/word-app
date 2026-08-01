@@ -301,13 +301,16 @@ textarea {
   display: grid; gap: 4px; margin: 14px 0; padding: 14px 18px;
   background: var(--sirt-2); border: 1px solid var(--chiziq); border-radius: 8px;
 }
+/* Variantlar qutisi — MA'LUMOTNOMA (2026-08-01): talaba harfni javob
+   katakchasiga YOZADI, bu ro'yxat bosilmaydi/sudralmaydi. */
 .imtihon-moslashtirish-variant {
   display: grid; grid-template-columns: 22px 1fr; gap: 10px; padding: 4px 6px;
-  border-radius: 6px; cursor: grab; font-size: 14px;
+  border-radius: 6px; font-size: 14px;
 }
 .imtihon-moslashtirish-variant-harf { font-weight: 700; }
-.imtihon-moslashtirish-variant.tanlangan { background: var(--sariq); color: var(--komir); }
-.imtihon-moslashtirish-variant.ishlatilgan { opacity: .4; }
+.imtihon-moslashtirish-javob { display: inline-flex; align-items: center; gap: 6px; }
+/* Javob katakchasi endi <input> — matn markazda va o'qilarli bo'lsin. */
+input.imtihon-bosh-joy { font: inherit; font-size: 12.5px; text-align: center; }
 
 /* ==== Table/Flow-chart Completion (maxsus_format, 2026-07-24) ==== */
 .imtihon-inline-juft { display: inline-flex; align-items: center; gap: 3px; margin: 0 2px; vertical-align: middle; }
