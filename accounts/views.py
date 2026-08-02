@@ -1118,6 +1118,13 @@ class GoogleLoginView(APIView):
             },
         )
 
+        # Arxivlangan (is_active=False) talaba qayta kira olmasligi kerak
+        # (2026-08-02) — parol orqali kirish buni Django autentifikatsiyasi
+        # orqali avtomatik bloklaydi, lekin bu yerda token to'g'ridan-to'g'ri
+        # `RefreshToken.for_user`da yaratilgani uchun qo'lda tekshirish shart.
+        if not created and not user.is_active:
+            return Response({"detail": "Hisobingiz arxivlangan"}, status=403)
+
         refresh = RefreshToken.for_user(user)
         return Response(
             {
