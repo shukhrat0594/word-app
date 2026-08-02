@@ -20,16 +20,62 @@ class Guruh(models.Model):
         related_name="oqituvchi_guruhlari",
         limit_choices_to={"role": "teacher"},
     )
+    # `through="GuruhAzoligi"` (2026-08-02) — avval oddiy M2M edi, endi har
+    # talaba uchun `boshlanish_unit` (qaysi Unit'dan boshlaydi) saqlanadi.
     talabalar = models.ManyToManyField(
         settings.AUTH_USER_MODEL,
         related_name="talaba_guruhlari",
         blank=True,
         limit_choices_to={"role": "student"},
+        through="GuruhAzoligi",
+    )
+    # Fan/daraja (2026-08-02, foydalanuvchi talabi) — Kurslar bo'limidagi
+    # daraxtdan olinadi (qattiq ro'yxat emas): `fan` — "Kurslar" ildizining
+    # bevosita bolasi (masalan "Ingliz tili"), `daraja` — o'sha fanning
+    # bolasi (masalan "Beginner", "IELTS", "CEFR"). Ikkisi ham ixtiyoriy —
+    # eski guruhlar fan/darajasiz qolishi mumkin, keyin admin to'ldiradi.
+    fan = models.ForeignKey(
+        "courses.KursTugun", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="guruhlar_fan", help_text="Kurslar bo'limidagi fan (masalan Ingliz tili)",
+    )
+    daraja = models.ForeignKey(
+        "courses.KursTugun", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="guruhlar_daraja", help_text="Tanlangan fan ichidagi daraja (masalan Beginner, IELTS)",
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f"{self.name} ({self.markaz.name})"
+
+
+class GuruhAzoligi(models.Model):
+    """Guruh-talaba bog'lanishi (2026-08-02) — `Guruh.talabalar`ning
+    `through` modeli. Oddiy M2M'dan farqi: `boshlanish_unit` — talaba
+    guruhga (demak, guruhning `daraja`siga) qo'shilganda, Kurslar
+    bo'limida QAYSI Unit'dan boshlashi kerakligini belgilaydi.
+
+    Foydalanuvchi talabi: boshlanish_unit'dan OLDINGI barcha Unit'lar
+    talaba uchun QULFSIZ bo'ladi (lekin "tugallangan" deb belgilanmaydi —
+    faqat qulf yo'q, statistikaga ta'sir qilmaydi). boshlanish_unit va
+    undan keyingilari ODATDAGI tartibda (oldingi Unit'ning 60%+ natijasi
+    bilan) ochiladi. Qo'shilganda standart qiymat — o'sha darajaning
+    BIRINCHI Unit'i (ya'ni cheklovsiz, oddiy tartib) — admin keyin
+    o'zgartirishi mumkin (`courses.views._unit_qulflanganmi` shu
+    maydonni hisobga oladi)."""
+
+    guruh = models.ForeignKey(Guruh, on_delete=models.CASCADE)
+    talaba = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, limit_choices_to={"role": "student"},
+    )
+    boshlanish_unit = models.ForeignKey(
+        "courses.KursTugun", on_delete=models.SET_NULL, null=True, blank=True,
+        help_text="Guruhning darajasi ichidagi Unit — talaba shundan boshlaydi, oldingilar qulfsiz",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ("guruh", "talaba")
+        verbose_name_plural = "Guruh a'zoliklari"
 
 
 class Davomat(models.Model):

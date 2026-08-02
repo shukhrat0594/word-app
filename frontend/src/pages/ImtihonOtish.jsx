@@ -14,6 +14,110 @@ export function vaqtFormat(soniya) {
   return `${m}:${s}`;
 }
 
+// Konteyner ichidagi (node, offset) DOM nuqtasini butun matnning tekis
+// belgi-indeksiga aylantiradi — highlight range'larini matn ustida
+// hisoblash uchun kerak (2026-08-02).
+function belgiIndeksiniTop(container, node, offset) {
+  let jami = 0;
+  let topildi = -1;
+  function chuqurlashtir(el) {
+    for (const bola of el.childNodes) {
+      if (bola === node) {
+        topildi = jami + offset;
+        return true;
+      }
+      if (bola.nodeType === Node.TEXT_NODE) {
+        jami += bola.textContent.length;
+      } else if (chuqurlashtir(bola)) {
+        return true;
+      }
+    }
+    return false;
+  }
+  chuqurlashtir(container);
+  return topildi;
+}
+
+// Yangi range'ni mavjud belgilanganlar ro'yxatiga qo'shib, kesishganlarini
+// birlashtiradi (masalan avval 5-10 belgilangan, endi 8-15 belgilansa —
+// natija bitta 5-15 range bo'lishi kerak).
+function rangeQoshVaBirlashtir(royxat, yangi) {
+  const hammasi = [...royxat, yangi].sort((a, b) => a.start - b.start);
+  const natija = [];
+  for (const r of hammasi) {
+    const oxirgi = natija[natija.length - 1];
+    if (oxirgi && r.start <= oxirgi.end) {
+      oxirgi.end = Math.max(oxirgi.end, r.end);
+    } else {
+      natija.push({ ...r });
+    }
+  }
+  return natija;
+}
+
+/** Reading passage matnini sichqoncha bilan belgilab (highlight) olish
+ * imkonini beradi — faqat shu test-sessiyasi davomida (sessionStorage),
+ * sahifa yopilsa yo'qoladi. Mavjud belgini bosish — o'chiradi. */
+function BelgilanadiganMatn({ matnId, matn, sinf }) {
+  const kalitRef = useRef(`reading-belgi-${matnId}`);
+  const konteynerRef = useRef(null);
+  const [royxat, setRoyxat] = useState(() => {
+    try {
+      const saqlangan = sessionStorage.getItem(kalitRef.current);
+      return saqlangan ? JSON.parse(saqlangan) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(kalitRef.current, JSON.stringify(royxat));
+    } catch {
+      // sessionStorage to'lgan bo'lsa — jim o'tkazib yuboramiz, kritik emas.
+    }
+  }, [royxat]);
+
+  function tanlovTugaganda() {
+    const tanlov = window.getSelection();
+    if (!tanlov || tanlov.isCollapsed || tanlov.rangeCount === 0) return;
+    const range = tanlov.getRangeAt(0);
+    if (!konteynerRef.current || !konteynerRef.current.contains(range.commonAncestorContainer)) return;
+    let start = belgiIndeksiniTop(konteynerRef.current, range.startContainer, range.startOffset);
+    let end = belgiIndeksiniTop(konteynerRef.current, range.endContainer, range.endOffset);
+    tanlov.removeAllRanges();
+    if (start === -1 || end === -1) return;
+    if (start > end) [start, end] = [end, start];
+    if (start === end) return;
+    setRoyxat((prev) => rangeQoshVaBirlashtir(prev, { start, end }));
+  }
+
+  function belginiOchir(idx, e) {
+    e.stopPropagation();
+    setRoyxat((prev) => prev.filter((_, i) => i !== idx));
+  }
+
+  const qismlar = [];
+  let joriy = 0;
+  const tartiblangan = [...royxat].sort((a, b) => a.start - b.start);
+  tartiblangan.forEach((r, i) => {
+    if (r.start > joriy) qismlar.push(<span key={`o-${i}`}>{matn.slice(joriy, r.start)}</span>);
+    qismlar.push(
+      <mark className="reading-belgilangan" key={`m-${i}`} onClick={(e) => belginiOchir(i, e)} title="O'chirish uchun bosing">
+        {matn.slice(r.start, r.end)}
+      </mark>
+    );
+    joriy = r.end;
+  });
+  if (joriy < matn.length) qismlar.push(<span key="oxiri">{matn.slice(joriy)}</span>);
+
+  return (
+    <div ref={konteynerRef} className={sinf} onMouseUp={tanlovTugaganda}>
+      {qismlar}
+    </div>
+  );
+}
+
 // Ketma-ket, bir xil variantlar ro'yxatiga ega fill_blanks savollarni bitta
 // "so'z banki" guruhiga birlashtiradi (oqim matn + umumiy variantlar banki
 // sifatida render qilinadi). Qolganlari — oddiy blok (radio/matn).
@@ -930,7 +1034,9 @@ export default function ImtihonOtish({ bolim, manba = "admin", testId, mockYechi
           <>
             <div className="imtihon-qism-sarlavha">{faol.qism.sarlavha}</div>
             {faol.qism.yoriqnoma && <div className="imtihon-yoriqnoma">{faol.qism.yoriqnoma}</div>}
-            {faol.qism.matn && <div className="mashq-passage">{faol.qism.matn}</div>}
+            {faol.qism.matn && (
+              <BelgilanadiganMatn matnId={faol.qism.id} matn={faol.qism.matn} sinf="mashq-passage" />
+            )}
             {rasmUrllar[faol.qism.id] && (
               <div style={{ marginTop: 10 }}>
                 <RasmSavollari

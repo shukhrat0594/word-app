@@ -333,11 +333,70 @@ Qolgan barcha bandlar (pastdagi jadvalda, ustuvorlik belgisiz) — **keyinroq**,
 
 ---
 
-## Muhokama qilinishi kerak (2026-08-02, eng birinchi navbatda)
+## Server/backup rejasi (2026-08-02 qarori)
 
-- **Serverni Contabo VPS'ga ko'chirish** — hozir Render'da (Free tarif,
-  Shell yo'q, aktivsiz bo'lsa uxlab qoladi). Sabab/tafsilot hali
-  muhokama qilinmagan — keyingi sessiyada gaplashish kerak.
+Contabo VPS'ga ko'chirish **MUHOKAMA QILINDI VA RAD ETILDI** — Render'da
+qolamiz. Qaror:
+
+- **Render Starter'ga o'tish** ($7/oy) — Free tarifning uxlash rejimi
+  (15 daqiqa faolsizlikdan keyin, ~50s kutish) va past CPU (0.1)
+  muammosini hal qiladi. **Persistent Disk KERAK EMAS** — sabab pastda.
+- **SQLite bilan davom etamiz** (Postgres'ga o'tish shart emas hozircha)
+  — REJA.md 2026-07-22 yozuvida va 2026-08-02'da amaliy tasdiqlangan:
+  ma'lumot ko'p marta deploy/restart'dan keyin ham yo'qolmagan.
+- **Backup tizimi (owner-only, admin panelga EMAS) — 2026-08-02 aniqlashtirildi,
+  UCHTA ALOHIDA tugma (bittaga birlashtirilmaydi — har biri boshqa
+  maqsad, har safar hammasini bajarish shart bo'lmasin):**
+  1. **"Kompyuterga yuklab olish"** — butun baza (`dumpdata`, barcha
+     jadval — talabalar/testlar/javoblar) + R2'dagi barcha media fayllar
+     (rasm/audio) bitta ZIP arxivga yig'ilib, brauzer orqali to'g'ridan-
+     to'g'ri kompyuterga yuklanadi (tezkor, offline nusxa).
+  2. **"R2'ga saqlash"** — xuddi shu ZIP, lekin kompyuterga tushmaydi,
+     to'g'ridan-to'g'ri Cloudflare R2'ga (masalan "backups/" papkasiga)
+     yuklanadi (uzoq muddatli, ishonchli joyda saqlanadi).
+  3. **"Backup'dan yuklash" (tiklash)** — ZIP fayl yuklanadi, tizim
+     JSON'ni `loaddata` bilan bazaga qayta yozadi, media fayllarni
+     R2'ga qayta joylaydi. MAJBURIY tasdiqlash dialogi ("joriy
+     ma'lumotni almashtiradi") — tasodifan bosilmasin.
+  **R2'ga avtomatik (jadval bo'yicha) backup** — hali qaror qilinmagan,
+  keyinroq alohida ko'rib chiqiladi (masalan kunlik/haftalik).
+  Uchtasi ham FAQAT owner uchun (`owner_mi(user)`, admin uchun emas).
+  Boshqa serverga (kelajakda kerak bo'lsa) ko'chirish alohida — u
+  terminal/Shell orqali (`loaddata` + media qayta yuklash skripti)
+  qilinadi, chunki yangi serverda hali owner hisobi yo'q.
+
+## Kurslar — kitobga mos mashq formatlarini kengaytirish (2026-08-02)
+
+Foydalanuvchi talabi: Kurslar bo'limidagi (Beginner) mashqlar hozir
+kitobdagi (Headway Beginner 5th edition) asl ko'rinishidan farq qiladi —
+"xuddi kitobdagidek" bo'lishi kerak. `tmp\headway_beginner\` papkasida
+(147 sahifa, rasm) to'liq tahlil qilindi.
+
+**Hozirgi Kurslar formati** (`KursMashq`: `matn`+`savollar[{savol,
+variantlar,togri}]` yoki `bloklar`) kitobdagi ko'p turdagi mashqni
+qamrab olmaydi. Aniqlangan 16 tur, eng muhimlari:
+
+1. **Dialog to'ldirish** — 2-3 kishilik suhbat (speaker nomi+gap),
+   bo'sh joylar, audio track raqami bilan
+2. **Grammar Spot** — qoida qutisi (ajratilgan rang, ma'lumot/mini
+   bo'sh joy)
+3. **Rasmga qarab moslashtirish** — fotosurat + so'z ro'yxatidan tanlash
+4. **Jadval to'ldirish** — grammatika jadvali (Positive/Negative/
+   Question x I/You/He...), ba'zi katak oldindan to'ldirilgan
+5. **Juftlikda erkin nutq mashqi** (partner bilan) — baholanmaydi
+6. **Rolplay kartochkalari** (Student A/Student B) — baholanmaydi
+7. **Audioscript/Wordlist/Grammar reference** — Unit oxirida, mashqsiz
+   ma'lumot sahifalari
+
+**Hozirgi tizimda YO'Q, qo'shilishi kerak bo'lgan narsalar:** ko'p-
+kishilik dialog strukturasi, audio track bog'lanishi, grammatika
+jadvali (qisman to'ldirilgan), rolplay/erkin-nutq turi (baholanmaydigan
+mashq), rasm+moslashtirish (checkbox/raqam).
+
+**Qaror kutilmoqda:** qaysi turlardan boshlash (foydalanuvchi eng ko'p
+uchraydigan 3-4 tasini — dialog, jadval, moslashtirish — birinchi
+navbatga qo'yishni taklif qildi, lekin hali tasdiqlanmagan). Ish
+boshlanishidan oldin ko'lam aniqlashtiriladi.
 
 ## Navbatdagi ishlar (2026-07-27 foydalanuvchi talablari)
 

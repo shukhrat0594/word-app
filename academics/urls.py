@@ -4,7 +4,13 @@ from . import views
 
 urlpatterns = [
     path("guruhlar/", views.GuruhlarView.as_view(), name="guruhlar"),
+    path("guruh-fanlari/", views.GuruhFanlarView.as_view(), name="guruh_fanlari"),
     path("guruhlar/<int:pk>/", views.GuruhDetailView.as_view(), name="guruh_detail"),
+    path(
+        "guruhlar/<int:pk>/azolik/<int:talaba_id>/",
+        views.GuruhAzoligiDetailView.as_view(),
+        name="guruh_azoligi_detail",
+    ),
     path(
         "markaz-azolari/",
         views.MarkazAzolariView.as_view(),

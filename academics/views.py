@@ -11,7 +11,9 @@ from accounts.permissions import owner_mi
 from audit.models import FaoliyatYozuvi
 from audit.utils import logla, maydon_diff
 
-from .models import Davomat, Guruh
+from courses.models import KursTugun
+
+from .models import Davomat, Guruh, GuruhAzoligi
 
 
 def _foydalanuvchi_dict(u):
@@ -24,10 +26,58 @@ def _guruh_dict(g, toliq=False):
         "name": g.name,
         "oqituvchi": _foydalanuvchi_dict(g.oqituvchi) if g.oqituvchi else None,
         "talaba_soni": g.talabalar.count(),
+        "fan": {"id": g.fan_id, "nomi": g.fan.nomi, "kalit": g.fan.kalit} if g.fan_id else None,
+        "daraja": {"id": g.daraja_id, "nomi": g.daraja.nomi, "kalit": g.daraja.kalit} if g.daraja_id else None,
     }
     if toliq:
-        d["talabalar"] = [_foydalanuvchi_dict(t) for t in g.talabalar.all()]
+        # `boshlanish_unit_id` (2026-08-02) — talaba shu guruh darajasi
+        # ichida qaysi Unit'dan boshlaydi (oldingilar qulfsiz, lekin
+        # "tugallangan" emas). Guruhga qo'shilganda avtomatik Unit 1.
+        azolik_map = {
+            a.talaba_id: a.boshlanish_unit_id
+            for a in GuruhAzoligi.objects.filter(guruh=g)
+        }
+        d["talabalar"] = [
+            {**_foydalanuvchi_dict(t), "boshlanish_unit_id": azolik_map.get(t.id)}
+            for t in g.talabalar.all()
+        ]
+        if g.daraja_id:
+            d["daraja_unitlari"] = [
+                {"id": u.id, "nomi": u.nomi, "tartib": u.tartib}
+                for u in KursTugun.objects.filter(
+                    parent_id=g.daraja_id, unit_darsi=True
+                ).order_by("tartib", "id")
+            ]
     return d
+
+
+class GuruhFanlarView(APIView):
+    """Guruh yaratish/tahrirlashda "Fan" va "Daraja" tanlash uchun — Kurslar
+    bo'limining daraxtidan FAQAT 2 qatlam (fan + uning bevosita darajalari),
+    boshqa hech narsa (mashqlar/fayllar) — `KursDaraxtiView` bilan farqi shu,
+    u butun daraxtni (Unit'largacha) qaytaradi, bu yerga ortiqcha (2026-08-02).
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        ildiz = KursTugun.objects.filter(parent__isnull=True).first()
+        if not ildiz:
+            return Response([])
+        fanlar = KursTugun.objects.filter(parent=ildiz).order_by("tartib", "id")
+        darajalar_qs = KursTugun.objects.filter(parent__in=fanlar).order_by("tartib", "id")
+        darajalar_keshi = {}
+        for d in darajalar_qs:
+            darajalar_keshi.setdefault(d.parent_id, []).append(
+                {"id": d.id, "nomi": d.nomi, "kalit": d.kalit, "tez_kunda": d.tez_kunda}
+            )
+        return Response([
+            {
+                "id": f.id, "nomi": f.nomi, "kalit": f.kalit, "tez_kunda": f.tez_kunda,
+                "darajalar": darajalar_keshi.get(f.id, []),
+            }
+            for f in fanlar
+        ])
 
 
 def _guruhga_ruxsat_bormi(user, guruh):
@@ -81,6 +131,9 @@ class GuruhlarView(APIView):
             return Response({"detail": "name majburiy"}, status=400)
 
         guruh = Guruh.objects.create(name=name, markaz_id=markaz_id)
+        fan_xato = _fan_darajani_saqla(request, guruh)
+        if fan_xato:
+            return fan_xato
         _azolarni_saqla(request, guruh)
         logla(
             foydalanuvchi=request.user,
@@ -124,6 +177,9 @@ class GuruhDetailView(APIView):
         if name is not None:
             guruh.name = name.strip()
             guruh.save(update_fields=["name"])
+        fan_xato = _fan_darajani_saqla(request, guruh)
+        if fan_xato:
+            return fan_xato
         _azolarni_saqla(request, guruh)
 
         ozgarishlar = maydon_diff({"name": eski_nomi}, {"name": guruh.name})
@@ -145,6 +201,34 @@ class GuruhDetailView(APIView):
         return Response(_guruh_dict(guruh, toliq=True))
 
 
+def _fan_darajani_saqla(request, guruh):
+    """`fan_id`/`daraja_id` berilgan bo'lsa guruhga biriktiradi (2026-08-02).
+    `daraja_id` — MAJBURIY ravishda tanlangan `fan_id`ning bevosita bolasi
+    bo'lishi kerak (boshqa fanning darajasini qo'shib qo'yish xato).
+    Xato bo'lsa Response qaytaradi, muvaffaqiyatli bo'lsa None."""
+    if "fan_id" in request.data:
+        fan_id = request.data.get("fan_id")
+        if fan_id:
+            fan = get_object_or_404(KursTugun, pk=fan_id, parent__parent__isnull=True)
+            guruh.fan = fan
+        else:
+            guruh.fan = None
+            guruh.daraja = None
+        guruh.save(update_fields=["fan", "daraja"])
+
+    if "daraja_id" in request.data:
+        daraja_id = request.data.get("daraja_id")
+        if daraja_id:
+            if not guruh.fan_id:
+                return Response({"detail": "Avval fan tanlanishi kerak"}, status=400)
+            daraja = get_object_or_404(KursTugun, pk=daraja_id, parent_id=guruh.fan_id)
+            guruh.daraja = daraja
+        else:
+            guruh.daraja = None
+        guruh.save(update_fields=["daraja"])
+    return None
+
+
 def _azolarni_saqla(request, guruh):
     """oqituvchi_id / talaba_idlar berilgan bo'lsa guruhga biriktiradi."""
     if "oqituvchi_id" in request.data:
@@ -163,7 +247,67 @@ def _azolarni_saqla(request, guruh):
         talabalar = User.objects.filter(
             pk__in=idlar, role=User.Role.STUDENT, markaz_id=guruh.markaz_id
         )
-        guruh.talabalar.set(talabalar)
+        # `guruh.talabalar.set(...)` ishlatilmaydi — u yangi qo'shilgan
+        # a'zolarning `boshlanish_unit`ini NULL qilib qo'yardi (through
+        # modelning qo'shimcha maydoni e'tiborga olinmaydi). Shuning uchun
+        # qo'lda diff: mavjud a'zoning `boshlanish_unit`i TEGILMAYDI, yangi
+        # qo'shilganga esa guruh darajasining BIRINCHI Unit'i (standart,
+        # 2026-08-02 talabi) beriladi.
+        yangi_idlar = set(talabalar.values_list("id", flat=True))
+        eski_idlar = set(
+            GuruhAzoligi.objects.filter(guruh=guruh).values_list("talaba_id", flat=True)
+        )
+        olib_tashlanadigan = eski_idlar - yangi_idlar
+        qoshiladigan = yangi_idlar - eski_idlar
+        if olib_tashlanadigan:
+            GuruhAzoligi.objects.filter(
+                guruh=guruh, talaba_id__in=olib_tashlanadigan
+            ).delete()
+        if qoshiladigan:
+            birinchi_unit = None
+            if guruh.daraja_id:
+                birinchi_unit = (
+                    KursTugun.objects.filter(parent_id=guruh.daraja_id, unit_darsi=True)
+                    .order_by("tartib", "id")
+                    .first()
+                )
+            GuruhAzoligi.objects.bulk_create(
+                [
+                    GuruhAzoligi(guruh=guruh, talaba_id=tid, boshlanish_unit=birinchi_unit)
+                    for tid in qoshiladigan
+                ]
+            )
+
+
+class GuruhAzoligiDetailView(APIView):
+    """Bitta talabaning shu guruhdagi `boshlanish_unit`ini o'zgartirish
+    (2026-08-02) — admin talabani guruhga qo'shgandan keyin, standart
+    Unit 1 o'rniga boshqa Unit'ni tanlashi uchun."""
+
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request, pk, talaba_id):
+        guruh = get_object_or_404(Guruh, pk=pk)
+        tahrirlay_oladimi = owner_mi(request.user) or (
+            request.user.role == User.Role.ADMIN
+            and guruh.markaz_id == request.user.markaz_id
+        )
+        if not tahrirlay_oladimi:
+            return Response({"detail": "Faqat admin tahrirlay oladi"}, status=403)
+
+        azolik = get_object_or_404(GuruhAzoligi, guruh=guruh, talaba_id=talaba_id)
+        unit_id = request.data.get("boshlanish_unit_id")
+        if unit_id:
+            if not guruh.daraja_id:
+                return Response({"detail": "Guruhda daraja tanlanmagan"}, status=400)
+            unit = get_object_or_404(
+                KursTugun, pk=unit_id, parent_id=guruh.daraja_id, unit_darsi=True
+            )
+            azolik.boshlanish_unit = unit
+        else:
+            azolik.boshlanish_unit = None
+        azolik.save(update_fields=["boshlanish_unit"])
+        return Response({"boshlanish_unit_id": azolik.boshlanish_unit_id})
 
 
 class MarkazAzolariView(APIView):

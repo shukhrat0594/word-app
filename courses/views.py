@@ -88,10 +88,36 @@ def _unit_otildimi(user, unit_tugun):
     return jami_savol > 0 and (jami_ball / jami_savol) >= OTISH_FOIZ
 
 
+def _boshlanish_unitdan_oldinmi(user, unit_tugun):
+    """Talaba biriktirilgan guruh(lar)dan birida shu Unit joylashgan daraja
+    uchun `boshlanish_unit` belgilangan bo'lsa va bu Unit shundan OLDIN
+    (yoki teng) bo'lsa — talaba uchun QULFSIZ (lekin "o'tilgan" emas,
+    _unit_otildimi'ga ta'sir qilmaydi). 2026-08-02, Guruh.talabalar
+    `through=GuruhAzoligi`ga o'tkazilgandan keyin qo'shilgan."""
+    from academics.models import GuruhAzoligi
+
+    azolik = (
+        GuruhAzoligi.objects.filter(
+            talaba=user,
+            guruh__daraja_id=unit_tugun.parent_id,
+            boshlanish_unit__isnull=False,
+        )
+        .select_related("boshlanish_unit")
+        .first()
+    )
+    if not azolik:
+        return False
+    return unit_tugun.tartib <= azolik.boshlanish_unit.tartib
+
+
 def _unit_qulflanganmi(user, unit_tugun):
     """Faqat talaba uchun: shu Unit'dan oldingi (bir xil ota-tugun ostidagi,
-    tartibi kichikroq) Unit hali o'tilmagan bo'lsa — qulflangan."""
+    tartibi kichikroq) Unit hali o'tilmagan bo'lsa — qulflangan. Guruhda
+    belgilangan `boshlanish_unit`gacha (unga qo'shilgan holda) — har doim
+    qulfsiz, oldingi Unit'lar o'tilganligiga qaramay."""
     if user.role != User.Role.STUDENT:
+        return False
+    if _boshlanish_unitdan_oldinmi(user, unit_tugun):
         return False
     oldingi = (
         KursTugun.objects.filter(

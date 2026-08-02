@@ -3,7 +3,7 @@ import { api } from "../api";
 import { useI18n } from "../i18n";
 import { useProfil } from "../profilContext";
 
-const BOSH_FORMA = { id: null, name: "", oqituvchi_id: "", talaba_idlar: [] };
+const BOSH_FORMA = { id: null, name: "", oqituvchi_id: "", talaba_idlar: [], fan_id: "", daraja_id: "" };
 
 /** Admin/owner — to'liq boshqaruv (yaratish/tahrirlash). O'qituvchi — faqat
  * o'z guruhlarini o'qish uchun ko'radi, tahrirlay olmaydi (backend ham shu
@@ -14,10 +14,19 @@ export default function Guruhlar() {
   const oqituvchiMi = profil?.role === "teacher";
   const [guruhlar, setGuruhlar] = useState([]);
   const [azolar, setAzolar] = useState(null);
+  // Fan/daraja (2026-08-02) — Kurslar bo'limidagi daraxtdan olinadi,
+  // qattiq ro'yxat emas (yangi fan/daraja qo'shilsa avtomatik chiqadi).
+  const [fanlar, setFanlar] = useState([]);
   const [tanlangan, setTanlangan] = useState(null);
   const [forma, setForma] = useState(null);
   const [xato, setXato] = useState("");
   const [band, setBand] = useState(false);
+  // Har talabaning "boshlanish uniti" (2026-08-02) — guruh darajasi
+  // ichida qaysi Unit'dan boshlaydi. Faqat MAVJUD a'zolar uchun (yangi
+  // qo'shilganlar saqlashda avtomatik Unit 1 oladi, keyin shu yerdan
+  // o'zgartiriladi).
+  const [boshlanishMap, setBoshlanishMap] = useState({});
+  const [darajaUnitlari, setDarajaUnitlari] = useState([]);
 
   function guruhlarniYukla() {
     api("/api/guruhlar/").then(setGuruhlar).catch(() => {});
@@ -33,6 +42,7 @@ export default function Guruhlar() {
     api("/api/markaz-azolari/")
       .then(setAzolar)
       .catch(() => setAzolar({ oqituvchilar: [], talabalar: [] }));
+    api("/api/guruh-fanlari/").then(setFanlar).catch(() => setFanlar([]));
   }, []);
 
   async function guruhniOch(id) {
@@ -40,12 +50,18 @@ export default function Guruhlar() {
     try {
       const g = await api(`/api/guruhlar/${id}/`);
       setTanlangan(g);
+      setDarajaUnitlari(g.daraja_unitlari || []);
+      setBoshlanishMap(
+        Object.fromEntries(g.talabalar.map((t2) => [t2.id, t2.boshlanish_unit_id || ""]))
+      );
       if (!oqituvchiMi) {
         setForma({
           id: g.id,
           name: g.name,
           oqituvchi_id: g.oqituvchi?.id || "",
           talaba_idlar: g.talabalar.map((t2) => t2.id),
+          fan_id: g.fan?.id || "",
+          daraja_id: g.daraja?.id || "",
         });
       }
     } catch {
@@ -56,6 +72,20 @@ export default function Guruhlar() {
   function yopish() {
     setTanlangan(null);
     setForma(null);
+    setBoshlanishMap({});
+    setDarajaUnitlari([]);
+  }
+
+  async function boshlanishUnitiniOzgartir(talabaId, unitId) {
+    setBoshlanishMap((m) => ({ ...m, [talabaId]: unitId }));
+    try {
+      await api(`/api/guruhlar/${forma.id}/azolik/${talabaId}/`, {
+        method: "PATCH",
+        body: { boshlanish_unit_id: unitId || null },
+      });
+    } catch {
+      setXato(t("xato_yuz_berdi"));
+    }
   }
 
   function talabaBelgila(id) {
@@ -78,6 +108,8 @@ export default function Guruhlar() {
       name: forma.name,
       oqituvchi_id: forma.oqituvchi_id || null,
       talaba_idlar: forma.talaba_idlar,
+      fan_id: forma.fan_id || null,
+      daraja_id: forma.daraja_id || null,
     };
     try {
       if (forma.id) {
@@ -115,6 +147,37 @@ export default function Guruhlar() {
               value={forma.name}
               onChange={(e) => setForma({ ...forma, name: e.target.value })}
             />
+            <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
+              <div style={{ flex: 1, minWidth: 160 }}>
+                <div className="izoh" style={{ marginBottom: 6 }}>{t("guruh_fani")}</div>
+                <select
+                  value={forma.fan_id}
+                  onChange={(e) => setForma({ ...forma, fan_id: e.target.value, daraja_id: "" })}
+                >
+                  <option value="">— {t("tanlanmagan")} —</option>
+                  {fanlar.map((f) => (
+                    <option key={f.id} value={f.id}>
+                      {f.nomi}{f.tez_kunda ? ` (${t("tez_orada")})` : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div style={{ flex: 1, minWidth: 160 }}>
+                <div className="izoh" style={{ marginBottom: 6 }}>{t("guruh_darajasi")}</div>
+                <select
+                  value={forma.daraja_id}
+                  onChange={(e) => setForma({ ...forma, daraja_id: e.target.value })}
+                  disabled={!forma.fan_id}
+                >
+                  <option value="">— {t("tanlanmagan")} —</option>
+                  {(fanlar.find((f) => String(f.id) === String(forma.fan_id))?.darajalar || []).map((d) => (
+                    <option key={d.id} value={d.id}>
+                      {d.nomi}{d.tez_kunda ? ` (${t("tez_orada")})` : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
             <div>
               <div className="izoh" style={{ marginBottom: 6 }}>{t("oqituvchi")}</div>
               <select
@@ -133,14 +196,30 @@ export default function Guruhlar() {
               <div className="izoh" style={{ marginBottom: 6 }}>{t("talabalar")}</div>
               <div className="azo-royxat">
                 {azolar.talabalar.map((tl) => (
-                  <label className="azo-qator" key={tl.id}>
-                    <input
-                      type="checkbox"
-                      checked={forma.talaba_idlar.includes(tl.id)}
-                      onChange={() => talabaBelgila(tl.id)}
-                    />
-                    {tl.ism}
-                  </label>
+                  <div className="azo-qator" key={tl.id} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <label style={{ display: "flex", alignItems: "center", gap: 8, flex: 1 }}>
+                      <input
+                        type="checkbox"
+                        checked={forma.talaba_idlar.includes(tl.id)}
+                        onChange={() => talabaBelgila(tl.id)}
+                      />
+                      {tl.ism}
+                    </label>
+                    {forma.id && darajaUnitlari.length > 0 && forma.talaba_idlar.includes(tl.id) && (
+                      <select
+                        value={boshlanishMap[tl.id] || ""}
+                        onChange={(e) => boshlanishUnitiniOzgartir(tl.id, e.target.value)}
+                        title={t("boshlanish_uniti")}
+                      >
+                        <option value="">— {t("boshlanish_uniti")}: Unit 1 —</option>
+                        {darajaUnitlari.map((u) => (
+                          <option key={u.id} value={u.id}>
+                            {u.nomi}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
                 ))}
               </div>
             </div>
@@ -182,7 +261,10 @@ export default function Guruhlar() {
           {guruhlar.map((g) => (
             <div className="guruh-karta" key={g.id} onClick={() => guruhniOch(g.id)}>
               <div className="g-mal">
-                <div className="g-nomi">{g.name}</div>
+                <div className="g-nomi">
+                  {g.name}
+                  {g.daraja && <span className="izoh"> · {g.fan.nomi} — {g.daraja.nomi}</span>}
+                </div>
                 <div className="g-info">
                   {g.oqituvchi ? g.oqituvchi.ism : `— ${t("tanlanmagan")} —`} ·{" "}
                   {g.talaba_soni} {t("talabalar").toLowerCase()}
