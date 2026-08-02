@@ -13,14 +13,27 @@ export default function Xodimlar() {
   const [band, setBand] = useState(false);
   const [excelNatija, setExcelNatija] = useState(null);
   const [excelYuklanmoqda, setExcelYuklanmoqda] = useState(false);
+  // Arxivlangan xodimlarni ko'rish (2026-08-02) — standart holatda faqat
+  // faol (is_active=True) xodimlar ko'rinadi.
+  const [arxivKorish, setArxivKorish] = useState(false);
 
-  function yukla() {
-    api("/api/xodimlar/").then(setOqituvchilar).catch(() => {});
+  function yukla(arxiv = arxivKorish) {
+    api(`/api/xodimlar/${arxiv ? "?arxiv=1" : ""}`).then(setOqituvchilar).catch(() => {});
   }
 
   useEffect(() => {
-    yukla();
-  }, []);
+    yukla(arxivKorish);
+  }, [arxivKorish]);
+
+  async function arxivHolatiniOzgartir(id, yangiFaol) {
+    setXato("");
+    try {
+      await api(`/api/xodimlar/${id}/`, { method: "PATCH", body: { faol: yangiFaol } });
+      yukla();
+    } catch {
+      setXato(t("xato_yuz_berdi"));
+    }
+  }
 
   async function yarat() {
     setXato("");
@@ -128,12 +141,25 @@ export default function Xodimlar() {
       </div>
 
       <div className="karta" style={{ marginTop: 16 }}>
-        <h3>{t("nav_xodimlar")}</h3>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <h3>{arxivKorish ? t("arxivlangan_xodimlar") : t("nav_xodimlar")}</h3>
+          <button className="tugma ikkinchi kichik" onClick={() => setArxivKorish((v) => !v)}>
+            {arxivKorish ? t("faol_xodimlar") : t("arxivlangan_xodimlar")}
+          </button>
+        </div>
         {oqituvchilar.length === 0 && <span className="izoh">{t("oqituvchi_yoq")}</span>}
         {oqituvchilar.map((o) => (
           <div className="tarix-el" key={o.id}>
-            <span>{o.ism}</span>
-            <span className="izoh">{o.username}</span>
+            <span style={{ display: "flex", gap: 8 }}>
+              <span>{o.ism}</span>
+              <span className="izoh">{o.username}</span>
+            </span>
+            <button
+              className="tugma ikkinchi kichik"
+              onClick={() => arxivHolatiniOzgartir(o.id, arxivKorish)}
+            >
+              {arxivKorish ? t("faollashtirish") : t("arxivlash")}
+            </button>
           </div>
         ))}
       </div>

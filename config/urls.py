@@ -39,8 +39,10 @@ from accounts.views import (
     OddiyStudentgaOtkazishView,
     ParolOzgartirishView,
     ProfilView,
+    TalabaDetailView,
     TalabalarExcelImportView,
     TalabalarView,
+    XodimDetailView,
     XodimLoginView,
     XodimlarExcelImportView,
     XodimlarView,
@@ -77,8 +79,10 @@ urlpatterns = [
     # kirish ekranida ham ko'rinadi).
     path('api/ijtimoiy/', IjtimoiyHavolalarView.as_view(), name='ijtimoiy_havolalar'),
     path('api/xodimlar/', XodimlarView.as_view(), name='xodimlar'),
+    path('api/xodimlar/<int:pk>/', XodimDetailView.as_view(), name='xodim_detail'),
     path('api/xodimlar/excel-import/', XodimlarExcelImportView.as_view(), name='xodimlar_excel_import'),
     path('api/talabalar/', TalabalarView.as_view(), name='talabalar'),
+    path('api/talabalar/<int:pk>/', TalabaDetailView.as_view(), name='talaba_detail'),
     path('api/talabalar/excel-import/', TalabalarExcelImportView.as_view(), name='talabalar_excel_import'),
     path('api/foydalanuvchilar/', FoydalanuvchilarView.as_view(), name='foydalanuvchilar'),
     path(

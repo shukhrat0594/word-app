@@ -3,7 +3,7 @@ import { api } from "../api";
 import { useI18n } from "../i18n";
 import { useProfil } from "../profilContext";
 
-const BOSH_FORMA = { id: null, name: "", oqituvchi_id: "", talaba_idlar: [], fan_id: "", daraja_id: "" };
+const BOSH_FORMA = { id: null, name: "", faol: true, oqituvchi_id: "", talaba_idlar: [], fan_id: "", daraja_id: "" };
 
 /** Admin/owner — to'liq boshqaruv (yaratish/tahrirlash). O'qituvchi — faqat
  * o'z guruhlarini o'qish uchun ko'radi, tahrirlay olmaydi (backend ham shu
@@ -27,13 +27,19 @@ export default function Guruhlar() {
   // o'zgartiriladi).
   const [boshlanishMap, setBoshlanishMap] = useState({});
   const [darajaUnitlari, setDarajaUnitlari] = useState([]);
+  // Arxivlangan guruhlarni ko'rish (2026-08-02) — standart holatda faqat
+  // faol guruhlar ko'rinadi.
+  const [arxivKorish, setArxivKorish] = useState(false);
 
-  function guruhlarniYukla() {
-    api("/api/guruhlar/").then(setGuruhlar).catch(() => {});
+  function guruhlarniYukla(arxiv = arxivKorish) {
+    api(`/api/guruhlar/${arxiv ? "?arxiv=1" : ""}`).then(setGuruhlar).catch(() => {});
   }
 
   useEffect(() => {
-    guruhlarniYukla();
+    guruhlarniYukla(arxivKorish);
+  }, [arxivKorish]);
+
+  useEffect(() => {
     // Owner markazga biriktirilmagan bo'lishi mumkin — bu holda 400 keladi,
     // sahifa "yuklanmoqda"da abadiy qolmasligi uchun bo'sh ro'yxat bilan davom etamiz.
     // O'qituvchi uchun bu endpoint 403 qaytaradi (faqat admin) — shu sababdan
@@ -58,6 +64,7 @@ export default function Guruhlar() {
         setForma({
           id: g.id,
           name: g.name,
+          faol: g.faol,
           oqituvchi_id: g.oqituvchi?.id || "",
           talaba_idlar: g.talabalar.map((t2) => t2.id),
           fan_id: g.fan?.id || "",
@@ -85,6 +92,38 @@ export default function Guruhlar() {
       });
     } catch {
       setXato(t("xato_yuz_berdi"));
+    }
+  }
+
+  async function arxivHolatiniOzgartir(yangiFaol) {
+    setXato("");
+    setBand(true);
+    try {
+      await api(`/api/guruhlar/${forma.id}/`, {
+        method: "PATCH",
+        body: { faol: yangiFaol },
+      });
+      yopish();
+      guruhlarniYukla();
+    } catch {
+      setXato(t("xato_yuz_berdi"));
+    } finally {
+      setBand(false);
+    }
+  }
+
+  async function butunlayOchir() {
+    if (!window.confirm(t("guruh_ochir_tasdiq"))) return;
+    setXato("");
+    setBand(true);
+    try {
+      await api(`/api/guruhlar/${forma.id}/`, { method: "DELETE" });
+      yopish();
+      guruhlarniYukla();
+    } catch {
+      setXato(t("xato_yuz_berdi"));
+    } finally {
+      setBand(false);
     }
   }
 
@@ -224,13 +263,32 @@ export default function Guruhlar() {
               </div>
             </div>
             {xato && <div className="xato-xabar">{xato}</div>}
-            <div style={{ display: "flex", gap: 10 }}>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
               <button className="tugma" onClick={saqla} disabled={band}>
                 {forma.id ? t("saqlash") : t("yaratish")}
               </button>
               <button className="tugma ikkinchi" onClick={yopish}>
                 {t("ortga")}
               </button>
+              {forma.id && (
+                <>
+                  <button
+                    className="tugma ikkinchi"
+                    onClick={() => arxivHolatiniOzgartir(!forma.faol)}
+                    disabled={band}
+                  >
+                    {forma.faol ? t("arxivlash") : t("faollashtirish")}
+                  </button>
+                  <button
+                    className="tugma xavfli"
+                    onClick={butunlayOchir}
+                    disabled={band}
+                    style={{ marginLeft: "auto" }}
+                  >
+                    {t("guruh_ochir")}
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -251,6 +309,14 @@ export default function Guruhlar() {
           </div>
           <button className="tugma ikkinchi" onClick={yopish} style={{ marginTop: 14 }}>
             {t("ortga")}
+          </button>
+        </div>
+      )}
+
+      {!tanlangan && !oqituvchiMi && (
+        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
+          <button className="tugma ikkinchi" onClick={() => setArxivKorish((v) => !v)}>
+            {arxivKorish ? t("faol_guruhlar") : t("arxivlangan_guruhlar")}
           </button>
         </div>
       )}

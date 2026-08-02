@@ -54,6 +54,8 @@ h1, h2, h3 { text-wrap: balance; }
 .tugma:hover { background: var(--sariq-toq); }
 .tugma:focus-visible { outline: 2px solid var(--komir); outline-offset: 2px; }
 .tugma.ikkinchi { background: var(--sirt); color: var(--matn); border: 1px solid var(--chiziq); }
+.tugma.xavfli { background: #e5484d; color: #fff; }
+.tugma.xavfli:hover { background: #c93a3f; }
 .tugma.katta { padding: 12px 26px; font-size: 15px; }
 .tugma:disabled { opacity: .55; cursor: not-allowed; }
 

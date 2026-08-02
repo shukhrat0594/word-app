@@ -1,8 +1,6 @@
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
-from django.db.models.signals import m2m_changed
-from django.dispatch import receiver
 
 
 class Guruh(models.Model):
@@ -42,6 +40,11 @@ class Guruh(models.Model):
         "courses.KursTugun", on_delete=models.SET_NULL, null=True, blank=True,
         related_name="guruhlar_daraja", help_text="Tanlangan fan ichidagi daraja (masalan Beginner, IELTS)",
     )
+    # Arxivlash (2026-08-02) — guruhni ro'yxatdan yashirish, lekin Davomat/
+    # GuruhAzoligi tarixini saqlab qolish uchun. Butunlay o'chirish (hard
+    # delete) ham mavjud (`GuruhDetailView.delete`) — bu ikkisi alohida:
+    # arxivlash qaytariladigan, o'chirish qaytarilmaydigan amal.
+    faol = models.BooleanField(default=True, help_text="False bo'lsa — arxivlangan, ro'yxatlarda ko'rinmaydi")
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -126,27 +129,3 @@ class Davomat(models.Model):
 
     def __str__(self):
         return f"{self.sana} — {self.talaba} — {self.get_holat_display()}"
-
-
-@receiver(m2m_changed, sender=Guruh.talabalar.through)
-def guruhga_qoshilganda_markaz_biriktir(sender, instance, action, pk_set, **kwargs):
-    """Talaba guruhga qo'shilganda uning markazini guruh markaziga moslashtiradi.
-
-    Talaba markazsiz bo'lsa (Google OAuth orqali o'z-o'zidan ro'yxatdan
-    o'tgan) — guruh markazi biriktiriladi. Talaba boshqa markazga
-    biriktirilgan bo'lsa — xato beriladi (bitta talaba bir vaqtda faqat
-    bitta markazga tegishli bo'lishi kerak).
-    """
-    if action != "pre_add" or pk_set is None:
-        return
-
-    User = instance.talabalar.model
-    for talaba in User.objects.filter(pk__in=pk_set):
-        if talaba.markaz_id is None:
-            talaba.markaz = instance.markaz
-            talaba.save(update_fields=["markaz"])
-        elif talaba.markaz_id != instance.markaz_id:
-            raise ValidationError(
-                f"{talaba} allaqachon boshqa markazga ({talaba.markaz}) "
-                f"biriktirilgan, {instance.markaz} guruhiga qo'sha olmaysiz."
-            )

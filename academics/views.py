@@ -24,6 +24,7 @@ def _guruh_dict(g, toliq=False):
     d = {
         "id": g.id,
         "name": g.name,
+        "faol": g.faol,
         "oqituvchi": _foydalanuvchi_dict(g.oqituvchi) if g.oqituvchi else None,
         "talaba_soni": g.talabalar.count(),
         "fan": {"id": g.fan_id, "nomi": g.fan.nomi, "kalit": g.fan.kalit} if g.fan_id else None,
@@ -112,6 +113,9 @@ class GuruhlarView(APIView):
             qs = Guruh.objects.filter(oqituvchi=request.user)
         else:
             return Response({"detail": "Faqat admin yoki o'qituvchi uchun"}, status=403)
+        # `?arxiv=1` — faqat arxivlangan (faol=False) guruhlar (2026-08-02).
+        # Standart holatda faqat FAOL guruhlar ko'rinadi.
+        qs = qs.filter(faol=False) if request.query_params.get("arxiv") else qs.filter(faol=True)
         return Response([_guruh_dict(g) for g in qs])
 
     def post(self, request):
@@ -177,6 +181,9 @@ class GuruhDetailView(APIView):
         if name is not None:
             guruh.name = name.strip()
             guruh.save(update_fields=["name"])
+        if "faol" in request.data:
+            guruh.faol = bool(request.data.get("faol"))
+            guruh.save(update_fields=["faol"])
         fan_xato = _fan_darajani_saqla(request, guruh)
         if fan_xato:
             return fan_xato
@@ -199,6 +206,31 @@ class GuruhDetailView(APIView):
                 ozgarishlar=ozgarishlar,
             )
         return Response(_guruh_dict(guruh, toliq=True))
+
+    def delete(self, request, pk):
+        """Guruhni BUTUNLAY o'chirish (2026-08-02) — Davomat va GuruhAzoligi
+        (a'zolik/boshlanish_unit) yozuvlari ham CASCADE bilan o'chadi,
+        qaytarilmaydi. Arxivlash (`PATCH {faol: false}`) — qaytariladigan
+        muqobil, tarixni saqlab qoladi."""
+        guruh = get_object_or_404(Guruh, pk=pk)
+        ochira_oladimi = owner_mi(request.user) or (
+            request.user.role == User.Role.ADMIN
+            and guruh.markaz_id == request.user.markaz_id
+        )
+        if not ochira_oladimi:
+            return Response({"detail": "Faqat admin o'chira oladi"}, status=403)
+
+        nomi = guruh.name
+        guruh_id = guruh.id
+        guruh.delete()
+        FaoliyatYozuvi.objects.create(
+            foydalanuvchi=request.user,
+            harakat=FaoliyatYozuvi.Harakat.OCHIRISH,
+            obyekt_turi="Guruh",
+            obyekt_id=guruh_id,
+            obyekt_nomi=nomi,
+        )
+        return Response(status=204)
 
 
 def _fan_darajani_saqla(request, guruh):
@@ -244,9 +276,9 @@ def _azolarni_saqla(request, guruh):
 
     if "talaba_idlar" in request.data:
         idlar = request.data.get("talaba_idlar") or []
-        talabalar = User.objects.filter(
-            pk__in=idlar, role=User.Role.STUDENT, markaz_id=guruh.markaz_id
-        )
+        # markaz_id filtri yo'q (2026-08-02) — talaba markazga bog'lanmaydi,
+        # istalgan markazdagi admin istalgan talabani guruhga qo'sha oladi.
+        talabalar = User.objects.filter(pk__in=idlar, role=User.Role.STUDENT)
         # `guruh.talabalar.set(...)` ishlatilmaydi — u yangi qo'shilgan
         # a'zolarning `boshlanish_unit`ini NULL qilib qo'yardi (through
         # modelning qo'shimcha maydoni e'tiborga olinmaydi). Shuning uchun
@@ -330,14 +362,18 @@ class MarkazAzolariView(APIView):
 
         if not markaz_id:
             return Response({"detail": "markaz belgilanmagan"}, status=400)
-        azolar = User.objects.filter(markaz_id=markaz_id)
+        # Talabalar markazga bog'lanmaydi (2026-08-02) — BARCHA talabalar
+        # ko'rinadi ("Utmost talabasi"), faqat o'qituvchilar shu markaz
+        # bilan cheklanadi (ular admin kabi markazga tegishli xodim).
         return Response(
             {
                 "oqituvchilar": [
-                    _foydalanuvchi_dict(u) for u in azolar.filter(role=User.Role.TEACHER)
+                    _foydalanuvchi_dict(u)
+                    for u in User.objects.filter(markaz_id=markaz_id, role=User.Role.TEACHER)
                 ],
                 "talabalar": [
-                    _foydalanuvchi_dict(u) for u in azolar.filter(role=User.Role.STUDENT)
+                    _foydalanuvchi_dict(u)
+                    for u in User.objects.filter(role=User.Role.STUDENT)
                 ],
             }
         )

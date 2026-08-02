@@ -763,7 +763,12 @@ class XodimlarView(APIView):
         markaz_id = self._markaz_ol(request)
         if not ruxsat or not markaz_id:
             return Response({"detail": "Faqat markaz admini uchun"}, status=403)
-        oqituvchilar = User.objects.filter(markaz_id=markaz_id, role=User.Role.TEACHER)
+        # `?arxiv=1` (2026-08-02) — arxivlangan (is_active=False) xodimlar,
+        # standart holatda faqat faollari.
+        arxiv = bool(request.query_params.get("arxiv"))
+        oqituvchilar = User.objects.filter(
+            markaz_id=markaz_id, role=User.Role.TEACHER, is_active=not arxiv
+        )
         return Response(
             [
                 {"id": u.id, "ism": u.get_full_name() or u.username, "username": u.username}
@@ -823,6 +828,30 @@ class XodimlarView(APIView):
         )
 
 
+class XodimDetailView(APIView):
+    """Bitta xodimni (o'qituvchi) arxivlash/faollashtirish (2026-08-02) —
+    `is_active=False` qilingan xodim tizimga kira olmaydi (SimpleJWT buni
+    avtomatik cheklaydi) va ro'yxatlarda "faol" filtrida ko'rinmaydi.
+    Butunlay o'chirish yo'q — bog'liq tarix (Davomat, KursMashqYechim va
+    h.k.) saqlanib qolishi kerak."""
+
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request, pk):
+        xodim = get_object_or_404(User, pk=pk, role=User.Role.TEACHER)
+        tahrirlay_oladimi = owner_mi(request.user) or (
+            request.user.role == User.Role.ADMIN
+            and xodim.markaz_id == request.user.markaz_id
+        )
+        if not tahrirlay_oladimi:
+            return Response({"detail": "Faqat markaz admini uchun"}, status=403)
+
+        if "faol" in request.data:
+            xodim.is_active = bool(request.data.get("faol"))
+            xodim.save(update_fields=["is_active"])
+        return Response({"id": xodim.id, "faol": xodim.is_active})
+
+
 def _admin_markaz_ol(user):
     """Adminning o'z markazi, yoki owner bo'lsa (markazga biriktirilmagan
     bo'lsa ham) yagona mavjud markaz — bitta markaz rejimida owner ham
@@ -877,8 +906,11 @@ class XodimlarExcelImportView(APIView):
 
 
 class TalabalarView(APIView):
-    """Talabalar ro'yxati — owner/admin uchun o'z markazidagi barcha
-    talabalar, o'qituvchi uchun faqat o'z guruhlaridagi talabalar.
+    """Talabalar ro'yxati — owner/admin uchun BARCHA talabalar (2026-08-02:
+    talaba markazga bog'lanmaydi — "Utmost talabasi" yagona hisoblanadi,
+    platforma bitta markaz bilan ishlayotgani uchun bu amalda ko'rinishni
+    o'zgartirmaydi, lekin kod endi markazga tayanmaydi), o'qituvchi uchun
+    faqat o'z guruhlaridagi talabalar.
 
     POST (2026-07-27) — admin/owner bitta talabani qo'lda qo'shadi. Avval
     faqat Excel orqali ommaviy kiritish bor edi, bir-ikkita talaba uchun
@@ -888,14 +920,14 @@ class TalabalarView(APIView):
 
     def get(self, request):
         u = request.user
+        # `?arxiv=1` (2026-08-02) — arxivlangan (is_active=False) talabalar,
+        # standart holatda faqat faollari.
+        arxiv = bool(request.query_params.get("arxiv"))
         if owner_mi(u) or u.role == User.Role.ADMIN:
-            markaz_id = _admin_markaz_ol(u)
-            if not markaz_id:
-                return Response({"detail": "markaz belgilanmagan"}, status=400)
-            qs = User.objects.filter(role=User.Role.STUDENT, markaz_id=markaz_id)
+            qs = User.objects.filter(role=User.Role.STUDENT, is_active=not arxiv)
         elif u.role == User.Role.TEACHER:
             qs = User.objects.filter(
-                role=User.Role.STUDENT, talaba_guruhlari__oqituvchi=u
+                role=User.Role.STUDENT, is_active=not arxiv, talaba_guruhlari__oqituvchi=u
             ).distinct()
         else:
             return Response({"detail": "Ruxsat yo'q"}, status=403)
@@ -921,9 +953,8 @@ class TalabalarView(APIView):
         ataylab tiklay oladi, bu yerda esa mavjud talabaning parolini
         tasodifan almashtirib yuborish xavfli)."""
         ruxsat = owner_mi(request.user) or request.user.role == User.Role.ADMIN
-        markaz_id = _admin_markaz_ol(request.user)
-        if not ruxsat or not markaz_id:
-            return Response({"detail": "Faqat markaz admini uchun"}, status=403)
+        if not ruxsat:
+            return Response({"detail": "Faqat admin uchun"}, status=403)
 
         from . import excel_import
 
@@ -933,8 +964,9 @@ class TalabalarView(APIView):
             "login": (request.data.get("login") or "").strip(),
             "parol": (request.data.get("parol") or "").strip(),
         }
+        # markaz_id=None (2026-08-02) — talaba markazga bog'lanmaydi.
         yaratilganlar, xatolar = excel_import.foydalanuvchilarni_yarat(
-            [qator], role=User.Role.STUDENT, markaz_id=markaz_id, User=User
+            [qator], role=User.Role.STUDENT, markaz_id=None, User=User
         )
         if xatolar:
             return Response({"detail": xatolar[0]["xato"]}, status=400)
@@ -951,6 +983,29 @@ class TalabalarView(APIView):
         return Response({"id": y["id"], "ism": y["ism"], "username": y["login"]}, status=201)
 
 
+class TalabaDetailView(APIView):
+    """Bitta talabani arxivlash/faollashtirish (2026-08-02) — `is_active=
+    False` qilingan talaba tizimga kira olmaydi (SimpleJWT avtomatik
+    cheklaydi) va ro'yxatlarda "faol" filtrida ko'rinmaydi. Markazga
+    bog'liqlik yo'q (istalgan admin/owner arxivlay oladi) — talaba
+    markazga bog'lanmagani bilan bir xil qoida. Butunlay o'chirish yo'q —
+    bog'liq tarix (KursMashqYechim, GuruhAzoligi va h.k.) saqlanib qoladi.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request, pk):
+        ruxsat = owner_mi(request.user) or request.user.role == User.Role.ADMIN
+        if not ruxsat:
+            return Response({"detail": "Faqat admin uchun"}, status=403)
+        talaba = get_object_or_404(User, pk=pk, role=User.Role.STUDENT)
+
+        if "faol" in request.data:
+            talaba.is_active = bool(request.data.get("faol"))
+            talaba.save(update_fields=["is_active"])
+        return Response({"id": talaba.id, "faol": talaba.is_active})
+
+
 class TalabalarExcelImportView(APIView):
     """Markaz admini/owner uchun — talabalarni Excel (.xlsx) orqali ommaviy
     kiritish. Format: A=ism, B=login, C=parol, birinchi qator sarlavha."""
@@ -960,9 +1015,8 @@ class TalabalarExcelImportView(APIView):
 
     def post(self, request):
         ruxsat = owner_mi(request.user) or request.user.role == User.Role.ADMIN
-        markaz_id = _admin_markaz_ol(request.user)
-        if not ruxsat or not markaz_id:
-            return Response({"detail": "Faqat markaz admini uchun"}, status=403)
+        if not ruxsat:
+            return Response({"detail": "Faqat admin uchun"}, status=403)
 
         fayl = request.FILES.get("excel_fayl")
         if not fayl:
@@ -975,8 +1029,9 @@ class TalabalarExcelImportView(APIView):
         except Exception:
             return Response({"detail": "Excel fayl noto'g'ri formatda"}, status=400)
 
+        # markaz_id=None (2026-08-02) — talaba markazga bog'lanmaydi.
         yaratilganlar, xatolar = excel_import.foydalanuvchilarni_yarat(
-            qatorlar, role=User.Role.STUDENT, markaz_id=markaz_id, User=User
+            qatorlar, role=User.Role.STUDENT, markaz_id=None, User=User
         )
         for y in yaratilganlar:
             FaoliyatYozuvi.objects.create(
@@ -1031,8 +1086,9 @@ class XodimLoginView(TokenObtainPairView):
 class GoogleLoginView(APIView):
     """Talaba Google ID token yuboradi -> tekshiriladi -> JWT qaytariladi.
 
-    Markaz biriktirilmaydi (markaz=None) -- buni keyinroq Markaz admin
-    Guruhga qo'shganda avtomatik oladi (academics.Guruh signali).
+    Talaba markazga UMUMAN biriktirilmaydi (2026-08-02) — har qanday
+    talaba "Utmost talabasi" hisoblanadi, markaz faqat admin/o'qituvchi
+    uchun mavjud.
     """
 
     permission_classes = [AllowAny]
@@ -1068,6 +1124,5 @@ class GoogleLoginView(APIView):
                 "access": str(refresh.access_token),
                 "refresh": str(refresh),
                 "created": created,
-                "markaz_biriktirilgan": user.markaz_id is not None,
             }
         )
