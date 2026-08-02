@@ -57,7 +57,17 @@ function rangeQoshVaBirlashtir(royxat, yangi) {
 
 /** Reading passage matnini sichqoncha bilan belgilab (highlight) olish
  * imkonini beradi — faqat shu test-sessiyasi davomida (sessionStorage),
- * sahifa yopilsa yo'qoladi. Mavjud belgini bosish — o'chiradi. */
+ * sahifa yopilsa yo'qoladi. Mavjud belgini bosish — o'chiradi.
+ *
+ * Matn tanlanganda highlight AVTOMATIK qo'yilmaydi (oldin shunday edi —
+ * so'zga ikki marta bosish ham tanlov hisoblanib, xohlamasdan belgilab
+ * qo'yardi) — o'rniga tanlov yonida kichik "Belgilash" marker/tugmasi
+ * chiqadi, faqat shuni bosganda highlight qo'yiladi (2026-08-02).
+ *
+ * Chaqiruvchi HAR passage uchun `key={matnId}` bilan render qilishi
+ * SHART — aks holda komponent qayta ishlatilib, oldingi passage'ning
+ * range (start/end) ro'yxati yangi matnga o'sha joylarda qo'llanadi
+ * (haqiqiy bug, 2026-08-02 foydalanuvchi tomonidan topilgan). */
 function BelgilanadiganMatn({ matnId, matn, sinf }) {
   const kalitRef = useRef(`reading-belgi-${matnId}`);
   const konteynerRef = useRef(null);
@@ -69,6 +79,7 @@ function BelgilanadiganMatn({ matnId, matn, sinf }) {
       return [];
     }
   });
+  const [marker, setMarker] = useState(null); // {start, end, x, y}
 
   useEffect(() => {
     try {
@@ -80,16 +91,41 @@ function BelgilanadiganMatn({ matnId, matn, sinf }) {
 
   function tanlovTugaganda() {
     const tanlov = window.getSelection();
-    if (!tanlov || tanlov.isCollapsed || tanlov.rangeCount === 0) return;
+    if (!tanlov || tanlov.isCollapsed || tanlov.rangeCount === 0) {
+      setMarker(null);
+      return;
+    }
     const range = tanlov.getRangeAt(0);
-    if (!konteynerRef.current || !konteynerRef.current.contains(range.commonAncestorContainer)) return;
+    if (!konteynerRef.current || !konteynerRef.current.contains(range.commonAncestorContainer)) {
+      setMarker(null);
+      return;
+    }
     let start = belgiIndeksiniTop(konteynerRef.current, range.startContainer, range.startOffset);
     let end = belgiIndeksiniTop(konteynerRef.current, range.endContainer, range.endOffset);
-    tanlov.removeAllRanges();
-    if (start === -1 || end === -1) return;
+    if (start === -1 || end === -1) {
+      setMarker(null);
+      return;
+    }
     if (start > end) [start, end] = [end, start];
-    if (start === end) return;
-    setRoyxat((prev) => rangeQoshVaBirlashtir(prev, { start, end }));
+    if (start === end) {
+      setMarker(null);
+      return;
+    }
+    const chegara = range.getBoundingClientRect();
+    const konteynerChegara = konteynerRef.current.getBoundingClientRect();
+    setMarker({
+      start,
+      end,
+      x: chegara.left - konteynerChegara.left + chegara.width / 2,
+      y: chegara.top - konteynerChegara.top,
+    });
+  }
+
+  function belgilashniTasdiqla() {
+    if (!marker) return;
+    setRoyxat((prev) => rangeQoshVaBirlashtir(prev, { start: marker.start, end: marker.end }));
+    setMarker(null);
+    window.getSelection()?.removeAllRanges();
   }
 
   function belginiOchir(idx, e) {
@@ -112,8 +148,19 @@ function BelgilanadiganMatn({ matnId, matn, sinf }) {
   if (joriy < matn.length) qismlar.push(<span key="oxiri">{matn.slice(joriy)}</span>);
 
   return (
-    <div ref={konteynerRef} className={sinf} onMouseUp={tanlovTugaganda}>
+    <div ref={konteynerRef} className={sinf} style={{ position: "relative" }} onMouseUp={tanlovTugaganda}>
       {qismlar}
+      {marker && (
+        <button
+          type="button"
+          className="reading-belgilash-marker"
+          style={{ left: marker.x, top: marker.y }}
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={belgilashniTasdiqla}
+        >
+          Belgilash
+        </button>
+      )}
     </div>
   );
 }
@@ -1035,7 +1082,7 @@ export default function ImtihonOtish({ bolim, manba = "admin", testId, mockYechi
             <div className="imtihon-qism-sarlavha">{faol.qism.sarlavha}</div>
             {faol.qism.yoriqnoma && <div className="imtihon-yoriqnoma">{faol.qism.yoriqnoma}</div>}
             {faol.qism.matn && (
-              <BelgilanadiganMatn matnId={faol.qism.id} matn={faol.qism.matn} sinf="mashq-passage" />
+              <BelgilanadiganMatn key={faol.qism.id} matnId={faol.qism.id} matn={faol.qism.matn} sinf="mashq-passage" />
             )}
             {rasmUrllar[faol.qism.id] && (
               <div style={{ marginTop: 10 }}>
