@@ -989,26 +989,39 @@ class ImtihonBoshqaruvDetailView(APIView):
     permission_classes = [IsAuthenticated]
 
     def patch(self, request, pk):
-        """Testni papkaga ko'chirish (2026-08-01). `papka`: papka id yoki
-        null (papkadan chiqarish)."""
+        """Testni papkaga ko'chirish va/yoki nomini o'zgartirish
+        (2026-08-01/2). `papka`: papka id yoki null (papkadan chiqarish).
+        `name`: yangi nom (ixtiyoriy, berilmasa o'zgarmaydi)."""
         if not _mashq_admin_mi(request.user):
             return Response({"detail": "Faqat admin/owner uchun"}, status=403)
         test = get_object_or_404(ImtihonTest, pk=pk)
-        if "papka" not in request.data:
-            return Response({"detail": "papka maydoni kerak"}, status=400)
-        papka_id = request.data.get("papka")
-        if papka_id in (None, "", "null"):
-            test.papka = None
-        else:
-            papka = get_object_or_404(TestPapkasi, pk=papka_id)
-            # Papka boshqa bo'limga tegishli bo'lsa — testni u yerga
-            # solish talabaga chalkash ro'yxat beradi, shuning uchun rad.
-            if papka.bolim != test.bolim:
-                return Response(
-                    {"detail": "Papka boshqa bo'limga tegishli"}, status=400
-                )
-            test.papka = papka
-        test.save(update_fields=["papka"])
+        maydonlar = []
+
+        if "name" in request.data:
+            nom = (request.data.get("name") or "").strip()
+            if not nom:
+                return Response({"detail": "Test nomi bo'sh bo'lishi mumkin emas"}, status=400)
+            test.name = nom
+            maydonlar.append("name")
+
+        if "papka" in request.data:
+            papka_id = request.data.get("papka")
+            if papka_id in (None, "", "null"):
+                test.papka = None
+            else:
+                papka = get_object_or_404(TestPapkasi, pk=papka_id)
+                # Papka boshqa bo'limga tegishli bo'lsa — testni u yerga
+                # solish talabaga chalkash ro'yxat beradi, shuning uchun rad.
+                if papka.bolim != test.bolim:
+                    return Response(
+                        {"detail": "Papka boshqa bo'limga tegishli"}, status=400
+                    )
+                test.papka = papka
+            maydonlar.append("papka")
+
+        if not maydonlar:
+            return Response({"detail": "name yoki papka maydoni kerak"}, status=400)
+        test.save(update_fields=maydonlar)
         return Response(_test_admin_dict(test))
 
     def delete(self, request, pk):

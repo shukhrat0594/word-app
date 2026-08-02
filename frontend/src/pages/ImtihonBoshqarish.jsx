@@ -730,11 +730,13 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
   const [filtrBolim, setFiltrBolim] = useState("");
   const [jsonXato, setJsonXato] = useState("");
   const [tahrirlanayotgan, setTahrirlanayotgan] = useState(null);
+  const [nomiTahrirlash, setNomiTahrirlash] = useState("");
   // Papkalar (2026-08-01) — TEKIS, har bo'lim uchun alohida. Papka
   // yaratish uchun bo'lim tanlangan bo'lishi shart ("Hammasi" filtrida
   // qaysi bo'limga tegishli ekani noaniq bo'lardi).
   const [papkalar, setPapkalar] = useState([]);
   const [yangiPapka, setYangiPapka] = useState("");
+  const [ochiqPapkalar, setOchiqPapkalar] = useState({});
 
   function yukla(bolim) {
     api(`/api/imtihon/testlar-boshqaruv/?manba=${manba}${bolim ? `&bolim=${bolim}` : ""}`)
@@ -780,6 +782,20 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
       await api(`/api/imtihon/testlar-boshqaruv/${testId}/`, {
         method: "PATCH",
         body: { papka: papkaId || null },
+      });
+      yukla(filtrBolim);
+    } catch (e) {
+      setJsonXato(e.data?.detail || t("xato_yuz_berdi"));
+    }
+  }
+
+  async function nominiSaqla(testId) {
+    const nomi = nomiTahrirlash.trim();
+    if (!nomi) return;
+    try {
+      await api(`/api/imtihon/testlar-boshqaruv/${testId}/`, {
+        method: "PATCH",
+        body: { name: nomi },
       });
       yukla(filtrBolim);
     } catch (e) {
@@ -937,7 +953,37 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
           <span className="izoh">{t("imtihon_royxat_boshi")}</span>
         ) : (
           <div style={{ display: "grid", gap: 8 }}>
-            {royxat.map((test) => (
+            {/* Papkalar bo'yicha guruhlangan (2026-08-01) — talaba
+                tomonidagi ro'yxat bilan bir xil accordion ko'rinish.
+                Papkasiz testlar ro'yxat oxirida, tekis. */}
+            {papkalar
+              .filter((p) => royxat.some((r) => r.papka === p.id))
+              .map((p) => (
+                <div key={p.id} style={{ border: "1px solid var(--chiziq)", borderRadius: 8, overflow: "hidden" }}>
+                  <div
+                    className="imtihon-papka-sarlavha"
+                    style={{ padding: "8px 10px" }}
+                    onClick={() => setOchiqPapkalar((v) => ({ ...v, [p.id]: !v[p.id] }))}
+                  >
+                    <span>{ochiqPapkalar[p.id] ? "▾" : "▸"} 📁 {p.nomi}</span>
+                    <span className="izoh">{royxat.filter((r) => r.papka === p.id).length}</span>
+                  </div>
+                  {ochiqPapkalar[p.id] && (
+                    <div style={{ display: "grid", gap: 8, padding: "0 8px 8px" }}>
+                      {royxat.filter((r) => r.papka === p.id).map((test) => testKartasi(test))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            {royxat.filter((test) => !test.papka).map((test) => testKartasi(test))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  function testKartasi(test) {
+    return (
               <div key={test.id} style={{ padding: 8, border: "1px solid var(--chiziq)", borderRadius: 8 }}>
                 <div className="davomat-qator" style={{ borderBottom: "none", padding: 0 }}>
                   <span>
@@ -971,7 +1017,10 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
                     )}
                     <button
                       className="tugma ikkinchi"
-                      onClick={() => setTahrirlanayotgan((v) => (v === test.id ? null : test.id))}
+                      onClick={() => {
+                        setTahrirlanayotgan((v) => (v === test.id ? null : test.id));
+                        setNomiTahrirlash(test.name);
+                      }}
                     >
                       {tahrirlanayotgan === test.id ? t("yopish") : t("tahrirlash")}
                     </button>
@@ -982,6 +1031,22 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
                 </div>
                 {tahrirlanayotgan === test.id && (
                   <>
+                    <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8 }}>
+                      <input
+                        value={nomiTahrirlash}
+                        onChange={(e) => setNomiTahrirlash(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && nominiSaqla(test.id)}
+                        style={{ maxWidth: 320 }}
+                      />
+                      <button
+                        type="button"
+                        className="tugma"
+                        onClick={() => nominiSaqla(test.id)}
+                        disabled={!nomiTahrirlash.trim() || nomiTahrirlash.trim() === test.name}
+                      >
+                        {t("saqlash")}
+                      </button>
+                    </div>
                     {test.bolim === "listening" && (
                       <div style={{ marginTop: 8, display: "grid", gap: 6 }}>
                         {test.qismlar.some((q) => !q.audio_url) && (
@@ -1041,12 +1106,8 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
                   </>
                 )}
               </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
+    );
+  }
 }
 
 /** "IELTS testlari" — yagona sahifa: admin/owner uchun boshqaruv (yuqorida,
@@ -1060,6 +1121,11 @@ export default function ImtihonBoshqarish({ manba = "admin" }) {
   const { t } = useI18n();
   const { profil } = useProfil();
   const adminMi = profil?.is_owner || profil?.role === "admin";
+  // IELTS/CEFR — yuqori darajadagi guruh (2026-08-01). CEFR faqat "AI
+  // mashqlari"da ko'rinadi va hozircha yopiq (mashqlar keyinroq
+  // qo'shiladi) — shuning uchun bosilganda "tez orada" ko'rsatiladi,
+  // IELTS'ning "Mavjud testlar" paneli/bo'lim tugmalari yashiriladi.
+  const [guruh, setGuruh] = useState("ielts");
   const [bolim, setBolim] = useState("writing");
   // Admin yuqorida testni o'chirsa, pastdagi yechish oynasi o'sha testni
   // ochib turgan bo'lishi mumkin — id shu yerdan pastga uzatiladi.
@@ -1067,41 +1133,53 @@ export default function ImtihonBoshqarish({ manba = "admin" }) {
 
   return (
     <div style={{ display: "grid", gap: 20 }}>
-      {adminMi && <AdminBoshqaruv manba={manba} onOchirildi={setOchirilganId} />}
-
-      <div>
-        <div className="tab-guruh" style={{ marginBottom: 12 }}>
-          <button className={bolim === "writing" ? "aktiv" : ""} onClick={() => setBolim("writing")}>
-            {t("nav_writing")}
+      {manba === "ai" && (
+        <div className="tab-guruh">
+          <button className={guruh === "ielts" ? "aktiv" : ""} onClick={() => setGuruh("ielts")}>
+            IELTS
           </button>
-          <button className={bolim === "speaking" ? "aktiv" : ""} onClick={() => setBolim("speaking")}>
-            {t("nav_speaking")}
+          <button className={guruh === "cefr" ? "aktiv" : ""} onClick={() => setGuruh("cefr")}>
+            CEFR
           </button>
-          <button className={bolim === "reading" ? "aktiv" : ""} onClick={() => setBolim("reading")}>
-            {t("reading_bolimi")}
-          </button>
-          <button className={bolim === "listening" ? "aktiv" : ""} onClick={() => setBolim("listening")}>
-            {t("listening_bolimi")}
-          </button>
-          <button className={bolim === "mock" ? "aktiv" : ""} onClick={() => setBolim("mock")}>
-            {t("mock_bolimi")}
-          </button>
-          {/* 2026-07-27: CEFR faqat "AI mashqlari"da ko'rinadi va hozircha
-              yopiq — mashqlar keyinroq qo'shiladi. */}
-          {manba === "ai" && (
-            <button disabled title={t("tez_orada")}>
-              CEFR · {t("tez_orada")}
-            </button>
-          )}
         </div>
-        {(bolim === "writing" || bolim === "speaking") && (
-          <ImtihonYozGap bolim={bolim} manba={manba} />
-        )}
-        {(bolim === "reading" || bolim === "listening") && (
-          <ImtihonOtish bolim={bolim} manba={manba} ochirilganId={ochirilganId} />
-        )}
-        {bolim === "mock" && <ImtihonMock manba={manba} />}
-      </div>
+      )}
+
+      {guruh === "cefr" ? (
+        <div className="karta">
+          <span className="izoh">CEFR · {t("tez_orada")}</span>
+        </div>
+      ) : (
+        <>
+          {adminMi && <AdminBoshqaruv manba={manba} onOchirildi={setOchirilganId} />}
+
+          <div>
+            <div className="tab-guruh" style={{ marginBottom: 12 }}>
+              <button className={bolim === "writing" ? "aktiv" : ""} onClick={() => setBolim("writing")}>
+                {t("nav_writing")}
+              </button>
+              <button className={bolim === "speaking" ? "aktiv" : ""} onClick={() => setBolim("speaking")}>
+                {t("nav_speaking")}
+              </button>
+              <button className={bolim === "reading" ? "aktiv" : ""} onClick={() => setBolim("reading")}>
+                {t("reading_bolimi")}
+              </button>
+              <button className={bolim === "listening" ? "aktiv" : ""} onClick={() => setBolim("listening")}>
+                {t("listening_bolimi")}
+              </button>
+              <button className={bolim === "mock" ? "aktiv" : ""} onClick={() => setBolim("mock")}>
+                {t("mock_bolimi")}
+              </button>
+            </div>
+            {(bolim === "writing" || bolim === "speaking") && (
+              <ImtihonYozGap bolim={bolim} manba={manba} />
+            )}
+            {(bolim === "reading" || bolim === "listening") && (
+              <ImtihonOtish bolim={bolim} manba={manba} ochirilganId={ochirilganId} />
+            )}
+            {bolim === "mock" && <ImtihonMock manba={manba} />}
+          </div>
+        </>
+      )}
     </div>
   );
 }
