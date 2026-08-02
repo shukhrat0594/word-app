@@ -2,28 +2,37 @@
 
 "AI mashqlari" sahifasida admin "Generatsiya qil" tugmasini bosganda,
 tanlangan bo'lim (reading/listening/writing/speaking) va IELTS band
-darajasi bo'yicha AI'dan BITTA yangi mini-test so'raladi:
-  - reading:   1 passage + 13 savol
-  - listening: 1 part + 10 savol + TTS audio
+darajasi bo'yicha AI'dan BITTA yangi TO'LIQ test so'raladi (2026-08-02
+tuzatildi — avval Reading/Listening faqat 1 qism edi, foydalanuvchi
+haqiqiy IELTS testiga mos to'liq hajm so'radi):
+  - reading:   3 passage, 40 savol (1-13, 14-26, 27-40) — har passage
+    ALOHIDA AI chaqiruvi (bitta katta chaqiruvda token chegarasiga
+    urilish xavfi bor, `pdf_generatsiya.py`dagi bilan bir xil sabab).
+  - listening: 4 part, 40 savol (1-10, 11-20, 21-30, 31-40) — har part
+    ALOHIDA AI chaqiruvi + ALOHIDA TTS audio (Part1/3 — 2 kishilik
+    suhbat, Part2/4 — 1 kishilik monolog, haqiqiy IELTS tuzilishiga mos).
   - writing:   Task 1 + Task 2 (juftlik)
   - speaking:  Part 1 + Part 2 + Part 3 (uchlik)
 
 PDF import (`pdf_generatsiya.py`)dan farqi: manba matn YO'Q — AI mavzuni
-O'ZI o'ylab topadi, shuning uchun ko'p-bosqichli sahifa-chegara mantiqi
-kerak emas, bitta chaqiruv yetarli. Savol turlari/qoidalari (matching,
-maxsus_format) `pdf_generatsiya.py`dagi bilan ATAYLAB bir xil — u yerda
-haqiqiy production baglar orqali sinalgan, shu qoidalarni qayta yozish
-o'rniga saqlab qolindi.
-"""
+O'ZI o'ylab topadi. Savol turlari/qoidalari (matching, maxsus_format)
+`pdf_generatsiya.py`dagi bilan ATAYLAB bir xil — u yerda haqiqiy
+production baglar orqali sinalgan, shu qoidalarni qayta yozish o'rniga
+saqlab qolindi.
+
+TIL (2026-08-02, foydalanuvchi topgan bag): promtlarning o'zi o'zbek
+tilida yozilgan bo'lgani uchun AI ba'zan javobni ham o'zbekcha qaytargan
+(masalan Speaking savollari) — bu haqiqiy IELTS savoli, INGLIZCHA bo'lishi
+SHART. Shuning uchun har promtga `_TIL_QOIDASI` qo'shildi."""
 
 from assessment.providers import GEMINI_MODEL, GeminiProvider, ProviderXatosi
 
-BAND_GURUHLAR = ["4-5", "5.5-6.5", "7-9"]
+BAND_GURUHLAR = ["5-6", "6.5-7.5", "8-9"]
 
 BAND_TAVSIFI = {
-    "4-5": "past-o'rta (band 4-5) — sodda, kundalik so'zlar, qisqa va aniq gaplar, oson topiladigan javoblar",
-    "5.5-6.5": "o'rta (band 5.5-6.5) — umumiy akademik lug'at, o'rtacha uzunlikdagi gaplar, ba'zi xulosa chiqarish talab qilinadi",
-    "7-9": "yuqori (band 7-9) — murakkab/abstrakt lug'at, uzun va ko'p qatlamli gaplar, chuqur tushunish va xulosa chiqarish talab qilinadi",
+    "5-6": "past-o'rta (band 5-6) — sodda, kundalik so'zlar, qisqa va aniq gaplar, oson topiladigan javoblar",
+    "6.5-7.5": "o'rta-yuqori (band 6.5-7.5) — umumiy akademik lug'at, o'rtacha uzunlikdagi gaplar, ba'zi xulosa chiqarish talab qilinadi",
+    "8-9": "yuqori (band 8-9) — murakkab/abstrakt lug'at, uzun va ko'p qatlamli gaplar, chuqur tushunish va xulosa chiqarish talab qilinadi",
 }
 
 # `pdf_generatsiya.QISM_SXEMASI`dagi bilan BIR XIL (ataylab) — savollar
@@ -41,9 +50,21 @@ def _provider():
     return GeminiProvider(kalit, model=GEMINI_MODEL)
 
 
+_TIL_QOIDASI = (
+    "TIL — QATTIQ MAJBURIY: bu ko'rsatmalar o'zbek tilida yozilgan bo'lsa "
+    "ham, siz yaratayotgan JSON'dagi BARCHA matn (passage/transkript, "
+    "savollar, guruh_korsatma, variantlar, mavzu — MUTLAQO HAMMASI, "
+    "istisnosiz) FAQAT INGLIZ TILIDA bo'lsin — bu haqiqiy IELTS imtihon "
+    "materiali, talaba buni inglizcha o'qiydi/eshitadi. O'zbek, rus yoki "
+    "boshqa tilda BIRON BIR SO'Z yozmang.\n\n"
+)
+
 _SAVOLLAR_QOIDASI = (
-    "\"savol\" matniga raqam yozmang. \"raqam\" — shu savolning guruh "
-    "ichidagi ketma-ket raqami (1 dan boshlab, uzluksiz, takrorsiz).\n"
+    "\"savol\" matniga raqam yozmang. \"raqam\" — shu savolning BUTUN TEST "
+    "bo'yicha raqami: aynan {boshi} dan {oxiri} gacha, ketma-ket, "
+    "bo'shliqsiz, takrorsiz (masalan {boshi}=14, {oxiri}=26 bo'lsa: 14, "
+    "15, 16, ... 26). BITTA TASHLAB KETILGAN yoki IKKI MARTA TAKRORLANGAN "
+    "raqam — jiddiy xato.\n"
     "\"tur\": multiple_choice, tfng, matching_headings, matching, "
     "fill_blanks, short_answer, map_labelling — FAQAT shu qiymatlardan "
     "biri, boshqa nom yozmang.\n"
@@ -63,11 +84,15 @@ _SAVOLLAR_QOIDASI = (
 )
 
 READING_PROMPT_SHABLON = (
-    "Siz tajribali IELTS Reading test materiali yozuvchisiz. YANGI, "
-    "original mavzu o'ylab toping (ilm-fan, tarix, ekologiya, texnologiya, "
-    "jamiyat kabi umumiy qiziqarli mavzulardan birini) va xuddi Cambridge "
-    "IELTS kitoblaridagi kabi BITTA to'liq Reading passage (350-400 so'z) "
-    "va unga tegishli ANIQ 13 ta savol yozing.\n\n"
+    _TIL_QOIDASI +
+    "Siz tajribali IELTS Reading test materiali yozuvchisiz. Bu — 3 "
+    "passagedan iborat TO'LIQ testning BITTA passage'i (Passage "
+    "{passage_raqami}/3). YANGI, original mavzu o'ylab toping (ilm-fan, "
+    "tarix, ekologiya, texnologiya, jamiyat kabi umumiy qiziqarli "
+    "mavzulardan birini, boshqa passagelardan BUTUNLAY FARQLI soha) va "
+    "xuddi Cambridge IELTS kitoblaridagi kabi BITTA to'liq Reading "
+    "passage (350-400 so'z) va unga tegishli ANIQ {soni} ta savol "
+    "(raqamlar {boshi}-{oxiri}) yozing.\n\n"
     f"TALABA MAQSADLI DARAJASI: {{band_tavsifi}} — passage va savollar "
     "shu darajaga mos qiyinlikda bo'lsin.\n\n"
     "\"matn\" — passage matni to'liq (paragraflarni A, B, C... deb "
@@ -88,12 +113,15 @@ READING_YARATISH_SXEMASI = {
 }
 
 LISTENING_PROMPT_SHABLON = (
-    "Siz tajribali IELTS Listening test materiali yozuvchisiz. YANGI "
-    "mavzu o'ylab toping (masalan restoran buyurtmasi, universitet "
-    "ma'lumoti, sayohat rejasi, ish suhbati kabi kundalik vaziyat) va "
-    "ikki kishi orasidagi TABIIY suhbat transkriptini (150-200 so'z, "
-    "\"Speaker1: ...\\nSpeaker2: ...\" formatida) va unga tegishli ANIQ "
-    "10 ta savol yozing.\n\n"
+    _TIL_QOIDASI +
+    "Siz tajribali IELTS Listening test materiali yozuvchisiz. Bu — 4 "
+    "partdan iborat TO'LIQ testning BITTA part'i (Part {part_raqami}/4, "
+    "{uslub}). YANGI mavzu o'ylab toping (boshqa partlardan BUTUNLAY "
+    "FARQLI, masalan restoran buyurtmasi, universitet ma'lumoti, sayohat "
+    "rejasi, ma'ruza kabi) va {gapiruvchilar_soni} kishi{ishtirok_matni} "
+    "TABIIY transkript (150-200 so'z, \"Speaker1: ...\\nSpeaker2: ...\" "
+    "formatida — bitta kishi bo'lsa faqat \"Speaker1: ...\") va unga "
+    "tegishli ANIQ {soni} ta savol (raqamlar {boshi}-{oxiri}) yozing.\n\n"
     f"TALABA MAQSADLI DARAJASI: {{band_tavsifi}}.\n\n"
     "\"matn\"ni BO'SH qoldiring — bu maydon Reading uchun, Listening "
     "transkripti alohida \"transkript\" maydonida.\n"
@@ -115,6 +143,7 @@ LISTENING_SXEMASI = {
 }
 
 WRITING_PROMPT_SHABLON = (
+    _TIL_QOIDASI +
     "Siz tajribali IELTS Writing test materiali yozuvchisiz. YANGI Task 1 "
     "va YANGI Task 2 topshirig'ini yozing.\n\n"
     f"TALABA MAQSADLI DARAJASI: {{band_tavsifi}} — Task 1'dagi "
@@ -241,6 +270,7 @@ def _diagramma_chiz(diagramma):
     return bufer.getvalue()
 
 SPEAKING_PROMPT_SHABLON = (
+    _TIL_QOIDASI +
     "Siz tajribali IELTS Speaking test materiali yozuvchisiz. YANGI Part "
     "1 (4-5 oddiy shaxsiy savol), Part 2 (cue card — mavzu + 3-4 izoh "
     "band) va Part 3 (Part 2 mavzusiga bog'liq 4-5 chuqurroq munozara "
@@ -298,88 +328,141 @@ def _oldingi_mavzular_matni(oldingi_mavzular):
     )
 
 
+READING_ORALIQLAR = [(1, 13), (14, 26), (27, 40)]
+
+
 def reading_yarat(band, oldingi_mavzular=None):
-    """Qaytaradi: (data, xato) — `data` `_test_yarat` kutadigan format."""
+    """Qaytaradi: (data, xato). To'liq test — 3 passage, 40 savol
+    (2026-08-02 talabi). Har passage ALOHIDA AI chaqiruvi — bitta katta
+    chaqiruvda chiqish token chegarasiga urilish xavfi bor (`pdf_generatsiya.
+    py`dagi ikki-bosqichli yondashuv bilan bir xil sabab)."""
+    oldingi_mavzular = oldingi_mavzular or []
     band_tavsifi = _band_tavsifi_yoki_xato(band)
     provider = _provider()
-    promt = (
-        READING_PROMPT_SHABLON.replace("{band_tavsifi}", band_tavsifi)
-        .replace("{oldingi_mavzular}", _oldingi_mavzular_matni(oldingi_mavzular))
-    )
-    try:
-        javob = provider.generate_json(
-            promt, "Shu ko'rsatmalar bo'yicha yangi Reading passage va savollarni yarating.",
-            javob_sxemasi=READING_YARATISH_SXEMASI, max_tokens=8000,
+    qismlar = []
+    mavzular_shu_testda = []
+    for i, (boshi, oxiri) in enumerate(READING_ORALIQLAR, start=1):
+        promt = (
+            READING_PROMPT_SHABLON
+            .replace("{band_tavsifi}", band_tavsifi)
+            .replace("{passage_raqami}", str(i))
+            .replace("{boshi}", str(boshi))
+            .replace("{oxiri}", str(oxiri))
+            .replace("{soni}", str(oxiri - boshi + 1))
+            .replace("{oldingi_mavzular}", _oldingi_mavzular_matni(oldingi_mavzular + mavzular_shu_testda))
         )
-    except ProviderXatosi as e:
-        return None, str(e)
-    natija = javob.get("natija") or {}
-    savollar = natija.get("savollar") or []
-    if not savollar:
-        return None, "AI savol qaytarmadi"
-    mavzu = (natija.get("mavzu") or "").strip()
-    return {
-        "name": f"AI Reading — {mavzu} ({band})" if mavzu else f"AI Reading ({band})",
-        "bolim": "reading",
-        "korinish": "public",
-        "qismlar": [{
-            "tartib": 1,
-            "sarlavha": "READING PASSAGE",
-            "yoriqnoma": "You should spend about 20 minutes on this passage.",
+        try:
+            javob = provider.generate_json(
+                promt, f"Passage {i}/3 (Questions {boshi}-{oxiri}) uchun yangi matn va savollarni yarating.",
+                javob_sxemasi=READING_YARATISH_SXEMASI, max_tokens=8000,
+            )
+        except ProviderXatosi as e:
+            return None, f"Passage {i}: {e}"
+        natija = javob.get("natija") or {}
+        savollar = natija.get("savollar") or []
+        kutilgan = oxiri - boshi + 1
+        if len(savollar) != kutilgan:
+            return None, f"Passage {i}: {kutilgan} ta savol kutilgandi, {len(savollar)} ta chiqdi"
+        savollar = sorted(savollar, key=lambda s: s.get("raqam") if isinstance(s.get("raqam"), int) else 10**9)
+        for s in savollar:
+            s.pop("raqam", None)
+        mavzu = (natija.get("mavzu") or "").strip()
+        if mavzu:
+            mavzular_shu_testda.append(mavzu)
+        qismlar.append({
+            "tartib": i,
+            "sarlavha": f"READING PASSAGE {i}",
+            "yoriqnoma": f"You should spend about 20 minutes on Questions {boshi}-{oxiri}.",
             "matn": natija.get("matn") or "",
             "savollar": savollar,
             "maxsus_format": natija.get("maxsus_format") or None,
-        }],
+        })
+
+    nomi_qismi = " / ".join(mavzular_shu_testda) if mavzular_shu_testda else ""
+    return {
+        "name": f"AI Reading — {nomi_qismi} ({band})" if nomi_qismi else f"AI Reading ({band})",
+        "bolim": "reading",
+        "korinish": "public",
+        "qismlar": qismlar,
     }, None
 
 
+# (boshi, oxiri, gapiruvchilar_soni) — Part1/3 haqiqiy IELTS'da 2 kishilik
+# suhbat, Part2/4 — 1 kishilik monolog (ma'ruza/xabar).
+LISTENING_ORALIQLAR = [(1, 10, 2), (11, 20, 1), (21, 30, 2), (31, 40, 1)]
+
+
 def listening_yarat(band, oldingi_mavzular=None):
-    """Qaytaradi: (data, audio_wav_bytes, xato)."""
+    """Qaytaradi: (data, audio_bytes_royxati, xato). To'liq test — 4 part,
+    40 savol (2026-08-02 talabi). Har part ALOHIDA AI+TTS chaqiruvi.
+    `audio_bytes_royxati` — `data["qismlar"]` bilan bir xil uzunlik/tartib,
+    har elementi shu qismning WAV baytlari."""
+    oldingi_mavzular = oldingi_mavzular or []
     from .gemini_tts import RateLimitTugadi, audio_yarat
 
     band_tavsifi = _band_tavsifi_yoki_xato(band)
     provider = _provider()
-    promt = (
-        LISTENING_PROMPT_SHABLON.replace("{band_tavsifi}", band_tavsifi)
-        .replace("{oldingi_mavzular}", _oldingi_mavzular_matni(oldingi_mavzular))
-    )
-    try:
-        javob = provider.generate_json(
-            promt, "Shu ko'rsatmalar bo'yicha yangi Listening suhbati va savollarni yarating.",
-            javob_sxemasi=LISTENING_SXEMASI, max_tokens=8000,
+    qismlar, audio_royxati = [], []
+    mavzular_shu_testda = []
+    for i, (boshi, oxiri, gap_soni) in enumerate(LISTENING_ORALIQLAR, start=1):
+        uslub = "ikki kishi suhbati" if gap_soni == 2 else "bitta kishi monologi/ma'ruzasi"
+        promt = (
+            LISTENING_PROMPT_SHABLON
+            .replace("{band_tavsifi}", band_tavsifi)
+            .replace("{part_raqami}", str(i))
+            .replace("{uslub}", uslub)
+            .replace("{gapiruvchilar_soni}", str(gap_soni))
+            .replace("{ishtirok_matni}", " orasidagi" if gap_soni == 2 else "ning")
+            .replace("{boshi}", str(boshi))
+            .replace("{oxiri}", str(oxiri))
+            .replace("{soni}", str(oxiri - boshi + 1))
+            .replace("{oldingi_mavzular}", _oldingi_mavzular_matni(oldingi_mavzular + mavzular_shu_testda))
         )
-    except ProviderXatosi as e:
-        return None, None, str(e)
-    natija = javob.get("natija") or {}
-    savollar = natija.get("savollar") or []
-    transkript = natija.get("transkript") or ""
-    if not savollar or not transkript.strip():
-        return None, None, "AI savol yoki transkript qaytarmadi"
-    mavzu = (natija.get("mavzu") or "").strip()
+        try:
+            javob = provider.generate_json(
+                promt, f"Part {i}/4 (Questions {boshi}-{oxiri}) uchun yangi suhbat/monolog va savollarni yarating.",
+                javob_sxemasi=LISTENING_SXEMASI, max_tokens=8000,
+            )
+        except ProviderXatosi as e:
+            return None, None, f"Part {i}: {e}"
+        natija = javob.get("natija") or {}
+        savollar = natija.get("savollar") or []
+        transkript = natija.get("transkript") or ""
+        kutilgan = oxiri - boshi + 1
+        if len(savollar) != kutilgan or not transkript.strip():
+            return None, None, f"Part {i}: {kutilgan} ta savol kutilgandi, {len(savollar)} ta chiqdi (yoki transkript bo'sh)"
+        savollar = sorted(savollar, key=lambda s: s.get("raqam") if isinstance(s.get("raqam"), int) else 10**9)
+        for s in savollar:
+            s.pop("raqam", None)
+        mavzu = (natija.get("mavzu") or "").strip()
+        if mavzu:
+            mavzular_shu_testda.append(mavzu)
 
-    try:
-        audio_bytes = audio_yarat(
-            transkript, "gemini-2.5-flash-preview-tts",
-            speakerlar=[("Speaker1", "Kore"), ("Speaker2", "Puck")],
-        )
-    except RateLimitTugadi:
-        return None, None, "TTS kunlik/daqiqalik limiti tugadi — birozdan so'ng qayta urinib ko'ring"
-    except Exception as e:  # noqa: BLE001
-        return None, None, f"Audio generatsiyasida xato: {e}"
+        speakerlar = [("Speaker1", "Kore"), ("Speaker2", "Puck")] if gap_soni == 2 else None
+        try:
+            audio_bytes = audio_yarat(transkript, "gemini-2.5-flash-preview-tts", speakerlar=speakerlar)
+        except RateLimitTugadi:
+            return None, None, f"Part {i}: TTS kunlik/daqiqalik limiti tugadi — birozdan so'ng qayta urinib ko'ring"
+        except Exception as e:  # noqa: BLE001
+            return None, None, f"Part {i}: audio generatsiyasida xato: {e}"
 
-    return {
-        "name": f"AI Listening — {mavzu} ({band})" if mavzu else f"AI Listening ({band})",
-        "bolim": "listening",
-        "korinish": "public",
-        "qismlar": [{
-            "tartib": 1,
-            "sarlavha": "LISTENING PART",
+        qismlar.append({
+            "tartib": i,
+            "sarlavha": f"LISTENING PART {i}",
             "yoriqnoma": "",
             "matn": "",
             "savollar": savollar,
             "maxsus_format": natija.get("maxsus_format") or None,
-        }],
-    }, audio_bytes, None
+        })
+        audio_royxati.append(audio_bytes)
+
+    nomi_qismi = " / ".join(mavzular_shu_testda) if mavzular_shu_testda else ""
+    return {
+        "name": f"AI Listening — {nomi_qismi} ({band})" if nomi_qismi else f"AI Listening ({band})",
+        "bolim": "listening",
+        "korinish": "public",
+        "qismlar": qismlar,
+    }, audio_royxati, None
 
 
 def writing_yarat(band, oldingi_mavzular=None):
@@ -462,16 +545,18 @@ def mashq_yarat(bolim, band, oldingi_mavzular=None):
     nomlari (yoki mavzular) ro'yxati — takrorlanmaslik uchun promtga
     qo'shiladi (2026-08-02, foydalanuvchi talabi).
 
-    Qaytaradi: (data, rasm_bytes, audio_bytes, xato). `data` — `_test_yarat`
-    kutadigan format yoki None (xato bo'lsa). `rasm_bytes`/`audio_bytes` —
-    faqat mos bo'lim uchun (writing->rasm, listening->audio), aks holda
-    None."""
+    Qaytaradi: (data, rasm_bytes, audio_royxati, xato). `data` — `_test_yarat`
+    kutadigan format yoki None (xato bo'lsa). `rasm_bytes` — faqat writing
+    (Task 1 diagrammasi, birinchi qismga biriktiriladi). `audio_royxati` —
+    faqat listening, `data["qismlar"]` bilan BIR XIL tartib/uzunlikdagi
+    ro'yxat (har elementi shu qismning WAV baytlari). Boshqa bo'limlarda
+    ikkisi ham None."""
     if bolim == "reading":
         data, xato = reading_yarat(band, oldingi_mavzular)
         return data, None, None, xato
     if bolim == "listening":
-        data, audio_bytes, xato = listening_yarat(band, oldingi_mavzular)
-        return data, None, audio_bytes, xato
+        data, audio_royxati, xato = listening_yarat(band, oldingi_mavzular)
+        return data, None, audio_royxati, xato
     if bolim == "writing":
         data, rasm_bytes, xato = writing_yarat(band, oldingi_mavzular)
         return data, rasm_bytes, None, xato

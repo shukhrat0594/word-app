@@ -948,7 +948,7 @@ class MashqGeneratsiyaView(APIView):
             .order_by("-created_at")
             .values_list("name", flat=True)[:25]
         )
-        data, rasm_bytes, audio_bytes, xato = mashq_yarat(bolim, band, oldingi_mavzular)
+        data, rasm_bytes, audio_royxati, xato = mashq_yarat(bolim, band, oldingi_mavzular)
         if xato:
             return Response({"detail": xato}, status=502)
 
@@ -958,11 +958,27 @@ class MashqGeneratsiyaView(APIView):
         if yaratish_xatosi:
             return Response(yaratish_xatosi, status=400)
 
-        birinchi_qism = test.qismlar.order_by("tartib").first()
-        if rasm_bytes and birinchi_qism:
-            birinchi_qism.rasm.save(f"{test.id}_ai_diagramma.png", ContentFile(rasm_bytes), save=True)
-        if audio_bytes and birinchi_qism:
-            birinchi_qism.audio_fayl.save(f"{test.id}_ai_audio.wav", ContentFile(audio_bytes), save=True)
+        qismlar_tartib_boyicha = list(test.qismlar.order_by("tartib"))
+        if rasm_bytes and qismlar_tartib_boyicha:
+            qismlar_tartib_boyicha[0].rasm.save(
+                f"{test.id}_ai_diagramma.png", ContentFile(rasm_bytes), save=True
+            )
+        # Listening — har part (qism) o'zining audiosi bilan (2026-08-02,
+        # to'liq test — 4 part, har biri boshqa audio).
+        if audio_royxati:
+            for qism, audio_bytes in zip(qismlar_tartib_boyicha, audio_royxati):
+                if audio_bytes:
+                    qism.audio_fayl.save(f"{test.id}_{qism.tartib}_ai_audio.wav", ContentFile(audio_bytes), save=True)
+
+        # Band bo'yicha papkaga avtomatik joylash (2026-08-02, foydalanuvchi
+        # talabi) — "Band 5-6" kabi papka shu bo'lim+manbada yo'q bo'lsa
+        # yaratiladi. Admin xohlasa keyin tahrirlashda boshqa papkaga
+        # ko'chirishi mumkin (papka maydoni oddiy FK, cheklanmagan).
+        papka, _yaratildimi = TestPapkasi.objects.get_or_create(
+            nomi=f"Band {band}", bolim=bolim, manba=Manba.AI, markaz=markaz,
+        )
+        test.papka = papka
+        test.save(update_fields=["papka"])
 
         logla(
             foydalanuvchi=request.user,

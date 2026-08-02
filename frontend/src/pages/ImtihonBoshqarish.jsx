@@ -7,7 +7,7 @@ import ImtihonOtish, { vaqtFormat } from "./ImtihonOtish";
 import ImtihonYozGap from "./ImtihonYozGap";
 
 // Backend `exercises/mashq_generatsiya.py`dagi BAND_GURUHLAR bilan bir xil.
-const BAND_GURUHLAR = ["4-5", "5.5-6.5", "7-9"];
+const BAND_GURUHLAR = ["5-6", "6.5-7.5", "8-9"];
 
 const AI_PROMT = `Men senga to'liq IELTS Reading yoki Listening testi (masalan Cambridge IELTS kitobidan) matnini/transkriptini beraman. Sen shu materialni quyidagi JSON formatiga o'girib ber — natija FAQAT valid JSON obyekt bo'lsin, hech qanday izoh, sarlavha yoki markdown belgisi (masalan \`\`\`json) qo'shma, faqat sof JSON matni qaytar.
 
