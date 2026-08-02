@@ -974,6 +974,13 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
                   : t("imtihon_generatsiya_izoh")}
               </span>
             )}
+            {/* Generatsiya xatosi (2026-08-02 tuzatildi) — avval `jsonXato`
+                holatga saqlanardi, lekin hech qayerda ko'rsatilmasdi,
+                ya'ni Listening TTS limiti tugasa yoki boshqa xato bo'lsa
+                talaba/admin sababini bilmay qolardi. */}
+            {jsonXato && !generatsiyaBormoqda && (
+              <div className="xato-xabar" style={{ width: "100%" }}>{jsonXato}</div>
+            )}
           </div>
         )}
 

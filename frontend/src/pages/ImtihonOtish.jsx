@@ -474,7 +474,7 @@ function OddiySavolBloki({ blok, javoblar, javobniQoy, natija, t }) {
  * (accordion), ichida faqat testlar bo'ladi. Papkaga solinmagan testlar
  * ro'yxat OXIRIDA, papkasiz holda ko'rsatiladi — ular ham yo'qolmasligi
  * kerak. Papka umuman bo'lmasa, ro'yxat avvalgidek oddiy chiqadi. */
-function PapkaliRoyxat({ royxat, ochish, t }) {
+export function PapkaliRoyxat({ royxat, ochish, t }) {
   const [ochiq, setOchiq] = useState({});
 
   // Papka tartibi — testlar ro'yxatida birinchi uchragan tartibda

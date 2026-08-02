@@ -5,7 +5,7 @@ import { useI18n } from "../i18n";
 import { IMLO_OFF } from "../imlo";
 import { standartVaqt } from "../imtihonVaqt";
 import { useTestRejimi } from "../testRejimiContext";
-import { vaqtFormat } from "./ImtihonOtish";
+import { PapkaliRoyxat, vaqtFormat } from "./ImtihonOtish";
 import OzMavzum from "./OzMavzum";
 import { Natija as SpeakingNatija } from "./Speaking";
 import { Natija as WritingNatija } from "./Writing";
@@ -347,11 +347,7 @@ export default function ImtihonYozGap({ bolim, manba = "admin", testId, mockYech
             {royxat && royxat.length === 0 && (
               <span className="izoh">{t("imtihon_royxati_boshi")}</span>
             )}
-            {royxat && royxat.map((r) => (
-              <div key={r.id} className="mashq-royxat-el" onClick={() => testniOch(r.id)}>
-                <span>{r.name}</span>
-              </div>
-            ))}
+            {royxat && <PapkaliRoyxat royxat={royxat} ochish={testniOch} t={t} />}
           </div>
         )}
       </div>
