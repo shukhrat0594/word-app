@@ -6,6 +6,9 @@ import ImtihonMock from "./ImtihonMock";
 import ImtihonOtish, { vaqtFormat } from "./ImtihonOtish";
 import ImtihonYozGap from "./ImtihonYozGap";
 
+// Backend `exercises/mashq_generatsiya.py`dagi BAND_GURUHLAR bilan bir xil.
+const BAND_GURUHLAR = ["4-5", "5.5-6.5", "7-9"];
+
 const AI_PROMT = `Men senga to'liq IELTS Reading yoki Listening testi (masalan Cambridge IELTS kitobidan) matnini/transkriptini beraman. Sen shu materialni quyidagi JSON formatiga o'girib ber — natija FAQAT valid JSON obyekt bo'lsin, hech qanday izoh, sarlavha yoki markdown belgisi (masalan \`\`\`json) qo'shma, faqat sof JSON matni qaytar.
 
 Format:
@@ -737,6 +740,11 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
   const [papkalar, setPapkalar] = useState([]);
   const [yangiPapka, setYangiPapka] = useState("");
   const [ochiqPapkalar, setOchiqPapkalar] = useState({});
+  // AI generatsiya (2026-08-02, foydalanuvchi talabi) — faqat "AI
+  // mashqlari" (manba="ai") sahifasida, faqat 4 haqiqiy bo'lim uchun
+  // (Mock/Hammasi'da yo'q — qaysi turni yaratish noaniq bo'lardi).
+  const [band, setBand] = useState(BAND_GURUHLAR[0]);
+  const [generatsiyaBormoqda, setGeneratsiyaBormoqda] = useState(false);
 
   function yukla(bolim) {
     api(`/api/imtihon/testlar-boshqaruv/?manba=${manba}${bolim ? `&bolim=${bolim}` : ""}`)
@@ -786,6 +794,23 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
       yukla(filtrBolim);
     } catch (e) {
       setJsonXato(e.data?.detail || t("xato_yuz_berdi"));
+    }
+  }
+
+  async function generatsiyaQil() {
+    if (!filtrBolim || filtrBolim === "mock") return;
+    setGeneratsiyaBormoqda(true);
+    setJsonXato("");
+    try {
+      await api("/api/imtihon/mashq-generatsiya/", {
+        method: "POST",
+        body: { bolim: filtrBolim, band },
+      });
+      yukla(filtrBolim);
+    } catch (e) {
+      setJsonXato(e.data?.detail || t("xato_yuz_berdi"));
+    } finally {
+      setGeneratsiyaBormoqda(false);
     }
   }
 
@@ -891,6 +916,27 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
             {t("mashq_bolim_speaking")}
           </button>
         </div>
+
+        {/* AI generatsiya (2026-08-02) — faqat "AI mashqlari" sahifasida,
+            faqat 4 haqiqiy bo'lim tanlangan bo'lsa ("Hammasi"da yo'q). */}
+        {manba === "ai" && filtrBolim && (
+          <div style={{ marginBottom: 14, padding: 10, background: "var(--sirt-2)", borderRadius: 8, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <strong style={{ fontSize: 14 }}>{t("imtihon_generatsiya")}</strong>
+            <select value={band} onChange={(e) => setBand(e.target.value)} disabled={generatsiyaBormoqda}>
+              {BAND_GURUHLAR.map((b) => (
+                <option key={b} value={b}>{t("imtihon_band")} {b}</option>
+              ))}
+            </select>
+            <button type="button" className="tugma" onClick={generatsiyaQil} disabled={generatsiyaBormoqda}>
+              {generatsiyaBormoqda ? t("imtihon_generatsiya_bormoqda") : t("imtihon_generatsiya_qil")}
+            </button>
+            {generatsiyaBormoqda && (
+              <span className="izoh">
+                {filtrBolim === "listening" ? t("imtihon_generatsiya_listening_izoh") : t("imtihon_generatsiya_izoh")}
+              </span>
+            )}
+          </div>
+        )}
 
         {/* Papkalar (2026-08-01) — har bo'lim uchun alohida, shuning uchun
             "Hammasi" filtrida yaratib bo'lmaydi (qaysi bo'limga tegishli

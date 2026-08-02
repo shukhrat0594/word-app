@@ -333,6 +333,12 @@ Qolgan barcha bandlar (pastdagi jadvalda, ustuvorlik belgisiz) — **keyinroq**,
 
 ---
 
+## Muhokama qilinishi kerak (2026-08-02, eng birinchi navbatda)
+
+- **Serverni Contabo VPS'ga ko'chirish** — hozir Render'da (Free tarif,
+  Shell yo'q, aktivsiz bo'lsa uxlab qoladi). Sabab/tafsilot hali
+  muhokama qilinmagan — keyingi sessiyada gaplashish kerak.
+
 ## Navbatdagi ishlar (2026-07-27 foydalanuvchi talablari)
 
 Quyidagilar 2026-07-26/27 suhbatida kelishildi. Birinchi uchtasi — navbatda,

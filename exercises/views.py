@@ -916,6 +916,64 @@ class ImtihonPdfBoshqaruvView(APIView):
         )
 
 
+class MashqGeneratsiyaView(APIView):
+    """Owner/admin uchun — "AI mashqlari" sahifasida bitta tugma orqali
+    AI'dan YANGI mini-test so'rash (2026-08-02, foydalanuvchi talabi).
+
+    PDF/ZIP/JSON'dan farqi: manba matn YO'Q — AI mavzuni o'zi o'ylab
+    topadi. Reading/Listening — 1 qism, Writing — Task1+Task2,
+    Speaking — Part1+2+3 (tafsilot: `mashq_generatsiya` moduli)."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        if not _mashq_admin_mi(request.user):
+            return Response({"detail": "Faqat admin/owner uchun"}, status=403)
+
+        markaz = Markaz.objects.first()
+        if not markaz:
+            return Response({"detail": "Markaz topilmadi"}, status=400)
+
+        bolim = request.data.get("bolim") or ""
+        band = request.data.get("band") or ""
+
+        from django.core.files.base import ContentFile
+
+        from .mashq_generatsiya import mashq_yarat
+
+        # Takrorlanmaslik uchun (2026-08-02) — shu bo'limda avval AI
+        # tomonidan yaratilgan testlarning nomlari promtga qo'shiladi.
+        oldingi_mavzular = list(
+            ImtihonTest.objects.filter(manba=Manba.AI, bolim=bolim)
+            .order_by("-created_at")
+            .values_list("name", flat=True)[:25]
+        )
+        data, rasm_bytes, audio_bytes, xato = mashq_yarat(bolim, band, oldingi_mavzular)
+        if xato:
+            return Response({"detail": xato}, status=502)
+
+        test, yaratish_xatosi = _test_yarat(
+            data, markaz, yaratuvchi=request.user, manba=Manba.AI,
+        )
+        if yaratish_xatosi:
+            return Response(yaratish_xatosi, status=400)
+
+        birinchi_qism = test.qismlar.order_by("tartib").first()
+        if rasm_bytes and birinchi_qism:
+            birinchi_qism.rasm.save(f"{test.id}_ai_diagramma.png", ContentFile(rasm_bytes), save=True)
+        if audio_bytes and birinchi_qism:
+            birinchi_qism.audio_fayl.save(f"{test.id}_ai_audio.wav", ContentFile(audio_bytes), save=True)
+
+        logla(
+            foydalanuvchi=request.user,
+            harakat=FaoliyatYozuvi.Harakat.YARATISH,
+            obyekt=test,
+            obyekt_turi="ImtihonTest",
+            snapshot={"name": test.name, "bolim": test.bolim, "manba": "ai-generatsiya", "band": band},
+        )
+        return Response(_test_admin_dict(test), status=201)
+
+
 class TestPapkaBoshqaruvView(APIView):
     """Owner/admin uchun — test papkalari ro'yxati va yaratish (2026-08-01).
 

@@ -543,10 +543,19 @@ class GeminiProvider:
         kontent = _speaking_kontent_tuz(savol_matni, tur, matn)
         return self._generate(SPEAKING_SYSTEM_PROMPT, kontent)
 
-    def generate_json(self, system_prompt, matn, rasm_bytes=None, rasm_mime=None):
-        """Boshqa app'lar (masalan `courses`) uchun ochiq interfeys — `_generate`
-        shaxsiy metod, app chegarasidan tashqarida chaqirilmasligi kerak."""
-        return self._generate(system_prompt, matn, rasm_bytes, rasm_mime)
+    def generate_json(self, system_prompt, matn, rasm_bytes=None, rasm_mime=None,
+                       javob_sxemasi=None, max_tokens=None):
+        """Boshqa app'lar (masalan `courses`, `exercises.mashq_generatsiya`)
+        uchun ochiq interfeys — `_generate` shaxsiy metod, app chegarasidan
+        tashqarida chaqirilmasligi kerak.
+
+        `javob_sxemasi`/`max_tokens` (2026-08-02) — AI mashq generatsiyasi
+        uchun qo'shildi, avval faqat PDF yo'lida (`generate_json_pdf`) bor
+        edi."""
+        return self._generate(
+            system_prompt, matn, rasm_bytes, rasm_mime,
+            max_output_tokens=max_tokens, javob_sxemasi=javob_sxemasi,
+        )
 
     def generate_json_pdf(self, system_prompt, matn, pdf_bytes, max_tokens=16000,
                           javob_sxemasi=None):
