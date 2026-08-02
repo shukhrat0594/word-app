@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { api, apiBlobUrl, apiForm } from "../api";
 import { AUDIO_HIMOYA, faqatBittaAudioIjro } from "../audio";
 import BlokMashqi from "../components/BlokMashqi";
+import BlokTasdiqlash from "../components/BlokTasdiqlash";
 import {
   FlashcardOyini,
   JuftiniTopOyini,
@@ -387,8 +388,11 @@ function AdminMashqBoshqaruv({ tugunId, jsonKiritishKorinadi = true }) {
   const [zipYuklanmoqda, setZipYuklanmoqda] = useState(false);
   const [progress, setProgress] = useState(null);
   const [otganSoniya, setOtganSoniya] = useState(0);
-  const [faolJarayon, setFaolJarayon] = useState(null); // {id, ishlangan_sahifa, jami_sahifa}
+  const [faolJarayon, setFaolJarayon] = useState(null); // {id, ishlangan_sahifa, jami_sahifa, tasdiq_kutilmoqda}
   const [bekorQilinmoqda, setBekorQilinmoqda] = useState(false);
+  // 2026-08-03: tahlil tugagach avtomatik saqlanmaydi — admin shu oynada
+  // ko'rib chiqib tasdiqlaydi (rasm-quti chegaralari/matn/javoblar).
+  const [tasdiqJarayonId, setTasdiqJarayonId] = useState(null);
   const toxtatishRef = useRef(false);
 
   function promtNusxala() {
@@ -469,7 +473,6 @@ function AdminMashqBoshqaruv({ tugunId, jsonKiritishKorinadi = true }) {
 
   async function jarayonniBajar(jid, jamiSahifa, boshlangichIshlangan) {
     toxtatishRef.current = false;
-    let yakun = null;
     let tugadi = false;
     let oxirgiIshlangan = boshlangichIshlangan;
     setProgress({ ishlangan: boshlangichIshlangan, jami: jamiSahifa, fayl: "" });
@@ -496,14 +499,13 @@ function AdminMashqBoshqaruv({ tugunId, jsonKiritishKorinadi = true }) {
         ishBorEdi = true;
         oxirgiIshlangan = d.ishlangan_sahifa;
         setProgress({ ishlangan: d.ishlangan_sahifa, jami: d.jami_sahifa, fayl: d.joriy_fayl });
-        if (d.tugadimi) {
-          yakun = d.yakun;
-          tugadi = true;
-        }
+        if (d.tugadimi) tugadi = true;
       }
       if (!ishBorEdi) tugadi = true;
     }
-    return { toxtatildi: false, yakun };
+    // 2026-08-03: tahlil tugadi — endi bazaga avtomatik YOZILMAYDI, admin
+    // BlokTasdiqlash oynasida ko'rib chiqib tasdiqlashi kerak.
+    return { toxtatildi: false, tasdiqKerak: true };
   }
 
   function yakunXabariniQoy(yakun) {
@@ -539,9 +541,11 @@ function AdminMashqBoshqaruv({ tugunId, jsonKiritishKorinadi = true }) {
       if (natija.toxtatildi) {
         setMashqXabar(t("kurs_blok_toxtatildi"));
       } else {
-        yakunXabariniQoy(natija.yakun);
-        setFaolJarayon(null);
-        yukla();
+        setFaolJarayon({
+          id: boshlash.jarayon_id, ishlangan_sahifa: boshlash.jami_sahifa,
+          jami_sahifa: boshlash.jami_sahifa, tasdiq_kutilmoqda: true,
+        });
+        setTasdiqJarayonId(boshlash.jarayon_id);
       }
     } catch (e2) {
       setMashqXato(e2.data?.detail || t("xato_yuz_berdi"));
@@ -559,15 +563,16 @@ function AdminMashqBoshqaruv({ tugunId, jsonKiritishKorinadi = true }) {
     setZipYuklanmoqda(true);
     setProgress(null);
     try {
-      const natija = await jarayonniBajar(
-        faolJarayon.id, faolJarayon.jami_sahifa, faolJarayon.ishlangan_sahifa,
-      );
+      const jid = faolJarayon.id;
+      const jamiSahifa = faolJarayon.jami_sahifa;
+      const natija = await jarayonniBajar(jid, jamiSahifa, faolJarayon.ishlangan_sahifa);
       if (natija.toxtatildi) {
         setMashqXabar(t("kurs_blok_toxtatildi"));
       } else {
-        yakunXabariniQoy(natija.yakun);
-        setFaolJarayon(null);
-        yukla();
+        setFaolJarayon({
+          id: jid, ishlangan_sahifa: jamiSahifa, jami_sahifa: jamiSahifa, tasdiq_kutilmoqda: true,
+        });
+        setTasdiqJarayonId(jid);
       }
     } catch (e2) {
       setMashqXato(e2.data?.detail || t("xato_yuz_berdi"));
@@ -729,9 +734,18 @@ function AdminMashqBoshqaruv({ tugunId, jsonKiritishKorinadi = true }) {
         </label>
         {faolJarayon && !zipYuklanmoqda && (
           <>
-            <button className="tugma ikkinchi kichik" onClick={jarayonniDavomEttir}>
-              {t("kurs_blok_davom_ettirish")} ({faolJarayon.ishlangan_sahifa}/{faolJarayon.jami_sahifa})
-            </button>
+            {faolJarayon.tasdiq_kutilmoqda ? (
+              <button
+                className="tugma ikkinchi kichik"
+                onClick={() => setTasdiqJarayonId(faolJarayon.id)}
+              >
+                {t("kurs_blok_korib_chiqish")} ({faolJarayon.jami_sahifa} {t("kurs_blok_tasdiq_sahifa").toLowerCase()})
+              </button>
+            ) : (
+              <button className="tugma ikkinchi kichik" onClick={jarayonniDavomEttir}>
+                {t("kurs_blok_davom_ettirish")} ({faolJarayon.ishlangan_sahifa}/{faolJarayon.jami_sahifa})
+              </button>
+            )}
             <button
               className="tugma ikkinchi kichik"
               style={{ color: "#d33" }}
@@ -794,6 +808,18 @@ function AdminMashqBoshqaruv({ tugunId, jsonKiritishKorinadi = true }) {
             </button>
           </div>
         </div>
+      )}
+      {tasdiqJarayonId && (
+        <BlokTasdiqlash
+          jarayonId={tasdiqJarayonId}
+          onYakunlandi={(natija) => {
+            setTasdiqJarayonId(null);
+            setFaolJarayon(null);
+            yakunXabariniQoy(natija);
+            yukla();
+          }}
+          onBekor={() => setTasdiqJarayonId(null)}
+        />
       )}
       {royxat && royxat.length > 0 && (
         <div style={{ display: "grid", gap: 6, marginBottom: 10 }}>

@@ -207,14 +207,24 @@ class KursZipJarayoni(models.Model):
     class Holat(models.TextChoices):
         YANGI = "yangi", "Yangi"
         ISHLANMOQDA = "ishlanmoqda", "Ishlanmoqda"
+        TASDIQ_KUTILMOQDA = "tasdiq_kutilmoqda", "Tasdiqlash kutilmoqda"
         TUGADI = "tugadi", "Tugadi"
         XATO = "xato", "Xato"
+
+    class ManbaTuri(models.TextChoices):
+        ZIP = "zip", "ZIP (rasmlar)"
+        PDF = "pdf", "PDF (kitob)"
 
     tugun = models.ForeignKey(
         KursTugun, on_delete=models.CASCADE, related_name="zip_jarayonlari",
         help_text="KITOB tuguni (Student's Book / Workbook)",
     )
+    # Nomi tarixiy (`zip_fayl`) — 2026-08-03dan buyon PDF ham qabul
+    # qilinadi (`manba_turi` shuni belgilaydi), lekin maydon nomini
+    # o'zgartirish ko'plab joyni tegishni talab qilardi, shuning uchun
+    # saqlab qolindi.
     zip_fayl = models.FileField(upload_to="kurslar/zip_jarayon/")
+    manba_turi = models.CharField(max_length=10, choices=ManbaTuri.choices, default=ManbaTuri.ZIP)
     holat = models.CharField(max_length=20, choices=Holat.choices, default=Holat.YANGI)
     jami_sahifa = models.PositiveSmallIntegerField(default=0)
     ishlangan_sahifa = models.PositiveSmallIntegerField(default=0)

@@ -10,16 +10,20 @@ bu qo'shimcha servis va xarajat, holbuki jarayonni frontend boshqarsa
 yetarli (u progress ham ko'rsatadi).
 """
 
+import io
 import os
 import pathlib
+import re
 import shutil
 import threading
 import zipfile
+from contextlib import contextmanager
 from datetime import datetime, timedelta
 
 from django.conf import settings
 from django.core.files.base import ContentFile
 from django.db import transaction
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework.parsers import FormParser, MultiPartParser
@@ -78,9 +82,31 @@ def _jarayon_kesh_yoli(jarayon):
     return yol / f"{jarayon.id}.zip"
 
 
+class _PdfManbaWrapper:
+    """`zipfile.ZipFile`ning `.read(nom)` interfeysini PDF uchun taqlid
+    qiladi (2026-08-03) — shu tufayli `_jarayon_arxivi`dan foydalanuvchi
+    barcha kod (`arxiv.read(nom)`) o'zgarishsiz qoladi, ZIP yoki PDF
+    ekanligidan qat'i nazar. `nom` — "sahifa-<raqam>.jpg" ko'rinishida,
+    raqam PDF sahifa raqami (1dan boshlanadi)."""
+
+    def __init__(self, pdf_hujjat):
+        self._pdf = pdf_hujjat
+
+    def read(self, nom):
+        raqam = int(re.search(r"(\d+)", nom).group(1))
+        sahifa = self._pdf[raqam - 1]
+        bitmap = sahifa.render(scale=2.0)
+        pil = bitmap.to_pil().convert("RGB")
+        bufer = io.BytesIO()
+        pil.save(bufer, format="JPEG", quality=90)
+        return bufer.getvalue()
+
+
+@contextmanager
 def _jarayon_arxivi(jarayon):
-    """ZIP faylni ochadi — R2'DAN FAQAT BIR MARTA yuklab, mahalliy diskka
-    keshlab qo'yadi (2026-07-28, haqiqiy production xatosidan keyin).
+    """ZIP yoki PDF faylni ochadi — R2'DAN FAQAT BIR MARTA yuklab,
+    mahalliy diskka keshlab qo'yadi (2026-07-28, haqiqiy production
+    xatosidan keyin).
 
     Muammo: `django-storages`ning S3Storage'i faylni O'QISH uchun
     ochganda uni TO'LIQ QAYTA YUKLAB OLADI (`S3File._get_file` ->
@@ -116,7 +142,18 @@ def _jarayon_arxivi(jarayon):
         with jarayon.zip_fayl.open("rb") as manba, open(vaqtinchalik, "wb") as nishon:
             shutil.copyfileobj(manba, nishon)
         os.replace(vaqtinchalik, kesh)
-    return zipfile.ZipFile(kesh)
+
+    if jarayon.manba_turi == KursZipJarayoni.ManbaTuri.PDF:
+        import pypdfium2 as pdfium
+
+        pdf_hujjat = pdfium.PdfDocument(str(kesh))
+        try:
+            yield _PdfManbaWrapper(pdf_hujjat)
+        finally:
+            pdf_hujjat.close()
+    else:
+        with zipfile.ZipFile(kesh) as arxiv:
+            yield arxiv
 
 
 def _jarayon_keshini_tozala(jarayon):
@@ -138,12 +175,13 @@ def _zip_ichidagi_rasmlarni_ajrat(nomlar):
 
 
 class KursBlokZipYuklashView(APIView):
-    """1-BOSQICH: ZIP'ni qabul qilish va nima borligini sanash.
+    """1-BOSQICH: ZIP yoki PDF'ni qabul qilish va nima borligini sanash.
 
-    `pk` — MASHQLAR tuguni (oxirgi qatlam) — 2026-07-30dan buyon KITOB
-    emas: ZIP endi faqat rasmlardan iborat (javob-kaliti/vocabulary/audio
-    ajratish yo'q), shuning uchun to'g'ridan-to'g'ri "🖼️ Rasm orqali
-    mashq qo'shish" bilan BIR XIL tugunga ishlaydi."""
+    `pk` — MASHQLAR tuguni (oxirgi qatlam). Fayl nomi kengaytmasiga qarab
+    ZIP (rasmlar arxivi) yoki PDF (butun kitob/bo'lim skani) sifatida
+    aniqlanadi (2026-08-03) — PDF holida sahifalar keyinroq (2-bosqichda)
+    `pypdfium2` bilan JPEG'ga aylantiriladi, ZIP'dagi rasm-o'qish bilan
+    bir xil joyga (`_jarayon_arxivi`) muqobil sifatida ishlaydi."""
 
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
@@ -157,23 +195,39 @@ class KursBlokZipYuklashView(APIView):
                 {"detail": "Faqat oxirgi qatlam (farzandsiz) tugunga mashq qo'shiladi"}, status=400
             )
 
-        zip_fayl = request.FILES.get("zip_fayl")
-        if not zip_fayl:
+        fayl = request.FILES.get("zip_fayl")
+        if not fayl:
             return Response({"detail": "zip_fayl majburiy"}, status=400)
 
-        try:
-            nomlar = zipfile.ZipFile(zip_fayl).namelist()
-        except zipfile.BadZipFile:
-            return Response({"detail": "Fayl yaroqli ZIP emas"}, status=400)
+        pdfmi = fayl.name.lower().endswith(".pdf")
+        if pdfmi:
+            import pypdfium2 as pdfium
 
-        sahifalar = _zip_ichidagi_rasmlarni_ajrat(nomlar)
-        if not sahifalar:
-            return Response({"detail": "ZIP ichida rasm fayli topilmadi"}, status=400)
+            try:
+                pdf_hujjat = pdfium.PdfDocument(fayl.read())
+                jami = len(pdf_hujjat)
+                pdf_hujjat.close()
+            except Exception:
+                return Response({"detail": "Fayl yaroqli PDF emas"}, status=400)
+            if jami == 0:
+                return Response({"detail": "PDF'da sahifa topilmadi"}, status=400)
+            sahifalar = [f"sahifa-{i + 1}.jpg" for i in range(jami)]
+            manba_turi = KursZipJarayoni.ManbaTuri.PDF
+        else:
+            try:
+                nomlar = zipfile.ZipFile(fayl).namelist()
+            except zipfile.BadZipFile:
+                return Response({"detail": "Fayl yaroqli ZIP yoki PDF emas"}, status=400)
+            sahifalar = _zip_ichidagi_rasmlarni_ajrat(nomlar)
+            if not sahifalar:
+                return Response({"detail": "ZIP ichida rasm fayli topilmadi"}, status=400)
+            manba_turi = KursZipJarayoni.ManbaTuri.ZIP
 
-        zip_fayl.seek(0)
+        fayl.seek(0)
         jarayon = KursZipJarayoni.objects.create(
             tugun=tugun,
-            zip_fayl=zip_fayl,
+            zip_fayl=fayl,
+            manba_turi=manba_turi,
             jami_sahifa=len(sahifalar),
             natijalar={
                 "sahifalar": sahifalar,
@@ -229,6 +283,10 @@ class KursBlokJarayonHolatiView(APIView):
                     "id": jarayon.id,
                     "ishlangan_sahifa": jarayon.ishlangan_sahifa,
                     "jami_sahifa": jarayon.jami_sahifa,
+                    # 2026-08-03: True bo'lsa tahlil tugagan, admin
+                    # ko'rib-tasdiqlashi kutilmoqda (frontend "Davom
+                    # ettirish" o'rniga tasdiqlash oynasini ochishi kerak).
+                    "tasdiq_kutilmoqda": jarayon.holat == KursZipJarayoni.Holat.TASDIQ_KUTILMOQDA,
                 }
             }
         )
@@ -548,9 +606,14 @@ class KursBlokSahifaView(APIView):
             jami_sahifa = jarayon.jami_sahifa
             tugadimi = jarayon.ishlangan_sahifa >= jami_sahifa
             if tugadimi:
-                # Yakunlashdan OLDIN belgilaymiz — boshqa parallel so'rov
-                # shu oraliqda yana bir sahifani band qilib olmasin.
-                jarayon.holat = KursZipJarayoni.Holat.TUGADI
+                # 2026-08-03: avval shu yerda `_jarayonni_yakunla` avtomatik
+                # chaqirilib, bazaga to'g'ridan-to'g'ri yozilardi — AI
+                # xatolari (noto'g'ri kesilgan rasm, joyi surilgan bo'sh
+                # joy) tekshirilmasdan saqlanardi. Endi barcha sahifalar
+                # tahlil qilingach, TASDIQLASH kutiladi — admin
+                # `KursBlokTasdiqView`da ko'rib, kerak bo'lsa tuzatib,
+                # `KursBlokTasdiqlashView`ga yuborgandagina bazaga yoziladi.
+                jarayon.holat = KursZipJarayoni.Holat.TASDIQ_KUTILMOQDA
             jarayon.save(update_fields=["natijalar", "ishlangan_sahifa", "holat"])
 
         javob = {
@@ -560,12 +623,10 @@ class KursBlokSahifaView(APIView):
             "xato": xato,
             "tugadimi": tugadimi,
         }
-        if tugadimi:
-            javob["yakun"] = _jarayonni_yakunla(jarayon, request.user)
         return Response(javob)
 
 
-def _jarayonni_yakunla(jarayon, foydalanuvchi):
+def _jarayonni_yakunla(jarayon, foydalanuvchi, tahrirlar=None):
     """Yig'ilgan tahlillarni BAZAGA yozadi: har sahifa/rasm — BITTA
     KursMashq (bloklar+savollar allaqachon `KursBlokSahifaView`da AI
     chaqiruvi bilan birga tayyorlangan) + undan kesilgan rasmlar.
@@ -579,12 +640,31 @@ def _jarayonni_yakunla(jarayon, foydalanuvchi):
     saqlangan (parallel qayta ishlash tufayli tugallanish tartibi
     original sahifa tartibiga mos kelmasligi mumkin) — shuning uchun bu
     yerda ATAYLAB indeks bo'yicha SARALAB o'qiladi, natijada yakuniy
-    mashqlar tartibi har doim sahifa tartibiga mos bo'ladi."""
+    mashqlar tartibi har doim sahifa tartibiga mos bo'ladi.
+
+    `tahrirlar` (2026-08-03, tasdiqlash bosqichi) — ixtiyoriy
+    {indeks(str): {"sarlavha","bloklar","savollar","qutilar","otkazib_yuborilsin"}}
+    — admin AI natijasini ko'rib tuzatgan bo'lsa, shu qiymatlar AI
+    natijasi o'RNIGA ishlatiladi (to'liq almashtirish, chunki admin
+    butun blok/savol/quti ro'yxatini qayta yuboradi). `otkazib_yuborilsin`
+    — sahifa umuman yaroqsiz deb topilsa, mashq yaratilmaydi."""
+    tahrirlar = tahrirlar or {}
     d = jarayon.natijalar
     mashq_tugun = jarayon.tugun  # 2026-07-30: jarayon endi to'g'ridan-to'g'ri mashqlar tuguniga bog'lanadi
 
     tugallangan = d.get("tugallangan", {})
-    tartiblangan = [tugallangan[k] for k in sorted(tugallangan, key=int)]
+    tartiblangan = []
+    for k in sorted(tugallangan, key=int):
+        t = dict(tugallangan[k])
+        tahrir = tahrirlar.get(k)
+        if tahrir:
+            if tahrir.get("otkazib_yuborilsin"):
+                continue
+            for maydon in ("sarlavha", "bloklar", "savollar", "qutilar"):
+                if maydon in tahrir:
+                    t[maydon] = tahrir[maydon]
+            t["xato"] = None  # admin tuzatib tasdiqlagan — xato bayrog'i olib tashlanadi
+        tartiblangan.append(t)
 
     xato_sahifalar = [
         {"fayl": t["fayl"], "xato": t["xato"]} for t in tartiblangan if t["xato"]
@@ -636,3 +716,68 @@ def _jarayonni_yakunla(jarayon, foydalanuvchi):
         snapshot=natija,
     )
     return natija
+
+
+class KursBlokTasdiqView(APIView):
+    """3-BOSQICH (2026-08-03): barcha sahifalar tahlil qilingach, admin
+    AI natijasini (matn/savollar/rasm-quti koordinatalari) ko'rib chiqishi
+    uchun to'liq ma'lumotni qaytaradi — hali bazaga yozilmagan."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        if not _mashq_admin_mi(request.user):
+            return Response({"detail": "Faqat admin/owner uchun"}, status=403)
+        jarayon = get_object_or_404(KursZipJarayoni, pk=pk)
+        if jarayon.holat != KursZipJarayoni.Holat.TASDIQ_KUTILMOQDA:
+            return Response({"detail": "Jarayon tasdiqlashga tayyor emas"}, status=400)
+
+        d = jarayon.natijalar
+        tugallangan = d.get("tugallangan", {})
+        sahifalar = [
+            {"indeks": int(k), **tugallangan[k]}
+            for k in sorted(tugallangan, key=int)
+        ]
+        return Response({"jarayon_id": jarayon.id, "sahifalar": sahifalar})
+
+
+class KursBlokSahifaRasmiView(APIView):
+    """Bitta sahifaning asl surati — tasdiqlash oynasida rasm-quti
+    chegaralarini ko'rish/tuzatish uchun (2026-08-03)."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk, indeks):
+        if not _mashq_admin_mi(request.user):
+            return Response({"detail": "Faqat admin/owner uchun"}, status=403)
+        jarayon = get_object_or_404(KursZipJarayoni, pk=pk)
+        sahifalar = jarayon.natijalar.get("sahifalar", [])
+        if indeks < 0 or indeks >= len(sahifalar):
+            return Response({"detail": "Sahifa topilmadi"}, status=404)
+        with _jarayon_arxivi(jarayon) as arxiv:
+            rasm_bytes = arxiv.read(sahifalar[indeks])
+        return HttpResponse(rasm_bytes, content_type="image/jpeg")
+
+
+class KursBlokTasdiqlashView(APIView):
+    """4-BOSQICH (2026-08-03): admin ko'rib chiqgan (kerak bo'lsa
+    tuzatgan) natijani YAKUNIY deb tasdiqlaydi — shundagina rasm kesish
+    va `KursMashq` yaratish (`_jarayonni_yakunla`) amalga oshadi.
+
+    Body: {"tahrirlar": {indeks(str): {sarlavha?, bloklar?, savollar?,
+    qutilar?, otkazib_yuborilsin?}}} — faqat ADMIN o'zgartirgan
+    sahifalar uchun kalit yuboriladi, qolganlari AI natijasi bilan
+    ishlatiladi."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        if not _mashq_admin_mi(request.user):
+            return Response({"detail": "Faqat admin/owner uchun"}, status=403)
+        jarayon = get_object_or_404(KursZipJarayoni, pk=pk)
+        if jarayon.holat != KursZipJarayoni.Holat.TASDIQ_KUTILMOQDA:
+            return Response({"detail": "Jarayon tasdiqlashga tayyor emas"}, status=400)
+
+        tahrirlar = request.data.get("tahrirlar") or {}
+        natija = _jarayonni_yakunla(jarayon, request.user, tahrirlar=tahrirlar)
+        return Response(natija)

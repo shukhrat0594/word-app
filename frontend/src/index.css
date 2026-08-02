@@ -774,3 +774,28 @@ input.imtihon-bosh-joy { font: inherit; font-size: 12.5px; text-align: center; }
   animation: blok-aylanish 0.8s linear infinite; margin-bottom: 6px;
 }
 @keyframes blok-aylanish { to { transform: rotate(360deg); } }
+
+/* ==== Blok tasdiqlash (2026-08-03) — AI tahlilini saqlashdan oldin
+   admin ko'rib chiqadigan/tuzatadigan oyna ==== */
+.blok-tasdiq-karta {
+  background: var(--sirt); border-radius: 12px; padding: 20px 24px;
+  width: min(1100px, 96vw); max-height: 92vh; overflow: auto;
+  display: grid; gap: 14px; box-shadow: 0 8px 30px rgba(0,0,0,.4);
+}
+.blok-tasdiq-sarlavha-qator { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.blok-tasdiq-tana { display: flex; gap: 18px; flex-wrap: wrap; }
+.blok-tasdiq-rasm-konteyner { position: relative; flex: 1 1 480px; max-width: 560px; user-select: none; }
+.blok-tasdiq-rasm-konteyner img { width: 100%; display: block; border-radius: 6px; }
+.blok-tasdiq-quti {
+  position: absolute; border: 2px solid #2b8aef; background: rgba(43,138,239,0.15); cursor: move;
+}
+.blok-tasdiq-quti-raqam {
+  position: absolute; top: -18px; left: 0; font-size: 11px; background: #2b8aef; color: #fff;
+  padding: 1px 5px; border-radius: 3px; white-space: nowrap;
+}
+.blok-tasdiq-tutqich {
+  position: absolute; width: 12px; height: 12px; background: #2b8aef; border: 2px solid #fff;
+  border-radius: 50%; cursor: nwse-resize;
+}
+.blok-tasdiq-panel { flex: 1 1 380px; display: grid; gap: 10px; align-content: start; }
+.blok-tasdiq-navigatsiya { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
