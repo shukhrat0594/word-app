@@ -607,13 +607,16 @@ function AdminMashqBoshqaruv({ tugunId, jsonKiritishKorinadi = true }) {
     }
   }
 
-  // 2026-07-30 talabi: bitta tugma — rasm YOKI ZIP tanlash mumkin,
-  // fayl kengaytmasidan qaysi oqim kerakligi aniqlanadi.
+  // 2026-07-30 talabi: bitta tugma — rasm, ZIP yoki PDF tanlash mumkin,
+  // fayl kengaytmasidan qaysi oqim kerakligi aniqlanadi (PDF — 2026-08-03,
+  // ZIP bilan bir xil ko'p-sahifali oqim, `blok-zip` endpoint ikkisini
+  // ham qabul qiladi).
   function faylTanlandi(e) {
     const fayl = e.target.files[0];
     e.target.value = "";
     if (!fayl) return;
-    if (fayl.name.toLowerCase().endsWith(".zip")) {
+    const nomi = fayl.name.toLowerCase();
+    if (nomi.endsWith(".zip") || nomi.endsWith(".pdf")) {
       zipYukla(fayl);
     } else {
       birRasmdanQoshish(fayl);
@@ -726,7 +729,7 @@ function AdminMashqBoshqaruv({ tugunId, jsonKiritishKorinadi = true }) {
           {rasmYuklanmoqda ? t("yuklanmoqda") : t("kurs_rasmdan_mashq_qoshish")}
           <input
             type="file"
-            accept="image/*,.zip"
+            accept="image/*,.zip,.pdf"
             onChange={faylTanlandi}
             disabled={rasmYuklanmoqda || zipYuklanmoqda}
             style={{ display: "none" }}
