@@ -38,20 +38,32 @@ function belgiIndeksiniTop(container, node, offset) {
   return topildi;
 }
 
-// Yangi range'ni mavjud belgilanganlar ro'yxatiga qo'shib, kesishganlarini
-// birlashtiradi (masalan avval 5-10 belgilangan, endi 8-15 belgilansa —
-// natija bitta 5-15 range bo'lishi kerak).
-function rangeQoshVaBirlashtir(royxat, yangi) {
-  const hammasi = [...royxat, yangi].sort((a, b) => a.start - b.start);
+// Har highlight endi o'z rangiga ega bo'lishi mumkin (2026-08-02) — shu
+// sababli kesishganlarni bir rangga BIRLASHTIRISH noto'g'ri (ikki xil rang
+// aralashib ketadi). O'rniga: yangi tanlov eski range bilan kesishsa, eski
+// range'ning kesishgan qismi olib tashlanadi/bo'linadi — yangi tanlov
+// g'olib chiqadi. Bu bir vaqtda "bir joyni qayta boshqa rangga belgilash"
+// (recolor) imkonini ham beradi.
+function RANGLAR() {
+  return [
+    { kalit: "sariq", rang: "#ffe58a" },
+    { kalit: "yashil", rang: "#a8e6a3" },
+    { kalit: "kok", rang: "#a3d8f4" },
+    { kalit: "pushti", rang: "#f4a3c4" },
+  ];
+}
+
+function rangeQoshVaKesish(royxat, yangi) {
   const natija = [];
-  for (const r of hammasi) {
-    const oxirgi = natija[natija.length - 1];
-    if (oxirgi && r.start <= oxirgi.end) {
-      oxirgi.end = Math.max(oxirgi.end, r.end);
-    } else {
-      natija.push({ ...r });
+  for (const r of royxat) {
+    if (r.end <= yangi.start || r.start >= yangi.end) {
+      natija.push(r);
+      continue;
     }
+    if (r.start < yangi.start) natija.push({ ...r, end: yangi.start });
+    if (r.end > yangi.end) natija.push({ ...r, start: yangi.end });
   }
+  natija.push(yangi);
   return natija;
 }
 
@@ -61,8 +73,9 @@ function rangeQoshVaBirlashtir(royxat, yangi) {
  *
  * Matn tanlanganda highlight AVTOMATIK qo'yilmaydi (oldin shunday edi —
  * so'zga ikki marta bosish ham tanlov hisoblanib, xohlamasdan belgilab
- * qo'yardi) — o'rniga tanlov yonida kichik "Belgilash" marker/tugmasi
- * chiqadi, faqat shuni bosganda highlight qo'yiladi (2026-08-02).
+ * qo'yardi) — o'rniga tanlov yonida rang tanlash paneli chiqadi, faqat
+ * rang bosilganda shu rangda highlight qo'yiladi (2026-08-02). Mavjud
+ * belgiga qayta boshqa rang tanlash — eskisini kesib, ustidan yozadi.
  *
  * Chaqiruvchi HAR passage uchun `key={matnId}` bilan render qilishi
  * SHART — aks holda komponent qayta ishlatilib, oldingi passage'ning
@@ -121,16 +134,16 @@ function BelgilanadiganMatn({ matnId, matn, sinf }) {
     });
   }
 
-  function belgilashniTasdiqla() {
+  function rangniBelgila(rang) {
     if (!marker) return;
-    setRoyxat((prev) => rangeQoshVaBirlashtir(prev, { start: marker.start, end: marker.end }));
+    setRoyxat((prev) => rangeQoshVaKesish(prev, { start: marker.start, end: marker.end, rang }));
     setMarker(null);
     window.getSelection()?.removeAllRanges();
   }
 
-  function belginiOchir(idx, e) {
+  function belginiOchir(r, e) {
     e.stopPropagation();
-    setRoyxat((prev) => prev.filter((_, i) => i !== idx));
+    setRoyxat((prev) => prev.filter((x) => x !== r));
   }
 
   const qismlar = [];
@@ -139,7 +152,13 @@ function BelgilanadiganMatn({ matnId, matn, sinf }) {
   tartiblangan.forEach((r, i) => {
     if (r.start > joriy) qismlar.push(<span key={`o-${i}`}>{matn.slice(joriy, r.start)}</span>);
     qismlar.push(
-      <mark className="reading-belgilangan" key={`m-${i}`} onClick={(e) => belginiOchir(i, e)} title="O'chirish uchun bosing">
+      <mark
+        className="reading-belgilangan"
+        key={`m-${i}`}
+        style={{ background: r.rang }}
+        onClick={(e) => belginiOchir(r, e)}
+        title="O'chirish uchun bosing"
+      >
         {matn.slice(r.start, r.end)}
       </mark>
     );
@@ -151,15 +170,22 @@ function BelgilanadiganMatn({ matnId, matn, sinf }) {
     <div ref={konteynerRef} className={sinf} style={{ position: "relative" }} onMouseUp={tanlovTugaganda}>
       {qismlar}
       {marker && (
-        <button
-          type="button"
+        <div
           className="reading-belgilash-marker"
           style={{ left: marker.x, top: marker.y }}
           onMouseDown={(e) => e.preventDefault()}
-          onClick={belgilashniTasdiqla}
         >
-          Belgilash
-        </button>
+          {RANGLAR().map((r) => (
+            <button
+              key={r.kalit}
+              type="button"
+              className="reading-rang-tugma"
+              style={{ background: r.rang }}
+              title={r.kalit}
+              onClick={() => rangniBelgila(r.rang)}
+            />
+          ))}
+        </div>
       )}
     </div>
   );

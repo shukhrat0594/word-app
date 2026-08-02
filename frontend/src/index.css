@@ -212,21 +212,27 @@ textarea {
 .imtihon-papka-sarlavha:hover { color: var(--sariq); }
 .imtihon-papka-ichi { padding-left: 18px; }
 .mashq-passage { white-space: pre-wrap; line-height: 1.6; font-size: 14px; margin-bottom: 18px; }
-.reading-belgilangan { background: #ffe58a; cursor: pointer; border-radius: 2px; }
+.reading-belgilangan { cursor: pointer; border-radius: 2px; }
 .reading-belgilash-marker {
   position: absolute;
   transform: translate(-50%, -130%);
   background: #2b2b2b;
-  color: #fff;
-  border: none;
-  border-radius: 6px;
-  padding: 4px 10px;
-  font-size: 12px;
-  cursor: pointer;
+  border-radius: 20px;
+  padding: 5px;
+  display: flex;
+  gap: 5px;
   z-index: 20;
   white-space: nowrap;
 }
-.reading-belgilash-marker:hover { background: #444; }
+.reading-rang-tugma {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  cursor: pointer;
+  padding: 0;
+}
+.reading-rang-tugma:hover { transform: scale(1.15); }
 .savol-blok { padding: 14px 0; border-bottom: 1px solid var(--chiziq); }
 .savol-blok:last-child { border-bottom: none; }
 .savol-matni { font-weight: 600; margin-bottom: 8px; }
