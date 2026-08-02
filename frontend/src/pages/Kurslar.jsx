@@ -516,6 +516,9 @@ function AdminMashqBoshqaruv({ tugunId, jsonKiritishKorinadi = true }) {
     if (yakun.baholanadigan_savollar) {
       qismlar.push(`${yakun.baholanadigan_savollar} ${t("kurs_blok_savol")}`);
     }
+    if (yakun.wordlist_soni) {
+      qismlar.push(`${yakun.wordlist_soni} ${t("kurs_blok_wordlist_soz")}`);
+    }
     let xabarMatni = qismlar.join(", ");
     if (yakun.xato_sahifalar?.length) {
       xabarMatni += ` — ⚠ ${yakun.xato_sahifalar.length} ${t("kurs_zip_xato_sahifa")}: ${yakun.xato_sahifalar
@@ -594,11 +597,14 @@ function AdminMashqBoshqaruv({ tugunId, jsonKiritishKorinadi = true }) {
         method: "POST",
         formData: fd,
       });
-      setMashqXabar(
-        yaratilgan.javob_talab_qiluvchi_soni > 0
-          ? `${t("kurs_mashq_qoshildi")} — ${yaratilgan.javob_talab_qiluvchi_soni} ${t("kurs_javob_talab")}`
-          : t("kurs_mashq_qoshildi")
-      );
+      const qismlar = [t("kurs_mashq_qoshildi")];
+      if (yaratilgan.javob_talab_qiluvchi_soni > 0) {
+        qismlar.push(`${yaratilgan.javob_talab_qiluvchi_soni} ${t("kurs_javob_talab")}`);
+      }
+      if (yaratilgan.wordlist_soni > 0) {
+        qismlar.push(`${yaratilgan.wordlist_soni} ${t("kurs_blok_wordlist_soz")}`);
+      }
+      setMashqXabar(qismlar.join(" — "));
       yukla();
     } catch (e2) {
       setMashqXato(e2.data?.detail || t("xato_yuz_berdi"));

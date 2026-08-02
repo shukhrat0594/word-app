@@ -45,10 +45,11 @@ from .kontent_generatsiya import kengaytma_turi, tabiiy_tartib_kaliti
 from .models import (
     KursMashq,
     KursMashqRasmi,
+    KursSoz,
     KursTugun,
     KursZipJarayoni,
 )
-from .views import _kurs_mashq_admin_dict, _mashq_admin_mi
+from .views import _kurs_mashq_admin_dict, _mashq_admin_mi, _unit_bolimlari
 
 # 2026-07-29(6): agar bir sahifa band qilingan-u biror sababdan (masalan
 # ESKI, tuzatishdan oldingi versiyada uchragan xato) hech qachon
@@ -337,7 +338,13 @@ class KursMashqRasmdanQoshishView(APIView):
         natija_yoki_xato = _rasmni_mashqqa_aylantir(rasm_bytes)
         if isinstance(natija_yoki_xato, Response):
             return natija_yoki_xato
-        sarlavha, bloklar, savollar, qutilar = natija_yoki_xato
+        sarlavha, bloklar, savollar, qutilar, sozlar = natija_yoki_xato
+        sozlar_soni = _sozlarni_saqla(tugun, sozlar)
+
+        # Sof Wordlist sahifasi (mashq elementi yo'q, faqat so'zlar) — bo'sh
+        # KursMashq yaratmaymiz, faqat so'zlar Vocabulary'ga qo'shiladi.
+        if not bloklar and not qutilar:
+            return Response({"wordlist_soni": sozlar_soni}, status=201)
 
         boshlangich = tugun.mashqlar.count()
         mashq = KursMashq.objects.create(
@@ -363,20 +370,53 @@ class KursMashqRasmdanQoshishView(APIView):
             obyekt=tugun,
             obyekt_turi="KursTugun",
             obyekt_nomi=f"{tugun.nomi} (rasmdan mashq qo'shildi)",
-            snapshot={"savollar_soni": len(savollar), "rasm_soni": rasm_soni},
+            snapshot={"savollar_soni": len(savollar), "rasm_soni": rasm_soni, "wordlist_soni": sozlar_soni},
         )
         return Response(
-            {**_kurs_mashq_admin_dict(mashq), "javob_talab_qiluvchi_soni": javob_talab_soni},
+            {
+                **_kurs_mashq_admin_dict(mashq),
+                "javob_talab_qiluvchi_soni": javob_talab_soni,
+                "wordlist_soni": sozlar_soni,
+            },
             status=201,
         )
+
+
+def _sozlarni_saqla(mashq_tugun, sozlar):
+    """AI aniqlagan Wordlist so'zlarini (2026-08-03, foydalanuvchi talabi:
+    "wordlistdagi so'zlar vocabulary'ga o'tishi kerak") shu Unit'ning
+    "vocabulary" bo'limiga qo'shadi — mavjudlarga QO'SHILADI (append),
+    `KursUnitYuklashView`dagi qo'lda "wordlist" bilan bir xil qoida.
+
+    `mashq_tugun` — mashqlar (oxirgi qatlam) tuguni, uning ota-tuguni
+    (kitob — Student's Book/Workbook) ostida "vocabulary" birodar tugun
+    bor deb kutiladi (`unit_qurish.UNIT_BOLIMLARI`). Topilmasa (masalan
+    eski/qattiq tuzilmadagi bo'lim) — jimgina o'tkazib yuboriladi, xato
+    chiqarilmaydi (Wordlist so'zlari ixtiyoriy qo'shimcha, asosiy mashq
+    saqlanishini to'sib qo'ymasligi kerak)."""
+    if not sozlar:
+        return 0
+    bolalar = _unit_bolimlari(mashq_tugun.parent) if mashq_tugun.parent_id else {}
+    vocab_tugun = bolalar.get("vocabulary")
+    if not vocab_tugun:
+        return 0
+    boshlangich = vocab_tugun.sozlar.count()
+    yangilar = [
+        KursSoz(tugun=vocab_tugun, tartib=boshlangich + i, en=s["en"], uz=s["uz"])
+        for i, s in enumerate(sozlar, start=1)
+        if s.get("en") and s.get("uz")
+    ]
+    if yangilar:
+        KursSoz.objects.bulk_create(yangilar)
+    return len(yangilar)
 
 
 def _rasmni_mashqqa_aylantir(rasm_bytes):
     """`KursMashqRasmdanQoshishView` va `KursMashqQaytaYuklashView`
     ikkalasida ham bir xil AI-chaqiruv+xatolarni ushlash mantig'i —
-    muvaffaqiyat bo'lsa (sarlavha, bloklar, savollar, qutilar) qaytaradi,
-    xato bo'lsa tayyor `Response` obyektini qaytaradi (chaqiruvchi shuni
-    to'g'ridan-to'g'ri qaytarishi kifoya)."""
+    muvaffaqiyat bo'lsa (sarlavha, bloklar, savollar, qutilar, sozlar)
+    qaytaradi, xato bo'lsa tayyor `Response` obyektini qaytaradi
+    (chaqiruvchi shuni to'g'ridan-to'g'ri qaytarishi kifoya)."""
     try:
         provider = blok_provider_olish()
         natija, xato = sahifani_bloklarga_ajrat(provider, rasm_bytes)
@@ -388,10 +428,11 @@ def _rasmni_mashqqa_aylantir(rasm_bytes):
         return Response({"detail": xato}, status=400)
 
     elementlar = natija.get("elementlar") or []
-    if not elementlar:
+    sozlar = natija.get("sozlar") or []
+    if not elementlar and not sozlar:
         return Response({"detail": "Rasmdan mashq elementi topilmadi"}, status=400)
     bloklar, savollar, qutilar = bloklarni_tayyorla(elementlar)
-    return natija.get("sarlavha", ""), bloklar, savollar, qutilar
+    return natija.get("sarlavha", ""), bloklar, savollar, qutilar, sozlar
 
 
 class KursMashqQaytaYuklashView(APIView):
@@ -415,7 +456,8 @@ class KursMashqQaytaYuklashView(APIView):
         natija_yoki_xato = _rasmni_mashqqa_aylantir(rasm_bytes)
         if isinstance(natija_yoki_xato, Response):
             return natija_yoki_xato
-        sarlavha, bloklar, savollar, qutilar = natija_yoki_xato
+        sarlavha, bloklar, savollar, qutilar, sozlar = natija_yoki_xato
+        sozlar_soni = _sozlarni_saqla(mashq.tugun, sozlar)
 
         mashq.matn = sarlavha
         mashq.savollar = savollar
@@ -439,10 +481,14 @@ class KursMashqQaytaYuklashView(APIView):
             obyekt=mashq.tugun,
             obyekt_turi="KursTugun",
             obyekt_nomi=f"{mashq.tugun.nomi} (#{mashq.tartib} mashq qayta yuklandi)",
-            snapshot={"savollar_soni": len(savollar), "rasm_soni": rasm_soni},
+            snapshot={"savollar_soni": len(savollar), "rasm_soni": rasm_soni, "wordlist_soni": sozlar_soni},
         )
         return Response(
-            {**_kurs_mashq_admin_dict(mashq), "javob_talab_qiluvchi_soni": javob_talab_soni}
+            {
+                **_kurs_mashq_admin_dict(mashq),
+                "javob_talab_qiluvchi_soni": javob_talab_soni,
+                "wordlist_soni": sozlar_soni,
+            }
         )
 
 
@@ -574,7 +620,7 @@ class KursBlokSahifaView(APIView):
         # kesish (rasm-qutilarni haqiqiy rasmdan olish) esa yakunlashda
         # (`_jarayonni_yakunla`) amalga oshadi, arxiv bir marta ochilgani
         # uchun.
-        sarlavha, bloklar, savollar, qutilar, xato = None, None, None, None, None
+        sarlavha, bloklar, savollar, qutilar, sozlar, xato = None, None, None, None, None, None
         try:
             with _jarayon_arxivi(jarayon) as arxiv:
                 rasm_bytes = arxiv.read(nom)
@@ -582,7 +628,7 @@ class KursBlokSahifaView(APIView):
             if isinstance(natija_yoki_xato, Response):
                 xato = natija_yoki_xato.data.get("detail", "AI xato qaytardi")
             else:
-                sarlavha, bloklar, savollar, qutilar = natija_yoki_xato
+                sarlavha, bloklar, savollar, qutilar, sozlar = natija_yoki_xato
         except ProviderXatosi as e:
             xato = str(e)
         except Exception as e:  # noqa: BLE001 — pastdagi izohga qarang
@@ -599,6 +645,7 @@ class KursBlokSahifaView(APIView):
                 "bloklar": bloklar,
                 "savollar": savollar,
                 "qutilar": qutilar,
+                "sozlar": sozlar,
                 "xato": xato,
             }
             jarayon.natijalar = d
@@ -631,10 +678,12 @@ def _jarayonni_yakunla(jarayon, foydalanuvchi, tahrirlar=None):
     KursMashq (bloklar+savollar allaqachon `KursBlokSahifaView`da AI
     chaqiruvi bilan birga tayyorlangan) + undan kesilgan rasmlar.
 
-    2026-07-30: sodda ZIP oqimi — javob-kaliti, audio moslashtirish,
-    wordlist ajratish OLIB TASHLANDI (foydalanuvchi talabi: "ZIP ichida
-    faqat rasmlar"). Vocabulary so'zlarini kiritish uchun mavjud
-    `/api/kurslar/{pk}/unit-yuklash/` (wordlist maydoni) ishlatiladi.
+    2026-07-30: sodda ZIP oqimi — javob-kaliti, audio moslashtirish
+    OLIB TASHLANDI (foydalanuvchi talabi: "ZIP ichida faqat rasmlar").
+    Wordlist so'zlari esa 2026-08-03dan buyon HAR sahifadan AVTOMATIK
+    (`_sozlarni_saqla`) Vocabulary'ga qo'shiladi — qo'lda
+    `/api/kurslar/{pk}/unit-yuklash/` orqali kiritish endi ixtiyoriy
+    qo'shimcha (masalan AI o'tkazib yuborgan so'zlar uchun).
 
     Natijalar `tugallangan` lug'atida SAHIFA INDEKSI kaliti bilan
     saqlangan (parallel qayta ishlash tufayli tugallanish tartibi
@@ -643,7 +692,7 @@ def _jarayonni_yakunla(jarayon, foydalanuvchi, tahrirlar=None):
     mashqlar tartibi har doim sahifa tartibiga mos bo'ladi.
 
     `tahrirlar` (2026-08-03, tasdiqlash bosqichi) — ixtiyoriy
-    {indeks(str): {"sarlavha","bloklar","savollar","qutilar","otkazib_yuborilsin"}}
+    {indeks(str): {"sarlavha","bloklar","savollar","qutilar","sozlar","otkazib_yuborilsin"}}
     — admin AI natijasini ko'rib tuzatgan bo'lsa, shu qiymatlar AI
     natijasi o'RNIGA ishlatiladi (to'liq almashtirish, chunki admin
     butun blok/savol/quti ro'yxatini qayta yuboradi). `otkazib_yuborilsin`
@@ -660,7 +709,7 @@ def _jarayonni_yakunla(jarayon, foydalanuvchi, tahrirlar=None):
         if tahrir:
             if tahrir.get("otkazib_yuborilsin"):
                 continue
-            for maydon in ("sarlavha", "bloklar", "savollar", "qutilar"):
+            for maydon in ("sarlavha", "bloklar", "savollar", "qutilar", "sozlar"):
                 if maydon in tahrir:
                     t[maydon] = tahrir[maydon]
             t["xato"] = None  # admin tuzatib tasdiqlagan — xato bayrog'i olib tashlanadi
@@ -671,11 +720,16 @@ def _jarayonni_yakunla(jarayon, foydalanuvchi, tahrirlar=None):
     ]
 
     boshlangich = mashq_tugun.mashqlar.count()
-    yaratilgan_soni, rasm_soni, savol_soni = 0, 0, 0
+    yaratilgan_soni, rasm_soni, savol_soni, sozlar_soni = 0, 0, 0, 0
 
     with _jarayon_arxivi(jarayon) as arxiv:
         for t in tartiblangan:
             if t["xato"]:
+                continue
+            sozlar_soni += _sozlarni_saqla(mashq_tugun, t.get("sozlar"))
+            # Sof Wordlist sahifasi (mashq elementi yo'q) — bo'sh KursMashq
+            # yaratilmaydi, faqat yuqoridagi so'zlar saqlanadi.
+            if not t["bloklar"] and not t["qutilar"]:
                 continue
             mashq = KursMashq.objects.create(
                 tugun=mashq_tugun,
@@ -705,6 +759,7 @@ def _jarayonni_yakunla(jarayon, foydalanuvchi, tahrirlar=None):
         "yaratilgan_mashqlar": yaratilgan_soni,
         "kesilgan_rasmlar": rasm_soni,
         "baholanadigan_savollar": savol_soni,
+        "wordlist_soni": sozlar_soni,
         "xato_sahifalar": xato_sahifalar,
     }
     logla(

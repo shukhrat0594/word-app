@@ -42,11 +42,15 @@ from assessment.providers import ProviderXatosi
 LIMIT_KUTISH_SONIYA = 20
 LIMIT_URINISHLAR = 3
 
-# Bitta sahifa uchun AI so'rovi timeout'i. Writing/Speaking'da 40s
-# (`SOROV_TIMEOUT_MS`) yetardi, bu yerda esa Gemma ~125 sekund ishlaydi.
-# 240s tanlandi: gunicorn 300s'dan past (worker o'lmasin), lekin sekin
-# sahifaga ham yetarli zaxira qoladi.
-SAHIFA_TIMEOUT_MS = 240_000
+# Bitta sahifa uchun AI so'rovi timeout'i. 240s (Gemma ~125s ishlagan
+# davr uchun tanlangan edi) 2026-07-30da Claude Haiku'ga o'tilgandan keyin
+# ORTIQCHA katta qolib ketgan edi — haqiqiy so'rovlar bir necha soniyada
+# tugaydi (2026-08-03, real sinovda tasdiqlangan). Katta qiymat xavfli:
+# `_ai_sorov`ning qayta urinishi bilan birga gunicorn `timeout=300s`dan
+# OSHIB KETISHI mumkin edi (haqiqiy production xatosi — pastdagi
+# `SORQIY_BUDJET_SONIYA` izohiga qarang). 90s — real tezlikdan ancha
+# yuqori zaxira, lekin qayta urinishga ham joy qoladi.
+SAHIFA_TIMEOUT_MS = 90_000
 
 # AI'ga yuboriladigan rasm kengligi. Koordinatalar FOIZDA bo'lgani uchun
 # kichraytirish aniqlikka ta'sir qilmaydi, lekin so'rovni tezlashtiradi va
@@ -188,9 +192,23 @@ def _limit_xatosimi(xato):
     return "429" in matn or "quota" in matn or "rate" in matn or "resource_exhausted" in matn
 
 
+# 2026-08-03, haqiqiy production xatosidan keyin: qayta urinish mantig'i
+# UMUMIY so'rov vaqtini (gunicorn `timeout=300s`) hisobga OLMASDI —
+# attempt1 (429, tez) + 20s kutish + attempt2 (429, tez) + 20s kutish +
+# attempt3 (sekin, SAHIFA_TIMEOUT_MS=240s'gacha) osongina 300s'dan oshib
+# ketishi mumkin edi. Natija: gunicorn worker "o'ldirilardi", Render xom
+# (JSON'siz) xato qaytarardi, frontend esa umumiy "Xatolik yuz berdi"
+# xabarini ko'rsatardi (admin uchun sababsiz, tushunarsiz). Endi umumiy
+# vaqt shu chegaradan (xavfsizlik zaxirasi bilan) oshsa, qayta URINILMAYDI
+# — o'rniga sahifa "xato" bilan qaytadi (admin buni tasdiqlash oynasida
+# ko'radi, otkazib yuborishi yoki qayta ishlashni so'rashi mumkin).
+SORQIY_BUDJET_SONIYA = 260
+
+
 def _ai_sorov(provider, prompt, rasm_bytes, topshiriq):
-    """Rate limit (429) bo'lsa kutib qayta uradi — bepul tarifda
-    daqiqasiga ~5 sahifa chegarasi bor, ketma-ket yuborilsa uriladi."""
+    """Rate limit (429) bo'lsa kutib qayta uradi — FAQAT umumiy vaqt
+    zaxirasi (`SORQIY_BUDJET_SONIYA`) yetarli bo'lsa."""
+    boshlandi = time.monotonic()
     oxirgi = None
     for urinish in range(LIMIT_URINISHLAR):
         try:
@@ -198,16 +216,20 @@ def _ai_sorov(provider, prompt, rasm_bytes, topshiriq):
             return javob["natija"], None
         except ProviderXatosi as e:
             oxirgi = str(e)
-            if _limit_xatosimi(e) and urinish < LIMIT_URINISHLAR - 1:
-                time.sleep(LIMIT_KUTISH_SONIYA)
-                continue
-            break
         except Exception as e:  # SDK'ning kutilmagan xatolari
             oxirgi = f"{type(e).__name__}: {e}"
-            if _limit_xatosimi(e) and urinish < LIMIT_URINISHLAR - 1:
-                time.sleep(LIMIT_KUTISH_SONIYA)
-                continue
-            break
+
+        qolgan = SORQIY_BUDJET_SONIYA - (time.monotonic() - boshlandi)
+        # Yana bir urinish uchun ham kutish (LIMIT_KUTISH_SONIYA), ham
+        # o'zi (eng yomon holatda yana SAHIFA_TIMEOUT_MS'gacha) vaqt
+        # ketishi mumkin — shu ikkisiga zaxira YETARLI bo'lmasa, urinish
+        # QILINMAYDI (hisoblanmagan taxmin emas, aniq shart).
+        keyingi_urinish_zaxirasi = LIMIT_KUTISH_SONIYA + SAHIFA_TIMEOUT_MS / 1000
+        yetarlimi = qolgan > keyingi_urinish_zaxirasi
+        if _limit_xatosimi(oxirgi) and urinish < LIMIT_URINISHLAR - 1 and yetarlimi:
+            time.sleep(LIMIT_KUTISH_SONIYA)
+            continue
+        break
     return None, oxirgi or "AI yaroqli javob bermadi"
 
 

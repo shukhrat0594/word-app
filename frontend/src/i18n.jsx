@@ -24,6 +24,7 @@ const LUGAT = {
     kurs_blok_qayta_urinish: "Uzilib qoldi, qayta urinilmoqda...",
     kurs_blok_rasm: "rasm kesildi",
     kurs_blok_savol: "baholanadigan savol",
+    kurs_blok_wordlist_soz: "wordlist so'zi (Vocabulary'ga qo'shildi)",
     kurs_blok_progress: "Sahifa ishlanmoqda:",
     // --- Kurslar daraxti tugunlari (2026-07-28) ---
     // Kalit `KursTugun.kalit` bilan bir xil. Backend nomni
@@ -519,6 +520,7 @@ const LUGAT = {
     kurs_blok_qayta_urinish: "Обрыв, повтор попытки...",
     kurs_blok_rasm: "изобр. вырезано",
     kurs_blok_savol: "оцениваемых вопросов",
+    kurs_blok_wordlist_soz: "слов из Wordlist (добавлено в Vocabulary)",
     kurs_blok_progress: "Обработка страницы:",
     // --- Kurslar daraxti tugunlari (2026-07-28) ---
     // Kalit `KursTugun.kalit` bilan bir xil. Backend nomni
@@ -1014,6 +1016,7 @@ const LUGAT = {
     kurs_blok_qayta_urinish: "Connection lost, retrying...",
     kurs_blok_rasm: "images cropped",
     kurs_blok_savol: "graded questions",
+    kurs_blok_wordlist_soz: "wordlist words (added to Vocabulary)",
     kurs_blok_progress: "Processing page:",
     // --- Kurslar daraxti tugunlari (2026-07-28) ---
     // Kalit `KursTugun.kalit` bilan bir xil. Backend nomni
