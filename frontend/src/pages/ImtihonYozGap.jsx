@@ -149,38 +149,14 @@ export default function ImtihonYozGap({ bolim, manba = "admin", testId, mockYech
     setTest(null);
   }
 
-  async function tekshir() {
-    setXato("");
-    for (const qism of test.qismlar) {
-      const m = (javoblar[qism.id] || "").trim();
-      if (m.split(/\s+/).filter(Boolean).length < 20) {
-        setXato(`"${qism.sarlavha || TASK_NOMI[qism.tur]}" — ${t("matn_qisqa")}`);
-        return;
-      }
-    }
-    if (!window.confirm(t("imtihon_yakunlash_tasdiq"))) return;
-
-    setYuklanmoqda(true);
-    try {
-      const res = await api(`/api/imtihon/testlar/${test.id}/yozgap-tekshirish/`, {
-        method: "POST",
-        body: { javoblar, mock_yechim_id: mockYechimId },
-      });
-      setNatijalar(res.natijalar);
-      setUmumiyBand(res.umumiy_band);
-    } catch (e) {
-      setXato(e.data?.detail || t("xato_yuz_berdi"));
-    } finally {
-      setYuklanmoqda(false);
-    }
-  }
-
-  // 2026-07-30 talabi: Speaking — har part (Part1/2/3) ALOHIDA tekshiriladi
-  // (Writing'dagi kabi hammasi birga emas), 20-so'z sharti YO'Q (faqat
-  // bo'sh bo'lmasligi kifoya). Har part tekshirilganda paketdan alohida
-  // sarflanadi. Hammasi tekshirilgach — Mock bo'lsa umumiy bandni
-  // `mock_yakunlovchi_bandlar` orqali yakunlaymiz, aks holda mahalliy
-  // o'rtachani ko'rsatamiz.
+  // 2026-07-30 (Speaking), 2026-08-02 (Writing ham) talabi: har qism
+  // (Task1/Task2 yoki Part1/2/3) ALOHIDA tekshiriladi, hammasi birga
+  // emas. Speaking'da 20-so'z sharti YO'Q (faqat bo'sh bo'lmasligi
+  // kifoya), Writing'da backend 20 so'zdan kam bo'lsa xato qaytaradi
+  // (`ImtihonYozGapTekshirishView`). Har qism tekshirilganda paketdan
+  // alohida sarflanadi. Hammasi tekshirilgach — Mock bo'lsa umumiy
+  // bandni `mock_yakunlovchi_bandlar` orqali yakunlaymiz, aks holda
+  // mahalliy o'rtachani ko'rsatamiz.
   async function qismniTekshir(qism) {
     setXato("");
     const matn = (javoblar[qism.id] || "").trim();
@@ -278,7 +254,21 @@ export default function ImtihonYozGap({ bolim, manba = "admin", testId, mockYech
         </div>
 
         {qismNatija ? (
-          <NatijaKomponenti natija={qismNatija.natija} />
+          <>
+            {/* Foydalanuvchi talabi (2026-08-02): yozilgan/aytilgan matn
+                natija chiqqandan keyin ham ko'rinib tursin — avval
+                butunlay yashirilardi, talaba o'zi nima yozgani/deganini
+                unutib qolardi. */}
+            {javoblar[qism.id] && (
+              <div className="karta" style={{ marginBottom: 14 }}>
+                <h4>{t("sizning_javobingiz")}</h4>
+                <p className="izoh" style={{ margin: 0, whiteSpace: "pre-wrap" }}>
+                  {javoblar[qism.id]}
+                </p>
+              </div>
+            )}
+            <NatijaKomponenti natija={qismNatija.natija} />
+          </>
         ) : (
           <div className="karta">
             {bolim === "speaking" && (
@@ -320,7 +310,7 @@ export default function ImtihonYozGap({ bolim, manba = "admin", testId, mockYech
               </span>
               <button
                 className="tugma katta"
-                onClick={() => (bolim === "speaking" ? qismniTekshir(qism) : tekshir())}
+                onClick={() => qismniTekshir(qism)}
                 disabled={yuklanmoqda}
               >
                 {yuklanmoqda ? t("tekshirilmoqda") : t("tekshirish")}

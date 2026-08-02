@@ -745,6 +745,9 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
   // (Mock/Hammasi'da yo'q — qaysi turni yaratish noaniq bo'lardi).
   const [band, setBand] = useState(BAND_GURUHLAR[0]);
   const [generatsiyaBormoqda, setGeneratsiyaBormoqda] = useState(false);
+  // "Hammasi" rejimida qaysi bo'lim hozir generatsiya qilinayotgani
+  // (progress ko'rsatish uchun) — bitta bo'lim rejimida ishlatilmaydi.
+  const [generatsiyaBolimi, setGeneratsiyaBolimi] = useState("");
 
   function yukla(bolim) {
     api(`/api/imtihon/testlar-boshqaruv/?manba=${manba}${bolim ? `&bolim=${bolim}` : ""}`)
@@ -812,6 +815,30 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
     } finally {
       setGeneratsiyaBormoqda(false);
     }
+  }
+
+  // "Hammasi" filtrida — 4 turni (reading/listening/writing/speaking)
+  // KETMA-KET generatsiya qiladi (2026-08-02, foydalanuvchi talabi: bitta
+  // tugma, hammasi birga). Ketma-ket (parallel emas) — Listening TTS'ning
+  // kunlik/daqiqalik limiti bor, bir vaqtda ko'p so'rov yuborish xavfli.
+  // Birortasi xato bersa ham qolganlari davom etadi, oxirida barcha
+  // xatolar birga ko'rsatiladi.
+  async function hammasiniGeneratsiyaQil() {
+    setGeneratsiyaBormoqda(true);
+    setJsonXato("");
+    const xatolar = [];
+    for (const b of ["reading", "listening", "writing", "speaking"]) {
+      setGeneratsiyaBolimi(b);
+      try {
+        await api("/api/imtihon/mashq-generatsiya/", { method: "POST", body: { bolim: b, band } });
+      } catch (e) {
+        xatolar.push(`${t(`mashq_bolim_${b}`) || b}: ${e.data?.detail || t("xato_yuz_berdi")}`);
+      }
+    }
+    setGeneratsiyaBolimi("");
+    setGeneratsiyaBormoqda(false);
+    if (xatolar.length) setJsonXato(xatolar.join(" | "));
+    yukla(filtrBolim);
   }
 
   async function nominiSaqla(testId) {
@@ -917,9 +944,11 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
           </button>
         </div>
 
-        {/* AI generatsiya (2026-08-02) — faqat "AI mashqlari" sahifasida,
-            faqat 4 haqiqiy bo'lim tanlangan bo'lsa ("Hammasi"da yo'q). */}
-        {manba === "ai" && filtrBolim && (
+        {/* AI generatsiya (2026-08-02) — faqat "AI mashqlari" sahifasida.
+            "Hammasi" filtrida — bitta tugma bilan 4 turni ketma-ket
+            generatsiya qiladi (foydalanuvchi talabi). Bitta bo'lim
+            tanlangan bo'lsa — faqat o'shani. Mock'da yo'q (noaniq). */}
+        {manba === "ai" && filtrBolim !== "mock" && (
           <div style={{ marginBottom: 14, padding: 10, background: "var(--sirt-2)", borderRadius: 8, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             <strong style={{ fontSize: 14 }}>{t("imtihon_generatsiya")}</strong>
             <select value={band} onChange={(e) => setBand(e.target.value)} disabled={generatsiyaBormoqda}>
@@ -927,12 +956,22 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
                 <option key={b} value={b}>{t("imtihon_band")} {b}</option>
               ))}
             </select>
-            <button type="button" className="tugma" onClick={generatsiyaQil} disabled={generatsiyaBormoqda}>
-              {generatsiyaBormoqda ? t("imtihon_generatsiya_bormoqda") : t("imtihon_generatsiya_qil")}
-            </button>
+            {filtrBolim === "" ? (
+              <button type="button" className="tugma" onClick={hammasiniGeneratsiyaQil} disabled={generatsiyaBormoqda}>
+                {generatsiyaBormoqda
+                  ? `${t("imtihon_generatsiya_bormoqda")} (${t(`mashq_bolim_${generatsiyaBolimi}`) || generatsiyaBolimi})`
+                  : t("imtihon_generatsiya_hammasi_qil")}
+              </button>
+            ) : (
+              <button type="button" className="tugma" onClick={generatsiyaQil} disabled={generatsiyaBormoqda}>
+                {generatsiyaBormoqda ? t("imtihon_generatsiya_bormoqda") : t("imtihon_generatsiya_qil")}
+              </button>
+            )}
             {generatsiyaBormoqda && (
               <span className="izoh">
-                {filtrBolim === "listening" ? t("imtihon_generatsiya_listening_izoh") : t("imtihon_generatsiya_izoh")}
+                {(filtrBolim === "listening" || filtrBolim === "")
+                  ? t("imtihon_generatsiya_listening_izoh")
+                  : t("imtihon_generatsiya_izoh")}
               </span>
             )}
           </div>

@@ -1370,14 +1370,15 @@ class ImtihonYozGapTekshirishView(APIView):
         if test.bolim not in (Bolim.WRITING, Bolim.SPEAKING):
             return Response({"detail": "Bu endpoint faqat Writing/Speaking testlar uchun"}, status=400)
 
-        # 2026-07-30 talabi: Speaking'da har part ALOHIDA topshirilishi
-        # mumkin (Mock/AI mashqlari/IELTS testlari — bir xil komponent).
-        # Shuning uchun Mock'dagi umumiy bandni FAQAT hamma part alohida
-        # tekshirilib bo'lgach (frontend hisoblab) yakunlash uchun alohida
-        # yo'l — qayta AI bahosi olinmaydi, faqat MockYechim yangilanadi.
+        # 2026-07-30 (Speaking), 2026-08-02 (Writing ham) talabi: har
+        # qism ALOHIDA topshirilishi mumkin (Mock/AI mashqlari/IELTS
+        # testlari — bir xil komponent). Shuning uchun Mock'dagi umumiy
+        # bandni FAQAT hamma qism alohida tekshirilib bo'lgach (frontend
+        # hisoblab) yakunlash uchun alohida yo'l — qayta AI bahosi
+        # olinmaydi, faqat MockYechim yangilanadi.
         yakunlovchi_bandlar = request.data.get("mock_yakunlovchi_bandlar")
         if yakunlovchi_bandlar is not None:
-            if test.bolim != Bolim.SPEAKING or not isinstance(yakunlovchi_bandlar, list):
+            if not isinstance(yakunlovchi_bandlar, list):
                 return Response({"detail": "Noto'g'ri so'rov"}, status=400)
             bandlar = [b for b in yakunlovchi_bandlar if b is not None]
             umumiy_band = round(sum(bandlar) / len(bandlar) * 2) / 2 if bandlar else None
@@ -1391,16 +1392,16 @@ class ImtihonYozGapTekshirishView(APIView):
             return Response({"detail": "javoblar {qism_id: matn} lug'ati majburiy"}, status=400)
 
         qismlar_hammasi = sorted(test.qismlar.all(), key=_yozgap_qism_tartibi)
-        # Writing — Task1+Task2 birga (eskicha). Speaking — `javoblar`da
-        # kelgan qism(lar)i bilan cheklanadi, shunda har part alohida
-        # "Tekshirish" bilan yuborilishi mumkin (kamida 20 so'z sharti ham
-        # faqat Writing uchun qoladi, Speaking uchun olib tashlandi).
-        if test.bolim == Bolim.SPEAKING:
-            qismlar = [q for q in qismlar_hammasi if str(q.id) in javoblar]
-            if not qismlar:
-                return Response({"detail": "javoblar bo'sh"}, status=400)
-        else:
-            qismlar = qismlar_hammasi
+        # Writing (Task1/Task2) va Speaking (Part1/2/3) — ikkisi ham
+        # `javoblar`da kelgan qism(lar)i bilan cheklanadi, shunda har
+        # qism ALOHIDA "Tekshirish" bilan yuborilishi mumkin (2026-08-02:
+        # avval Writing majburiy IKKISINI BIRGA talab qilardi — Task 1'ni
+        # alohida tekshirsa "Task 2 uchun matn kiritilmagan" xatosi
+        # berardi, foydalanuvchi buni Speaking bilan bir xil qilishni
+        # so'radi). 20 so'z sharti pastda Writing uchun saqlanadi.
+        qismlar = [q for q in qismlar_hammasi if str(q.id) in javoblar]
+        if not qismlar:
+            return Response({"detail": "javoblar bo'sh"}, status=400)
 
         for qism in qismlar:
             matn = (javoblar.get(str(qism.id)) or "").strip()
