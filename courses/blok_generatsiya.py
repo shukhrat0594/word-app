@@ -82,11 +82,48 @@ BLOK_PROMPT = (
     '"sarlavha":"GRAMMAR SPOT","qatorlar":["I\'m = I am"]},\n'
     '  {"x1":8,"y1":68,"x2":30,"y2":73,"tur":"mashq","mashq_raqami":"3",'
     '"bolaklar":[{"matn":"Hello, I\'m "},{"bosh_joy":true,"javob":"",'
-    '"javob_turi":"erkin","band_raqami":"1"},{"matn":"."}]}\n'
+    '"javob_turi":"erkin","band_raqami":"1"},{"matn":"."}]},\n'
+    '  {"x1":5,"y1":75,"x2":50,"y2":78,"tur":"soz_banki",'
+    '"qatorlar":["a bus","an apple","a book"]},\n'
+    '  {"x1":8,"y1":80,"x2":25,"y2":90,"tur":"rasm_javobli","raqam":"1",'
+    '"mashq_raqami":"3","togri_javob":"a book"}\n'
     '],"sozlar":[{"en":"friend","uz":"do\'st"}]}\n\n'
 
     "Turlar: sarlavha | bolim_sarlavha | korsatma | matn | pufakcha | "
-    "dialog | grammar_spot | mashq | rasm\n\n"
+    "dialog | grammar_spot | mashq | rasm | soz_banki | rasm_javobli\n\n"
+
+    '- "soz_banki" — sahifada so\'zlar QUTICHALARDA/erkin joylashgan '
+    "ro'yxat sifatida berilgan bo'lsa (masalan talaba shu so'zlardan "
+    "birini rasmga mos tanlashi kerak bo'lgan mashqda) — barcha so'zlarni "
+    '"qatorlar" massiviga yozing, aynan sahifadagidek (masalan "a bus", '
+    '"an apple").\n'
+    '- "rasm_javobli" — RAQAMLANGAN rasm + uning ostida/yonida BO\'SH '
+    "javob maydoni (chiziqcha yoki quti) bo'lgan sahifalarda (masalan "
+    "1-12 raqamlangan rasmlar doira yoki panjara shaklida joylashgan, "
+    "har birining javobini \"soz_banki\"dagi so'zlardan tanlash kerak). "
+    '"raqam" — rasm ustidagi/yonidagi ko\'rinadigan raqam. "togri_javob" '
+    "— shu rasmga ENG MOS keladigan so'z (agar \"soz_banki\" mavjud "
+    "bo'lsa, ALBATTA shu ro'yxatdan tanlang, o'zingizdan to'qimang; "
+    "aks holda rasmni ko'rib eng mos ingliz so'zini yozing). Bir "
+    "sahifada shu turdagi 2+ element bo'lishi ODATIY — har birini "
+    "ALOHIDA \"rasm_javobli\" elementi sifatida yozing (bittaga "
+    "birlashtirmang), joylashuvi (doira, panjara, tartibsiz) MUHIM "
+    "EMAS — dastur ularni raqami bo'yicha o'zi tartiblab chiqadi. "
+    '"mashq_raqami" — BU YERDA HAM MAJBURIY (rasmlarning o\'zi doira/'
+    "panjara ko'rinishida bo'lgani uchun, DASTUR ularni QAYSI topshiriqqa "
+    "tegishli ekanini FAQAT shu maydondan biladi): shu rasmlar guruhi "
+    "tegishli bo'lgan yaqin atrofdagi \"korsatma\"ning \"raqam\"i bilan "
+    'BIR XIL qiymat yozing (masalan barcha 12 rasm "1 Write the words" '
+    "ostida bo'lsa, HAR BIRIGA \"mashq_raqami\":\"1\" yozing).\n"
+
+    '- "korsatma"dagi "raqam" — MUHIM, sahifa BIR NECHTA alohida '
+    "topshiriqqa (Exercise) bo'lingan bo'lsa, DASTUR shu raqam bo'yicha "
+    "topshiriqlarni ALOHIDA mashqlarga ajratadi (masalan \"1 Read and "
+    "listen\" va \"4 Complete the conversations\" — IKKI ALOHIDA mashq "
+    "bo'lib chiqadi). Shuning uchun har topshiriqning boshida ALBATTA "
+    "\"korsatma\" elementi bo'lsin va \"raqam\" sahifadagi bosilgan "
+    "raqamning O'ZI bo'lsin (to'qimang, ketma-ketlik bo'yicha ham "
+    "taxmin qilmang).\n"
 
     '- "sozlar" — FAQAT sahifa asosan "Wordlist" (yoki shunga o\'xshash '
     "so'zlar ro'yxati — ingliz so'zi + tarjimasi, ko'pincha Unit oxirida "
@@ -337,8 +374,19 @@ def _oqish_tartibi_kaliti(e):
     NOTO'G'RI tartib berardi (2026-07-29, foydalanuvchi xabar berdi):
     o'ng ustun vizual jihatdan balandroq tugasa, uning elementi (masalan
     audio belgisi) chap ustundagisidan OLDIN chiqib qolardi, garchi
-    o'qish tartibida chapdan keyin kelishi kerak bo'lsa ham."""
-    ustun = 0 if e["x1"] < 50 else 1
+    o'qish tartibida chapdan keyin kelishi kerak bo'lsa ham.
+
+    2026-08-03, HAQIQIY sinovda aniqlangan tuzatish: ustunni `x1`
+    (chap chegara) bo'yicha emas, MARKAZ ((x1+x2)/2) bo'yicha
+    aniqlaymiz. Sabab: o'ng ustunning SARLAVHA qutisi ko'pincha kengroq
+    chizilib, chap chegarasi 50%dan OLDIN boshlanib ketadi (masalan
+    "Check it" sarlavhasi x1=40, x2=100), lekin markazi baribir o'ng
+    tomonda (70) — shuning uchun markaz bo'yicha ustun har doim to'g'ri
+    aniqlanadi, `x1` bo'yicha esa bunday keng sarlavhalar chap ustunga
+    noto'g'ri qo'shilib, butun o'qish tartibini (demak mashqlarga
+    ajratishni ham) buzardi."""
+    markaz_x = (e["x1"] + e["x2"]) / 2
+    ustun = 0 if markaz_x < 50 else 1
     return (ustun, e["y1"], e["x1"])
 
 
@@ -432,28 +480,116 @@ def rasm_qatorlarini_guruhla(elementlar):
     return natija
 
 
-def bloklarni_tayyorla(elementlar):
-    """AI elementlarini BAZAGA YOZILADIGAN ko'rinishga o'tkazadi.
+def _raqam_kaliti(raqam):
+    """Saralash uchun — raqam bo'lmasa (yoki bo'sh) oxiriga tushadi."""
+    try:
+        return (0, int(raqam))
+    except (TypeError, ValueError):
+        return (1, 0)
 
-    Eng muhim qismi — BO'SH JOYLARNI YASSILASH: har bo'sh joy `savollar`
-    massiviga alohida savol bo'lib chiqadi, blok esa faqat `savol_idx`
-    orqali unga ishora qiladi. Shu tufayli mavjud javob tekshirish
-    mexanizmi (`javoblarni_tekshir`, ball, 60% qoidasi, Unit qulfi)
-    UMUMAN o'zgarmaydi.
 
-    "erkin" javoblar (talaba o'z ismini yozadi — to'g'ri javob yo'q)
-    `savollar`ga TUSHMAYDI: ular baholanmaydi (foydalanuvchi qarori),
-    blokda esa `erkin: true` bilan belgilanadi va frontend baribir input
-    ko'rsatadi.
+def _rasm_javoblarini_guruhla(elementlar):
+    """Bir nechta (2+) "rasm_javobli" elementni (raqamli rasm+javob
+    juftligi, masalan doira/panjara bo'ylab tartibsiz joylashgan 12 ta
+    rasm) bitta "rasm_javobli_grid" elementiga birlashtiradi — frontend
+    buni tekis CSS grid (2-3 ustunli) sifatida chiqaradi, AI bergan
+    joylashuvga (doira, tartibsiz) qaramay (2026-08-03 talabi).
 
-    Qaytaradi: (bloklar, savollar, rasm_qutilari)"""
-    elementlar = rasm_qatorlarini_guruhla(elementlar)
+    `rasm_qatorlarini_guruhla`dan farqi: bu yerda QATOR (y1 yaqinligi)
+    TALAB QILINMAYDI — chunki bunday mashqda rasmlar deyarli hech qachon
+    tekis qatorlarda bo'lmaydi, faqat RAQAM tartibi muhim."""
+    nomzodlar = [e for e in elementlar if e.get("tur") == "rasm_javobli"]
+    if len(nomzodlar) < 2:
+        return elementlar
+    nomzodlar = sorted(nomzodlar, key=lambda e: _raqam_kaliti(e.get("raqam")))
+    boshqalar = [e for e in elementlar if e.get("tur") != "rasm_javobli"]
+    grid = {
+        "tur": "rasm_javobli_grid",
+        "x1": min(e["x1"] for e in nomzodlar), "y1": min(e["y1"] for e in nomzodlar),
+        "x2": max(e["x2"] for e in nomzodlar), "y2": max(e["y2"] for e in nomzodlar),
+        "elementlar": nomzodlar,
+    }
+    return boshqalar + [grid]
+
+
+def _mashqlarga_ajrat(tartiblangan_elementlar):
+    """Sahifa elementlarini kitobda BOSILGAN raqam bo'yicha ALOHIDA
+    mashqlarga ajratadi (2026-08-03 talabi: "har sahifada bir nechta
+    mashq bo'lishi mumkin, hozir bittaga qo'shilib ketyabdi").
+
+    Guruhlash KALIT bo'yicha (pozitsiyaga BOG'LIQ EMAS!) — sabab,
+    HAQIQIY sinovda aniqlandi: raqamlangan-rasm mashqlari (masalan 12
+    ta rasm doira shaklida) sahifaning butun kengligini egallaydi,
+    shuning uchun O'QISH TARTIBI (chap ustun to'liq, keyin o'ng ustun)
+    ularni ikkiga bo'lib, orasiga BOSHQA mashqning "korsatma"sini
+    kiritib yuborishi mumkin. Agar chegara oldingi (ketma-ket, faqat
+    OLDINGA siljiydigan) versiyadagidek POZITSIYA bo'yicha aniqlansa,
+    shu bo'linib ketgan ikki yarim turli mashqlarga tushib qolardi
+    (aniq shu xato 2026-08-03da sinovda kuzatildi: 12 rasm 6+6 bo'lib
+    ikki mashqqa bo'linib ketdi). Shuning uchun: har elementning KALITI
+    (o'zining "korsatma.raqam"i, "rasm"/"mashq" elementlari uchun
+    "mashq_raqami"si, aks holda O'QISH TARTIBIDA oldingi kalitli
+    elementdan MEROS) — va BIR XIL kalitli elementlar QAYERDA
+    uchrashidan qat'i nazar BITTA guruhga tushadi (lug'at bo'yicha
+    to'plash, pozitsiyaga qarab ketma-ket ochish emas).
+
+    Qaytaradi: [(raqam_yoki_None, [elementlar]), ...] — guruhlar birinchi
+    marta uchragan tartibida."""
+    kalitlar_tartibi = []
+    guruhlar_lugati = {}
+    joriy_kalit = None
+    for e in tartiblangan_elementlar:
+        nomzod = e.get("raqam") if e.get("tur") == "korsatma" else e.get("mashq_raqami")
+        kalit = str(nomzod) if nomzod else joriy_kalit
+        joriy_kalit = kalit
+        if kalit not in guruhlar_lugati:
+            guruhlar_lugati[kalit] = []
+            kalitlar_tartibi.append(kalit)
+        guruhlar_lugati[kalit].append(e)
+
+    guruhlar = [(k, guruhlar_lugati[k]) for k in kalitlar_tartibi]
+
+    if len(guruhlar) > 1 and guruhlar[0][0] is None:
+        _, boshi = guruhlar.pop(0)
+        keyingi_raqam, keyingi_elementlar = guruhlar[0]
+        guruhlar[0] = (keyingi_raqam, boshi + keyingi_elementlar)
+
+    # Ko'rinish tartibi uchun raqam bo'yicha saralaymiz (2026-08-03) —
+    # kalitlar birinchi-uchragan tartibida yig'ilgani uchun (masalan
+    # o'qish-tartibi ustunlar aralashgani sabab) ba'zan [1,3,2,4] kabi
+    # chiqishi mumkin edi, garchi MAZMUNI to'g'ri bo'lsa ham (har mashq
+    # o'z to'liq tarkibiga ega). Bu FAQAT chiqish tartibi, guruhlash
+    # mantig'iga (yuqoridagi lug'at) ta'sir qilmaydi.
+    def _saralash_kaliti(guruh):
+        try:
+            return (0, int(guruh[0]))
+        except (TypeError, ValueError):
+            return (1, 0)
+
+    guruhlar.sort(key=_saralash_kaliti)
+    return guruhlar
+
+
+def _guruh_bloklarini_qur(elementlar, rasm_qutilari):
+    """`bloklarni_tayyorla`ning ASOSIY qismi — BIR mashq guruhi uchun.
+
+    `rasm_qutilari` — chaqiruvchi tomonidan berilgan, BARCHA guruhlar
+    o'rtasida UMUMIY ro'yxat (sahifada bir marta kesiladigan rasm
+    to'plami); shu funksiya unga qo'shib boradi (indekslar sahifa
+    bo'yicha GLOBAL bo'lib qoladi, keyinroq har mashq uchun LOKAL
+    indeksga o'tkaziladi — qarang `rasm_idxlarni_lokallashtir`).
+
+    Qaytaradi: (bloklar, savollar, sarlavha) — sarlavha shu guruhning
+    birinchi "korsatma"/sarlavha turidagi elementining matni (mashq.matn
+    uchun, admin ro'yxatida ko'rinadigan qisqa nom)."""
     bloklar = []
     savollar = []
-    rasm_qutilari = []
+    sarlavha = ""
 
-    for e in sorted(elementlar, key=_oqish_tartibi_kaliti):
+    for e in elementlar:
         tur = e.get("tur") or "matn"
+        if not sarlavha and tur in ("sarlavha", "bolim_sarlavha", "korsatma") and e.get("matn"):
+            sarlavha = e["matn"]
         blok = {"tur": tur}
 
         if tur == "rasm":
@@ -474,6 +610,46 @@ def bloklarni_tayyorla(elementlar):
                     "matn": it.get("matn", ""), "keng": keng,
                 })
             blok["qator"] = itemlar
+            bloklar.append(blok)
+            continue
+
+        if tur == "soz_banki":
+            qatorlar = [str(s).strip() for s in (e.get("qatorlar") or []) if str(s).strip()]
+            if not qatorlar:
+                continue
+            blok["qatorlar"] = qatorlar
+            bloklar.append(blok)
+            continue
+
+        if tur == "rasm_javobli":
+            rasm_idx = len(rasm_qutilari)
+            rasm_qutilari.append({k: e[k] for k in ("x1", "y1", "x2", "y2")})
+            blok["rasm_idx"] = rasm_idx
+            blok["raqam"] = e.get("raqam", "")
+            blok["savol_idx"] = len(savollar)
+            savollar.append({
+                "savol": f"{e.get('raqam', '')}-rasm",
+                "togri": str(e.get("togri_javob") or "").strip(),
+                "mashq_raqami": e.get("mashq_raqami", ""),
+                "band_raqami": e.get("raqam", ""),
+            })
+            bloklar.append(blok)
+            continue
+
+        if tur == "rasm_javobli_grid":
+            itemlar = []
+            for it in e.get("elementlar", []):
+                rasm_idx = len(rasm_qutilari)
+                rasm_qutilari.append({k: it[k] for k in ("x1", "y1", "x2", "y2")})
+                savol_idx = len(savollar)
+                savollar.append({
+                    "savol": f"{it.get('raqam', '')}-rasm",
+                    "togri": str(it.get("togri_javob") or "").strip(),
+                    "mashq_raqami": it.get("mashq_raqami", ""),
+                    "band_raqami": it.get("raqam", ""),
+                })
+                itemlar.append({"rasm_idx": rasm_idx, "raqam": it.get("raqam", ""), "savol_idx": savol_idx})
+            blok["itemlar"] = itemlar
             bloklar.append(blok)
             continue
 
@@ -519,7 +695,77 @@ def bloklarni_tayyorla(elementlar):
         if len(blok) > 1:  # "tur" dan boshqa hech narsa bo'lmasa — tashlaymiz
             bloklar.append(blok)
 
-    return bloklar, savollar, rasm_qutilari
+    return bloklar, savollar, sarlavha
+
+
+def rasm_idxlarni_lokallashtir(bloklar):
+    """`bloklarni_tayyorla` GLOBAL (butun sahifa bo'yicha) rasm_idx
+    beradi — bir sahifada bir necha mashq bo'lgani uchun (2026-08-03).
+    Har MASHQ o'zining `KursMashqRasmi` ro'yxatiga ega bo'lishi kerak
+    (0dan boshlanadigan LOKAL indeks), aks holda frontend/admin rendering
+    (`blok.rasm_idx` -> `mashq.rasmlar[idx]`) noto'g'ri rasmga ishora
+    qiladi. Shu funksiya bloklarni JOYIDA (in-place) LOKAL indeksga
+    o'tkazadi va GLOBAL indekslarni LOKAL tartibda qaytaradi — chaqiruvchi
+    shu ro'yxat asosida haqiqiy rasmlarni kesib, tartib=lokal_idx bilan
+    saqlaydi."""
+    xarita = {}
+
+    def yangi_idx(global_idx):
+        if global_idx not in xarita:
+            xarita[global_idx] = len(xarita)
+        return xarita[global_idx]
+
+    for blok in bloklar:
+        if "rasm_idx" in blok:
+            blok["rasm_idx"] = yangi_idx(blok["rasm_idx"])
+        for maydon in ("qator", "itemlar"):
+            for it in blok.get(maydon) or []:
+                if "rasm_idx" in it:
+                    it["rasm_idx"] = yangi_idx(it["rasm_idx"])
+
+    natija = [None] * len(xarita)
+    for global_idx, lokal_idx in xarita.items():
+        natija[lokal_idx] = global_idx
+    return natija
+
+
+def bloklarni_tayyorla(elementlar):
+    """AI elementlarini BAZAGA YOZILADIGAN ko'rinishga o'tkazadi.
+
+    2026-08-03: sahifa endi BIR EMAS, bir nechta mashqqa bo'linadi
+    (`_mashqlarga_ajrat` — kitobda bosilgan raqam bo'yicha, masalan
+    "1 Read and listen" va "4 Complete the conversations" ALOHIDA
+    mashq bo'lib chiqadi, avvalgi versiyada ikkisi bitta mashqqa
+    qo'shilib ketardi).
+
+    Eng muhim qismi — BO'SH JOYLARNI YASSILASH: har bo'sh joy `savollar`
+    massiviga alohida savol bo'lib chiqadi, blok esa faqat `savol_idx`
+    orqali unga ishora qiladi. Shu tufayli mavjud javob tekshirish
+    mexanizmi (`javoblarni_tekshir`, ball, 60% qoidasi, Unit qulfi)
+    UMUMAN o'zgarmaydi.
+
+    "erkin" javoblar (talaba o'z ismini yozadi — to'g'ri javob yo'q)
+    `savollar`ga TUSHMAYDI: ular baholanmaydi (foydalanuvchi qarori),
+    blokda esa `erkin: true` bilan belgilanadi va frontend baribir input
+    ko'rsatadi.
+
+    Qaytaradi: (mashqlar, rasm_qutilari) — `mashqlar` har biri
+    {"raqam", "sarlavha", "bloklar", "savollar"} (rasm_idx HALI GLOBAL,
+    `rasm_idxlarni_lokallashtir` chaqirilmaguncha), `rasm_qutilari` —
+    BUTUN sahifa bo'yicha umumiy (global indeks bilan)."""
+    tartiblangan = sorted(elementlar, key=_oqish_tartibi_kaliti)
+    rasm_qutilari = []
+    mashqlar = []
+    for raqam, guruh in _mashqlarga_ajrat(tartiblangan):
+        guruh = rasm_qatorlarini_guruhla(guruh)
+        guruh = _rasm_javoblarini_guruhla(guruh)
+        guruh = sorted(guruh, key=_oqish_tartibi_kaliti)
+        bloklar, savollar, sarlavha = _guruh_bloklarini_qur(guruh, rasm_qutilari)
+        if not bloklar:
+            continue
+        mashqlar.append({"raqam": raqam, "sarlavha": sarlavha, "bloklar": bloklar, "savollar": savollar})
+
+    return mashqlar, rasm_qutilari
 
 
 def _savol_matni(bolaklar):

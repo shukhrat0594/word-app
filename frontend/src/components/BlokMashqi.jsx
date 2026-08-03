@@ -44,6 +44,26 @@ function AudioBelgi({ raqam, faolRaqam, ijro, tanla }) {
   );
 }
 
+/** Bitta rasm + uning javob maydoni (2026-08-03, "so'z banki + raqamlangan
+ * rasmlar" mashqi) — "rasm_javobli" (yagona) va "rasm_javobli_grid"
+ * (panjara) ikkisida ham qayta ishlatiladi. */
+function RasmJavobKartasi({ url, raqam, savolIdx, javoblar, javobniQoy, blokNatija }) {
+  const holat = blokNatija ? (blokNatija.natijalar[savolIdx] ? "togri" : "notogri") : "";
+  return (
+    <div className="blok-rasm-javobli-karta">
+      {raqam && <div className="blok-rasm-javobli-raqam">{raqam}</div>}
+      {url && <img className="blok-rasm" src={url} alt="" />}
+      <input
+        {...IMLO_OFF}
+        className={`blok-bosh-joy ${holat}`}
+        value={javoblar[savolIdx] || ""}
+        disabled={!!blokNatija}
+        onChange={(e) => javobniQoy(savolIdx, e.target.value)}
+      />
+    </div>
+  );
+}
+
 function Bolaklar({ bolaklar, javoblar, javobniQoy, blokNatija }) {
   return (
     <>
@@ -139,6 +159,83 @@ function Blok({ blok, blokIdx, rasmUrllar, faolRaqam, ijro, audioTanla, javoblar
       );
     case "pufakcha":
       return <div className="blok-pufakcha">{blok.matn}</div>;
+    case "soz_banki":
+      return (
+        <div className="blok-soz-banki">
+          {(blok.qatorlar || []).map((s, k) => <span key={k}>{s}</span>)}
+        </div>
+      );
+    case "rasm_javobli": {
+      const blokNatija = blokNatijalar[blokIdx];
+      return (
+        <div className="blok-mashq-blok">
+          <RasmJavobKartasi
+            url={rasmUrllar[blok.rasm_idx]}
+            raqam={blok.raqam}
+            savolIdx={blok.savol_idx}
+            javoblar={javoblar}
+            javobniQoy={javobniQoy}
+            blokNatija={blokNatija}
+          />
+          <div className="blok-rasm-javobli-tek">
+            {blokNatija ? (
+              <div className="izoh blok-mashq-natija">
+                {blokNatija.natijalar[blok.savol_idx] ? "✓" : "✗"} {t("togri")}
+              </div>
+            ) : (
+              <button
+                type="button"
+                className="tugma ikkinchi kichik"
+                onClick={() => tekshir(blokIdx, [blok.savol_idx])}
+                disabled={yuborilayotganBlok === blokIdx}
+              >
+                {yuborilayotganBlok === blokIdx ? t("tekshirilmoqda") : t("tekshirish")}
+              </button>
+            )}
+          </div>
+        </div>
+      );
+    }
+    case "rasm_javobli_grid": {
+      const itemlar = blok.itemlar || [];
+      const savolIdxlari = itemlar.map((it) => it.savol_idx);
+      const blokNatija = blokNatijalar[blokIdx];
+      return (
+        <div className="blok-mashq-blok">
+          <div className="blok-rasm-javobli-grid">
+            {itemlar.map((it, k) => (
+              <RasmJavobKartasi
+                key={k}
+                url={rasmUrllar[it.rasm_idx]}
+                raqam={it.raqam}
+                savolIdx={it.savol_idx}
+                javoblar={javoblar}
+                javobniQoy={javobniQoy}
+                blokNatija={blokNatija}
+              />
+            ))}
+          </div>
+          {savolIdxlari.length > 0 && (
+            <div className="blok-rasm-javobli-tek">
+              {blokNatija ? (
+                <div className="izoh blok-mashq-natija">
+                  {savolIdxlari.filter((i) => blokNatija.natijalar[i]).length}/{savolIdxlari.length} {t("togri")}
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className="tugma ikkinchi kichik"
+                  onClick={() => tekshir(blokIdx, savolIdxlari)}
+                  disabled={yuborilayotganBlok === blokIdx}
+                >
+                  {yuborilayotganBlok === blokIdx ? t("tekshirilmoqda") : t("tekshirish")}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      );
+    }
     case "mashq": {
       const bolaklar = blok.bolaklar || [];
       const savolIdxlari = bolaklar.filter((b) => b.bosh_joy && !b.erkin).map((b) => b.savol_idx);

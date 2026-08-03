@@ -38,6 +38,7 @@ from audit.utils import logla
 from .blok_generatsiya import (
     blok_provider_olish,
     bloklarni_tayyorla,
+    rasm_idxlarni_lokallashtir,
     rasmni_kes,
     sahifani_bloklarga_ajrat,
 )
@@ -328,11 +329,21 @@ class KursBlokJarayonHolatiView(APIView):
         sahifalardan yaratilgan mashqlar (agar bo'lsa) saqlanib qoladi."""
         if not _mashq_admin_mi(request.user):
             return Response({"detail": "Faqat admin/owner uchun"}, status=403)
-        soni, _ = (
-            KursZipJarayoni.objects.filter(tugun_id=pk)
-            .exclude(holat=KursZipJarayoni.Holat.TUGADI)
-            .delete()
+        # 2026-08-03: keshni o'chirishdan OLDIN tozalaymiz — aks holda
+        # vaqtinchalik mahalliy nusxa (`_jarayon_kesh_yoli`) doim qoladi
+        # (avval faqat MUVAFFAQIYATLI yakunlangandagina tozalanardi).
+        # Haqiqiy xavf: SQLite'da (rivojlanish muhitida) o'chirilgan
+        # jarayon ID'si keyinroq QAYTA ishlatilishi mumkin — shu holda
+        # yangi jarayon eski (butunlay boshqa fayl) keshini "topib",
+        # noto'g'ri ma'lumot bilan ishlab ketishi mumkin edi (2026-08-03,
+        # xuddi shu xato sinovda amalda kuzatildi).
+        jarayonlar = list(
+            KursZipJarayoni.objects.filter(tugun_id=pk).exclude(holat=KursZipJarayoni.Holat.TUGADI)
         )
+        for j in jarayonlar:
+            _jarayon_keshini_tozala(j)
+        soni = len(jarayonlar)
+        KursZipJarayoni.objects.filter(pk__in=[j.pk for j in jarayonlar]).delete()
         return Response({"bekor_qilindi": soni})
 
 
@@ -366,43 +377,38 @@ class KursMashqRasmdanQoshishView(APIView):
         natija_yoki_xato = _rasmni_mashqqa_aylantir(rasm_bytes)
         if isinstance(natija_yoki_xato, Response):
             return natija_yoki_xato
-        sarlavha, bloklar, savollar, qutilar, sozlar = natija_yoki_xato
+        mashqlar_data, qutilar, sozlar = natija_yoki_xato
         sozlar_soni = _sozlarni_saqla(tugun, sozlar)
 
         # Sof Wordlist sahifasi (mashq elementi yo'q, faqat so'zlar) — bo'sh
         # KursMashq yaratmaymiz, faqat so'zlar Vocabulary'ga qo'shiladi.
-        if not bloklar and not qutilar:
-            return Response({"wordlist_soni": sozlar_soni}, status=201)
+        if not mashqlar_data:
+            return Response({"yaratilgan_mashqlar": 0, "wordlist_soni": sozlar_soni}, status=201)
 
         boshlangich = tugun.mashqlar.count()
-        mashq = KursMashq.objects.create(
-            tugun=tugun,
-            tartib=boshlangich + 1,
-            matn=sarlavha,
-            savollar=savollar,
-            bloklar=bloklar,
-        )
-        rasm_soni = 0
-        for tartib, quti in enumerate(qutilar):
-            kesilgan = rasmni_kes(rasm_bytes, quti)
-            if not kesilgan:
-                continue
-            yozuv = KursMashqRasmi(mashq=mashq, tartib=tartib)
-            yozuv.rasm.save(f"{mashq.id}_{tartib}.jpg", ContentFile(kesilgan), save=True)
-            rasm_soni += 1
+        yaratilgan_soni, rasm_soni, savol_soni, javob_talab_soni = 0, 0, 0, 0
+        for i, mashq_data in enumerate(mashqlar_data, start=1):
+            tartib = _mashq_tartibini_aniqla(mashq_data["raqam"], boshlangich + i)
+            mashq, r_soni = _mashqni_saqla(tugun, tartib, mashq_data, rasm_bytes, qutilar)
+            yaratilgan_soni += 1
+            rasm_soni += r_soni
+            savol_soni += len(mashq_data["savollar"])
+            javob_talab_soni += sum(1 for s in mashq_data["savollar"] if not s.get("togri"))
 
-        javob_talab_soni = sum(1 for s in savollar if not s.get("togri"))
         logla(
             foydalanuvchi=request.user,
             harakat=FaoliyatYozuvi.Harakat.YARATISH,
             obyekt=tugun,
             obyekt_turi="KursTugun",
             obyekt_nomi=f"{tugun.nomi} (rasmdan mashq qo'shildi)",
-            snapshot={"savollar_soni": len(savollar), "rasm_soni": rasm_soni, "wordlist_soni": sozlar_soni},
+            snapshot={
+                "mashqlar_soni": yaratilgan_soni, "savollar_soni": savol_soni,
+                "rasm_soni": rasm_soni, "wordlist_soni": sozlar_soni,
+            },
         )
         return Response(
             {
-                **_kurs_mashq_admin_dict(mashq),
+                "yaratilgan_mashqlar": yaratilgan_soni,
                 "javob_talab_qiluvchi_soni": javob_talab_soni,
                 "wordlist_soni": sozlar_soni,
             },
@@ -442,9 +448,14 @@ def _sozlarni_saqla(mashq_tugun, sozlar):
 def _rasmni_mashqqa_aylantir(rasm_bytes):
     """`KursMashqRasmdanQoshishView` va `KursMashqQaytaYuklashView`
     ikkalasida ham bir xil AI-chaqiruv+xatolarni ushlash mantig'i —
-    muvaffaqiyat bo'lsa (sarlavha, bloklar, savollar, qutilar, sozlar)
-    qaytaradi, xato bo'lsa tayyor `Response` obyektini qaytaradi
-    (chaqiruvchi shuni to'g'ridan-to'g'ri qaytarishi kifoya)."""
+    muvaffaqiyat bo'lsa (mashqlar, qutilar, sozlar) qaytaradi, xato
+    bo'lsa tayyor `Response` obyektini qaytaradi (chaqiruvchi shuni
+    to'g'ridan-to'g'ri qaytarishi kifoya).
+
+    2026-08-03: `mashqlar` endi RO'YXAT — bitta sahifada bir nechta
+    alohida (kitobda bosilgan raqami bilan) mashq bo'lishi mumkin,
+    avvalgi versiyada hammasi bittaga qo'shilib ketardi (foydalanuvchi
+    talabi: "har bir sahifada bir nechta mashq bo'lishi mumkin")."""
     try:
         provider = blok_provider_olish()
         natija, xato = sahifani_bloklarga_ajrat(provider, rasm_bytes)
@@ -459,15 +470,60 @@ def _rasmni_mashqqa_aylantir(rasm_bytes):
     sozlar = natija.get("sozlar") or []
     if not elementlar and not sozlar:
         return Response({"detail": "Rasmdan mashq elementi topilmadi"}, status=400)
-    bloklar, savollar, qutilar = bloklarni_tayyorla(elementlar)
-    return natija.get("sarlavha", ""), bloklar, savollar, qutilar, sozlar
+    mashqlar, qutilar = bloklarni_tayyorla(elementlar)
+    return mashqlar, qutilar, sozlar
+
+
+def _mashqni_saqla(tugun, tartib, mashq_data, rasm_bytes, qutilar):
+    """Bitta mashq guruhini (`bloklarni_tayyorla` natijasidan) haqiqiy
+    `KursMashq` + kesilgan `KursMashqRasmi`larga aylantiradi (2026-08-03).
+
+    Rasm indekslari bu guruhda HALI GLOBAL (butun sahifa bo'yicha) —
+    `rasm_idxlarni_lokallashtir` ularni shu MASHQGA XOS lokal (0dan
+    boshlanadigan) indeksga o'tkazadi, aks holda admin/talaba
+    ko'rinishida (`blok.rasm_idx` -> `mashq.rasmlar[idx]`) boshqa
+    mashqning surati chiqib qolishi mumkin edi."""
+    bloklar = mashq_data["bloklar"]
+    global_idxlar = rasm_idxlarni_lokallashtir(bloklar)
+    mashq = KursMashq.objects.create(
+        tugun=tugun,
+        tartib=tartib,
+        matn=mashq_data["sarlavha"] or "",
+        savollar=mashq_data["savollar"],
+        bloklar=bloklar,
+    )
+    rasm_soni = 0
+    for lokal_idx, global_idx in enumerate(global_idxlar):
+        kesilgan = rasmni_kes(rasm_bytes, qutilar[global_idx])
+        if not kesilgan:
+            continue
+        yozuv = KursMashqRasmi(mashq=mashq, tartib=lokal_idx)
+        yozuv.rasm.save(f"{mashq.id}_{lokal_idx}.jpg", ContentFile(kesilgan), save=True)
+        rasm_soni += 1
+    return mashq, rasm_soni
+
+
+def _mashq_tartibini_aniqla(raqam, boshlangich):
+    """Kitobda bosilgan raqamning O'ZI `tartib` sifatida ishlatiladi
+    (2026-08-03 talabi: "mashq raqamini mashqning o'zidan olsin") —
+    raqam yo'q/parse qilinmasa, ketma-ket (`boshlangich`dan) tushadi."""
+    try:
+        return int(raqam)
+    except (TypeError, ValueError):
+        return boshlangich
 
 
 class KursMashqQaytaYuklashView(APIView):
     """2026-07-30 talabi: mavjud mashqni YANGI rasm bilan ALMASHTIRADI —
     "Rasm orqali mashq qo'shish" bilan bir xil AI tahlili, lekin YANGI
     mashq yaratish o'rniga MAVJUD mashqning bloklari/savollari/kesilgan
-    suratlari almashtiriladi (id/tartib — ro'yxatdagi o'rni — o'zgarmaydi)."""
+    suratlari almashtiriladi (id/tartib — ro'yxatdagi o'rni — o'zgarmaydi).
+
+    2026-08-03: yangi rasm/sahifa BIR NECHTA mashq elementiga ega bo'lsa
+    (masalan tuzatilgan rasm avval bittaga qo'shilib ketgan 2 mashqni
+    endi to'g'ri ajratsa) — BIRINCHISI mavjud `mashq`ni almashtiradi,
+    QOLGANLARI esa yangi alohida `KursMashq` sifatida QO'SHILADI (hech
+    narsa yo'qolib qolmasin)."""
 
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
@@ -484,38 +540,59 @@ class KursMashqQaytaYuklashView(APIView):
         natija_yoki_xato = _rasmni_mashqqa_aylantir(rasm_bytes)
         if isinstance(natija_yoki_xato, Response):
             return natija_yoki_xato
-        sarlavha, bloklar, savollar, qutilar, sozlar = natija_yoki_xato
+        mashqlar_data, qutilar, sozlar = natija_yoki_xato
         sozlar_soni = _sozlarni_saqla(mashq.tugun, sozlar)
 
-        mashq.matn = sarlavha
-        mashq.savollar = savollar
+        if not mashqlar_data:
+            return Response({"detail": "Rasmdan mashq elementi topilmadi"}, status=400)
+
+        birinchi, qolganlar = mashqlar_data[0], mashqlar_data[1:]
+        bloklar = birinchi["bloklar"]
+        global_idxlar = rasm_idxlarni_lokallashtir(bloklar)
+
+        mashq.matn = birinchi["sarlavha"] or ""
+        mashq.savollar = birinchi["savollar"]
         mashq.bloklar = bloklar
         mashq.save(update_fields=["matn", "savollar", "bloklar"])
 
         mashq.rasmlar.all().delete()  # eski kesilgan suratlar — yangi rasmga mos emas
         rasm_soni = 0
-        for tartib, quti in enumerate(qutilar):
-            kesilgan = rasmni_kes(rasm_bytes, quti)
+        for lokal_idx, global_idx in enumerate(global_idxlar):
+            kesilgan = rasmni_kes(rasm_bytes, qutilar[global_idx])
             if not kesilgan:
                 continue
-            yozuv = KursMashqRasmi(mashq=mashq, tartib=tartib)
-            yozuv.rasm.save(f"{mashq.id}_{tartib}.jpg", ContentFile(kesilgan), save=True)
+            yozuv = KursMashqRasmi(mashq=mashq, tartib=lokal_idx)
+            yozuv.rasm.save(f"{mashq.id}_{lokal_idx}.jpg", ContentFile(kesilgan), save=True)
             rasm_soni += 1
 
-        javob_talab_soni = sum(1 for s in savollar if not s.get("togri"))
+        savol_soni = len(birinchi["savollar"])
+        qoshimcha_mashqlar = 0
+        boshlangich = mashq.tugun.mashqlar.count()
+        for i, mashq_data in enumerate(qolganlar, start=1):
+            tartib = _mashq_tartibini_aniqla(mashq_data["raqam"], boshlangich + i)
+            _, r_soni = _mashqni_saqla(mashq.tugun, tartib, mashq_data, rasm_bytes, qutilar)
+            qoshimcha_mashqlar += 1
+            rasm_soni += r_soni
+            savol_soni += len(mashq_data["savollar"])
+
+        javob_talab_soni = sum(1 for s in birinchi["savollar"] if not s.get("togri"))
         logla(
             foydalanuvchi=request.user,
             harakat=FaoliyatYozuvi.Harakat.OZGARTIRISH,
             obyekt=mashq.tugun,
             obyekt_turi="KursTugun",
             obyekt_nomi=f"{mashq.tugun.nomi} (#{mashq.tartib} mashq qayta yuklandi)",
-            snapshot={"savollar_soni": len(savollar), "rasm_soni": rasm_soni, "wordlist_soni": sozlar_soni},
+            snapshot={
+                "savollar_soni": savol_soni, "rasm_soni": rasm_soni,
+                "wordlist_soni": sozlar_soni, "qoshimcha_mashqlar": qoshimcha_mashqlar,
+            },
         )
         return Response(
             {
                 **_kurs_mashq_admin_dict(mashq),
                 "javob_talab_qiluvchi_soni": javob_talab_soni,
                 "wordlist_soni": sozlar_soni,
+                "qoshimcha_mashqlar": qoshimcha_mashqlar,
             }
         )
 
@@ -593,6 +670,7 @@ class KursBlokSahifaView(APIView):
                     tiqilgan_fayllar = [
                         oddiy[idx].rsplit("/", 1)[-1] for idx in sorted(tiqilib_qolgan)
                     ]
+                    _jarayon_keshini_tozala(jarayon)  # 2026-08-03: pastdagi izohga qarang
                     jarayon.delete()
                     return Response(
                         {
@@ -648,7 +726,7 @@ class KursBlokSahifaView(APIView):
         # kesish (rasm-qutilarni haqiqiy rasmdan olish) esa yakunlashda
         # (`_jarayonni_yakunla`) amalga oshadi, arxiv bir marta ochilgani
         # uchun.
-        sarlavha, bloklar, savollar, qutilar, sozlar, xato = None, None, None, None, None, None
+        mashqlar, qutilar, sozlar, xato = None, None, None, None
         try:
             with _jarayon_arxivi(jarayon) as arxiv:
                 rasm_bytes = arxiv.read(nom)
@@ -656,7 +734,7 @@ class KursBlokSahifaView(APIView):
             if isinstance(natija_yoki_xato, Response):
                 xato = natija_yoki_xato.data.get("detail", "AI xato qaytardi")
             else:
-                sarlavha, bloklar, savollar, qutilar, sozlar = natija_yoki_xato
+                mashqlar, qutilar, sozlar = natija_yoki_xato
         except ProviderXatosi as e:
             xato = str(e)
         except Exception as e:  # noqa: BLE001 — pastdagi izohga qarang
@@ -667,11 +745,11 @@ class KursBlokSahifaView(APIView):
         with transaction.atomic():
             jarayon = KursZipJarayoni.objects.select_for_update().get(pk=pk)
             d = jarayon.natijalar
+            # 2026-08-03: "mashqlar" — RO'YXAT (bitta sahifada bir nechta
+            # alohida mashq bo'lishi mumkin, `bloklarni_tayyorla`ga qarang).
             d.setdefault("tugallangan", {})[str(indeks)] = {
                 "fayl": nom,
-                "sarlavha": sarlavha,
-                "bloklar": bloklar,
-                "savollar": savollar,
+                "mashqlar": mashqlar,
                 "qutilar": qutilar,
                 "sozlar": sozlar,
                 "xato": xato,
@@ -720,10 +798,11 @@ def _jarayonni_yakunla(jarayon, foydalanuvchi, tahrirlar=None):
     mashqlar tartibi har doim sahifa tartibiga mos bo'ladi.
 
     `tahrirlar` (2026-08-03, tasdiqlash bosqichi) — ixtiyoriy
-    {indeks(str): {"sarlavha","bloklar","savollar","qutilar","sozlar","otkazib_yuborilsin"}}
+    {indeks(str): {"mashqlar","qutilar","sozlar","otkazib_yuborilsin"}}
     — admin AI natijasini ko'rib tuzatgan bo'lsa, shu qiymatlar AI
     natijasi o'RNIGA ishlatiladi (to'liq almashtirish, chunki admin
-    butun blok/savol/quti ro'yxatini qayta yuboradi). `otkazib_yuborilsin`
+    butun ro'yxatni qayta yuboradi — masalan bitta mashqni olib tashlash
+    uchun "mashqlar"ni shu mashqsiz qayta yuboradi). `otkazib_yuborilsin`
     — sahifa umuman yaroqsiz deb topilsa, mashq yaratilmaydi."""
     tahrirlar = tahrirlar or {}
     d = jarayon.natijalar
@@ -737,7 +816,7 @@ def _jarayonni_yakunla(jarayon, foydalanuvchi, tahrirlar=None):
         if tahrir:
             if tahrir.get("otkazib_yuborilsin"):
                 continue
-            for maydon in ("sarlavha", "bloklar", "savollar", "qutilar", "sozlar"):
+            for maydon in ("mashqlar", "qutilar", "sozlar"):
                 if maydon in tahrir:
                     t[maydon] = tahrir[maydon]
             t["xato"] = None  # admin tuzatib tasdiqlagan — xato bayrog'i olib tashlanadi
@@ -755,29 +834,20 @@ def _jarayonni_yakunla(jarayon, foydalanuvchi, tahrirlar=None):
             if t["xato"]:
                 continue
             sozlar_soni += _sozlarni_saqla(mashq_tugun, t.get("sozlar"))
-            # Sof Wordlist sahifasi (mashq elementi yo'q) — bo'sh KursMashq
-            # yaratilmaydi, faqat yuqoridagi so'zlar saqlanadi.
-            if not t["bloklar"] and not t["qutilar"]:
-                continue
-            mashq = KursMashq.objects.create(
-                tugun=mashq_tugun,
-                tartib=boshlangich + yaratilgan_soni + 1,
-                matn=t["sarlavha"] or "",
-                savollar=t["savollar"] or [],
-                bloklar=t["bloklar"] or [],
-            )
-            savol_soni += len(t["savollar"] or [])
-
-            rasm_bytes = arxiv.read(t["fayl"])
-            for tartib, quti in enumerate(t["qutilar"] or []):
-                kesilgan = rasmni_kes(rasm_bytes, quti)
-                if not kesilgan:
+            qutilar = t.get("qutilar") or []
+            rasm_bytes = arxiv.read(t["fayl"]) if qutilar else None
+            for mashq_data in t.get("mashqlar") or []:
+                # Sof Wordlist mashqi (bloklar yo'q) — bo'sh KursMashq
+                # yaratilmaydi, faqat yuqoridagi so'zlar saqlanadi.
+                if not mashq_data.get("bloklar"):
                     continue
-                yozuv = KursMashqRasmi(mashq=mashq, tartib=tartib)
-                yozuv.rasm.save(f"{mashq.id}_{tartib}.jpg", ContentFile(kesilgan), save=True)
-                rasm_soni += 1
-
-            yaratilgan_soni += 1
+                tartib = _mashq_tartibini_aniqla(
+                    mashq_data.get("raqam"), boshlangich + yaratilgan_soni + 1
+                )
+                mashq, r_soni = _mashqni_saqla(mashq_tugun, tartib, mashq_data, rasm_bytes, qutilar)
+                savol_soni += len(mashq_data["savollar"])
+                rasm_soni += r_soni
+                yaratilgan_soni += 1
 
     jarayon.holat = KursZipJarayoni.Holat.TUGADI
     jarayon.save(update_fields=["holat"])
@@ -847,10 +917,9 @@ class KursBlokTasdiqlashView(APIView):
     tuzatgan) natijani YAKUNIY deb tasdiqlaydi — shundagina rasm kesish
     va `KursMashq` yaratish (`_jarayonni_yakunla`) amalga oshadi.
 
-    Body: {"tahrirlar": {indeks(str): {sarlavha?, bloklar?, savollar?,
-    qutilar?, otkazib_yuborilsin?}}} — faqat ADMIN o'zgartirgan
-    sahifalar uchun kalit yuboriladi, qolganlari AI natijasi bilan
-    ishlatiladi."""
+    Body: {"tahrirlar": {indeks(str): {mashqlar?, qutilar?, sozlar?,
+    otkazib_yuborilsin?}}} — faqat ADMIN o'zgartirgan sahifalar uchun
+    kalit yuboriladi, qolganlari AI natijasi bilan ishlatiladi."""
 
     permission_classes = [IsAuthenticated]
 
