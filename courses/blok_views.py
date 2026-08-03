@@ -83,6 +83,26 @@ def _jarayon_kesh_yoli(jarayon):
     return yol / f"{jarayon.id}.zip"
 
 
+# PDF sahifasi render qilinadigan NISHON kenglik (piksel). 2026-08-03,
+# haqiqiy production OOM'idan keyin qo'shildi — avval `scale=2.0` (qattiq
+# ko'paytuvchi) ishlatilardi va foydalanuvchining darsligida bu 3072x3872
+# (11.9 megapiksel) bergan: xom RGB 34 MB, pdfium BGRA bitmap yana ~47 MB.
+# Frontend bir vaqtda 3 sahifa yuborgani uchun (`PARALLEL_SAHIFA_SONI`)
+# bu ~250-350 MB'ni tashkil qilardi va 512 MB'lik Render instansida
+# (Django o'zi ~150-200 MB) xotira tugab, gunicorn worker o'lardi —
+# frontend esa faqat umumiy "Xatolik yuz berdi"ni ko'rsatardi (JSON'siz
+# 502). Bundan tashqari bunday katta render ORTIQCHA ham edi: `tor_chiz`
+# rasmni baribir `AI_RASM_KENGLIGI` (1000px) gacha, `rasmni_kes` esa
+# `DRAFT_CHEGARA` (1600px) gacha kichraytiradi — ya'ni 1600px'dan
+# kattasi hech qayerda ishlatilmaydi. Nishon kenglik (qattiq scale emas)
+# tanlandi, chunki turli PDF'larda sahifa o'lchami har xil.
+#
+# 2200 — o'lchangan muvozanat: xom RGB ~18 MB (avvalgi 34 MB'ning yarmi,
+# `PARALLEL_SAHIFA_SONI` 1ga tushirilgani bilan birga xavfsiz), lekin
+# kesilgan suratlar 1700px'dagidan sezilarli o'tkirroq chiqadi.
+PDF_NISHON_KENGLIK = 2200
+
+
 class _PdfManbaWrapper:
     """`zipfile.ZipFile`ning `.read(nom)` interfeysini PDF uchun taqlid
     qiladi (2026-08-03) — shu tufayli `_jarayon_arxivi`dan foydalanuvchi
@@ -96,10 +116,18 @@ class _PdfManbaWrapper:
     def read(self, nom):
         raqam = int(re.search(r"(\d+)", nom).group(1))
         sahifa = self._pdf[raqam - 1]
-        bitmap = sahifa.render(scale=2.0)
+        # `scale` — nuqtadan pikselga nisbat, NISHON KENGLIKKA qarab
+        # hisoblanadi (qattiq ko'paytuvchi emas). PDF nuqtasi = 1/72 dyuym,
+        # ya'ni standart A4 (595 nuqta) `scale=1.0`da atigi 595px bo'lardi —
+        # matn o'qilmaydi. Shuning uchun kattalashtirish ham, kichraytirish
+        # ham mumkin; chegara faqat aqlsiz qiymatlardan himoya uchun.
+        kenglik_nuqta = sahifa.get_width() or 0
+        scale = PDF_NISHON_KENGLIK / kenglik_nuqta if kenglik_nuqta else 2.0
+        scale = min(max(scale, 0.5), 4.0)
+        bitmap = sahifa.render(scale=scale)
         pil = bitmap.to_pil().convert("RGB")
         bufer = io.BytesIO()
-        pil.save(bufer, format="JPEG", quality=90)
+        pil.save(bufer, format="JPEG", quality=88)
         return bufer.getvalue()
 
 

@@ -1097,11 +1097,15 @@ function VocabularyKorinishi({ tugunId, matn }) {
  * talabi — "unit uchun bitta tugma bo'lsin"; 2026-07-28: qo'lda-JSON
  * kiritish variantI OLIB TASHLANDI, ZIP+AI yagona yo'l qoldi — u
  * ancha tezroq va endi haqiqiy ZIP bilan sinovdan o'tgan). */
-// 2026-07-29 talabi: bir vaqtda bir nechta sahifani yuborish — har bir
-// so'rov backend'da ATOMIK ravishda alohida (takrorlanmaydigan) sahifa
-// oladi (courses/blok_views.py, KursBlokSahifaView), shuning uchun bu
-// yerda parallel yuborish xavfsiz.
-const PARALLEL_SAHIFA_SONI = 3;
+// 2026-07-29da 3 edi (tezlik uchun parallel yuborish — har so'rov
+// backend'da ATOMIK ravishda alohida sahifa oladi, shuning uchun
+// mantiqan xavfsiz). 2026-08-03da BITTAGA tushirildi (foydalanuvchi
+// talabi, o'lchangan sabab bilan): PDF sahifasini render qilish
+// xotirada o'nlab MB egallaydi va 3 parallel so'rov 512 MB'lik Render
+// instansini OOM'ga olib borardi — worker o'lib, frontend faqat umumiy
+// "Xatolik yuz berdi"ni ko'rsatardi. Ketma-ket yuborish sekinroq, lekin
+// xotira cho'qqisi 3 barobar past va yuklash oxirigacha yetadi.
+const PARALLEL_SAHIFA_SONI = 1;
 
 // 2026-07-29 talabi: "Elementary...Upper-Intermediate uchun Unit sonini
 // admin belgilashi" (keyinroq Beginner ham shu ro'yxatga qo'shildi —
