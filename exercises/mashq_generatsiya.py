@@ -11,6 +11,10 @@ haqiqiy IELTS testiga mos to'liq hajm so'radi):
   - listening: 4 part, 40 savol (1-10, 11-20, 21-30, 31-40) — har part
     ALOHIDA AI chaqiruvi + ALOHIDA TTS audio (Part1/3 — 2 kishilik
     suhbat, Part2/4 — 1 kishilik monolog, haqiqiy IELTS tuzilishiga mos).
+    Transkript uzunligi band'ga qarab ~4-8 daqiqa (2026-08-05, avval
+    150-200 so'z bilan cheklangan edi — judayam qisqa audio chiqargan).
+    Har part'ning asosiy savol turi ham haqiqiy IELTS tuzilishiga mos
+    tavsiya etiladi (avval barcha part bir xil turni tanlab qo'yardi).
   - writing:   Task 1 + Task 2 (juftlik)
   - speaking:  Part 1 + Part 2 + Part 3 (uchlik)
 
@@ -119,9 +123,12 @@ LISTENING_PROMPT_SHABLON = (
     "{uslub}). YANGI mavzu o'ylab toping (boshqa partlardan BUTUNLAY "
     "FARQLI, masalan restoran buyurtmasi, universitet ma'lumoti, sayohat "
     "rejasi, ma'ruza kabi) va {gapiruvchilar_soni} kishi{ishtirok_matni} "
-    "TABIIY transkript (150-200 so'z, \"Speaker1: ...\\nSpeaker2: ...\" "
-    "formatida — bitta kishi bo'lsa faqat \"Speaker1: ...\") va unga "
-    "tegishli ANIQ {soni} ta savol (raqamlar {boshi}-{oxiri}) yozing.\n\n"
+    "TABIIY transkript ({soz_oraligi} so'z — bu HAQIQIY imtihondagidek "
+    "uzunlikda bo'lishi SHART, qisqartirmang, \"Speaker1: ...\\n"
+    "Speaker2: ...\" formatida — bitta kishi bo'lsa faqat "
+    "\"Speaker1: ...\") va unga tegishli ANIQ {soni} ta savol (raqamlar "
+    "{boshi}-{oxiri}) yozing.\n\n"
+    "{tur_talabi}\n\n"
     f"TALABA MAQSADLI DARAJASI: {{band_tavsifi}}.\n\n"
     "\"matn\"ni BO'SH qoldiring — bu maydon Reading uchun, Listening "
     "transkripti alohida \"transkript\" maydonida.\n"
@@ -387,25 +394,56 @@ def reading_yarat(band, oldingi_mavzular=None):
     }, None
 
 
-# (boshi, oxiri, gapiruvchilar_soni) — Part1/3 haqiqiy IELTS'da 2 kishilik
-# suhbat, Part2/4 — 1 kishilik monolog (ma'ruza/xabar).
-LISTENING_ORALIQLAR = [(1, 10, 2), (11, 20, 1), (21, 30, 2), (31, 40, 1)]
+# Band bo'yicha transkript so'z hajmi (2026-08-05, avval 150-200 so'z
+# bilan cheklangan edi — bu haqiqiy IELTS part'iga nisbatan judayam qisqa
+# audio chiqargan). Taxminan ~140 so'z/daqiqa tabiiy suhbat sur'ati bilan
+# hisoblangan: 5-6 -> ~4-5 daq, 6.5-7.5 -> ~5.5-6.5 daq, 8-9 -> ~7-8 daq.
+BAND_SOZ_ORALIGI = {
+    "5-6": "550-700",
+    "6.5-7.5": "800-950",
+    "8-9": "1000-1150",
+}
+
+# (boshi, oxiri, gapiruvchilar_soni, asosiy_tur, tur_tavsifi) — haqiqiy
+# IELTS Listening tuzilishiga mos: Part1 — 2 kishilik kundalik/maishiy
+# suhbat (forma to'ldirish), Part2 — 1 kishilik kundalik/ijtimoiy monolog
+# (masalan ekskursiya/e'lon), Part3 — 2-4 kishilik o'quv/trening
+# konteksti, Part4 — 1 kishilik akademik ma'ruza. Avval barcha part bir
+# xil savol turini olib qo'yardi (2026-08-05 tuzatildi) — endi har
+# part'ga TAVSIYA etilgan asosiy tur beriladi (majburiy emas, chunki
+# real IELTS'da ba'zan bitta part ichida ikki xil tur aralashadi).
+LISTENING_ORALIQLAR = [
+    (1, 10, 2, "fill_blanks", "form/note completion — kundalik/maishiy suhbat kontekstida (masalan buyurtma, ro'yxatdan o'tish)"),
+    (11, 20, 1, "multiple_choice", "kundalik/ijtimoiy monolog (masalan ekskursiya, e'lon) — multiple_choice yoki map_labelling"),
+    (21, 30, 2, "matching", "o'quv/trening konteksti (masalan talaba-o'qituvchi muhokamasi) — matching yoki multiple_choice"),
+    (31, 40, 1, "fill_blanks", "akademik ma'ruza — summary/note completion (maxsus_format bilan) yoki short_answer"),
+]
 
 
 def listening_yarat(band, oldingi_mavzular=None):
     """Qaytaradi: (data, audio_bytes_royxati, xato). To'liq test — 4 part,
     40 savol (2026-08-02 talabi). Har part ALOHIDA AI+TTS chaqiruvi.
     `audio_bytes_royxati` — `data["qismlar"]` bilan bir xil uzunlik/tartib,
-    har elementi shu qismning WAV baytlari."""
+    har elementi shu qismning WAV baytlari.
+
+    Transkript uzunligi va har part'ning asosiy savol turi band/part'ga
+    qarab farqlanadi — batafsil: `BAND_SOZ_ORALIGI`, `LISTENING_ORALIQLAR`."""
     oldingi_mavzular = oldingi_mavzular or []
     from .gemini_tts import RateLimitTugadi, audio_yarat
 
     band_tavsifi = _band_tavsifi_yoki_xato(band)
+    soz_oraligi = BAND_SOZ_ORALIGI[band]
     provider = _provider()
     qismlar, audio_royxati = [], []
     mavzular_shu_testda = []
-    for i, (boshi, oxiri, gap_soni) in enumerate(LISTENING_ORALIQLAR, start=1):
+    for i, (boshi, oxiri, gap_soni, asosiy_tur, tur_tavsifi) in enumerate(LISTENING_ORALIQLAR, start=1):
         uslub = "ikki kishi suhbati" if gap_soni == 2 else "bitta kishi monologi/ma'ruzasi"
+        tur_talabi = (
+            f"BU PART UCHUN SAVOL TURI: savollarning ASOSIY qismi "
+            f"\"{asosiy_tur}\" turida bo'lsin — {tur_tavsifi}. Boshqa "
+            "part'larda ishlatilgan turni takrorlamang, har part TURLI "
+            "savol turida bo'lishi SHART (haqiqiy IELTS'dagidek)."
+        )
         promt = (
             LISTENING_PROMPT_SHABLON
             .replace("{band_tavsifi}", band_tavsifi)
@@ -416,12 +454,14 @@ def listening_yarat(band, oldingi_mavzular=None):
             .replace("{boshi}", str(boshi))
             .replace("{oxiri}", str(oxiri))
             .replace("{soni}", str(oxiri - boshi + 1))
+            .replace("{soz_oraligi}", soz_oraligi)
+            .replace("{tur_talabi}", tur_talabi)
             .replace("{oldingi_mavzular}", _oldingi_mavzular_matni(oldingi_mavzular + mavzular_shu_testda))
         )
         try:
             javob = provider.generate_json(
                 promt, f"Part {i}/4 (Questions {boshi}-{oxiri}) uchun yangi suhbat/monolog va savollarni yarating.",
-                javob_sxemasi=LISTENING_SXEMASI, max_tokens=8000,
+                javob_sxemasi=LISTENING_SXEMASI, max_tokens=16000,
             )
         except ProviderXatosi as e:
             return None, None, f"Part {i}: {e}"

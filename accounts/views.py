@@ -12,7 +12,7 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 
-from audit.models import FaoliyatYozuvi
+from audit.models import FaoliyatYozuvi, LoginHistory
 from audit.utils import logla, maydon_diff
 from config import narxlar as NARX
 
@@ -1082,6 +1082,14 @@ class XodimLoginView(TokenObtainPairView):
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = "login"
 
+    def post(self, request, *args, **kwargs):
+        javob = super().post(request, *args, **kwargs)
+        if javob.status_code == 200:
+            user = User.objects.filter(username=request.data.get("username")).first()
+            if user is not None:
+                LoginHistory.objects.create(foydalanuvchi=user, rol=user.role)
+        return javob
+
 
 class GoogleLoginView(APIView):
     """Talaba Google ID token yuboradi -> tekshiriladi -> JWT qaytariladi.
@@ -1124,6 +1132,8 @@ class GoogleLoginView(APIView):
         # `RefreshToken.for_user`da yaratilgani uchun qo'lda tekshirish shart.
         if not created and not user.is_active:
             return Response({"detail": "Hisobingiz arxivlangan"}, status=403)
+
+        LoginHistory.objects.create(foydalanuvchi=user, rol=user.role)
 
         refresh = RefreshToken.for_user(user)
         return Response(

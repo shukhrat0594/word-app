@@ -57,3 +57,28 @@ class FaoliyatYozuvi(models.Model):
 
     def __str__(self):
         return f"{self.foydalanuvchi} — {self.harakat} {self.obyekt_turi} #{self.obyekt_id}"
+
+
+class LoginHistory(models.Model):
+    """Har bir muvaffaqiyatli login yozuvi — owner uchun "Foydalanuvchilar
+    statistikasi" hisobotida (vaqt/rol bo'yicha kirish dinamikasi) ishlatiladi.
+
+    Bugundan (2026-08-05) boshlab to'planadi — o'tmishdagi kirishlar
+    tiklanmaydi, chunki avval bunday kuzatuv umuman bo'lmagan."""
+
+    foydalanuvchi = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="login_tarixi",
+    )
+    rol = models.CharField(
+        max_length=10, help_text="Login paytidagi rol snapshoti (keyin o'zgarishi mumkin)"
+    )
+    vaqt = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name_plural = "Login tarixi"
+        ordering = ["-vaqt"]
+
+    def __str__(self):
+        return f"{self.foydalanuvchi} — {self.vaqt}"

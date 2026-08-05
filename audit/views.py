@@ -1,10 +1,15 @@
+from datetime import timedelta
+
+from django.db import models
+from django.utils import timezone
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from accounts.models import User
 from accounts.permissions import owner_mi
 
-from .models import FaoliyatYozuvi
+from .models import FaoliyatYozuvi, LoginHistory
 
 # XPYozuv.sabab -> o'qiladigan nom (owner hisobotida ko'rsatish uchun)
 SABAB_NOMI = {
@@ -131,5 +136,55 @@ class AuditFiltrlarView(APIView):
                     "Guruh",
                 ],
                 "mashq_sabablari": list(SABAB_NOMI.items()),
+            }
+        )
+
+
+class FoydalanuvchilarStatistikaView(APIView):
+    """Owner uchun — foydalanuvchilar bo'yicha statistika: rol bo'yicha
+    taqsimot, kunlar bo'yicha login dinamikasi, soat bo'yicha faollik.
+
+    `LoginHistory` bugundan (2026-08-05) boshlab to'planadi — undan oldingi
+    kirishlar bu hisobotda ko'rinmaydi."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if not owner_mi(request.user):
+            return Response({"detail": "Faqat owner uchun"}, status=403)
+
+        try:
+            kunlar = min(int(request.query_params.get("kunlar", 30)), 365)
+        except ValueError:
+            kunlar = 30
+
+        rollar_soni = list(
+            User.objects.values("role").annotate(soni=models.Count("id")).order_by("role")
+        )
+        rollar_soni = [{"rol": r["role"], "soni": r["soni"]} for r in rollar_soni]
+
+        boshlanish = timezone.now() - timedelta(days=kunlar)
+        loginlar = LoginHistory.objects.filter(vaqt__gte=boshlanish)
+
+        kunlik = {}
+        soatlik = {i: 0 for i in range(24)}
+        for l in loginlar.only("vaqt", "rol"):
+            mahalliy = timezone.localtime(l.vaqt)
+            sana = mahalliy.date().isoformat()
+            kunlik.setdefault(sana, {}).setdefault(l.rol, 0)
+            kunlik[sana][l.rol] += 1
+            soatlik[mahalliy.hour] += 1
+
+        kunlik_royxat = [
+            {"sana": sana, **rollar} for sana, rollar in sorted(kunlik.items())
+        ]
+        soatlik_royxat = [{"soat": s, "soni": n} for s, n in sorted(soatlik.items())]
+
+        return Response(
+            {
+                "rollar_soni": rollar_soni,
+                "kunlik_loginlar": kunlik_royxat,
+                "soatlik_loginlar": soatlik_royxat,
+                "jami_login": loginlar.count(),
             }
         )
