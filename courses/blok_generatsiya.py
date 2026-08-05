@@ -75,7 +75,7 @@ BLOK_PROMPT = (
     '  {"x1":8,"y1":13,"x2":31,"y2":28,"tur":"rasm","izoh":"Mara"},\n'
     '  {"x1":8,"y1":28,"x2":33,"y2":32,"tur":"pufakcha","matn":"Hello, I\'m Mara."},\n'
     '  {"x1":5,"y1":40,"x2":50,"y2":43,"tur":"korsatma","raqam":"1",'
-    '"audio_raqam":"1.2","matn":"Read and listen."},\n'
+    '"audio_raqam":"1.2","audio_bor":true,"matn":"Read and listen."},\n'
     '  {"x1":8,"y1":44,"x2":45,"y2":52,"tur":"dialog",'
     '"qatorlar":[{"kim":"Serena","gap":"Hello. I\'m Serena."}]},\n'
     '  {"x1":8,"y1":56,"x2":30,"y2":64,"tur":"grammar_spot",'
@@ -155,6 +155,12 @@ BLOK_PROMPT = (
     "yozing. Ko'rinmasa umuman yozmang. O'zingizdan TO'QIMANG va "
     "ketma-ketlik bo'yicha TAXMIN QILMANG (oldingisi 1.2 edi deb "
     "keyingisini 1.3 deb yozmang).\n"
+    "- \"audio_bor\" — \"korsatma\" elementida, FAQAT topshiriq yonida "
+    "AUDIO/DINAMIK BELGISI (ikonka, masalan repродuktor/CD rasmi, ko'pincha "
+    "audio_raqam bilan birga) ko'rinsa true yozing (bu Listening topshirig'i "
+    "ekanini bildiradi, talaba audio tinglashi kerak — audio faylining o'zi "
+    "PDF'da yo'q, keyin alohida yuklanadi). Ikonka ko'rinmasa umuman "
+    "yozmang (yoki false) — o'zingizdan taxmin qilmang.\n"
     "- Matnni AYNAN sahifadagidek ko'chiring.\n"
     "- Sahifa raqami va pastki kolontitulni ham kiriting."
 )
@@ -579,17 +585,23 @@ def _guruh_bloklarini_qur(elementlar, rasm_qutilari):
     bo'yicha GLOBAL bo'lib qoladi, keyinroq har mashq uchun LOKAL
     indeksga o'tkaziladi — qarang `rasm_idxlarni_lokallashtir`).
 
-    Qaytaradi: (bloklar, savollar, sarlavha) — sarlavha shu guruhning
-    birinchi "korsatma"/sarlavha turidagi elementining matni (mashq.matn
-    uchun, admin ro'yxatida ko'rinadigan qisqa nom)."""
+    Qaytaradi: (bloklar, savollar, sarlavha, audio_kerak) — sarlavha shu
+    guruhning birinchi "korsatma"/sarlavha turidagi elementining matni
+    (mashq.matn uchun, admin ro'yxatida ko'rinadigan qisqa nom).
+    `audio_kerak` — TAXMINIY (2026-08-05): guruhdagi biror "korsatma"
+    elementida `audio_bor: true` bo'lsa True — admin tasdiqlash oynasida
+    qo'lda tuzatishi mumkin, majburiy emas."""
     bloklar = []
     savollar = []
     sarlavha = ""
+    audio_kerak = False
 
     for e in elementlar:
         tur = e.get("tur") or "matn"
         if not sarlavha and tur in ("sarlavha", "bolim_sarlavha", "korsatma") and e.get("matn"):
             sarlavha = e["matn"]
+        if tur == "korsatma" and e.get("audio_bor"):
+            audio_kerak = True
         blok = {"tur": tur}
 
         if tur == "rasm":
@@ -695,7 +707,7 @@ def _guruh_bloklarini_qur(elementlar, rasm_qutilari):
         if len(blok) > 1:  # "tur" dan boshqa hech narsa bo'lmasa — tashlaymiz
             bloklar.append(blok)
 
-    return bloklar, savollar, sarlavha
+    return bloklar, savollar, sarlavha, audio_kerak
 
 
 def rasm_idxlarni_lokallashtir(bloklar):
@@ -773,10 +785,13 @@ def bloklarni_tayyorla(elementlar):
     rasm_qutilari = []
     mashqlar = []
     for raqam, guruh in _mashqlarga_ajrat(tartiblangan):
-        bloklar, savollar, sarlavha = _guruh_bloklarini_qur(guruh, rasm_qutilari)
+        bloklar, savollar, sarlavha, audio_kerak = _guruh_bloklarini_qur(guruh, rasm_qutilari)
         if not bloklar:
             continue
-        mashqlar.append({"raqam": raqam, "sarlavha": sarlavha, "bloklar": bloklar, "savollar": savollar})
+        mashqlar.append({
+            "raqam": raqam, "sarlavha": sarlavha, "bloklar": bloklar,
+            "savollar": savollar, "audio_kerak": audio_kerak,
+        })
 
     return mashqlar, rasm_qutilari
 

@@ -110,6 +110,15 @@ class KursMashq(models.Model):
         upload_to="kurslar/mashq_audio/", blank=True,
         help_text="Darslikdagi audio (masalan Listening bo'limi uchun)",
     )
+    audio_kerak = models.BooleanField(
+        default=False,
+        help_text=(
+            "Blok-mashq tasdiqlashda belgilanadi (2026-08-05) — PDF'da audio "
+            "ikonkasi bor, lekin audio faylining o'zi PDF'dan chiqmaydi, admin "
+            "alohida yuklashi kerak. Faqat ogohlantirish uchun, hech narsani "
+            "bloklamaydi."
+        ),
+    )
     savollar = models.JSONField(
         default=list,
         help_text='[{"savol": "...", "variantlar": [...] (ixtiyoriy), "togri": "..."}]',

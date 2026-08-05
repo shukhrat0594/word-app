@@ -127,7 +127,23 @@ function RasmVaIzoh({ imgEl, quti, izoh, izohOzgardi, izohNomi }) {
 /** Bitta blokning STRUKTURAVIY (JSON emas) tahrirlagichi — turiga qarab
  * mos maydon(lar) ko'rsatadi. Rasm-quti o'zi (koordinata) yuqoridagi
  * `QutiTahrirlagich`da tuzatiladi — bu yerda faqat MATN/IZOH. */
-function BlokTahrir({ blok, blokIdx, qutilar, imgEl, onChange }) {
+const SAVOL_BOGLIQ_TURLAR = new Set(["mashq", "rasm_javobli", "rasm_javobli_grid"]);
+
+function MashqgaKochirMaydoni({ joriyRaqam, onKochir }) {
+  const { t } = useI18n();
+  return (
+    <input
+      type="text"
+      className="blok-tasdiq-mashqga-kochir"
+      title={t("kurs_blok_tasdiq_mashqqa_kochir")}
+      value={joriyRaqam ?? ""}
+      onChange={(e) => onKochir(e.target.value)}
+      style={{ width: 44, marginLeft: 6, textAlign: "center" }}
+    />
+  );
+}
+
+function BlokTahrir({ blok, blokIdx, qutilar, imgEl, onChange, mashqRaqami, onMashqgaKochir }) {
   const { t } = useI18n();
 
   function oz(patch) {
@@ -138,6 +154,10 @@ function BlokTahrir({ blok, blokIdx, qutilar, imgEl, onChange }) {
     yangi[itemIdx] = { ...yangi[itemIdx], ...patch };
     onChange(blokIdx, { [itemlarMaydoni]: yangi });
   }
+  const kochirMaydoni =
+    onMashqgaKochir && !SAVOL_BOGLIQ_TURLAR.has(blok.tur) ? (
+      <MashqgaKochirMaydoni joriyRaqam={mashqRaqami} onKochir={(v) => onMashqgaKochir(blokIdx, v)} />
+    ) : null;
 
   switch (blok.tur) {
     case "sarlavha":
@@ -147,6 +167,7 @@ function BlokTahrir({ blok, blokIdx, qutilar, imgEl, onChange }) {
         <div className="blok-tasdiq-satr">
           <span className="blok-tasdiq-tur-belgi">{blok.tur}{blok.raqam ? ` #${blok.raqam}` : ""}</span>
           <input type="text" value={blok.matn || ""} onChange={(e) => oz({ matn: e.target.value })} />
+          {kochirMaydoni}
         </div>
       );
     case "matn":
@@ -155,6 +176,7 @@ function BlokTahrir({ blok, blokIdx, qutilar, imgEl, onChange }) {
         <div className="blok-tasdiq-satr">
           <span className="blok-tasdiq-tur-belgi">{blok.tur}</span>
           <input type="text" value={blok.matn || ""} onChange={(e) => oz({ matn: e.target.value })} />
+          {kochirMaydoni}
         </div>
       );
     case "soz_banki":
@@ -166,6 +188,7 @@ function BlokTahrir({ blok, blokIdx, qutilar, imgEl, onChange }) {
             value={(blok.qatorlar || []).join(", ")}
             onChange={(e) => oz({ qatorlar: e.target.value.split(",").map((s) => s.trim()).filter(Boolean) })}
           />
+          {kochirMaydoni}
         </div>
       );
     case "grammar_spot":
@@ -174,6 +197,7 @@ function BlokTahrir({ blok, blokIdx, qutilar, imgEl, onChange }) {
           <div className="blok-tasdiq-satr">
             <span className="blok-tasdiq-tur-belgi">GRAMMAR SPOT</span>
             <input type="text" value={blok.sarlavha || ""} onChange={(e) => oz({ sarlavha: e.target.value })} />
+            {kochirMaydoni}
           </div>
           {(blok.qatorlar || []).map((q, i) => (
             <input
@@ -193,7 +217,7 @@ function BlokTahrir({ blok, blokIdx, qutilar, imgEl, onChange }) {
     case "dialog":
       return (
         <div className="blok-tasdiq-blok-guruh">
-          <span className="blok-tasdiq-tur-belgi">dialog</span>
+          <span className="blok-tasdiq-tur-belgi">dialog{kochirMaydoni}</span>
           {(blok.qatorlar || []).map((q, i) => (
             <div key={i} className="blok-tasdiq-dialog-qator">
               <input
@@ -213,27 +237,33 @@ function BlokTahrir({ blok, blokIdx, qutilar, imgEl, onChange }) {
       );
     case "rasm":
       return (
-        <RasmVaIzoh
-          imgEl={imgEl}
-          quti={qutilar[blok.rasm_idx]}
-          izoh={blok.izoh}
-          izohOzgardi={(v) => oz({ izoh: v })}
-          izohNomi={t("kurs_blok_tasdiq_rasm_izoh")}
-        />
+        <div className="blok-tasdiq-satr">
+          <RasmVaIzoh
+            imgEl={imgEl}
+            quti={qutilar[blok.rasm_idx]}
+            izoh={blok.izoh}
+            izohOzgardi={(v) => oz({ izoh: v })}
+            izohNomi={t("kurs_blok_tasdiq_rasm_izoh")}
+          />
+          {kochirMaydoni}
+        </div>
       );
     case "rasm_qatori":
       return (
-        <div className="blok-tasdiq-rasm-qatori">
-          {(blok.qator || []).map((it, i) => (
-            <RasmVaIzoh
-              key={i}
-              imgEl={imgEl}
-              quti={qutilar[it.rasm_idx]}
-              izoh={it.matn || it.izoh}
-              izohOzgardi={(v) => itemOz("qator", i, { matn: v })}
-              izohNomi={t("kurs_blok_tasdiq_rasm_izoh")}
-            />
-          ))}
+        <div className="blok-tasdiq-satr">
+          <div className="blok-tasdiq-rasm-qatori">
+            {(blok.qator || []).map((it, i) => (
+              <RasmVaIzoh
+                key={i}
+                imgEl={imgEl}
+                quti={qutilar[it.rasm_idx]}
+                izoh={it.matn || it.izoh}
+                izohOzgardi={(v) => itemOz("qator", i, { matn: v })}
+                izohNomi={t("kurs_blok_tasdiq_rasm_izoh")}
+              />
+            ))}
+          </div>
+          {kochirMaydoni}
         </div>
       );
     case "rasm_javobli":
@@ -286,7 +316,7 @@ function BlokTahrir({ blok, blokIdx, qutilar, imgEl, onChange }) {
  * bloklari (strukturaviy tahrir) va savollari (to'g'ri javob) bilan
  * (2026-08-03: avval BUTUN sahifa bitta JSON edi, endi har mashq
  * alohida karta). */
-function MashqKartasi({ mashq, mashqIdx, qutilar, imgEl, onChange, onOchir }) {
+function MashqKartasi({ mashq, mashqIdx, qutilar, imgEl, onChange, onOchir, onBlokKochir }) {
   const { t } = useI18n();
 
   function maydonOz(patch) {
@@ -305,9 +335,13 @@ function MashqKartasi({ mashq, mashqIdx, qutilar, imgEl, onChange, onOchir }) {
   return (
     <div className="blok-tasdiq-mashq-karta">
       <div className="blok-tasdiq-mashq-sarlavha-qator">
-        <span className="blok-tasdiq-mashq-raqam">
-          {t("kurs_mashq")} {mashq.raqam ?? mashqIdx + 1}
-        </span>
+        <span className="blok-tasdiq-mashq-raqam">{t("kurs_mashq")}</span>
+        <input
+          type="text"
+          value={mashq.raqam ?? ""}
+          onChange={(e) => maydonOz({ raqam: e.target.value })}
+          style={{ width: 44, textAlign: "center" }}
+        />
         <input
           type="text"
           value={mashq.sarlavha || ""}
@@ -315,6 +349,14 @@ function MashqKartasi({ mashq, mashqIdx, qutilar, imgEl, onChange, onOchir }) {
           placeholder={t("kurs_blok_tasdiq_sarlavha")}
           style={{ flex: 1 }}
         />
+        <label className="izoh" style={{ display: "flex", alignItems: "center", gap: 4, whiteSpace: "nowrap" }}>
+          <input
+            type="checkbox"
+            checked={!!mashq.audio_kerak}
+            onChange={(e) => maydonOz({ audio_kerak: e.target.checked })}
+          />
+          {t("kurs_blok_tasdiq_audio_kerak")}
+        </label>
         <button type="button" className="tugma ikkinchi kichik" onClick={() => onOchir(mashqIdx)}>
           {t("kurs_blok_tasdiq_mashqni_ochir")}
         </button>
@@ -322,7 +364,16 @@ function MashqKartasi({ mashq, mashqIdx, qutilar, imgEl, onChange, onOchir }) {
 
       <div className="blok-tasdiq-bloklar-royxati">
         {(mashq.bloklar || []).map((b, i) => (
-          <BlokTahrir key={i} blok={b} blokIdx={i} qutilar={qutilar} imgEl={imgEl} onChange={blokOz} />
+          <BlokTahrir
+            key={i}
+            blok={b}
+            blokIdx={i}
+            qutilar={qutilar}
+            imgEl={imgEl}
+            onChange={blokOz}
+            mashqRaqami={mashq.raqam}
+            onMashqgaKochir={onBlokKochir ? (blokIdx, yangiRaqam) => onBlokKochir(mashqIdx, blokIdx, yangiRaqam) : undefined}
+          />
         ))}
       </div>
 
@@ -419,6 +470,37 @@ export default function BlokTasdiqlash({ jarayonId, onYakunlandi, onBekor }) {
     sahifaHolatiniYangila({ mashqlar: joriyHolat.mashqlar.filter((_, i) => i !== mashqIdx) });
   }
 
+  /** Bitta blokni (savol_idx'ga bog'liq bo'lmagan turlar — qarang
+   * `SAVOL_BOGLIQ_TURLAR`) boshqa mashq raqamiga ko'chiradi (2026-08-05):
+   * o'sha raqamli mashq allaqachon bor bo'lsa unga qo'shiladi, bo'lmasa
+   * YANGI mashq yaratiladi. Manba mashq bo'sh qolib ketsa (bloklar ham,
+   * savollar ham qolmasa) — avtomatik olib tashlanadi. */
+  function blokniMashqgaKochir(mashqIdx, blokIdx, yangiRaqam) {
+    const manba = joriyHolat.mashqlar[mashqIdx];
+    if (!manba) return;
+    const blok = manba.bloklar[blokIdx];
+    if (!blok) return;
+    const raqam = yangiRaqam.trim();
+    if (raqam === String(manba.raqam ?? "")) return;
+
+    const qolganBloklar = manba.bloklar.filter((_, i) => i !== blokIdx);
+    let mashqlar = joriyHolat.mashqlar.map((m, i) =>
+      i === mashqIdx ? { ...m, bloklar: qolganBloklar } : m
+    );
+    // Manba bo'shab qolsa (bloklar ham savollar ham yo'q) — o'chiramiz.
+    mashqlar = mashqlar.filter(
+      (m, i) => i !== mashqIdx || m.bloklar.length > 0 || (m.savollar || []).length > 0
+    );
+
+    const nishonIdx = mashqlar.findIndex((m) => String(m.raqam ?? "") === raqam);
+    if (nishonIdx >= 0) {
+      mashqlar[nishonIdx] = { ...mashqlar[nishonIdx], bloklar: [...mashqlar[nishonIdx].bloklar, blok] };
+    } else {
+      mashqlar.push({ raqam, sarlavha: "", bloklar: [blok], savollar: [], audio_kerak: false });
+    }
+    sahifaHolatiniYangila({ mashqlar });
+  }
+
   const faylNomi = joriy.fayl?.split("/").pop() || "";
   const sahifaOtkazilganmi = !!joriyHolat.otkazib_yuborilsin;
 
@@ -483,6 +565,7 @@ export default function BlokTasdiqlash({ jarayonId, onYakunlandi, onBekor }) {
                 imgEl={imgRef.current}
                 onChange={mashqniYangila}
                 onOchir={mashqniOchir}
+                onBlokKochir={blokniMashqgaKochir}
               />
             ))}
 

@@ -491,6 +491,7 @@ def _mashqni_saqla(tugun, tartib, mashq_data, rasm_bytes, qutilar):
         matn=mashq_data["sarlavha"] or "",
         savollar=mashq_data["savollar"],
         bloklar=bloklar,
+        audio_kerak=bool(mashq_data.get("audio_kerak")),
     )
     rasm_soni = 0
     for lokal_idx, global_idx in enumerate(global_idxlar):
