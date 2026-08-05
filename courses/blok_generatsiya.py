@@ -752,14 +752,27 @@ def bloklarni_tayyorla(elementlar):
     Qaytaradi: (mashqlar, rasm_qutilari) — `mashqlar` har biri
     {"raqam", "sarlavha", "bloklar", "savollar"} (rasm_idx HALI GLOBAL,
     `rasm_idxlarni_lokallashtir` chaqirilmaguncha), `rasm_qutilari` —
-    BUTUN sahifa bo'yicha umumiy (global indeks bilan)."""
+    BUTUN sahifa bo'yicha umumiy (global indeks bilan).
+
+    2026-08-03, HAQIQIY sinovda yana bir marta aniqlandi (bu safar
+    oddiy "rasm" elementi bilan — 3 ta yonma-yon surat, masalan
+    Mara/Leo/Nari): `rasm_qatorlarini_guruhla`/`_rasm_javoblarini_guruhla`
+    MASHQLARGA AJRATISHDAN OLDIN (butun sahifa darajasida) chaqirilishi
+    SHART. Sabab avvalgi (12-rasm) xatoning aynan o'zi: agar guruhlash
+    ajratishdan KEYIN (har guruh ICHIDA) qilinsa, hali qo'shilmagan
+    alohida-alohida rasm elementlari o'qish-tartibi ustunlariga
+    (chap/o'ng, markaz-x<50%) qarab CHETGA chiqib, turli mashqlarga
+    tarqalib ketishi mumkin (3 surat keng qatorga joylashsa, birinchi
+    ikkitasi chap ustunga, uchinchisi o'ng ustunga tushib qolgan edi).
+    Guruhlash OLDIN qilinsa, 3 surat BITTA "rasm_qatori" elementiga
+    aylanadi va ENDI BO'LINMAYDIGAN yagona birlik sifatida bitta
+    mashqqa tushadi."""
+    elementlar = rasm_qatorlarini_guruhla(elementlar)
+    elementlar = _rasm_javoblarini_guruhla(elementlar)
     tartiblangan = sorted(elementlar, key=_oqish_tartibi_kaliti)
     rasm_qutilari = []
     mashqlar = []
     for raqam, guruh in _mashqlarga_ajrat(tartiblangan):
-        guruh = rasm_qatorlarini_guruhla(guruh)
-        guruh = _rasm_javoblarini_guruhla(guruh)
-        guruh = sorted(guruh, key=_oqish_tartibi_kaliti)
         bloklar, savollar, sarlavha = _guruh_bloklarini_qur(guruh, rasm_qutilari)
         if not bloklar:
             continue
