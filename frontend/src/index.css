@@ -664,6 +664,15 @@ input.imtihon-bosh-joy { font: inherit; font-size: 12.5px; text-align: center; }
   max-width: 260px; width: 100%; border-radius: 6px; display: block;
   margin: 10px 0; box-shadow: var(--soya);
 }
+/* 2026-08-05, foydalanuvchi talabi: rasm KATTA bo'lsa izoh matni
+   PASTDA, KICHKINA bo'lsa O'NG TOMONDA chiqsin — server o'lcham
+   yubormagani uchun sof CSS flex-wrap orqali: rasm o'z tabiiy (max
+   260px) kengligini oladi, izohga esa kamida 160px kerak; ikkalasi
+   qatorga sig'masa (rasm katta), izoh AVTOMATIK keyingi qatorga
+   tushadi. */
+.blok-rasm-izoh-qatori { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 10px 0; }
+.blok-rasm-izoh-qatori .blok-rasm { width: auto; flex: 0 1 auto; margin: 0; }
+.blok-rasm-izoh-matni { flex: 1 1 160px; min-width: 160px; }
 /* Rasm+javob (2026-08-03, "so'z banki + raqamlangan rasmlar" mashqi) —
    yagona quti (bitta rasm_javobli) yoki panjara (rasm_javobli_grid). */
 .blok-soz-banki {
@@ -817,7 +826,16 @@ input.imtihon-bosh-joy { font: inherit; font-size: 12.5px; text-align: center; }
   border-radius: 50%; cursor: nwse-resize;
 }
 .blok-tasdiq-panel { flex: 1 1 380px; display: grid; gap: 14px; align-content: start; max-height: 74vh; overflow-y: auto; }
-.blok-tasdiq-navigatsiya { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.blok-tasdiq-navigatsiya { display: flex; justify-content: flex-end; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+/* 2026-08-05: sahifa-sahifa pager o'rniga barcha sahifalar/mashqlar
+   bitta vertikal ro'yxatda. */
+.blok-tasdiq-sahifalar-vertikal { display: grid; gap: 30px; }
+.blok-tasdiq-sahifa-blogi {
+  display: grid; gap: 14px; border-top: 1px solid var(--chiziq); padding-top: 20px;
+}
+.blok-tasdiq-sahifa-blogi:first-child { border-top: none; padding-top: 0; }
+.blok-tasdiq-mashqlar-vertikal { display: grid; gap: 14px; }
 
 /* Bitta mashq kartasi (2026-08-03) — sahifada bir nechta bo'lishi mumkin. */
 .blok-tasdiq-mashq-karta {

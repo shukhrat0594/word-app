@@ -13,7 +13,6 @@ yetarli (u progress ham ko'rsatadi).
 import io
 import os
 import pathlib
-import re
 import shutil
 import threading
 import zipfile
@@ -84,57 +83,9 @@ def _jarayon_kesh_yoli(jarayon):
     return yol / f"{jarayon.id}.zip"
 
 
-# PDF sahifasi render qilinadigan NISHON kenglik (piksel). 2026-08-03,
-# haqiqiy production OOM'idan keyin qo'shildi — avval `scale=2.0` (qattiq
-# ko'paytuvchi) ishlatilardi va foydalanuvchining darsligida bu 3072x3872
-# (11.9 megapiksel) bergan: xom RGB 34 MB, pdfium BGRA bitmap yana ~47 MB.
-# Frontend bir vaqtda 3 sahifa yuborgani uchun (`PARALLEL_SAHIFA_SONI`)
-# bu ~250-350 MB'ni tashkil qilardi va 512 MB'lik Render instansida
-# (Django o'zi ~150-200 MB) xotira tugab, gunicorn worker o'lardi —
-# frontend esa faqat umumiy "Xatolik yuz berdi"ni ko'rsatardi (JSON'siz
-# 502). Bundan tashqari bunday katta render ORTIQCHA ham edi: `tor_chiz`
-# rasmni baribir `AI_RASM_KENGLIGI` (1000px) gacha, `rasmni_kes` esa
-# `DRAFT_CHEGARA` (1600px) gacha kichraytiradi — ya'ni 1600px'dan
-# kattasi hech qayerda ishlatilmaydi. Nishon kenglik (qattiq scale emas)
-# tanlandi, chunki turli PDF'larda sahifa o'lchami har xil.
-#
-# 2200 — o'lchangan muvozanat: xom RGB ~18 MB (avvalgi 34 MB'ning yarmi,
-# `PARALLEL_SAHIFA_SONI` 1ga tushirilgani bilan birga xavfsiz), lekin
-# kesilgan suratlar 1700px'dagidan sezilarli o'tkirroq chiqadi.
-PDF_NISHON_KENGLIK = 2200
-
-
-class _PdfManbaWrapper:
-    """`zipfile.ZipFile`ning `.read(nom)` interfeysini PDF uchun taqlid
-    qiladi (2026-08-03) — shu tufayli `_jarayon_arxivi`dan foydalanuvchi
-    barcha kod (`arxiv.read(nom)`) o'zgarishsiz qoladi, ZIP yoki PDF
-    ekanligidan qat'i nazar. `nom` — "sahifa-<raqam>.jpg" ko'rinishida,
-    raqam PDF sahifa raqami (1dan boshlanadi)."""
-
-    def __init__(self, pdf_hujjat):
-        self._pdf = pdf_hujjat
-
-    def read(self, nom):
-        raqam = int(re.search(r"(\d+)", nom).group(1))
-        sahifa = self._pdf[raqam - 1]
-        # `scale` — nuqtadan pikselga nisbat, NISHON KENGLIKKA qarab
-        # hisoblanadi (qattiq ko'paytuvchi emas). PDF nuqtasi = 1/72 dyuym,
-        # ya'ni standart A4 (595 nuqta) `scale=1.0`da atigi 595px bo'lardi —
-        # matn o'qilmaydi. Shuning uchun kattalashtirish ham, kichraytirish
-        # ham mumkin; chegara faqat aqlsiz qiymatlardan himoya uchun.
-        kenglik_nuqta = sahifa.get_width() or 0
-        scale = PDF_NISHON_KENGLIK / kenglik_nuqta if kenglik_nuqta else 2.0
-        scale = min(max(scale, 0.5), 4.0)
-        bitmap = sahifa.render(scale=scale)
-        pil = bitmap.to_pil().convert("RGB")
-        bufer = io.BytesIO()
-        pil.save(bufer, format="JPEG", quality=88)
-        return bufer.getvalue()
-
-
 @contextmanager
 def _jarayon_arxivi(jarayon):
-    """ZIP yoki PDF faylni ochadi — R2'DAN FAQAT BIR MARTA yuklab,
+    """ZIP faylni ochadi — R2'DAN FAQAT BIR MARTA yuklab,
     mahalliy diskka keshlab qo'yadi (2026-07-28, haqiqiy production
     xatosidan keyin).
 
@@ -173,17 +124,8 @@ def _jarayon_arxivi(jarayon):
             shutil.copyfileobj(manba, nishon)
         os.replace(vaqtinchalik, kesh)
 
-    if jarayon.manba_turi == KursZipJarayoni.ManbaTuri.PDF:
-        import pypdfium2 as pdfium
-
-        pdf_hujjat = pdfium.PdfDocument(str(kesh))
-        try:
-            yield _PdfManbaWrapper(pdf_hujjat)
-        finally:
-            pdf_hujjat.close()
-    else:
-        with zipfile.ZipFile(kesh) as arxiv:
-            yield arxiv
+    with zipfile.ZipFile(kesh) as arxiv:
+        yield arxiv
 
 
 def _jarayon_keshini_tozala(jarayon):
@@ -205,13 +147,20 @@ def _zip_ichidagi_rasmlarni_ajrat(nomlar):
 
 
 class KursBlokZipYuklashView(APIView):
-    """1-BOSQICH: ZIP yoki PDF'ni qabul qilish va nima borligini sanash.
+    """1-BOSQICH: ZIP (yoki bitta rasm)ni qabul qilish va nima borligini
+    sanash.
 
-    `pk` — MASHQLAR tuguni (oxirgi qatlam). Fayl nomi kengaytmasiga qarab
-    ZIP (rasmlar arxivi) yoki PDF (butun kitob/bo'lim skani) sifatida
-    aniqlanadi (2026-08-03) — PDF holida sahifalar keyinroq (2-bosqichda)
-    `pypdfium2` bilan JPEG'ga aylantiriladi, ZIP'dagi rasm-o'qish bilan
-    bir xil joyga (`_jarayon_arxivi`) muqobil sifatida ishlaydi."""
+    `pk` — MASHQLAR tuguni (oxirgi qatlam). ZIP — rasmlar arxivi. PDF
+    to'g'ridan-to'g'ri yuklash olib tashlandi (2026-08-05, foydalanuvchi
+    qarori).
+
+    2026-08-05, foydalanuvchi talabi: bitta rasm yuklaganda ham xuddi ZIP
+    kabi tasdiqlash oynasi (rasm-quti/matn tahriri) chiqishi kerak — avval
+    bitta rasm alohida endpoint orqali TASDIQLASHSIZ to'g'ridan-to'g'ri
+    saqlanardi. Shuning uchun bitta rasm yuklansa, u xotirada BITTA
+    faylli ZIP'ga o'raladi va xuddi ko'p-sahifali ZIP kabi shu YAGONA
+    oqim (jarayon -> AI tahlil -> tasdiqlash -> saqlash) orqali o'tadi —
+    alohida kod yo'li shart emas."""
 
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
@@ -229,29 +178,22 @@ class KursBlokZipYuklashView(APIView):
         if not fayl:
             return Response({"detail": "zip_fayl majburiy"}, status=400)
 
-        pdfmi = fayl.name.lower().endswith(".pdf")
-        if pdfmi:
-            import pypdfium2 as pdfium
+        if kengaytma_turi(fayl.name) == "rasm":
+            bufer = io.BytesIO()
+            with zipfile.ZipFile(bufer, "w") as z:
+                _, ext = os.path.splitext(fayl.name.lower())
+                z.writestr(f"sahifa-1{ext}", fayl.read())
+            bufer.seek(0)
+            fayl = ContentFile(bufer.read(), name="rasm.zip")
 
-            try:
-                pdf_hujjat = pdfium.PdfDocument(fayl.read())
-                jami = len(pdf_hujjat)
-                pdf_hujjat.close()
-            except Exception:
-                return Response({"detail": "Fayl yaroqli PDF emas"}, status=400)
-            if jami == 0:
-                return Response({"detail": "PDF'da sahifa topilmadi"}, status=400)
-            sahifalar = [f"sahifa-{i + 1}.jpg" for i in range(jami)]
-            manba_turi = KursZipJarayoni.ManbaTuri.PDF
-        else:
-            try:
-                nomlar = zipfile.ZipFile(fayl).namelist()
-            except zipfile.BadZipFile:
-                return Response({"detail": "Fayl yaroqli ZIP yoki PDF emas"}, status=400)
-            sahifalar = _zip_ichidagi_rasmlarni_ajrat(nomlar)
-            if not sahifalar:
-                return Response({"detail": "ZIP ichida rasm fayli topilmadi"}, status=400)
-            manba_turi = KursZipJarayoni.ManbaTuri.ZIP
+        try:
+            nomlar = zipfile.ZipFile(fayl).namelist()
+        except zipfile.BadZipFile:
+            return Response({"detail": "Fayl yaroqli ZIP yoki rasm emas"}, status=400)
+        sahifalar = _zip_ichidagi_rasmlarni_ajrat(nomlar)
+        if not sahifalar:
+            return Response({"detail": "ZIP ichida rasm fayli topilmadi"}, status=400)
+        manba_turi = KursZipJarayoni.ManbaTuri.ZIP
 
         fayl.seek(0)
         jarayon = KursZipJarayoni.objects.create(

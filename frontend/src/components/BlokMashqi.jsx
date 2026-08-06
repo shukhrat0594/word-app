@@ -102,7 +102,20 @@ function Blok({ blok, blokIdx, rasmUrllar, faolRaqam, ijro, audioTanla, javoblar
       return <h4 className="blok-bolim">{blok.matn}</h4>;
     case "rasm": {
       const url = rasmUrllar[blok.rasm_idx];
-      return url ? <img className="blok-rasm" src={url} alt={blok.izoh || ""} /> : null;
+      if (!url) return null;
+      // 2026-08-05, foydalanuvchi talabi: rasm KATTA bo'lsa matn PASTDA,
+      // KICHKINA bo'lsa matn O'NG TOMONDA chiqsin. Bu o'lchamni oldindan
+      // BILMASDAN (server hech qanday en/bo'y yubormaydi) sof CSS
+      // flex-wrap orqali hal qilinadi: rasm o'z tabiiy kengligini oladi,
+      // matnga esa minimal kenglik (`min-width`) beriladi — qatorga
+      // ikkalasi baravar sig'masa (ya'ni rasm katta bo'lsa), brauzer
+      // matnni AVTOMATIK keyingi qatorga (pastga) tushiradi.
+      return (
+        <div className="blok-rasm-izoh-qatori">
+          <img className="blok-rasm" src={url} alt={blok.izoh || ""} />
+          {blok.izoh && <div className="blok-rasm-izoh-matni">{blok.izoh}</div>}
+        </div>
+      );
     }
     case "rasm_qatori": {
       const itemlar = blok.qator || [];

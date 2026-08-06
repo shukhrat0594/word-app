@@ -374,7 +374,6 @@ function AdminMashqBoshqaruv({ tugunId, jsonKiritishKorinadi = true }) {
   // `_rasmni_mashqqa_aylantir`) — faqat "bitta martami, ko'pmi" farq.
   const [mashqXato, setMashqXato] = useState("");
   const [mashqXabar, setMashqXabar] = useState("");
-  const [rasmYuklanmoqda, setRasmYuklanmoqda] = useState(false);
   // 2026-07-30 talabi: har mashqni YANGI rasm bilan almashtirish (o'sha
   // mashqning bloklari qayta hisoblanadi, o'rni/id o'zgarmaydi).
   const [qaytaYuklanayotganId, setQaytaYuklanayotganId] = useState(null);
@@ -586,47 +585,17 @@ function AdminMashqBoshqaruv({ tugunId, jsonKiritishKorinadi = true }) {
     }
   }
 
-  async function birRasmdanQoshish(fayl) {
-    setMashqXato("");
-    setMashqXabar("");
-    setRasmYuklanmoqda(true);
-    try {
-      const fd = new FormData();
-      fd.append("rasm", fayl);
-      const yaratilgan = await apiForm(`/api/kurslar/${tugunId}/mashq-rasm-qoshish/`, {
-        method: "POST",
-        formData: fd,
-      });
-      const qismlar = [t("kurs_mashq_qoshildi")];
-      if (yaratilgan.javob_talab_qiluvchi_soni > 0) {
-        qismlar.push(`${yaratilgan.javob_talab_qiluvchi_soni} ${t("kurs_javob_talab")}`);
-      }
-      if (yaratilgan.wordlist_soni > 0) {
-        qismlar.push(`${yaratilgan.wordlist_soni} ${t("kurs_blok_wordlist_soz")}`);
-      }
-      setMashqXabar(qismlar.join(" — "));
-      yukla();
-    } catch (e2) {
-      setMashqXato(e2.data?.detail || t("xato_yuz_berdi"));
-    } finally {
-      setRasmYuklanmoqda(false);
-    }
-  }
-
-  // 2026-07-30 talabi: bitta tugma — rasm, ZIP yoki PDF tanlash mumkin,
-  // fayl kengaytmasidan qaysi oqim kerakligi aniqlanadi (PDF — 2026-08-03,
-  // ZIP bilan bir xil ko'p-sahifali oqim, `blok-zip` endpoint ikkisini
-  // ham qabul qiladi).
+  // 2026-08-05, foydalanuvchi qarori: bitta rasm yuklaganda ham xuddi
+  // ZIP kabi tasdiqlash oynasi chiqishi kerak (avval to'g'ridan-to'g'ri,
+  // tasdiqlashsiz saqlanardi) — shuning uchun rasm ham, ZIP ham BIR XIL
+  // `zipYukla` oqimiga yuboriladi (backend bitta rasmni xotirada ZIP'ga
+  // o'rab, xuddi shu jarayon orqali ishlaydi). PDF to'g'ridan-to'g'ri
+  // yuklash olib tashlandi.
   function faylTanlandi(e) {
     const fayl = e.target.files[0];
     e.target.value = "";
     if (!fayl) return;
-    const nomi = fayl.name.toLowerCase();
-    if (nomi.endsWith(".zip") || nomi.endsWith(".pdf")) {
-      zipYukla(fayl);
-    } else {
-      birRasmdanQoshish(fayl);
-    }
+    zipYukla(fayl);
   }
 
   async function qoshish() {
@@ -732,12 +701,12 @@ function AdminMashqBoshqaruv({ tugunId, jsonKiritishKorinadi = true }) {
     <div>
       <div style={{ marginBottom: 10, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         <label className="tugma ikkinchi" style={{ cursor: "pointer" }}>
-          {rasmYuklanmoqda ? t("yuklanmoqda") : t("kurs_rasmdan_mashq_qoshish")}
+          {zipYuklanmoqda ? t("yuklanmoqda") : t("kurs_rasmdan_mashq_qoshish")}
           <input
             type="file"
-            accept="image/*,.zip,.pdf"
+            accept="image/*,.zip"
             onChange={faylTanlandi}
-            disabled={rasmYuklanmoqda || zipYuklanmoqda}
+            disabled={zipYuklanmoqda}
             style={{ display: "none" }}
           />
         </label>

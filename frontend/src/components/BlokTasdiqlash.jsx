@@ -403,15 +403,160 @@ function MashqKartasi({ mashq, mashqIdx, qutilar, imgEl, onChange, onOchir, onBl
  * bittaga qo'shib yuborishi aniqlandi, shuning uchun avtomatik saqlash
  * xavfli. Bitta sahifa surati + shu sahifadan aniqlangan BIR NECHTA
  * mashq kartasi (har biri alohida) ko'rsatiladi."""*/
+/** Bitta sahifaning suratini yuklaydi (blob URL, komponent hayoti
+ * davomida bitta marta) — sahifalar endi HAMMASI birdan (pager'siz)
+ * ko'rsatilgani uchun (2026-08-05, foydalanuvchi talabi: "10 ta mashqi
+ * bo'lsa 10 ta oynaga alohida ajratsin"), har sahifa MUSTAQIL o'z
+ * suratini yuklaydi (avval faqat JORIY sahifa uchun bitta umumiy holat
+ * bo'lardi). Sahifa surati faqat rasm-quti (`QutiTahrirlagich`) va rasm
+ * kesib ko'rsatish (`RasmVaIzoh`) uchun kerak — mashq matni/savollari
+ * suratga bog'liq emas. */
+function useSahifaSurati({ jarayonId, indeks }) {
+  const [rasmUrl, setRasmUrl] = useState(null);
+  const imgRef = useRef(null);
+
+  useEffect(() => {
+    let joriyUrl = null;
+    let bekorQilindi = false;
+    apiBlobUrl(`/api/kurslar/blok-jarayon/${jarayonId}/sahifa-rasm/${indeks}/`).then((u) => {
+      if (bekorQilindi) {
+        URL.revokeObjectURL(u);
+        return;
+      }
+      joriyUrl = u;
+      setRasmUrl(u);
+    }).catch(() => {});
+    return () => {
+      bekorQilindi = true;
+      setRasmUrl(null);
+      if (joriyUrl) URL.revokeObjectURL(joriyUrl);
+    };
+  }, [jarayonId, indeks]);
+
+  return { rasmUrl, imgRef };
+}
+
+/** Bitta sahifadan aniqlangan mashqlar — sahifa surati (rasm-quti
+ * tahrirlagichi) + har mashq ALOHIDA vertikal karta sifatida (2026-08-05:
+ * avval sahifalar orasida "oldingi/keyingi" bilan yurilardi, endi
+ * HAMMASI bitta uzun vertikal ro'yxatda — sahifa faqat rasm manbai
+ * sifatida guruh boshida bir marta ko'rinadi, mashqlarning o'zi bir-biri
+ * ostida alohida oyna bo'lib chiqadi). */
+function SahifaBlogi({ jarayonId, sahifa, sahifaHolati, ozgartir }) {
+  const { t } = useI18n();
+  const { rasmUrl, imgRef } = useSahifaSurati({ jarayonId, indeks: sahifa.indeks });
+  const faylNomi = sahifa.fayl?.split("/").pop() || "";
+  const otkazilganmi = !!sahifaHolati.otkazib_yuborilsin;
+
+  function mashqniYangila(mashqIdx, patch) {
+    const yangi = [...sahifaHolati.mashqlar];
+    yangi[mashqIdx] = { ...yangi[mashqIdx], ...patch };
+    ozgartir({ mashqlar: yangi });
+  }
+  function mashqniOchir(mashqIdx) {
+    ozgartir({ mashqlar: sahifaHolati.mashqlar.filter((_, i) => i !== mashqIdx) });
+  }
+
+  /** Bitta blokni (savol_idx'ga bog'liq bo'lmagan turlar — qarang
+   * `SAVOL_BOGLIQ_TURLAR`) boshqa mashq raqamiga ko'chiradi (2026-08-05):
+   * o'sha raqamli mashq allaqachon bor bo'lsa unga qo'shiladi, bo'lmasa
+   * YANGI mashq yaratiladi. Manba mashq bo'sh qolib ketsa (bloklar ham,
+   * savollar ham qolmasa) — avtomatik olib tashlanadi. */
+  function blokniMashqgaKochir(mashqIdx, blokIdx, yangiRaqam) {
+    const manba = sahifaHolati.mashqlar[mashqIdx];
+    if (!manba) return;
+    const blok = manba.bloklar[blokIdx];
+    if (!blok) return;
+    const raqam = yangiRaqam.trim();
+    if (raqam === String(manba.raqam ?? "")) return;
+
+    const qolganBloklar = manba.bloklar.filter((_, i) => i !== blokIdx);
+    let mashqlar = sahifaHolati.mashqlar.map((m, i) =>
+      i === mashqIdx ? { ...m, bloklar: qolganBloklar } : m
+    );
+    mashqlar = mashqlar.filter(
+      (m, i) => i !== mashqIdx || m.bloklar.length > 0 || (m.savollar || []).length > 0
+    );
+
+    const nishonIdx = mashqlar.findIndex((m) => String(m.raqam ?? "") === raqam);
+    if (nishonIdx >= 0) {
+      mashqlar[nishonIdx] = { ...mashqlar[nishonIdx], bloklar: [...mashqlar[nishonIdx].bloklar, blok] };
+    } else {
+      mashqlar.push({ raqam, sarlavha: "", bloklar: [blok], savollar: [], audio_kerak: false });
+    }
+    ozgartir({ mashqlar });
+  }
+
+  return (
+    <div className="blok-tasdiq-sahifa-blogi">
+      <div className="blok-tasdiq-sarlavha-qator">
+        <div style={{ fontWeight: 700 }}>
+          {t("kurs_blok_tasdiq_sahifa")} {sahifa.indeks + 1}{faylNomi ? ` — ${faylNomi}` : ""}
+        </div>
+        <label className="izoh" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <input
+            type="checkbox"
+            checked={otkazilganmi}
+            onChange={(e) => ozgartir({ otkazib_yuborilsin: e.target.checked })}
+          />
+          {t("kurs_blok_tasdiq_otkazib_yubor")}
+        </label>
+      </div>
+
+      {sahifa.xato && (
+        <div className="xato-xabar">{t("kurs_blok_sahifa_xato")}: {sahifa.xato}</div>
+      )}
+
+      {!otkazilganmi && (
+        <>
+          <QutiTahrirlagich
+            rasmUrl={rasmUrl}
+            imgRef={imgRef}
+            qutilar={sahifaHolati.qutilar}
+            onChange={(q) => ozgartir({ qutilar: q })}
+          />
+
+          <div className="blok-tasdiq-mashqlar-vertikal">
+            {sahifaHolati.mashqlar.length === 0 && (
+              <div className="izoh">{t("kurs_blok_tasdiq_mashq_yoq")}</div>
+            )}
+            {sahifaHolati.mashqlar.map((m, i) => (
+              <MashqKartasi
+                key={i}
+                mashq={m}
+                mashqIdx={i}
+                qutilar={sahifaHolati.qutilar}
+                imgEl={imgRef.current}
+                onChange={mashqniYangila}
+                onOchir={mashqniOchir}
+                onBlokKochir={blokniMashqgaKochir}
+              />
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+/** ZIP/PDF orqali kitob yuklash tugagach, AI natijasini bazaga yozishdan
+ * OLDIN admin ko'rib chiqadigan/tuzatadigan oyna (2026-08-03) — nima
+ * uchun kerak: real sinovlarda AI rasm-quti chegaralarini 1-15% xato
+ * bilan belgilashi, va bitta sahifadagi bir nechta alohida mashqni
+ * bittaga qo'shib yuborishi aniqlandi, shuning uchun avtomatik saqlash
+ * xavfli.
+ *
+ * 2026-08-05, foydalanuvchi talabi: sahifa-sahifa (oldingi/keyingi)
+ * navigatsiya OLIB TASHLANDI — barcha sahifalardagi HAMMA mashqlar
+ * bitta uzun VERTIKAL ro'yxatda ko'rsatiladi, har mashq o'zining
+ * alohida kartasida (`SahifaBlogi`/`MashqKartasi`), sahifa surati esa
+ * shu mashqlarning manbai sifatida guruh boshida bir marta chiqadi. */
 export default function BlokTasdiqlash({ jarayonId, onYakunlandi, onBekor }) {
   const { t } = useI18n();
   const [sahifalar, setSahifalar] = useState(null);
-  const [joriyIdx, setJoriyIdx] = useState(0);
   // holat[indeks] = {mashqlar, qutilar, otkazib_yuborilsin} — har sahifaning
   // JORIY (tuzatilgan bo'lishi mumkin) holati, boshida AI natijasidan olinadi.
   const [holat, setHolat] = useState(null);
-  const [rasmUrl, setRasmUrl] = useState(null);
-  const imgRef = useRef(null);
   const [xato, setXato] = useState("");
   const [saqlanmoqda, setSaqlanmoqda] = useState(false);
 
@@ -432,77 +577,12 @@ export default function BlokTasdiqlash({ jarayonId, onYakunlandi, onBekor }) {
       .catch(() => setXato(t("xato_yuz_berdi")));
   }, [jarayonId, t]);
 
-  const joriy = sahifalar?.[joriyIdx];
-  const joriyHolat = joriy ? holat?.[joriy.indeks] : null;
-
-  useEffect(() => {
-    if (!joriy) return undefined;
-    let joriyUrl = null;
-    let bekorQilindi = false;
-    apiBlobUrl(`/api/kurslar/blok-jarayon/${jarayonId}/sahifa-rasm/${joriy.indeks}/`).then((u) => {
-      if (bekorQilindi) {
-        URL.revokeObjectURL(u);
-        return;
-      }
-      joriyUrl = u;
-      setRasmUrl(u);
-    }).catch(() => {});
-    return () => {
-      bekorQilindi = true;
-      setRasmUrl(null);
-      if (joriyUrl) URL.revokeObjectURL(joriyUrl);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [jarayonId, joriy?.indeks]);
-
   if (xato) return <div className="xato-xabar">{xato}</div>;
   if (!sahifalar || !holat) return <div className="yuklanmoqda">{t("yuklanmoqda")}</div>;
 
-  function sahifaHolatiniYangila(patch) {
-    setHolat((prev) => ({ ...prev, [joriy.indeks]: { ...prev[joriy.indeks], ...patch } }));
+  function sahifaHolatiniYangila(indeks, patch) {
+    setHolat((prev) => ({ ...prev, [indeks]: { ...prev[indeks], ...patch } }));
   }
-  function mashqniYangila(mashqIdx, patch) {
-    const yangi = [...joriyHolat.mashqlar];
-    yangi[mashqIdx] = { ...yangi[mashqIdx], ...patch };
-    sahifaHolatiniYangila({ mashqlar: yangi });
-  }
-  function mashqniOchir(mashqIdx) {
-    sahifaHolatiniYangila({ mashqlar: joriyHolat.mashqlar.filter((_, i) => i !== mashqIdx) });
-  }
-
-  /** Bitta blokni (savol_idx'ga bog'liq bo'lmagan turlar — qarang
-   * `SAVOL_BOGLIQ_TURLAR`) boshqa mashq raqamiga ko'chiradi (2026-08-05):
-   * o'sha raqamli mashq allaqachon bor bo'lsa unga qo'shiladi, bo'lmasa
-   * YANGI mashq yaratiladi. Manba mashq bo'sh qolib ketsa (bloklar ham,
-   * savollar ham qolmasa) — avtomatik olib tashlanadi. */
-  function blokniMashqgaKochir(mashqIdx, blokIdx, yangiRaqam) {
-    const manba = joriyHolat.mashqlar[mashqIdx];
-    if (!manba) return;
-    const blok = manba.bloklar[blokIdx];
-    if (!blok) return;
-    const raqam = yangiRaqam.trim();
-    if (raqam === String(manba.raqam ?? "")) return;
-
-    const qolganBloklar = manba.bloklar.filter((_, i) => i !== blokIdx);
-    let mashqlar = joriyHolat.mashqlar.map((m, i) =>
-      i === mashqIdx ? { ...m, bloklar: qolganBloklar } : m
-    );
-    // Manba bo'shab qolsa (bloklar ham savollar ham yo'q) — o'chiramiz.
-    mashqlar = mashqlar.filter(
-      (m, i) => i !== mashqIdx || m.bloklar.length > 0 || (m.savollar || []).length > 0
-    );
-
-    const nishonIdx = mashqlar.findIndex((m) => String(m.raqam ?? "") === raqam);
-    if (nishonIdx >= 0) {
-      mashqlar[nishonIdx] = { ...mashqlar[nishonIdx], bloklar: [...mashqlar[nishonIdx].bloklar, blok] };
-    } else {
-      mashqlar.push({ raqam, sarlavha: "", bloklar: [blok], savollar: [], audio_kerak: false });
-    }
-    sahifaHolatiniYangila({ mashqlar });
-  }
-
-  const faylNomi = joriy.fayl?.split("/").pop() || "";
-  const sahifaOtkazilganmi = !!joriyHolat.otkazib_yuborilsin;
 
   async function hammasiniTasdiqla() {
     setSaqlanmoqda(true);
@@ -533,70 +613,23 @@ export default function BlokTasdiqlash({ jarayonId, onYakunlandi, onBekor }) {
     <div className="blok-yuklash-qoplama">
       <div className="blok-tasdiq-karta">
         <div className="blok-tasdiq-sarlavha-qator">
-          <div style={{ fontWeight: 700 }}>
-            {t("kurs_blok_tasdiq_sahifa")} {joriyIdx + 1}/{sahifalar.length}
-            {faylNomi ? ` — ${faylNomi}` : ""}
-          </div>
+          <div style={{ fontWeight: 700 }}>{t("kurs_blok_tasdiq_sahifa")} — {sahifalar.length}</div>
           <button className="tugma ikkinchi kichik" onClick={onBekor}>{t("kurs_blok_bekor_qilish")}</button>
         </div>
 
-        {joriy.xato && (
-          <div className="xato-xabar">{t("kurs_blok_sahifa_xato")}: {joriy.xato}</div>
-        )}
-
-        <div className="blok-tasdiq-tana">
-          <QutiTahrirlagich
-            rasmUrl={rasmUrl}
-            imgRef={imgRef}
-            qutilar={joriyHolat.qutilar}
-            onChange={(q) => sahifaHolatiniYangila({ qutilar: q })}
-          />
-
-          <div className="blok-tasdiq-panel">
-            {joriyHolat.mashqlar.length === 0 && (
-              <div className="izoh">{t("kurs_blok_tasdiq_mashq_yoq")}</div>
-            )}
-            {joriyHolat.mashqlar.map((m, i) => (
-              <MashqKartasi
-                key={i}
-                mashq={m}
-                mashqIdx={i}
-                qutilar={joriyHolat.qutilar}
-                imgEl={imgRef.current}
-                onChange={mashqniYangila}
-                onOchir={mashqniOchir}
-                onBlokKochir={blokniMashqgaKochir}
-              />
-            ))}
-
-            <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <input
-                type="checkbox"
-                checked={sahifaOtkazilganmi}
-                onChange={(e) => sahifaHolatiniYangila({ otkazib_yuborilsin: e.target.checked })}
-              />
-              {t("kurs_blok_tasdiq_otkazib_yubor")}
-            </label>
-          </div>
+        <div className="blok-tasdiq-sahifalar-vertikal">
+          {sahifalar.map((s) => (
+            <SahifaBlogi
+              key={s.indeks}
+              jarayonId={jarayonId}
+              sahifa={s}
+              sahifaHolati={holat[s.indeks]}
+              ozgartir={(patch) => sahifaHolatiniYangila(s.indeks, patch)}
+            />
+          ))}
         </div>
 
         <div className="blok-tasdiq-navigatsiya">
-          <div style={{ display: "flex", gap: 8 }}>
-            <button
-              className="tugma ikkinchi kichik"
-              disabled={joriyIdx === 0}
-              onClick={() => setJoriyIdx((i) => i - 1)}
-            >
-              ← {t("oldingi")}
-            </button>
-            <button
-              className="tugma ikkinchi kichik"
-              disabled={joriyIdx === sahifalar.length - 1}
-              onClick={() => setJoriyIdx((i) => i + 1)}
-            >
-              {t("keyingi")} →
-            </button>
-          </div>
           <button className="tugma" onClick={hammasiniTasdiqla} disabled={saqlanmoqda}>
             {saqlanmoqda ? t("saqlanmoqda") : t("kurs_blok_tasdiq_saqlash")}
           </button>
