@@ -123,11 +123,21 @@ LISTENING_PROMPT_SHABLON = (
     "{uslub}). YANGI mavzu o'ylab toping (boshqa partlardan BUTUNLAY "
     "FARQLI, masalan restoran buyurtmasi, universitet ma'lumoti, sayohat "
     "rejasi, ma'ruza kabi) va {gapiruvchilar_soni} kishi{ishtirok_matni} "
-    "TABIIY transkript ({soz_oraligi} so'z — bu HAQIQIY imtihondagidek "
-    "uzunlikda bo'lishi SHART, qisqartirmang, \"Speaker1: ...\\n"
-    "Speaker2: ...\" formatida — bitta kishi bo'lsa faqat "
-    "\"Speaker1: ...\") va unga tegishli ANIQ {soni} ta savol (raqamlar "
-    "{boshi}-{oxiri}) yozing.\n\n"
+    "TABIIY transkript (\"Speaker1: ...\\nSpeaker2: ...\" formatida — "
+    "bitta kishi bo'lsa faqat \"Speaker1: ...\") va unga tegishli ANIQ "
+    "{soni} ta savol (raqamlar {boshi}-{oxiri}) yozing.\n\n"
+    "UZUNLIK — QATTIQ MAJBURIY (avvalgi xato: model ko'pincha 250-300 "
+    "so'zda to'xtab qolgan, bu YETARLI EMAS): transkript KAMIDA "
+    "{soz_oraligi} so'z bo'lishi SHART, ideal holda shu oraliqning "
+    "YUQORI chegarasiga yaqin. QISQA (masalan 300 so'zdan kam) "
+    "transkript MUTLAQO QABUL QILINMAYDI. Bunday uzunlikka yetish "
+    "uchun: suhbatni bitta savol-javobda tugatmang — aniqlashtiruvchi "
+    "savollar, qo'shimcha tafsilotlar (raqamlar, sabablar, "
+    "muqobil variantlar), kichik chalkashlik va uni tuzatish kabi "
+    "TABIIY elementlar bilan ko'paytiring (haqiqiy IELTS Listening "
+    "transkriptlari xuddi shunday uzun va batafsil bo'ladi). Yozib "
+    "bo'lgach so'zlarni o'zingiz sanang — {soz_oraligi} oralig'idan "
+    "kam bo'lsa, YANA davom ettirib to'ldiring.\n\n"
     "{tur_talabi}\n\n"
     f"TALABA MAQSADLI DARAJASI: {{band_tavsifi}}.\n\n"
     "\"matn\"ni BO'SH qoldiring — bu maydon Reading uchun, Listening "
@@ -394,14 +404,18 @@ def reading_yarat(band, oldingi_mavzular=None):
     }, None
 
 
-# Band bo'yicha transkript so'z hajmi (2026-08-05, avval 150-200 so'z
-# bilan cheklangan edi — bu haqiqiy IELTS part'iga nisbatan judayam qisqa
-# audio chiqargan). Taxminan ~140 so'z/daqiqa tabiiy suhbat sur'ati bilan
-# hisoblangan: 5-6 -> ~4-5 daq, 6.5-7.5 -> ~5.5-6.5 daq, 8-9 -> ~7-8 daq.
+# Band bo'yicha transkript so'z hajmi (2026-08-05). AVVAL ~140 so'z/daqiqa
+# deb TAXMIN qilingan edi — bu NOTO'G'RI chiqdi (haqiqiy audio kutilgandan
+# qisqaroq bo'lib chiqdi). HAQIQIY o'lchov (Gemini TTS, real audio WAV
+# davomiyligi bilan tekshirildi): 469 so'z -> 136.5s ya'ni ~206 so'z/daqiqa
+# — shu asosda qayta hisoblangan: 5-6 -> ~4-5 daq, 6.5-7.5 -> ~5.5-6.5 daq,
+# 8-9 -> ~7-8 daq. AI so'z-oralig'i ko'rsatmasini ko'pincha to'liq
+# bajarmasligi kuzatilgan (masalan 550-700 so'ralganda 277-499 chiqqan) —
+# shuning uchun quyidagi `LISTENING_QAYTA_URINISH` orqali qayta so'raladi.
 BAND_SOZ_ORALIGI = {
-    "5-6": "550-700",
-    "6.5-7.5": "800-950",
-    "8-9": "1000-1150",
+    "5-6": "800-1050",
+    "6.5-7.5": "1150-1350",
+    "8-9": "1450-1650",
 }
 
 # (boshi, oxiri, gapiruvchilar_soni, asosiy_tur, tur_tavsifi) — haqiqiy
@@ -418,6 +432,18 @@ LISTENING_ORALIQLAR = [
     (21, 30, 2, "matching", "o'quv/trening konteksti (masalan talaba-o'qituvchi muhokamasi) — matching yoki multiple_choice"),
     (31, 40, 1, "fill_blanks", "akademik ma'ruza — summary/note completion (maxsus_format bilan) yoki short_answer"),
 ]
+
+# 2026-08-05, real AI sinovida aniqlandi: model prompt'dagi so'z-oralig'i
+# ko'rsatmasini ko'pincha yetarlicha bajarmaydi (550-700 so'raldi, 277
+# chiqdi). Shuning uchun transkript uzunligi TEKSHIRILADI — chegaradan
+# past bo'lsa, kuchliroq ko'rsatma bilan qayta so'raladi (TTS ham har
+# urinishda pul/kvota sarflaydi, shuning uchun urinishlar soni cheklangan).
+LISTENING_QAYTA_URINISH = 2
+LISTENING_MINIMAL_NISBAT = 0.8  # so'ralgan pastki chegaraning shu ulushidan kam bo'lsa — qayta urinish
+
+
+def _soz_oraligi_pastki_chegara(soz_oraligi):
+    return int(soz_oraligi.split("-")[0])
 
 
 def listening_yarat(band, oldingi_mavzular=None):
@@ -458,16 +484,37 @@ def listening_yarat(band, oldingi_mavzular=None):
             .replace("{tur_talabi}", tur_talabi)
             .replace("{oldingi_mavzular}", _oldingi_mavzular_matni(oldingi_mavzular + mavzular_shu_testda))
         )
-        try:
-            javob = provider.generate_json(
-                promt, f"Part {i}/4 (Questions {boshi}-{oxiri}) uchun yangi suhbat/monolog va savollarni yarating.",
-                javob_sxemasi=LISTENING_SXEMASI, max_tokens=16000,
+        minimal_soz = int(_soz_oraligi_pastki_chegara(soz_oraligi) * LISTENING_MINIMAL_NISBAT)
+        natija, transkript, xato = None, "", None
+        for urinish in range(LISTENING_QAYTA_URINISH + 1):
+            joriy_promt = promt
+            if urinish > 0:
+                joriy_promt += (
+                    f"\n\nOGOHLANTIRISH: OLDINGI urinishda transkript atigi "
+                    f"{len(transkript.split())} so'z chiqdi — bu YETARLI EMAS "
+                    f"({soz_oraligi} so'z kerak). Bu safar SEZILARLI UZUNROQ "
+                    "yozing — dialogga ko'proq savol-javob, tafsilot qo'shing."
+                )
+            try:
+                javob = provider.generate_json(
+                    joriy_promt, f"Part {i}/4 (Questions {boshi}-{oxiri}) uchun yangi suhbat/monolog va savollarni yarating.",
+                    javob_sxemasi=LISTENING_SXEMASI, max_tokens=16000,
+                )
+            except ProviderXatosi as e:
+                return None, None, f"Part {i}: {e}"
+            natija = javob.get("natija") or {}
+            transkript = natija.get("transkript") or ""
+            if len(transkript.split()) >= minimal_soz:
+                break
+        else:
+            xato = (
+                f"Part {i}: transkript {LISTENING_QAYTA_URINISH + 1} urinishdan "
+                f"keyin ham yetarlicha uzun chiqmadi ({len(transkript.split())} "
+                f"so'z, kamida {minimal_soz} kerak edi)"
             )
-        except ProviderXatosi as e:
-            return None, None, f"Part {i}: {e}"
-        natija = javob.get("natija") or {}
+        if xato:
+            return None, None, xato
         savollar = natija.get("savollar") or []
-        transkript = natija.get("transkript") or ""
         kutilgan = oxiri - boshi + 1
         if len(savollar) != kutilgan or not transkript.strip():
             return None, None, f"Part {i}: {kutilgan} ta savol kutilgandi, {len(savollar)} ta chiqdi (yoki transkript bo'sh)"
