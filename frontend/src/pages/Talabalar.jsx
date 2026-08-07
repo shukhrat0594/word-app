@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api, apiForm } from "../api";
 import { useI18n } from "../i18n";
 import { useProfil } from "../profilContext";
+import { PanelTanlovi } from "./Foydalanuvchilar";
 
 const BOSH_FORMA = { ism: "", login: "", parol: "" };
 
@@ -35,6 +36,15 @@ export default function Talabalar() {
     setXato("");
     try {
       await api(`/api/talabalar/${id}/`, { method: "PATCH", body: { faol: yangiFaol } });
+      yukla();
+    } catch {
+      setXato(t("xato_yuz_berdi"));
+    }
+  }
+
+  async function panellarSaqla(id, panellar) {
+    try {
+      await api(`/api/foydalanuvchilar/${id}/panellar/`, { method: "PATCH", body: { panellar } });
       yukla();
     } catch {
       setXato(t("xato_yuz_berdi"));
@@ -168,12 +178,15 @@ export default function Talabalar() {
               <span className="izoh">{tl.username}</span>
             </span>
             {boshqaruvMi && (
-              <button
-                className="tugma ikkinchi kichik"
-                onClick={() => arxivHolatiniOzgartir(tl.id, arxivKorish)}
-              >
-                {arxivKorish ? t("faollashtirish") : t("arxivlash")}
-              </button>
+              <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <PanelTanlovi user={tl} saqlash={panellarSaqla} t={t} />
+                <button
+                  className="tugma ikkinchi kichik"
+                  onClick={() => arxivHolatiniOzgartir(tl.id, arxivKorish)}
+                >
+                  {arxivKorish ? t("faollashtirish") : t("arxivlash")}
+                </button>
+              </span>
             )}
           </div>
         ))}

@@ -104,6 +104,16 @@ class User(AbstractUser):
     markaz = models.ForeignKey(
         Markaz, on_delete=models.SET_NULL, null=True, blank=True, related_name="users"
     )
+    korinadigan_panellar = models.JSONField(
+        null=True, blank=True, default=None,
+        help_text=(
+            "Owner (istalgan foydalanuvchiga) yoki admin (faqat talabalarga) "
+            "belgilaydigan QO'SHIMCHA cheklov (2026-08-05) — rolga asoslangan "
+            "standart navigatsiya ustiga qo'yiladi, faqat TORAYTIRADI, "
+            "KENGAYTIRMAYDI. null/bo'sh = cheklovsiz (rol bo'yicha standart). "
+            "Ro'yxat elementlari nav yo'llari (masalan '/kurslar')."
+        ),
+    )
     # B6.1: Ota-ona <-> Talaba (ko'p-ko'pga). Bog'lashni faqat Markaz
     # (Admin/O'qituvchi) admin panelda amalga oshiradi.
     farzandlar = models.ManyToManyField(

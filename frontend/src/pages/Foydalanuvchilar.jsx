@@ -1,9 +1,56 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
+import { PANEL_TANLOV } from "../components/Layout";
 import { useI18n } from "../i18n";
 import { useProfil } from "../profilContext";
 
 const ROLLAR = ["owner", "admin", "teacher", "student", "oddiy"];
+
+/** Rolga QO'SHIMCHA "ko'rinadigan panellar" checkbox ro'yxati
+ * (2026-08-05) — owner istalgan foydalanuvchi uchun, admin faqat
+ * talabalar uchun ko'radi (`PatchYoli` orqali chaqiruvchi belgilaydi).
+ * `null` (yoki bo'sh) = cheklovsiz (standart, rol bo'yicha). */
+export function PanelTanlovi({ user, saqlash, t }) {
+  const [ochiq, setOchiq] = useState(false);
+  const joriy = user.korinadigan_panellar;
+
+  function boshqar(yol, belgilanganmi) {
+    const hozirgi = joriy && joriy.length > 0 ? joriy : PANEL_TANLOV.map((p) => p.yol);
+    const yangi = belgilanganmi ? hozirgi.filter((y) => y !== yol) : [...hozirgi, yol];
+    saqlash(user.id, yangi.length === PANEL_TANLOV.length ? null : yangi);
+  }
+
+  return (
+    <span style={{ position: "relative" }}>
+      <button type="button" className="tugma ikkinchi kichik" onClick={() => setOchiq((v) => !v)}>
+        {t("panel_ruxsati")} {joriy && joriy.length > 0 ? `(${joriy.length})` : ""}
+      </button>
+      {ochiq && (
+        <div
+          style={{
+            position: "absolute", zIndex: 10, top: "100%", left: 0, marginTop: 4,
+            background: "var(--sirt)", border: "1px solid var(--chiziq)", borderRadius: 8,
+            padding: 10, display: "grid", gap: 4, minWidth: 220, boxShadow: "var(--soya)",
+          }}
+        >
+          {PANEL_TANLOV.map((p) => {
+            const belgilanganmi = !joriy || joriy.length === 0 || joriy.includes(p.yol);
+            return (
+              <label key={p.yol} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <input
+                  type="checkbox"
+                  checked={belgilanganmi}
+                  onChange={() => boshqar(p.yol, belgilanganmi)}
+                />
+                {t(p.kalit)}
+              </label>
+            );
+          })}
+        </div>
+      )}
+    </span>
+  );
+}
 
 export default function Foydalanuvchilar() {
   const { t } = useI18n();
@@ -58,6 +105,15 @@ export default function Foydalanuvchilar() {
   async function rolOzgartir(id, rol) {
     try {
       await api(`/api/foydalanuvchilar/${id}/rol/`, { method: "PATCH", body: { rol } });
+      yukla();
+    } catch (e) {
+      setXabar((x) => ({ ...x, [id]: e.data?.detail || t("xato_yuz_berdi") }));
+    }
+  }
+
+  async function panellarSaqla(id, panellar) {
+    try {
+      await api(`/api/foydalanuvchilar/${id}/panellar/`, { method: "PATCH", body: { panellar } });
       yukla();
     } catch (e) {
       setXabar((x) => ({ ...x, [id]: e.data?.detail || t("xato_yuz_berdi") }));
@@ -169,6 +225,9 @@ export default function Foydalanuvchilar() {
                     </option>
                   ))}
                 </select>
+              )}
+              {!u.is_owner && u.id !== profil?.id && (
+                <PanelTanlovi user={u} saqlash={panellarSaqla} t={t} />
               )}
               {!u.is_owner && u.id !== profil?.id && (
                 <button

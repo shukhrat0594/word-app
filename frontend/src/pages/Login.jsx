@@ -1,56 +1,25 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, tokenlarniSaqla } from "../api";
 import { useI18n } from "../i18n";
 import IjtimoiyPanel from "../components/IjtimoiyPanel";
 import { useProfil } from "../profilContext";
 
-const GOOGLE_CLIENT_ID =
-  "664162111049-l5kll7qhdboiurn3phhmqb7nd5j76hc9.apps.googleusercontent.com";
+// 2026-08-05, foydalanuvchi qarori: Gmail orqali ro'yxatdan o'tish
+// yopildi — Google Identity Services tugmasi endi ko'rsatilmaydi.
+// Backend endpoint (`/api/auth/google/`) ham yangi hisob YARATISHNI
+// rad etadi (`accounts/views.py: GoogleLoginView`), faqat oldin shu
+// yo'l bilan yaratilgan mavjud hisoblar kirishda davom eta oladi.
 
 export default function Login() {
   const { t } = useI18n();
   const { yangila } = useProfil();
   const navigate = useNavigate();
-  const googleDiv = useRef(null);
   const [login, setLogin] = useState("");
   const [parol, setParol] = useState("");
   const [xato, setXato] = useState("");
   const [band, setBand] = useState(false);
   const [xodimForma, setXodimForma] = useState(false);
-
-  useEffect(() => {
-    // Google Identity Services tugmasi
-    const urin = () => {
-      if (!window.google?.accounts?.id || !googleDiv.current) return false;
-      window.google.accounts.id.initialize({
-        client_id: GOOGLE_CLIENT_ID,
-        callback: async (javob) => {
-          try {
-            const data = await api("/api/auth/google/", {
-              method: "POST",
-              body: { id_token: javob.credential },
-            });
-            tokenlarniSaqla(data);
-            await yangila();
-            navigate("/");
-          } catch {
-            setXato(t("login_xato"));
-          }
-        },
-      });
-      window.google.accounts.id.renderButton(googleDiv.current, {
-        theme: "outline",
-        size: "large",
-        width: 356,
-      });
-      return true;
-    };
-    if (!urin()) {
-      const interval = setInterval(() => urin() && clearInterval(interval), 300);
-      return () => clearInterval(interval);
-    }
-  }, [navigate, t, yangila]);
 
   async function xodimKirish(e) {
     e.preventDefault();
@@ -83,7 +52,6 @@ export default function Login() {
       </div>
       <div className="login-forma">
         <h3>{t("kirish")}</h3>
-        <div ref={googleDiv} />
         {!xodimForma ? (
           <button
             type="button"

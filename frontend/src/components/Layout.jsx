@@ -12,6 +12,25 @@ import IjtimoiyPanel from "./IjtimoiyPanel";
 // kifoya (App.jsx marshruti ham shu bayroqqa qaraydi).
 export const NAMUNAVIY_MASHQLAR_OCHIQ = false;
 
+// 2026-08-05 — "Ko'rinadigan panellar" tanlovi (Foydalanuvchilar/
+// Talabalar sahifasidagi checkbox ro'yxati) shu yerdan olinadi, nav
+// yo'llari bilan bir joyda saqlanishi uchun (ikkalasi sinxron qolsin).
+export const PANEL_TANLOV = [
+  { yol: "/ielts-boshqarish", kalit: "nav_ielts_boshqarish" },
+  { yol: "/ai-mashqlari", kalit: "nav_ai_mashqlari" },
+  { yol: "/kurslar", kalit: "nav_kurslar" },
+  { yol: "/oyinlar", kalit: "nav_oyinlar" },
+  { yol: "/tarix", kalit: "nav_tarix" },
+  { yol: "/reyting", kalit: "nav_reyting" },
+  { yol: "/guruhlar", kalit: "nav_guruhlar" },
+  { yol: "/talabalar", kalit: "nav_talabalar" },
+  { yol: "/xodimlar", kalit: "nav_xodimlar" },
+  { yol: "/davomat", kalit: "nav_davomat" },
+  { yol: "/ijtimoiy-tarmoqlar", kalit: "nav_ijtimoiy" },
+  { yol: "/foydalanuvchilar", kalit: "nav_foydalanuvchilar" },
+  { yol: "/hisobotlar", kalit: "nav_hisobotlar" },
+];
+
 const TALABA_NAVLAR = [
   { yol: "/", ikon: "▦", kalit: "nav_dashboard" },
   ...(NAMUNAVIY_MASHQLAR_OCHIQ
@@ -125,6 +144,20 @@ export default function Layout() {
     { yol: "/profil", ikon: "👤", kalit: "nav_profil" },
   ].filter((n, i, hammasi) => hammasi.findIndex((x) => x.yol === n.yol) === i);
 
+  // 2026-08-05, foydalanuvchi qarori: rolga QO'SHIMCHA cheklov — owner
+  // yoki admin bu foydalanuvchiga "korinadigan_panellar" belgilagan
+  // bo'lsa (backend ruxsat tekshiruvlari o'zgarmaydi, bu FAQAT
+  // navigatsiyani qo'shimcha toraytiradi), faqat shu ro'yxatdagi
+  // yo'llar ko'rsatiladi. Owner O'ZIGA bu cheklovni qo'llamaydi (aks
+  // holda o'zini panellardan mahrum qilib qo'yishi mumkin edi). "/" va
+  // "/profil" har doim ko'rinadi.
+  const yakuniyNavlar =
+    !profil?.is_owner && profil?.korinadigan_panellar
+      ? navlar.filter(
+          (n) => n.yol === "/" || n.yol === "/profil" || profil.korinadigan_panellar.includes(n.yol)
+        )
+      : navlar;
+
   function temaAlmash() {
     const r = document.documentElement;
     const hozirgi =
@@ -173,7 +206,7 @@ export default function Layout() {
             </small>
           </div>
         </div>
-        {navlar.map((n) => (
+        {yakuniyNavlar.map((n) => (
           <NavLink
             key={n.yol}
             to={n.yol}

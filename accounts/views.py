@@ -2,8 +2,6 @@ from django.conf import settings
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.shortcuts import get_object_or_404
-from google.auth.transport import requests as google_requests
-from google.oauth2 import id_token as google_id_token
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -87,6 +85,7 @@ class ProfilView(APIView):
                 # simulyatsiya paytida o'zini qaytarib bo'lmay qolar edi).
                 "asl_owner_mi": asl_owner_mi(u),
                 "korish_rejimi": u.korish_rejimi,
+                "korinadigan_panellar": u.korinadigan_panellar,
             }
         )
 
@@ -425,6 +424,7 @@ class FoydalanuvchilarView(APIView):
                     "is_owner": u.is_superuser,
                     "markaz": u.markaz.name if u.markaz else None,
                     "parol_bormi": u.has_usable_password(),
+                    "korinadigan_panellar": u.korinadigan_panellar,
                 }
                 for u in qs[:200]
             ]
@@ -577,6 +577,60 @@ class FoydalanuvchiRolView(APIView):
         )
 
         return Response({"id": user.id, "role": user.role, "is_owner": user.is_superuser})
+
+
+# frontend/src/components/Layout.jsx'dagi nav yo'llari bilan BIR XIL
+# saqlanishi kerak (2026-08-05) — bu yerda faqat validatsiya uchun.
+KORINADIGAN_PANEL_YOLLARI = {
+    "/mashqlar", "/ielts-boshqarish", "/ai-mashqlari", "/kurslar", "/oyinlar",
+    "/tarix", "/reyting", "/guruhlar", "/talabalar", "/xodimlar", "/davomat",
+    "/ijtimoiy-tarmoqlar", "/foydalanuvchilar", "/hisobotlar",
+}
+
+
+class FoydalanuvchiPanellarView(APIView):
+    """Rolga QO'SHIMCHA "ko'rinadigan panellar" cheklovi (2026-08-05,
+    foydalanuvchi qarori — xavfsizroq variant: BACKEND ruxsat
+    tekshiruvlari o'zgarmaydi, bu FAQAT frontend navigatsiyasini
+    qo'shimcha toraytiradi).
+
+    Owner — istalgan foydalanuvchiga; admin — FAQAT o'z markazidagi
+    talabalarga (`role=student`) belgilay oladi."""
+
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request, pk):
+        user = get_object_or_404(User, pk=pk)
+        if owner_mi(request.user):
+            pass
+        elif request.user.role == User.Role.ADMIN:
+            if user.role != User.Role.STUDENT or user.markaz_id != request.user.markaz_id:
+                return Response(
+                    {"detail": "Faqat o'z markazingizdagi talabalarga belgilashingiz mumkin"},
+                    status=403,
+                )
+        else:
+            return Response({"detail": "Ruxsat yo'q"}, status=403)
+
+        panellar = request.data.get("panellar")
+        if panellar is not None:
+            if not isinstance(panellar, list) or not all(isinstance(p, str) for p in panellar):
+                return Response({"detail": "panellar — satrlar ro'yxati bo'lishi kerak"}, status=400)
+            notogri = [p for p in panellar if p not in KORINADIGAN_PANEL_YOLLARI]
+            if notogri:
+                return Response({"detail": f"Noto'g'ri panel(lar): {notogri}"}, status=400)
+            panellar = panellar or None  # bo'sh ro'yxat ham "cheklovsiz" hisoblanadi
+
+        user.korinadigan_panellar = panellar
+        user.save(update_fields=["korinadigan_panellar"])
+        logla(
+            foydalanuvchi=request.user,
+            harakat=FaoliyatYozuvi.Harakat.OZGARTIRISH,
+            obyekt=user,
+            obyekt_turi="Foydalanuvchi",
+            ozgarishlar={"korinadigan_panellar": {"yangi": panellar}},
+        )
+        return Response({"id": user.id, "korinadigan_panellar": user.korinadigan_panellar})
 
 
 class FoydalanuvchiOchirishView(APIView):
@@ -934,7 +988,10 @@ class TalabalarView(APIView):
 
         return Response(
             [
-                {"id": t.id, "ism": t.get_full_name() or t.username, "username": t.username}
+                {
+                    "id": t.id, "ism": t.get_full_name() or t.username, "username": t.username,
+                    "korinadigan_panellar": t.korinadigan_panellar,
+                }
                 for t in qs.order_by("first_name", "username")
             ]
         )
@@ -1092,54 +1149,15 @@ class XodimLoginView(TokenObtainPairView):
 
 
 class GoogleLoginView(APIView):
-    """Talaba Google ID token yuboradi -> tekshiriladi -> JWT qaytariladi.
-
-    Talaba markazga UMUMAN biriktirilmaydi (2026-08-02) — har qanday
-    talaba "Utmost talabasi" hisoblanadi, markaz faqat admin/o'qituvchi
-    uchun mavjud.
-    """
+    """Google orqali kirish/ro'yxatdan o'tish (2026-08-05, foydalanuvchi
+    qarori: BUTUNLAY YOPILDI — frontendda tugma olib tashlandi, bu yerda
+    ham qo'shimcha himoya sifatida darhol 403 qaytariladi). Kod o'chirib
+    tashlanmadi — kelgusida qayta ochish kerak bo'lsa, faqat pastdagi
+    `return` qatori olib tashlanadi."""
 
     permission_classes = [AllowAny]
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = "login"
 
     def post(self, request):
-        token = request.data.get("id_token")
-        if not token:
-            return Response({"detail": "id_token majburiy"}, status=400)
-
-        try:
-            idinfo = google_id_token.verify_oauth2_token(
-                token, google_requests.Request(), settings.GOOGLE_OAUTH_CLIENT_ID
-            )
-        except ValueError:
-            return Response({"detail": "id_token yaroqsiz"}, status=401)
-
-        email = idinfo["email"]
-        user, created = User.objects.get_or_create(
-            username=email,
-            defaults={
-                "email": email,
-                "role": User.Role.STUDENT,
-                "first_name": idinfo.get("given_name", ""),
-                "last_name": idinfo.get("family_name", ""),
-            },
-        )
-
-        # Arxivlangan (is_active=False) talaba qayta kira olmasligi kerak
-        # (2026-08-02) — parol orqali kirish buni Django autentifikatsiyasi
-        # orqali avtomatik bloklaydi, lekin bu yerda token to'g'ridan-to'g'ri
-        # `RefreshToken.for_user`da yaratilgani uchun qo'lda tekshirish shart.
-        if not created and not user.is_active:
-            return Response({"detail": "Hisobingiz arxivlangan"}, status=403)
-
-        LoginHistory.objects.create(foydalanuvchi=user, rol=user.role)
-
-        refresh = RefreshToken.for_user(user)
-        return Response(
-            {
-                "access": str(refresh.access_token),
-                "refresh": str(refresh),
-                "created": created,
-            }
-        )
+        return Response({"detail": "Google orqali kirish yopilgan"}, status=403)
