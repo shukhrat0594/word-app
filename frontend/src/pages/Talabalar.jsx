@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api, apiForm } from "../api";
 import { useI18n } from "../i18n";
 import { useProfil } from "../profilContext";
+import NatijalarRoyxati from "../components/NatijalarRoyxati";
 import { PanelTanlovi } from "./Foydalanuvchilar";
 
 const BOSH_FORMA = { ism: "", login: "", parol: "" };
@@ -23,6 +24,9 @@ export default function Talabalar() {
   // Arxivlangan talabalarni ko'rish (2026-08-02) — standart holatda faqat
   // faol (is_active=True) talabalar ko'rinadi.
   const [arxivKorish, setArxivKorish] = useState(false);
+  // 2026-08-05, foydalanuvchi talabi: talaba ustiga bosilganda uning
+  // barcha mashq/test natijalari (turi bo'yicha) ko'rsatiladigan oyna.
+  const [natijaTalaba, setNatijaTalaba] = useState(null);
 
   function yukla(arxiv = arxivKorish) {
     api(`/api/talabalar/${arxiv ? "?arxiv=1" : ""}`).then(setTalabalar).catch(() => {});
@@ -173,7 +177,11 @@ export default function Talabalar() {
         {talabalar.length === 0 && <span className="izoh">{t("talaba_yoq")}</span>}
         {talabalar.map((tl) => (
           <div className="tarix-el" key={tl.id}>
-            <span style={{ display: "flex", gap: 8 }}>
+            <span
+              style={{ display: "flex", gap: 8, cursor: "pointer" }}
+              onClick={() => setNatijaTalaba(tl)}
+              title={t("talaba_natijalarini_kor")}
+            >
               <span>{tl.ism}</span>
               <span className="izoh">{tl.username}</span>
             </span>
@@ -191,6 +199,24 @@ export default function Talabalar() {
           </div>
         ))}
       </div>
+
+      {natijaTalaba && (
+        <div className="blok-yuklash-qoplama" onClick={() => setNatijaTalaba(null)}>
+          <div
+            className="blok-tasdiq-karta"
+            style={{ maxWidth: 700 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="blok-tasdiq-sarlavha-qator">
+              <strong>{natijaTalaba.ism}</strong>
+              <button className="tugma ikkinchi kichik" onClick={() => setNatijaTalaba(null)}>
+                {t("yopish")}
+              </button>
+            </div>
+            <NatijalarRoyxati talabaId={natijaTalaba.id} />
+          </div>
+        </div>
+      )}
     </>
   );
 }

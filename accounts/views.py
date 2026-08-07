@@ -633,6 +633,77 @@ class FoydalanuvchiPanellarView(APIView):
         return Response({"id": user.id, "korinadigan_panellar": user.korinadigan_panellar})
 
 
+class FoydalanuvchiNatijalariView(APIView):
+    """Bitta talabaning BARCHA mashq/test natijalari — turi bo'yicha
+    (reading/listening/writing/speaking/kurslar) bitta ro'yxatda,
+    sana bo'yicha kamayish tartibida (2026-08-05, foydalanuvchi
+    talabi).
+
+    Ko'ra oladi: FOYDALANUVCHINING O'ZI (har doim, rolidan qat'i nazar —
+    "oddiy" foydalanuvchi ham shu orqali "/tarix"da o'zinikini ko'radi),
+    owner (istalgan foydalanuvchi), teacher (FAQAT o'z guruhidagi
+    talabalar — `Guruh.talabalar`)."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        talaba = get_object_or_404(User, pk=pk)
+        u = request.user
+        if u.pk == talaba.pk or owner_mi(u):
+            pass
+        elif u.role == User.Role.TEACHER:
+            from academics.models import Guruh
+
+            if not Guruh.objects.filter(oqituvchi=u, talabalar=talaba).exists():
+                return Response({"detail": "Ruxsat yo'q"}, status=403)
+        else:
+            return Response({"detail": "Ruxsat yo'q"}, status=403)
+
+        from assessment.models import SpeakingTekshiruv, WritingTekshiruv
+        from courses.models import KursMashqYechim
+        from exercises.models import MashqYechim, TestYechim
+
+        natijalar = []
+        for y in MashqYechim.objects.filter(talaba=talaba).select_related("mashq")[:100]:
+            natijalar.append({
+                "turi": y.mashq.bolim, "id": y.id, "nomi": y.mashq.name,
+                "ball": y.ball, "jami": y.jami, "sana": y.created_at,
+                "javoblar": y.javoblar, "natijalar": y.natijalar,
+            })
+        for y in TestYechim.objects.filter(talaba=talaba).select_related("test")[:100]:
+            natijalar.append({
+                "turi": y.test.bolim, "id": y.id, "nomi": y.test.name,
+                "ball": y.ball, "jami": y.jami,
+                "band": float(y.band) if y.band is not None else None,
+                "sana": y.created_at, "javoblar": y.javoblar, "natijalar": y.natijalar,
+            })
+        for t in WritingTekshiruv.objects.filter(talaba=talaba)[:100]:
+            natijalar.append({
+                "turi": "writing", "id": t.id, "nomi": t.task_type or "Writing",
+                "band": t.overall_band, "sana": t.created_at,
+                "natija": t.natija, "matn": t.matn,
+            })
+        for t in SpeakingTekshiruv.objects.filter(talaba=talaba)[:100]:
+            natijalar.append({
+                "turi": "speaking", "id": t.id, "nomi": t.part_type or "Speaking",
+                "band": t.overall_band, "sana": t.created_at, "natija": t.natija,
+                "matn": t.matn, "audio_url": t.audio_fayl.url if t.audio_fayl else None,
+            })
+        for y in KursMashqYechim.objects.filter(talaba=talaba).select_related("mashq")[:100]:
+            nomi = (y.mashq.matn or "").strip()[:60] or f"Mashq #{y.mashq.tartib}"
+            natijalar.append({
+                "turi": "kurslar", "id": y.id, "nomi": nomi,
+                "ball": y.ball, "jami": y.jami, "sana": y.created_at,
+                "javoblar": y.javoblar, "natijalar": y.natijalar,
+            })
+
+        natijalar.sort(key=lambda n: n["sana"], reverse=True)
+        return Response({
+            "talaba": {"id": talaba.id, "ism": talaba.get_full_name() or talaba.username},
+            "natijalar": natijalar[:200],
+        })
+
+
 class FoydalanuvchiOchirishView(APIView):
     """Owner yoki admin uchun — foydalanuvchi hisobini o'chiradi.
 
