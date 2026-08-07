@@ -4,13 +4,14 @@ import re
 
 from django.core.exceptions import ValidationError
 from django.shortcuts import get_object_or_404
-from rest_framework.parsers import FormParser, MultiPartParser
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.models import Markaz, User
 from accounts.permissions import owner_mi
+from assessment.providers import ProviderXatosi
 from audit.models import FaoliyatYozuvi
 from audit.utils import logla, maydon_diff
 
@@ -1117,10 +1118,22 @@ class ImtihonBoshqaruvDetailView(APIView):
 
 class TestQismiFayllarBoshqaruvView(APIView):
     """Owner/admin uchun — bitta test qismiga audio (listening) va/yoki
-    rasm (Map/Diagram Labelling, Writing Task 1 grafigi) biriktirish."""
+    rasm (Map/Diagram Labelling, Writing Task 1 grafigi) biriktirish,
+    shuningdek MATNINI tahrirlash (2026-08-05, foydalanuvchi talabi:
+    "mavjud testlar qismida mashq ustiga bosganda ... matnni qo'lda
+    tahrirlash imkoni bo'lsin" — avval faqat fayl almashtirish bor edi).
+
+    `JSONParser` qo'shildi (fayl bo'lmagan, faqat matn/savol tahriri
+    uchun) — `MultiPartParser` bilan bir qatorda, DRF ikkalasini ham
+    Content-Type'ga qarab avtomatik tanlaydi."""
 
     permission_classes = [IsAuthenticated]
-    parser_classes = [MultiPartParser, FormParser]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+
+    # request.data'dan to'g'ridan-to'g'ri (o'zgartirmasdan) o'tkaziladigan
+    # matn maydonlari — fayl EMAS, shuning uchun oddiy qiymat solishtirish
+    # bilan "o'zgardimi" tekshiriladi (audit-log uchun eski/yangi qiymat).
+    _MATN_MAYDONLARI = ("sarlavha", "yoriqnoma", "matn", "savollar", "maxsus_format")
 
     def patch(self, request, pk):
         if not _mashq_admin_mi(request.user):
@@ -1133,6 +1146,18 @@ class TestQismiFayllarBoshqaruvView(APIView):
         if request.FILES.get("rasm"):
             qism.rasm = request.FILES["rasm"]
             ozgarishlar["rasm"] = {"eski": "—", "yangi": "yangilandi"}
+        for maydon in self._MATN_MAYDONLARI:
+            if maydon not in request.data:
+                continue
+            yangi = request.data[maydon]
+            eski = getattr(qism, maydon)
+            if yangi == eski:
+                continue
+            setattr(qism, maydon, yangi)
+            ozgarishlar[maydon] = {
+                "eski": eski if maydon in ("sarlavha", "yoriqnoma", "matn") else "—",
+                "yangi": yangi if maydon in ("sarlavha", "yoriqnoma", "matn") else "yangilandi",
+            }
         if ozgarishlar:
             qism.save()
             logla(
@@ -1144,6 +1169,44 @@ class TestQismiFayllarBoshqaruvView(APIView):
                 ozgarishlar=ozgarishlar,
             )
         return Response(_qism_admin_dict(qism))
+
+
+class QismPozitsiyaAniqlashView(APIView):
+    """Owner/admin uchun — B-BOSQICH (2026-08-05): shu qismda ALLAQACHON
+    saqlangan rasmdan (Map/Diagram Labelling) savol pozitsiyalarini AI
+    orqali QAYTA aniqlash. Natija DARHOL saqlanmaydi — faqat TAKLIF
+    qaytaradi, admin `TestQismiFayllarBoshqaruvView.patch` orqali
+    (savollar[].pozitsiya bilan) tasdiqlab saqlaydi — xuddi Kurslar
+    blok-tasdiqlash tamoyili: AI taxmin qiladi, odam tasdiqlaydi."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        if not _mashq_admin_mi(request.user):
+            return Response({"detail": "Faqat admin/owner uchun"}, status=403)
+        qism = get_object_or_404(TestQismi, pk=pk)
+        if not qism.rasm:
+            return Response({"detail": "Bu qismda rasm yo'q"}, status=400)
+        if not qism.savollar:
+            return Response({"detail": "Bu qismda savol yo'q"}, status=400)
+
+        from .pdf_generatsiya import pdf_provider_olish
+        from .pozitsiya_generatsiya import pozitsiyalarni_aniqla
+
+        savollar = [
+            {"raqam": i + 1, "savol": s.get("savol") or ""}
+            for i, s in enumerate(qism.savollar)
+        ]
+        try:
+            provider = pdf_provider_olish()
+        except ProviderXatosi as e:
+            return Response({"detail": str(e)}, status=502)
+        rasm_bytes = qism.rasm.read()
+        pozitsiyalar, xato = pozitsiyalarni_aniqla(provider, rasm_bytes, savollar)
+        if xato:
+            return Response({"detail": xato}, status=502)
+        # JSON kalitlar doim string bo'ladi — frontend ham shunga qarab o'qiydi.
+        return Response({"pozitsiyalar": {str(k): v for k, v in pozitsiyalar.items()}})
 
 
 class ImtihonListView(APIView):

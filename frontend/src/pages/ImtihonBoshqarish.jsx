@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { api, apiForm } from "../api";
+import { useEffect, useRef, useState } from "react";
+import { api, apiBlobUrl, apiForm } from "../api";
 import { useI18n } from "../i18n";
 import { useProfil } from "../profilContext";
 import ImtihonMock from "./ImtihonMock";
@@ -726,10 +726,353 @@ function KiritishPanel({ manba, qismgaFaylYukla, royxatniYangila }) {
   );
 }
 
+/** Bitta savolning barcha matn maydonlarini (guruh_boshi/guruh_korsatma/
+ * savol/variantlar/togri) tahrirlaydigan qator (2026-08-05, foydalanuvchi
+ * talabi: "matnni qo'lda tahrirlash imkoni bo'lsin"). `pozitsiya`
+ * (Map/Diagram Labelling koordinatasi) BU YERDA tahrirlanmaydi — alohida
+ * AI-yordamli bosqich sifatida rejalashtirilgan (hozircha o'zgarishsiz
+ * saqlanadi). */
+function SavolTahrirQatori({ savol, oz, t }) {
+  function maydonOz(patch) {
+    oz({ ...savol, ...patch });
+  }
+  const togriMatni = Array.isArray(savol.togri) ? savol.togri.join(", ") : savol.togri || "";
+  return (
+    <div style={{ display: "grid", gap: 4, padding: "8px 0", borderTop: "1px solid var(--chiziq)" }}>
+      <div style={{ display: "flex", gap: 6 }}>
+        <input
+          className="izoh"
+          style={{ flex: 1 }}
+          placeholder={t("imtihon_guruh_sarlavha")}
+          value={savol.guruh_boshi || ""}
+          onChange={(e) => maydonOz({ guruh_boshi: e.target.value })}
+        />
+        <input
+          className="izoh"
+          style={{ flex: 2 }}
+          placeholder={t("imtihon_guruh_korsatma")}
+          value={savol.guruh_korsatma || ""}
+          onChange={(e) => maydonOz({ guruh_korsatma: e.target.value })}
+        />
+      </div>
+      <textarea
+        rows={2}
+        placeholder={t("imtihon_savol_matni")}
+        value={savol.savol || ""}
+        onChange={(e) => maydonOz({ savol: e.target.value })}
+      />
+      <div style={{ display: "flex", gap: 6 }}>
+        <input
+          style={{ flex: 2 }}
+          placeholder={t("imtihon_variantlar_izoh")}
+          value={(savol.variantlar || []).join(", ")}
+          onChange={(e) =>
+            maydonOz({
+              variantlar: e.target.value.split(",").map((v) => v.trim()).filter(Boolean),
+            })
+          }
+        />
+        <input
+          style={{ flex: 1 }}
+          placeholder={t("imtihon_togri_javob")}
+          value={togriMatni}
+          onChange={(e) => {
+            const qism = e.target.value.split(",").map((v) => v.trim()).filter(Boolean);
+            maydonOz({ togri: Array.isArray(savol.togri) ? qism : e.target.value });
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
+/** Bitta testni TO'LIQ ochadigan tahrirlash oynasi (2026-08-05,
+ * foydalanuvchi talabi: "mashq imtixondagidek to'liq ochilsin, matnni
+ * qo'lda tahrirlash imkoni bo'lsin"). Yuqorida haqiqiy imtihon
+ * ko'rinishi (`ImtihonOtish`, faqat KO'RISH uchun — o'zgarishsiz qayta
+ * ishlatiladi), pastda har qism uchun tahrirlanadigan matn/savol
+ * maydonlari (backend: `TestQismiFayllarBoshqaruvView.patch`, endi
+ * matn/savollarni ham qabul qiladi). */
+/** B-BOSQICH (2026-08-05): shu qismda ALLAQACHON saqlangan rasmdan AI
+ * orqali savol pozitsiyalarini QAYTA aniqlab beradi — taklifni rasm
+ * ustida marker sifatida ko'rsatadi (admin sudrab to'g'irlashi mumkin,
+ * xuddi Kurslar rasm-quti tahrirlagichi kabi), "Qo'llash" bosilgandan
+ * keyingina savollarga yoziladi (hali serverga saqlanmagan — buni
+ * mavjud "Saqlash" tugmasi bajaradi). AI TAXMIN qiladi, ODAM tasdiqlaydi. */
+function PozitsiyaAniqlagich({ qism, savollar, savollarniOzgartir, t }) {
+  const [rasmUrl, setRasmUrl] = useState(null);
+  const [taklif, setTaklif] = useState(null);
+  const [band, setBand] = useState(false);
+  const [xato, setXato] = useState("");
+  const konteynerRef = useRef(null);
+  const surinishRef = useRef(null);
+
+  useEffect(() => {
+    let url = null;
+    let bekorQilindi = false;
+    apiBlobUrl(qism.rasm_url).then((u) => {
+      if (bekorQilindi) {
+        URL.revokeObjectURL(u);
+        return;
+      }
+      url = u;
+      setRasmUrl(u);
+    }).catch(() => {});
+    return () => {
+      bekorQilindi = true;
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [qism.rasm_url]);
+
+  async function aniqla() {
+    setBand(true);
+    setXato("");
+    setTaklif(null);
+    try {
+      const res = await api(`/api/imtihon/qism-boshqaruv/${qism.id}/pozitsiya-aniqla/`, { method: "POST" });
+      setTaklif(res.pozitsiyalar);
+    } catch (e) {
+      setXato(e.data?.detail || t("xato_yuz_berdi"));
+    } finally {
+      setBand(false);
+    }
+  }
+
+  function davomEttir(e) {
+    const s = surinishRef.current;
+    if (!s || !konteynerRef.current) return;
+    const rect = konteynerRef.current.getBoundingClientRect();
+    const dx = ((e.clientX - s.boshX) / rect.width) * 100;
+    const dy = ((e.clientY - s.boshY) / rect.height) * 100;
+    setTaklif((prev) => ({
+      ...prev,
+      [s.raqam]: {
+        x: Math.max(0, Math.min(100, s.boshQiymat.x + dx)),
+        y: Math.max(0, Math.min(100, s.boshQiymat.y + dy)),
+      },
+    }));
+  }
+  function toxtat() {
+    surinishRef.current = null;
+    window.removeEventListener("mousemove", davomEttir);
+    window.removeEventListener("mouseup", toxtat);
+  }
+  function boshlash(e, raqam) {
+    e.preventDefault();
+    surinishRef.current = { raqam, boshX: e.clientX, boshY: e.clientY, boshQiymat: { ...taklif[raqam] } };
+    window.addEventListener("mousemove", davomEttir);
+    window.addEventListener("mouseup", toxtat);
+  }
+
+  function qollash() {
+    const yangi = savollar.map((s, i) => {
+      const p = taklif[String(i + 1)];
+      return p ? { ...s, pozitsiya: { x: Math.round(p.x), y: Math.round(p.y) } } : s;
+    });
+    savollarniOzgartir(yangi);
+    setTaklif(null);
+  }
+
+  return (
+    <div style={{ border: "1px dashed var(--chiziq)", borderRadius: 8, padding: 8 }}>
+      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <button type="button" className="tugma ikkinchi kichik" onClick={aniqla} disabled={band}>
+          {band ? t("yuklanmoqda") : t("imtihon_pozitsiya_aniqla")}
+        </button>
+        {xato && <span className="xato-xabar">{xato}</span>}
+      </div>
+      {taklif && rasmUrl && (
+        <>
+          <div className="izoh" style={{ margin: "6px 0" }}>{t("imtihon_pozitsiya_izoh")}</div>
+          <div ref={konteynerRef} style={{ position: "relative", maxWidth: 480, userSelect: "none" }}>
+            <img src={rasmUrl} alt="" style={{ width: "100%", display: "block", borderRadius: 6 }} draggable={false} />
+            {Object.entries(taklif).map(([raqam, p]) => (
+              <div
+                key={raqam}
+                onMouseDown={(e) => boshlash(e, raqam)}
+                style={{
+                  position: "absolute", left: `${p.x}%`, top: `${p.y}%`,
+                  transform: "translate(-50%, -50%)", width: 20, height: 20, borderRadius: "50%",
+                  background: "#2b8aef", color: "#fff", display: "flex", alignItems: "center",
+                  justifyContent: "center", fontSize: 11, fontWeight: 700, cursor: "move",
+                  border: "2px solid #fff",
+                }}
+              >
+                {raqam}
+              </div>
+            ))}
+          </div>
+          <button type="button" className="tugma kichik" style={{ marginTop: 6 }} onClick={qollash}>
+            {t("imtihon_pozitsiya_qollash")}
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
+function MashqTolaTahrir({ test, manba, onYopish, onSaqlandi }) {
+  const { t } = useI18n();
+  // qismHolat[qismId] = {sarlavha, yoriqnoma, matn, savollar} — lokal
+  // tahrir nusxasi, faqat "Saqlash" bosilganda serverga yuboriladi.
+  const [qismHolat, setQismHolat] = useState(() => {
+    const boshlangich = {};
+    for (const q of test.qismlar) {
+      boshlangich[q.id] = {
+        sarlavha: q.sarlavha || "",
+        yoriqnoma: q.yoriqnoma || "",
+        matn: q.matn || "",
+        savollar: q.savollar || [],
+        maxsus_format_matn: q.maxsus_format ? JSON.stringify(q.maxsus_format, null, 2) : "",
+      };
+    }
+    return boshlangich;
+  });
+  const [saqlanmoqdaId, setSaqlanmoqdaId] = useState(null);
+  const [xato, setXato] = useState("");
+
+  function qismOz(qismId, patch) {
+    setQismHolat((prev) => ({ ...prev, [qismId]: { ...prev[qismId], ...patch } }));
+  }
+  function savolOz(qismId, savolIdx, yangiSavol) {
+    const h = qismHolat[qismId];
+    const yangi = [...h.savollar];
+    yangi[savolIdx] = yangiSavol;
+    qismOz(qismId, { savollar: yangi });
+  }
+
+  async function qismniSaqla(q) {
+    const h = qismHolat[q.id];
+    setXato("");
+    setSaqlanmoqdaId(q.id);
+    try {
+      let maxsusFormat = q.maxsus_format;
+      if (h.maxsus_format_matn.trim()) {
+        try {
+          maxsusFormat = JSON.parse(h.maxsus_format_matn);
+        } catch {
+          setXato(t("imtihon_maxsus_format_json_xato"));
+          setSaqlanmoqdaId(null);
+          return;
+        }
+      } else {
+        maxsusFormat = null;
+      }
+      await api(`/api/imtihon/qism-boshqaruv/${q.id}/`, {
+        method: "PATCH",
+        body: {
+          sarlavha: h.sarlavha,
+          yoriqnoma: h.yoriqnoma,
+          matn: h.matn,
+          savollar: h.savollar,
+          maxsus_format: maxsusFormat,
+        },
+      });
+      onSaqlandi();
+    } catch (e) {
+      setXato(e.data?.detail || t("xato_yuz_berdi"));
+    } finally {
+      setSaqlanmoqdaId(null);
+    }
+  }
+
+  return (
+    <div className="blok-yuklash-qoplama">
+      <div className="blok-tasdiq-karta" style={{ maxWidth: 1000 }}>
+        <div className="blok-tasdiq-sarlavha-qator">
+          <strong>{test.name}</strong>
+          <button className="tugma ikkinchi kichik" onClick={onYopish}>{t("yopish")}</button>
+        </div>
+
+        <div className="izoh">{t("imtihon_tola_ochish_izoh")}</div>
+        <div style={{ border: "1px solid var(--chiziq)", borderRadius: 8, overflow: "hidden", maxHeight: "45vh", overflowY: "auto" }}>
+          <ImtihonOtish bolim={test.bolim} manba={manba} testId={test.id} />
+        </div>
+
+        {xato && <div className="xato-xabar">{xato}</div>}
+
+        <div style={{ display: "grid", gap: 16 }}>
+          {test.qismlar.map((q) => {
+            const h = qismHolat[q.id];
+            return (
+              <div key={q.id} style={{ border: "1px solid var(--chiziq)", borderRadius: 8, padding: 10 }}>
+                <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 6 }}>
+                  <strong>{q.sarlavha || `#${q.tartib}`}</strong>
+                  <button
+                    className="tugma kichik"
+                    style={{ marginLeft: "auto" }}
+                    onClick={() => qismniSaqla(q)}
+                    disabled={saqlanmoqdaId === q.id}
+                  >
+                    {saqlanmoqdaId === q.id ? t("saqlanmoqda") : t("saqlash")}
+                  </button>
+                </div>
+                <div style={{ display: "grid", gap: 6 }}>
+                  <input
+                    placeholder={t("imtihon_qism_sarlavha")}
+                    value={h.sarlavha}
+                    onChange={(e) => qismOz(q.id, { sarlavha: e.target.value })}
+                  />
+                  <input
+                    placeholder={t("imtihon_qism_yoriqnoma")}
+                    value={h.yoriqnoma}
+                    onChange={(e) => qismOz(q.id, { yoriqnoma: e.target.value })}
+                  />
+                  {(q.tur || h.matn) !== undefined && (
+                    <textarea
+                      rows={4}
+                      placeholder={t("imtihon_qism_matn")}
+                      value={h.matn}
+                      onChange={(e) => qismOz(q.id, { matn: e.target.value })}
+                    />
+                  )}
+                  {q.rasm_url && (
+                    <PozitsiyaAniqlagich
+                      qism={q}
+                      savollar={h.savollar}
+                      savollarniOzgartir={(yangi) => qismOz(q.id, { savollar: yangi })}
+                      t={t}
+                    />
+                  )}
+                  {h.savollar.map((s, si) => (
+                    <SavolTahrirQatori
+                      key={si}
+                      savol={s}
+                      oz={(yangi) => savolOz(q.id, si, yangi)}
+                      t={t}
+                    />
+                  ))}
+                  {(q.maxsus_format || h.maxsus_format_matn) && (
+                    <div>
+                      <div className="izoh" style={{ marginBottom: 4 }}>
+                        {t("imtihon_maxsus_format_izoh")}
+                      </div>
+                      <textarea
+                        rows={5}
+                        style={{ fontFamily: "monospace", fontSize: 12 }}
+                        value={h.maxsus_format_matn}
+                        onChange={(e) => qismOz(q.id, { maxsus_format_matn: e.target.value })}
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /** Faqat admin/owner uchun — test yaratish/o'chirish/tahrirlash. */
 function AdminBoshqaruv({ manba, onOchirildi }) {
   const { t } = useI18n();
   const [royxat, setRoyxat] = useState(null);
+  // 2026-08-05, foydalanuvchi talabi: test/mashq nomiga bosilganda
+  // imtixondagidek TO'LIQ ochilib, matnni qo'lda tahrirlash imkoni
+  // bo'lsin — shu oyna uchun holat.
+  const [tolaOchilgan, setTolaOchilgan] = useState(null);
   const [filtrBolim, setFiltrBolim] = useState("");
   const [jsonXato, setJsonXato] = useState("");
   const [tahrirlanayotgan, setTahrirlanayotgan] = useState(null);
@@ -915,6 +1258,7 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
   }
 
   return (
+    <>
     <div style={{ display: "grid", gap: 20 }}>
       {manba !== "ai" && (
         <KiritishPanel
@@ -1072,6 +1416,18 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
         )}
       </div>
     </div>
+    {tolaOchilgan && (
+      <MashqTolaTahrir
+        test={tolaOchilgan}
+        manba={manba}
+        onYopish={() => setTolaOchilgan(null)}
+        onSaqlandi={() => {
+          yukla(filtrBolim);
+          setTolaOchilgan(null);
+        }}
+      />
+    )}
+    </>
   );
 
   function testKartasi(test) {
@@ -1079,7 +1435,13 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
               <div key={test.id} style={{ padding: 8, border: "1px solid var(--chiziq)", borderRadius: 8 }}>
                 <div className="davomat-qator" style={{ borderBottom: "none", padding: 0 }}>
                   <span>
-                    <strong>{test.name}</strong>{" "}
+                    <strong
+                      style={{ cursor: "pointer", textDecoration: "underline dotted" }}
+                      title={t("imtihon_tola_ochish")}
+                      onClick={() => setTolaOchilgan(test)}
+                    >
+                      {test.name}
+                    </strong>{" "}
                     <span className="izoh">
                       {t(`mashq_bolim_${test.bolim}`)} · {test.qismlar.length} {t("imtihon_qism_soni")}
                       {" · "}

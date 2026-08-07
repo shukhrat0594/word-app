@@ -64,6 +64,11 @@ urlpatterns = [
         views.TestQismiFayllarBoshqaruvView.as_view(),
         name="imtihon_qism_boshqaruv",
     ),
+    path(
+        "imtihon/qism-boshqaruv/<int:pk>/pozitsiya-aniqla/",
+        views.QismPozitsiyaAniqlashView.as_view(),
+        name="imtihon_qism_pozitsiya_aniqla",
+    ),
     path("imtihon/testlar/", views.ImtihonListView.as_view(), name="imtihon_list"),
     path("imtihon/testlar/<int:pk>/", views.ImtihonDetailView.as_view(), name="imtihon_detail"),
     path(
