@@ -39,28 +39,6 @@ WRITING_TASK1_ROLI = (
     "give your assessment according to IELTS band score criteria with "
     "explanation of my weaknesses and give exact suggestions how to improve "
     "it to raise my score.\n\n"
-
-    "TASK 1 GA XOS MEZONLAR (bu turga xos, Task 2 bilan aralashtirmang):\n"
-    "- Task 1 — TAVSIF, insho EMAS. Talaba berilgan grafik/jadval/diagramma/"
-    "jarayon sxemasi yoki xatdagi ma'lumotni o'z so'zlari bilan tavsiflaydi. "
-    "Talaba O'Z FIKRINI, sababini yoki tavsiyasini yozgan bo'lsa — bu janrga "
-    "MOS EMAS, Task Achievement balini pasaytiring va izohda ayting.\n"
-    "- Talaba umumiy xulosa (overview) berganini tekshiring — asosiy "
-    "tendentsiya/eng katta-kichik ko'rsatkich ajratib ko'rsatilmagan bo'lsa, "
-    "Task Achievement 6 dan oshmasin (bu Task 1 da eng ko'p uchraydigan "
-    "yo'qotish).\n"
-    "- Aniq raqam va taqqoslash keltirilganini, ma'lumot to'g'ri "
-    "ko'chirilganini tekshiring.\n"
-    "- Xat (General Training) bo'lsa: ohang (rasmiy/norasmiy) mavzuga mos "
-    "kelishini va savolda so'ralgan BARCHA bandlar yoritilganini tekshiring.\n\n"
-
-    "GRAFIK (agar rasm sifatida berilgan bo'lsa): sizga talabaning matni "
-    "bilan birga Task 1 grafigi/jadvali/diagrammasi RASM sifatida ham "
-    "berilishi mumkin. Shunday bo'lsa, talabaning tavsifi rasmdagi haqiqiy "
-    "ma'lumotlarga (raqamlar, tendentsiyalar, taqqoslashlar) qanchalik mos "
-    "kelishini tekshiring va bu Task Achievement bahosiga bevosita ta'sir "
-    "qilsin — talaba rasmda yo'q narsani yozgan yoki asosiy tendentsiyani "
-    "noto'g'ri tasvirlagan bo'lsa, buni aniq ayting.\n\n"
 )
 
 WRITING_TASK2_ROLI = (
@@ -68,22 +46,6 @@ WRITING_TASK2_ROLI = (
     "give your assessment according to IELTS band score criteria with "
     "explanation of my weaknesses and give exact suggestions how to improve "
     "it to raise my score.\n\n"
-
-    "TASK 2 GA XOS MEZONLAR (bu turga xos, Task 1 bilan aralashtirmang):\n"
-    "- Task 2 — DALILLI INSHO. Talabaning aniq pozitsiyasi (position) "
-    "bo'lishi va u butun insho davomida IZCHIL saqlanishi shart. Pozitsiya "
-    "noaniq yoki o'zgarib ketgan bo'lsa — Task Achievement balini "
-    "pasaytiring.\n"
-    "- Savol turini aniqlang (fikr bildirish / muhokama qilish / muammo-"
-    "yechim / afzallik-kamchilik) va javob AYNAN shu turga mos "
-    "javob berayotganini tekshiring. Masalan \"discuss both views\" "
-    "so'ralganda faqat bitta tomon yoritilgan bo'lsa — bu jiddiy kamchilik.\n"
-    "- Har asosiy fikr DALIL/MISOL bilan rivojlantirilganini tekshiring — "
-    "quruq da'volar ro'yxati (misolsiz) Task Achievement va Coherence "
-    "ballarini pasaytiradi.\n"
-    "- Paragraf tuzilishi: kirish, 2-3 asosiy paragraf (har birida bitta "
-    "yetakchi fikr), xulosa. Xulosa yo'q bo'lsa yoki paragraflarga "
-    "ajratilmagan bo'lsa — Coherence & Cohesion balini pasaytiring.\n\n"
 )
 
 _WRITING_UMUMIY_QOIDALAR = (
