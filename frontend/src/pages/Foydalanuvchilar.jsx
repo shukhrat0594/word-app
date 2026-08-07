@@ -28,7 +28,10 @@ export function PanelTanlovi({ user, saqlash, t }) {
       {ochiq && (
         <div
           style={{
-            position: "absolute", zIndex: 10, top: "100%", left: 0, marginTop: 4,
+            // z-index 25: pastdagi "ijtimoiy-panel" (sticky, z-index:20)dan
+            // yuqorida chiqishi kerak (2026-08-07, foydalanuvchi topgan bug
+            // — dropdown ro'yxati sticky panel ostida yashirinib qolgan edi).
+            position: "absolute", zIndex: 25, top: "100%", left: 0, marginTop: 4,
             background: "var(--sirt)", border: "1px solid var(--chiziq)", borderRadius: 8,
             padding: 10, display: "grid", gap: 4, minWidth: 220, boxShadow: "var(--soya)",
           }}

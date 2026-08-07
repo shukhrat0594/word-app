@@ -4,6 +4,32 @@ import { AUDIO_HIMOYA, faqatBittaAudioIjro } from "../audio";
 import { useI18n } from "../i18n";
 import { xatoniAjrat } from "../xatoUtils";
 
+// Ko'p tilli maydon ({en,uz,ru}) yoki oddiy matn bo'lishi mumkin — React
+// obyektni to'g'ridan-to'g'ri render qila olmasligi sababli (2026-08-07,
+// foydalanuvchi topgan bug: "writing testini ko'rmoqchi bo'lganda ekran
+// oppoq bo'lib qoldi" — sabab aynan shu, natija.errors elementlari matn
+// emas, obyekt ekan) HAR doim shu funksiya orqali matnga aylantiriladi.
+function matnGaAylantir(qiymat) {
+  if (qiymat == null) return "";
+  if (typeof qiymat === "string" || typeof qiymat === "number") return String(qiymat);
+  if (typeof qiymat === "object") return qiymat.en || qiymat.uz || qiymat.ru || Object.values(qiymat).find((v) => typeof v === "string") || "";
+  return "";
+}
+
+// `xato` elementi ikki xil shaklda bo'lishi mumkin: eski (matn, "xato ->
+// tuzatish (sabab)") yoki hozirgi (obyekt, {xato, tuzatish, izoh}) —
+// ikkalasini ham bir xil {notogri, togri, sabab} shaklga keltiradi.
+function xatoElementiniAjrat(qator) {
+  if (qator && typeof qator === "object") {
+    return {
+      notogri: matnGaAylantir(qator.xato),
+      togri: matnGaAylantir(qator.tuzatish),
+      sabab: matnGaAylantir(qator.izoh),
+    };
+  }
+  return xatoniAjrat(matnGaAylantir(qator));
+}
+
 const TURI_KALIT = {
   reading: "reading_bolimi",
   listening: "listening_bolimi",
@@ -75,12 +101,12 @@ export default function NatijalarRoyxati({ talabaId }) {
                     {y.matn && (
                       <p className="izoh" style={{ whiteSpace: "pre-wrap", marginTop: 0 }}>{y.matn}</p>
                     )}
-                    <h3>{t("xatolar")} ({y.natija.errors?.length || 0})</h3>
-                    {(!y.natija.errors || y.natija.errors.length === 0) && (
+                    <h3>{t("xatolar")} ({(y.natija || {}).errors?.length || 0})</h3>
+                    {(!(y.natija || {}).errors || y.natija.errors.length === 0) && (
                       <span className="izoh">{t("xato_topilmadi")}</span>
                     )}
-                    {(y.natija.errors || []).map((qator, i) => {
-                      const { notogri, togri, sabab } = xatoniAjrat(qator);
+                    {((y.natija || {}).errors || []).map((qator, i) => {
+                      const { notogri, togri, sabab } = xatoElementiniAjrat(qator);
                       return (
                         <div className="xato-el" key={i}>
                           <span className="xato-notogri">{notogri}</span>
@@ -89,19 +115,19 @@ export default function NatijalarRoyxati({ talabaId }) {
                         </div>
                       );
                     })}
-                    {y.natija.strengths?.length > 0 && (
+                    {(y.natija || {}).strengths?.length > 0 && (
                       <>
                         <h3 style={{ marginTop: 16 }}>{t("kuchli")}</h3>
                         {y.natija.strengths.map((s, i) => (
-                          <div className="xato-el" key={i}>✓ {s}</div>
+                          <div className="xato-el" key={i}>✓ {matnGaAylantir(s)}</div>
                         ))}
                       </>
                     )}
-                    {y.natija.analysis && (
+                    {(y.natija || {}).analysis && (
                       <>
                         <h3 style={{ marginTop: 16 }}>{t("tahlil")}</h3>
                         <p className="izoh" style={{ margin: 0 }}>
-                          {Object.values(y.natija.analysis).join(" ")}
+                          {Object.values(y.natija.analysis).map(matnGaAylantir).join(" ")}
                         </p>
                       </>
                     )}
