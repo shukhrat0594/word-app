@@ -304,10 +304,21 @@ function matnniBoslarGaAjrat(matn, javoblar, javobniQoy, natija) {
   });
 }
 
-function MaxsusFormatBloki({ format, javoblar, javobniQoy, natija }) {
+function MaxsusFormatGuruhKorsatma({ guruhBoshi, guruhKorsatma }) {
+  if (!guruhBoshi && !guruhKorsatma) return null;
+  return (
+    <>
+      {guruhBoshi && <div className="imtihon-guruh-sarlavha">{guruhBoshi}</div>}
+      {guruhKorsatma && <div className="imtihon-guruh-korsatma">{guruhKorsatma}</div>}
+    </>
+  );
+}
+
+function MaxsusFormatBloki({ format, guruhBoshi, guruhKorsatma, javoblar, javobniQoy, natija }) {
   if (format.tur === "jadval") {
     return (
       <div className="imtihon-jadval-wrap">
+        <MaxsusFormatGuruhKorsatma guruhBoshi={guruhBoshi} guruhKorsatma={guruhKorsatma} />
         {format.sarlavha && <div className="imtihon-jadval-sarlavha">{format.sarlavha}</div>}
         <table className="imtihon-jadval">
           {format.ustunlar && (
@@ -336,6 +347,7 @@ function MaxsusFormatBloki({ format, javoblar, javobniQoy, natija }) {
   if (format.tur === "oqim") {
     return (
       <div className="imtihon-oqim-wrap">
+        <MaxsusFormatGuruhKorsatma guruhBoshi={guruhBoshi} guruhKorsatma={guruhKorsatma} />
         {format.sarlavha && <div className="imtihon-jadval-sarlavha">{format.sarlavha}</div>}
         {format.qadamlar.map((qadam, i) => (
           <div key={i}>
@@ -352,6 +364,7 @@ function MaxsusFormatBloki({ format, javoblar, javobniQoy, natija }) {
   if (format.tur === "matn") {
     return (
       <div className="imtihon-maxsus-matn-wrap">
+        <MaxsusFormatGuruhKorsatma guruhBoshi={guruhBoshi} guruhKorsatma={guruhKorsatma} />
         {format.sarlavha && <div className="imtihon-jadval-sarlavha">{format.sarlavha}</div>}
         <div className="imtihon-maxsus-matn">
           {matnniBoslarGaAjrat(format.matn, javoblar, javobniQoy, natija)}
@@ -1020,12 +1033,22 @@ export default function ImtihonOtish({ bolim, manba = "admin", testId, mockYechi
         // aks holda masalan 26-30 (jadval) har doim 21-25 (oddiy)dan oldin
         // chiqib qolardi.
         if (faol.qism.maxsus_format && maxsusIdxlar.size > 0) {
+          // 2026-08-05, foydalanuvchi topgan bug: maxsus_format (jadval/
+          // oqim/matn to'ldirish) o'z savollarini oddiy ro'yxatdan olib
+          // tashlagani uchun, o'sha savollarning "guruh_boshi"/
+          // "guruh_korsatma"si (masalan "Complete the summary below...")
+          // hech qayerda ko'rsatilmay qolib ketardi — endi shu guruhning
+          // BIRINCHI savolidan olinib, MaxsusFormatBloki'ga uzatiladi.
+          const birinchiIdx = Math.min(...maxsusIdxlar);
+          const birinchiSavol = faol.qism.savollar[birinchiIdx - faol.boshIdx];
           boshqaBloklar.push({
-            kalit: Math.min(...maxsusIdxlar),
+            kalit: birinchiIdx,
             tugun: (
               <MaxsusFormatBloki
                 key="maxsus"
                 format={faol.qism.maxsus_format}
+                guruhBoshi={birinchiSavol?.guruh_boshi}
+                guruhKorsatma={birinchiSavol?.guruh_korsatma}
                 javoblar={javoblar}
                 javobniQoy={javobniQoy}
                 natija={natija}
