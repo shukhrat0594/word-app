@@ -398,6 +398,12 @@ def _kurs_mashq_admin_dict(m):
         "savollar": m.savollar,
         "bloklar": m.bloklar,
         "blok_rasmlari": _kurs_blok_rasmlari(m),
+        # 2026-08-07: admin ro'yxatidagi "Audio yuklash" tugmasi shu
+        # bo'yicha ham chiqadi. Blok rejimida tugma `bloklar[].audio_raqam`
+        # bo'yicha chiqardi, rasm-fon rejimida esa `bloklar` BO'SH —
+        # tugma umuman ko'rinmay qolardi, holbuki AI sahifada audio
+        # belgisini ko'rgan bo'lsa admin faylni biriktirishi kerak.
+        "audio_kerak": m.audio_kerak,
     }
 
 
@@ -990,6 +996,28 @@ class KursSozlarView(APIView):
         )
 
 
+def _pozitsiyani_tozala(xom):
+    """Foydalanuvchidan kelgan `pozitsiya`ni tekshirib, faqat kutilgan
+    maydonlarni qaytaradi (yaroqsiz bo'lsa None — savol oddiy ro'yxat
+    ko'rinishida chiqadi, bu xavfsiz zaxira)."""
+    if not isinstance(xom, dict):
+        return None
+    try:
+        x, y = float(xom["x"]), float(xom["y"])
+    except (KeyError, TypeError, ValueError):
+        return None
+    if not (0 <= x <= 100 and 0 <= y <= 100):
+        return None
+    natija = {"x": round(x, 1), "y": round(y, 1)}
+    try:
+        kenglik = float(xom.get("kenglik"))
+    except (TypeError, ValueError):
+        return natija
+    if 0 < kenglik <= 100:
+        natija["kenglik"] = round(kenglik, 1)
+    return natija
+
+
 class KursMashqDetailBoshqaruvView(APIView):
     """Admin/owner uchun — bitta mashqni o'chirish yoki (2026-07-29)
     savollarining to'g'ri javoblarini QO'LDA tahrirlash."""
@@ -1003,13 +1031,51 @@ class KursMashqDetailBoshqaruvView(APIView):
         mashq.delete()
         return Response(status=204)
 
+    def _savollarni_almashtir(self, mashq, xom):
+        """RASM-FON rejimi uchun (2026-08-08): admin bo'sh joylarning
+        JOYLASHUVINI ham tahrirlaydi, shuning uchun butun `savollar`
+        ro'yxati qayta yuboriladi (qo'shish/o'chirish ham shu orqali).
+
+        DIQQAT: savollar soni o'zgarsa, shu mashq bo'yicha ALLAQACHON
+        topshirilgan natijalardagi javob indekslari mos kelmay qoladi.
+        Tahrirlash mashq talabalarga berilishidan OLDIN qilinishi
+        ko'zda tutilgan (rasm-fonda tasdiqlash bosqichi yo'q — shu
+        UI uning o'rnini bosadi)."""
+        if not isinstance(xom, list):
+            return Response({"detail": "'savollar' ro'yxat bo'lishi kerak"}, status=400)
+        if len(xom) > 200:
+            return Response({"detail": "Savollar soni juda ko'p"}, status=400)
+
+        savollar = []
+        for s in xom:
+            if not isinstance(s, dict):
+                return Response({"detail": "Har bir savol obyekt bo'lishi kerak"}, status=400)
+            yangi = {
+                "savol": str(s.get("savol") or "").strip()[:500] or "___",
+                "togri": str(s.get("togri") or "").strip()[:200],
+            }
+            pozitsiya = _pozitsiyani_tozala(s.get("pozitsiya"))
+            if pozitsiya:
+                yangi["pozitsiya"] = pozitsiya
+            savollar.append(yangi)
+
+        mashq.savollar = savollar
+        mashq.save(update_fields=["savollar"])
+        return Response({"yangilandi": len(savollar), "xatolar": [],
+                         "mashq": _kurs_mashq_admin_dict(mashq)})
+
     def patch(self, request, pk):
         """So'rov tanasi: {"javoblar": [{"raqam": 1, "togri": "..."}, ...]}
         — "raqam" shu mashq ICHIDAGI savol tartib raqami (1 dan boshlab,
-        `savollar` ro'yxatidagi pozitsiyaga mos)."""
+        `savollar` ro'yxatidagi pozitsiyaga mos).
+
+        Yoki {"savollar": [...]} — butun ro'yxatni almashtirish
+        (`_savollarni_almashtir`ga qarang)."""
         if not _mashq_admin_mi(request.user):
             return Response({"detail": "Faqat admin/owner uchun"}, status=403)
         mashq = get_object_or_404(KursMashq, pk=pk)
+        if "savollar" in request.data:
+            return self._savollarni_almashtir(mashq, request.data["savollar"])
         yangilash = request.data.get("javoblar")
         if not isinstance(yangilash, list) or not yangilash:
             return Response({"detail": "'javoblar' ro'yxati majburiy"}, status=400)
@@ -1100,6 +1166,52 @@ class KursMashqAudioBoshqaruvView(APIView):
         return Response(_kurs_mashq_admin_dict(mashq))
 
 
+def _audio_xeshi(fayl):
+    """Yuklangan faylning SHA-256 yig'indisi. Bo'laklab o'qiladi —
+    audio 50 MB bo'lishi mumkin, uni butunlay xotiraga olish shart
+    emas. O'qigandan keyin ko'rsatkich boshiga qaytariladi, chunki
+    chaqiruvchi faylni saqlashi mumkin."""
+    import hashlib
+
+    xesh = hashlib.sha256()
+    fayl.seek(0)
+    for bolak in iter(lambda: fayl.read(1024 * 256), b""):
+        xesh.update(bolak)
+    fayl.seek(0)
+    return xesh.hexdigest()
+
+
+def _mavjud_audioni_top(mashq, xesh):
+    """SHU MARKAZDA xuddi shu fayl allaqachon yuklanganmi (2026-08-08).
+
+    Markaz bilan chegaralangan: boshqa o'quv markazining fayliga ishora
+    qilish ma'lumot chegarasini buzardi."""
+    return (
+        KursMashqAudio.objects
+        .filter(fayl_xesh=xesh, mashq__tugun__markaz_id=mashq.tugun.markaz_id)
+        .exclude(audio="")
+        .order_by("id")
+        .first()
+    )
+
+
+def _audio_faylini_xavfsiz_ochir(yozuv):
+    """Yozuvning faylini o'chiradi — LEKIN faqat unga BOSHQA yozuv
+    ishora qilmayotgan bo'lsa. Takrorni qayta ishlatish tufayli bitta
+    fayl bir nechta yozuvga tegishli bo'lishi mumkin; tekshirmasdan
+    o'chirilsa, qolgan mashqlarning audiosi jimgina yo'qolardi."""
+    if not yozuv.audio:
+        return
+    nom = yozuv.audio.name
+    boshqasi_ishlatyaptimi = (
+        KursMashqAudio.objects.filter(audio=nom).exclude(pk=yozuv.pk).exists()
+    )
+    if boshqasi_ishlatyaptimi:
+        yozuv.audio = ""  # faqat bog'lanishni uzamiz, fayl qoladi
+    else:
+        yozuv.audio.delete(save=False)
+
+
 def _mashq_blok_audio_raqamlari(mashq):
     """Mashqning blok formatidagi audio BELGILARI (audio_raqam) —
     ketma-ketlikni saqlab, takrorsiz ro'yxat."""
@@ -1131,25 +1243,56 @@ class KursMashqBlokAudioBoshqaruvView(APIView):
             return Response({"detail": "audio majburiy"}, status=400)
 
         raqamlar = _mashq_blok_audio_raqamlari(mashq)
-        if not raqamlar:
+        if raqamlar:
+            raqam = request.data.get("raqam") or raqamlar[0]
+            if raqam not in raqamlar:
+                return Response({"detail": "Noto'g'ri audio raqami"}, status=400)
+        elif mashq.audio_kerak:
+            # 2026-08-07, RASM-FON rejimi: u yerda `bloklar` bo'sh, ya'ni
+            # trek raqami (`audio_raqam`) umuman yo'q — AI faqat sahifada
+            # audio BELGISI borligini aytadi (`audio_kerak`). Shunday
+            # mashqqa audio RAQAMSIZ biriktiriladi; `KursMashqAudio.raqam`
+            # `blank=True`, talaba panelida raqamsiz ko'rinadi.
+            raqam = ""
+        else:
             return Response({"detail": "Bu mashqda audio belgisi yo'q"}, status=400)
-        raqam = request.data.get("raqam") or raqamlar[0]
-        if raqam not in raqamlar:
-            return Response({"detail": "Noto'g'ri audio raqami"}, status=400)
 
+        xesh = _audio_xeshi(audio)
         yozuv, yaratildi = KursMashqAudio.objects.get_or_create(mashq=mashq, raqam=raqam)
-        if not yaratildi and yozuv.audio:
-            yozuv.audio.delete(save=False)  # eski fayl diskda "yetim" qolmasin
-        yozuv.audio.save(f"{mashq.id}_{raqam}.mp3", audio, save=True)
+        if not yaratildi:
+            _audio_faylini_xavfsiz_ochir(yozuv)  # eski fayl diskda "yetim" qolmasin
+
+        # 2026-08-08, foydalanuvchi talabi: "2 ta mashq uchun bir xil
+        # audio yuklansa qayta yuklamasin, oldin yuklangan fayl adresini
+        # ko'rsatib qo'ysin". Shu markazda xuddi shu fayl bo'lsa — diskka
+        # YANGI nusxa yozilmaydi, yozuv mavjud faylga ishora qiladi.
+        mavjud = _mavjud_audioni_top(mashq, xesh)
+        if mavjud:
+            yozuv.audio.name = mavjud.audio.name
+        else:
+            yozuv.audio.save(f"{mashq.id}_{raqam or 'audio'}.mp3", audio, save=False)
+        yozuv.fayl_xesh = xesh
+        yozuv.save()
 
         logla(
             foydalanuvchi=request.user,
             harakat=FaoliyatYozuvi.Harakat.OZGARTIRISH,
             obyekt=mashq.tugun,
             obyekt_turi="KursTugun",
-            obyekt_nomi=f"{mashq.tugun.nomi} (#{mashq.tartib} mashqqa audio {raqam} biriktirildi)",
+            obyekt_nomi=(
+                f"{mashq.tugun.nomi} (#{mashq.tartib} mashqqa audio {raqam} "
+                f"{'qayta ishlatildi' if mavjud else 'biriktirildi'})"
+            ),
         )
-        return Response(_kurs_mashq_admin_dict(mashq))
+        javob = _kurs_mashq_admin_dict(mashq)
+        if mavjud:
+            javob["audio_qayta_ishlatildi"] = {
+                "mashq_id": mavjud.mashq_id,
+                "mashq_tartib": mavjud.mashq.tartib,
+                "raqam": mavjud.raqam,
+                "url": f"/api/kurslar/mashq-audio/{mavjud.id}/",
+            }
+        return Response(javob)
 
 
 class KursMashqRasmView(APIView):

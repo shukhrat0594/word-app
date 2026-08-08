@@ -164,6 +164,18 @@ class KursMashqAudio(models.Model):
         help_text="Darslikdagi track raqami (masalan '1.01') — faqat ma'lumot uchun",
     )
     tartib = models.PositiveSmallIntegerField(default=0)
+    fayl_xesh = models.CharField(
+        max_length=64, blank=True, db_index=True,
+        help_text=(
+            "Audio faylning SHA-256 yig'indisi (2026-08-08, foydalanuvchi "
+            "talabi: \"bir xil audio ikki marta yuklanmasin\"). Bir xil "
+            "xeshli yozuv topilsa yangi fayl YOZILMAYDI — mavjud faylning "
+            "o'zi ko'rsatiladi. Shu sababli BIR fayliga bir nechta yozuv "
+            "ishora qilishi mumkin; faylni o'chirishdan oldin boshqa "
+            "yozuvlar foydalanmayotganini tekshirish SHART "
+            "(`courses.views._audio_faylini_xavfsiz_ochir`)."
+        ),
+    )
 
     class Meta:
         ordering = ["tartib", "id"]
@@ -224,6 +236,24 @@ class KursZipJarayoni(models.Model):
         ZIP = "zip", "ZIP (rasmlar)"
         PDF = "pdf", "PDF (kitob)"
 
+    class Rejim(models.TextChoices):
+        """2026-08-07: ikkita mustaqil yo'l yonma-yon yashaydi.
+
+        BLOK — sahifa HTML sifatida QAYTA QURILADI (matn o'tkir, mobilda
+        o'qiladi, tarjima qilinadi), lekin qayta-qurishda AI xatolari
+        ko'p: surat noto'g'ri kesiladi, element noto'g'ri mashqqa tushadi.
+        Admin oxirida TASDIQLASH oynasida tuzatadi.
+
+        RASM_FON — sahifa RASM holida fon bo'lib qoladi, javob
+        joylariga input'lar ustidan qo'yiladi. Hech narsa qayta
+        qurilmagani uchun kesish/guruhlash xatolari yo'q, joylashuv asl
+        kitobdagidek. Evaziga: matn tanlanmaydi/tarjima qilinmaydi,
+        mobilda mayda. Tasdiqlash bosqichi YO'Q — darhol saqlanadi,
+        keyin tahrirlanadi (foydalanuvchi qarori)."""
+
+        BLOK = "blok", "Blok formati (sahifa qayta quriladi)"
+        RASM_FON = "rasm_fon", "Rasm-fon (sahifa rasm, javoblar ustida)"
+
     tugun = models.ForeignKey(
         KursTugun, on_delete=models.CASCADE, related_name="zip_jarayonlari",
         help_text="KITOB tuguni (Student's Book / Workbook)",
@@ -234,6 +264,7 @@ class KursZipJarayoni(models.Model):
     # saqlab qolindi.
     zip_fayl = models.FileField(upload_to="kurslar/zip_jarayon/")
     manba_turi = models.CharField(max_length=10, choices=ManbaTuri.choices, default=ManbaTuri.ZIP)
+    rejim = models.CharField(max_length=10, choices=Rejim.choices, default=Rejim.BLOK)
     holat = models.CharField(max_length=20, choices=Holat.choices, default=Holat.YANGI)
     jami_sahifa = models.PositiveSmallIntegerField(default=0)
     ishlangan_sahifa = models.PositiveSmallIntegerField(default=0)

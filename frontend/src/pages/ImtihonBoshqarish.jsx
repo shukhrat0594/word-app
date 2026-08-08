@@ -732,6 +732,39 @@ function KiritishPanel({ manba, qismgaFaylYukla, royxatniYangila }) {
  * (Map/Diagram Labelling koordinatasi) BU YERDA tahrirlanmaydi — alohida
  * AI-yordamli bosqich sifatida rejalashtirilgan (hozircha o'zgarishsiz
  * saqlanadi). */
+/** Ro'yxat maydonlari (variantlar, ko'p javobli "togri") uchun XOM
+ * matnni saqlaydigan input (2026-08-08).
+ *
+ * NEGA KERAK — foydalanuvchi xatosi: "vergul qo'yib bo'lmayabdi probel
+ * ham". Avval qiymat har bosishda `split -> trim -> filter -> join`
+ * aylanishidan o'tardi. Natijada vergul yozilishi bilan bo'sh element
+ * hosil bo'lib `filter(Boolean)` uni yo'q qilardi, oxiridagi probelni
+ * esa `trim()` yeb qo'yardi — ya'ni bu belgilarni KIRITIB BO'LMASDI.
+ *
+ * Yechim: ko'ringan matn LOKAL holatda xom saqlanadi (foydalanuvchi
+ * nima yozsa — o'sha turadi), massivga ajratish esa faqat YUQORIGA
+ * uzatilayotganda bajariladi. */
+function RoyxatMaydoni({ qiymat, ajratgich, ozgardi, ...qolgan }) {
+  const [xom, setXom] = useState(qiymat);
+  // Tashqaridan (masalan boshqa savolga o'tilganda) qiymat o'zgarsa
+  // moslashtiramiz — lekin foydalanuvchi yozayotgan matnni buzmasdan.
+  const oxirgiTashqiRef = useRef(qiymat);
+  if (qiymat !== oxirgiTashqiRef.current) {
+    oxirgiTashqiRef.current = qiymat;
+    if (qiymat !== xom) setXom(qiymat);
+  }
+  return (
+    <textarea
+      {...qolgan}
+      value={xom}
+      onChange={(e) => {
+        setXom(e.target.value);
+        ozgardi(e.target.value.split(ajratgich).map((v) => v.trim()).filter(Boolean));
+      }}
+    />
+  );
+}
+
 function SavolTahrirQatori({ savol, oz, t }) {
   function maydonOz(patch) {
     oz({ ...savol, ...patch });
@@ -762,25 +795,41 @@ function SavolTahrirQatori({ savol, oz, t }) {
         onChange={(e) => maydonOz({ savol: e.target.value })}
       />
       <div style={{ display: "flex", gap: 6 }}>
-        <input
+        {/* 2026-08-08: avval bu bitta qatorli input edi va variantlar
+            VERGUL bilan ajratilardi. "List of Headings" sarlavhalarida
+            esa vergul bo'ladi ("A surprising discovery, made by
+            accident") — bunday variant ikkiga bo'linib ketardi va
+            ro'yxatni qo'lda tuzatib bo'lmasdi. Endi HAR VARIANT
+            ALOHIDA QATORDA. */}
+        <RoyxatMaydoni
           style={{ flex: 2 }}
+          rows={3}
           placeholder={t("imtihon_variantlar_izoh")}
-          value={(savol.variantlar || []).join(", ")}
-          onChange={(e) =>
-            maydonOz({
-              variantlar: e.target.value.split(",").map((v) => v.trim()).filter(Boolean),
-            })
-          }
+          qiymat={(savol.variantlar || []).join("\n")}
+          ajratgich={"\n"}
+          ozgardi={(royxat) => maydonOz({ variantlar: royxat })}
         />
-        <input
-          style={{ flex: 1 }}
-          placeholder={t("imtihon_togri_javob")}
-          value={togriMatni}
-          onChange={(e) => {
-            const qism = e.target.value.split(",").map((v) => v.trim()).filter(Boolean);
-            maydonOz({ togri: Array.isArray(savol.togri) ? qism : e.target.value });
-          }}
-        />
+        {/* "togri" bitta matn ham (odatiy holat), massiv ham bo'lishi
+            mumkin (bir savolga bir nechta qabul qilinadigan javob).
+            Massiv bo'lsa — xuddi variantlar kabi, har javob alohida
+            qatorda; oddiy matn bo'lsa erkin yoziladi. */}
+        {Array.isArray(savol.togri) ? (
+          <RoyxatMaydoni
+            style={{ flex: 1 }}
+            rows={3}
+            placeholder={t("imtihon_togri_javob")}
+            qiymat={savol.togri.join("\n")}
+            ajratgich={"\n"}
+            ozgardi={(royxat) => maydonOz({ togri: royxat })}
+          />
+        ) : (
+          <input
+            style={{ flex: 1 }}
+            placeholder={t("imtihon_togri_javob")}
+            value={togriMatni}
+            onChange={(e) => maydonOz({ togri: e.target.value })}
+          />
+        )}
       </div>
     </div>
   );
@@ -930,9 +979,30 @@ function MashqTolaTahrir({ test, manba, onYopish, onSaqlandi }) {
   });
   const [saqlanmoqdaId, setSaqlanmoqdaId] = useState(null);
   const [xato, setXato] = useState("");
+  // 2026-08-08, foydalanuvchi talabi: "hamma sectionlarni bittada emas,
+  // har qismini alohida tahrirlash imkonini qilib ber. mashq ustiga
+  // bosganda qismlar chiqsin, qaysi qismini bossa shuni tahrirlash
+  // oynasi chiqsin". Avval barcha qismlar (Reading'da 40 savol) bitta
+  // uzun ro'yxatda ochilardi va kerakli joyni topish qiyin edi.
+  //
+  // null = qismlar RO'YXATI, aks holda o'sha qismning tahrir oynasi.
+  const [tanlanganQismId, setTanlanganQismId] = useState(null);
+  // Saqlanmagan o'zgarish bor qismlar — ro'yxatda belgilanadi va
+  // ro'yxatga qaytishda ogohlantiriladi (aks holda tahrir bilinmay
+  // yo'qolib ketardi).
+  const [ozgarganlar, setOzgarganlar] = useState({});
 
   function qismOz(qismId, patch) {
     setQismHolat((prev) => ({ ...prev, [qismId]: { ...prev[qismId], ...patch } }));
+    setOzgarganlar((prev) => ({ ...prev, [qismId]: true }));
+  }
+
+  function qismlarRoyxatigaQayt() {
+    if (ozgarganlar[tanlanganQismId] && !window.confirm(t("imtihon_saqlanmagan_ogohlantirish"))) {
+      return;
+    }
+    setTanlanganQismId(null);
+    setXato("");
   }
   function savolOz(qismId, savolIdx, yangiSavol) {
     const h = qismHolat[qismId];
@@ -968,6 +1038,7 @@ function MashqTolaTahrir({ test, manba, onYopish, onSaqlandi }) {
           maxsus_format: maxsusFormat,
         },
       });
+      setOzgarganlar((prev) => ({ ...prev, [q.id]: false }));
       onSaqlandi();
     } catch (e) {
       setXato(e.data?.detail || t("xato_yuz_berdi"));
@@ -984,19 +1055,52 @@ function MashqTolaTahrir({ test, manba, onYopish, onSaqlandi }) {
           <button className="tugma ikkinchi kichik" onClick={onYopish}>{t("yopish")}</button>
         </div>
 
-        <div className="izoh">{t("imtihon_tola_ochish_izoh")}</div>
-        <div style={{ border: "1px solid var(--chiziq)", borderRadius: 8, overflow: "hidden", maxHeight: "45vh", overflowY: "auto" }}>
-          <ImtihonOtish bolim={test.bolim} manba={manba} testId={test.id} />
-        </div>
+        {/* QISMLAR RO'YXATI — test ochilganda birinchi shu ko'rinadi.
+            To'liq imtihon ko'rinishi (ImtihonOtish) ham faqat shu yerda:
+            bitta qismni tahrirlashda u kerak emas va joyni egallaydi. */}
+        {tanlanganQismId == null && (
+          <>
+            <div className="izoh">{t("imtihon_tola_ochish_izoh")}</div>
+            <div style={{ border: "1px solid var(--chiziq)", borderRadius: 8, overflow: "hidden", maxHeight: "45vh", overflowY: "auto" }}>
+              <ImtihonOtish bolim={test.bolim} manba={manba} testId={test.id} />
+            </div>
+            <div className="izoh" style={{ marginTop: 10 }}>{t("imtihon_qismni_tanlang")}</div>
+            <div style={{ display: "grid", gap: 6 }}>
+              {test.qismlar.map((q) => (
+                <button
+                  key={q.id}
+                  className="tugma ikkinchi"
+                  style={{ textAlign: "left", display: "flex", alignItems: "center", gap: 8 }}
+                  onClick={() => { setTanlanganQismId(q.id); setXato(""); }}
+                >
+                  <strong>{q.sarlavha || `#${q.tartib}`}</strong>
+                  <span className="izoh">
+                    {(qismHolat[q.id]?.savollar || []).length} {t("imtihon_savol_soni")}
+                    {q.rasm_url ? " · 🖼️" : ""}
+                    {q.audio_url ? " · 🔊" : ""}
+                  </span>
+                  {ozgarganlar[q.id] && (
+                    <span style={{ color: "var(--xato)", marginLeft: "auto" }}>
+                      ● {t("imtihon_saqlanmagan")}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
 
         {xato && <div className="xato-xabar">{xato}</div>}
 
         <div style={{ display: "grid", gap: 16 }}>
-          {test.qismlar.map((q) => {
+          {test.qismlar.filter((q) => q.id === tanlanganQismId).map((q) => {
             const h = qismHolat[q.id];
             return (
               <div key={q.id} style={{ border: "1px solid var(--chiziq)", borderRadius: 8, padding: 10 }}>
                 <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 6 }}>
+                  <button className="tugma ikkinchi kichik" onClick={qismlarRoyxatigaQayt}>
+                    ← {t("imtihon_qismlarga_qaytish")}
+                  </button>
                   <strong>{q.sarlavha || `#${q.tartib}`}</strong>
                   <button
                     className="tugma kichik"
@@ -1421,10 +1525,11 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
         test={tolaOchilgan}
         manba={manba}
         onYopish={() => setTolaOchilgan(null)}
-        onSaqlandi={() => {
-          yukla(filtrBolim);
-          setTolaOchilgan(null);
-        }}
+        // 2026-08-08: avval saqlangach oyna butunlay YOPILARDI. Qismlar
+        // alohida tahrirlanadigan bo'lgach bu noqulay — har qismdan
+        // keyin testni qaytadan ochib, qismni qaytadan tanlash kerak
+        // bo'lardi. Endi ro'yxat yangilanadi, oyna esa ochiq qoladi.
+        onSaqlandi={() => yukla(filtrBolim)}
       />
     )}
     </>

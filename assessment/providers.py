@@ -7,6 +7,7 @@ markaz o'z kalitini kirita olmaydi (2026-07-17).
 """
 
 import json
+import time
 
 from django.conf import settings
 
@@ -76,9 +77,132 @@ _WRITING_UMUMIY_QOIDALAR = (
     "bo'yicha 2-3 gaplik ATROFLICHA xulosa yozing — nima yaxshi, nima "
     "kamchilik, aniq misollar bilan (bir gaplik yuzaki xulosa YETARLI "
     "EMAS) — shu asosda ball bering.\n"
-    "Band yo'riqnomasi: 4-5=ko'p tizimli xato/rivojlanmagan fikr; "
-    "6=tushunarli lekin sezilarli xato; 7=xato kam, fikr dalillangan; "
-    "8-9=deyarli xatosiz, murakkab til.\n\n"
+    "\n"
+    "=== BALL QO'YISH TARTIBI — MAJBURIY, CHETLAB O'TILMAYDI ===\n\n"
+
+    "ENG KO'P UCHRAYDIGAN XATO — BALLNI OSHIRIB YUBORISH. Haqiqiy "
+    "o'lchov (2026-08-08): grammatik jihatdan XATOSIZ, aniq tuzilgan, "
+    "lekin lug'ati oddiy va gaplari asosan sodda bo'lgan Task 1 "
+    "inshosiga model to'rtala mezon bo'yicha ham 9 qo'ydi — haqiqiy "
+    "imtihonchi bahosi 7.0 edi. Ikki band farq. Shuning uchun quyidagi "
+    "tartib QAT'IY bajariladi.\n\n"
+
+    "QADAM 1 — HAR MEZON 6 DAN BOSHLANADI. 6 — bu \"o'rtacha nomzod\". "
+    "Har bir yuqori band uchun matndan DALIL topishingiz shart. Dalil "
+    "topilmasa ball KO'TARILMAYDI. Pastga tushirish uchun ham dalil "
+    "kerak.\n\n"
+
+    "QADAM 2 — DALIL IQTIBOS BILAN. 'analysis' ichida har mezon uchun "
+    "talaba matnidan AYNAN IQTIBOS keltiring (tirnoq ichida). \"Lug'ati "
+    "yaxshi\", \"tuzilmalari xilma-xil\" kabi umumiy gaplar DALIL EMAS "
+    "va e'tiborga OLINMAYDI.\n\n"
+
+    "QADAM 3 — QUYIDAGI DESKRIPTORLAR bo'yicha moslashtiring.\n\n"
+
+    "--- A) TASK ACHIEVEMENT (Task 1) / TASK RESPONSE (Task 2) ---\n"
+    "  5 = asosiy xususiyatlar tanlanmagan yoki chalkash; Task 1'da "
+    "umumiy xulosa (overview) YO'Q; ma'lumot takrorlanadi. Task 2'da "
+    "pozitsiya noaniq.\n"
+    "  6 = asosiy xususiyatlar berilgan, lekin ba'zilari o'tkazib "
+    "yuborilgan yoki noaniq; overview bor lekin yuzaki; tafsilot yetarli "
+    "emas yoki ba'zi joyda noto'g'ri.\n"
+    "  7 = barcha asosiy xususiyatlar aniq yoritilgan; overview ANIQ va "
+    "asosiy tendensiyani nomlaydi; raqamlar to'g'ri tanlangan va "
+    "solishtirilgan.\n"
+    "  8 = 7 ning hammasi + tanlov MOHIRONA: eng muhim ma'lumot ajratib "
+    "olingan, ikkinchi darajalisi qisqartirilgan; solishtirishlar "
+    "matnning ichiga tabiiy singdirilgan (alohida quruq ro'yxat emas).\n"
+    "  9 = to'liq, aniq, hech qanday ortiqcha yoki kam narsa yo'q.\n"
+    "  TASK 1 UCHUN QAT'IY QOIDA: overview (umumiy xulosa) UMUMAN "
+    "bo'lmasa — TA 5 dan oshmaydi, insho qanchalik chiroyli bo'lmasin. "
+    "Overview bor, lekin \"ikkalasi ham o'zgardi\" kabi mazmunsiz bo'lsa "
+    "— TA 6 dan oshmaydi.\n"
+    "  TASK 2 UCHUN QAT'IY QOIDA: savolning BARCHA qismlariga javob "
+    "berilmasa — TA 6 dan oshmaydi.\n\n"
+
+    "--- B) COHERENCE & COHESION ---\n"
+    "  5 = tartib chalkash; bog'lovchilar noto'g'ri yoki yetishmaydi; "
+    "paragraf bo'linishi yo'q/noto'g'ri.\n"
+    "  6 = umumiy tartib bor; bog'lovchilar ISHLATILGAN, lekin "
+    "mexanik/takroriy (\"Firstly\", \"Secondly\", \"In conclusion\" "
+    "ketma-ket); ba'zi paragraf ichida fikr tarqoq.\n"
+    "  7 = ma'lumot mantiqiy oqadi; HAR PARAGRAF aniq bitta markaziy "
+    "fikrga ega; bog'lovchilar to'g'ri, lekin baribir sezilib turadi.\n"
+    "  8 = bog'lanish KO'RINMAYDI — matn bog'lovchi so'zlar hisobiga "
+    "emas, GAPLAR TUZILISHI hisobiga oqadi (olmosh, ellipsis, "
+    "ma'lumotni gap boshiga/oxiriga to'g'ri joylashtirish). Bog'lovchilar "
+    "kam, lekin har biri o'z o'rnida.\n"
+    "  9 = bog'lanish butunlay tabiiy, e'tiborni tortmaydi.\n"
+    "  QAT'IY QOIDA: agar matnda bog'lanish asosan \"Firstly / Moreover "
+    "/ In addition / Overall\" kabi standart bog'lovchilarga tayangan "
+    "bo'lsa — CC 7 dan OSHMAYDI, xatosi bo'lmasa ham. 8 uchun "
+    "bog'lovchisiz bog'lanish DALILI kerak.\n\n"
+
+    "--- C) LEXICAL RESOURCE ---\n"
+    "  5 = lug'at cheklangan, takrorlanadi; so'z tanlashda xato "
+    "ma'noni buzadi.\n"
+    "  6 = mavzu uchun yetarli lug'at; ba'zi noaniq/noto'g'ri so'z "
+    "tanlash bor, lekin ma'no tushunarli.\n"
+    "  7 = ba'zi kamroq uchraydigan so'zlar bor; so'z tanlash asosan "
+    "aniq; ayrim noaniqlik bo'lishi mumkin. Bu daraja Task 1 uchun "
+    "\"increase / decrease / rise / fall / peak / remain stable / "
+    "considerably / steadily\" kabi ODATIY grafik lug'atini TO'G'RI "
+    "ishlatishni bildiradi.\n"
+    "  8 = lug'at KENG va MOSLASHUVCHAN: nozik ma'no farqlari "
+    "ifodalangan, so'z birikmalari (collocation) tabiiy, ayrim "
+    "idiomatik ishlatish bor; talaba bir xil narsani bir necha xil "
+    "aytadi va har safar EN MOS variantni tanlaydi.\n"
+    "  9 = to'liq tabiiy, ona tilida so'zlashuvchi kabi.\n"
+    "  QAT'IY QOIDA — DIQQAT: \"dramatically\", \"significantly\", "
+    "\"gradually\", \"witnessed a rise\", \"depicts\", \"illustrates\" "
+    "kabi so'zlar Task 1'da HAMMA nomzod yodlab keladigan STANDART "
+    "to'plam. Ular KENG LUG'AT DALILI EMAS — ular 6-7 belgisi. LR 8 "
+    "qo'yish uchun shu to'plamdan TASHQARIDAGI, mavzuga xos, aniq "
+    "tanlangan so'zni topib IQTIBOS qiling. Topolmasangiz LR 7 dan "
+    "oshmaydi.\n\n"
+
+    "--- D) GRAMMATICAL RANGE & ACCURACY ---\n"
+    "  Bu mezonda IKKITA narsa bor: RANGE (xilma-xillik) va ACCURACY "
+    "(to'g'rilik). Ball IKKALASINING PASTROG'I bo'yicha qo'yiladi — "
+    "faqat to'g'rilik bo'yicha EMAS.\n"
+    "  5 = asosan sodda gaplar; murakkab gap urinishlarida xato ko'p; "
+    "xatolar tushunishga xalaqit beradi.\n"
+    "  6 = sodda va qo'shma gaplar aralash; ergash gaplar bor lekin "
+    "kam; xatolar bor, ammo ma'no buzilmaydi.\n"
+    "  7 = turli tuzilmalar ishlatilgan; ergash gaplar erkin; xatolar "
+    "KAM va aloqaga xalaqit bermaydi; ko'p gap XATOSIZ.\n"
+    "  8 = tuzilmalar XILMA-XIL va MAQSADLI: nisbiy ergash gap, "
+    "shart gap, ravishdosh/sifatdosh burilishi (participle), inversiya, "
+    "passiv — biri emas, BIR NECHTASI turli o'rinlarda ishlatilgan; "
+    "xatolar juda kam va faqat kamdan-kam holatlarda.\n"
+    "  9 = to'liq erkin va aniq.\n"
+    "  QAT'IY QOIDA — ENG MUHIMI: XATO YO'QLIGI 8 DEGANI EMAS. Agar "
+    "insho xatosiz, lekin gaplar asosan sodda va qo'shma bo'lsa "
+    "(\"while\", \"but\", \"and\" bilan bog'langan) — GR 7. 8 qo'yish "
+    "uchun kamida IKKITA turli MURAKKAB tuzilmani topib IQTIBOS "
+    "qilishingiz shart. Gaplarni sanang: agar ergash gapli murakkab "
+    "gaplar butun inshoning uchdan biridan kam bo'lsa — GR 7 dan "
+    "oshmaydi.\n\n"
+
+    "QADAM 4 — 8 VA 9 UCHUN TO'SIQ. Biror mezonga 8 yoki 9 qo'ymoqchi "
+    "bo'lsangiz, 'analysis' ichida shu mezon bo'yicha KAMIDA IKKITA "
+    "aniq iqtibos keltirib, nega aynan 8 ekanini ko'rsating. Iqtibos "
+    "keltira olmasangiz — 7 qo'ying. 9 esa faqat matn ona tilida "
+    "so'zlashuvchi yozganidek bo'lsa; IELTS'da 9 juda kam beriladi, "
+    "talaba inshosida deyarli hech qachon uchramaydi.\n\n"
+
+    "QADAM 5 — O'ZINGIZNI TEKSHIRING. Ballarni qo'yib bo'lgach, "
+    "quyidagi savolga javob bering: \"Bu insho xatosiz bo'lgani uchun "
+    "yuqori ball berdimmi, yoki til BOY bo'lgani uchunmi?\" Agar "
+    "birinchisi bo'lsa — ballarni qayta ko'rib chiqing va "
+    "pasaytiring.\n\n"
+
+    "# 2026-08-08: bu yerda \"ikki band orasida qolsangiz pastrog'ini "
+    "tanlang\" degan QADAM 6 bor edi — o'lchov ko'rsatdiki u ajratish "
+    "qobiliyatini PASAYTIRADI: haqiqiy band-8.5 insho 9.0 dan 8.0 ga "
+    "tushib, band-7 insho (7.5) bilan orasi qisqargan. Bir tekis +0.5 "
+    "og'ish tartibni buzmaydi, siqilgan shkala esa buzadi — shuning "
+    "uchun qoida olib tashlandi.\n"
 
     "4) XATOLAR: matnni qatorma-qator o'qib, BARCHA xatolarni toping "
     "(ega-kesim, birlik/ko'plik, artikl, egalik, imlo), TOPGANLARINGIZNI "
@@ -349,6 +473,62 @@ SOROV_TIMEOUT_MS = 40_000
 # 1 qayta). Ko'proq urinish = uzoq kutish = timeout xavfi.
 URINISHLAR = 2
 
+# O'TKINCHI (provider tomonidagi vaqtinchalik) xato uchun alohida
+# urinishlar. 2026-08-08, foydalanuvchi production'da uchratdi: Writing
+# tekshirishda "AI xizmatida kutilmagan xato (ServerError)".
+#
+# Sabab: pastdagi `_generate` sikllari FAQAT bo'sh javob va buzuq JSON
+# uchun qayta urinardi. Provider API'sining O'ZI istisno ko'tarsa
+# (Gemini/Claude 5xx, tarmoq uzilishi) — istisno sikldan darhol otilib
+# chiqardi va talaba xato ko'rardi, holbuki 5xx odatda bir necha
+# soniyada o'tib ketadi va oddiy qayta urinish yetarli.
+#
+# Nega faqat 1 qayta urinish: timeout ham "o'tkinchi" deb hisoblanadi,
+# u esa har urinishda SOROV_TIMEOUT_MS (40s) yeydi. Ikkitadan oshirilsa
+# eng yomon holatda tashqi (JSON) sikl bilan birga gunicorn'ning 300s
+# chegarasiga yaqinlashib qolardi.
+VAQTINCHALIK_URINISHLAR = 2
+VAQTINCHALIK_KUTISH_SONIYA = 2
+
+
+def _vaqtinchalik_xatomi(e):
+    """Xato O'TKINCHIMI — ya'ni xuddi shu so'rovni qaytadan yuborish
+    yordam berishi mumkinmi.
+
+    HA: server tomonidagi 5xx, timeout, ulanish uzilishi.
+    YO'Q: 4xx (noto'g'ri so'rov, kalit xato) va 429 (limit tugagan —
+    darhol qayta urinish faqat vaziyatni yomonlashtiradi; u uchun
+    `_limit_xatosimi` orqali alohida, tushunarli xabar beriladi)."""
+    if _limit_xatosimi(e):
+        return False
+    kod = getattr(e, "code", None)
+    if not isinstance(kod, int):
+        kod = getattr(e, "status_code", None)
+    if isinstance(kod, int):
+        return 500 <= kod < 600
+    nom = type(e).__name__
+    if nom in {"ServerError", "APIConnectionError", "InternalServerError",
+               "APITimeoutError", "ServiceUnavailableError", "OverloadedError"}:
+        return True
+    matn = str(e).lower()
+    return any(x in matn for x in ("timeout", "timed out", "connection", "503", "502", "500", "overloaded"))
+
+
+def _chaqir_qayta_urinib(chaqiruv):
+    """Provider API chaqiruvini o'tkinchi xatolarda qayta uradi.
+    O'tkinchi bo'lmasa yoki urinishlar tugasa — xatoni o'zgarishsiz
+    yuqoriga uzatadi (chaqiruvchi uni odatdagidek ushlaydi)."""
+    for urinish in range(VAQTINCHALIK_URINISHLAR):
+        try:
+            return chaqiruv()
+        except ProviderXatosi:
+            raise  # bizning xato — bu yerda qayta urinilmaydi
+        except Exception as e:  # noqa: BLE001 — SDK istisnolari har xil
+            if urinish == VAQTINCHALIK_URINISHLAR - 1 or not _vaqtinchalik_xatomi(e):
+                raise
+            time.sleep(VAQTINCHALIK_KUTISH_SONIYA * (urinish + 1))
+    raise AssertionError("erishib bo'lmaydigan joy")  # pragma: no cover
+
 
 def _limit_xatosimi(xato):
     """`courses/blok_generatsiya.py`dagi bilan bir xil tekshiruv (2026-07-29)
@@ -422,11 +602,11 @@ class GeminiProvider:
         "zaxira modelga o'tish" bosqichi olib tashlandi — model bittta."""
         oxirgi_xato = None
         for _ in range(URINISHLAR):
-            response = self._bitta_sorov(
+            response = _chaqir_qayta_urinib(lambda: self._bitta_sorov(
                 system_prompt, matn, rasm_bytes, rasm_mime,
                 pdf_bytes=pdf_bytes, max_output_tokens=max_output_tokens,
                 javob_sxemasi=javob_sxemasi,
-            )
+            ))
             if not response.text:
                 oxirgi_xato = ProviderXatosi("AI bo'sh javob qaytardi")
                 continue
@@ -554,22 +734,46 @@ def gemini_provider_ol(model_kaliti):
     return GeminiProvider(kalit, model=model)
 
 
-# 2026-07-29(7), foydalanuvchi tasdiqlagan taqqoslashdan keyin: Writing
-# Task 1 va Task 2 ENDI TURLI model bilan tekshiriladi (avval ikkalasi ham
-# `GEMINI_MODEL`da edi). Real sinov (bir xil grafik+insho, ikkala model)
-# ko'rsatdiki: Gemma 4 31B Task 1'ni (rasm-tavsif) Gemini bilan deyarli BIR
-# XIL ishonchlilikda baholaydi (ikkalasi ham yaxshi inshoga 9, zaif inshoga
-# 2.5-3 band berdi, xatolarni bir xil topdi) — Gemma allaqachon
-# `courses/blok_generatsiya.py`da rasm-input uchun ishlatilgani uchun
-# tabiiy tanlov. Task 2 (sof matnli insho) uchun `gemini-3.5-flash`
-# sinovda `gemini-3.1-flash-lite`ga deyarli teng natija berdi.
-WRITING_TASK1_MODEL = "gemma-4-31b-it"
+# Writing Task 1 va Task 2 TURLI model bilan tekshiriladi.
+#
+# 2026-08-08, o'lchov bilan qayta tanlandi. Sinov materiali: bitta Task 1
+# topshirig'iga uchta insho — A (zaif, haqiqiy talaba matni, ~5.5),
+# B (grammatik XATOSIZ, lekin lug'ati oddiy, ~7.0), C (haqiqatan boy
+# tilda, ~8.5). Asosiy savol: model B va C ni AJRATA oladimi.
+#
+#   model                  A     B     C     vaqt
+#   gemma-4-31b-it         6.0   7.5   9.0   133-230s  (tartib to'g'ri,
+#                                              lekin 120s timeout'dan
+#                                              oshadi — qayta urinish
+#                                              bilan 4 daqiqagacha)
+#   gemini-3.5-flash       5.5   8.0   8.0   24-31s    (B va C ni
+#                                              AJRATMAYDI — ikkalasi 8)
+#   gemini-3.1-flash-lite  6.0   7.5   8.0-8.5  5-9s   (gemma bilan bir
+#                                              xil tartib, 20-30x tez)
+#
+# Shuning uchun Task 1 gemma'dan `gemini-3.1-flash-lite`ga o'tkazildi:
+# aniqligi gemma bilan bir xil, timeout xavfi esa umuman yo'q.
+#
+# Task 2 (sof matnli insho) — `gemini-3.5-flash` QOLDI: band-7 inshoga
+# ikki marta ham roppa-rosa 7.0 berdi, flash-lite esa izchil 6.5.
+WRITING_TASK1_MODEL = "gemini-3.1-flash-lite"
 WRITING_TASK2_MODEL = "gemini-3.5-flash"
 
-# Gemma matnli (rasmsiz) tahlilda ham sekin ishlaydi — WritingTekshirishView
-# SINXRON so'rov (blok pipeline'dagi kabi bosqichlab emas), shuning uchun
-# oddiy 40s o'rniga ancha kattaroq zaxira beramiz (gunicorn 300s'dan past).
-WRITING_TASK1_TIMEOUT_MS = 120_000
+# Writing so'rovlari SINXRON (talaba javobni kutib turadi), shuning uchun
+# timeout gunicorn'ning 300s chegarasidan past, lekin o'lchangan haqiqiy
+# vaqtdan ancha yuqori bo'lishi kerak.
+#
+# 2026-08-08: baholash promti ancha batafsil bo'lgani uchun (band
+# deskriptorlari, ~2500 token) javob vaqti oshdi — Task 2 bir o'lchovda
+# 58s ni ko'rsatdi, holbuki chegara 40s edi (SOROV_TIMEOUT_MS). Ya'ni
+# tekshiruv timeout'ga urilib, qayta urinishga tushardi. Ikkala tur uchun
+# ham aniq, kengroq chegara qo'yildi.
+#
+# Task 1 endi tez modelda (5-9s o'lchandi), lekin RASM ham yuboriladi
+# (grafik/diagramma) — u qo'shimcha vaqt oladi, shuning uchun zaxira
+# saqlanadi.
+WRITING_TASK1_TIMEOUT_MS = 90_000
+WRITING_TASK2_TIMEOUT_MS = 120_000
 
 
 def writing_provider_ol(tur):
@@ -581,7 +785,7 @@ def writing_provider_ol(tur):
         raise ProviderXatosi("Platforma GEMINI_API_KEY sozlanmagan (.env)")
     if tur == "task1":
         return GeminiProvider(kalit, model=WRITING_TASK1_MODEL, timeout_ms=WRITING_TASK1_TIMEOUT_MS)
-    return GeminiProvider(kalit, model=WRITING_TASK2_MODEL)
+    return GeminiProvider(kalit, model=WRITING_TASK2_MODEL, timeout_ms=WRITING_TASK2_TIMEOUT_MS)
 
 
 def _matn_blokini_ol(response):
@@ -676,13 +880,13 @@ class ClaudeProvider:
 
         oxirgi_xato = None
         for _ in range(URINISHLAR):
-            response = client.messages.create(
+            response = _chaqir_qayta_urinib(lambda: client.messages.create(
                 model=self.model,
                 max_tokens=max_tokens,
                 system=system_prompt,
                 messages=[{"role": "user", "content": content}],
                 **qoshimcha,
-            )
+            ))
             # Sxema berilgan bo'lsa ham chegaraga urilsa javob chala qoladi —
             # buni tushunarli xato qilib aytamiz (aks holda "JSON emas" deb
             # chalg'ituvchi xabar chiqardi).

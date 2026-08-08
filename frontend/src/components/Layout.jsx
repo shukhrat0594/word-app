@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import { mediaManzil, tokenlarniTozala } from "../api";
+import { api, mediaManzil, tokenlarniTozala } from "../api";
 import { useI18n } from "../i18n";
 import { useProfil } from "../profilContext";
 import { useTestRejimi } from "../testRejimiContext";
@@ -36,6 +36,29 @@ const TALABA_NAVLAR = [
   ...(NAMUNAVIY_MASHQLAR_OCHIQ
     ? [{ yol: "/mashqlar", ikon: "✎", kalit: "nav_mashqlar" }]
     : []),
+  { yol: "/ielts-boshqarish", ikon: "🎓", kalit: "nav_ielts_boshqarish" },
+  { yol: "/ai-mashqlari", ikon: "🤖", kalit: "nav_ai_mashqlari" },
+  { yol: "/kurslar", ikon: "📚", kalit: "nav_kurslar" },
+  { yol: "/oyinlar", ikon: "🎮", kalit: "nav_oyinlar" },
+  { yol: "/tarix", ikon: "🕐", kalit: "nav_tarix" },
+  { yol: "/reyting", ikon: "🏆", kalit: "nav_reyting" },
+];
+
+// 2026-08-08, foydalanuvchi talabi: "ownerga hamma panellarni
+// ko'rinadigan qilish kerak". Avval owner `navlarniOl("admin")`
+// natijasini olardi va shu sababli Davomat, O'yinlar, Tarix, Reyting
+// unga KO'RINMASDI (ular faqat o'qituvchi/talaba ro'yxatlarida bor
+// edi). Endi owner uchun alohida, TO'LIQ ro'yxat.
+//
+// DIQQAT: bu FAQAT navigatsiya. Backend ruxsatlari o'zgarmagan —
+// talabaga mo'ljallangan sahifalar (Reyting, Tarix, O'yinlar) ownerga
+// uning O'Z ma'lumotini ko'rsatadi, ya'ni odatda bo'sh bo'ladi.
+const OWNER_NAVLAR = [
+  { yol: "/", ikon: "▦", kalit: "nav_dashboard" },
+  { yol: "/guruhlar", ikon: "☰", kalit: "nav_guruhlar" },
+  { yol: "/talabalar", ikon: "🎒", kalit: "nav_talabalar" },
+  { yol: "/xodimlar", ikon: "🧑‍🏫", kalit: "nav_xodimlar" },
+  { yol: "/davomat", ikon: "🗓", kalit: "nav_davomat" },
   { yol: "/ielts-boshqarish", ikon: "🎓", kalit: "nav_ielts_boshqarish" },
   { yol: "/ai-mashqlari", ikon: "🤖", kalit: "nav_ai_mashqlari" },
   { yol: "/kurslar", ikon: "📚", kalit: "nav_kurslar" },
@@ -81,6 +104,135 @@ function navlarniOl(role) {
   return TALABA_NAVLAR;
 }
 
+/** Owner uchun ilova ichidagi bildirishnomalar (2026-08-08) — hozircha
+ * yagona manba `CHANGELOG.md` relizlari (backend: `accounts/relizlar.py`).
+ *
+ * Faqat sarlavhadagi qo'ng'iroq va ochiladigan ro'yxat; so'rov FAQAT
+ * ochilganda va sahifa birinchi yuklanganda yuboriladi (davomiy so'rov
+ * qilmaymiz — reliz kuniga bir marta ham chiqmaydi). */
+/** CHANGELOG bo'limini bandlar ro'yxatiga aylantiradi.
+ *
+ * To'liq markdown kutubxonasi SHART EMAS: manba faqat bizning
+ * `CHANGELOG.md` va u atigi ikki narsadan foydalanadi — "- " bandlari
+ * va **qalin** ta'kid. Fayl 72 belgida qattiq o'raladi, shuning uchun
+ * bandning davomi keyingi qatorlarda keladi — ularni birlashtiramiz,
+ * aks holda matn tasodifiy joylarda uzilib ko'rinardi. */
+function bandlarniAjrat(matn) {
+  const bandlar = [];
+  for (const qator of (matn || "").split("\n")) {
+    const tozalangan = qator.trim().replace(/\*\*/g, "");
+    if (!tozalangan) continue;
+    if (tozalangan.startsWith("- ")) bandlar.push(tozalangan.slice(2));
+    else if (bandlar.length) bandlar[bandlar.length - 1] += ` ${tozalangan}`;
+    else bandlar.push(tozalangan);
+  }
+  return bandlar;
+}
+
+function Bildirishnomalar({ t }) {
+  const [ochiq, setOchiq] = useState(false);
+  const [malumot, setMalumot] = useState(null);
+  const qutiRef = useRef(null);
+
+  function yukla() {
+    api("/api/bildirishnomalar/").then(setMalumot).catch(() => {});
+  }
+
+  useEffect(() => {
+    yukla();
+  }, []);
+
+  // Tashqariga bosilsa yopilsin.
+  useEffect(() => {
+    if (!ochiq) return undefined;
+    function tashqariga(e) {
+      if (qutiRef.current && !qutiRef.current.contains(e.target)) setOchiq(false);
+    }
+    window.addEventListener("mousedown", tashqariga);
+    return () => window.removeEventListener("mousedown", tashqariga);
+  }, [ochiq]);
+
+  async function hammasiniOqilganQil() {
+    try {
+      await api("/api/bildirishnomalar/", { method: "POST", body: { hammasi: true } });
+      yukla();
+    } catch {
+      // Belgilash muvaffaqiyatsiz bo'lsa ham ro'yxat ko'rinib turadi —
+      // bu faqat "o'qilgan" bayrog'i, muhim ma'lumot yo'qolmaydi.
+    }
+  }
+
+  const oqilmagan = malumot?.oqilmagan || 0;
+  const royxat = malumot?.bildirishnomalar || [];
+
+  return (
+    <div ref={qutiRef} style={{ position: "relative" }}>
+      <button
+        className="tema-tugma"
+        onClick={() => setOchiq((v) => !v)}
+        aria-label={t("bildirishnomalar")}
+        title={t("bildirishnomalar")}
+      >
+        🔔
+        {oqilmagan > 0 && (
+          <span
+            style={{
+              position: "absolute", top: 0, right: 0, minWidth: 16, height: 16,
+              padding: "0 3px", borderRadius: 8, background: "var(--xato)",
+              color: "#fff", fontSize: 10, lineHeight: "16px", fontWeight: 700,
+            }}
+          >
+            {oqilmagan}
+          </span>
+        )}
+      </button>
+      {ochiq && (
+        <div
+          style={{
+            position: "absolute", top: "100%", right: 0, marginTop: 6, width: 340,
+            maxHeight: 420, overflowY: "auto", background: "var(--sirt)",
+            border: "1px solid var(--chiziq)", borderRadius: 10, padding: 10,
+            boxShadow: "0 6px 24px rgba(0,0,0,0.25)",
+            // Kurslar sahifasidagi yuklash qoplamasi 1000 da — ustida tursin.
+            zIndex: 1200,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+            <strong>{t("bildirishnomalar")}</strong>
+            {oqilmagan > 0 && (
+              <button className="tugma ikkinchi kichik" onClick={hammasiniOqilganQil}>
+                {t("bildirishnoma_hammasi_oqildi")}
+              </button>
+            )}
+          </div>
+          {royxat.length === 0 ? (
+            <div className="izoh">{t("bildirishnoma_yoq")}</div>
+          ) : (
+            royxat.map((b) => (
+              <div
+                key={b.id}
+                style={{
+                  padding: "8px 0", borderTop: "1px solid var(--chiziq)",
+                  opacity: b.oqilgan ? 0.6 : 1,
+                }}
+              >
+                <div style={{ fontWeight: 700, marginBottom: 4 }}>
+                  {b.oqilgan ? "" : "• "}{b.sarlavha}
+                </div>
+                <ul className="izoh" style={{ margin: 0, paddingLeft: 18 }}>
+                  {bandlarniAjrat(b.matn).map((band, k) => (
+                    <li key={k} style={{ marginBottom: 3 }}>{band}</li>
+                  ))}
+                </ul>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Layout() {
   const { til, tilniQoy, t } = useI18n();
   const navigate = useNavigate();
@@ -119,7 +271,7 @@ export default function Layout() {
   // — faqat "oddiy foydalanuvchi" ularni ko'rmaydi, unga faqat Mashqlar
   // ochiq (2026-07-20, Kurslar uchun 2026-07-21).
   const oddiyMi = profil?.role === "oddiy";
-  const asosiyNavlar = navlarniOl(profil?.role).filter(
+  const asosiyNavlar = (profil?.is_owner ? OWNER_NAVLAR : navlarniOl(profil?.role)).filter(
     // 2026-07-27: "AI mashqlari" oddiy foydalanuvchiga HAM ochiq (talabaga
     // ham) — "Namunaviy mashqlar" yopilgach unga hech qanday mashq
     // qolmagandi. Backendda ham shunday: `korinadigan_testlar` oddiy
@@ -263,6 +415,7 @@ export default function Layout() {
                 </button>
               ))}
             </div>
+            {profil?.is_owner && <Bildirishnomalar t={t} />}
             <button className="tema-tugma" onClick={temaAlmash} aria-label="Tema">
               ◐
             </button>

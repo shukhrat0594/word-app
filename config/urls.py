@@ -21,6 +21,7 @@ from django.views.static import serve as media_serve
 from rest_framework_simplejwt.views import TokenRefreshView
 
 from accounts.views import (
+    BildirishnomalarView,
     FoydalanuvchilarView,
     FoydalanuvchiOchirishView,
     FoydalanuvchiParolTiklashView,
@@ -116,6 +117,11 @@ urlpatterns = [
         'api/foydalanuvchilar/<int:pk>/panellar/',
         FoydalanuvchiPanellarView.as_view(),
         name='foydalanuvchi_panellar',
+    ),
+    path(
+        'api/bildirishnomalar/',
+        BildirishnomalarView.as_view(),
+        name='bildirishnomalar',
     ),
     path(
         'api/foydalanuvchilar/<int:pk>/natijalar/',
