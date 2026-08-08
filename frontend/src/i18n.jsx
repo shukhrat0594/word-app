@@ -96,6 +96,7 @@ const LUGAT = {
     kurs_rasm_fon_tahrir_izoh: "Katakchani sudrab joyini o'zgartiring. Rasmning bo'sh joyiga bosib yangi katak qo'shiladi.",
     kurs_rasm_fon_savol_matni: "Gap (faqat admin ko'radi)",
     kurs_rasm_fon_kenglik: "Kengligi",
+    kurs_audio_qayta_ishlatildi: "Bu audio allaqachon bor edi — mashqdan olindi:",
     kurs_rasm_fon_izoh:
       "Sahifa rasm holida qoladi, javob joylariga input qo'yiladi. Tasdiqlash oynasi yo'q — darhol saqlanadi.",
     kurs_rasm_fon_tugadi: "Sahifalar saqlandi",
@@ -633,6 +634,7 @@ const LUGAT = {
     kurs_rasm_fon_tahrir_izoh: "Перетащите поле, чтобы изменить его место. Клик по пустому месту добавляет новое поле.",
     kurs_rasm_fon_savol_matni: "Предложение (видит только админ)",
     kurs_rasm_fon_kenglik: "Ширина",
+    kurs_audio_qayta_ishlatildi: "Это аудио уже было — взято из упражнения:",
     kurs_rasm_fon_izoh:
       "Страница остаётся изображением, поля ввода накладываются сверху. Окна подтверждения нет — сохраняется сразу.",
     kurs_rasm_fon_tugadi: "Страницы сохранены",
@@ -1170,6 +1172,7 @@ const LUGAT = {
     kurs_rasm_fon_tahrir_izoh: "Drag a field to move it. Click an empty spot on the image to add a new one.",
     kurs_rasm_fon_savol_matni: "Sentence (admin only)",
     kurs_rasm_fon_kenglik: "Width",
+    kurs_audio_qayta_ishlatildi: "This audio already existed — taken from exercise:",
     kurs_rasm_fon_izoh:
       "The page stays as an image with inputs placed on top. No confirmation step — saved immediately.",
     kurs_rasm_fon_tugadi: "Pages saved",

@@ -908,7 +908,12 @@ function AdminMashqBoshqaruv({ tugunId, jsonKiritishKorinadi = true }) {
     try {
       const fd = new FormData();
       fd.append("audio", fayl);
-      await apiForm(`/api/kurslar/mashq/${id}/blok-audio-yuklash/`, { method: "POST", formData: fd });
+      const d = await apiForm(`/api/kurslar/mashq/${id}/blok-audio-yuklash/`, { method: "POST", formData: fd });
+      // 2026-08-08: bu fayl markazda allaqachon bor edi — diskka yangi
+      // nusxa yozilmadi, mavjudi ishlatildi. Admin qaysi mashqdan
+      // olinganini bilib tursin.
+      const q = d?.audio_qayta_ishlatildi;
+      setMashqXabar(q ? `${t("kurs_audio_qayta_ishlatildi")} #${q.mashq_tartib}` : "");
       yukla();
     } catch (e2) {
       setAudioYuklashXato(e2.data?.detail || t("xato_yuz_berdi"));

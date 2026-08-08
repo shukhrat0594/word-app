@@ -44,6 +44,29 @@ const TALABA_NAVLAR = [
   { yol: "/reyting", ikon: "🏆", kalit: "nav_reyting" },
 ];
 
+// 2026-08-08, foydalanuvchi talabi: "ownerga hamma panellarni
+// ko'rinadigan qilish kerak". Avval owner `navlarniOl("admin")`
+// natijasini olardi va shu sababli Davomat, O'yinlar, Tarix, Reyting
+// unga KO'RINMASDI (ular faqat o'qituvchi/talaba ro'yxatlarida bor
+// edi). Endi owner uchun alohida, TO'LIQ ro'yxat.
+//
+// DIQQAT: bu FAQAT navigatsiya. Backend ruxsatlari o'zgarmagan —
+// talabaga mo'ljallangan sahifalar (Reyting, Tarix, O'yinlar) ownerga
+// uning O'Z ma'lumotini ko'rsatadi, ya'ni odatda bo'sh bo'ladi.
+const OWNER_NAVLAR = [
+  { yol: "/", ikon: "▦", kalit: "nav_dashboard" },
+  { yol: "/guruhlar", ikon: "☰", kalit: "nav_guruhlar" },
+  { yol: "/talabalar", ikon: "🎒", kalit: "nav_talabalar" },
+  { yol: "/xodimlar", ikon: "🧑‍🏫", kalit: "nav_xodimlar" },
+  { yol: "/davomat", ikon: "🗓", kalit: "nav_davomat" },
+  { yol: "/ielts-boshqarish", ikon: "🎓", kalit: "nav_ielts_boshqarish" },
+  { yol: "/ai-mashqlari", ikon: "🤖", kalit: "nav_ai_mashqlari" },
+  { yol: "/kurslar", ikon: "📚", kalit: "nav_kurslar" },
+  { yol: "/oyinlar", ikon: "🎮", kalit: "nav_oyinlar" },
+  { yol: "/tarix", ikon: "🕐", kalit: "nav_tarix" },
+  { yol: "/reyting", ikon: "🏆", kalit: "nav_reyting" },
+];
+
 function navlarniOl(role) {
   if (role === "admin") {
     return [
@@ -119,7 +142,7 @@ export default function Layout() {
   // — faqat "oddiy foydalanuvchi" ularni ko'rmaydi, unga faqat Mashqlar
   // ochiq (2026-07-20, Kurslar uchun 2026-07-21).
   const oddiyMi = profil?.role === "oddiy";
-  const asosiyNavlar = navlarniOl(profil?.role).filter(
+  const asosiyNavlar = (profil?.is_owner ? OWNER_NAVLAR : navlarniOl(profil?.role)).filter(
     // 2026-07-27: "AI mashqlari" oddiy foydalanuvchiga HAM ochiq (talabaga
     // ham) — "Namunaviy mashqlar" yopilgach unga hech qanday mashq
     // qolmagandi. Backendda ham shunday: `korinadigan_testlar` oddiy

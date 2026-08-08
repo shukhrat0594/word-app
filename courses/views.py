@@ -1166,6 +1166,52 @@ class KursMashqAudioBoshqaruvView(APIView):
         return Response(_kurs_mashq_admin_dict(mashq))
 
 
+def _audio_xeshi(fayl):
+    """Yuklangan faylning SHA-256 yig'indisi. Bo'laklab o'qiladi —
+    audio 50 MB bo'lishi mumkin, uni butunlay xotiraga olish shart
+    emas. O'qigandan keyin ko'rsatkich boshiga qaytariladi, chunki
+    chaqiruvchi faylni saqlashi mumkin."""
+    import hashlib
+
+    xesh = hashlib.sha256()
+    fayl.seek(0)
+    for bolak in iter(lambda: fayl.read(1024 * 256), b""):
+        xesh.update(bolak)
+    fayl.seek(0)
+    return xesh.hexdigest()
+
+
+def _mavjud_audioni_top(mashq, xesh):
+    """SHU MARKAZDA xuddi shu fayl allaqachon yuklanganmi (2026-08-08).
+
+    Markaz bilan chegaralangan: boshqa o'quv markazining fayliga ishora
+    qilish ma'lumot chegarasini buzardi."""
+    return (
+        KursMashqAudio.objects
+        .filter(fayl_xesh=xesh, mashq__tugun__markaz_id=mashq.tugun.markaz_id)
+        .exclude(audio="")
+        .order_by("id")
+        .first()
+    )
+
+
+def _audio_faylini_xavfsiz_ochir(yozuv):
+    """Yozuvning faylini o'chiradi — LEKIN faqat unga BOSHQA yozuv
+    ishora qilmayotgan bo'lsa. Takrorni qayta ishlatish tufayli bitta
+    fayl bir nechta yozuvga tegishli bo'lishi mumkin; tekshirmasdan
+    o'chirilsa, qolgan mashqlarning audiosi jimgina yo'qolardi."""
+    if not yozuv.audio:
+        return
+    nom = yozuv.audio.name
+    boshqasi_ishlatyaptimi = (
+        KursMashqAudio.objects.filter(audio=nom).exclude(pk=yozuv.pk).exists()
+    )
+    if boshqasi_ishlatyaptimi:
+        yozuv.audio = ""  # faqat bog'lanishni uzamiz, fayl qoladi
+    else:
+        yozuv.audio.delete(save=False)
+
+
 def _mashq_blok_audio_raqamlari(mashq):
     """Mashqning blok formatidagi audio BELGILARI (audio_raqam) —
     ketma-ketlikni saqlab, takrorsiz ro'yxat."""
@@ -1211,19 +1257,42 @@ class KursMashqBlokAudioBoshqaruvView(APIView):
         else:
             return Response({"detail": "Bu mashqda audio belgisi yo'q"}, status=400)
 
+        xesh = _audio_xeshi(audio)
         yozuv, yaratildi = KursMashqAudio.objects.get_or_create(mashq=mashq, raqam=raqam)
-        if not yaratildi and yozuv.audio:
-            yozuv.audio.delete(save=False)  # eski fayl diskda "yetim" qolmasin
-        yozuv.audio.save(f"{mashq.id}_{raqam or 'audio'}.mp3", audio, save=True)
+        if not yaratildi:
+            _audio_faylini_xavfsiz_ochir(yozuv)  # eski fayl diskda "yetim" qolmasin
+
+        # 2026-08-08, foydalanuvchi talabi: "2 ta mashq uchun bir xil
+        # audio yuklansa qayta yuklamasin, oldin yuklangan fayl adresini
+        # ko'rsatib qo'ysin". Shu markazda xuddi shu fayl bo'lsa — diskka
+        # YANGI nusxa yozilmaydi, yozuv mavjud faylga ishora qiladi.
+        mavjud = _mavjud_audioni_top(mashq, xesh)
+        if mavjud:
+            yozuv.audio.name = mavjud.audio.name
+        else:
+            yozuv.audio.save(f"{mashq.id}_{raqam or 'audio'}.mp3", audio, save=False)
+        yozuv.fayl_xesh = xesh
+        yozuv.save()
 
         logla(
             foydalanuvchi=request.user,
             harakat=FaoliyatYozuvi.Harakat.OZGARTIRISH,
             obyekt=mashq.tugun,
             obyekt_turi="KursTugun",
-            obyekt_nomi=f"{mashq.tugun.nomi} (#{mashq.tartib} mashqqa audio {raqam} biriktirildi)",
+            obyekt_nomi=(
+                f"{mashq.tugun.nomi} (#{mashq.tartib} mashqqa audio {raqam} "
+                f"{'qayta ishlatildi' if mavjud else 'biriktirildi'})"
+            ),
         )
-        return Response(_kurs_mashq_admin_dict(mashq))
+        javob = _kurs_mashq_admin_dict(mashq)
+        if mavjud:
+            javob["audio_qayta_ishlatildi"] = {
+                "mashq_id": mavjud.mashq_id,
+                "mashq_tartib": mavjud.mashq.tartib,
+                "raqam": mavjud.raqam,
+                "url": f"/api/kurslar/mashq-audio/{mavjud.id}/",
+            }
+        return Response(javob)
 
 
 class KursMashqRasmView(APIView):

@@ -164,6 +164,18 @@ class KursMashqAudio(models.Model):
         help_text="Darslikdagi track raqami (masalan '1.01') — faqat ma'lumot uchun",
     )
     tartib = models.PositiveSmallIntegerField(default=0)
+    fayl_xesh = models.CharField(
+        max_length=64, blank=True, db_index=True,
+        help_text=(
+            "Audio faylning SHA-256 yig'indisi (2026-08-08, foydalanuvchi "
+            "talabi: \"bir xil audio ikki marta yuklanmasin\"). Bir xil "
+            "xeshli yozuv topilsa yangi fayl YOZILMAYDI — mavjud faylning "
+            "o'zi ko'rsatiladi. Shu sababli BIR fayliga bir nechta yozuv "
+            "ishora qilishi mumkin; faylni o'chirishdan oldin boshqa "
+            "yozuvlar foydalanmayotganini tekshirish SHART "
+            "(`courses.views._audio_faylini_xavfsiz_ochir`)."
+        ),
+    )
 
     class Meta:
         ordering = ["tartib", "id"]

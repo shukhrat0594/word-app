@@ -100,9 +100,16 @@ HUDUD_PROMPT = (
     "- Sahifa ikki ustunli bo'lsa, har mashq O'Z ustunining kengligida "
     "bo'lsin (butun sahifa kengligini olmang). Chap va o'ng ustun "
     "MUSTAQIL ketma-ketlik.\n"
-    "- Sahifa sarlavhasi, bo'lim nomi, sahifa raqami, \"Grammar "
-    "reference\" / \"Go online\" / \"Watch a video\" kabi havola "
-    "qutilari — mashq EMAS, chiqarmang.\n\n"
+    "- Sahifa sarlavhasi, bo'lim nomi, \"Grammar reference\" / \"Go "
+    "online\" / \"Watch a video\" kabi havola qutilari — mashq EMAS, "
+    "chiqarmang.\n"
+    "- SAHIFANING ENG PASTIDAGI KOLONTITUL — sahifa raqami, unit "
+    "raqami va unit nomi turgan qator (masalan \"10  Unit 1 • Hello!\") "
+    "— mashq EMAS. Uni na alohida chiqaring, na oxirgi mashqning "
+    "hududiga qo'shing: oxirgi mashqning \"y2\" si shu qatordan "
+    "YUQORIDA tugasin.\n"
+    "- Xuddi shunday, eng yuqoridagi kolontitul (bo'lim nomi takrori) "
+    "ham mashq emas.\n\n"
 
     "\"raqam\" — sahifada BOSILGAN mashq raqami. \"audio_bor\" — mashq "
     "yonida AUDIO/DINAMIK BELGISI (ko'pincha \"1.5\" kabi trek raqami "
@@ -188,6 +195,15 @@ def _son(qiymat):
         return None
 
 
+# Sahifa pastidagi kolontitul (sahifa raqami, "Unit 1 • Hello!") va
+# yuqoridagi bo'lim nomi turadigan tasmalar. Foydalanuvchi talabi
+# (2026-08-08): bu qismlar mashq bo'lib qolmasin. Promtda ham
+# aytilgan, lekin AI ba'zan baribir chiqaradi — shuning uchun kodda
+# ham to'siq bor: BUTUNLAY shu tasma ichida yotgan hudud tashlanadi.
+KOLONTITUL_PAST = 93
+KOLONTITUL_TEPA = 6
+
+
 def _hudud_yaroqlimi(m):
     """AI ba'zan chala/teskari quti qaytaradi — bunday mashq tashlanadi."""
     qiymatlar = [_son(m.get(k)) for k in ("x1", "y1", "x2", "y2")]
@@ -195,6 +211,9 @@ def _hudud_yaroqlimi(m):
         return False
     x1, y1, x2, y2 = qiymatlar
     if not all(0 <= q <= 100 for q in qiymatlar):
+        return False
+    # Kolontitul tasmasidan chiqmaydigan hudud — mashq emas.
+    if y1 >= KOLONTITUL_PAST or y2 <= KOLONTITUL_TEPA:
         return False
     # Juda kichik hudud — deyarli har doim AI xatosi (masalan bitta so'zni
     # "mashq" deb belgilab qo'yishi). 5% dan kichigini qabul qilmaymiz.

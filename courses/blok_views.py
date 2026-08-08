@@ -577,13 +577,24 @@ def _rasm_fon_sahifasini_saqla(tugun, sahifa_bytes, sahifa_asosi):
         return 0, 0, xato
 
     yaratilgan, savol_soni = 0, 0
+    # AI ba'zan bitta sahifadagi ikki mashqni BIR XIL raqam bilan
+    # belgilaydi (real sinovda uchradi: 7 betlik PDF'da bir marta).
+    # Shunda ikkalasi bir xil `tartib` olib, ro'yxatdagi o'rni tasodifga
+    # qolardi. Shu sahifa ichida band qilingan qiymatni eslab, keyingi
+    # bo'shiga suramiz — sahifa ichida saqlash KETMA-KET bo'lgani uchun
+    # bu xavfsiz (sahifalar orasidagi ajratish `sahifa_asosi` bilan).
+    band_tartiblar = set()
     for i, m in enumerate(mashqlar, start=1):
         kesilgan = rasmni_kes(sahifa_bytes, m["quti"])
         if not kesilgan:
             continue  # hudud juda kichik/buzuq — bu mashq tashlanadi
+        tartib = _rasm_fon_tartibi(sahifa_asosi, m["raqam"], i)
+        while tartib in band_tartiblar and tartib < TARTIB_MAKSIMUMI:
+            tartib += 1
+        band_tartiblar.add(tartib)
         mashq = KursMashq.objects.create(
             tugun=tugun,
-            tartib=_rasm_fon_tartibi(sahifa_asosi, m["raqam"], i),
+            tartib=tartib,
             matn=m["sarlavha"] or "",
             savollar=m["savollar"],
             bloklar=[],
