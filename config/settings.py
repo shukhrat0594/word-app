@@ -135,6 +135,41 @@ DATABASES = {
     )
 }
 
+# SQLite'ni KO'P FOYDALANUVCHI uchun sozlash (2026-08-08).
+#
+# Nega kerak: production'da baza SQLite (doimiy diskda). SQLite'da bir
+# vaqtda faqat BITTA yozuv amali bajariladi — bu o'zgarmaydi. Lekin
+# standart sozlamalar bundan ham qattiqroq chegara qo'yadi:
+#
+#   * journal_mode=delete (standart) — YOZUV paytida O'QISH ham
+#     bloklanadi. Ya'ni bitta talaba javob topshirsa, qolganlar test
+#     matnini o'qiy olmaydi. WAL rejimida o'qish va yozish PARALLEL
+#     ketadi, faqat yozuv-yozuvga qarshi navbatda turadi.
+#   * timeout 5s (Django standarti) — qulf bo'shashini shuncha kutadi,
+#     keyin "database is locked" xatosi. 100 talaba bir vaqtda
+#     topshirganda bu yetmaydi.
+#   * Django ATAYLAB "deferred" tranzaksiya boshlaydi: `atomic` bloki
+#     O'QISH bilan boshlanib, YOZUVGA yetganda qulfni oshirishga
+#     urinadi. Agar shu orada boshqa so'rov yozuvni boshlagan bo'lsa —
+#     kutish YO'Q, darhol xato. `IMMEDIATE` esa qulfni boshida oladi,
+#     ya'ni odilona navbatda kutadi.
+#
+# synchronous=NORMAL — WAL bilan birga xavfsiz: ilova qulasa ham
+# ma'lumot buzilmaydi. Faqat OPERATSION TIZIM yoki elektr uzilishida
+# oxirgi bir-ikki tranzaksiya yo'qolishi mumkin. Boshqarilayotgan
+# hostingda (Render) bu qabul qilingan almashuv — FULL rejimi har
+# yozuvda diskni kutadi va sezilarli sekinlashtiradi.
+#
+# `cache_size` ATAYLAB o'zgartirilmadi: u HAR ULANISH uchun alohida
+# ajratiladi, ya'ni 16 ip x 16 MB = 256 MB bo'lib, 512 MB'lik
+# instansda xotirani yeb qo'yardi.
+if DATABASES['default'].get('ENGINE') == 'django.db.backends.sqlite3':
+    DATABASES['default'].setdefault('OPTIONS', {}).update({
+        'timeout': 20,
+        'transaction_mode': 'IMMEDIATE',
+        'init_command': 'PRAGMA journal_mode=WAL; PRAGMA synchronous=NORMAL;',
+    })
+
 
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators

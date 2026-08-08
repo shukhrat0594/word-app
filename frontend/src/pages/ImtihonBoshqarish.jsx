@@ -799,20 +799,39 @@ function IzohQutilari({ savollar, bloklar, ozgardi, t }) {
     }),
   ].sort((a, b) => a.kalit - b.kalit);
 
-  function tashlandi(nishonIdx) {
-    if (sudralayotgan == null) return;
-    // Yangi `joy` — tashlangan o'rindagi qo'shni elementlar kalitining
-    // O'RTASI. Kasr son ataylab: savol indekslari butun, shuning uchun
-    // orasiga tushish uchun kasr kerak.
-    const boshqalar = elementlar.filter((e) => !(e.turi === "quti" && e.blokIdx === sudralayotgan));
-    const oldingi = boshqalar[nishonIdx - 1];
-    const keyingi = boshqalar[nishonIdx];
+  /** Qutini `nishonIdx` o'rniga ko'chiradi. Yangi `joy` — o'sha
+   * o'rindagi qo'shni elementlar kalitining O'RTASI. Kasr son ataylab:
+   * savol indekslari butun, orasiga tushish uchun kasr kerak. */
+  function qutiniKochir(blokIdx, nishonIdx) {
+    const boshqalar = elementlar.filter((e) => !(e.turi === "quti" && e.blokIdx === blokIdx));
+    const chegaralangan = Math.max(0, Math.min(boshqalar.length, nishonIdx));
+    const oldingi = boshqalar[chegaralangan - 1];
+    const keyingi = boshqalar[chegaralangan];
     let yangiJoy;
     if (!oldingi) yangiJoy = (keyingi ? keyingi.kalit : 0) - 0.5;
     else if (!keyingi) yangiJoy = oldingi.kalit + 0.5;
     else yangiJoy = (oldingi.kalit + keyingi.kalit) / 2;
-    ozgardi(bloklar.map((b, i) => (i === sudralayotgan ? { ...b, joy: yangiJoy } : b)));
+    ozgardi((joriy) => joriy.map((b, i) => (i === blokIdx ? { ...b, joy: yangiJoy } : b)));
+  }
+
+  function tashlandi(nishonIdx) {
+    if (sudralayotgan == null) return;
+    qutiniKochir(sudralayotgan, nishonIdx);
     setSudralayotgan(null);
+  }
+
+  /** ↑/↓ tugmalari — sudrashning ISHONCHLI alternativasi (2026-08-08,
+   * foydalanuvchi: "men xoxlagan joyga o'tkaza olmadim, faqat mashq
+   * boshida bo'lib qoldi"). HTML5 sudrash injiq: tashlash joyi
+   * aniq bo'lmasa yoki brauzer boshqacha ishlasa hech narsa bo'lmaydi.
+   * Tugma har doim ishlaydi. */
+  function bittaQadam(blokIdx, yonalish) {
+    const joriyIdx = elementlar.findIndex((e) => e.turi === "quti" && e.blokIdx === blokIdx);
+    if (joriyIdx < 0) return;
+    // Ro'yxatdan o'zini olib tashlaganda indeks bir pasayadi, shuning
+    // uchun yuqoriga siljish -1, pastga siljish +1 emas: pastga
+    // o'tishda o'zining bo'sh o'rni ham hisobga olinadi.
+    qutiniKochir(blokIdx, yonalish < 0 ? joriyIdx - 1 : joriyIdx + 1);
   }
 
   function qutiOz(i, patch) {
@@ -838,8 +857,15 @@ function IzohQutilari({ savollar, bloklar, ozgardi, t }) {
           {elementlar.map((e, i) => (
             <div
               key={e.turi === "quti" ? `q${e.blokIdx}` : `s${e.kalit}`}
-              onDragOver={(ev) => ev.preventDefault()}
-              onDrop={() => tashlandi(i)}
+              onDragEnter={(ev) => ev.preventDefault()}
+              onDragOver={(ev) => {
+                ev.preventDefault();
+                ev.dataTransfer.dropEffect = "move";
+              }}
+              onDrop={(ev) => {
+                ev.preventDefault();
+                tashlandi(i);
+              }}
               style={{
                 padding: e.turi === "quti" ? 6 : "2px 6px",
                 borderRadius: 6,
@@ -853,14 +879,58 @@ function IzohQutilari({ savollar, bloklar, ozgardi, t }) {
               ) : (
                 <div style={{ display: "grid", gap: 4 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    {/* Sudrash: `setData` SHART — usiz Firefox va ba'zi
+                        brauzerlar sudrashni umuman boshlamaydi. */}
                     <span
                       draggable
-                      onDragStart={() => setSudralayotgan(e.blokIdx)}
+                      onDragStart={(ev) => {
+                        ev.dataTransfer.setData("text/plain", String(e.blokIdx));
+                        ev.dataTransfer.effectAllowed = "move";
+                        setSudralayotgan(e.blokIdx);
+                      }}
+                      onDragEnd={() => setSudralayotgan(null)}
                       style={{ cursor: "grab", userSelect: "none" }}
                       title={t("imtihon_quti_sudrash")}
                     >
                       ⠿
                     </span>
+                    {/* Sudrashning ishonchli alternativasi. ⤒/⤓ — eng
+                        ko'p kerak bo'ladigan ikki holat: quti mashq
+                        BOSHIDA yoki (masalan Matching variantlari kabi)
+                        hamma savoldan KEYIN turishi. 40 savolli qismda
+                        ↓ ni 40 marta bosish ma'nosiz. */}
+                    <button
+                      className="tugma ikkinchi kichik"
+                      onClick={() => qutiniKochir(e.blokIdx, 0)}
+                      disabled={i === 0}
+                      title={t("imtihon_quti_eng_tepaga")}
+                    >
+                      ⤒
+                    </button>
+                    <button
+                      className="tugma ikkinchi kichik"
+                      onClick={() => bittaQadam(e.blokIdx, -1)}
+                      disabled={i === 0}
+                      title={t("imtihon_quti_yuqoriga")}
+                    >
+                      ↑
+                    </button>
+                    <button
+                      className="tugma ikkinchi kichik"
+                      onClick={() => bittaQadam(e.blokIdx, 1)}
+                      disabled={i === elementlar.length - 1}
+                      title={t("imtihon_quti_pastga")}
+                    >
+                      ↓
+                    </button>
+                    <button
+                      className="tugma ikkinchi kichik"
+                      onClick={() => qutiniKochir(e.blokIdx, elementlar.length)}
+                      disabled={i === elementlar.length - 1}
+                      title={t("imtihon_quti_eng_pastga")}
+                    >
+                      ⤓
+                    </button>
                     <input
                       style={{ flex: 1 }}
                       placeholder={t("imtihon_quti_sarlavha")}
