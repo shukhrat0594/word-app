@@ -274,6 +274,211 @@ function TalabaMashqi({ mashq, raqam }) {
 /** Admin uchun — bitta mashqning to'g'ri javoblarini QO'LDA (har savol
  * uchun matn maydoni) yoki Excel (.xlsx: 1-ustun savol raqami, 2-ustun
  * javob) orqali ommaviy tahrirlash (2026-07-29 talabi). */
+/** RASM-FON mashqining bo'sh joylarini rasm ustida to'g'ridan-to'g'ri
+ * tahrirlash (2026-08-08).
+ *
+ * Nega kerak: bu rejimda tasdiqlash oynasi YO'Q (sahifa darhol
+ * saqlanadi), ya'ni AI xatosini tuzatadigan yagona joy shu. Joylashuv
+ * `bosh_joy_aniqlash` bilan piksel aniqligida topiladi, lekin AI
+ * topolmagan bo'sh joy (masalan quti turidagi) ham, ortiqcha
+ * topilgani ham bo'lishi mumkin — shuning uchun QO'SHISH va O'CHIRISH
+ * ham shu yerda.
+ *
+ * Sudrash mexanikasi `ImtihonBoshqarish.jsx: PozitsiyaAniqlagich`
+ * bilan bir xil (window'ga mousemove/mouseup) — u yerda sinalgan. */
+function RasmFonTahriri({ mashq, royxatniYangila, onYopish }) {
+  const { t } = useI18n();
+  const [rasmUrl, setRasmUrl] = useState(null);
+  const [savollar, setSavollar] = useState(() => mashq.savollar.map((s) => ({ ...s })));
+  const [tanlangan, setTanlangan] = useState(null);
+  const [saqlanmoqda, setSaqlanmoqda] = useState(false);
+  const [xato, setXato] = useState("");
+  const konteynerRef = useRef(null);
+  const surinishRef = useRef(null);
+  const sudralganRef = useRef(false);
+
+  useEffect(() => {
+    let url = null;
+    let bekorQilindi = false;
+    apiBlobUrl(mashq.rasm_url).then((u) => {
+      if (bekorQilindi) {
+        URL.revokeObjectURL(u);
+        return;
+      }
+      url = u;
+      setRasmUrl(u);
+    }).catch(() => {});
+    return () => {
+      bekorQilindi = true;
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [mashq.rasm_url]);
+
+  function pozitsiyaniQoy(i, ozgarish) {
+    setSavollar((joriy) => joriy.map((s, j) => (
+      j === i ? { ...s, pozitsiya: { ...s.pozitsiya, ...ozgarish } } : s
+    )));
+  }
+
+  function davomEttir(e) {
+    const s = surinishRef.current;
+    if (!s || !konteynerRef.current) return;
+    const rect = konteynerRef.current.getBoundingClientRect();
+    const dx = ((e.clientX - s.boshX) / rect.width) * 100;
+    const dy = ((e.clientY - s.boshY) / rect.height) * 100;
+    pozitsiyaniQoy(s.idx, {
+      x: Math.max(0, Math.min(100, s.bosh.x + dx)),
+      y: Math.max(0, Math.min(100, s.bosh.y + dy)),
+    });
+  }
+  function toxtat() {
+    // Sudrash tugagach sichqoncha RASM ustida qo'yib yuborilsa,
+    // brauzer konteynerga `click` ham yuboradi — u holda tasodifiy
+    // yangi katak qo'shilib qolardi. Shu bayroq keyingi bitta
+    // `click`ni yutib yuboradi.
+    if (surinishRef.current) sudralganRef.current = true;
+    surinishRef.current = null;
+    window.removeEventListener("mousemove", davomEttir);
+    window.removeEventListener("mouseup", toxtat);
+  }
+  function sudrashniBoshla(e, idx) {
+    e.preventDefault();
+    e.stopPropagation();
+    setTanlangan(idx);
+    surinishRef.current = { idx, boshX: e.clientX, boshY: e.clientY, bosh: { ...savollar[idx].pozitsiya } };
+    window.addEventListener("mousemove", davomEttir);
+    window.addEventListener("mouseup", toxtat);
+  }
+
+  // Rasmning bo'sh joyiga bosish — AI o'tkazib yuborgan bo'sh joyni
+  // qo'shish (masalan quti turidagi, u hali aniqlanmaydi).
+  function rasmgaBosildi(e) {
+    if (sudralganRef.current) {
+      sudralganRef.current = false;
+      return;
+    }
+    if (!konteynerRef.current) return;
+    const rect = konteynerRef.current.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    setSavollar((joriy) => [...joriy, {
+      savol: "___", togri: "",
+      pozitsiya: { x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10, kenglik: 12 },
+    }]);
+    setTanlangan(savollar.length);
+  }
+
+  function ochir(i) {
+    setSavollar((joriy) => joriy.filter((_, j) => j !== i));
+    setTanlangan(null);
+  }
+
+  async function saqlash() {
+    setXato("");
+    setSaqlanmoqda(true);
+    try {
+      await api(`/api/kurslar/mashq/${mashq.id}/`, { method: "PATCH", body: { savollar } });
+      royxatniYangila();
+      onYopish();
+    } catch (e) {
+      setXato(e.data?.detail || t("xato_yuz_berdi"));
+    } finally {
+      setSaqlanmoqda(false);
+    }
+  }
+
+  const joriy = tanlangan != null ? savollar[tanlangan] : null;
+
+  return (
+    <div style={{ marginTop: 6, marginBottom: 10, paddingLeft: 12, borderLeft: "2px solid var(--chiziq)" }}>
+      <div className="izoh" style={{ marginBottom: 6 }}>{t("kurs_rasm_fon_tahrir_izoh")}</div>
+      {!rasmUrl ? (
+        <div className="izoh">{t("yuklanmoqda")}</div>
+      ) : (
+        <div
+          ref={konteynerRef}
+          onClick={rasmgaBosildi}
+          style={{ position: "relative", display: "inline-block", maxWidth: "100%", cursor: "crosshair" }}
+        >
+          <img src={rasmUrl} alt="" style={{ maxWidth: "100%", display: "block" }} />
+          {savollar.map((s, i) => (
+            <input
+              key={i}
+              {...IMLO_OFF}
+              readOnly
+              className={`imtihon-rasm-input ${tanlangan === i ? "togri" : ""}`}
+              style={{
+                left: `${s.pozitsiya?.x ?? 50}%`,
+                top: `${s.pozitsiya?.y ?? 50}%`,
+                ...(s.pozitsiya?.kenglik ? { width: `${s.pozitsiya.kenglik}%` } : {}),
+                cursor: "move",
+              }}
+              value={s.togri || `${i + 1}`}
+              onMouseDown={(e) => sudrashniBoshla(e, i)}
+              onClick={(e) => e.stopPropagation()}
+            />
+          ))}
+        </div>
+      )}
+
+      {joriy && (
+        <div style={{ display: "grid", gap: 4, marginTop: 8, maxWidth: 560 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span className="izoh" style={{ minWidth: 60 }}>#{tanlangan + 1}</span>
+            <input
+              type="text"
+              value={joriy.savol || ""}
+              placeholder={t("kurs_rasm_fon_savol_matni")}
+              onChange={(e) => {
+                const v = e.target.value;
+                setSavollar((j) => j.map((s, k) => (k === tanlangan ? { ...s, savol: v } : s)));
+              }}
+              style={{ flex: 1 }}
+            />
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span className="izoh" style={{ minWidth: 60 }}>{t("kurs_javoblar")}</span>
+            <input
+              type="text"
+              value={joriy.togri || ""}
+              onChange={(e) => {
+                const v = e.target.value;
+                setSavollar((j) => j.map((s, k) => (k === tanlangan ? { ...s, togri: v } : s)));
+              }}
+              style={{ flex: 1 }}
+            />
+            <button className="tugma ikkinchi kichik" style={{ color: "#d33" }} onClick={() => ochir(tanlangan)}>
+              {t("ochirish")}
+            </button>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span className="izoh" style={{ minWidth: 60 }}>{t("kurs_rasm_fon_kenglik")}</span>
+            <input
+              type="range"
+              min="4"
+              max="60"
+              step="0.5"
+              value={joriy.pozitsiya?.kenglik ?? 12}
+              onChange={(e) => pozitsiyaniQoy(tanlangan, { kenglik: Number(e.target.value) })}
+              style={{ flex: 1 }}
+            />
+            <span className="izoh">{Math.round(joriy.pozitsiya?.kenglik ?? 12)}%</span>
+          </div>
+        </div>
+      )}
+
+      <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8 }}>
+        <button className="tugma" onClick={saqlash} disabled={saqlanmoqda}>
+          {saqlanmoqda ? t("yuklanmoqda") : t("saqlash")}
+        </button>
+        <button className="tugma ikkinchi" onClick={onYopish}>{t("yopish")}</button>
+        <span className="izoh">{savollar.length} {t("kurs_savol")}</span>
+        {xato && <span className="xato-xabar">{xato}</span>}
+      </div>
+    </div>
+  );
+}
+
 function MashqJavoblariTahriri({ mashq, royxatniYangila }) {
   const { t } = useI18n();
   const [qiymatlar, setQiymatlar] = useState(
@@ -369,6 +574,7 @@ function AdminMashqBoshqaruv({ tugunId, jsonKiritishKorinadi = true }) {
   const { t } = useI18n();
   const [royxat, setRoyxat] = useState(null);
   const [javobOchiqId, setJavobOchiqId] = useState(null);
+  const [joylashuvOchiqId, setJoylashuvOchiqId] = useState(null);
   const [jsonMatn, setJsonMatn] = useState('[\n  {"matn": "", "savollar": [{"savol": "...", "togri": "..."}]}\n]');
   const [xato, setXato] = useState("");
   const [saqlanmoqda, setSaqlanmoqda] = useState(false);
@@ -864,6 +1070,17 @@ function AdminMashqBoshqaruv({ tugunId, jsonKiritishKorinadi = true }) {
                     {javobOchiqId === m.id ? t("yopish") : t("kurs_javoblar")}
                   </button>
                 )}
+                {/* Rasm-fon mashqi (2026-08-08): fon rasmi bor, bloklar
+                    yo'q. Faqat shu ko'rinishda bo'sh joylarni rasm
+                    ustida surib tuzatish mantiqan to'g'ri keladi. */}
+                {m.rasm_url && !m.bloklar?.length && (
+                  <button
+                    className="tugma ikkinchi"
+                    onClick={() => setJoylashuvOchiqId((joriy) => (joriy === m.id ? null : m.id))}
+                  >
+                    {joylashuvOchiqId === m.id ? t("yopish") : t("kurs_rasm_fon_tahrirlash")}
+                  </button>
+                )}
                 <label className="tugma ikkinchi" style={{ cursor: "pointer" }}>
                   {qaytaYuklanayotganId === m.id ? t("yuklanmoqda") : t("kurs_mashq_qayta_yuklash")}
                   <input
@@ -895,6 +1112,13 @@ function AdminMashqBoshqaruv({ tugunId, jsonKiritishKorinadi = true }) {
               </div>
               {javobOchiqId === m.id && (
                 <MashqJavoblariTahriri mashq={m} royxatniYangila={yukla} />
+              )}
+              {joylashuvOchiqId === m.id && (
+                <RasmFonTahriri
+                  mashq={m}
+                  royxatniYangila={yukla}
+                  onYopish={() => setJoylashuvOchiqId(null)}
+                />
               )}
             </div>
           ))}

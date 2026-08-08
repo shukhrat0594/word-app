@@ -996,6 +996,28 @@ class KursSozlarView(APIView):
         )
 
 
+def _pozitsiyani_tozala(xom):
+    """Foydalanuvchidan kelgan `pozitsiya`ni tekshirib, faqat kutilgan
+    maydonlarni qaytaradi (yaroqsiz bo'lsa None — savol oddiy ro'yxat
+    ko'rinishida chiqadi, bu xavfsiz zaxira)."""
+    if not isinstance(xom, dict):
+        return None
+    try:
+        x, y = float(xom["x"]), float(xom["y"])
+    except (KeyError, TypeError, ValueError):
+        return None
+    if not (0 <= x <= 100 and 0 <= y <= 100):
+        return None
+    natija = {"x": round(x, 1), "y": round(y, 1)}
+    try:
+        kenglik = float(xom.get("kenglik"))
+    except (TypeError, ValueError):
+        return natija
+    if 0 < kenglik <= 100:
+        natija["kenglik"] = round(kenglik, 1)
+    return natija
+
+
 class KursMashqDetailBoshqaruvView(APIView):
     """Admin/owner uchun — bitta mashqni o'chirish yoki (2026-07-29)
     savollarining to'g'ri javoblarini QO'LDA tahrirlash."""
@@ -1009,13 +1031,51 @@ class KursMashqDetailBoshqaruvView(APIView):
         mashq.delete()
         return Response(status=204)
 
+    def _savollarni_almashtir(self, mashq, xom):
+        """RASM-FON rejimi uchun (2026-08-08): admin bo'sh joylarning
+        JOYLASHUVINI ham tahrirlaydi, shuning uchun butun `savollar`
+        ro'yxati qayta yuboriladi (qo'shish/o'chirish ham shu orqali).
+
+        DIQQAT: savollar soni o'zgarsa, shu mashq bo'yicha ALLAQACHON
+        topshirilgan natijalardagi javob indekslari mos kelmay qoladi.
+        Tahrirlash mashq talabalarga berilishidan OLDIN qilinishi
+        ko'zda tutilgan (rasm-fonda tasdiqlash bosqichi yo'q — shu
+        UI uning o'rnini bosadi)."""
+        if not isinstance(xom, list):
+            return Response({"detail": "'savollar' ro'yxat bo'lishi kerak"}, status=400)
+        if len(xom) > 200:
+            return Response({"detail": "Savollar soni juda ko'p"}, status=400)
+
+        savollar = []
+        for s in xom:
+            if not isinstance(s, dict):
+                return Response({"detail": "Har bir savol obyekt bo'lishi kerak"}, status=400)
+            yangi = {
+                "savol": str(s.get("savol") or "").strip()[:500] or "___",
+                "togri": str(s.get("togri") or "").strip()[:200],
+            }
+            pozitsiya = _pozitsiyani_tozala(s.get("pozitsiya"))
+            if pozitsiya:
+                yangi["pozitsiya"] = pozitsiya
+            savollar.append(yangi)
+
+        mashq.savollar = savollar
+        mashq.save(update_fields=["savollar"])
+        return Response({"yangilandi": len(savollar), "xatolar": [],
+                         "mashq": _kurs_mashq_admin_dict(mashq)})
+
     def patch(self, request, pk):
         """So'rov tanasi: {"javoblar": [{"raqam": 1, "togri": "..."}, ...]}
         — "raqam" shu mashq ICHIDAGI savol tartib raqami (1 dan boshlab,
-        `savollar` ro'yxatidagi pozitsiyaga mos)."""
+        `savollar` ro'yxatidagi pozitsiyaga mos).
+
+        Yoki {"savollar": [...]} — butun ro'yxatni almashtirish
+        (`_savollarni_almashtir`ga qarang)."""
         if not _mashq_admin_mi(request.user):
             return Response({"detail": "Faqat admin/owner uchun"}, status=403)
         mashq = get_object_or_404(KursMashq, pk=pk)
+        if "savollar" in request.data:
+            return self._savollarni_almashtir(mashq, request.data["savollar"])
         yangilash = request.data.get("javoblar")
         if not isinstance(yangilash, list) or not yangilash:
             return Response({"detail": "'javoblar' ro'yxati majburiy"}, status=400)

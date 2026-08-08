@@ -92,6 +92,10 @@ const LUGAT = {
     kurs_mashq_qoshish: "Mashq(lar) qo'shish",
     kurs_rasmdan_mashq_qoshish: "🖼️ Rasm/ZIP orqali mashq qo'shish",
     kurs_rasm_fon_yuklash: "📄 PDF/rasm yuklash (rasm-fon)",
+    kurs_rasm_fon_tahrirlash: "🎯 Joylashuvni tahrirlash",
+    kurs_rasm_fon_tahrir_izoh: "Katakchani sudrab joyini o'zgartiring. Rasmning bo'sh joyiga bosib yangi katak qo'shiladi.",
+    kurs_rasm_fon_savol_matni: "Gap (faqat admin ko'radi)",
+    kurs_rasm_fon_kenglik: "Kengligi",
     kurs_rasm_fon_izoh:
       "Sahifa rasm holida qoladi, javob joylariga input qo'yiladi. Tasdiqlash oynasi yo'q — darhol saqlanadi.",
     kurs_rasm_fon_tugadi: "Sahifalar saqlandi",
@@ -625,6 +629,10 @@ const LUGAT = {
     kurs_mashq_qoshish: "Добавить упражнение(я)",
     kurs_rasmdan_mashq_qoshish: "🖼️ Добавить упражнение (фото/ZIP)",
     kurs_rasm_fon_yuklash: "📄 Загрузить PDF/фото (фон-изображение)",
+    kurs_rasm_fon_tahrirlash: "🎯 Изменить расположение",
+    kurs_rasm_fon_tahrir_izoh: "Перетащите поле, чтобы изменить его место. Клик по пустому месту добавляет новое поле.",
+    kurs_rasm_fon_savol_matni: "Предложение (видит только админ)",
+    kurs_rasm_fon_kenglik: "Ширина",
     kurs_rasm_fon_izoh:
       "Страница остаётся изображением, поля ввода накладываются сверху. Окна подтверждения нет — сохраняется сразу.",
     kurs_rasm_fon_tugadi: "Страницы сохранены",
@@ -1158,6 +1166,10 @@ const LUGAT = {
     kurs_mashq_qoshish: "Add exercise(s)",
     kurs_rasmdan_mashq_qoshish: "🖼️ Add exercise (image/ZIP)",
     kurs_rasm_fon_yuklash: "📄 Upload PDF/image (image background)",
+    kurs_rasm_fon_tahrirlash: "🎯 Edit placement",
+    kurs_rasm_fon_tahrir_izoh: "Drag a field to move it. Click an empty spot on the image to add a new one.",
+    kurs_rasm_fon_savol_matni: "Sentence (admin only)",
+    kurs_rasm_fon_kenglik: "Width",
     kurs_rasm_fon_izoh:
       "The page stays as an image with inputs placed on top. No confirmation step — saved immediately.",
     kurs_rasm_fon_tugadi: "Pages saved",
