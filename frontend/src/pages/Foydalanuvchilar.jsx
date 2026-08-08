@@ -4,7 +4,7 @@ import { PANEL_TANLOV } from "../components/Layout";
 import { useI18n } from "../i18n";
 import { useProfil } from "../profilContext";
 
-const ROLLAR = ["owner", "admin", "teacher", "student", "oddiy"];
+const ROLLAR = ["owner", "admin", "teacher", "student", "parent", "oddiy"];
 
 /** Rolga QO'SHIMCHA "ko'rinadigan panellar" checkbox ro'yxati
  * (2026-08-05) — owner istalgan foydalanuvchi uchun, admin faqat

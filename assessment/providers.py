@@ -7,6 +7,7 @@ markaz o'z kalitini kirita olmaydi (2026-07-17).
 """
 
 import json
+import time
 
 from django.conf import settings
 
@@ -349,6 +350,62 @@ SOROV_TIMEOUT_MS = 40_000
 # 1 qayta). Ko'proq urinish = uzoq kutish = timeout xavfi.
 URINISHLAR = 2
 
+# O'TKINCHI (provider tomonidagi vaqtinchalik) xato uchun alohida
+# urinishlar. 2026-08-08, foydalanuvchi production'da uchratdi: Writing
+# tekshirishda "AI xizmatida kutilmagan xato (ServerError)".
+#
+# Sabab: pastdagi `_generate` sikllari FAQAT bo'sh javob va buzuq JSON
+# uchun qayta urinardi. Provider API'sining O'ZI istisno ko'tarsa
+# (Gemini/Claude 5xx, tarmoq uzilishi) — istisno sikldan darhol otilib
+# chiqardi va talaba xato ko'rardi, holbuki 5xx odatda bir necha
+# soniyada o'tib ketadi va oddiy qayta urinish yetarli.
+#
+# Nega faqat 1 qayta urinish: timeout ham "o'tkinchi" deb hisoblanadi,
+# u esa har urinishda SOROV_TIMEOUT_MS (40s) yeydi. Ikkitadan oshirilsa
+# eng yomon holatda tashqi (JSON) sikl bilan birga gunicorn'ning 300s
+# chegarasiga yaqinlashib qolardi.
+VAQTINCHALIK_URINISHLAR = 2
+VAQTINCHALIK_KUTISH_SONIYA = 2
+
+
+def _vaqtinchalik_xatomi(e):
+    """Xato O'TKINCHIMI — ya'ni xuddi shu so'rovni qaytadan yuborish
+    yordam berishi mumkinmi.
+
+    HA: server tomonidagi 5xx, timeout, ulanish uzilishi.
+    YO'Q: 4xx (noto'g'ri so'rov, kalit xato) va 429 (limit tugagan —
+    darhol qayta urinish faqat vaziyatni yomonlashtiradi; u uchun
+    `_limit_xatosimi` orqali alohida, tushunarli xabar beriladi)."""
+    if _limit_xatosimi(e):
+        return False
+    kod = getattr(e, "code", None)
+    if not isinstance(kod, int):
+        kod = getattr(e, "status_code", None)
+    if isinstance(kod, int):
+        return 500 <= kod < 600
+    nom = type(e).__name__
+    if nom in {"ServerError", "APIConnectionError", "InternalServerError",
+               "APITimeoutError", "ServiceUnavailableError", "OverloadedError"}:
+        return True
+    matn = str(e).lower()
+    return any(x in matn for x in ("timeout", "timed out", "connection", "503", "502", "500", "overloaded"))
+
+
+def _chaqir_qayta_urinib(chaqiruv):
+    """Provider API chaqiruvini o'tkinchi xatolarda qayta uradi.
+    O'tkinchi bo'lmasa yoki urinishlar tugasa — xatoni o'zgarishsiz
+    yuqoriga uzatadi (chaqiruvchi uni odatdagidek ushlaydi)."""
+    for urinish in range(VAQTINCHALIK_URINISHLAR):
+        try:
+            return chaqiruv()
+        except ProviderXatosi:
+            raise  # bizning xato — bu yerda qayta urinilmaydi
+        except Exception as e:  # noqa: BLE001 — SDK istisnolari har xil
+            if urinish == VAQTINCHALIK_URINISHLAR - 1 or not _vaqtinchalik_xatomi(e):
+                raise
+            time.sleep(VAQTINCHALIK_KUTISH_SONIYA * (urinish + 1))
+    raise AssertionError("erishib bo'lmaydigan joy")  # pragma: no cover
+
 
 def _limit_xatosimi(xato):
     """`courses/blok_generatsiya.py`dagi bilan bir xil tekshiruv (2026-07-29)
@@ -422,11 +479,11 @@ class GeminiProvider:
         "zaxira modelga o'tish" bosqichi olib tashlandi — model bittta."""
         oxirgi_xato = None
         for _ in range(URINISHLAR):
-            response = self._bitta_sorov(
+            response = _chaqir_qayta_urinib(lambda: self._bitta_sorov(
                 system_prompt, matn, rasm_bytes, rasm_mime,
                 pdf_bytes=pdf_bytes, max_output_tokens=max_output_tokens,
                 javob_sxemasi=javob_sxemasi,
-            )
+            ))
             if not response.text:
                 oxirgi_xato = ProviderXatosi("AI bo'sh javob qaytardi")
                 continue
@@ -676,13 +733,13 @@ class ClaudeProvider:
 
         oxirgi_xato = None
         for _ in range(URINISHLAR):
-            response = client.messages.create(
+            response = _chaqir_qayta_urinib(lambda: client.messages.create(
                 model=self.model,
                 max_tokens=max_tokens,
                 system=system_prompt,
                 messages=[{"role": "user", "content": content}],
                 **qoshimcha,
-            )
+            ))
             # Sxema berilgan bo'lsa ham chegaraga urilsa javob chala qoladi —
             # buni tushunarli xato qilib aytamiz (aks holda "JSON emas" deb
             # chalg'ituvchi xabar chiqardi).

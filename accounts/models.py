@@ -127,3 +127,43 @@ class User(AbstractUser):
 
     def __str__(self):
         return f"{self.username} ({self.get_role_display()})"
+
+
+class Bildirishnoma(models.Model):
+    """Ilova ichidagi bildirishnoma (2026-08-08, foydalanuvchi talabi:
+    "har gal nimadir yangi narsa push qilinganda ownerga xabar
+    keladigan qila olamizmi? nimalar qo'shilganini?").
+
+    Hozircha yagona manba — `CHANGELOG.md` (qarang `accounts.relizlar`).
+    Telegram orqali dublikat yuborish REJADA; u qo'shilganda shu model
+    o'zgarmaydi, faqat yuborish bosqichi qo'shiladi.
+
+    `kalit` — takrorlanishni to'sish uchun barqaror identifikator
+    (masalan "reliz:2026-08-08:Sarlavha"). Bir foydalanuvchiga bir xil
+    kalitli bildirishnoma IKKI MARTA yaratilmaydi, shuning uchun manbani
+    (CHANGELOG'ni) xohlagancha qayta o'qish xavfsiz."""
+
+    class Turi(models.TextChoices):
+        RELIZ = "reliz", "Yangilanish"
+
+    foydalanuvchi = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="bildirishnomalar"
+    )
+    turi = models.CharField(max_length=20, choices=Turi.choices, default=Turi.RELIZ)
+    kalit = models.CharField(max_length=200)
+    sarlavha = models.CharField(max_length=300)
+    matn = models.TextField(blank=True)
+    oqilgan = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["foydalanuvchi", "kalit"], name="bildirishnoma_kalit_takrorlanmasin"
+            )
+        ]
+        verbose_name_plural = "Bildirishnomalar"
+
+    def __str__(self):
+        return f"{self.foydalanuvchi.username} — {self.sarlavha}"

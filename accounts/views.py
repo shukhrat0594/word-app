@@ -15,8 +15,9 @@ from audit.utils import logla, maydon_diff
 from config import narxlar as NARX
 
 from .authentication import asl_owner_mi
-from .models import Markaz, User
+from .models import Bildirishnoma, Markaz, User
 from .permissions import birlamchi_owner_mi, owner_mi
+from .relizlar import relizlarni_sinxronla
 
 
 def _parolni_tekshir(parol, user=None):
@@ -473,6 +474,11 @@ class FoydalanuvchiYaratishView(APIView):
             role_value = User.Role.TEACHER
         elif rol == "student":
             role_value = User.Role.STUDENT
+        elif rol == "parent":
+            # 2026-08-08: model'da PARENT allaqachon bor edi, lekin bu
+            # ro'yxatlarda yo'qligi uchun ilovadan ota-ona YARATIB
+            # bo'lmasdi (faqat Django admin panelidan).
+            role_value = User.Role.PARENT
         elif rol == "oddiy":
             role_value = User.Role.ODDIY
         else:
@@ -547,6 +553,11 @@ class FoydalanuvchiRolView(APIView):
             role_value = User.Role.TEACHER
         elif rol == "student":
             role_value = User.Role.STUDENT
+        elif rol == "parent":
+            # 2026-08-08: model'da PARENT allaqachon bor edi, lekin bu
+            # ro'yxatlarda yo'qligi uchun ilovadan ota-ona YARATIB
+            # bo'lmasdi (faqat Django admin panelidan).
+            role_value = User.Role.PARENT
         elif rol == "oddiy":
             role_value = User.Role.ODDIY
         else:
@@ -1232,3 +1243,53 @@ class GoogleLoginView(APIView):
 
     def post(self, request):
         return Response({"detail": "Google orqali kirish yopilgan"}, status=403)
+
+
+class BildirishnomalarView(APIView):
+    """Owner uchun — ilova ichidagi bildirishnomalar (2026-08-08).
+
+    GET — ro'yxat. Har chaqiruvda `CHANGELOG.md` bilan sinxronlanadi:
+    yangi reliz bo'lsa, shu yerda yozuvga aylanadi. Alohida webhook yoki
+    fon-jarayon kerak emas — tafsilot `accounts.relizlar` izohida.
+
+    POST — o'qilgan deb belgilash. Tanasi: {"id": N} yoki
+    {"hammasi": true}.
+
+    Hozircha FAQAT owner: yagona manba — reliz xabari, u boshqa rollarga
+    tegishli emas. Boshqa turdagi bildirishnoma qo'shilsa, shu tekshiruv
+    turga qarab yumshatiladi."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if not owner_mi(request.user):
+            return Response({"detail": "Faqat owner uchun"}, status=403)
+        relizlarni_sinxronla(request.user)
+        yozuvlar = request.user.bildirishnomalar.all()[:50]
+        return Response({
+            "oqilmagan": request.user.bildirishnomalar.filter(oqilgan=False).count(),
+            "bildirishnomalar": [
+                {
+                    "id": b.id,
+                    "turi": b.turi,
+                    "sarlavha": b.sarlavha,
+                    "matn": b.matn,
+                    "oqilgan": b.oqilgan,
+                    "sana": b.created_at.isoformat(),
+                }
+                for b in yozuvlar
+            ],
+        })
+
+    def post(self, request):
+        if not owner_mi(request.user):
+            return Response({"detail": "Faqat owner uchun"}, status=403)
+        qatorlar = request.user.bildirishnomalar.filter(oqilgan=False)
+        if not request.data.get("hammasi"):
+            bildirishnoma_id = request.data.get("id")
+            if not isinstance(bildirishnoma_id, int):
+                return Response({"detail": "id yoki hammasi majburiy"}, status=400)
+            qatorlar = qatorlar.filter(pk=bildirishnoma_id)
+        soni = qatorlar.update(oqilgan=True)
+        return Response({"belgilandi": soni,
+                         "oqilmagan": request.user.bildirishnomalar.filter(oqilgan=False).count()})
