@@ -765,6 +765,132 @@ function RoyxatMaydoni({ qiymat, ajratgich, ozgardi, ...qolgan }) {
   );
 }
 
+/** Qism ichiga SOF MATNLI qo'shimcha qutilar qo'shish va ularni
+ * savollar orasida SUDRAB joylashtirish (2026-08-08, foydalanuvchi
+ * talabi: "qo'shimcha quti qo'shib ichiga text kiritish, va qayerda
+ * turishini belgilash imkoni kerak").
+ *
+ * Saqlanishi: `TestQismi.maxsus_format` ichida `{tur:"izoh", sarlavha,
+ * matn, joy}` ko'rinishida. `joy` — savol INDEKSIGA nisbatan o'rin
+ * (13.5 = 14-savoldan oldin). Talaba tomonida shu qiymat bo'yicha
+ * saralanadi (`ImtihonOtish: blokJoyi`).
+ *
+ * `maxsus_format` tarixan BITTA obyekt edi; izoh qutisi qo'shilganda u
+ * RO'YXATga aylanadi. Eski jadval/oqim bloklari o'zgarishsiz saqlanadi
+ * — ular bu yerda tahrirlanmaydi (murakkab tuzilma, JSON maydonida
+ * qoladi), faqat tartibda ko'rinadi. */
+function IzohQutilari({ savollar, bloklar, ozgardi, t }) {
+  const [sudralayotgan, setSudralayotgan] = useState(null);
+
+  // Savollar ham, qutilar ham bitta tartiblangan ro'yxatga qo'shiladi —
+  // admin qutini AYNAN qaysi savollar orasiga qo'yayotganini ko'rib
+  // turadi.
+  const elementlar = [
+    ...savollar.map((s, i) => {
+      const raqam = Number(s.raqam) || i + 1;
+      return { turi: "savol", kalit: raqam - 1, matn: `${raqam}. ${(s.savol || "").slice(0, 60)}` };
+    }),
+    // `Number(...)` NaN qaytaradi (null emas), shuning uchun `??` bu
+    // yerda ishlamaydi — aniq tekshiruv kerak, aks holda NaN saralashni
+    // buzardi.
+    ...bloklar.map((b, i) => {
+      const j = Number(b.joy);
+      return { turi: "quti", kalit: Number.isFinite(j) ? j : -0.5, blokIdx: i, blok: b };
+    }),
+  ].sort((a, b) => a.kalit - b.kalit);
+
+  function tashlandi(nishonIdx) {
+    if (sudralayotgan == null) return;
+    // Yangi `joy` — tashlangan o'rindagi qo'shni elementlar kalitining
+    // O'RTASI. Kasr son ataylab: savol indekslari butun, shuning uchun
+    // orasiga tushish uchun kasr kerak.
+    const boshqalar = elementlar.filter((e) => !(e.turi === "quti" && e.blokIdx === sudralayotgan));
+    const oldingi = boshqalar[nishonIdx - 1];
+    const keyingi = boshqalar[nishonIdx];
+    let yangiJoy;
+    if (!oldingi) yangiJoy = (keyingi ? keyingi.kalit : 0) - 0.5;
+    else if (!keyingi) yangiJoy = oldingi.kalit + 0.5;
+    else yangiJoy = (oldingi.kalit + keyingi.kalit) / 2;
+    ozgardi(bloklar.map((b, i) => (i === sudralayotgan ? { ...b, joy: yangiJoy } : b)));
+    setSudralayotgan(null);
+  }
+
+  function qutiOz(i, patch) {
+    ozgardi(bloklar.map((b, k) => (k === i ? { ...b, ...patch } : b)));
+  }
+
+  return (
+    <div style={{ border: "1px dashed var(--chiziq)", borderRadius: 8, padding: 8 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+        <strong className="izoh">{t("imtihon_izoh_qutilari")}</strong>
+        <button
+          className="tugma ikkinchi kichik"
+          style={{ marginLeft: "auto" }}
+          onClick={() => ozgardi((joriy) => [...joriy, { tur: "izoh", sarlavha: "", matn: "", joy: -0.5 }])}
+        >
+          ➕ {t("imtihon_quti_qoshish")}
+        </button>
+      </div>
+      {bloklar.length === 0 ? (
+        <div className="izoh">{t("imtihon_quti_yoq")}</div>
+      ) : (
+        <div style={{ display: "grid", gap: 3 }}>
+          {elementlar.map((e, i) => (
+            <div
+              key={e.turi === "quti" ? `q${e.blokIdx}` : `s${e.kalit}`}
+              onDragOver={(ev) => ev.preventDefault()}
+              onDrop={() => tashlandi(i)}
+              style={{
+                padding: e.turi === "quti" ? 6 : "2px 6px",
+                borderRadius: 6,
+                border: e.turi === "quti" ? "1px solid var(--sariq-toq)" : "none",
+                background: e.turi === "quti" ? "var(--sirt-2)" : "transparent",
+                opacity: e.turi === "savol" ? 0.55 : 1,
+              }}
+            >
+              {e.turi === "savol" ? (
+                <span className="izoh">{e.matn}</span>
+              ) : (
+                <div style={{ display: "grid", gap: 4 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span
+                      draggable
+                      onDragStart={() => setSudralayotgan(e.blokIdx)}
+                      style={{ cursor: "grab", userSelect: "none" }}
+                      title={t("imtihon_quti_sudrash")}
+                    >
+                      ⠿
+                    </span>
+                    <input
+                      style={{ flex: 1 }}
+                      placeholder={t("imtihon_quti_sarlavha")}
+                      value={e.blok.sarlavha || ""}
+                      onChange={(ev) => qutiOz(e.blokIdx, { sarlavha: ev.target.value })}
+                    />
+                    <button
+                      className="tugma ikkinchi kichik"
+                      style={{ color: "#d33" }}
+                      onClick={() => ozgardi(bloklar.filter((_, k) => k !== e.blokIdx))}
+                    >
+                      {t("ochirish")}
+                    </button>
+                  </div>
+                  <textarea
+                    rows={3}
+                    placeholder={t("imtihon_quti_matn")}
+                    value={e.blok.matn || ""}
+                    onChange={(ev) => qutiOz(e.blokIdx, { matn: ev.target.value })}
+                  />
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function SavolTahrirQatori({ savol, oz, t }) {
   function maydonOz(patch) {
     oz({ ...savol, ...patch });
@@ -960,6 +1086,14 @@ function PozitsiyaAniqlagich({ qism, savollar, savollarniOzgartir, t }) {
   );
 }
 
+/** `maxsus_format` bitta obyekt ham, ro'yxat ham bo'lishi mumkin
+ * (2026-08-08) — hamma joyda ro'yxat sifatida ishlaymiz.
+ * `ImtihonOtish.maxsusBloklarniOl` bilan bir xil qoida. */
+function maxsusRoyxati(format) {
+  if (!format) return [];
+  return Array.isArray(format) ? format.filter(Boolean) : [format];
+}
+
 function MashqTolaTahrir({ test, manba, onYopish, onSaqlandi }) {
   const { t } = useI18n();
   // qismHolat[qismId] = {sarlavha, yoriqnoma, matn, savollar} — lokal
@@ -972,7 +1106,16 @@ function MashqTolaTahrir({ test, manba, onYopish, onSaqlandi }) {
         yoriqnoma: q.yoriqnoma || "",
         matn: q.matn || "",
         savollar: q.savollar || [],
-        maxsus_format_matn: q.maxsus_format ? JSON.stringify(q.maxsus_format, null, 2) : "",
+        // 2026-08-08: `maxsus_format` endi ro'yxat ham bo'lishi mumkin.
+        // Sof matnli "izoh" qutilari ALOHIDA, qulay UI bilan
+        // tahrirlanadi; qolgan (jadval/oqim/matn) bloklar avvalgidek
+        // JSON maydonida qoladi — ular murakkab tuzilma.
+        izoh_bloklar: maxsusRoyxati(q.maxsus_format).filter((b) => b.tur === "izoh"),
+        maxsus_format_matn: (() => {
+          const qolgan = maxsusRoyxati(q.maxsus_format).filter((b) => b.tur !== "izoh");
+          if (!qolgan.length) return "";
+          return JSON.stringify(qolgan.length === 1 ? qolgan[0] : qolgan, null, 2);
+        })(),
       };
     }
     return boshlangich;
@@ -992,8 +1135,16 @@ function MashqTolaTahrir({ test, manba, onYopish, onSaqlandi }) {
   // yo'qolib ketardi).
   const [ozgarganlar, setOzgarganlar] = useState({});
 
+  // `patch` obyekt ham, funksiya ham bo'lishi mumkin. Funksiya shakli
+  // kerak, chunki aks holda ketma-ket ikki chaqiruv (masalan tez ikki
+  // marta "Quti qo'shish" bosilsa) BIR XIL eski holatni o'qib, faqat
+  // oxirgisi saqlanib qolardi — "stale closure".
   function qismOz(qismId, patch) {
-    setQismHolat((prev) => ({ ...prev, [qismId]: { ...prev[qismId], ...patch } }));
+    setQismHolat((prev) => {
+      const joriy = prev[qismId];
+      const yangi = typeof patch === "function" ? patch(joriy) : patch;
+      return { ...prev, [qismId]: { ...joriy, ...yangi } };
+    });
     setOzgarganlar((prev) => ({ ...prev, [qismId]: true }));
   }
 
@@ -1016,18 +1167,25 @@ function MashqTolaTahrir({ test, manba, onYopish, onSaqlandi }) {
     setXato("");
     setSaqlanmoqdaId(q.id);
     try {
-      let maxsusFormat = q.maxsus_format;
+      // JSON maydonidagi (jadval/oqim/matn) bloklar + alohida UI'da
+      // tahrirlangan izoh qutilari BITTA ro'yxatga birlashtiriladi.
+      let qolganBloklar = [];
       if (h.maxsus_format_matn.trim()) {
         try {
-          maxsusFormat = JSON.parse(h.maxsus_format_matn);
+          qolganBloklar = maxsusRoyxati(JSON.parse(h.maxsus_format_matn));
         } catch {
           setXato(t("imtihon_maxsus_format_json_xato"));
           setSaqlanmoqdaId(null);
           return;
         }
-      } else {
-        maxsusFormat = null;
       }
+      const izohlar = (h.izoh_bloklar || []).filter((b) => (b.matn || "").trim() || (b.sarlavha || "").trim());
+      const hammasi = [...qolganBloklar, ...izohlar];
+      // Bitta blok bo'lsa ESKI shaklda (obyekt) saqlaymiz — mavjud
+      // kontent bilan farqsiz qolsin.
+      let maxsusFormat = null;
+      if (hammasi.length === 1) maxsusFormat = hammasi[0];
+      else if (hammasi.length > 1) maxsusFormat = hammasi;
       await api(`/api/imtihon/qism-boshqaruv/${q.id}/`, {
         method: "PATCH",
         body: {
@@ -1138,6 +1296,17 @@ function MashqTolaTahrir({ test, manba, onYopish, onSaqlandi }) {
                       t={t}
                     />
                   )}
+                  <IzohQutilari
+                    savollar={h.savollar}
+                    bloklar={h.izoh_bloklar || []}
+                    ozgardi={(yangi) =>
+                      qismOz(q.id, (joriy) => ({
+                        izoh_bloklar:
+                          typeof yangi === "function" ? yangi(joriy.izoh_bloklar || []) : yangi,
+                      }))
+                    }
+                    t={t}
+                  />
                   {h.savollar.map((s, si) => (
                     <SavolTahrirQatori
                       key={si}

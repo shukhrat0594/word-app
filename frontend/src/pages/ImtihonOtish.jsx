@@ -373,18 +373,44 @@ function MaxsusFormatBloki({ format, guruhBoshi, guruhKorsatma, javoblar, javobn
     );
   }
 
+  // 2026-08-08, foydalanuvchi talabi: admin qo'shadigan SOF MATNLI quti
+  // (qo'shimcha ko'rsatma, misol, kitobdagi alohida ramka). "matn"
+  // turidan farqi — ichida javob maydoni YO'Q, shuning uchun matn
+  // {{n}} bo'yicha ajratilmaydi va qatorlar aynan saqlanadi.
+  if (format.tur === "izoh") {
+    return (
+      <div className="imtihon-maxsus-matn-wrap">
+        {format.sarlavha && <div className="imtihon-jadval-sarlavha">{format.sarlavha}</div>}
+        <div className="imtihon-maxsus-matn" style={{ whiteSpace: "pre-wrap" }}>
+          {format.matn}
+        </div>
+      </div>
+    );
+  }
+
   return null;
 }
 
 // Matndan {{n}} orqali ishlatilgan barcha savol indekslarini (0-based)
 // to'plamiga chiqarib beradi — bular oddiy ro'yxatda takror ko'rsatilmasligi
 // uchun.
-function maxsusFormatIdxlari(format) {
+/** `maxsus_format` TARIXAN bitta obyekt edi (bir qismda bitta jadval/
+ * oqim/matn). 2026-08-08 dan boshlab RO'YXAT ham bo'lishi mumkin —
+ * admin qism ichiga bir nechta qo'shimcha quti qo'ya oladi.
+ *
+ * Eski (bitta obyektli) kontent O'ZGARISHSIZ ishlashi uchun hamma joyda
+ * shu funksiya orqali normallashtiriladi. */
+function maxsusBloklarniOl(format) {
+  if (!format) return [];
+  return Array.isArray(format) ? format.filter(Boolean) : [format];
+}
+
+/** Bitta blokdagi {{n}} savol indekslari (0-based). */
+function blokIdxlari(format) {
   const idxlar = new Set();
-  if (!format) return idxlar;
   const matnlar =
     format.tur === "jadval"
-      ? format.qatorlar.flat()
+      ? (format.qatorlar || []).flat()
       : format.tur === "oqim"
         ? format.qadamlar || []
         : [format.matn || ""];
@@ -394,6 +420,28 @@ function maxsusFormatIdxlari(format) {
     }
   });
   return idxlar;
+}
+
+function maxsusFormatIdxlari(format) {
+  const idxlar = new Set();
+  for (const blok of maxsusBloklarniOl(format)) {
+    for (const i of blokIdxlari(blok)) idxlar.add(i);
+  }
+  return idxlar;
+}
+
+/** Blok savollar orasida QAYSI o'rinda chiqishi (kichik = tepada).
+ *
+ * Javob yoziladigan bloklar (jadval/oqim/matn) — ichidagi ENG KICHIK
+ * savol raqami bo'yicha, ya'ni eski xatti-harakat saqlanadi.
+ * Sof matnli "izoh" qutisida savol yo'q — uning o'rni admin sudrab
+ * qo'ygan `joy` qiymati bilan beriladi (butun son emas, kasr ham
+ * bo'lishi mumkin: 13.5 = 13- va 14-savol orasida). */
+function blokJoyi(format, boshIdx) {
+  const idxlar = blokIdxlari(format);
+  if (idxlar.size > 0) return Math.min(...idxlar);
+  const joy = Number(format.joy);
+  return Number.isFinite(joy) ? joy : boshIdx - 0.5; // standart — qism boshida
 }
 
 function SozBankiBloki({ blok, javoblar, javobniQoy, natija, t }) {
@@ -1032,21 +1080,28 @@ export default function ImtihonOtish({ bolim, manba = "admin", testId, mockYechi
         // birlashtirilib, savol raqami bo'yicha saralanadi (2026-07-24) —
         // aks holda masalan 26-30 (jadval) har doim 21-25 (oddiy)dan oldin
         // chiqib qolardi.
-        if (faol.qism.maxsus_format && maxsusIdxlar.size > 0) {
+        // 2026-08-08: `maxsus_format` endi RO'YXAT ham bo'lishi mumkin —
+        // har blok o'z o'rnida chiqadi. Sof matnli "izoh" qutisida savol
+        // yo'q, shuning uchun u `maxsusIdxlar` shartiga bog'lanmaydi
+        // (avval faqat {{n}} bo'lgan blok ko'rsatilardi).
+        maxsusBloklarniOl(faol.qism.maxsus_format).forEach((blok, bi) => {
+          const blokIdx = blokIdxlari(blok);
+          if (blok.tur !== "izoh" && blokIdx.size === 0) return;
           // 2026-08-05, foydalanuvchi topgan bug: maxsus_format (jadval/
           // oqim/matn to'ldirish) o'z savollarini oddiy ro'yxatdan olib
           // tashlagani uchun, o'sha savollarning "guruh_boshi"/
           // "guruh_korsatma"si (masalan "Complete the summary below...")
           // hech qayerda ko'rsatilmay qolib ketardi — endi shu guruhning
           // BIRINCHI savolidan olinib, MaxsusFormatBloki'ga uzatiladi.
-          const birinchiIdx = Math.min(...maxsusIdxlar);
-          const birinchiSavol = faol.qism.savollar[birinchiIdx - faol.boshIdx];
+          const birinchiIdx = blokIdx.size ? Math.min(...blokIdx) : null;
+          const birinchiSavol =
+            birinchiIdx == null ? null : faol.qism.savollar[birinchiIdx - faol.boshIdx];
           boshqaBloklar.push({
-            kalit: birinchiIdx,
+            kalit: blokJoyi(blok, faol.boshIdx),
             tugun: (
               <MaxsusFormatBloki
-                key="maxsus"
-                format={faol.qism.maxsus_format}
+                key={`maxsus${bi}`}
+                format={blok}
                 guruhBoshi={birinchiSavol?.guruh_boshi}
                 guruhKorsatma={birinchiSavol?.guruh_korsatma}
                 javoblar={javoblar}
@@ -1055,7 +1110,7 @@ export default function ImtihonOtish({ bolim, manba = "admin", testId, mockYechi
               />
             ),
           });
-        }
+        });
         const savollarBlok = boshqaBloklar.sort((a, b) => a.kalit - b.kalit).map((x) => x.tugun);
 
         // Listening: audio doim yuqorida, to'liq kenglikda. Rasm (Map/
