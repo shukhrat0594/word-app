@@ -891,7 +891,7 @@ function IzohQutilari({ savollar, bloklar, ozgardi, t }) {
   );
 }
 
-function SavolTahrirQatori({ savol, oz, t }) {
+function SavolTahrirQatori({ savol, oz, hammagaQoll, t }) {
   function maydonOz(patch) {
     oz({ ...savol, ...patch });
   }
@@ -927,14 +927,29 @@ function SavolTahrirQatori({ savol, oz, t }) {
             accident") — bunday variant ikkiga bo'linib ketardi va
             ro'yxatni qo'lda tuzatib bo'lmasdi. Endi HAR VARIANT
             ALOHIDA QATORDA. */}
-        <RoyxatMaydoni
-          style={{ flex: 2 }}
-          rows={3}
-          placeholder={t("imtihon_variantlar_izoh")}
-          qiymat={(savol.variantlar || []).join("\n")}
-          ajratgich={"\n"}
-          ozgardi={(royxat) => maydonOz({ variantlar: royxat })}
-        />
+        <div style={{ flex: 2, display: "grid", gap: 3 }}>
+          <RoyxatMaydoni
+            rows={3}
+            placeholder={t("imtihon_variantlar_izoh")}
+            qiymat={(savol.variantlar || []).join("\n")}
+            ajratgich={"\n"}
+            ozgardi={(royxat) => maydonOz({ variantlar: royxat })}
+          />
+          {/* 2026-08-08: matching/matching_headings turida variantlar
+              quti talabaga FAQAT guruhdagi hamma savolda AYNAN bir xil
+              ro'yxat turganda ko'rsatiladi (ImtihonOtish: savollar shu
+              shart bo'yicha guruhlanadi). Har savolga qo'lda ko'chirish
+              zerikarli — shu tugma bir bosishda qo'llaydi. */}
+          {hammagaQoll && (savol.variantlar || []).length > 1 && (
+            <button
+              className="tugma ikkinchi kichik"
+              onClick={() => hammagaQoll(savol.variantlar)}
+              title={t("imtihon_guruhga_qollash_izoh")}
+            >
+              {t("imtihon_guruhga_qollash")}
+            </button>
+          )}
+        </div>
         {/* "togri" bitta matn ham (odatiy holat), massiv ham bo'lishi
             mumkin (bir savolga bir nechta qabul qilinadigan javob).
             Massiv bo'lsa — xuddi variantlar kabi, har javob alohida
@@ -1156,10 +1171,39 @@ function MashqTolaTahrir({ test, manba, onYopish, onSaqlandi }) {
     setXato("");
   }
   function savolOz(qismId, savolIdx, yangiSavol) {
-    const h = qismHolat[qismId];
-    const yangi = [...h.savollar];
-    yangi[savolIdx] = yangiSavol;
-    qismOz(qismId, { savollar: yangi });
+    qismOz(qismId, (joriy) => {
+      const yangi = [...joriy.savollar];
+      yangi[savolIdx] = yangiSavol;
+      return { savollar: yangi };
+    });
+  }
+
+  /** Variantlar ro'yxatini shu savol atrofidagi KETMA-KET, BIR XIL
+   * turdagi savollar guruhiga qo'llaydi (2026-08-08).
+   *
+   * Nega kerak: talaba tomonida matching/matching_headings savollari
+   * bitta blokka faqat variantlari AYNAN bir xil bo'lganda birlashadi
+   * va shundagina variantlar qutisi (A/B/C ro'yxati) pastda
+   * ko'rsatiladi. Bitta savolga yozib qo'yish yetarli emas.
+   *
+   * Guruh chegarasi — `tur` o'zgarganda tugaydi. Butun qismga emas,
+   * aynan shu guruhga qo'llanadi: bitta qismda ikkita alohida
+   * moslashtirish topshirig'i (masalan 14-17 va 22-26) bo'lishi
+   * mumkin va ular BOSHQA ro'yxatga ega. */
+  function variantlarniGuruhgaQoll(qismId, savolIdx, variantlar) {
+    qismOz(qismId, (joriy) => {
+      const savollar = joriy.savollar;
+      const tur = savollar[savolIdx]?.tur;
+      let bosh = savolIdx;
+      let oxir = savolIdx;
+      while (bosh > 0 && savollar[bosh - 1]?.tur === tur) bosh -= 1;
+      while (oxir < savollar.length - 1 && savollar[oxir + 1]?.tur === tur) oxir += 1;
+      return {
+        savollar: savollar.map((s, i) =>
+          i >= bosh && i <= oxir ? { ...s, variantlar: [...variantlar] } : s
+        ),
+      };
+    });
   }
 
   async function qismniSaqla(q) {
@@ -1312,6 +1356,11 @@ function MashqTolaTahrir({ test, manba, onYopish, onSaqlandi }) {
                       key={si}
                       savol={s}
                       oz={(yangi) => savolOz(q.id, si, yangi)}
+                      hammagaQoll={
+                        s.tur === "matching" || s.tur === "matching_headings"
+                          ? (variantlar) => variantlarniGuruhgaQoll(q.id, si, variantlar)
+                          : null
+                      }
                       t={t}
                     />
                   ))}
