@@ -69,7 +69,16 @@ function RasmMashqi({ rasmUrl, savollar, idxlar, javoblar, javobniQoy, natija })
             key={i}
             {...IMLO_OFF}
             className={`imtihon-rasm-input ${holat}`}
-            style={{ left: `${s.pozitsiya.x}%`, top: `${s.pozitsiya.y}%` }}
+            // 2026-08-07: "kenglik" (rasm kengligiga nisbatan foiz) —
+            // rasm-fon rejimida AI bo'sh joyning CHAP va O'NG chetini
+            // beradi, ya'ni input aynan chizilgan chiziqni to'liq
+            // yopishi mumkin. Eski (2026-07-27) kontentda bu maydon
+            // yo'q — u holda CSS'dagi qat'iy en ishlaydi.
+            style={{
+              left: `${s.pozitsiya.x}%`,
+              top: `${s.pozitsiya.y}%`,
+              ...(s.pozitsiya.kenglik ? { width: `${s.pozitsiya.kenglik}%` } : {}),
+            }}
             disabled={!!natija}
             value={javoblar[i] || ""}
             onChange={(e) => javobniQoy(i, e.target.value)}
@@ -527,7 +536,11 @@ function AdminMashqBoshqaruv({ tugunId, jsonKiritishKorinadi = true }) {
     setMashqXabar(xabarMatni);
   }
 
-  async function zipYukla(fayl) {
+  // 2026-08-07: `rejim` — "blok" (sahifa qayta quriladi, oxirida
+  // tasdiqlash oynasi) yoki "rasm_fon" (sahifa rasm holida qoladi,
+  // tasdiqlash yo'q — har sahifa darhol saqlanadi). Ikkala rejim ham
+  // AYNAN SHU sikldan o'tadi, farqi faqat yakunda.
+  async function zipYukla(fayl, rejim = "blok") {
     setMashqXato("");
     setMashqXabar("");
     setZipYuklanmoqda(true);
@@ -535,6 +548,7 @@ function AdminMashqBoshqaruv({ tugunId, jsonKiritishKorinadi = true }) {
     try {
       const fd = new FormData();
       fd.append("zip_fayl", fayl);
+      fd.append("rejim", rejim);
       const boshlash = await apiForm(`/api/kurslar/${tugunId}/blok-zip/`, {
         method: "POST",
         formData: fd,
@@ -542,6 +556,10 @@ function AdminMashqBoshqaruv({ tugunId, jsonKiritishKorinadi = true }) {
       const natija = await jarayonniBajar(boshlash.jarayon_id, boshlash.jami_sahifa, 0);
       if (natija.toxtatildi) {
         setMashqXabar(t("kurs_blok_toxtatildi"));
+      } else if (rejim === "rasm_fon") {
+        setFaolJarayon(null);
+        setMashqXabar(`${t("kurs_rasm_fon_tugadi")} (${boshlash.jami_sahifa})`);
+        yukla();
       } else {
         setFaolJarayon({
           id: boshlash.jarayon_id, ishlangan_sahifa: boshlash.jami_sahifa,
@@ -570,6 +588,10 @@ function AdminMashqBoshqaruv({ tugunId, jsonKiritishKorinadi = true }) {
       const natija = await jarayonniBajar(jid, jamiSahifa, faolJarayon.ishlangan_sahifa);
       if (natija.toxtatildi) {
         setMashqXabar(t("kurs_blok_toxtatildi"));
+      } else if (faolJarayon.rejim === "rasm_fon") {
+        setFaolJarayon(null);
+        setMashqXabar(`${t("kurs_rasm_fon_tugadi")} (${jamiSahifa})`);
+        yukla();
       } else {
         setFaolJarayon({
           id: jid, ishlangan_sahifa: jamiSahifa, jami_sahifa: jamiSahifa, tasdiq_kutilmoqda: true,
@@ -596,6 +618,16 @@ function AdminMashqBoshqaruv({ tugunId, jsonKiritishKorinadi = true }) {
     e.target.value = "";
     if (!fayl) return;
     zipYukla(fayl);
+  }
+
+  // 2026-08-07: rasm-fon rejimi — ALOHIDA tugma, eski oqimga tegmaydi.
+  // PDF faqat shu yerda qabul qilinadi (backend `KursBlokZipYuklashView`
+  // blok rejimida PDF'ni rad etadi).
+  function rasmFonFayliTanlandi(e) {
+    const fayl = e.target.files[0];
+    e.target.value = "";
+    if (!fayl) return;
+    zipYukla(fayl, "rasm_fon");
   }
 
   async function qoshish() {
@@ -710,6 +742,16 @@ function AdminMashqBoshqaruv({ tugunId, jsonKiritishKorinadi = true }) {
             style={{ display: "none" }}
           />
         </label>
+        <label className="tugma ikkinchi" style={{ cursor: "pointer" }} title={t("kurs_rasm_fon_izoh")}>
+          {zipYuklanmoqda ? t("yuklanmoqda") : t("kurs_rasm_fon_yuklash")}
+          <input
+            type="file"
+            accept=".pdf,image/*,.zip"
+            onChange={rasmFonFayliTanlandi}
+            disabled={zipYuklanmoqda}
+            style={{ display: "none" }}
+          />
+        </label>
         {faolJarayon && !zipYuklanmoqda && (
           <>
             {faolJarayon.tasdiq_kutilmoqda ? (
@@ -809,6 +851,9 @@ function AdminMashqBoshqaruv({ tugunId, jsonKiritishKorinadi = true }) {
                   {m.rasm_url ? " 🖼️" : ""}
                   {m.audio_url ? " 🔊" : ""}
                   {m.audiolar?.length ? ` 🔊×${m.audiolar.length}` : ""}
+                  {/* AI sahifada audio belgisini ko'rgan, lekin fayl hali
+                      biriktirilmagan (2026-08-07) — admin unutmasin. */}
+                  {m.audio_kerak && !m.audio_url && !m.audiolar?.length ? " ⚠🔇" : ""}
                 </span>
                 <input type="file" accept="image/*" onChange={(e) => rasmYukla(m.id, e)} style={{ maxWidth: 140 }} />
                 {m.savollar.length > 0 && (
@@ -829,7 +874,10 @@ function AdminMashqBoshqaruv({ tugunId, jsonKiritishKorinadi = true }) {
                     style={{ display: "none" }}
                   />
                 </label>
-                {mashqAudioRaqamlari(m).length > 0 && (
+                {/* 2026-08-07: `audio_kerak` — rasm-fon rejimi uchun.
+                    U yerda `bloklar` bo'sh, ya'ni `mashqAudioRaqamlari`
+                    har doim bo'sh qaytaradi va tugma ko'rinmay qolardi. */}
+                {(mashqAudioRaqamlari(m).length > 0 || m.audio_kerak) && (
                   <label className="tugma ikkinchi" style={{ cursor: "pointer" }}>
                     {audioYuklanayotganId === m.id ? t("yuklanmoqda") : t("kurs_mashq_audio_yuklash")}
                     <input

@@ -398,6 +398,12 @@ def _kurs_mashq_admin_dict(m):
         "savollar": m.savollar,
         "bloklar": m.bloklar,
         "blok_rasmlari": _kurs_blok_rasmlari(m),
+        # 2026-08-07: admin ro'yxatidagi "Audio yuklash" tugmasi shu
+        # bo'yicha ham chiqadi. Blok rejimida tugma `bloklar[].audio_raqam`
+        # bo'yicha chiqardi, rasm-fon rejimida esa `bloklar` BO'SH —
+        # tugma umuman ko'rinmay qolardi, holbuki AI sahifada audio
+        # belgisini ko'rgan bo'lsa admin faylni biriktirishi kerak.
+        "audio_kerak": m.audio_kerak,
     }
 
 
@@ -1131,16 +1137,24 @@ class KursMashqBlokAudioBoshqaruvView(APIView):
             return Response({"detail": "audio majburiy"}, status=400)
 
         raqamlar = _mashq_blok_audio_raqamlari(mashq)
-        if not raqamlar:
+        if raqamlar:
+            raqam = request.data.get("raqam") or raqamlar[0]
+            if raqam not in raqamlar:
+                return Response({"detail": "Noto'g'ri audio raqami"}, status=400)
+        elif mashq.audio_kerak:
+            # 2026-08-07, RASM-FON rejimi: u yerda `bloklar` bo'sh, ya'ni
+            # trek raqami (`audio_raqam`) umuman yo'q — AI faqat sahifada
+            # audio BELGISI borligini aytadi (`audio_kerak`). Shunday
+            # mashqqa audio RAQAMSIZ biriktiriladi; `KursMashqAudio.raqam`
+            # `blank=True`, talaba panelida raqamsiz ko'rinadi.
+            raqam = ""
+        else:
             return Response({"detail": "Bu mashqda audio belgisi yo'q"}, status=400)
-        raqam = request.data.get("raqam") or raqamlar[0]
-        if raqam not in raqamlar:
-            return Response({"detail": "Noto'g'ri audio raqami"}, status=400)
 
         yozuv, yaratildi = KursMashqAudio.objects.get_or_create(mashq=mashq, raqam=raqam)
         if not yaratildi and yozuv.audio:
             yozuv.audio.delete(save=False)  # eski fayl diskda "yetim" qolmasin
-        yozuv.audio.save(f"{mashq.id}_{raqam}.mp3", audio, save=True)
+        yozuv.audio.save(f"{mashq.id}_{raqam or 'audio'}.mp3", audio, save=True)
 
         logla(
             foydalanuvchi=request.user,

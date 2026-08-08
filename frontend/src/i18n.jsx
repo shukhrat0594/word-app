@@ -91,6 +91,10 @@ const LUGAT = {
     kurs_json_xato: "JSON noto'g'ri formatda",
     kurs_mashq_qoshish: "Mashq(lar) qo'shish",
     kurs_rasmdan_mashq_qoshish: "🖼️ Rasm/ZIP orqali mashq qo'shish",
+    kurs_rasm_fon_yuklash: "📄 PDF/rasm yuklash (rasm-fon)",
+    kurs_rasm_fon_izoh:
+      "Sahifa rasm holida qoladi, javob joylariga input qo'yiladi. Tasdiqlash oynasi yo'q — darhol saqlanadi.",
+    kurs_rasm_fon_tugadi: "Sahifalar saqlandi",
     kurs_mashq_qoshildi: "Mashq qo'shildi",
     kurs_javob_talab: "ta savol javob talab qiladi",
     kurs_audio_zip_yuklash: "Audio ZIP yuklash (mashqlarga avtomatik taqsimlanadi)",
@@ -620,6 +624,10 @@ const LUGAT = {
     kurs_json_xato: "Неверный формат JSON",
     kurs_mashq_qoshish: "Добавить упражнение(я)",
     kurs_rasmdan_mashq_qoshish: "🖼️ Добавить упражнение (фото/ZIP)",
+    kurs_rasm_fon_yuklash: "📄 Загрузить PDF/фото (фон-изображение)",
+    kurs_rasm_fon_izoh:
+      "Страница остаётся изображением, поля ввода накладываются сверху. Окна подтверждения нет — сохраняется сразу.",
+    kurs_rasm_fon_tugadi: "Страницы сохранены",
     kurs_mashq_qoshildi: "Упражнение добавлено",
     kurs_javob_talab: "вопрос(ов) требуют ответа",
     kurs_audio_zip_yuklash: "Загрузить ZIP с аудио (распределится по упражнениям автоматически)",
@@ -1149,6 +1157,10 @@ const LUGAT = {
     kurs_json_xato: "Invalid JSON format",
     kurs_mashq_qoshish: "Add exercise(s)",
     kurs_rasmdan_mashq_qoshish: "🖼️ Add exercise (image/ZIP)",
+    kurs_rasm_fon_yuklash: "📄 Upload PDF/image (image background)",
+    kurs_rasm_fon_izoh:
+      "The page stays as an image with inputs placed on top. No confirmation step — saved immediately.",
+    kurs_rasm_fon_tugadi: "Pages saved",
     kurs_mashq_qoshildi: "Exercise added",
     kurs_javob_talab: "question(s) need an answer",
     kurs_audio_zip_yuklash: "Upload audio ZIP (auto-distributed to exercises)",

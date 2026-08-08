@@ -13,6 +13,7 @@ yetarli (u progress ham ko'rsatadi).
 import io
 import os
 import pathlib
+import re
 import shutil
 import threading
 import zipfile
@@ -22,6 +23,7 @@ from datetime import datetime, timedelta
 from django.conf import settings
 from django.core.files.base import ContentFile
 from django.db import transaction
+from django.db.models import Max
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -41,6 +43,7 @@ from .blok_generatsiya import (
     rasmni_kes,
     sahifani_bloklarga_ajrat,
 )
+from .rasm_fon_generatsiya import sahifani_rasm_fonga_ajrat
 from .kontent_generatsiya import kengaytma_turi, tabiiy_tartib_kaliti
 from .models import (
     KursMashq,
@@ -83,9 +86,49 @@ def _jarayon_kesh_yoli(jarayon):
     return yol / f"{jarayon.id}.zip"
 
 
+# PDF sahifasi render qilinadigan NISHON kenglik (piksel). 2026-08-03,
+# haqiqiy production OOM'idan keyin qo'shilgan edi: qattiq `scale=2.0`
+# foydalanuvchining darsligida 3072x3872 (11.9 megapiksel) bergan —
+# xom RGB 34 MB, pdfium bitmap yana ~47 MB, bu 512 MB'lik Render
+# instansida xotirani tugatgan. Nishon kenglik (qattiq ko'paytuvchi
+# emas) tanlangan, chunki turli PDF'larda sahifa o'lchami har xil.
+#
+# 2026-08-07: PDF yo'li "rasm-fon" rejimi uchun QAYTA tiklandi. Bu
+# rejimda sahifa rasmi TALABAGA KO'RSATILADI (blok rejimidagidek faqat
+# AI uchun oraliq material emas) — shuning uchun sifat muhimroq, lekin
+# 2200 baribir yetarli: `rasmni_kes` kesilgan hududni 900px gacha
+# kichraytiradi, undan kattasi hech qayerda ishlatilmaydi.
+PDF_NISHON_KENGLIK = 2200
+
+
+class _PdfManbaWrapper:
+    """`zipfile.ZipFile`ning `.read(nom)` interfeysini PDF uchun taqlid
+    qiladi — shu tufayli `_jarayon_arxivi`dan foydalanuvchi barcha kod
+    (`arxiv.read(nom)`) o'zgarishsiz qoladi, ZIP yoki PDF ekanidan
+    qat'i nazar. `nom` — "sahifa-<raqam>.jpg" ko'rinishida, raqam PDF
+    sahifa raqami (1 dan boshlanadi)."""
+
+    def __init__(self, pdf_hujjat):
+        self._pdf = pdf_hujjat
+
+    def read(self, nom):
+        raqam = int(re.search(r"(\d+)", nom).group(1))
+        sahifa = self._pdf[raqam - 1]
+        # `scale` — nuqtadan pikselga nisbat, NISHON KENGLIKKA qarab
+        # hisoblanadi. PDF nuqtasi = 1/72 dyuym, ya'ni A4 (595 nuqta)
+        # `scale=1.0`da atigi 595px bo'lardi — matn o'qilmaydi.
+        kenglik_nuqta = sahifa.get_width() or 0
+        scale = PDF_NISHON_KENGLIK / kenglik_nuqta if kenglik_nuqta else 2.0
+        scale = min(max(scale, 0.5), 4.0)
+        pil = sahifa.render(scale=scale).to_pil().convert("RGB")
+        bufer = io.BytesIO()
+        pil.save(bufer, format="JPEG", quality=88)
+        return bufer.getvalue()
+
+
 @contextmanager
 def _jarayon_arxivi(jarayon):
-    """ZIP faylni ochadi — R2'DAN FAQAT BIR MARTA yuklab,
+    """ZIP yoki PDF faylni ochadi — R2'DAN FAQAT BIR MARTA yuklab,
     mahalliy diskka keshlab qo'yadi (2026-07-28, haqiqiy production
     xatosidan keyin).
 
@@ -124,8 +167,17 @@ def _jarayon_arxivi(jarayon):
             shutil.copyfileobj(manba, nishon)
         os.replace(vaqtinchalik, kesh)
 
-    with zipfile.ZipFile(kesh) as arxiv:
-        yield arxiv
+    if jarayon.manba_turi == KursZipJarayoni.ManbaTuri.PDF:
+        import pypdfium2 as pdfium
+
+        pdf_hujjat = pdfium.PdfDocument(str(kesh))
+        try:
+            yield _PdfManbaWrapper(pdf_hujjat)
+        finally:
+            pdf_hujjat.close()
+    else:
+        with zipfile.ZipFile(kesh) as arxiv:
+            yield arxiv
 
 
 def _jarayon_keshini_tozala(jarayon):
@@ -146,21 +198,61 @@ def _zip_ichidagi_rasmlarni_ajrat(nomlar):
     return rasmlar
 
 
+# RASM_FON tartiblash sxemasi (2026-08-07). `KursMashq.Meta.ordering`
+# — ["tartib", "id"], ya'ni ro'yxat tartibi TO'LIQ shu songa bog'liq.
+#
+# Avvalgi holat (blok rejimidan meros): `tartib` = kitobda BOSILGAN
+# raqam. Bitta sahifa uchun bu to'g'ri, lekin butun kitob PDF'ida har
+# sahifada "1, 2, 3" takrorlanadi — natijada mashqlar
+# 1(s1), 1(s2), 2(s1), 2(s2)... deb ARALASHIB ko'rinardi.
+#
+# Yangi sxema: tartib = asos + sahifa_indeksi*100 + bosilgan_raqam.
+# Shu tufayli (a) sahifalar tartibi buzilmaydi, (b) sahifa ICHIDA
+# bosilgan raqam baribir ishlaydi, (c) shu tugunga ilgari qo'shilgan
+# mashqlar ustidan yozilmaydi (`asos`).
+SAHIFA_QADAMI = 100
+# `PositiveSmallIntegerField` chegarasi. Amalda bitta tugun = bitta
+# Unit'ning mashqlari, ya'ni ~325 sahifadan oshmaydi; oshib ketsa
+# tartib qiymati shu yerda to'xtaydi (mashq YO'QOLMAYDI, faqat oxirgi
+# sahifalar bir-biriga qo'shilib ko'rinishi mumkin).
+TARTIB_MAKSIMUMI = 32767
+
+
+def _tartib_asosi(tugun):
+    """Tugunda ALLAQACHON bor mashqlardan keyingi "toza" yuzlik."""
+    eng_katta = tugun.mashqlar.aggregate(m=Max("tartib"))["m"] or 0
+    return (eng_katta // SAHIFA_QADAMI + 1) * SAHIFA_QADAMI if eng_katta else 0
+
+
+def _rasm_fon_tartibi(sahifa_asosi, raqam, orin):
+    """`sahifa_asosi` — asos + sahifa_indeksi*100; `raqam` — kitobda
+    bosilgan raqam (bo'lmasa `orin`, sahifa ichidagi ketma-ket o'rin)."""
+    try:
+        ichki = int(raqam)
+    except (TypeError, ValueError):
+        ichki = orin
+    # Bosilgan raqam yuzlikdan oshsa (masalan sahifa raqamini mashq
+    # raqami deb o'qib qo'ysa) qo'shni sahifaga o'tib ketmasin.
+    ichki = max(0, min(SAHIFA_QADAMI - 1, ichki))
+    return min(TARTIB_MAKSIMUMI, sahifa_asosi + ichki)
+
+
 class KursBlokZipYuklashView(APIView):
-    """1-BOSQICH: ZIP (yoki bitta rasm)ni qabul qilish va nima borligini
-    sanash.
+    """1-BOSQICH: ZIP, bitta rasm yoki PDF'ni qabul qilish va nima
+    borligini sanash.
 
-    `pk` — MASHQLAR tuguni (oxirgi qatlam). ZIP — rasmlar arxivi. PDF
-    to'g'ridan-to'g'ri yuklash olib tashlandi (2026-08-05, foydalanuvchi
-    qarori).
+    `pk` — MASHQLAR tuguni (oxirgi qatlam).
 
-    2026-08-05, foydalanuvchi talabi: bitta rasm yuklaganda ham xuddi ZIP
-    kabi tasdiqlash oynasi (rasm-quti/matn tahriri) chiqishi kerak — avval
-    bitta rasm alohida endpoint orqali TASDIQLASHSIZ to'g'ridan-to'g'ri
-    saqlanardi. Shuning uchun bitta rasm yuklansa, u xotirada BITTA
-    faylli ZIP'ga o'raladi va xuddi ko'p-sahifali ZIP kabi shu YAGONA
-    oqim (jarayon -> AI tahlil -> tasdiqlash -> saqlash) orqali o'tadi —
-    alohida kod yo'li shart emas."""
+    2026-08-05: bitta rasm yuklanganda ham xuddi ZIP kabi to'liq oqim
+    (jarayon -> AI tahlil -> ...) ishlashi uchun, u xotirada BITTA
+    faylli ZIP'ga o'raladi — alohida kod yo'li shart emas.
+
+    2026-08-07: `rejim` parametri qo'shildi (`blok` yoki `rasm_fon`,
+    qarang `KursZipJarayoni.Rejim`). PDF esa FAQAT `rasm_fon` rejimida
+    qabul qilinadi — sababi: blok rejimida sahifa qayta qurilgani uchun
+    manba PDF bo'lishining foydasi yo'q edi (2026-08-05 da shuning
+    uchun olib tashlangan), rasm-fon rejimida esa aynan sahifaning
+    o'zi talabaga ko'rsatiladi, PDF esa eng sifatli manba."""
 
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
@@ -174,35 +266,68 @@ class KursBlokZipYuklashView(APIView):
                 {"detail": "Faqat oxirgi qatlam (farzandsiz) tugunga mashq qo'shiladi"}, status=400
             )
 
+        rejim = request.data.get("rejim") or KursZipJarayoni.Rejim.BLOK
+        if rejim not in KursZipJarayoni.Rejim.values:
+            return Response({"detail": "rejim noto'g'ri"}, status=400)
+
         fayl = request.FILES.get("zip_fayl")
         if not fayl:
             return Response({"detail": "zip_fayl majburiy"}, status=400)
 
-        if kengaytma_turi(fayl.name) == "rasm":
-            bufer = io.BytesIO()
-            with zipfile.ZipFile(bufer, "w") as z:
-                _, ext = os.path.splitext(fayl.name.lower())
-                z.writestr(f"sahifa-1{ext}", fayl.read())
-            bufer.seek(0)
-            fayl = ContentFile(bufer.read(), name="rasm.zip")
+        pdfmi = fayl.name.lower().endswith(".pdf")
+        if pdfmi and rejim != KursZipJarayoni.Rejim.RASM_FON:
+            return Response(
+                {"detail": "PDF faqat rasm-fon rejimida qabul qilinadi"}, status=400
+            )
 
-        try:
-            nomlar = zipfile.ZipFile(fayl).namelist()
-        except zipfile.BadZipFile:
-            return Response({"detail": "Fayl yaroqli ZIP yoki rasm emas"}, status=400)
-        sahifalar = _zip_ichidagi_rasmlarni_ajrat(nomlar)
-        if not sahifalar:
-            return Response({"detail": "ZIP ichida rasm fayli topilmadi"}, status=400)
-        manba_turi = KursZipJarayoni.ManbaTuri.ZIP
+        if pdfmi:
+            import pypdfium2 as pdfium
+
+            try:
+                pdf_hujjat = pdfium.PdfDocument(fayl.read())
+                jami = len(pdf_hujjat)
+                pdf_hujjat.close()
+            except Exception:  # noqa: BLE001 — buzuq/parolli PDF
+                return Response({"detail": "Fayl yaroqli PDF emas"}, status=400)
+            if jami == 0:
+                return Response({"detail": "PDF'da sahifa topilmadi"}, status=400)
+            sahifalar = [f"sahifa-{i + 1}.jpg" for i in range(jami)]
+            manba_turi = KursZipJarayoni.ManbaTuri.PDF
+        else:
+            if kengaytma_turi(fayl.name) == "rasm":
+                bufer = io.BytesIO()
+                with zipfile.ZipFile(bufer, "w") as z:
+                    _, ext = os.path.splitext(fayl.name.lower())
+                    z.writestr(f"sahifa-1{ext}", fayl.read())
+                bufer.seek(0)
+                fayl = ContentFile(bufer.read(), name="rasm.zip")
+
+            try:
+                nomlar = zipfile.ZipFile(fayl).namelist()
+            except zipfile.BadZipFile:
+                return Response({"detail": "Fayl yaroqli ZIP, rasm yoki PDF emas"}, status=400)
+            sahifalar = _zip_ichidagi_rasmlarni_ajrat(nomlar)
+            if not sahifalar:
+                return Response({"detail": "ZIP ichida rasm fayli topilmadi"}, status=400)
+            manba_turi = KursZipJarayoni.ManbaTuri.ZIP
 
         fayl.seek(0)
         jarayon = KursZipJarayoni.objects.create(
             tugun=tugun,
             zip_fayl=fayl,
             manba_turi=manba_turi,
+            rejim=rejim,
             jami_sahifa=len(sahifalar),
             natijalar={
                 "sahifalar": sahifalar,
+                # 2026-08-07, RASM_FON: mashq `tartib`ining boshlang'ich
+                # nuqtasi SHU YERDA, bir marta hisoblanadi. Nega saqlash
+                # paytida emas: rasm-fonda sahifalar PARALLEL saqlanadi
+                # (blok rejimidagidek oxirida ketma-ket emas), shuning
+                # uchun o'sha paytda `mashqlar.count()` o'qish poyga
+                # bo'lardi — bir nechta so'rov bir xil sonni ko'rib, bir
+                # xil tartib berib yuborardi. Qarang `_tartib_asosi`.
+                "tartib_asosi": _tartib_asosi(tugun),
                 # Parallel qayta ishlash (2026-07-29): "band_qilingan" —
                 # band qilib olingan sahifa indekslari (hali tugamagan
                 # bo'lishi ham mumkin); "tugallangan" — indeks(str) -> natija,
@@ -219,6 +344,7 @@ class KursBlokZipYuklashView(APIView):
                 "jarayon_id": jarayon.id,
                 "jami_sahifa": jarayon.jami_sahifa,
                 "sahifa_soni": len(sahifalar),
+                "rejim": jarayon.rejim,
             },
             status=201,
         )
@@ -255,6 +381,10 @@ class KursBlokJarayonHolatiView(APIView):
                     "id": jarayon.id,
                     "ishlangan_sahifa": jarayon.ishlangan_sahifa,
                     "jami_sahifa": jarayon.jami_sahifa,
+                    # 2026-08-07: "Davom ettirish" tugagach frontend nima
+                    # qilishini shu belgilaydi — blokda tasdiqlash oynasi,
+                    # rasm-fonda esa hech narsa (allaqachon saqlangan).
+                    "rejim": jarayon.rejim,
                     # 2026-08-03: True bo'lsa tahlil tugagan, admin
                     # ko'rib-tasdiqlashi kutilmoqda (frontend "Davom
                     # ettirish" o'rniga tasdiqlash oynasini ochishi kerak).
@@ -414,6 +544,55 @@ def _rasmni_mashqqa_aylantir(rasm_bytes):
         return Response({"detail": "Rasmdan mashq elementi topilmadi"}, status=400)
     mashqlar, qutilar = bloklarni_tayyorla(elementlar)
     return mashqlar, qutilar, sozlar
+
+
+def _rasm_fon_sahifasini_saqla(tugun, sahifa_bytes, sahifa_asosi):
+    """RASM-FON rejimi (2026-08-07): sahifani AI orqali mashqlarga
+    ajratib, HAR BIRINI DARHOL bazaga yozadi (tasdiqlash bosqichi yo'q —
+    foydalanuvchi qarori: "darhol saqlasin, lekin tahrirlash imkoni
+    bo'lsin").
+
+    Blok rejimidagi `_mashqni_saqla`dan farqi:
+      * `bloklar` BO'SH qoldiriladi — frontend (`Kurslar.jsx:931`)
+        aynan shu bo'yicha rasm-fon ko'rinishini tanlaydi (mavjud
+        mantiq, o'zgartirilmagan);
+      * sahifadan TIG'IZ surat qutilari emas, KATTA MASHQ HUDUDI
+        kesiladi va `KursMashq.rasm`ga (fon) yoziladi;
+      * savollar `pozitsiya` bilan keladi — input'lar shu fon ustiga
+        qo'yiladi.
+
+    `sahifa_asosi` — shu sahifaning tartib "yuzligi" (qarang
+    `_rasm_fon_tartibi`); chaqiruvchi hisoblaydi, chunki sahifalar
+    PARALLEL saqlanadi va bu yerda bazadan sanash poyga bo'lardi.
+
+    Qaytaradi: (yaratilgan_mashqlar, savollar_soni, xato)."""
+    try:
+        provider = blok_provider_olish()
+        mashqlar, xato = sahifani_rasm_fonga_ajrat(provider, sahifa_bytes)
+    except ProviderXatosi as e:
+        return 0, 0, str(e)
+    except Exception as e:  # noqa: BLE001 — kutilmagan AI/rasm xatosi
+        return 0, 0, f"{type(e).__name__}: {e}"
+    if xato:
+        return 0, 0, xato
+
+    yaratilgan, savol_soni = 0, 0
+    for i, m in enumerate(mashqlar, start=1):
+        kesilgan = rasmni_kes(sahifa_bytes, m["quti"])
+        if not kesilgan:
+            continue  # hudud juda kichik/buzuq — bu mashq tashlanadi
+        mashq = KursMashq.objects.create(
+            tugun=tugun,
+            tartib=_rasm_fon_tartibi(sahifa_asosi, m["raqam"], i),
+            matn=m["sarlavha"] or "",
+            savollar=m["savollar"],
+            bloklar=[],
+            audio_kerak=bool(m.get("audio_kerak")),
+        )
+        mashq.rasm.save(f"{mashq.id}_fon.jpg", ContentFile(kesilgan), save=True)
+        yaratilgan += 1
+        savol_soni += len(m["savollar"])
+    return yaratilgan, savol_soni, None
 
 
 def _mashqni_saqla(tugun, tartib, mashq_data, rasm_bytes, qutilar):
@@ -641,6 +820,8 @@ class KursBlokSahifaView(APIView):
                     }
                 )
 
+            # Eski (bu maydon qo'shilishidan oldingi) jarayonlarda yo'q.
+            tartib_asosi = d.get("tartib_asosi") or 0
             band_vaqtlari[str(indeks)] = timezone.now().isoformat()
             d["band_qilingan"] = band_vaqtlari
             jarayon.natijalar = d
@@ -669,15 +850,26 @@ class KursBlokSahifaView(APIView):
         # kesish (rasm-qutilarni haqiqiy rasmdan olish) esa yakunlashda
         # (`_jarayonni_yakunla`) amalga oshadi, arxiv bir marta ochilgani
         # uchun.
+        rasm_fonmi = jarayon.rejim == KursZipJarayoni.Rejim.RASM_FON
         mashqlar, qutilar, sozlar, xato = None, None, None, None
+        yaratilgan, savol_soni = 0, 0
         try:
             with _jarayon_arxivi(jarayon) as arxiv:
                 rasm_bytes = arxiv.read(nom)
-            natija_yoki_xato = _rasmni_mashqqa_aylantir(rasm_bytes)
-            if isinstance(natija_yoki_xato, Response):
-                xato = natija_yoki_xato.data.get("detail", "AI xato qaytardi")
+            if rasm_fonmi:
+                # 2026-08-07: rasm-fon rejimida tasdiqlash bosqichi yo'q —
+                # mashq DARHOL shu yerda bazaga yoziladi (qarang
+                # `_rasm_fon_sahifasini_saqla`), keyinroq faqat tahrirlanadi.
+                yaratilgan, savol_soni, xato = _rasm_fon_sahifasini_saqla(
+                    jarayon.tugun, rasm_bytes,
+                    tartib_asosi + indeks * SAHIFA_QADAMI,
+                )
             else:
-                mashqlar, qutilar, sozlar = natija_yoki_xato
+                natija_yoki_xato = _rasmni_mashqqa_aylantir(rasm_bytes)
+                if isinstance(natija_yoki_xato, Response):
+                    xato = natija_yoki_xato.data.get("detail", "AI xato qaytardi")
+                else:
+                    mashqlar, qutilar, sozlar = natija_yoki_xato
         except ProviderXatosi as e:
             xato = str(e)
         except Exception as e:  # noqa: BLE001 — pastdagi izohga qarang
@@ -688,29 +880,49 @@ class KursBlokSahifaView(APIView):
         with transaction.atomic():
             jarayon = KursZipJarayoni.objects.select_for_update().get(pk=pk)
             d = jarayon.natijalar
-            # 2026-08-03: "mashqlar" — RO'YXAT (bitta sahifada bir nechta
-            # alohida mashq bo'lishi mumkin, `bloklarni_tayyorla`ga qarang).
-            d.setdefault("tugallangan", {})[str(indeks)] = {
-                "fayl": nom,
-                "mashqlar": mashqlar,
-                "qutilar": qutilar,
-                "sozlar": sozlar,
-                "xato": xato,
-            }
+            if rasm_fonmi:
+                # Mashq allaqachon bazaga yozilgan — bu yerda faqat hisobot
+                # uchun yig'ma sonlar saqlanadi (`_jarayonni_yakunla` bu
+                # rejimda chaqirilmaydi).
+                yozuv = {
+                    "fayl": nom,
+                    "yaratilgan": yaratilgan,
+                    "savollar_soni": savol_soni,
+                    "xato": xato,
+                }
+            else:
+                # 2026-08-03: "mashqlar" — RO'YXAT (bitta sahifada bir nechta
+                # alohida mashq bo'lishi mumkin, `bloklarni_tayyorla`ga qarang).
+                yozuv = {
+                    "fayl": nom,
+                    "mashqlar": mashqlar,
+                    "qutilar": qutilar,
+                    "sozlar": sozlar,
+                    "xato": xato,
+                }
+            d.setdefault("tugallangan", {})[str(indeks)] = yozuv
             jarayon.natijalar = d
             jarayon.ishlangan_sahifa = len(d["tugallangan"])
             jami_sahifa = jarayon.jami_sahifa
             tugadimi = jarayon.ishlangan_sahifa >= jami_sahifa
             if tugadimi:
-                # 2026-08-03: avval shu yerda `_jarayonni_yakunla` avtomatik
-                # chaqirilib, bazaga to'g'ridan-to'g'ri yozilardi — AI
-                # xatolari (noto'g'ri kesilgan rasm, joyi surilgan bo'sh
-                # joy) tekshirilmasdan saqlanardi. Endi barcha sahifalar
-                # tahlil qilingach, TASDIQLASH kutiladi — admin
-                # `KursBlokTasdiqView`da ko'rib, kerak bo'lsa tuzatib,
-                # `KursBlokTasdiqlashView`ga yuborgandagina bazaga yoziladi.
-                jarayon.holat = KursZipJarayoni.Holat.TASDIQ_KUTILMOQDA
+                if rasm_fonmi:
+                    # Tasdiqlash bosqichi yo'q — mashqlar allaqachon
+                    # bazada, jarayon shu zahoti tugallangan hisoblanadi.
+                    jarayon.holat = KursZipJarayoni.Holat.TUGADI
+                else:
+                    # 2026-08-03: avval shu yerda `_jarayonni_yakunla` avtomatik
+                    # chaqirilib, bazaga to'g'ridan-to'g'ri yozilardi — AI
+                    # xatolari (noto'g'ri kesilgan rasm, joyi surilgan bo'sh
+                    # joy) tekshirilmasdan saqlanardi. Endi barcha sahifalar
+                    # tahlil qilingach, TASDIQLASH kutiladi — admin
+                    # `KursBlokTasdiqView`da ko'rib, kerak bo'lsa tuzatib,
+                    # `KursBlokTasdiqlashView`ga yuborgandagina bazaga yoziladi.
+                    jarayon.holat = KursZipJarayoni.Holat.TASDIQ_KUTILMOQDA
             jarayon.save(update_fields=["natijalar", "ishlangan_sahifa", "holat"])
+
+        if tugadimi and rasm_fonmi:
+            _jarayon_keshini_tozala(jarayon)
 
         javob = {
             "ishlangan_sahifa": jarayon.ishlangan_sahifa,
