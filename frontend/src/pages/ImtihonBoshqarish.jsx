@@ -853,7 +853,9 @@ function IzohQutilari({ savollar, bloklar, ozgardi, t }) {
       {bloklar.length === 0 ? (
         <div className="izoh">{t("imtihon_quti_yoq")}</div>
       ) : (
-        <div style={{ display: "grid", gap: 3 }}>
+        // `maxHeight` + `overflowY` — Reading'da 40 savol bo'lishi mumkin,
+        // ular butun tahrir oynasini egallab ketmasin.
+        <div style={{ display: "grid", gap: 3, maxHeight: 320, overflowY: "auto" }}>
           {elementlar.map((e, i) => (
             <div
               key={e.turi === "quti" ? `q${e.blokIdx}` : `s${e.kalit}`}
@@ -872,6 +874,14 @@ function IzohQutilari({ savollar, bloklar, ozgardi, t }) {
                 border: e.turi === "quti" ? "1px solid var(--sariq-toq)" : "none",
                 background: e.turi === "quti" ? "var(--sirt-2)" : "transparent",
                 opacity: e.turi === "savol" ? 0.55 : 1,
+                // 2026-08-08, foydalanuvchi talabi: "tugmalar tepada
+                // qolib ketmasin, panelni pastga qilganda ham ko'rinib
+                // tursin". Quti qatori aylantirilganda ro'yxat tepasiga
+                // YOPISHIB qoladi — ⤒/↑/↓/⤓ tugmalari har doim qo'l
+                // ostida bo'ladi. Savol qatorlari oddiy aylanadi.
+                ...(e.turi === "quti"
+                  ? { position: "sticky", top: 0, zIndex: 2 }
+                  : {}),
               }}
             >
               {e.turi === "savol" ? (
