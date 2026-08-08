@@ -19,6 +19,18 @@ Format (qat'iy, parser shunga tayanadi):
 
 ---
 
+## 2026-08-08 — Writing baholash aniqligi
+
+- **Writing baholash ancha adolatli bo'ldi.** Ilgari xatosiz, lekin
+  oddiy tilda yozilgan insho eng yuqori ballni olardi — endi bunday
+  ish o'z darajasiga yaqin baholanadi. Yuqori ball uchun til boyligi
+  ham talab qilinadi.
+- Baholash **20-30 barobar tezlashdi**: Task 1 tekshiruvi ilgari 2-4
+  daqiqa ketardi, endi 15 soniyagacha.
+- Writing tekshirishda vaqti-vaqti bilan chiqadigan "AI xizmatida
+  kutilmagan xato" kamayadi — vaqtinchalik uzilishlarda tizim o'zi
+  qayta uradi.
+
 ## 2026-08-08 — Kurslarga PDF yuklash va ota-ona roli
 
 - Kurslar bo'limiga **PDF orqali mashq yuklash** qo'shildi. Darslik
