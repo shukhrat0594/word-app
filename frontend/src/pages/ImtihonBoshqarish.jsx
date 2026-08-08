@@ -732,6 +732,39 @@ function KiritishPanel({ manba, qismgaFaylYukla, royxatniYangila }) {
  * (Map/Diagram Labelling koordinatasi) BU YERDA tahrirlanmaydi — alohida
  * AI-yordamli bosqich sifatida rejalashtirilgan (hozircha o'zgarishsiz
  * saqlanadi). */
+/** Ro'yxat maydonlari (variantlar, ko'p javobli "togri") uchun XOM
+ * matnni saqlaydigan input (2026-08-08).
+ *
+ * NEGA KERAK — foydalanuvchi xatosi: "vergul qo'yib bo'lmayabdi probel
+ * ham". Avval qiymat har bosishda `split -> trim -> filter -> join`
+ * aylanishidan o'tardi. Natijada vergul yozilishi bilan bo'sh element
+ * hosil bo'lib `filter(Boolean)` uni yo'q qilardi, oxiridagi probelni
+ * esa `trim()` yeb qo'yardi — ya'ni bu belgilarni KIRITIB BO'LMASDI.
+ *
+ * Yechim: ko'ringan matn LOKAL holatda xom saqlanadi (foydalanuvchi
+ * nima yozsa — o'sha turadi), massivga ajratish esa faqat YUQORIGA
+ * uzatilayotganda bajariladi. */
+function RoyxatMaydoni({ qiymat, ajratgich, ozgardi, ...qolgan }) {
+  const [xom, setXom] = useState(qiymat);
+  // Tashqaridan (masalan boshqa savolga o'tilganda) qiymat o'zgarsa
+  // moslashtiramiz — lekin foydalanuvchi yozayotgan matnni buzmasdan.
+  const oxirgiTashqiRef = useRef(qiymat);
+  if (qiymat !== oxirgiTashqiRef.current) {
+    oxirgiTashqiRef.current = qiymat;
+    if (qiymat !== xom) setXom(qiymat);
+  }
+  return (
+    <textarea
+      {...qolgan}
+      value={xom}
+      onChange={(e) => {
+        setXom(e.target.value);
+        ozgardi(e.target.value.split(ajratgich).map((v) => v.trim()).filter(Boolean));
+      }}
+    />
+  );
+}
+
 function SavolTahrirQatori({ savol, oz, t }) {
   function maydonOz(patch) {
     oz({ ...savol, ...patch });
@@ -762,25 +795,41 @@ function SavolTahrirQatori({ savol, oz, t }) {
         onChange={(e) => maydonOz({ savol: e.target.value })}
       />
       <div style={{ display: "flex", gap: 6 }}>
-        <input
+        {/* 2026-08-08: avval bu bitta qatorli input edi va variantlar
+            VERGUL bilan ajratilardi. "List of Headings" sarlavhalarida
+            esa vergul bo'ladi ("A surprising discovery, made by
+            accident") — bunday variant ikkiga bo'linib ketardi va
+            ro'yxatni qo'lda tuzatib bo'lmasdi. Endi HAR VARIANT
+            ALOHIDA QATORDA. */}
+        <RoyxatMaydoni
           style={{ flex: 2 }}
+          rows={3}
           placeholder={t("imtihon_variantlar_izoh")}
-          value={(savol.variantlar || []).join(", ")}
-          onChange={(e) =>
-            maydonOz({
-              variantlar: e.target.value.split(",").map((v) => v.trim()).filter(Boolean),
-            })
-          }
+          qiymat={(savol.variantlar || []).join("\n")}
+          ajratgich={"\n"}
+          ozgardi={(royxat) => maydonOz({ variantlar: royxat })}
         />
-        <input
-          style={{ flex: 1 }}
-          placeholder={t("imtihon_togri_javob")}
-          value={togriMatni}
-          onChange={(e) => {
-            const qism = e.target.value.split(",").map((v) => v.trim()).filter(Boolean);
-            maydonOz({ togri: Array.isArray(savol.togri) ? qism : e.target.value });
-          }}
-        />
+        {/* "togri" bitta matn ham (odatiy holat), massiv ham bo'lishi
+            mumkin (bir savolga bir nechta qabul qilinadigan javob).
+            Massiv bo'lsa — xuddi variantlar kabi, har javob alohida
+            qatorda; oddiy matn bo'lsa erkin yoziladi. */}
+        {Array.isArray(savol.togri) ? (
+          <RoyxatMaydoni
+            style={{ flex: 1 }}
+            rows={3}
+            placeholder={t("imtihon_togri_javob")}
+            qiymat={savol.togri.join("\n")}
+            ajratgich={"\n"}
+            ozgardi={(royxat) => maydonOz({ togri: royxat })}
+          />
+        ) : (
+          <input
+            style={{ flex: 1 }}
+            placeholder={t("imtihon_togri_javob")}
+            value={togriMatni}
+            onChange={(e) => maydonOz({ togri: e.target.value })}
+          />
+        )}
       </div>
     </div>
   );
