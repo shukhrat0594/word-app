@@ -265,15 +265,6 @@ export default function Foydalanuvchilar() {
     }
   }
 
-  async function rolOzgartir(id, rol) {
-    try {
-      await api(`/api/foydalanuvchilar/${id}/rol/`, { method: "PATCH", body: { rol } });
-      yukla();
-    } catch (e) {
-      setXabar((x) => ({ ...x, [id]: e.data?.detail || t("xato_yuz_berdi") }));
-    }
-  }
-
   async function panellarSaqla(id, panellar) {
     try {
       await api(`/api/foydalanuvchilar/${id}/panellar/`, { method: "PATCH", body: { panellar } });
@@ -408,18 +399,11 @@ export default function Foydalanuvchilar() {
               <button className="tugma ikkinchi" onClick={() => parolOrnat(u.id)}>
                 {t("parol_ornatish")}
               </button>
-              {u.id !== profil?.id && (
-                <select
-                  value={u.is_owner ? "owner" : u.role}
-                  onChange={(e) => rolOzgartir(u.id, e.target.value)}
-                >
-                  {ROLLAR.map((r) => (
-                    <option key={r} value={r}>
-                      {t(`rol_${r}`)}
-                    </option>
-                  ))}
-                </select>
-              )}
+              {/* 2026-08-09 qarori: rol FAQAT yaratilayotganda tanlanadi,
+                  keyin O'ZGARMAYDI. Bu yerda rol tanlash ro'yxati turardi —
+                  olib tashlandi (backend ham endi rad etadi). Bitta odamga
+                  ikki xil rol kerak bo'lsa, unga alohida profil ochiladi.
+                  Rolning O'ZI baribir ko'rinadi — yuqorida, login yonida. */}
               {u.role === "parent" && (
                 <FarzandTanlovi
                   user={u}

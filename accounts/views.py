@@ -17,7 +17,10 @@ from config import narxlar as NARX
 
 from .authentication import asl_owner_mi
 from .models import Bildirishnoma, Markaz, User
-from .permissions import birlamchi_owner_mi, owner_mi
+# `birlamchi_owner_mi` 2026-08-09 da ishlatilmay qoldi — u FAQAT rol
+# o'zgartirishda kerak edi ("owner'ning rolini faqat asosiy owner
+# o'zgartiradi"), u esa endi yopiq. Funksiya `permissions.py`da qoldi.
+from .permissions import owner_mi
 from .relizlar import relizlarni_sinxronla
 
 
@@ -534,15 +537,25 @@ class FoydalanuvchiYaratishView(APIView):
 
 
 class FoydalanuvchiRolView(APIView):
-    """Owner uchun — istalgan foydalanuvchining rolini o'zgartiradi
-    (owner/admin/teacher/student/oddiy), "owner" ham shu ro'yxatda.
+    """ROL O'ZGARTIRISH YOPIQ (2026-08-09, foydalanuvchi qarori).
 
-    Cheklovlar: o'z rolini o'zgartira olmaysiz (tasodifan owner
-    huquqidan mahrum bo'lmaslik uchun); owner qilishda jami owner soni
-    2 tadan oshmaydi; oxirgi owner'ni pastga tushirib bo'lmaydi (kamida
-    1 owner doim qolishi kerak); boshqa owner'ning rolini FAQAT asosiy
-    (birinchi yaratilgan) owner o'zgartira oladi — ikkinchi owner asosiy
-    owner'ni pastga tushira olmaydi.
+    Qoida: rol FAQAT foydalanuvchi YARATILAYOTGANDA tanlanadi
+    (`FoydalanuvchiYaratishView` — u "owner"ni ham qabul qiladi, ya'ni
+    ikkinchi owner ham shu yo'ldan ochiladi). Bitta odamga ikki xil rol
+    kerak bo'lsa — unga ALOHIDA profil ochiladi.
+
+    Nega butunlay yopildi: rol o'zgarganda undan kelib chiqadigan
+    bog'lanishlar mos kelmay qolardi — masalan talabaning `ota_ona`
+    FK'si (u endi o'qituvchi bo'lsa ham ota-ona uning natijalarini
+    ko'rishda davom etardi) va `korinadigan_panellar` ro'yxati (eski
+    rolning panellari yangi rolga to'g'ri kelmaydi). Ularning har birini
+    tozalash mantiqi qurish o'rniga, foydalanuvchi soddaroq qoidani
+    tanladi: rol o'zgarmaydi.
+
+    Endpoint ATAYLAB o'chirilmadi — sababini tushuntirib rad etadi
+    (409). Aks holda eski/keshlangan frontend 404 olib, "server
+    buzilgan"dek ko'rinardi. Django admin panelida rol maydoni ochiq
+    qoladi — bu owner uchun ataylab qoldirilgan zaxira yo'l.
     """
 
     permission_classes = [IsAuthenticated]
@@ -550,65 +563,14 @@ class FoydalanuvchiRolView(APIView):
     def patch(self, request, pk):
         if not owner_mi(request.user):
             return Response({"detail": "Faqat owner uchun"}, status=403)
-
-        user = get_object_or_404(User, pk=pk)
-        if user.pk == request.user.pk:
-            return Response({"detail": "O'z rolingizni o'zgartira olmaysiz"}, status=400)
-        if user.is_superuser and not birlamchi_owner_mi(request.user):
-            return Response(
-                {"detail": "Owner'ning rolini faqat asosiy owner o'zgartira oladi"},
-                status=403,
-            )
-
-        rol = request.data.get("rol") or ""
-        is_super = rol == "owner"
-        if is_super:
-            if not user.is_superuser and User.objects.filter(is_superuser=True).count() >= 2:
-                return Response(
-                    {"detail": "Ko'pi bilan 2 ta owner bo'lishi mumkin"}, status=400
-                )
-            role_value = User.Role.ADMIN
-        elif rol == "admin":
-            role_value = User.Role.ADMIN
-        elif rol == "teacher":
-            role_value = User.Role.TEACHER
-        elif rol == "student":
-            role_value = User.Role.STUDENT
-        elif rol == "parent":
-            # 2026-08-08: model'da PARENT allaqachon bor edi, lekin bu
-            # ro'yxatlarda yo'qligi uchun ilovadan ota-ona YARATIB
-            # bo'lmasdi (faqat Django admin panelidan).
-            role_value = User.Role.PARENT
-        elif rol == "oddiy":
-            role_value = User.Role.ODDIY
-        else:
-            return Response({"detail": "Noto'g'ri rol"}, status=400)
-
-        if user.is_superuser and not is_super and User.objects.filter(is_superuser=True).count() <= 1:
-            return Response(
-                {"detail": "Oxirgi owner'ni pastga tushirib bo'lmaydi"}, status=400
-            )
-
-        eski_rol = user.role
-        eski_owner = user.is_superuser
-        user.role = role_value
-        user.is_superuser = is_super
-        user.is_staff = is_super
-        if role_value in (User.Role.ADMIN, User.Role.TEACHER) and not user.markaz_id:
-            markaz = Markaz.objects.first()
-            if markaz:
-                user.markaz = markaz
-        user.save()
-        logla(
-            foydalanuvchi=request.user,
-            harakat=FaoliyatYozuvi.Harakat.OZGARTIRISH,
-            obyekt=user,
-            obyekt_turi="Foydalanuvchi",
-            eski_qiymatlar={"role": eski_rol, "is_owner": eski_owner},
-            yangi_qiymatlar={"role": user.role, "is_owner": user.is_superuser},
+        return Response(
+            {"detail": (
+                "Rolni o'zgartirib bo'lmaydi — u faqat foydalanuvchi "
+                "yaratilayotganda tanlanadi. Boshqa rol kerak bo'lsa, "
+                "alohida profil ochib bering."
+            )},
+            status=409,
         )
-
-        return Response({"id": user.id, "role": user.role, "is_owner": user.is_superuser})
 
 
 class FoydalanuvchiFarzandlarView(APIView):
