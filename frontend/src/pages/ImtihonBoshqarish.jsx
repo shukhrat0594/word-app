@@ -1490,6 +1490,7 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
   // (Mock/Hammasi'da yo'q — qaysi turni yaratish noaniq bo'lardi).
   const [band, setBand] = useState(BAND_GURUHLAR[0]);
   const [generatsiyaBormoqda, setGeneratsiyaBormoqda] = useState(false);
+  const [davomEttirilayotganId, setDavomEttirilayotganId] = useState(null);
   // "Hammasi" rejimida qaysi bo'lim hozir generatsiya qilinayotgani
   // (progress ko'rsatish uchun) — bitta bo'lim rejimida ishlatilmaydi.
   const [generatsiyaBolimi, setGeneratsiyaBolimi] = useState("");
@@ -1550,11 +1551,15 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
     setGeneratsiyaBormoqda(true);
     setJsonXato("");
     try {
-      await api("/api/imtihon/mashq-generatsiya/", {
+      const d = await api("/api/imtihon/mashq-generatsiya/", {
         method: "POST",
         body: { bolim: filtrBolim, band },
       });
       yukla(filtrBolim);
+      // 2026-08-08: Listening o'rtada uzilsa test QISMAN saqlanadi —
+      // xato ko'rsatiladi, lekin ish yo'qolmaydi, ro'yxatda "Davom
+      // ettirish" tugmasi chiqadi.
+      if (d?.chala_xato) setJsonXato(d.chala_xato);
     } catch (e) {
       setJsonXato(e.data?.detail || t("xato_yuz_berdi"));
     } finally {
@@ -1597,6 +1602,29 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
       yukla(filtrBolim);
     } catch (e) {
       setJsonXato(e.data?.detail || t("xato_yuz_berdi"));
+    }
+  }
+
+  // AI Listening testi 4 part bo'lishi kerak. Kamroq bo'lsa — generatsiya
+  // o'rtasida uzilgan (2026-08-08). Alohida bayroq/migratsiya kerak emas,
+  // backendda ham aynan shu qoida (`views._chala_listening_mi`).
+  function chalaListeningmi(test) {
+    return manba === "ai" && test.bolim === "listening" && (test.qismlar?.length || 0) < 4;
+  }
+
+  async function listeningDavomEttir(test) {
+    setJsonXato("");
+    setDavomEttirilayotganId(test.id);
+    try {
+      const d = await api(`/api/imtihon/${test.id}/listening-davom/`, { method: "POST", body: { band } });
+      yukla(filtrBolim);
+      // Davom ettirishda ham uzilishi mumkin (masalan TTS limiti hali
+      // ochilmagan) — u holda yana qisman saqlanadi va tugma qoladi.
+      if (d.chala_xato) setJsonXato(d.chala_xato);
+    } catch (e) {
+      setJsonXato(e.data?.detail || t("xato_yuz_berdi"));
+    } finally {
+      setDavomEttirilayotganId(null);
     }
   }
 
@@ -1854,6 +1882,23 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
                     </span>
                   </span>
                   <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    {/* CHALA AI Listening (2026-08-08): generatsiya
+                        o'rtasida uzilgan bo'lsa (masalan TTS kunlik
+                        limiti tugasa) tayyor part'lar SAQLANADI, shu
+                        tugma esa faqat yetishmayotganini qo'shadi —
+                        boshidan qayta yaratish shart emas. */}
+                    {chalaListeningmi(test) && (
+                      <button
+                        className="tugma kichik"
+                        onClick={() => listeningDavomEttir(test)}
+                        disabled={davomEttirilayotganId === test.id}
+                        title={t("imtihon_listening_chala_izoh")}
+                      >
+                        {davomEttirilayotganId === test.id
+                          ? t("yuklanmoqda")
+                          : `⚠ ${t("imtihon_listening_davom")} (${test.qismlar.length}/4)`}
+                      </button>
+                    )}
                     {/* Papkaga ko'chirish — faqat shu testning bo'limiga
                         tegishli papkalar ko'rsatiladi (backend ham
                         boshqa bo'lim papkasini rad qiladi). */}

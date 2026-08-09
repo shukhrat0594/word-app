@@ -40,6 +40,11 @@ urlpatterns = [
         name="imtihon_mashq_generatsiya",
     ),
     path(
+        "imtihon/<int:pk>/listening-davom/",
+        views.ListeningDavomEttirishView.as_view(),
+        name="imtihon_listening_davom",
+    ),
+    path(
         "imtihon/papkalar/",
         views.TestPapkaBoshqaruvView.as_view(),
         name="imtihon_papkalar",

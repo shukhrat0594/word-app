@@ -446,11 +446,36 @@ def _soz_oraligi_pastki_chegara(soz_oraligi):
     return int(soz_oraligi.split("-")[0])
 
 
-def listening_yarat(band, oldingi_mavzular=None):
+def _listening_data(qismlar, mavzular, band):
+    """Tayyor part'lardan test ma'lumotini yig'adi. Bitta ham part
+    chiqmagan bo'lsa None (saqlashga arziydigan narsa yo'q)."""
+    if not qismlar:
+        return None
+    nomi_qismi = " / ".join(mavzular) if mavzular else ""
+    return {
+        "name": f"AI Listening — {nomi_qismi} ({band})" if nomi_qismi else f"AI Listening ({band})",
+        "bolim": "listening",
+        "korinish": "public",
+        "qismlar": qismlar,
+    }
+
+
+def listening_yarat(band, oldingi_mavzular=None, boshlanuvchi_part=1):
     """Qaytaradi: (data, audio_bytes_royxati, xato). To'liq test — 4 part,
     40 savol (2026-08-02 talabi). Har part ALOHIDA AI+TTS chaqiruvi.
     `audio_bytes_royxati` — `data["qismlar"]` bilan bir xil uzunlik/tartib,
     har elementi shu qismning WAV baytlari.
+
+    QISMAN NATIJA (2026-08-08, foydalanuvchi talabi): xato bo'lganda ham
+    ALLAQACHON TAYYOR part'lar qaytariladi — ya'ni `data` ham, `xato` ham
+    bir vaqtda to'la bo'lishi mumkin. Avval har xatoda `None` qaytarilar
+    va butun ish behuda ketardi; bu juda qimmat, chunki har part uchun
+    AI chaqiruvi + TTS sarflanadi, Gemini TTS esa KUNLIK limitga ega.
+    Chaqiruvchi qisman testni saqlab, keyin `boshlanuvchi_part` bilan
+    qolganini davom ettiradi.
+
+    `boshlanuvchi_part` — nechanchi part'dan boshlash (1..4). Davom
+    ettirishda ishlatiladi.
 
     Transkript uzunligi va har part'ning asosiy savol turi band/part'ga
     qarab farqlanadi — batafsil: `BAND_SOZ_ORALIGI`, `LISTENING_ORALIQLAR`."""
@@ -462,7 +487,8 @@ def listening_yarat(band, oldingi_mavzular=None):
     provider = _provider()
     qismlar, audio_royxati = [], []
     mavzular_shu_testda = []
-    for i, (boshi, oxiri, gap_soni, asosiy_tur, tur_tavsifi) in enumerate(LISTENING_ORALIQLAR, start=1):
+    for i, (boshi, oxiri, gap_soni, asosiy_tur, tur_tavsifi) in enumerate(
+            LISTENING_ORALIQLAR[boshlanuvchi_part - 1:], start=boshlanuvchi_part):
         uslub = "ikki kishi suhbati" if gap_soni == 2 else "bitta kishi monologi/ma'ruzasi"
         tur_talabi = (
             f"BU PART UCHUN SAVOL TURI: savollarning ASOSIY qismi "
@@ -501,7 +527,7 @@ def listening_yarat(band, oldingi_mavzular=None):
                     javob_sxemasi=LISTENING_SXEMASI, max_tokens=16000,
                 )
             except ProviderXatosi as e:
-                return None, None, f"Part {i}: {e}"
+                return _listening_data(qismlar, mavzular_shu_testda, band), audio_royxati, f"Part {i}: {e}"
             natija = javob.get("natija") or {}
             transkript = natija.get("transkript") or ""
             if len(transkript.split()) >= minimal_soz:
@@ -513,11 +539,12 @@ def listening_yarat(band, oldingi_mavzular=None):
                 f"so'z, kamida {minimal_soz} kerak edi)"
             )
         if xato:
-            return None, None, xato
+            return _listening_data(qismlar, mavzular_shu_testda, band), audio_royxati, xato
         savollar = natija.get("savollar") or []
         kutilgan = oxiri - boshi + 1
         if len(savollar) != kutilgan or not transkript.strip():
-            return None, None, f"Part {i}: {kutilgan} ta savol kutilgandi, {len(savollar)} ta chiqdi (yoki transkript bo'sh)"
+            return (_listening_data(qismlar, mavzular_shu_testda, band), audio_royxati,
+                    f"Part {i}: {kutilgan} ta savol kutilgandi, {len(savollar)} ta chiqdi (yoki transkript bo'sh)")
         savollar = sorted(savollar, key=lambda s: s.get("raqam") if isinstance(s.get("raqam"), int) else 10**9)
         for s in savollar:
             s.pop("raqam", None)
@@ -529,9 +556,11 @@ def listening_yarat(band, oldingi_mavzular=None):
         try:
             audio_bytes = audio_yarat(transkript, "gemini-2.5-flash-preview-tts", speakerlar=speakerlar)
         except RateLimitTugadi:
-            return None, None, f"Part {i}: TTS kunlik/daqiqalik limiti tugadi — birozdan so'ng qayta urinib ko'ring"
+            return (_listening_data(qismlar, mavzular_shu_testda, band), audio_royxati,
+                    f"Part {i}: TTS kunlik/daqiqalik limiti tugadi — birozdan so'ng qayta urinib ko'ring")
         except Exception as e:  # noqa: BLE001
-            return None, None, f"Part {i}: audio generatsiyasida xato: {e}"
+            return (_listening_data(qismlar, mavzular_shu_testda, band), audio_royxati,
+                    f"Part {i}: audio generatsiyasida xato: {e}")
 
         qismlar.append({
             "tartib": i,
@@ -543,13 +572,7 @@ def listening_yarat(band, oldingi_mavzular=None):
         })
         audio_royxati.append(audio_bytes)
 
-    nomi_qismi = " / ".join(mavzular_shu_testda) if mavzular_shu_testda else ""
-    return {
-        "name": f"AI Listening — {nomi_qismi} ({band})" if nomi_qismi else f"AI Listening ({band})",
-        "bolim": "listening",
-        "korinish": "public",
-        "qismlar": qismlar,
-    }, audio_royxati, None
+    return _listening_data(qismlar, mavzular_shu_testda, band), audio_royxati, None
 
 
 def writing_yarat(band, oldingi_mavzular=None):

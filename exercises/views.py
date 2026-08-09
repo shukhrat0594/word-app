@@ -950,8 +950,16 @@ class MashqGeneratsiyaView(APIView):
             .values_list("name", flat=True)[:25]
         )
         data, rasm_bytes, audio_royxati, xato = mashq_yarat(bolim, band, oldingi_mavzular)
+        # 2026-08-08: Listening 4 part'dan iborat va har part uchun AI +
+        # TTS sarflanadi (Gemini TTS KUNLIK limitga ega). Avval 4-part
+        # xato bersa, tayyor bo'lgan 3 tasi ham tashlanardi. Endi
+        # `listening_yarat` qisman natijani qaytaradi: test SAQLANADI,
+        # admin esa "Davom ettirish" bilan qolgan part'larni qo'shadi.
+        chala_xato = None
         if xato:
-            return Response({"detail": xato}, status=502)
+            if not (data and data.get("qismlar")):
+                return Response({"detail": xato}, status=502)
+            chala_xato = xato
 
         test, yaratish_xatosi = _test_yarat(
             data, markaz, yaratuvchi=request.user, manba=Manba.AI,
@@ -988,7 +996,114 @@ class MashqGeneratsiyaView(APIView):
             obyekt_turi="ImtihonTest",
             snapshot={"name": test.name, "bolim": test.bolim, "manba": "ai-generatsiya", "band": band},
         )
-        return Response(_test_admin_dict(test), status=201)
+        javob = _test_admin_dict(test)
+        if chala_xato:
+            javob["chala_xato"] = chala_xato
+        return Response(javob, status=201)
+
+
+# Listening testda nechta part bo'lishi kerak — `mashq_generatsiya.
+# LISTENING_ORALIQLAR` bilan bir xil. Shu son bo'yicha testning CHALA
+# ekani aniqlanadi (alohida bayroq/migratsiya kerak emas).
+LISTENING_PART_SONI = 4
+
+
+def _chala_listening_mi(test):
+    return (
+        test.bolim == "listening"
+        and test.manba == Manba.AI
+        and test.qismlar.count() < LISTENING_PART_SONI
+    )
+
+
+class ListeningDavomEttirishView(APIView):
+    """CHALA qolgan AI Listening testini davom ettiradi (2026-08-08,
+    foydalanuvchi talabi: "AI Listening qisman saqlash").
+
+    Nega kerak: test 4 part, har part uchun AI chaqiruvi + TTS audio
+    sarflanadi, Gemini TTS esa KUNLIK limitga ega. Avval 4-part xato
+    bersa (masalan limit tugasa) tayyor 3 tasi ham yo'q qilinardi va
+    hammasini boshidan qilishga to'g'ri kelardi. Endi qisman test
+    saqlanadi va shu endpoint faqat YETISHMAYDIGAN part'larni
+    generatsiya qilib, mavjud testga qo'shadi.
+
+    `band` — so'rov tanasida berilishi mumkin; berilmasa test
+    papkasidan ("Band 5-6") olinadi."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        if not _mashq_admin_mi(request.user):
+            return Response({"detail": "Faqat admin/owner uchun"}, status=403)
+        test = get_object_or_404(ImtihonTest, pk=pk)
+        if not _chala_listening_mi(test):
+            return Response({"detail": "Bu test chala emas yoki AI Listening emas"}, status=400)
+
+        from django.core.files.base import ContentFile
+
+        from .mashq_generatsiya import BAND_GURUHLAR, listening_yarat
+
+        # Band TESTNING O'ZIDAN olinadi — AI testlari "Band 5-6" nomli
+        # papkaga avtomatik joylanadi. So'rovdagi qiymat faqat ZAXIRA
+        # (masalan test papkadan chiqarib qo'yilgan bo'lsa): sahifadagi
+        # tanlov shu testning haqiqiy darajasidan farq qilishi mumkin,
+        # shuning uchun papka USTUN turadi.
+        band = ""
+        if test.papka and test.papka.nomi.startswith("Band "):
+            band = test.papka.nomi[len("Band "):].strip()
+        if band not in BAND_GURUHLAR:
+            band = (request.data.get("band") or "").strip()
+        if band not in BAND_GURUHLAR:
+            return Response(
+                {"detail": (
+                    "Testning band darajasi aniqlanmadi. Testni \"Band 5-6\" "
+                    "kabi papkaga joylang yoki band'ni so'rovda yuboring."
+                )},
+                status=400,
+            )
+
+        mavjud = test.qismlar.count()
+        try:
+            data, audio_royxati, xato = listening_yarat(
+                band, oldingi_mavzular=None, boshlanuvchi_part=mavjud + 1,
+            )
+        except ValueError as e:  # band noto'g'ri
+            return Response({"detail": str(e)}, status=400)
+
+        if not (data and data.get("qismlar")):
+            return Response({"detail": xato or "Yangi part chiqmadi"}, status=502)
+
+        # Yangi part'lar MAVJUD testga qo'shiladi — `tartib` davom etadi.
+        qoshilgan = 0
+        for qism_data, audio_bytes in zip(data["qismlar"], audio_royxati or []):
+            qism = TestQismi.objects.create(
+                test=test,
+                tartib=qism_data["tartib"],
+                sarlavha=qism_data.get("sarlavha") or "",
+                yoriqnoma=qism_data.get("yoriqnoma") or "",
+                matn=qism_data.get("matn") or "",
+                savollar=qism_data.get("savollar") or [],
+                maxsus_format=qism_data.get("maxsus_format") or None,
+            )
+            if audio_bytes:
+                qism.audio_fayl.save(
+                    f"{test.id}_{qism.tartib}_ai_audio.wav", ContentFile(audio_bytes), save=True
+                )
+            qoshilgan += 1
+
+        logla(
+            foydalanuvchi=request.user,
+            harakat=FaoliyatYozuvi.Harakat.OZGARTIRISH,
+            obyekt=test,
+            obyekt_turi="ImtihonTest",
+            obyekt_nomi=test.name,
+            snapshot={"davom_ettirildi": qoshilgan, "jami_qism": test.qismlar.count()},
+        )
+        javob = _test_admin_dict(test)
+        javob["qoshilgan_partlar"] = qoshilgan
+        if xato:
+            javob["chala_xato"] = xato
+        return Response(javob)
 
 
 class TestPapkaBoshqaruvView(APIView):
