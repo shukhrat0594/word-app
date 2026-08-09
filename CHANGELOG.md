@@ -19,6 +19,31 @@ Format (qat'iy, parser shunga tayanadi):
 
 ---
 
+## 2026-08-09 — Rollar va panel ruxsatlari
+
+- **Foydalanuvchining roli endi faqat u YARATILAYOTGANDA tanlanadi va
+  keyin o'zgarmaydi.** Bitta odamga ikki xil rol kerak bo'lsa — unga
+  alohida profil ochib beriladi. Sabab: rol o'zgarganda unga bog'liq
+  narsalar (masalan ota-ona bilan bog'lanish, ko'rinadigan panellar
+  ro'yxati) mos kelmay qolardi. Qoida Django admin panelida ham amal
+  qiladi.
+- **"Panel ruxsati" ro'yxati endi foydalanuvchi roliga qarab chiqadi.**
+  Avval hamma uchun bir xil 13 panel ko'rsatilardi — jumladan o'sha rol
+  hech qachon ko'rmaydigan panellar ham. Masalan ota-onaga "Kurslar"ni
+  belgilash mumkin edi, lekin ta'siri yo'q edi. Endi ro'yxatda faqat
+  haqiqatan ishlaydigan panellar turadi, tugmada esa nechtadan
+  belgilangani ko'rinadi ("5/6"). "Bosh sahifa" va "Profil" har doim
+  ochiq — ular ro'yxatda yo'q.
+- **Admin ham nomaqbul profil rasmini o'chira oladi** — "Talabalar" va
+  "Xodimlar" bo'limlarida rasm ustiga bosib. Avval bu faqat owner
+  ko'radigan "Foydalanuvchilar" sahifasida bor edi. Sabab yozish
+  shartligi va rasm egasiga ogohlantirish borishi o'zgarmadi.
+  O'qituvchiga bu imkoniyat berilmagan.
+- **"Ko'rish rejimi"ga Ota-ona qo'shildi** — owner endi ota-ona nima
+  ko'rishini ham sinab ko'ra oladi.
+- "Foydalanuvchilar" sahifasi tezroq ochiladi — avval har bir
+  foydalanuvchi uchun bazaga alohida murojaat ketardi.
+
 ## 2026-08-09 — Profil rasmi va bildirishnomalar
 
 - **Chap menyu tepasida endi markaz nomi emas, sizning rasmingiz va
