@@ -15,11 +15,13 @@ def _leaderboard(talabalar_qs, joriy_user, top=10):
         talabalar_qs.filter(role="student")
         .annotate(xp=Sum("xp_yozuvlar__miqdor"))
         .order_by("-xp", "id")
-        .values("id", "username", "first_name", "last_name", "xp")
+        .values("id", "username", "first_name", "last_name", "xp", "rasm")
     )
     for i, r in enumerate(reyting, start=1):
         r["orin"] = i
         r["xp"] = r["xp"] or 0
+        rasm = r.pop("rasm")
+        r["rasm_url"] = f"/api/foydalanuvchilar/{r['id']}/rasm/" if rasm else None
     mening = next((r for r in reyting if r["id"] == joriy_user.id), None)
     return {"top": reyting[:top], "mening_ornim": mening}
 

@@ -17,7 +17,11 @@ from .models import Davomat, Guruh, GuruhAzoligi
 
 
 def _foydalanuvchi_dict(u):
-    return {"id": u.id, "ism": u.get_full_name() or u.username}
+    return {
+        "id": u.id,
+        "ism": u.get_full_name() or u.username,
+        "rasm_url": f"/api/foydalanuvchilar/{u.id}/rasm/" if u.rasm else None,
+    }
 
 
 def _guruh_dict(g, toliq=False):

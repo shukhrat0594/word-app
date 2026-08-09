@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
+import Avatar from "../components/Avatar";
 import { useI18n } from "../i18n";
 import { useProfil } from "../profilContext";
 
@@ -55,6 +56,7 @@ function Reyting({ ma, joriyId, t }) {
           }
         >
           <span className="lb-orin">{r.orin}</span>
+          <Avatar rasmUrl={r.rasm_url} olcham={28} sarlavha={r.first_name || r.username} />
           <span className="lb-ism">
             {r.first_name || r.username}
             {r.id === joriyId && (

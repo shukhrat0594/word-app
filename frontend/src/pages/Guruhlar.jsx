@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "../api";
 import { useI18n } from "../i18n";
 import { useProfil } from "../profilContext";
+import { ProfilRasmi } from "./Foydalanuvchilar";
 
 const BOSH_FORMA = { id: null, name: "", faol: true, oqituvchi_id: "", talaba_idlar: [], fan_id: "", daraja_id: "" };
 
@@ -242,6 +243,7 @@ export default function Guruhlar() {
                         checked={forma.talaba_idlar.includes(tl.id)}
                         onChange={() => talabaBelgila(tl.id)}
                       />
+                      <ProfilRasmi user={tl} t={t} />
                       {tl.ism}
                     </label>
                     {forma.id && darajaUnitlari.length > 0 && forma.talaba_idlar.includes(tl.id) && (
@@ -304,7 +306,10 @@ export default function Guruhlar() {
           <div style={{ display: "grid", gap: 4 }}>
             {tanlangan.talabalar.length === 0 && <span className="izoh">{t("talaba_yoq")}</span>}
             {tanlangan.talabalar.map((tl) => (
-              <div key={tl.id}>{tl.ism}</div>
+              <div key={tl.id} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <ProfilRasmi user={tl} t={t} />
+                {tl.ism}
+              </div>
             ))}
           </div>
           <button className="tugma ikkinchi" onClick={yopish} style={{ marginTop: 14 }}>

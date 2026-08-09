@@ -29,6 +29,7 @@ from .kontent_generatsiya import (
 from .models import (
     KursMashq,
     KursMashqAudio,
+    KursMashqRasmGuruhi,
     KursMashqYechim,
     KursProgress,
     KursSoz,
@@ -392,7 +393,9 @@ def _kurs_mashq_admin_dict(m):
         "id": m.id,
         "tartib": m.tartib,
         "matn": m.matn,
-        "rasm_url": f"/api/kurslar/mashq/{m.id}/rasm/" if m.rasm else None,
+        "rasm_url": f"/api/kurslar/mashq/{m.id}/rasm/" if m.effektiv_rasm else None,
+        "rasm_guruhi_id": m.rasm_guruhi_id,
+        "fon_rejimi": m.fon_rejimi,
         "audio_url": f"/api/kurslar/mashq/{m.id}/audio/" if m.audio else None,
         "audiolar": _kurs_mashq_audiolar_royxati(m),
         "savollar": m.savollar,
@@ -417,7 +420,9 @@ def _kurs_mashq_talaba_dict(m):
         "id": m.id,
         "tartib": m.tartib,
         "matn": m.matn,
-        "rasm_url": f"/api/kurslar/mashq/{m.id}/rasm/" if m.rasm else None,
+        "rasm_url": f"/api/kurslar/mashq/{m.id}/rasm/" if m.effektiv_rasm else None,
+        "rasm_guruhi_id": m.rasm_guruhi_id,
+        "fon_rejimi": m.fon_rejimi,
         "audio_url": f"/api/kurslar/mashq/{m.id}/audio/" if m.audio else None,
         "audiolar": _kurs_mashq_audiolar_royxati(m),
         "savollar": [{k: v for k, v in s.items() if k != "togri"} for s in m.savollar],
@@ -1074,6 +1079,13 @@ class KursMashqDetailBoshqaruvView(APIView):
         if not _mashq_admin_mi(request.user):
             return Response({"detail": "Faqat admin/owner uchun"}, status=403)
         mashq = get_object_or_404(KursMashq, pk=pk)
+        if "fon_rejimi" in request.data:
+            # 2026-08-09: admin qo'lda tanlaydi — True bo'lsa rasm FON
+            # (savollar rasm ustiga pozitsiyalangan), False — oddiy
+            # (rasm tepada, savollar ro'yxatda). Boshqa maydonlarga tegmaydi.
+            mashq.fon_rejimi = bool(request.data["fon_rejimi"])
+            mashq.save(update_fields=["fon_rejimi"])
+            return Response(_kurs_mashq_admin_dict(mashq))
         if "savollar" in request.data:
             return self._savollarni_almashtir(mashq, request.data["savollar"])
         yangilash = request.data.get("javoblar")
@@ -1130,7 +1142,7 @@ class KursMashqJavobExcelView(APIView):
 
 
 class KursMashqRasmBoshqaruvView(APIView):
-    """Admin/owner uchun — mashqqa rasm biriktirish."""
+    """Admin/owner uchun — mashqqa rasm biriktirish/o'chirish."""
 
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
@@ -1142,9 +1154,73 @@ class KursMashqRasmBoshqaruvView(APIView):
         rasm = request.FILES.get("rasm")
         if not rasm:
             return Response({"detail": "rasm majburiy"}, status=400)
+        # Yangi, MUSTAQIL rasm yuklanmoqda — agar mashq ilgari boshqa
+        # mashq(lar) bilan rasm ulashgan bo'lsa (`rasm_guruhi`), shu
+        # ulanish uziladi (guruhning o'zi, ya'ni undagi BOSHQA mashqlar
+        # tegilmaydi — faqat shu mashq endi o'z alohida rasmiga ega).
+        mashq.rasm_guruhi = None
         mashq.rasm = rasm
-        mashq.save()
+        mashq.save(update_fields=["rasm", "rasm_guruhi"])
         return Response(_kurs_mashq_admin_dict(mashq))
+
+    def delete(self, request, pk):
+        if not _mashq_admin_mi(request.user):
+            return Response({"detail": "Faqat admin/owner uchun"}, status=403)
+        mashq = get_object_or_404(KursMashq, pk=pk)
+        if mashq.rasm_guruhi_id:
+            # Ulashilgan rasm — faylning o'zi O'CHIRILMAYDI (guruhdagi
+            # boshqa mashq(lar) hali undan foydalanishi mumkin), shu
+            # mashq FAQAT guruhdan uziladi.
+            mashq.rasm_guruhi = None
+            mashq.save(update_fields=["rasm_guruhi"])
+        elif mashq.rasm:
+            mashq.rasm.delete(save=False)
+            mashq.save(update_fields=["rasm"])
+        return Response(_kurs_mashq_admin_dict(mashq))
+
+
+class KursMashqRasmUlashView(APIView):
+    """2026-08-09 talabi: "bitta rasm turadi, uning yonida ikkita mashq" —
+    ikki (yoki ko'proq) mashq BITTA rasmni ulashadi. Amalda: shu mashqning
+    (yoki agar u allaqachon ulashgan bo'lsa — o'sha guruhning) rasmi
+    ikkinchi mashqqa ham biriktiriladi, ikkalasi BIR XIL
+    `KursMashqRasmGuruhi`ga bog'lanadi — birini o'zgartirsang/o'chirsang
+    ikkalasida bir vaqtda o'zgaradi."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        if not _mashq_admin_mi(request.user):
+            return Response({"detail": "Faqat admin/owner uchun"}, status=403)
+        mashq = get_object_or_404(KursMashq, pk=pk)
+        boshqa_id = request.data.get("boshqa_mashq_id")
+        boshqa = get_object_or_404(KursMashq, pk=boshqa_id, tugun=mashq.tugun)
+        if boshqa.id == mashq.id:
+            return Response({"detail": "O'zi bilan ulash bo'lmaydi"}, status=400)
+
+        guruhi = mashq.rasm_guruhi or boshqa.rasm_guruhi
+        if guruhi is None:
+            manba = mashq.rasm if mashq.rasm else boshqa.rasm
+            if not manba:
+                return Response(
+                    {"detail": "Avval ikkitadan biriga rasm yuklang"}, status=400
+                )
+            guruhi = KursMashqRasmGuruhi.objects.create(tugun=mashq.tugun)
+            with manba.open("rb") as f:
+                guruhi.rasm.save(manba.name.rsplit("/", 1)[-1], ContentFile(f.read()), save=True)
+
+        for m in (mashq, boshqa):
+            if m.rasm_guruhi_id == guruhi.id:
+                continue
+            if m.rasm:
+                m.rasm.delete(save=False)
+            m.rasm_guruhi = guruhi
+            m.save(update_fields=["rasm", "rasm_guruhi"])
+
+        return Response({
+            "mashq": _kurs_mashq_admin_dict(mashq),
+            "boshqa_mashq": _kurs_mashq_admin_dict(boshqa),
+        })
 
 
 class KursMashqAudioBoshqaruvView(APIView):
@@ -1308,9 +1384,10 @@ class KursMashqRasmView(APIView):
         mashq = get_object_or_404(KursMashq, pk=pk)
         if _talaba_tugun_qulflanganmi(request.user, mashq.tugun):
             return Response({"detail": "Bu qism hali qulflangan"}, status=403)
-        if not mashq.rasm:
+        rasm = mashq.effektiv_rasm
+        if not rasm:
             raise Http404
-        javob = FileResponse(mashq.rasm.open("rb"))
+        javob = FileResponse(rasm.open("rb"))
         javob["Content-Disposition"] = "inline"
         return javob
 

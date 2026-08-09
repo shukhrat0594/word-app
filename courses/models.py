@@ -90,6 +90,23 @@ class KursProgress(models.Model):
         ]
 
 
+class KursMashqRasmGuruhi(models.Model):
+    """Bir nechta `KursMashq` BITTA rasmni ulashishi uchun (2026-08-09,
+    foydalanuvchi talabi: "bitta rasm turadi, uning yonida ikkita mashq").
+
+    Alohida model — shu tufayli rasmni BIR MARTA saqlaymiz va o'zgartirsak
+    (yoki o'chirsak) unga bog'langan BARCHA mashqlarda bir vaqtda
+    o'zgaradi. `KursMashq.rasm_guruhi` to'ldirilgan bo'lsa, o'z alohida
+    `KursMashq.rasm` maydoni o'rniga shu yerdagi rasm ishlatiladi."""
+
+    tugun = models.ForeignKey(KursTugun, on_delete=models.CASCADE, related_name="rasm_guruhlari")
+    rasm = models.ImageField(upload_to="kurslar/mashq_rasm_guruhi/")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.tugun.nomi} — rasm guruhi #{self.id}"
+
+
 class KursMashq(models.Model):
     """Oxirgi qatlam tuguniga tegishli interaktiv, tekshiriladigan mashq
     (masalan darslikdan chiqarilgan savol-javob). `exercises.Mashq`dan
@@ -105,6 +122,22 @@ class KursMashq(models.Model):
     rasm = models.ImageField(
         upload_to="kurslar/mashq_rasm/", blank=True,
         help_text="Masalan darslikdagi rasmli savol (nechta narsa bor va h.k.)",
+    )
+    rasm_guruhi = models.ForeignKey(
+        KursMashqRasmGuruhi, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="mashqlar",
+        help_text=(
+            "To'ldirilgan bo'lsa, rasm shu YERDAN olinadi (o'z `rasm` maydoni "
+            "e'tiborga olinmaydi) — bir nechta mashq bitta rasmni ulashishi uchun."
+        ),
+    )
+    fon_rejimi = models.BooleanField(
+        default=False,
+        help_text=(
+            "2026-08-09: admin qo'lda belgilaydi. True — rasm FON bo'lib "
+            "qoladi, savollar (pozitsiya bilan) rasm ustiga chiqadi. "
+            "False (standart) — rasm tepada, savollar oddiy ro'yxatda."
+        ),
     )
     audio = models.FileField(
         upload_to="kurslar/mashq_audio/", blank=True,
@@ -145,6 +178,14 @@ class KursMashq(models.Model):
 
     def __str__(self):
         return f"{self.tugun.nomi} — mashq #{self.tartib}"
+
+    @property
+    def effektiv_rasm(self):
+        """Ko'rsatiladigan rasm — `rasm_guruhi` to'ldirilgan bo'lsa
+        o'shandan, aks holda o'z `rasm` maydonidan."""
+        if self.rasm_guruhi_id:
+            return self.rasm_guruhi.rasm
+        return self.rasm
 
 
 class KursMashqAudio(models.Model):
@@ -234,25 +275,16 @@ class KursZipJarayoni(models.Model):
 
     class ManbaTuri(models.TextChoices):
         ZIP = "zip", "ZIP (rasmlar)"
-        PDF = "pdf", "PDF (kitob)"
 
     class Rejim(models.TextChoices):
-        """2026-08-07: ikkita mustaqil yo'l yonma-yon yashaydi.
-
-        BLOK — sahifa HTML sifatida QAYTA QURILADI (matn o'tkir, mobilda
-        o'qiladi, tarjima qilinadi), lekin qayta-qurishda AI xatolari
-        ko'p: surat noto'g'ri kesiladi, element noto'g'ri mashqqa tushadi.
-        Admin oxirida TASDIQLASH oynasida tuzatadi.
-
-        RASM_FON — sahifa RASM holida fon bo'lib qoladi, javob
-        joylariga input'lar ustidan qo'yiladi. Hech narsa qayta
-        qurilmagani uchun kesish/guruhlash xatolari yo'q, joylashuv asl
-        kitobdagidek. Evaziga: matn tanlanmaydi/tarjima qilinmaydi,
-        mobilda mayda. Tasdiqlash bosqichi YO'Q — darhol saqlanadi,
-        keyin tahrirlanadi (foydalanuvchi qarori)."""
+        """2026-08-09: "rasm-fon" (PDF, sahifa fon) rejimi butunlay olib
+        tashlandi — AI hudud-aniqlash xatolari (koordinata tizimli
+        surilishi) tuzatilishidan oldin foydalanuvchi qarori bilan bekor
+        qilindi. Faqat BLOK qoladi — sahifa HTML sifatida QAYTA QURILADI
+        (matn o'tkir, mobilda o'qiladi, tarjima qilinadi), admin oxirida
+        TASDIQLASH oynasida tuzatadi."""
 
         BLOK = "blok", "Blok formati (sahifa qayta quriladi)"
-        RASM_FON = "rasm_fon", "Rasm-fon (sahifa rasm, javoblar ustida)"
 
     tugun = models.ForeignKey(
         KursTugun, on_delete=models.CASCADE, related_name="zip_jarayonlari",
