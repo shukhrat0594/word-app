@@ -413,7 +413,17 @@ class FoydalanuvchilarView(APIView):
     def get(self, request):
         if not owner_mi(request.user):
             return Response({"detail": "Faqat owner uchun"}, status=403)
-        qs = User.objects.all().order_by("-date_joined")
+        # `select_related`/`prefetch_related` SHART (2026-08-09): pastda har
+        # qator uchun `u.markaz.name` va `u.farzandlar.all()` o'qiladi, ya'ni
+        # ularsiz HAR FOYDALANUVCHI uchun alohida so'rov ketardi (o'lchandi:
+        # 4 foydalanuvchida 4 so'rov, shundan 3 tasi faqat `markaz` uchun —
+        # 200 odamda 200 dan oshardi). Bular bilan jami 2 ta so'rov.
+        qs = (
+            User.objects
+            .select_related("markaz")
+            .prefetch_related("farzandlar")
+            .order_by("-date_joined")
+        )
         q = (request.query_params.get("q") or "").strip()
         if q:
             qs = qs.filter(username__icontains=q)
