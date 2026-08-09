@@ -1122,7 +1122,14 @@ class XodimlarView(APIView):
         )
         return Response(
             [
-                {"id": u.id, "ism": u.get_full_name() or u.username, "username": u.username}
+                {
+                    "id": u.id, "ism": u.get_full_name() or u.username, "username": u.username,
+                    # 2026-08-09: profil rasmini o'chirish uchun (yuqoridagi
+                    # `TalabalarView` izohiga qarang). Bu sahifaga faqat
+                    # owner/admin kiradi, ya'ni qo'shimcha rol tekshiruvi
+                    # frontendda shart emas.
+                    "rasm_url": f"/api/foydalanuvchilar/{u.id}/rasm/" if u.rasm else None,
+                }
                 for u in oqituvchilar
             ]
         )
@@ -1288,6 +1295,11 @@ class TalabalarView(APIView):
                 {
                     "id": t.id, "ism": t.get_full_name() or t.username, "username": t.username,
                     "korinadigan_panellar": t.korinadigan_panellar,
+                    # 2026-08-09: owner/admin nomaqbul profil rasmini shu
+                    # sahifadan o'chira olishi uchun (`FoydalanuvchiRasmView`).
+                    # Adminda "Foydalanuvchilar" sahifasi YO'Q, shuning uchun
+                    # unga yagona yo'l shu.
+                    "rasm_url": f"/api/foydalanuvchilar/{t.id}/rasm/" if t.rasm else None,
                 }
                 for t in qs.order_by("first_name", "username")
             ]

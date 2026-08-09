@@ -3,7 +3,7 @@ import { api, apiForm } from "../api";
 import { useI18n } from "../i18n";
 import { useProfil } from "../profilContext";
 import NatijalarRoyxati from "../components/NatijalarRoyxati";
-import { PanelTanlovi } from "./Foydalanuvchilar";
+import { PanelTanlovi, ProfilRasmi } from "./Foydalanuvchilar";
 
 const BOSH_FORMA = { ism: "", login: "", parol: "" };
 
@@ -52,6 +52,20 @@ export default function Talabalar() {
       yukla();
     } catch {
       setXato(t("xato_yuz_berdi"));
+    }
+  }
+
+  /** Nomaqbul profil rasmini o'chirish — sabab MAJBURIY va u talabaga
+   * "Ogohlantirish" xabari bo'lib boradi (`ProfilRasmi` izohiga qarang). */
+  async function rasmOchir(id, izoh) {
+    setXato("");
+    setXabar("");
+    try {
+      await api(`/api/foydalanuvchilar/${id}/rasm/`, { method: "DELETE", body: { izoh } });
+      setXabar(t("rasm_ochirildi"));
+      yukla();
+    } catch (e) {
+      setXato(e.data?.detail || t("xato_yuz_berdi"));
     }
   }
 
@@ -177,13 +191,19 @@ export default function Talabalar() {
         {talabalar.length === 0 && <span className="izoh">{t("talaba_yoq")}</span>}
         {talabalar.map((tl) => (
           <div className="tarix-el" key={tl.id}>
-            <span
-              style={{ display: "flex", gap: 8, cursor: "pointer" }}
-              onClick={() => setNatijaTalaba(tl)}
-              title={t("talaba_natijalarini_kor")}
-            >
-              <span>{tl.ism}</span>
-              <span className="izoh">{tl.username}</span>
+            <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              {/* Rasm ALOHIDA turadi — ismga bosilganda natijalar oynasi
+                  ochiladi, rasmga bosilganda esa o'chirish oynasi; ikkisi
+                  bir joyda bo'lsa bosish bir-biriga tushib ketardi. */}
+              <ProfilRasmi user={tl} ochir={boshqaruvMi ? rasmOchir : undefined} t={t} />
+              <span
+                style={{ display: "flex", gap: 8, cursor: "pointer", alignItems: "center" }}
+                onClick={() => setNatijaTalaba(tl)}
+                title={t("talaba_natijalarini_kor")}
+              >
+                <span>{tl.ism}</span>
+                <span className="izoh">{tl.username}</span>
+              </span>
             </span>
             {boshqaruvMi && (
               <span style={{ display: "flex", gap: 8, alignItems: "center" }}>

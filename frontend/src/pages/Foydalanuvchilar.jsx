@@ -63,7 +63,8 @@ function FarzandTanlovi({ user, talabalar, saqlash, t }) {
 }
 
 /** Profil rasmi — kichik avatar, ustiga bosilganda O'CHIRISH oynasi
- * (2026-08-09).
+ * (2026-08-09). `Talabalar` va `Xodimlar` sahifalarida ham ishlatiladi
+ * (`PanelTanlovi` kabi shu fayldan eksport qilinadi).
  *
  * Avval bu yerda YUKLASH tugmasi bor edi (owner/admin boshqa odamga rasm
  * qo'yardi) — foydalanuvchi qarori bilan olib tashlandi: rasmni faqat
@@ -71,14 +72,18 @@ function FarzandTanlovi({ user, talabalar, saqlash, t }) {
  * owner/admin uni olib tashlashi kerak. Shu sababli sabab MAJBURIY —
  * u egasiga "Ogohlantirish" bildirishnomasi bo'lib boradi (backend:
  * `FoydalanuvchiRasmView.delete`), aks holda rasm jimgina yo'qolib,
- * odam nima uchun ekanini bilmasdi. */
-function ProfilRasmi({ user, ochir, t }) {
+ * odam nima uchun ekanini bilmasdi.
+ *
+ * `ochir` BERILMASA rasm faqat ko'rsatiladi — "Talabalar" sahifasini
+ * o'qituvchi ham ko'radi, unda esa o'chirish huquqi YO'Q (backend 403
+ * qaytaradi), ya'ni tugma ko'rsatilsa ishlamaydigan tugma bo'lardi. */
+export function ProfilRasmi({ user, ochir, t }) {
   const [ochiq, setOchiq] = useState(false);
   const [izoh, setIzoh] = useState("");
   const [band, setBand] = useState(false);
 
-  if (!user.rasm_url) {
-    return <Avatar rasmUrl={null} olcham={34} sarlavha={user.ism} />;
+  if (!user.rasm_url || !ochir) {
+    return <Avatar rasmUrl={user.rasm_url} olcham={34} sarlavha={user.ism} />;
   }
 
   async function tasdiqla() {

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, apiForm } from "../api";
 import { useI18n } from "../i18n";
+import { ProfilRasmi } from "./Foydalanuvchilar";
 
 const BOSH_FORMA = { ism: "", username: "", parol: "" };
 
@@ -32,6 +33,22 @@ export default function Xodimlar() {
       yukla();
     } catch {
       setXato(t("xato_yuz_berdi"));
+    }
+  }
+
+  /** Nomaqbul profil rasmini o'chirish — sabab MAJBURIY va u xodimga
+   * "Ogohlantirish" xabari bo'lib boradi (`ProfilRasmi` izohiga qarang).
+   * Bu sahifaga faqat owner/admin kiradi, shuning uchun qo'shimcha rol
+   * tekshiruvi shart emas. */
+  async function rasmOchir(id, izoh) {
+    setXato("");
+    setXabar("");
+    try {
+      await api(`/api/foydalanuvchilar/${id}/rasm/`, { method: "DELETE", body: { izoh } });
+      setXabar(t("rasm_ochirildi"));
+      yukla();
+    } catch (e) {
+      setXato(e.data?.detail || t("xato_yuz_berdi"));
     }
   }
 
@@ -150,7 +167,8 @@ export default function Xodimlar() {
         {oqituvchilar.length === 0 && <span className="izoh">{t("oqituvchi_yoq")}</span>}
         {oqituvchilar.map((o) => (
           <div className="tarix-el" key={o.id}>
-            <span style={{ display: "flex", gap: 8 }}>
+            <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <ProfilRasmi user={o} ochir={rasmOchir} t={t} />
               <span>{o.ism}</span>
               <span className="izoh">{o.username}</span>
             </span>
