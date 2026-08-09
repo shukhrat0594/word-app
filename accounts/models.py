@@ -153,17 +153,27 @@ class Bildirishnoma(models.Model):
     "har gal nimadir yangi narsa push qilinganda ownerga xabar
     keladigan qila olamizmi? nimalar qo'shilganini?").
 
-    Hozircha yagona manba — `CHANGELOG.md` (qarang `accounts.relizlar`).
+    Manbalari:
+      * RELIZ — `CHANGELOG.md` (qarang `accounts.relizlar`), FAQAT owner'ga.
+      * OGOHLANTIRISH — owner/admin foydalanuvchining profil rasmini
+        o'chirganda, sababi bilan (2026-08-09). Rasm shaxsiy narsa, uni
+        boshqa odam olib tashlaganda egasi buni BILISHI va NEGA ekanini
+        ko'rishi kerak — aks holda rasm jimgina yo'qolgandek tuyuladi.
+
     Telegram orqali dublikat yuborish REJADA; u qo'shilganda shu model
     o'zgarmaydi, faqat yuborish bosqichi qo'shiladi.
 
     `kalit` — takrorlanishni to'sish uchun barqaror identifikator
     (masalan "reliz:2026-08-08:Sarlavha"). Bir foydalanuvchiga bir xil
     kalitli bildirishnoma IKKI MARTA yaratilmaydi, shuning uchun manbani
-    (CHANGELOG'ni) xohlagancha qayta o'qish xavfsiz."""
+    (CHANGELOG'ni) xohlagancha qayta o'qish xavfsiz. Ogohlantirishda
+    kalitga aniq vaqt qo'shiladi — u TAKRORLANADIGAN voqea (rasm bir
+    necha marta o'chirilishi mumkin), har biri alohida xabar bo'lishi
+    kerak."""
 
     class Turi(models.TextChoices):
         RELIZ = "reliz", "Yangilanish"
+        OGOHLANTIRISH = "ogohlantirish", "Ogohlantirish"
 
     foydalanuvchi = models.ForeignKey(
         User, on_delete=models.CASCADE, related_name="bildirishnomalar"

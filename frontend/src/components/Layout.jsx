@@ -105,8 +105,9 @@ function navlarniOl(role) {
   return TALABA_NAVLAR;
 }
 
-/** Owner uchun ilova ichidagi bildirishnomalar (2026-08-08) — hozircha
- * yagona manba `CHANGELOG.md` relizlari (backend: `accounts/relizlar.py`).
+/** Ilova ichidagi bildirishnomalar (2026-08-08). Manbalari: owner'ga
+ * `CHANGELOG.md` relizlari (backend: `accounts/relizlar.py`), har kimga
+ * — profil rasmi o'chirilgani haqidagi ogohlantirish (2026-08-09).
  *
  * Faqat sarlavhadagi qo'ng'iroq va ochiladigan ro'yxat; so'rov FAQAT
  * ochilganda va sahifa birinchi yuklanganda yuboriladi (davomiy so'rov
@@ -412,7 +413,10 @@ export default function Layout() {
                 </button>
               ))}
             </div>
-            {profil?.is_owner && <Bildirishnomalar t={t} />}
+            {/* 2026-08-09: avval faqat owner'ga ko'rinardi (yagona manba
+                reliz xabari edi). Endi har kimga — "Ogohlantirish" turi
+                qo'shildi (profil rasmi o'chirilganda egasiga boradi). */}
+            {profil && <Bildirishnomalar t={t} />}
             <button className="tema-tugma" onClick={temaAlmash} aria-label="Tema">
               ◐
             </button>

@@ -296,6 +296,12 @@ const LUGAT = {
     profil_rasmi: "Profil rasmi",
     rasm_yuklash: "Rasm yuklash",
     rasmni_ochirish: "Rasmni o'chirish",
+    rasm_ochirish_sababi: "O'chirish sababi",
+    rasm_ochirish_sababi_izoh:
+      "Sabab foydalanuvchiga \"Ogohlantirish\" bildirishnomasi bo'lib boradi — "
+      + "shuning uchun tushunarli yozing.",
+    rasm_ochirish_sababi_shart: "Sababni yozing",
+    rasm_ochirildi: "Rasm o'chirildi va foydalanuvchiga xabar yuborildi",
     boshlangan: "Boshlangan",
     tugatilgan: "Tugatilgan",
     davomat: "Davomat",
@@ -870,6 +876,12 @@ const LUGAT = {
     profil_rasmi: "Фото профиля",
     rasm_yuklash: "Загрузить фото",
     rasmni_ochirish: "Удалить фото",
+    rasm_ochirish_sababi: "Причина удаления",
+    rasm_ochirish_sababi_izoh:
+      "Причина придёт пользователю как уведомление «Предупреждение» — "
+      + "напишите понятно.",
+    rasm_ochirish_sababi_shart: "Укажите причину",
+    rasm_ochirildi: "Фото удалено, пользователю отправлено уведомление",
     boshlangan: "Начато",
     tugatilgan: "Завершено",
     davomat: "Посещаемость",
@@ -1444,6 +1456,12 @@ const LUGAT = {
     profil_rasmi: "Profile photo",
     rasm_yuklash: "Upload photo",
     rasmni_ochirish: "Remove photo",
+    rasm_ochirish_sababi: "Reason for removal",
+    rasm_ochirish_sababi_izoh:
+      "The reason is sent to the user as a \"Warning\" notification — "
+      + "please be clear.",
+    rasm_ochirish_sababi_shart: "Please give a reason",
+    rasm_ochirildi: "Photo removed and the user has been notified",
     boshlangan: "Started",
     tugatilgan: "Completed",
     davomat: "Attendance",

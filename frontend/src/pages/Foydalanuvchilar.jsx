@@ -62,14 +62,85 @@ function FarzandTanlovi({ user, talabalar, saqlash, t }) {
   );
 }
 
-/** Profil rasmi — kichik avatar, FAQAT KO'RSATISH uchun (2026-08-09).
+/** Profil rasmi — kichik avatar, ustiga bosilganda O'CHIRISH oynasi
+ * (2026-08-09).
  *
- * Avval bu yerda yuklash tugmasi ham bor edi (owner/admin boshqa
- * odamning rasmini qo'yardi). Foydalanuvchi qarori bilan olib tashlandi:
- * profil rasmini FAQAT egasi o'zgartiradi ("Profil" sahifasidan),
- * backend ham shunday cheklaydi (`FoydalanuvchiRasmView`). */
-function ProfilRasmi({ user }) {
-  return <Avatar rasmUrl={user.rasm_url} olcham={34} sarlavha={user.ism} />;
+ * Avval bu yerda YUKLASH tugmasi bor edi (owner/admin boshqa odamga rasm
+ * qo'yardi) — foydalanuvchi qarori bilan olib tashlandi: rasmni faqat
+ * egasi qo'yadi. Lekin MODERATSIYA qoldi: nomaqbul rasm qo'yilsa
+ * owner/admin uni olib tashlashi kerak. Shu sababli sabab MAJBURIY —
+ * u egasiga "Ogohlantirish" bildirishnomasi bo'lib boradi (backend:
+ * `FoydalanuvchiRasmView.delete`), aks holda rasm jimgina yo'qolib,
+ * odam nima uchun ekanini bilmasdi. */
+function ProfilRasmi({ user, ochir, t }) {
+  const [ochiq, setOchiq] = useState(false);
+  const [izoh, setIzoh] = useState("");
+  const [band, setBand] = useState(false);
+
+  if (!user.rasm_url) {
+    return <Avatar rasmUrl={null} olcham={34} sarlavha={user.ism} />;
+  }
+
+  async function tasdiqla() {
+    if (!izoh.trim()) return;
+    setBand(true);
+    try {
+      await ochir(user.id, izoh.trim());
+      setOchiq(false);
+      setIzoh("");
+    } finally {
+      setBand(false);
+    }
+  }
+
+  return (
+    <span style={{ position: "relative", flexShrink: 0 }}>
+      <button
+        type="button"
+        onClick={() => setOchiq((v) => !v)}
+        title={t("rasmni_ochirish")}
+        style={{ padding: 0, border: "none", background: "none", cursor: "pointer", display: "block" }}
+      >
+        <Avatar rasmUrl={user.rasm_url} olcham={34} sarlavha={user.ism} />
+      </button>
+      {ochiq && (
+        <div
+          style={{
+            position: "absolute", top: "100%", left: 0, marginTop: 6, width: 280,
+            background: "var(--sirt)", border: "1px solid var(--chiziq)",
+            borderRadius: 10, padding: 10, zIndex: 1200,
+            boxShadow: "0 6px 24px rgba(0,0,0,0.25)",
+          }}
+        >
+          <strong style={{ display: "block", marginBottom: 4 }}>{t("rasm_ochirish_sababi")}</strong>
+          <div className="izoh" style={{ marginBottom: 6 }}>{t("rasm_ochirish_sababi_izoh")}</div>
+          <textarea
+            rows={3}
+            value={izoh}
+            onChange={(e) => setIzoh(e.target.value)}
+            style={{ width: "100%", marginBottom: 6 }}
+          />
+          <div style={{ display: "flex", gap: 6 }}>
+            <button
+              className="tugma kichik"
+              onClick={tasdiqla}
+              disabled={band || !izoh.trim()}
+              title={izoh.trim() ? undefined : t("rasm_ochirish_sababi_shart")}
+            >
+              {t("rasmni_ochirish")}
+            </button>
+            <button
+              className="tugma ikkinchi kichik"
+              onClick={() => { setOchiq(false); setIzoh(""); }}
+              disabled={band}
+            >
+              {t("kurs_blok_bekor_qilish")}
+            </button>
+          </div>
+        </div>
+      )}
+    </span>
+  );
 }
 
 /** Rolga QO'SHIMCHA "ko'rinadigan panellar" checkbox ro'yxati
@@ -201,6 +272,19 @@ export default function Foydalanuvchilar() {
     }
   }
 
+  /** Boshqa foydalanuvchining profil rasmini o'chirish — sabab MAJBURIY,
+   * u egasiga ogohlantirish bo'lib boradi (`ProfilRasmi` izohiga qarang). */
+  async function rasmOchir(id, izoh) {
+    setXabar((x) => ({ ...x, [id]: "" }));
+    try {
+      await api(`/api/foydalanuvchilar/${id}/rasm/`, { method: "DELETE", body: { izoh } });
+      setXabar((x) => ({ ...x, [id]: t("rasm_ochirildi") }));
+      yukla();
+    } catch (e) {
+      setXabar((x) => ({ ...x, [id]: e.data?.detail || t("xato_yuz_berdi") }));
+    }
+  }
+
   async function yangiYarat(e) {
     e.preventDefault();
     setYangiXato("");
@@ -275,7 +359,7 @@ export default function Foydalanuvchilar() {
         {royxat.map((u) => (
           <div className="davomat-qator" key={u.id}>
             <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <ProfilRasmi user={u} />
+              <ProfilRasmi user={u} ochir={rasmOchir} t={t} />
               <span>
                 <strong>{u.ism}</strong>{" "}
                 <span className="izoh">

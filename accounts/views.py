@@ -2,7 +2,8 @@ from django.conf import settings
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.shortcuts import get_object_or_404
-from rest_framework.parsers import FormParser, MultiPartParser
+from django.utils import timezone
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
@@ -675,18 +676,25 @@ class FoydalanuvchiRasmView(APIView):
     endpoint orqali uzatiladi — mavjud `KursMashqRasmView` bilan bir xil
     naqsh.
 
-    O'ZGARTIRISH — FAQAT FOYDALANUVCHINING O'ZI (2026-08-09 qarori).
-    Avval owner/admin ham boshqa odamning rasmini qo'ya/o'chira olardi;
-    foydalanuvchi buni keraksiz deb topdi — profil rasmi shaxsiy narsa.
-    `Foydalanuvchilar` sahifasidagi yuklash tugmasi ham shu bilan birga
-    olib tashlandi (endi u yerda rasm faqat KO'RSATILADI).
-
-    KO'RISH (GET) esa ochiq (autentifikatsiyadan tashqari tekshiruv
-    yo'q) — avatar ro'yxatlarda hammaga ko'rinishi kerak va sayt bitta
-    markaz uchun ishlaydi, ya'ni yashiradigan chegara yo'q."""
+    RUXSATLAR (2026-08-09 qarori):
+      * QO'YISH (POST) — FAQAT foydalanuvchining O'ZI. Avval owner/admin
+        ham boshqa odamga rasm qo'ya olardi; foydalanuvchi buni keraksiz
+        deb topdi (profil rasmi shaxsiy narsa). `Foydalanuvchilar`
+        sahifasidagi yuklash tugmasi ham shu bilan olib tashlandi.
+      * O'CHIRISH (DELETE) — o'zi, VA owner/admin (moderatsiya uchun:
+        nomaqbul rasm qo'yilsa kimdir olib tashlashi kerak). Boshqa
+        odamning rasmi o'chirilganda SABAB (`izoh`) MAJBURIY va u
+        egasiga "Ogohlantirish" bildirishnomasi bo'lib boradi — aks
+        holda rasm jimgina yo'qolib, odam nima uchun ekanini bilmasdi.
+        Admin owner'ning rasmiga TEGA OLMAYDI (huquq zinapoyasi).
+      * KO'RISH (GET) — ochiq (autentifikatsiyadan tashqari tekshiruv
+        yo'q): avatar ro'yxatlarda hammaga ko'rinishi kerak va sayt
+        bitta markaz uchun ishlaydi, ya'ni yashiradigan chegara yo'q."""
 
     permission_classes = [IsAuthenticated]
-    parser_classes = [MultiPartParser, FormParser]
+    # JSONParser — DELETE tanasida `izoh` JSON ko'rinishida keladi;
+    # fayl parserlari yolg'iz qolsa u o'qilmasdi.
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     # 2 MB — avatar 200x200 atrofida ko'rsatiladi, bundan kattasi
     # keraksiz. Cheklov SHART: `user.rasm.save()` model validatorlarini
@@ -736,11 +744,50 @@ class FoydalanuvchiRasmView(APIView):
         return Response({"id": user.id, "rasm_url": f"/api/foydalanuvchilar/{user.id}/rasm/"})
 
     def delete(self, request, pk):
+        u = request.user
         user = get_object_or_404(User, pk=pk)
-        if request.user.pk != user.pk:
-            return Response({"detail": "Faqat o'z rasmingizni o'chirishingiz mumkin"}, status=403)
-        if user.rasm:
-            user.rasm.delete(save=True)
+        ozi = u.pk == user.pk
+        moderator = owner_mi(u) or u.role == User.Role.ADMIN
+        if not (ozi or moderator):
+            return Response({"detail": "Ruxsat yo'q"}, status=403)
+        # Admin owner'ning rasmini o'chira olmaydi — aks holda pastroq
+        # huquqli rol yuqorisiga ta'sir qilardi.
+        if not ozi and user.is_superuser and not owner_mi(u):
+            return Response({"detail": "Owner'ning rasmiga tega olmaysiz"}, status=403)
+
+        izoh = ""
+        if not ozi:
+            izoh = str(request.data.get("izoh") or "").strip()
+            if not izoh:
+                return Response(
+                    {"detail": "O'chirish sababini yozing — u foydalanuvchiga xabar bo'lib boradi"},
+                    status=400,
+                )
+            izoh = izoh[:1000]
+
+        if not user.rasm:
+            return Response({"detail": "Bu foydalanuvchida rasm yo'q"}, status=400)
+        user.rasm.delete(save=True)
+
+        if not ozi:
+            # Kalitga aniq vaqt qo'shiladi: rasm bir necha marta
+            # o'chirilishi mumkin va HAR BIRI alohida xabar bo'lishi kerak
+            # (`kalit` unique — barqaror kalit ikkinchi xabarni yutib
+            # yuborardi).
+            Bildirishnoma.objects.create(
+                foydalanuvchi=user,
+                turi=Bildirishnoma.Turi.OGOHLANTIRISH,
+                kalit=f"ogohlantirish:rasm:{timezone.now().isoformat()}"[:200],
+                sarlavha="Profil rasmingiz o'chirildi",
+                matn=izoh,
+            )
+            logla(
+                foydalanuvchi=u,
+                harakat=FaoliyatYozuvi.Harakat.OZGARTIRISH,
+                obyekt=user,
+                obyekt_turi="Foydalanuvchi",
+                ozgarishlar={"rasm": {"eski": "bor edi", "yangi": "o'chirildi"}, "izoh": izoh},
+            )
         return Response(status=204)
 
 
@@ -1413,16 +1460,21 @@ class BildirishnomalarView(APIView):
     POST — o'qilgan deb belgilash. Tanasi: {"id": N} yoki
     {"hammasi": true}.
 
-    Hozircha FAQAT owner: yagona manba — reliz xabari, u boshqa rollarga
-    tegishli emas. Boshqa turdagi bildirishnoma qo'shilsa, shu tekshiruv
-    turga qarab yumshatiladi."""
+    2026-08-09: avval FAQAT owner kira olardi (yagona manba reliz xabari
+    edi). Endi HAR FOYDALANUVCHI o'zinikini ko'radi — "Ogohlantirish"
+    turi qo'shildi (profil rasmi o'chirilganda egasiga boradi), busiz
+    xabar manzilига yetmasdi. Har kim FAQAT o'zining yozuvlarini
+    ko'radi/belgilaydi (`request.user.bildirishnomalar`), ya'ni
+    `pk` bilan boshqasiga o'tish yo'li yo'q.
+
+    Reliz sinxronizatsiyasi esa faqat owner uchun ishlaydi — reliz
+    xabari boshqa rollarga tegishli emas."""
 
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        if not owner_mi(request.user):
-            return Response({"detail": "Faqat owner uchun"}, status=403)
-        relizlarni_sinxronla(request.user)
+        if owner_mi(request.user):
+            relizlarni_sinxronla(request.user)
         yozuvlar = request.user.bildirishnomalar.all()[:50]
         return Response({
             "oqilmagan": request.user.bildirishnomalar.filter(oqilgan=False).count(),
@@ -1440,8 +1492,6 @@ class BildirishnomalarView(APIView):
         })
 
     def post(self, request):
-        if not owner_mi(request.user):
-            return Response({"detail": "Faqat owner uchun"}, status=403)
         qatorlar = request.user.bildirishnomalar.filter(oqilgan=False)
         if not request.data.get("hammasi"):
             bildirishnoma_id = request.data.get("id")
