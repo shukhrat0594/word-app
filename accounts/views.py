@@ -675,10 +675,24 @@ class FoydalanuvchiRasmView(APIView):
     endpoint orqali uzatiladi — mavjud `KursMashqRasmView` bilan bir xil
     naqsh.
 
-    Yuklay oladi: foydalanuvchining O'ZI yoki owner/admin."""
+    O'ZGARTIRISH — FAQAT FOYDALANUVCHINING O'ZI (2026-08-09 qarori).
+    Avval owner/admin ham boshqa odamning rasmini qo'ya/o'chira olardi;
+    foydalanuvchi buni keraksiz deb topdi — profil rasmi shaxsiy narsa.
+    `Foydalanuvchilar` sahifasidagi yuklash tugmasi ham shu bilan birga
+    olib tashlandi (endi u yerda rasm faqat KO'RSATILADI).
+
+    KO'RISH (GET) esa ochiq (autentifikatsiyadan tashqari tekshiruv
+    yo'q) — avatar ro'yxatlarda hammaga ko'rinishi kerak va sayt bitta
+    markaz uchun ishlaydi, ya'ni yashiradigan chegara yo'q."""
 
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
+
+    # 2 MB — avatar 200x200 atrofida ko'rsatiladi, bundan kattasi
+    # keraksiz. Cheklov SHART: `user.rasm.save()` model validatorlarini
+    # (`full_clean`) chaqirmaydi, ya'ni bu tekshiruvsiz istalgan hajmdagi
+    # istalgan fayl to'g'ridan-to'g'ri R2'ga tushib ketardi.
+    MAKS_HAJM = 2 * 1024 * 1024
 
     def get(self, request, pk):
         from django.http import FileResponse, Http404
@@ -691,21 +705,40 @@ class FoydalanuvchiRasmView(APIView):
         return javob
 
     def post(self, request, pk):
-        u = request.user
         user = get_object_or_404(User, pk=pk)
-        if not (u.pk == user.pk or owner_mi(u) or u.role == User.Role.ADMIN):
-            return Response({"detail": "Ruxsat yo'q"}, status=403)
+        if request.user.pk != user.pk:
+            return Response({"detail": "Faqat o'z rasmingizni qo'yishingiz mumkin"}, status=403)
         rasm = request.FILES.get("rasm")
         if not rasm:
             return Response({"detail": "rasm majburiy"}, status=400)
+        if rasm.size > self.MAKS_HAJM:
+            return Response(
+                {"detail": f"Rasm hajmi {self.MAKS_HAJM // (1024 * 1024)} MB dan oshmasin"},
+                status=400,
+            )
+        # Kengaytmaga ishonib bo'lmaydi (".png" deb atalgan istalgan fayl
+        # yuborilishi mumkin) — mazmuni haqiqatda rasmmi, shuni tekshiramiz,
+        # aks holda ochilmaydigan fayl saqlanib, avatar buzilib qolardi.
+        from PIL import Image, UnidentifiedImageError
+
+        try:
+            Image.open(rasm).verify()
+        except (UnidentifiedImageError, OSError, ValueError):
+            return Response({"detail": "Fayl rasm emas yoki buzuq"}, status=400)
+        rasm.seek(0)  # `verify` faylni oxirigacha o'qidi
+
+        # Eskisini O'CHIRAMIZ. Aks holda `save()` yangi nom bilan yozadi
+        # (Django takrorlanuvchi nomga suffiks qo'shadi) va eski fayl R2'da
+        # yetim qolardi — har almashtirishda yana bitta axlat fayl.
+        if user.rasm:
+            user.rasm.delete(save=False)
         user.rasm.save(f"{user.id}_{rasm.name}", rasm, save=True)
         return Response({"id": user.id, "rasm_url": f"/api/foydalanuvchilar/{user.id}/rasm/"})
 
     def delete(self, request, pk):
-        u = request.user
         user = get_object_or_404(User, pk=pk)
-        if not (u.pk == user.pk or owner_mi(u) or u.role == User.Role.ADMIN):
-            return Response({"detail": "Ruxsat yo'q"}, status=403)
+        if request.user.pk != user.pk:
+            return Response({"detail": "Faqat o'z rasmingizni o'chirishingiz mumkin"}, status=403)
         if user.rasm:
             user.rasm.delete(save=True)
         return Response(status=204)

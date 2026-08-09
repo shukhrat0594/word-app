@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api, apiForm } from "../api";
+import { api } from "../api";
 import Avatar from "../components/Avatar";
 import { PANEL_TANLOV } from "../components/Layout";
 import { useI18n } from "../i18n";
@@ -62,23 +62,14 @@ function FarzandTanlovi({ user, talabalar, saqlash, t }) {
   );
 }
 
-/** Profil rasmi — kichik avatar, bosilganda yuklash (2026-08-09). */
-function ProfilRasmi({ user, yukla, t }) {
-  return (
-    <label title={t("rasm_yuklash")} style={{ cursor: "pointer", flexShrink: 0 }}>
-      <Avatar rasmUrl={user.rasm_url} olcham={34} />
-      <input
-        type="file"
-        accept="image/*"
-        style={{ display: "none" }}
-        onChange={(e) => {
-          const f = e.target.files[0];
-          e.target.value = "";
-          if (f) yukla(user.id, f);
-        }}
-      />
-    </label>
-  );
+/** Profil rasmi — kichik avatar, FAQAT KO'RSATISH uchun (2026-08-09).
+ *
+ * Avval bu yerda yuklash tugmasi ham bor edi (owner/admin boshqa
+ * odamning rasmini qo'yardi). Foydalanuvchi qarori bilan olib tashlandi:
+ * profil rasmini FAQAT egasi o'zgartiradi ("Profil" sahifasidan),
+ * backend ham shunday cheklaydi (`FoydalanuvchiRasmView`). */
+function ProfilRasmi({ user }) {
+  return <Avatar rasmUrl={user.rasm_url} olcham={34} sarlavha={user.ism} />;
 }
 
 /** Rolga QO'SHIMCHA "ko'rinadigan panellar" checkbox ro'yxati
@@ -210,18 +201,6 @@ export default function Foydalanuvchilar() {
     }
   }
 
-  async function rasmYukla(id, fayl) {
-    setXabar((x) => ({ ...x, [id]: "" }));
-    try {
-      const fd = new FormData();
-      fd.append("rasm", fayl);
-      await apiForm(`/api/foydalanuvchilar/${id}/rasm/`, { method: "POST", formData: fd });
-      yukla();
-    } catch (e) {
-      setXabar((x) => ({ ...x, [id]: e.data?.detail || t("xato_yuz_berdi") }));
-    }
-  }
-
   async function yangiYarat(e) {
     e.preventDefault();
     setYangiXato("");
@@ -296,7 +275,7 @@ export default function Foydalanuvchilar() {
         {royxat.map((u) => (
           <div className="davomat-qator" key={u.id}>
             <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <ProfilRasmi user={u} yukla={rasmYukla} t={t} />
+              <ProfilRasmi user={u} />
               <span>
                 <strong>{u.ism}</strong>{" "}
                 <span className="izoh">
