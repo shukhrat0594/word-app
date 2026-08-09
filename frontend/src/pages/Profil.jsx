@@ -21,7 +21,7 @@ function KorishRejimiPaneli({ profil, t }) {
   // Tartib: eng yuqori huquqdan eng pastga. "parent" 2026-08-09 da
   // qo'shildi — qiymatlari `User.KorishRejimi` bilan bir xil bo'lishi
   // shart (backend shu ro'yxat bo'yicha tekshiradi).
-  const REJIMLAR = ["owner", "admin", "student", "parent", "oddiy"];
+  const REJIMLAR = ["owner", "admin", "teacher", "student", "parent", "oddiy"];
 
   async function tanla(rejim) {
     if (rejim === profil.korish_rejimi || band) return;

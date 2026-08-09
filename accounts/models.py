@@ -93,6 +93,11 @@ class User(AbstractUser):
 
         OWNER = "owner", "Owner (asl holat)"
         ADMIN = "admin", "Administrator"
+        # 2026-08-09 talabi. Ota-ona rejimidagi kabi cheklov bor: o'qituvchi
+        # ko'radigan Guruhlar/Talabalar `oqituvchi=<o'zi>` bo'yicha
+        # filtrlanadi, owner esa hech bir guruhning o'qituvchisi emas — shu
+        # rejimda ro'yxatlar BO'SH chiqadi.
+        TEACHER = "teacher", "O'qituvchi"
         STUDENT = "student", "Talaba"
         # 2026-08-09 talabi. DIQQAT: ota-onaning bosh sahifasi FARZANDLAR
         # ro'yxati, owner'da esa biriktirilgan farzand yo'q — shu rejimda
