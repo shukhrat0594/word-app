@@ -24,3 +24,23 @@ class UserAdmin(BaseUserAdmin):
     add_fieldsets = BaseUserAdmin.add_fieldsets + (
         ("LMS", {"fields": ("role", "markaz")}),
     )
+
+    # Rol YARATILGANDAN KEYIN o'zgarmaydi (2026-08-09 qarori) — ilovada
+    # ham shunday (`FoydalanuvchiRolView` 409 qaytaradi). Shu qoida BU
+    # YERDA HAM amal qiladi: aks holda qoida bir joyda yopiq, boshqa
+    # joyda ochiq bo'lib, ma'nosini yo'qotardi.
+    #
+    # `is_superuser` ham qulflanadi — u aslida "owner" turi, ya'ni rolning
+    # bir qismi. Ikkinchi owner ilovadagi YARATISH formasidan ochiladi
+    # (`FoydalanuvchiYaratishView` "owner"ni qabul qiladi).
+    #
+    # Yaratishda esa ikkalasi ham OCHIQ — `obj is None` shu holat.
+    QULFLANGAN_MAYDONLAR = ("role", "is_superuser")
+
+    def get_readonly_fields(self, request, obj=None):
+        readonly = tuple(super().get_readonly_fields(request, obj))
+        if obj is None:
+            return readonly
+        return readonly + tuple(
+            m for m in self.QULFLANGAN_MAYDONLAR if m not in readonly
+        )
