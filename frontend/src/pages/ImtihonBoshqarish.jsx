@@ -779,17 +779,31 @@ function RoyxatMaydoni({ qiymat, ajratgich, ozgardi, ...qolgan }) {
  * RO'YXATga aylanadi. Eski jadval/oqim bloklari o'zgarishsiz saqlanadi
  * — ular bu yerda tahrirlanmaydi (murakkab tuzilma, JSON maydonida
  * qoladi), faqat tartibda ko'rinadi. */
-function IzohQutilari({ savollar, bloklar, ozgardi, t }) {
+function IzohQutilari({ savollar, boshIdx, bloklar, ozgardi, t }) {
   const [sudralayotgan, setSudralayotgan] = useState(null);
 
   // Savollar ham, qutilar ham bitta tartiblangan ro'yxatga qo'shiladi —
   // admin qutini AYNAN qaysi savollar orasiga qo'yayotganini ko'rib
   // turadi.
+  //
+  // `kalit` — savolning BUTUN TEST bo'yicha indeksi: `boshIdx` (oldingi
+  // qismlardagi savollar soni) + shu qismdagi o'rni. AYNAN shu hisob
+  // talaba tomonida ham ishlatiladi (`ImtihonOtish: bloklarGaAjrat`,
+  // `blok.idx = boshIdx + k`).
+  //
+  // 2026-08-08, foydalanuvchi topgan bug: avval bu yerda `raqam - 1`
+  // ishlatilardi. `raqam` esa AI generatsiyasida O'CHIRILADI
+  // (`mashq_generatsiya`: `s.pop("raqam")`), ya'ni ko'p testda u umuman
+  // yo'q. U holda hisob 0 dan boshlanib ketardi va Passage 2 (14-21
+  // savollar) uchun quti "hamma savoldan keyin" qo'yilsa ham, talaba
+  // ko'rinishida 14-savoldan OLDIN chiqib qolardi — ikki tomon turli
+  // koordinatada ishlagani uchun.
   const elementlar = [
-    ...savollar.map((s, i) => {
-      const raqam = Number(s.raqam) || i + 1;
-      return { turi: "savol", kalit: raqam - 1, matn: `${raqam}. ${(s.savol || "").slice(0, 60)}` };
-    }),
+    ...savollar.map((s, i) => ({
+      turi: "savol",
+      kalit: boshIdx + i,
+      matn: `${boshIdx + i + 1}. ${(s.savol || "").slice(0, 60)}`,
+    })),
     // `Number(...)` NaN qaytaradi (null emas), shuning uchun `??` bu
     // yerda ishlamaydi — aniq tekshiruv kerak, aks holda NaN saralashni
     // buzardi.
@@ -845,7 +859,15 @@ function IzohQutilari({ savollar, bloklar, ozgardi, t }) {
         <button
           className="tugma ikkinchi kichik"
           style={{ marginLeft: "auto" }}
-          onClick={() => ozgardi((joriy) => [...joriy, { tur: "izoh", sarlavha: "", matn: "", joy: -0.5 }])}
+          onClick={() =>
+            ozgardi((joriy) => [
+              ...joriy,
+              // Yangi quti SHU QISM boshida paydo bo'ladi. `boshIdx - 0.5`
+              // — birinchi savoldan sal oldin (talaba tomonidagi standart
+              // bilan bir xil: `ImtihonOtish: blokJoyi`).
+              { tur: "izoh", sarlavha: "", matn: "", joy: boshIdx - 0.5 },
+            ])
+          }
         >
           ➕ {t("imtihon_quti_qoshish")}
         </button>
@@ -1234,6 +1256,19 @@ function MashqTolaTahrir({ test, manba, onYopish, onSaqlandi }) {
   // kerak, chunki aks holda ketma-ket ikki chaqiruv (masalan tez ikki
   // marta "Quti qo'shish" bosilsa) BIR XIL eski holatni o'qib, faqat
   // oxirgisi saqlanib qolardi — "stale closure".
+  /** Qismning BIRINCHI savoli butun test bo'yicha nechanchi ekani.
+   * Talaba tomonidagi hisob bilan AYNAN bir xil (`ImtihonOtish`:
+   * har qism uchun oldingi qismlar savollari sanab boriladi) — quti
+   * joyi ikkala tomonda bir xil ma'noni bildirishi uchun SHART. */
+  function qismBoshIdx(qismId) {
+    let n = 0;
+    for (const q of test.qismlar) {
+      if (q.id === qismId) return n;
+      n += (qismHolat[q.id]?.savollar || q.savollar || []).length;
+    }
+    return 0;
+  }
+
   function qismOz(qismId, patch) {
     setQismHolat((prev) => {
       const joriy = prev[qismId];
@@ -1422,6 +1457,7 @@ function MashqTolaTahrir({ test, manba, onYopish, onSaqlandi }) {
                   )}
                   <IzohQutilari
                     savollar={h.savollar}
+                    boshIdx={qismBoshIdx(q.id)}
                     bloklar={h.izoh_bloklar || []}
                     ozgardi={(yangi) =>
                       qismOz(q.id, (joriy) => ({
