@@ -19,6 +19,25 @@ Format (qat'iy, parser shunga tayanadi):
 
 ---
 
+## 2026-08-09 — Profil rasmi va bildirishnomalar
+
+- **Chap menyu tepasida endi markaz nomi emas, sizning rasmingiz va
+  ism-familiyangiz turadi.** Ustiga bosilsa to'g'ridan-to'g'ri o'z
+  profilingiz ochiladi. Markaz nomi sahifa sarlavhasida qolgan.
+- **Profil rasmini faqat egasi qo'ya oladi.** Ilgari owner va admin
+  boshqa foydalanuvchiga rasm qo'yishi mumkin edi — bu olib tashlandi,
+  rasm shaxsiy narsa.
+- **Nomaqbul rasmni owner yoki admin o'chirib tashlashi mumkin, lekin
+  sababini yozishi shart.** Sabab rasm egasiga "Ogohlantirish" xabari
+  bo'lib boradi, ya'ni odam rasmi nega yo'qolganini biladi. Sababsiz
+  o'chirib bo'lmaydi.
+- **Bildirishnoma qo'ng'irog'i endi hamma foydalanuvchiga ko'rinadi** —
+  avval faqat owner'da bor edi. Har kim faqat o'ziga kelgan xabarni
+  ko'radi.
+- Rasm yuklashda chegara qo'yildi: 2 MB gacha va haqiqatan rasm
+  bo'lishi kerak. Rasm almashtirilganda eskisi serverdan o'chiriladi
+  (avval yig'ilib qolardi).
+
 ## 2026-08-09 — Ota-ona profili va profil rasmi
 
 - **Ota-onaga farzand biriktirish** endi ilovadan qilinadi (avval faqat
