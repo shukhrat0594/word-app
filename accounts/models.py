@@ -94,6 +94,13 @@ class User(AbstractUser):
         OWNER = "owner", "Owner (asl holat)"
         ADMIN = "admin", "Administrator"
         STUDENT = "student", "Talaba"
+        # 2026-08-09 talabi. DIQQAT: ota-onaning bosh sahifasi FARZANDLAR
+        # ro'yxati, owner'da esa biriktirilgan farzand yo'q — shu rejimda
+        # ro'yxat BO'SH ko'rinadi. Bu simulyatsiyaning tabiati (Talaba
+        # rejimida ham owner o'z natijalarini, ya'ni bo'sh ro'yxatni
+        # ko'radi): rejim panel/qulf/ruxsatlarni sinash uchun, boshqa
+        # odamning ma'lumotini ko'rish uchun emas.
+        PARENT = "parent", "Ota-ona"
         ODDIY = "oddiy", "Mehmon (oddiy foydalanuvchi)"
 
     role = models.CharField(max_length=10, choices=Role.choices, default=Role.STUDENT)

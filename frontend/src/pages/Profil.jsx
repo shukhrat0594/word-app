@@ -18,7 +18,10 @@ function KorishRejimiPaneli({ profil, t }) {
   const [band, setBand] = useState(false);
   const [xato, setXato] = useState("");
 
-  const REJIMLAR = ["owner", "admin", "student", "oddiy"];
+  // Tartib: eng yuqori huquqdan eng pastga. "parent" 2026-08-09 da
+  // qo'shildi — qiymatlari `User.KorishRejimi` bilan bir xil bo'lishi
+  // shart (backend shu ro'yxat bo'yicha tekshiradi).
+  const REJIMLAR = ["owner", "admin", "student", "parent", "oddiy"];
 
   async function tanla(rejim) {
     if (rejim === profil.korish_rejimi || band) return;
