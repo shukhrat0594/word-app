@@ -388,10 +388,54 @@ def _kurs_blok_rasmlari(m):
     ]
 
 
-def _kurs_mashq_admin_dict(m):
+def _unit_mashq_tartib_xaritasi(unit):
+    """Berilgan Unit ichidagi (Student's Book + Workbook, har birining
+    Mashqlar bo'limi) BARCHA `KursMashq`larning ORQAMA-KETIN raqamini
+    hisoblaydi (2026-08-10, "1.1, 1.2..." umumiy-unit raqami uchun).
+
+    Tartib: kitob (`tartib`) -> bo'lim (`tartib`) -> mashq (`tartib`) —
+    xuddi `unit_ichki_tuzilmasini_yarat` qurgan tuzilma bo'yicha.
+    Qaytaradi: {mashq_id: o'rin (1dan boshlanadi)}."""
+    xarita = {}
+    idx = 0
+    for kitob in unit.children.order_by("tartib", "id"):
+        for bolim in kitob.children.order_by("tartib", "id"):
+            if bolim.children.exists():
+                continue  # faqat OXIRGI qatlam (mashqlar shu yerda saqlanadi)
+            for mashq_id in bolim.mashqlar.order_by("tartib", "id").values_list("id", flat=True):
+                idx += 1
+                xarita[mashq_id] = idx
+    return xarita
+
+
+def _tugun_unit_xaritasi(tugun):
+    """`_unit_mashq_tartib_xaritasi`ni SHU tugun ro'yxati uchun BIR MARTA
+    hisoblab beradi — ro'yxatdagi barcha mashqlar bir xil Unit'ga
+    tegishli bo'lgani uchun har mashq uchun qayta hisoblash shart emas."""
+    unit = _eng_yaqin_unit(tugun)
+    return _unit_mashq_tartib_xaritasi(unit) if unit else None
+
+
+def _unit_raqami(mashq, xarita=None):
+    """"1.3" ko'rinishidagi umumiy-unit raqami — 1-qism Unit tartibi,
+    2-qism shu Unit ichidagi ketma-ket o'rin. Unit topilmasa (masalan
+    Unit'siz/flat bo'lim) — None."""
+    unit = _eng_yaqin_unit(mashq.tugun)
+    if not unit:
+        return None
+    if xarita is None:
+        xarita = _unit_mashq_tartib_xaritasi(unit)
+    orin = xarita.get(mashq.id)
+    if orin is None:
+        return None
+    return f"{unit.tartib}.{orin}"
+
+
+def _kurs_mashq_admin_dict(m, unit_xarita=None):
     return {
         "id": m.id,
         "tartib": m.tartib,
+        "unit_raqami": _unit_raqami(m, unit_xarita),
         "matn": m.matn,
         "rasm_url": f"/api/kurslar/mashq/{m.id}/rasm/" if m.effektiv_rasm else None,
         "rasm_guruhi_id": m.rasm_guruhi_id,
@@ -410,7 +454,7 @@ def _kurs_mashq_admin_dict(m):
     }
 
 
-def _kurs_mashq_talaba_dict(m):
+def _kurs_mashq_talaba_dict(m, unit_xarita=None):
     """MUHIM: `togri` maydoni talabaga YUBORILMAYDI.
 
     Blok formatida ham xavfsiz: bo'sh joylar bloklarda faqat `savol_idx`
@@ -419,6 +463,7 @@ def _kurs_mashq_talaba_dict(m):
     return {
         "id": m.id,
         "tartib": m.tartib,
+        "unit_raqami": _unit_raqami(m, unit_xarita),
         "matn": m.matn,
         "rasm_url": f"/api/kurslar/mashq/{m.id}/rasm/" if m.effektiv_rasm else None,
         "rasm_guruhi_id": m.rasm_guruhi_id,
@@ -441,8 +486,12 @@ class KursMashqBoshqaruvView(APIView):
         if not _mashq_admin_mi(request.user):
             return Response({"detail": "Faqat admin/owner uchun"}, status=403)
         tugun = get_object_or_404(KursTugun, pk=pk)
+        xarita = _tugun_unit_xaritasi(tugun)
         return Response(
-            [_kurs_mashq_admin_dict(m) for m in tugun.mashqlar.prefetch_related("audiolar", "rasmlar")]
+            [
+                _kurs_mashq_admin_dict(m, xarita)
+                for m in tugun.mashqlar.prefetch_related("audiolar", "rasmlar")
+            ]
         )
 
     def post(self, request, pk):
@@ -1059,6 +1108,8 @@ class KursMashqDetailBoshqaruvView(APIView):
                 "savol": str(s.get("savol") or "").strip()[:500] or "___",
                 "togri": str(s.get("togri") or "").strip()[:200],
             }
+            if s.get("erkin"):
+                yangi["erkin"] = True
             pozitsiya = _pozitsiyani_tozala(s.get("pozitsiya"))
             if pozitsiya:
                 yangi["pozitsiya"] = pozitsiya
@@ -1097,11 +1148,15 @@ class KursMashqDetailBoshqaruvView(APIView):
         yangilandi = 0
         for y in yangilash:
             raqam = y.get("raqam")
-            togri = y.get("togri")
             if not isinstance(raqam, int) or not 1 <= raqam <= len(savollar):
                 xatolar.append({"raqam": raqam, "xato": "savol raqami noto'g'ri"})
                 continue
-            savollar[raqam - 1]["togri"] = togri
+            savollar[raqam - 1]["togri"] = y.get("togri")
+            # 2026-08-10: "erkin" — to'g'ri javob YO'Q, talaba nima yozsa
+            # ham (bo'sh qoldirmasa) to'g'ri hisoblanadi (qarang
+            # `exercises.models.javoblarni_tekshir`).
+            if "erkin" in y:
+                savollar[raqam - 1]["erkin"] = bool(y["erkin"])
             yangilandi += 1
         mashq.savollar = savollar
         mashq.save(update_fields=["savollar"])
@@ -1509,8 +1564,12 @@ class KursMashqAudioZipBoshqaruvView(APIView):
             obyekt_nomi=" > ".join(reversed(yol)),
             ozgarishlar={"audio_zip": {"eski": "—", "yangi": f"{len(audio_fayllar)} fayl"}},
         )
+        xarita = _tugun_unit_xaritasi(tugun)
         return Response(
-            [_kurs_mashq_admin_dict(m) for m in tugun.mashqlar.prefetch_related("audiolar", "rasmlar")]
+            [
+                _kurs_mashq_admin_dict(m, xarita)
+                for m in tugun.mashqlar.prefetch_related("audiolar", "rasmlar")
+            ]
         )
 
 
@@ -1525,8 +1584,12 @@ class KursMashqRoyxatiView(APIView):
         tugun = get_object_or_404(KursTugun, pk=pk)
         if _talaba_tugun_qulflanganmi(request.user, tugun):
             return Response({"detail": "Bu qism hali qulflangan"}, status=403)
+        xarita = _tugun_unit_xaritasi(tugun)
         return Response(
-            [_kurs_mashq_talaba_dict(m) for m in tugun.mashqlar.prefetch_related("audiolar", "rasmlar")]
+            [
+                _kurs_mashq_talaba_dict(m, xarita)
+                for m in tugun.mashqlar.prefetch_related("audiolar", "rasmlar")
+            ]
         )
 
 

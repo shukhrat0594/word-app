@@ -44,6 +44,7 @@ from .blok_generatsiya import (
 from .kontent_generatsiya import kengaytma_turi, tabiiy_tartib_kaliti
 from .models import (
     KursMashq,
+    KursMashqRasmGuruhi,
     KursMashqRasmi,
     KursSoz,
     KursTugun,
@@ -779,13 +780,78 @@ def _jarayonni_yakunla(jarayon, foydalanuvchi, tahrirlar=None):
     yaratilgan_soni, rasm_soni, savol_soni, sozlar_soni = 0, 0, 0, 0
 
     with _jarayon_arxivi(jarayon) as arxiv:
+        # 1-BOSQICH (2026-08-10): "fon" qilib belgilangan mashqlar uchun
+        # ulashiladigan rasm-guruhlarini OLDINDAN tayyorlaymiz — shu
+        # tufayli ikkalasi TURLI sahifada bo'lsa ham (qaysi biri OLDIN
+        # ishlansa ham) `ulash_guruh` orqali to'g'ri topiladi. Mustaqil
+        # (ulashilmagan) fon-mashqlarning kesimi ham shu bosqichda
+        # tayyorlanadi va (fayl, mashq_o'rni) kaliti bilan eslab qolinadi.
+        rasm_guruhlari = {}
+        mustaqil_fon_kesimlari = {}
+        guruh_kesimlari_soni = 0
+        for t in tartiblangan:
+            if t["xato"]:
+                continue
+            mashqlar = t.get("mashqlar") or []
+            if not any(md.get("fon_rejimi") and md.get("fon_rasm_idx") is not None for md in mashqlar):
+                continue
+            qutilar = t.get("qutilar") or []
+            rasm_bytes = arxiv.read(t["fayl"])
+            for i, md in enumerate(mashqlar):
+                idx = md.get("fon_rasm_idx")
+                if not (md.get("fon_rejimi") and idx is not None and 0 <= idx < len(qutilar)):
+                    continue
+                kesilgan = rasmni_kes(rasm_bytes, qutilar[idx])
+                if not kesilgan:
+                    continue
+                ulash_kalit = md.get("ulash_guruh")
+                if ulash_kalit:
+                    if ulash_kalit not in rasm_guruhlari:
+                        guruhi = KursMashqRasmGuruhi.objects.create(tugun=mashq_tugun)
+                        guruhi.rasm.save("guruhi.jpg", ContentFile(kesilgan), save=True)
+                        rasm_guruhlari[ulash_kalit] = guruhi
+                        guruh_kesimlari_soni += 1
+                else:
+                    mustaqil_fon_kesimlari[(t["fayl"], i)] = kesilgan
+
+        rasm_soni += guruh_kesimlari_soni
+
+        # 2-BOSQICH: mashqlarning o'zini yaratamiz.
         for t in tartiblangan:
             if t["xato"]:
                 continue
             sozlar_soni += _sozlarni_saqla(mashq_tugun, t.get("sozlar"))
             qutilar = t.get("qutilar") or []
             rasm_bytes = arxiv.read(t["fayl"]) if qutilar else None
-            for mashq_data in t.get("mashqlar") or []:
+            for i, mashq_data in enumerate(t.get("mashqlar") or []):
+                if mashq_data.get("fon_rejimi"):
+                    # 2026-08-10: "fon" — sahifa qaytadan qurilmaydi,
+                    # bloklar (dialog/matn/grammar-box) TASHLAB YUBORILADI
+                    # (foydalanuvchi bilan kelishilgan), faqat tanlangan
+                    # rasm (yoki ulashilgan guruh) + savollar qoladi.
+                    tartib = _mashq_tartibini_aniqla(
+                        mashq_data.get("raqam"), boshlangich + yaratilgan_soni + 1
+                    )
+                    ulash_kalit = mashq_data.get("ulash_guruh")
+                    guruhi = rasm_guruhlari.get(ulash_kalit) if ulash_kalit else None
+                    kesilgan = None if guruhi else mustaqil_fon_kesimlari.get((t["fayl"], i))
+                    mashq = KursMashq.objects.create(
+                        tugun=mashq_tugun,
+                        tartib=tartib,
+                        matn=mashq_data.get("sarlavha") or "",
+                        savollar=mashq_data.get("savollar") or [],
+                        bloklar=[],
+                        fon_rejimi=True,
+                        rasm_guruhi=guruhi,
+                        audio_kerak=bool(mashq_data.get("audio_kerak")),
+                    )
+                    if kesilgan:
+                        mashq.rasm.save(f"{mashq.id}_fon.jpg", ContentFile(kesilgan), save=True)
+                        rasm_soni += 1
+                    savol_soni += len(mashq_data.get("savollar") or [])
+                    yaratilgan_soni += 1
+                    continue
+
                 # Sof Wordlist mashqi (bloklar yo'q) — bo'sh KursMashq
                 # yaratilmaydi, faqat yuqoridagi so'zlar saqlanadi.
                 if not mashq_data.get("bloklar"):

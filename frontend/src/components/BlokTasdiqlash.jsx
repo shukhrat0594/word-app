@@ -108,8 +108,13 @@ function QutiTahrirlagich({ rasmUrl, imgRef, qutilar, onChange }) {
 
 /** Rasm-quti(lar)ga ega blok turlarining kichik nusxasi + izoh/matn
  * maydoni — foydalanuvchi talabi (2026-08-03): "matnni tahrirlashni
- * jsonda qilmasdan har bir rasm yoniga qo'ysa bo'ladimi". */
-function RasmVaIzoh({ imgEl, quti, izoh, izohOzgardi, izohNomi }) {
+ * jsonda qilmasdan har bir rasm yoniga qo'ysa bo'ladimi".
+ *
+ * `onOchir` (2026-08-10, ixtiyoriy) — berilsa, kichik 🗑️ tugma chiqadi:
+ * bosilsa shu rasmni (yoki rasm qatoridagi bitta elementni) mashqdan
+ * BUTUNLAY olib tashlaydi (matn/savolga tegmaydi).*/
+function RasmVaIzoh({ imgEl, quti, izoh, izohOzgardi, izohNomi, onOchir }) {
+  const { t } = useI18n();
   const url = kesimDataUrl(imgEl, quti);
   return (
     <div className="blok-tasdiq-rasm-izoh">
@@ -120,8 +125,39 @@ function RasmVaIzoh({ imgEl, quti, izoh, izohOzgardi, izohNomi }) {
         onChange={(e) => izohOzgardi(e.target.value)}
         placeholder={izohNomi}
       />
+      {onOchir && (
+        <button
+          type="button"
+          className="tugma ikkinchi kichik"
+          style={{ color: "#d33" }}
+          title={t("ochirish")}
+          onClick={onOchir}
+        >
+          🗑️
+        </button>
+      )}
     </div>
   );
+}
+
+/** Mashqning bloklari orasidan "fon qilib belgilash" uchun nomzod
+ * bo'la oladigan rasmlarni topadi (2026-08-10) — "rasm" va "rasm_qatori"
+ * turlaridagi rasm-idx'lar (`rasm_javobli`/`rasm_javobli_grid` bu yerga
+ * kirmaydi, ular allaqachon o'z savoliga bog'langan). */
+function mashqRasmNomzodlari(mashq) {
+  const nomzodlar = [];
+  for (const blok of mashq.bloklar || []) {
+    if (blok.tur === "rasm" && blok.rasm_idx != null) {
+      nomzodlar.push({ rasm_idx: blok.rasm_idx, izoh: blok.izoh || `#${blok.rasm_idx}` });
+    } else if (blok.tur === "rasm_qatori") {
+      for (const it of blok.qator || []) {
+        if (it.rasm_idx != null) {
+          nomzodlar.push({ rasm_idx: it.rasm_idx, izoh: it.matn || it.izoh || `#${it.rasm_idx}` });
+        }
+      }
+    }
+  }
+  return nomzodlar;
 }
 
 /** Bitta blokning STRUKTURAVIY (JSON emas) tahrirlagichi — turiga qarab
@@ -143,7 +179,7 @@ function MashqgaKochirMaydoni({ joriyRaqam, onKochir }) {
   );
 }
 
-function BlokTahrir({ blok, blokIdx, qutilar, imgEl, onChange, mashqRaqami, onMashqgaKochir }) {
+function BlokTahrir({ blok, blokIdx, qutilar, imgEl, onChange, mashqRaqami, onMashqgaKochir, onBlokOchir }) {
   const { t } = useI18n();
 
   function oz(patch) {
@@ -244,6 +280,7 @@ function BlokTahrir({ blok, blokIdx, qutilar, imgEl, onChange, mashqRaqami, onMa
             izoh={blok.izoh}
             izohOzgardi={(v) => oz({ izoh: v })}
             izohNomi={t("kurs_blok_tasdiq_rasm_izoh")}
+            onOchir={onBlokOchir ? () => onBlokOchir(blokIdx) : undefined}
           />
           {kochirMaydoni}
         </div>
@@ -260,6 +297,7 @@ function BlokTahrir({ blok, blokIdx, qutilar, imgEl, onChange, mashqRaqami, onMa
                 izoh={it.matn || it.izoh}
                 izohOzgardi={(v) => itemOz("qator", i, { matn: v })}
                 izohNomi={t("kurs_blok_tasdiq_rasm_izoh")}
+                onOchir={() => oz({ qator: blok.qator.filter((_, k) => k !== i) })}
               />
             ))}
           </div>
@@ -316,7 +354,10 @@ function BlokTahrir({ blok, blokIdx, qutilar, imgEl, onChange, mashqRaqami, onMa
  * bloklari (strukturaviy tahrir) va savollari (to'g'ri javob) bilan
  * (2026-08-03: avval BUTUN sahifa bitta JSON edi, endi har mashq
  * alohida karta). */
-function MashqKartasi({ mashq, mashqIdx, qutilar, imgEl, onChange, onOchir, onBlokKochir }) {
+function MashqKartasi({
+  mashq, mashqIdx, qutilar, imgEl, onChange, onOchir, onBlokKochir,
+  sahifaIndeks, barchaMashqlar, onUlash,
+}) {
   const { t } = useI18n();
 
   function maydonOz(patch) {
@@ -327,9 +368,31 @@ function MashqKartasi({ mashq, mashqIdx, qutilar, imgEl, onChange, onOchir, onBl
     yangi[blokIdx] = { ...yangi[blokIdx], ...patch };
     maydonOz({ bloklar: yangi });
   }
+  function blokniOchir(blokIdx) {
+    maydonOz({ bloklar: mashq.bloklar.filter((_, i) => i !== blokIdx) });
+  }
   function javobOz(savolIdx, qiymat) {
     const yangi = mashq.savollar.map((s, i) => (i === savolIdx ? { ...s, togri: qiymat } : s));
     maydonOz({ savollar: yangi });
+  }
+  function erkinOz(savolIdx, qiymat) {
+    const yangi = mashq.savollar.map((s, i) => (i === savolIdx ? { ...s, erkin: qiymat } : s));
+    maydonOz({ savollar: yangi });
+  }
+
+  // 2026-08-10: "fon qilib belgilash" — bu mashqning bloklaridagi
+  // rasmlardan BITTASINI tanlab, butun mashqni "rasm-fon" ko'rinishiga
+  // o'tkazadi (saqlashda amalga oshadi, qarang `_jarayonni_yakunla`).
+  // Bloklar (dialog/matn/grammar-box) SAQLASHDA yo'qoladi — foydalanuvchi
+  // bilan bu oqibat aniq kelishilgan (2026-08-10).
+  const rasmNomzodlari = mashqRasmNomzodlari(mashq);
+
+  function fonBelgila(e) {
+    if (e.target.checked) {
+      maydonOz({ fon_rejimi: true, fon_rasm_idx: mashq.fon_rasm_idx ?? rasmNomzodlari[0].rasm_idx });
+    } else {
+      maydonOz({ fon_rejimi: false, fon_rasm_idx: null, ulash_guruh: null });
+    }
   }
 
   return (
@@ -362,20 +425,63 @@ function MashqKartasi({ mashq, mashqIdx, qutilar, imgEl, onChange, onOchir, onBl
         </button>
       </div>
 
-      <div className="blok-tasdiq-bloklar-royxati">
-        {(mashq.bloklar || []).map((b, i) => (
-          <BlokTahrir
-            key={i}
-            blok={b}
-            blokIdx={i}
-            qutilar={qutilar}
-            imgEl={imgEl}
-            onChange={blokOz}
-            mashqRaqami={mashq.raqam}
-            onMashqgaKochir={onBlokKochir ? (blokIdx, yangiRaqam) => onBlokKochir(mashqIdx, blokIdx, yangiRaqam) : undefined}
-          />
-        ))}
-      </div>
+      {rasmNomzodlari.length > 0 && (
+        <div className="blok-tasdiq-fon-qatori" style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
+          <label className="izoh" style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <input type="checkbox" checked={!!mashq.fon_rejimi} onChange={fonBelgila} />
+            {t("kurs_blok_tasdiq_fon_qilish")}
+          </label>
+          {mashq.fon_rejimi && rasmNomzodlari.length > 1 && (
+            <select value={mashq.fon_rasm_idx ?? ""} onChange={(e) => maydonOz({ fon_rasm_idx: Number(e.target.value) })}>
+              {rasmNomzodlari.map((r) => (
+                <option key={r.rasm_idx} value={r.rasm_idx}>{r.izoh}</option>
+              ))}
+            </select>
+          )}
+          {mashq.fon_rejimi && (
+            <>
+              <select
+                value=""
+                onChange={(e) => {
+                  if (!e.target.value) return;
+                  const [s, m] = e.target.value.split(":").map(Number);
+                  onUlash(s, m);
+                }}
+              >
+                <option value="">{t("kurs_blok_tasdiq_ulash_tanlang")}</option>
+                {barchaMashqlar
+                  .filter((x) => !(x.sahifaIndeks === sahifaIndeks && x.mashqIdx === mashqIdx))
+                  .map((x) => (
+                    <option key={`${x.sahifaIndeks}:${x.mashqIdx}`} value={`${x.sahifaIndeks}:${x.mashqIdx}`}>
+                      {t("kurs_blok_tasdiq_sahifa")} {x.sahifaIndeks + 1} — {x.mashq.raqam ? `#${x.mashq.raqam}` : (x.mashq.sarlavha || t("kurs_mashq"))}
+                    </option>
+                  ))}
+              </select>
+              {mashq.ulash_guruh && <span className="izoh">🔗</span>}
+            </>
+          )}
+        </div>
+      )}
+
+      {mashq.fon_rejimi ? (
+        <div className="izoh" style={{ marginBottom: 8 }}>{t("kurs_blok_tasdiq_fon_izoh")}</div>
+      ) : (
+        <div className="blok-tasdiq-bloklar-royxati">
+          {(mashq.bloklar || []).map((b, i) => (
+            <BlokTahrir
+              key={i}
+              blok={b}
+              blokIdx={i}
+              qutilar={qutilar}
+              imgEl={imgEl}
+              onChange={blokOz}
+              onBlokOchir={blokniOchir}
+              mashqRaqami={mashq.raqam}
+              onMashqgaKochir={onBlokKochir ? (blokIdx, yangiRaqam) => onBlokKochir(mashqIdx, blokIdx, yangiRaqam) : undefined}
+            />
+          ))}
+        </div>
+      )}
 
       {mashq.savollar?.length > 0 && (
         <div className="blok-tasdiq-savollar">
@@ -386,8 +492,14 @@ function MashqKartasi({ mashq, mashqIdx, qutilar, imgEl, onChange, onOchir, onBl
               <input
                 type="text"
                 value={Array.isArray(s.togri) ? s.togri.join(", ") : (s.togri || "")}
+                disabled={!!s.erkin}
+                placeholder={s.erkin ? t("kurs_erkin_javob_izoh") : ""}
                 onChange={(e) => javobOz(i, e.target.value)}
               />
+              <label className="izoh" style={{ display: "flex", alignItems: "center", gap: 4, whiteSpace: "nowrap" }}>
+                <input type="checkbox" checked={!!s.erkin} onChange={(e) => erkinOz(i, e.target.checked)} />
+                {t("kurs_erkin_javob")}
+              </label>
             </div>
           ))}
         </div>
@@ -442,7 +554,7 @@ function useSahifaSurati({ jarayonId, indeks }) {
  * HAMMASI bitta uzun vertikal ro'yxatda — sahifa faqat rasm manbai
  * sifatida guruh boshida bir marta ko'rinadi, mashqlarning o'zi bir-biri
  * ostida alohida oyna bo'lib chiqadi). */
-function SahifaBlogi({ jarayonId, sahifa, sahifaHolati, ozgartir }) {
+function SahifaBlogi({ jarayonId, sahifa, sahifaHolati, ozgartir, barchaMashqlar, mashqniUlash }) {
   const { t } = useI18n();
   const { rasmUrl, imgRef } = useSahifaSurati({ jarayonId, indeks: sahifa.indeks });
   const faylNomi = sahifa.fayl?.split("/").pop() || "";
@@ -530,6 +642,9 @@ function SahifaBlogi({ jarayonId, sahifa, sahifaHolati, ozgartir }) {
                 onChange={mashqniYangila}
                 onOchir={mashqniOchir}
                 onBlokKochir={blokniMashqgaKochir}
+                sahifaIndeks={sahifa.indeks}
+                barchaMashqlar={barchaMashqlar}
+                onUlash={(nishonS, nishonM) => mashqniUlash(sahifa.indeks, i, nishonS, nishonM)}
               />
             ))}
           </div>
@@ -584,6 +699,32 @@ export default function BlokTasdiqlash({ jarayonId, onYakunlandi, onBekor }) {
     setHolat((prev) => ({ ...prev, [indeks]: { ...prev[indeks], ...patch } }));
   }
 
+  function mashqniGlobalYangila(sIndeks, mIdx, patch) {
+    setHolat((prev) => {
+      const mashqlar = [...prev[sIndeks].mashqlar];
+      mashqlar[mIdx] = { ...mashqlar[mIdx], ...patch };
+      return { ...prev, [sIndeks]: { ...prev[sIndeks], mashqlar } };
+    });
+  }
+
+  // 2026-08-10: "bitta rasmni 2 mashqga ulash" — ikkalasiga BIR XIL
+  // `ulash_guruh` kaliti beriladi (saqlashda shu kalit orqali bitta
+  // `KursMashqRasmGuruhi`ga bog'lanadi, qarang `_jarayonni_yakunla`).
+  // Ikkalasi ham "fon" bo'ladi — nishon mashqning o'z rasmi bo'lmasa ham
+  // (`fon_rasm_idx` bo'sh qoladi), saqlashda MANBA mashqning rasmi
+  // ishlatiladi.
+  function mashqniUlash(selfSahifa, selfMashq, nishonSahifa, nishonMashq) {
+    const oldSelf = holat[selfSahifa].mashqlar[selfMashq];
+    const oldNishon = holat[nishonSahifa].mashqlar[nishonMashq];
+    const guruh = oldSelf.ulash_guruh || oldNishon.ulash_guruh || `g${Date.now()}_${selfSahifa}_${selfMashq}`;
+    mashqniGlobalYangila(selfSahifa, selfMashq, { fon_rejimi: true, ulash_guruh: guruh });
+    mashqniGlobalYangila(nishonSahifa, nishonMashq, { fon_rejimi: true, ulash_guruh: guruh });
+  }
+
+  const barchaMashqlar = sahifalar.flatMap((s) =>
+    (holat[s.indeks].mashqlar || []).map((mashq, mashqIdx) => ({ sahifaIndeks: s.indeks, mashqIdx, mashq })),
+  );
+
   async function hammasiniTasdiqla() {
     setSaqlanmoqda(true);
     setXato("");
@@ -625,6 +766,8 @@ export default function BlokTasdiqlash({ jarayonId, onYakunlandi, onBekor }) {
               sahifa={s}
               sahifaHolati={holat[s.indeks]}
               ozgartir={(patch) => sahifaHolatiniYangila(s.indeks, patch)}
+              barchaMashqlar={barchaMashqlar}
+              mashqniUlash={mashqniUlash}
             />
           ))}
         </div>

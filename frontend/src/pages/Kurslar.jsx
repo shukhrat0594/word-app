@@ -177,6 +177,7 @@ function TalabaMashqi({ mashq, raqam }) {
       {raqam != null && (
         <div style={{ fontWeight: 700, marginBottom: 6 }}>
           {t("kurs_mashq")} {raqam}
+          {mashq.unit_raqami && <span className="izoh" style={{ fontWeight: 400, marginLeft: 6 }}>({mashq.unit_raqami})</span>}
         </div>
       )}
       {mashq.matn && <div style={{ marginBottom: 8 }}>{mashq.matn}</div>}
@@ -588,12 +589,25 @@ function RasmFonTahriri({ mashq, royxatniYangila, onYopish }) {
             <input
               type="text"
               value={joriy.togri || ""}
+              disabled={!!joriy.erkin}
+              placeholder={joriy.erkin ? t("kurs_erkin_javob_izoh") : ""}
               onChange={(e) => {
                 const v = e.target.value;
                 setSavollar((j) => j.map((s, k) => (k === tanlangan ? { ...s, togri: v } : s)));
               }}
               style={{ flex: 1 }}
             />
+            <label className="izoh" style={{ display: "flex", alignItems: "center", gap: 4, whiteSpace: "nowrap" }}>
+              <input
+                type="checkbox"
+                checked={!!joriy.erkin}
+                onChange={(e) => {
+                  const v = e.target.checked;
+                  setSavollar((j) => j.map((s, k) => (k === tanlangan ? { ...s, erkin: v } : s)));
+                }}
+              />
+              {t("kurs_erkin_javob")}
+            </label>
             <button className="tugma ikkinchi kichik" style={{ color: "#d33" }} onClick={() => ochir(tanlangan)}>
               {t("ochirish")}
             </button>
@@ -631,6 +645,7 @@ function MashqJavoblariTahriri({ mashq, royxatniYangila }) {
   const [qiymatlar, setQiymatlar] = useState(
     () => mashq.savollar.map((s) => (Array.isArray(s.togri) ? s.togri.join(", ") : (s.togri || "")))
   );
+  const [erkinlar, setErkinlar] = useState(() => mashq.savollar.map((s) => !!s.erkin));
   const [saqlanmoqda, setSaqlanmoqda] = useState(false);
   const [xato, setXato] = useState("");
   const [natija, setNatija] = useState(null);
@@ -644,7 +659,7 @@ function MashqJavoblariTahriri({ mashq, royxatniYangila }) {
     setXato("");
     setSaqlanmoqda(true);
     try {
-      const javoblar = qiymatlar.map((v, i) => ({ raqam: i + 1, togri: v }));
+      const javoblar = qiymatlar.map((v, i) => ({ raqam: i + 1, togri: v, erkin: erkinlar[i] }));
       const d = await api(`/api/kurslar/mashq/${mashq.id}/`, { method: "PATCH", body: { javoblar } });
       natijaniKorsat(d);
     } catch (e) {
@@ -683,13 +698,25 @@ function MashqJavoblariTahriri({ mashq, royxatniYangila }) {
             <input
               type="text"
               value={qiymatlar[i]}
+              disabled={erkinlar[i]}
               onChange={(e) => {
                 const v = e.target.value;
                 setQiymatlar((joriy) => joriy.map((x, j) => (j === i ? v : x)));
               }}
-              placeholder={t("kurs_javob_kirit")}
+              placeholder={erkinlar[i] ? t("kurs_erkin_javob_izoh") : t("kurs_javob_kirit")}
               style={{ flex: 1, maxWidth: 260 }}
             />
+            <label className="izoh" style={{ display: "flex", alignItems: "center", gap: 4, whiteSpace: "nowrap" }}>
+              <input
+                type="checkbox"
+                checked={erkinlar[i]}
+                onChange={(e) => {
+                  const v = e.target.checked;
+                  setErkinlar((joriy) => joriy.map((x, j) => (j === i ? v : x)));
+                }}
+              />
+              {t("kurs_erkin_javob")}
+            </label>
           </div>
         ))}
       </div>
@@ -728,8 +755,6 @@ function AdminMashqBoshqaruv({ tugunId, jsonKiritishKorinadi = true }) {
   const [jsonMatn, setJsonMatn] = useState('[\n  {"matn": "", "savollar": [{"savol": "...", "togri": "..."}]}\n]');
   const [xato, setXato] = useState("");
   const [saqlanmoqda, setSaqlanmoqda] = useState(false);
-  const [audioZipXato, setAudioZipXato] = useState("");
-  const [audioZipYuklanmoqda, setAudioZipYuklanmoqda] = useState(false);
   const [promtKorinadi, setPromtKorinadi] = useState(false);
   const [nusxalandi, setNusxalandi] = useState(false);
   // 2026-07-30 talabi: yagona fayl tanlash tugmasi — rasm TANLANSA
@@ -1076,24 +1101,6 @@ function AdminMashqBoshqaruv({ tugunId, jsonKiritishKorinadi = true }) {
     }
   }
 
-  async function audioZipYukla(e) {
-    const fayl = e.target.files[0];
-    e.target.value = "";
-    if (!fayl) return;
-    setAudioZipXato("");
-    setAudioZipYuklanmoqda(true);
-    try {
-      const fd = new FormData();
-      fd.append("zip_fayl", fayl);
-      await apiForm(`/api/kurslar/${tugunId}/audio-zip/`, { method: "POST", formData: fd });
-      yukla();
-    } catch (e2) {
-      setAudioZipXato(e2.data?.detail || t("xato_yuz_berdi"));
-    } finally {
-      setAudioZipYuklanmoqda(false);
-    }
-  }
-
   return (
     <div>
       <div style={{ marginBottom: 10, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
@@ -1202,7 +1209,7 @@ function AdminMashqBoshqaruv({ tugunId, jsonKiritishKorinadi = true }) {
             <div key={m.id}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <span className="izoh">
-                  #{m.tartib} — {m.matn ? m.matn.slice(0, 40) : ""} ({m.savollar.length} {t("kurs_savol")})
+                  #{m.tartib}{m.unit_raqami ? ` (${m.unit_raqami})` : ""} — {m.matn ? m.matn.slice(0, 40) : ""} ({m.savollar.length} {t("kurs_savol")})
                   {m.rasm_url ? " 🖼️" : ""}
                   {m.audio_url ? " 🔊" : ""}
                   {m.audiolar?.length ? ` 🔊×${m.audiolar.length}` : ""}
@@ -1318,15 +1325,6 @@ function AdminMashqBoshqaruv({ tugunId, jsonKiritishKorinadi = true }) {
               )}
             </div>
           ))}
-        </div>
-      )}
-      {royxat && royxat.length > 0 && (
-        <div style={{ marginBottom: 10 }}>
-          <label className="izoh" style={{ display: "block", marginBottom: 4 }}>
-            {t("kurs_audio_zip_yuklash")}
-          </label>
-          <input type="file" accept=".zip" onChange={audioZipYukla} disabled={audioZipYuklanmoqda} />
-          {audioZipXato && <span className="xato-xabar" style={{ marginLeft: 8 }}>{audioZipXato}</span>}
         </div>
       )}
       {!jsonKiritishKorinadi ? (

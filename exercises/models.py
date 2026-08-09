@@ -148,7 +148,15 @@ def javoblarni_tekshir(savollar, javoblar):
     for bosh, uzunlik in kop_javobli_guruhlar(savollar):
         if uzunlik == 1:
             savol = savollar[bosh]
-            togri = savol["togri"]
+            # 2026-08-10, foydalanuvchi talabi: "erkin" savolda to'g'ri
+            # javob YO'Q (masalan talaba o'z ismini yozadi) — qanday javob
+            # yozilsa ham to'g'ri hisoblanadi, FAQAT bo'sh qoldirilmagan
+            # bo'lishi tekshiriladi.
+            if savol.get("erkin"):
+                javob = javoblar[bosh] if bosh < len(javoblar) else ""
+                natijalar[bosh] = bool(str(javob).strip())
+                continue
+            togri = savol.get("togri", "")
             qabul = togri if isinstance(togri, list) else [togri]
             qabul = [norm(t) for t in qabul if str(t).strip()]
             # "togri" bo'sh (AI hali javobni bilmay, admin to'ldirishi kutilgan

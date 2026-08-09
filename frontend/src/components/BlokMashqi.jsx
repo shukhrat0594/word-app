@@ -375,6 +375,7 @@ export default function BlokMashqi({ mashq, raqam }) {
       {raqam != null && (
         <div className="blok-raqam-sarlavha">
           {t("kurs_mashq")} {raqam}
+          {mashq.unit_raqami && <span className="izoh" style={{ fontWeight: 400, marginLeft: 6 }}>({mashq.unit_raqami})</span>}
         </div>
       )}
       {!tayyor ? (
