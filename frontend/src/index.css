@@ -112,6 +112,12 @@ textarea {
 /* 2026-07-29: rol ko'rsatkichi (ism yonidagi qavs) — "Ko'rish rejimi"
    faol bo'lganda owner qaysi profilni sinayotganini unutmasligi uchun. */
 .rol-korsatkich { color: var(--sariq); font-weight: 600; }
+/* 2026-08-09: `.logo` bloki endi foydalanuvchi profiliga havola (rasm +
+   ism-familiya). `.logo-nom small` rangi element selektori bilan kuchliroq
+   bo'lgani uchun rol ko'rsatkichi shu yerda alohida qaytariladi. */
+a.logo { text-decoration: none; color: inherit; border-radius: 8px; }
+a.logo:hover .logo-nom { color: var(--sariq); }
+.logo-nom small.rol-korsatkich { color: var(--sariq); font-weight: 600; }
 
 .nav-tugma {
   display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 8px;

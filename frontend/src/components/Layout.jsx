@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
+import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import { api, mediaManzil, tokenlarniTozala } from "../api";
 import { useI18n } from "../i18n";
 import { useProfil } from "../profilContext";
 import { useTestRejimi } from "../testRejimiContext";
+import Avatar from "./Avatar";
 import IjtimoiyPanel from "./IjtimoiyPanel";
 
 // 2026-07-27: "Namunaviy mashqlar" (eski "Mashqlar") bo'limi VAQTINCHA
@@ -335,29 +336,25 @@ export default function Layout() {
         onClick={() => setMenyuOchiq(false)}
       />
       <nav className={"sidebar" + (menyuOchiq ? " ochiq" : "")}>
-        <div className="logo">
-          {markazLogo ? (
-            <img className="logo-rasm" src={markazLogo} alt={markazNomi} />
-          ) : (
-            <div className="logo-belgi">U</div>
-          )}
+        {/* 2026-08-09 talabi: bu yerda markaz nomi/logotipi emas, FOYDALANUVCHINING
+            o'zi ko'rinadi — profil rasmi va ism-familiyasi, ustiga bosilganda o'z
+            profiliga o'tadi. Markaz nomi topbar sarlavhasida, logotipi esa brauzer
+            tab ikonkasida qoladi (yuqoridagi `markazLogo` shu uchun saqlanadi). */}
+        <Link to="/profil" className="logo" onClick={() => setMenyuOchiq(false)}>
+          <Avatar rasmUrl={profil?.rasm_url} olcham={38} sarlavha={t("nav_profil")} />
           <div className="logo-nom">
-            {markazNomi}
-            <small>
-              {profil?.ism || t("platforma")}
-              {/* 2026-07-29 talabi: foydalanuvchi qaysi rol nazari bilan
-                  ko'rayotganini aniqlash uchun — ayniqsa owner "Ko'rish
-                  rejimi"da bo'lganda, ekranda qaysi profilni sinab
-                  ko'rayotganini unutmasligi uchun. */}
-              {profil && (
-                <span className="rol-korsatkich">
-                  {" "}
-                  ({profil.is_owner ? t("rol_owner") : t(`rol_${profil.role}`)})
-                </span>
-              )}
-            </small>
+            {profil?.ism || t("platforma")}
+            {/* 2026-07-29 talabi: foydalanuvchi qaysi rol nazari bilan
+                ko'rayotganini aniqlash uchun — ayniqsa owner "Ko'rish
+                rejimi"da bo'lganda, ekranda qaysi profilni sinab
+                ko'rayotganini unutmasligi uchun. */}
+            {profil && (
+              <small className="rol-korsatkich">
+                {profil.is_owner ? t("rol_owner") : t(`rol_${profil.role}`)}
+              </small>
+            )}
           </div>
-        </div>
+        </Link>
         {yakuniyNavlar.map((n) => (
           <NavLink
             key={n.yol}
