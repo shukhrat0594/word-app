@@ -13,96 +13,125 @@ import IjtimoiyPanel from "./IjtimoiyPanel";
 // kifoya (App.jsx marshruti ham shu bayroqqa qaraydi).
 export const NAMUNAVIY_MASHQLAR_OCHIQ = false;
 
-// 2026-08-05 — "Ko'rinadigan panellar" tanlovi (Foydalanuvchilar/
-// Talabalar sahifasidagi checkbox ro'yxati) shu yerdan olinadi, nav
-// yo'llari bilan bir joyda saqlanishi uchun (ikkalasi sinxron qolsin).
-export const PANEL_TANLOV = [
-  { yol: "/ielts-boshqarish", kalit: "nav_ielts_boshqarish" },
-  { yol: "/ai-mashqlari", kalit: "nav_ai_mashqlari" },
-  { yol: "/kurslar", kalit: "nav_kurslar" },
-  { yol: "/oyinlar", kalit: "nav_oyinlar" },
-  { yol: "/tarix", kalit: "nav_tarix" },
-  { yol: "/reyting", kalit: "nav_reyting" },
-  { yol: "/guruhlar", kalit: "nav_guruhlar" },
-  { yol: "/talabalar", kalit: "nav_talabalar" },
-  { yol: "/xodimlar", kalit: "nav_xodimlar" },
-  { yol: "/davomat", kalit: "nav_davomat" },
-  { yol: "/ijtimoiy-tarmoqlar", kalit: "nav_ijtimoiy" },
-  { yol: "/foydalanuvchilar", kalit: "nav_foydalanuvchilar" },
-  { yol: "/hisobotlar", kalit: "nav_hisobotlar" },
-];
+// PANEL REESTRI (2026-08-09) — har panelning ikonkasi va tarjima kaliti
+// BIR JOYDA. Avval bu ma'lumot beshta ro'yxatga tarqalgan edi
+// (`TALABA_NAVLAR`, `OWNER_NAVLAR`, `navlarniOl` ning uch shoxi, ustiga
+// `oddiy` uchun alohida filtr va owner uchun alohida qo'shimcha blok) —
+// ya'ni bitta panelning ikonkasi to'rt joyda takrorlanardi.
+const PANELLAR = {
+  "/": { ikon: "▦", kalit: "nav_dashboard" },
+  "/mashqlar": { ikon: "✎", kalit: "nav_mashqlar" },
+  "/ielts-boshqarish": { ikon: "🎓", kalit: "nav_ielts_boshqarish" },
+  "/ai-mashqlari": { ikon: "🤖", kalit: "nav_ai_mashqlari" },
+  "/kurslar": { ikon: "📚", kalit: "nav_kurslar" },
+  "/oyinlar": { ikon: "🎮", kalit: "nav_oyinlar" },
+  "/tarix": { ikon: "🕐", kalit: "nav_tarix" },
+  "/reyting": { ikon: "🏆", kalit: "nav_reyting" },
+  "/guruhlar": { ikon: "☰", kalit: "nav_guruhlar" },
+  "/talabalar": { ikon: "🎒", kalit: "nav_talabalar" },
+  "/xodimlar": { ikon: "🧑‍🏫", kalit: "nav_xodimlar" },
+  "/davomat": { ikon: "🗓", kalit: "nav_davomat" },
+  "/ijtimoiy-tarmoqlar": { ikon: "🔗", kalit: "nav_ijtimoiy" },
+  "/foydalanuvchilar": { ikon: "🧑‍🤝‍🧑", kalit: "nav_foydalanuvchilar" },
+  "/hisobotlar": { ikon: "📊", kalit: "nav_hisobotlar" },
+  "/profil": { ikon: "👤", kalit: "nav_profil" },
+};
 
-const TALABA_NAVLAR = [
-  { yol: "/", ikon: "▦", kalit: "nav_dashboard" },
-  ...(NAMUNAVIY_MASHQLAR_OCHIQ
-    ? [{ yol: "/mashqlar", ikon: "✎", kalit: "nav_mashqlar" }]
-    : []),
-  { yol: "/ielts-boshqarish", ikon: "🎓", kalit: "nav_ielts_boshqarish" },
-  { yol: "/ai-mashqlari", ikon: "🤖", kalit: "nav_ai_mashqlari" },
-  { yol: "/kurslar", ikon: "📚", kalit: "nav_kurslar" },
-  { yol: "/oyinlar", ikon: "🎮", kalit: "nav_oyinlar" },
-  { yol: "/tarix", ikon: "🕐", kalit: "nav_tarix" },
-  { yol: "/reyting", ikon: "🏆", kalit: "nav_reyting" },
-];
+// HAR DOIM ko'rinadigan panellar (2026-08-09 qarori): foydalanuvchi
+// kamida bitta sahifani ko'rishi va o'z profilini (parol, rasm)
+// boshqarishi kerak. Bular "ko'rinadigan panellar" tanlovida CHIQMAYDI
+// va hech qachon yashirilmaydi.
+export const MAJBURIY_PANELLAR = ["/", "/profil"];
 
-// 2026-08-08, foydalanuvchi talabi: "ownerga hamma panellarni
-// ko'rinadigan qilish kerak". Avval owner `navlarniOl("admin")`
-// natijasini olardi va shu sababli Davomat, O'yinlar, Tarix, Reyting
-// unga KO'RINMASDI (ular faqat o'qituvchi/talaba ro'yxatlarida bor
-// edi). Endi owner uchun alohida, TO'LIQ ro'yxat.
+// ROL -> PANELLAR — QAT'IY jadval (2026-08-09, foydalanuvchi qarori:
+// "rollar bo'yicha qaysi rolga qaysi panellar ko'rinishi qat'iy
+// qoladi"). Bu YAGONA MANBA: menyu ham, "ko'rinadigan panellar"
+// tanlovi ham shu yerdan o'qiydi.
 //
-// DIQQAT: bu FAQAT navigatsiya. Backend ruxsatlari o'zgarmagan —
+// Nega kerak bo'ldi: avval tanlov ro'yxati rolga QARAMASDI — global 13
+// panel chiqardi. Natijada masalan ota-onaga "Kurslar"ni belgilash
+// mumkin edi, lekin ta'siri YO'Q edi (ota-ona rolida u panel umuman
+// yo'q, kesishma bo'sh chiqardi) — ya'ni galochka yolg'on gapirardi.
+//
+// Tartib MUHIM — menyu aynan shu ketma-ketlikda chiziladi.
+//
+// DIQQAT: bu FAQAT navigatsiya. Backend ruxsatlari bunga tayanmaydi —
 // talabaga mo'ljallangan sahifalar (Reyting, Tarix, O'yinlar) ownerga
 // uning O'Z ma'lumotini ko'rsatadi, ya'ni odatda bo'sh bo'ladi.
-const OWNER_NAVLAR = [
-  { yol: "/", ikon: "▦", kalit: "nav_dashboard" },
-  { yol: "/guruhlar", ikon: "☰", kalit: "nav_guruhlar" },
-  { yol: "/talabalar", ikon: "🎒", kalit: "nav_talabalar" },
-  { yol: "/xodimlar", ikon: "🧑‍🏫", kalit: "nav_xodimlar" },
-  { yol: "/davomat", ikon: "🗓", kalit: "nav_davomat" },
-  { yol: "/ielts-boshqarish", ikon: "🎓", kalit: "nav_ielts_boshqarish" },
-  { yol: "/ai-mashqlari", ikon: "🤖", kalit: "nav_ai_mashqlari" },
-  { yol: "/kurslar", ikon: "📚", kalit: "nav_kurslar" },
-  { yol: "/oyinlar", ikon: "🎮", kalit: "nav_oyinlar" },
-  { yol: "/tarix", ikon: "🕐", kalit: "nav_tarix" },
-  { yol: "/reyting", ikon: "🏆", kalit: "nav_reyting" },
+const TALABA_PANELLARI = [
+  "/",
+  ...(NAMUNAVIY_MASHQLAR_OCHIQ ? ["/mashqlar"] : []),
+  "/ielts-boshqarish",
+  "/ai-mashqlari",
+  "/kurslar",
+  "/oyinlar",
+  "/tarix",
+  "/reyting",
 ];
 
-function navlarniOl(role) {
-  if (role === "admin") {
-    return [
-      { yol: "/", ikon: "▦", kalit: "nav_dashboard" },
-      { yol: "/guruhlar", ikon: "☰", kalit: "nav_guruhlar" },
-      { yol: "/talabalar", ikon: "🎒", kalit: "nav_talabalar" },
-      { yol: "/xodimlar", ikon: "🧑‍🏫", kalit: "nav_xodimlar" },
-      // 2026-07-21: "Mashqlar boshqarish" vaqtincha yopilgan (bo'lim o'zi
-      // ham yopiq, MashqlarBoshqarish.jsx) — nav'dan ham olib tashlandi,
-      // kerak bo'lsa qayta ochiladi.
-      { yol: "/ielts-boshqarish", ikon: "🎓", kalit: "nav_ielts_boshqarish" },
-      { yol: "/ai-mashqlari", ikon: "🤖", kalit: "nav_ai_mashqlari" },
-      { yol: "/kurslar", ikon: "📚", kalit: "nav_kurslar" },
-      { yol: "/ijtimoiy-tarmoqlar", ikon: "🔗", kalit: "nav_ijtimoiy" },
-      // 2026-07-21: Davomat endi faqat o'qituvchida (u belgilaydi);
-      // Davomat hisoboti "Hisobotlar" ostiga ko'chdi, faqat owner ko'radi.
-      // 2026-07-21: "Markaz" (brend sozlash) bo'limi hech kimga ko'rinmasin
-      // deb so'ralgan — nav'dan olib tashlandi (sahifa/backend tegilmadi).
-    ];
-  }
-  if (role === "teacher") {
-    return [
-      { yol: "/", ikon: "▦", kalit: "nav_dashboard" },
-      { yol: "/ielts-boshqarish", ikon: "🎓", kalit: "nav_ielts_boshqarish" },
-      { yol: "/ai-mashqlari", ikon: "🤖", kalit: "nav_ai_mashqlari" },
-      { yol: "/kurslar", ikon: "📚", kalit: "nav_kurslar" },
-      { yol: "/guruhlar", ikon: "☰", kalit: "nav_guruhlar" },
-      { yol: "/talabalar", ikon: "🎒", kalit: "nav_talabalar" },
-      { yol: "/davomat", ikon: "🗓", kalit: "nav_davomat" },
-    ];
-  }
-  if (role === "parent") {
-    return [{ yol: "/", ikon: "👪", kalit: "nav_dashboard" }];
-  }
-  return TALABA_NAVLAR;
+export const ROL_PANELLARI = {
+  // 2026-08-08 talabi: "ownerga hamma panellar ko'rinsin". Avval owner
+  // admin ro'yxatini olardi va Davomat/O'yinlar/Tarix/Reyting unga
+  // ko'rinmasdi.
+  owner: [
+    "/", "/guruhlar", "/talabalar", "/xodimlar", "/davomat",
+    "/ielts-boshqarish", "/ai-mashqlari", "/kurslar",
+    "/oyinlar", "/tarix", "/reyting",
+    "/ijtimoiy-tarmoqlar", "/foydalanuvchilar", "/hisobotlar",
+  ],
+  // 2026-07-21: "Mashqlar boshqarish" (bo'lim o'zi ham yopiq), "Davomat"
+  // (endi faqat o'qituvchida — u belgilaydi; hisoboti "Hisobotlar"ga
+  // ko'chdi, faqat owner ko'radi) va "Markaz" (brend sozlash, hech kimga
+  // ko'rinmasin deb so'ralgan) adminda YO'Q. Sahifalari va backendi
+  // joyida — kerak bo'lsa shu ro'yxatga qaytariladi.
+  admin: [
+    "/", "/guruhlar", "/talabalar", "/xodimlar",
+    "/ielts-boshqarish", "/ai-mashqlari", "/kurslar", "/ijtimoiy-tarmoqlar",
+  ],
+  teacher: [
+    "/", "/ielts-boshqarish", "/ai-mashqlari", "/kurslar",
+    "/guruhlar", "/talabalar", "/davomat",
+  ],
+  student: TALABA_PANELLARI,
+  // "Oddiy foydalanuvchi" talaba ro'yxatidan farq qiladi: "IELTS
+  // testlari" va "Kurslar" unga berilmaydi (2026-07-20 / 2026-07-21).
+  // "AI mashqlari" esa OCHIQ (2026-07-27) — "Namunaviy mashqlar" yopilgach
+  // unga hech qanday mashq qolmagandi; backendda ham shunday,
+  // `korinadigan_testlar` unga faqat AI manbali testlarni qaytaradi.
+  oddiy: TALABA_PANELLARI.filter(
+    (y) => y !== "/ielts-boshqarish" && y !== "/kurslar"
+  ),
+  parent: ["/"],
+};
+
+/** Shu foydalanuvchi roli ko'ra oladigan panellar (qat'iy jadvaldan).
+ *
+ * `is_owner` ROLDAN ustun: owner'ning `role` maydoni "admin" bo'lib
+ * turadi (`FoydalanuvchiRolView` shunday yozadi), ya'ni rol bo'yicha
+ * qaralsa owner admin ro'yxatini olib qolardi. */
+export function rolPanellariOl(role, ownerMi) {
+  if (ownerMi) return ROL_PANELLARI.owner;
+  return ROL_PANELLARI[role] || ROL_PANELLARI.student;
+}
+
+/** "Ko'rinadigan panellar" tanlovida chiqadigan ro'yxat — shu rolning
+ * panellari, majburiylari (Bosh sahifa/Profil) olib tashlangan holda.
+ * Ya'ni ro'yxatda faqat HAQIQATAN ta'sir qiladigan panellar turadi. */
+export function panelTanloviOl(role, ownerMi) {
+  return rolPanellariOl(role, ownerMi)
+    .filter((yol) => !MAJBURIY_PANELLAR.includes(yol))
+    .map((yol) => ({ yol, kalit: PANELLAR[yol].kalit }));
+}
+
+/** Yo'l ro'yxatini menyu elementlariga aylantiradi (ikon + tarjima
+ * kaliti reestrdan). Ota-onaning "Bosh sahifa" ikonkasi ATAYLAB
+ * boshqacha (👪) — u yerda bu sahifa farzandlar ro'yxati. */
+function menyuQur(yollar, role) {
+  return yollar.map((yol) => ({
+    yol,
+    ikon: yol === "/" && role === "parent" ? "👪" : PANELLAR[yol].ikon,
+    kalit: PANELLAR[yol].kalit,
+  }));
 }
 
 /** Ilova ichidagi bildirishnomalar (2026-08-08). Manbalari: owner'ga
@@ -269,46 +298,29 @@ export default function Layout() {
     }
   }, [markazNomi, markazLogo, t]);
 
-  // "IELTS testlari" va "Kurslar" talaba/admin/owner/teacher uchun ko'rinadi
-  // — faqat "oddiy foydalanuvchi" ularni ko'rmaydi, unga faqat Mashqlar
-  // ochiq (2026-07-20, Kurslar uchun 2026-07-21).
-  const oddiyMi = profil?.role === "oddiy";
-  const asosiyNavlar = (profil?.is_owner ? OWNER_NAVLAR : navlarniOl(profil?.role)).filter(
-    // 2026-07-27: "AI mashqlari" oddiy foydalanuvchiga HAM ochiq (talabaga
-    // ham) — "Namunaviy mashqlar" yopilgach unga hech qanday mashq
-    // qolmagandi. Backendda ham shunday: `korinadigan_testlar` oddiy
-    // foydalanuvchiga faqat AI manbali testlarni qaytaradi.
-    (n) => !(oddiyMi && (n.yol === "/ielts-boshqarish" || n.yol === "/kurslar"))
+  // Menyu QAT'IY rol jadvalidan quriladi (`ROL_PANELLARI`) — "Markazlar"
+  // bo'limi ataylab hech bir rolda yo'q (2026-07-21, sahifa/backend
+  // joyida), "Faoliyat tarixi" esa alohida bo'lim emas, "Hisobotlar"
+  // ichiga ko'chgan. "/profil" oxirida — u jadvalda emas, chunki HAR
+  // rolga beriladi (`MAJBURIY_PANELLAR`).
+  const navlar = menyuQur(
+    [...rolPanellariOl(profil?.role, profil?.is_owner), "/profil"],
+    profil?.role
   );
-  // 2026-07-21: "Markazlar" bo'limi hozircha hech kimga ko'rinmaydi (nav'dan
-  // olib tashlandi, sahifa/backend o'zi tegilmagan — kerak bo'lsa qaytariladi).
-  // "Faoliyat tarixi" (audit) alohida bo'lim emas — "Hisobotlar" ichiga
-  // ko'chdi (Davomat hisoboti bilan birga), faqat owner ko'radi.
-  // Takrorlanmasin: owner roli "admin" bo'lsa "Ijtimoiy tarmoqlar" ikkala
-  // ro'yxatdan ham kelib, React'da bir xil `key` bilan ikki marta chiqardi.
-  const navlar = [
-    ...asosiyNavlar,
-    ...(profil?.is_owner
-      ? [
-          { yol: "/ijtimoiy-tarmoqlar", ikon: "🔗", kalit: "nav_ijtimoiy" },
-          { yol: "/foydalanuvchilar", ikon: "🧑‍🤝‍🧑", kalit: "nav_foydalanuvchilar" },
-          { yol: "/hisobotlar", ikon: "📊", kalit: "nav_hisobotlar" },
-        ]
-      : []),
-    { yol: "/profil", ikon: "👤", kalit: "nav_profil" },
-  ].filter((n, i, hammasi) => hammasi.findIndex((x) => x.yol === n.yol) === i);
 
   // 2026-08-05, foydalanuvchi qarori: rolga QO'SHIMCHA cheklov — owner
   // yoki admin bu foydalanuvchiga "korinadigan_panellar" belgilagan
   // bo'lsa (backend ruxsat tekshiruvlari o'zgarmaydi, bu FAQAT
   // navigatsiyani qo'shimcha toraytiradi), faqat shu ro'yxatdagi
   // yo'llar ko'rsatiladi. Owner O'ZIGA bu cheklovni qo'llamaydi (aks
-  // holda o'zini panellardan mahrum qilib qo'yishi mumkin edi). "/" va
-  // "/profil" har doim ko'rinadi.
+  // holda o'zini panellardan mahrum qilib qo'yishi mumkin edi).
+  // `MAJBURIY_PANELLAR` har doim qoladi.
   const yakuniyNavlar =
     !profil?.is_owner && profil?.korinadigan_panellar
       ? navlar.filter(
-          (n) => n.yol === "/" || n.yol === "/profil" || profil.korinadigan_panellar.includes(n.yol)
+          (n) =>
+            MAJBURIY_PANELLAR.includes(n.yol) ||
+            profil.korinadigan_panellar.includes(n.yol)
         )
       : navlar;
 

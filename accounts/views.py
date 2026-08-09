@@ -1295,6 +1295,11 @@ class TalabalarView(APIView):
                 {
                     "id": t.id, "ism": t.get_full_name() or t.username, "username": t.username,
                     "korinadigan_panellar": t.korinadigan_panellar,
+                    # 2026-08-09: "ko'rinadigan panellar" tanlovi endi ROLGA
+                    # qarab chiqadi (`panelTanloviOl`). Bu ro'yxatda faqat
+                    # talaba bo'lsa ham, rol ANIQ berilsin — komponent
+                    # taxminga tayanmasin.
+                    "role": t.role,
                     # 2026-08-09: owner/admin nomaqbul profil rasmini shu
                     # sahifadan o'chira olishi uchun (`FoydalanuvchiRasmView`).
                     # Adminda "Foydalanuvchilar" sahifasi YO'Q, shuning uchun

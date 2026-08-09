@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
 import Avatar from "../components/Avatar";
-import { PANEL_TANLOV } from "../components/Layout";
+import { panelTanloviOl } from "../components/Layout";
 import { useI18n } from "../i18n";
 import { useProfil } from "../profilContext";
 
@@ -151,21 +151,39 @@ export function ProfilRasmi({ user, ochir, t }) {
 /** Rolga QO'SHIMCHA "ko'rinadigan panellar" checkbox ro'yxati
  * (2026-08-05) — owner istalgan foydalanuvchi uchun, admin faqat
  * talabalar uchun ko'radi (`PatchYoli` orqali chaqiruvchi belgilaydi).
- * `null` (yoki bo'sh) = cheklovsiz (standart, rol bo'yicha). */
+ * `null` (yoki bo'sh) = cheklovsiz (rolning HAMMA paneli ko'rinadi).
+ *
+ * 2026-08-09: ro'yxat endi FOYDALANUVCHI ROLIGA qarab chiqadi
+ * (`panelTanloviOl`). Avval global 13 panel chiqardi — rolidan qat'i
+ * nazar. Natijada masalan ota-onaga "Kurslar"ni belgilash mumkin edi,
+ * lekin ta'siri YO'Q edi: menyu rol jadvali bilan kesishtiriladi, ota-ona
+ * rolida esa u panel umuman yo'q. Ya'ni galochka yolg'on gapirardi.
+ *
+ * "Bosh sahifa" va "Profil" ro'yxatda chiqmaydi — ular har doim
+ * ko'rinadi (`MAJBURIY_PANELLAR`). */
 export function PanelTanlovi({ user, saqlash, t }) {
   const [ochiq, setOchiq] = useState(false);
   const joriy = user.korinadigan_panellar;
+  const tanlov = panelTanloviOl(user.role, user.is_owner);
 
   function boshqar(yol, belgilanganmi) {
-    const hozirgi = joriy && joriy.length > 0 ? joriy : PANEL_TANLOV.map((p) => p.yol);
+    const hozirgi = joriy && joriy.length > 0 ? joriy : tanlov.map((p) => p.yol);
     const yangi = belgilanganmi ? hozirgi.filter((y) => y !== yol) : [...hozirgi, yol];
-    saqlash(user.id, yangi.length === PANEL_TANLOV.length ? null : yangi);
+    // Hammasi belgilangan bo'lsa `null` saqlanadi ("cheklovsiz"). Solishtirish
+    // ROLNING panel soni bo'yicha — global son bo'yicha emas, aks holda
+    // masalan o'qituvchida (6 panel) "hammasi" holatiga hech qachon
+    // yetib bo'lmasdi va ro'yxat abadiy "cheklangan" bo'lib turardi.
+    saqlash(user.id, yangi.length === tanlov.length ? null : yangi);
   }
+
+  // Rolida sozlanadigan panel bo'lmasa (masalan ota-ona — unda faqat
+  // "Bosh sahifa" bor) tugma umuman chiqmaydi: bosishdan foyda yo'q.
+  if (tanlov.length === 0) return null;
 
   return (
     <span style={{ position: "relative" }}>
       <button type="button" className="tugma ikkinchi kichik" onClick={() => setOchiq((v) => !v)}>
-        {t("panel_ruxsati")} {joriy && joriy.length > 0 ? `(${joriy.length})` : ""}
+        {t("panel_ruxsati")} {joriy && joriy.length > 0 ? `(${joriy.length}/${tanlov.length})` : ""}
       </button>
       {ochiq && (
         <div
@@ -178,7 +196,7 @@ export function PanelTanlovi({ user, saqlash, t }) {
             padding: 10, display: "grid", gap: 4, minWidth: 220, boxShadow: "var(--soya)",
           }}
         >
-          {PANEL_TANLOV.map((p) => {
+          {tanlov.map((p) => {
             const belgilanganmi = !joriy || joriy.length === 0 || joriy.includes(p.yol);
             return (
               <label key={p.yol} style={{ display: "flex", alignItems: "center", gap: 6 }}>
