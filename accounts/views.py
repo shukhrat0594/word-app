@@ -87,6 +87,7 @@ class ProfilView(APIView):
                 "asl_owner_mi": asl_owner_mi(u),
                 "korish_rejimi": u.korish_rejimi,
                 "korinadigan_panellar": u.korinadigan_panellar,
+                "rasm_url": f"/api/foydalanuvchilar/{u.id}/rasm/" if u.rasm else None,
             }
         )
 
@@ -426,6 +427,15 @@ class FoydalanuvchilarView(APIView):
                     "markaz": u.markaz.name if u.markaz else None,
                     "parol_bormi": u.has_usable_password(),
                     "korinadigan_panellar": u.korinadigan_panellar,
+                    "rasm_url": f"/api/foydalanuvchilar/{u.id}/rasm/" if u.rasm else None,
+                    # Ota-ona uchun — biriktirilgan farzandlar (2026-08-09).
+                    "farzandlar": [
+                        {"id": f.id, "ism": f.get_full_name() or f.username}
+                        for f in u.farzandlar.all()
+                    ] if u.role == User.Role.PARENT else [],
+                    # Talaba uchun — allaqachon biriktirilganmi (frontend
+                    # band talabani belgilashga ruxsat bermasligi uchun).
+                    "ota_ona_id": u.ota_ona_id,
                 }
                 for u in qs[:200]
             ]
@@ -590,6 +600,117 @@ class FoydalanuvchiRolView(APIView):
         return Response({"id": user.id, "role": user.role, "is_owner": user.is_superuser})
 
 
+class FoydalanuvchiFarzandlarView(APIView):
+    """Ota-onaga farzand(lar) biriktirish (2026-08-09, foydalanuvchi
+    talabi). Avval buni FAQAT Django admin panelida qilish mumkin edi,
+    ya'ni ilovadan ota-ona yaratilsa ham unga bola bog'lab bo'lmasdi.
+
+    QOIDA: bitta ota-onada bir NECHTA farzand bo'lishi mumkin, lekin
+    bitta bola FAQAT BITTA ota-onaga biriktiriladi. Cheklov modelda
+    (`User.ota_ona` FK) — bu yerda faqat tushunarli xato beriladi,
+    aks holda boshqa ota-onaning bolasi jimgina tortib olinardi.
+
+    Body: {"farzandlar": [talaba_id, ...]} — TO'LIQ ro'yxat (ro'yxatda
+    yo'q, lekin avval biriktirilgan bolalar uzib qo'yiladi)."""
+
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request, pk):
+        u = request.user
+        if not (owner_mi(u) or u.role == User.Role.ADMIN):
+            return Response({"detail": "Faqat owner/admin uchun"}, status=403)
+
+        ota_ona = get_object_or_404(User, pk=pk)
+        if ota_ona.role != User.Role.PARENT:
+            return Response({"detail": "Bu foydalanuvchi ota-ona emas"}, status=400)
+
+        idlar = request.data.get("farzandlar")
+        if not isinstance(idlar, list) or not all(isinstance(i, int) for i in idlar):
+            return Response({"detail": "farzandlar — id'lar ro'yxati bo'lishi kerak"}, status=400)
+
+        talabalar = list(User.objects.filter(pk__in=idlar, role=User.Role.STUDENT))
+        topilmadi = set(idlar) - {t.pk for t in talabalar}
+        if topilmadi:
+            return Response(
+                {"detail": f"Talaba topilmadi (yoki roli talaba emas): {sorted(topilmadi)}"},
+                status=400,
+            )
+
+        band = [
+            t for t in talabalar
+            if t.ota_ona_id is not None and t.ota_ona_id != ota_ona.pk
+        ]
+        if band:
+            nomlar = ", ".join(f"{t.get_full_name() or t.username}" for t in band)
+            return Response(
+                {"detail": f"Bu talaba(lar) allaqachon boshqa ota-onaga biriktirilgan: {nomlar}"},
+                status=400,
+            )
+
+        # Ro'yxatdan chiqarilganlarni uzamiz, keyin yangilarini bog'laymiz.
+        User.objects.filter(ota_ona=ota_ona).exclude(pk__in=idlar).update(ota_ona=None)
+        User.objects.filter(pk__in=idlar).update(ota_ona=ota_ona)
+
+        logla(
+            foydalanuvchi=u,
+            harakat=FaoliyatYozuvi.Harakat.OZGARTIRISH,
+            obyekt=ota_ona,
+            obyekt_turi="Foydalanuvchi",
+            ozgarishlar={"farzandlar": {"yangi": idlar}},
+        )
+        return Response({
+            "id": ota_ona.id,
+            "farzandlar": [
+                {"id": t.id, "ism": t.get_full_name() or t.username}
+                for t in ota_ona.farzandlar.all()
+            ],
+        })
+
+
+class FoydalanuvchiRasmView(APIView):
+    """Profil rasmi — yuklash (POST) va ko'rish (GET).
+
+    R2 bucket YOPIQ (`config/settings.py` B3.2 izohi), shuning uchun
+    to'g'ridan-to'g'ri `.url` bilan emas, shu autentifikatsiyalangan
+    endpoint orqali uzatiladi — mavjud `KursMashqRasmView` bilan bir xil
+    naqsh.
+
+    Yuklay oladi: foydalanuvchining O'ZI yoki owner/admin."""
+
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def get(self, request, pk):
+        from django.http import FileResponse, Http404
+
+        user = get_object_or_404(User, pk=pk)
+        if not user.rasm:
+            raise Http404
+        javob = FileResponse(user.rasm.open("rb"))
+        javob["Content-Disposition"] = "inline"
+        return javob
+
+    def post(self, request, pk):
+        u = request.user
+        user = get_object_or_404(User, pk=pk)
+        if not (u.pk == user.pk or owner_mi(u) or u.role == User.Role.ADMIN):
+            return Response({"detail": "Ruxsat yo'q"}, status=403)
+        rasm = request.FILES.get("rasm")
+        if not rasm:
+            return Response({"detail": "rasm majburiy"}, status=400)
+        user.rasm.save(f"{user.id}_{rasm.name}", rasm, save=True)
+        return Response({"id": user.id, "rasm_url": f"/api/foydalanuvchilar/{user.id}/rasm/"})
+
+    def delete(self, request, pk):
+        u = request.user
+        user = get_object_or_404(User, pk=pk)
+        if not (u.pk == user.pk or owner_mi(u) or u.role == User.Role.ADMIN):
+            return Response({"detail": "Ruxsat yo'q"}, status=403)
+        if user.rasm:
+            user.rasm.delete(save=True)
+        return Response(status=204)
+
+
 # frontend/src/components/Layout.jsx'dagi nav yo'llari bilan BIR XIL
 # saqlanishi kerak (2026-08-05) — bu yerda faqat validatsiya uchun.
 KORINADIGAN_PANEL_YOLLARI = {
@@ -653,7 +774,8 @@ class FoydalanuvchiNatijalariView(APIView):
     Ko'ra oladi: FOYDALANUVCHINING O'ZI (har doim, rolidan qat'i nazar —
     "oddiy" foydalanuvchi ham shu orqali "/tarix"da o'zinikini ko'radi),
     owner (istalgan foydalanuvchi), teacher (FAQAT o'z guruhidagi
-    talabalar — `Guruh.talabalar`)."""
+    talabalar — `Guruh.talabalar`), ota-ona (FAQAT O'Z farzandi —
+    2026-08-09, avval bu shox yo'q edi va ota-ona 403 olardi)."""
 
     permission_classes = [IsAuthenticated]
 
@@ -666,6 +788,9 @@ class FoydalanuvchiNatijalariView(APIView):
             from academics.models import Guruh
 
             if not Guruh.objects.filter(oqituvchi=u, talabalar=talaba).exists():
+                return Response({"detail": "Ruxsat yo'q"}, status=403)
+        elif u.role == User.Role.PARENT:
+            if talaba.ota_ona_id != u.pk:
                 return Response({"detail": "Ruxsat yo'q"}, status=403)
         else:
             return Response({"detail": "Ruxsat yo'q"}, status=403)

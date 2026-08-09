@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { api } from "../api";
+import { api, apiForm } from "../api";
+import Avatar from "../components/Avatar";
 import { useI18n } from "../i18n";
 import { useProfil } from "../profilContext";
 
@@ -64,6 +65,36 @@ export default function Profil() {
   const [xato, setXato] = useState("");
   const [xabar, setXabar] = useState("");
   const [band, setBand] = useState(false);
+  const [rasmBand, setRasmBand] = useState(false);
+  const [rasmXato, setRasmXato] = useState("");
+
+  async function rasmniYukla(fayl) {
+    setRasmXato("");
+    setRasmBand(true);
+    try {
+      const fd = new FormData();
+      fd.append("rasm", fayl);
+      await apiForm(`/api/foydalanuvchilar/${profil.id}/rasm/`, { method: "POST", formData: fd });
+      await yangila();
+    } catch (e) {
+      setRasmXato(e.data?.detail || t("xato_yuz_berdi"));
+    } finally {
+      setRasmBand(false);
+    }
+  }
+
+  async function rasmniOchir() {
+    setRasmXato("");
+    setRasmBand(true);
+    try {
+      await api(`/api/foydalanuvchilar/${profil.id}/rasm/`, { method: "DELETE" });
+      await yangila();
+    } catch (e) {
+      setRasmXato(e.data?.detail || t("xato_yuz_berdi"));
+    } finally {
+      setRasmBand(false);
+    }
+  }
 
   async function ozgartir() {
     setXato("");
@@ -91,6 +122,35 @@ export default function Profil() {
     <>
       <div className="karta">
         <h3>{t("profil_malumot")}</h3>
+        {/* 2026-08-09: har foydalanuvchi O'Z profil rasmini shu yerdan
+            qo'yadi (owner boshqalarnikini "Foydalanuvchilar" sahifasida
+            qo'ya oladi). Rasm R2'da yopiq turadi, shuning uchun
+            autentifikatsiyalangan endpointdan keladi. */}
+        <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 14 }}>
+          <Avatar rasmUrl={profil.rasm_url} olcham={72} />
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <label className="tugma ikkinchi" style={{ cursor: "pointer" }}>
+              {rasmBand ? t("yuklanmoqda") : t("rasm_yuklash")}
+              <input
+                type="file"
+                accept="image/*"
+                style={{ display: "none" }}
+                disabled={rasmBand}
+                onChange={(e) => {
+                  const f = e.target.files[0];
+                  e.target.value = "";
+                  if (f) rasmniYukla(f);
+                }}
+              />
+            </label>
+            {profil.rasm_url && (
+              <button className="tugma ikkinchi" onClick={rasmniOchir} disabled={rasmBand}>
+                {t("rasmni_ochirish")}
+              </button>
+            )}
+          </div>
+        </div>
+        {rasmXato && <div className="xato-xabar">{rasmXato}</div>}
         <div style={{ display: "grid", gap: 8 }}>
           <div>
             <span className="izoh">{t("ism")}: </span>

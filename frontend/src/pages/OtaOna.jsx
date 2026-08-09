@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
 import { Dinamika, Radar } from "../components/Grafiklar";
+import NatijalarRoyxati from "../components/NatijalarRoyxati";
 import { useI18n } from "../i18n";
 
 export default function OtaOna() {
@@ -96,6 +97,15 @@ export default function OtaOna() {
               <h3>Writing</h3>
               <Dinamika dinamika={stat.writing.dinamika} />
             </div>
+          </div>
+
+          {/* 2026-08-09: ota-ona endi farzandning BARCHA mashq/test
+              natijalarini ham ko'radi (avval faqat umumiy statistika
+              bor edi). Admin/teacher tomonidagi bilan BIR XIL komponent —
+              backendda ham shu endpoint, `PARENT` shoxi bilan. */}
+          <div className="karta">
+            <h3>{t("mashq_natijalari")}</h3>
+            <NatijalarRoyxati talabaId={tanlangan} />
           </div>
 
           <div className="ikki-ustun">

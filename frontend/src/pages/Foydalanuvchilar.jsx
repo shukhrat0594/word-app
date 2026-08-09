@@ -1,10 +1,85 @@
 import { useEffect, useState } from "react";
-import { api } from "../api";
+import { api, apiForm } from "../api";
+import Avatar from "../components/Avatar";
 import { PANEL_TANLOV } from "../components/Layout";
 import { useI18n } from "../i18n";
 import { useProfil } from "../profilContext";
 
 const ROLLAR = ["owner", "admin", "teacher", "student", "parent", "oddiy"];
+
+/** Ota-onaga farzand(lar) biriktirish (2026-08-09). Bitta ota-onada bir
+ * nechta farzand bo'lishi mumkin, lekin bitta bola FAQAT bitta
+ * ota-onaga — shuning uchun boshqa ota-onaga biriktirilgan talaba
+ * ro'yxatda ko'rinadi, lekin BELGILAB BO'LMAYDI (backend ham 400
+ * qaytaradi, bu faqat oldindan tushuntirish). */
+function FarzandTanlovi({ user, talabalar, saqlash, t }) {
+  const [ochiq, setOchiq] = useState(false);
+  const joriy = (user.farzandlar || []).map((f) => f.id);
+
+  function boshqar(id, belgilanganmi) {
+    saqlash(user.id, belgilanganmi ? joriy.filter((x) => x !== id) : [...joriy, id]);
+  }
+
+  return (
+    <span style={{ position: "relative" }}>
+      <button type="button" className="tugma ikkinchi kichik" onClick={() => setOchiq((v) => !v)}>
+        👪 {t("farzandlar_biriktirish")}{joriy.length ? ` (${joriy.length})` : ""}
+      </button>
+      {ochiq && (
+        <div
+          style={{
+            position: "absolute", zIndex: 25, top: "100%", right: 0, marginTop: 4,
+            background: "var(--sirt)", border: "1px solid var(--chiziq)", borderRadius: 8,
+            padding: 10, display: "grid", gap: 4, minWidth: 260, maxHeight: 300,
+            overflowY: "auto", boxShadow: "var(--soya)",
+          }}
+        >
+          <div className="izoh" style={{ marginBottom: 4 }}>{t("farzand_tanlash_izoh")}</div>
+          {talabalar.length === 0 && <span className="izoh">{t("talaba_yoq")}</span>}
+          {talabalar.map((s) => {
+            const belgilanganmi = joriy.includes(s.id);
+            // Boshqa ota-onada band — bu yerda belgilab bo'lmaydi.
+            const band = !belgilanganmi && s.ota_ona_id != null;
+            return (
+              <label
+                key={s.id}
+                style={{ display: "flex", alignItems: "center", gap: 6, opacity: band ? 0.45 : 1 }}
+                title={band ? t("farzand_tanlash_izoh") : ""}
+              >
+                <input
+                  type="checkbox"
+                  checked={belgilanganmi}
+                  disabled={band}
+                  onChange={() => boshqar(s.id, belgilanganmi)}
+                />
+                {s.ism}
+              </label>
+            );
+          })}
+        </div>
+      )}
+    </span>
+  );
+}
+
+/** Profil rasmi — kichik avatar, bosilganda yuklash (2026-08-09). */
+function ProfilRasmi({ user, yukla, t }) {
+  return (
+    <label title={t("rasm_yuklash")} style={{ cursor: "pointer", flexShrink: 0 }}>
+      <Avatar rasmUrl={user.rasm_url} olcham={34} />
+      <input
+        type="file"
+        accept="image/*"
+        style={{ display: "none" }}
+        onChange={(e) => {
+          const f = e.target.files[0];
+          e.target.value = "";
+          if (f) yukla(user.id, f);
+        }}
+      />
+    </label>
+  );
+}
 
 /** Rolga QO'SHIMCHA "ko'rinadigan panellar" checkbox ro'yxati
  * (2026-08-05) — owner istalgan foydalanuvchi uchun, admin faqat
@@ -123,6 +198,30 @@ export default function Foydalanuvchilar() {
     }
   }
 
+  async function farzandlarSaqla(id, farzandlar) {
+    setXabar((x) => ({ ...x, [id]: "" }));
+    try {
+      await api(`/api/foydalanuvchilar/${id}/farzandlar/`, {
+        method: "PATCH", body: { farzandlar },
+      });
+      yukla();
+    } catch (e) {
+      setXabar((x) => ({ ...x, [id]: e.data?.detail || t("xato_yuz_berdi") }));
+    }
+  }
+
+  async function rasmYukla(id, fayl) {
+    setXabar((x) => ({ ...x, [id]: "" }));
+    try {
+      const fd = new FormData();
+      fd.append("rasm", fayl);
+      await apiForm(`/api/foydalanuvchilar/${id}/rasm/`, { method: "POST", formData: fd });
+      yukla();
+    } catch (e) {
+      setXabar((x) => ({ ...x, [id]: e.data?.detail || t("xato_yuz_berdi") }));
+    }
+  }
+
   async function yangiYarat(e) {
     e.preventDefault();
     setYangiXato("");
@@ -196,12 +295,18 @@ export default function Foydalanuvchilar() {
       <div style={{ display: "grid", gap: 10 }}>
         {royxat.map((u) => (
           <div className="davomat-qator" key={u.id}>
-            <span>
-              <strong>{u.ism}</strong>{" "}
-              <span className="izoh">
-                {u.username} · {u.is_owner ? t("rol_owner") : t(`rol_${u.role}`)}
-                {u.markaz ? ` · ${u.markaz}` : ""} ·{" "}
-                {u.parol_bormi ? t("parol_bor_holat") : t("parol_yoq_holat")}
+            <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <ProfilRasmi user={u} yukla={rasmYukla} t={t} />
+              <span>
+                <strong>{u.ism}</strong>{" "}
+                <span className="izoh">
+                  {u.username} · {u.is_owner ? t("rol_owner") : t(`rol_${u.role}`)}
+                  {u.markaz ? ` · ${u.markaz}` : ""} ·{" "}
+                  {u.parol_bormi ? t("parol_bor_holat") : t("parol_yoq_holat")}
+                  {u.role === "parent" && u.farzandlar?.length > 0 && (
+                    <> · 👪 {u.farzandlar.map((f) => f.ism).join(", ")}</>
+                  )}
+                </span>
               </span>
             </span>
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -228,6 +333,14 @@ export default function Foydalanuvchilar() {
                     </option>
                   ))}
                 </select>
+              )}
+              {u.role === "parent" && (
+                <FarzandTanlovi
+                  user={u}
+                  talabalar={royxat.filter((x) => x.role === "student")}
+                  saqlash={farzandlarSaqla}
+                  t={t}
+                />
               )}
               {!u.is_owner && u.id !== profil?.id && (
                 <PanelTanlovi user={u} saqlash={panellarSaqla} t={t} />

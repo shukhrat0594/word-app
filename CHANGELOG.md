@@ -19,6 +19,20 @@ Format (qat'iy, parser shunga tayanadi):
 
 ---
 
+## 2026-08-09 — Ota-ona profili va profil rasmi
+
+- **Ota-onaga farzand biriktirish** endi ilovadan qilinadi (avval faqat
+  Django admin panelidan). Bitta ota-onaga bir nechta farzand
+  biriktirsa bo'ladi, lekin bitta bola faqat bitta ota-onaga —
+  boshqasiga biriktirilgan talaba ro'yxatda tanlanmaydigan bo'lib
+  ko'rinadi.
+- **Ota-ona endi farzandining barcha mashq natijalarini ko'radi** —
+  Reading, Listening, Writing, Speaking va Kurslar bo'yicha, avvalgi
+  umumiy statistikaga qo'shimcha. Boshqa bolaning natijasi ko'rinmaydi.
+- **Profil rasmi** qo'shildi. Har kim o'z rasmini "Profil" sahifasidan
+  qo'yadi yoki o'chiradi; owner va admin boshqa foydalanuvchilarnikini
+  "Foydalanuvchilar" sahifasidan qo'ya oladi.
+
 ## 2026-08-08 — Writing baholash aniqligi
 
 - **Writing baholash ancha adolatli bo'ldi.** Ilgari xatosiz, lekin

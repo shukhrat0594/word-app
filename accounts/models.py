@@ -114,15 +114,34 @@ class User(AbstractUser):
             "Ro'yxat elementlari nav yo'llari (masalan '/kurslar')."
         ),
     )
-    # B6.1: Ota-ona <-> Talaba (ko'p-ko'pga). Bog'lashni faqat Markaz
-    # (Admin/O'qituvchi) admin panelda amalga oshiradi.
-    farzandlar = models.ManyToManyField(
+    # 2026-08-09: avval bu ko'p-ko'pga (`farzandlar` M2M) edi, ya'ni bitta
+    # bolani bir nechta ota-onaga biriktirish mumkin bo'lardi.
+    # Foydalanuvchi qarori: bitta ota-onada bir NECHTA farzand bo'lishi
+    # mumkin, lekin bitta bola FAQAT BITTA ota-onaga biriktiriladi —
+    # shuning uchun bog'lanish bolaning O'ZIDA turadigan FK'ga
+    # o'tkazildi. Cheklov endi DB darajasida: bitta ustunga ikkita
+    # qiymat sig'maydi, ya'ni qoidani buzib bo'lmaydi (endpoint ham,
+    # admin panel ham).
+    #
+    # `related_name="farzandlar"` ATAYLAB eski nom bilan: `parent
+    # .farzandlar.all()` avvalgidek ishlaydi, shuning uchun mavjud kod
+    # (`stats/views.py`) tegilmadi.
+    ota_ona = models.ForeignKey(
         "self",
-        symmetrical=False,
+        on_delete=models.SET_NULL,
+        null=True,
         blank=True,
-        related_name="ota_onalar",
-        limit_choices_to={"role": "student"},
-        help_text="Faqat 'Ota-ona' roli uchun — kuzatiladigan talabalar",
+        related_name="farzandlar",
+        limit_choices_to={"role": "parent"},
+        help_text="Faqat 'Talaba' roli uchun — kuzatuvchi ota-ona (bitta)",
+    )
+    rasm = models.ImageField(
+        upload_to="foydalanuvchi_rasm/", blank=True,
+        help_text=(
+            "Profil rasmi (2026-08-09). R2 bucket YOPIQ, shuning uchun "
+            "to'g'ridan-to'g'ri URL bilan emas, autentifikatsiyalangan "
+            "endpoint orqali uzatiladi — `FoydalanuvchiRasmView`."
+        ),
     )
 
     def __str__(self):
