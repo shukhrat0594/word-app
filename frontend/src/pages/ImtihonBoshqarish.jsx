@@ -993,6 +993,25 @@ function IzohQutilari({ savollar, boshIdx, bloklar, ozgardi, t }) {
   );
 }
 
+// Savol turlari (2026-08-08, foydalanuvchi talabi: "mashq turini ham
+// almashtirsa bo'ladigan qil"). Avval `tur` UMUMAN ko'rinmasdi, holbuki
+// talaba tomonida ko'rinish AYNAN shunga qarab tanlanadi — masalan
+// variantlar qutisi faqat matching/matching_headings'da chiqadi, so'z
+// banki esa fill_blanks'da. Noto'g'ri tur qo'yilgan savolni tuzatib
+// bo'lmasdi.
+//
+// Ro'yxat `pdf_generatsiya`/`mashq_generatsiya` promtlaridagi ruxsat
+// etilgan qiymatlar bilan BIR XIL — frontend faqat shularni taniydi.
+const SAVOL_TURLARI = [
+  "multiple_choice",
+  "tfng",
+  "matching",
+  "matching_headings",
+  "fill_blanks",
+  "short_answer",
+  "map_labelling",
+];
+
 function SavolTahrirQatori({ savol, oz, hammagaQoll, t }) {
   function maydonOz(patch) {
     oz({ ...savol, ...patch });
@@ -1016,12 +1035,32 @@ function SavolTahrirQatori({ savol, oz, hammagaQoll, t }) {
           onChange={(e) => maydonOz({ guruh_korsatma: e.target.value })}
         />
       </div>
-      <textarea
-        rows={2}
-        placeholder={t("imtihon_savol_matni")}
-        value={savol.savol || ""}
-        onChange={(e) => maydonOz({ savol: e.target.value })}
-      />
+      <div style={{ display: "flex", gap: 6, alignItems: "flex-start" }}>
+        <textarea
+          style={{ flex: 1 }}
+          rows={2}
+          placeholder={t("imtihon_savol_matni")}
+          value={savol.savol || ""}
+          onChange={(e) => maydonOz({ savol: e.target.value })}
+        />
+        <select
+          value={SAVOL_TURLARI.includes(savol.tur) ? savol.tur : ""}
+          onChange={(e) => maydonOz({ tur: e.target.value })}
+          title={t("imtihon_savol_turi")}
+          style={{ maxWidth: 170 }}
+        >
+          {/* Notanish/bo'sh tur — eski testlarda uchraydi. Ro'yxatda
+              ko'rsatiladi, lekin tanlab bo'lmaydi (faqat almashtirish). */}
+          {!SAVOL_TURLARI.includes(savol.tur) && (
+            <option value="">{savol.tur ? `? ${savol.tur}` : t("imtihon_savol_turi")}</option>
+          )}
+          {SAVOL_TURLARI.map((x) => (
+            <option key={x} value={x}>
+              {t(`imtihon_tur_${x}`)}
+            </option>
+          ))}
+        </select>
+      </div>
       <div style={{ display: "flex", gap: 6 }}>
         {/* 2026-08-08: avval bu bitta qatorli input edi va variantlar
             VERGUL bilan ajratilardi. "List of Headings" sarlavhalarida
@@ -1472,11 +1511,16 @@ function MashqTolaTahrir({ test, manba, onYopish, onSaqlandi }) {
                       key={si}
                       savol={s}
                       oz={(yangi) => savolOz(q.id, si, yangi)}
-                      hammagaQoll={
-                        s.tur === "matching" || s.tur === "matching_headings"
-                          ? (variantlar) => variantlarniGuruhgaQoll(q.id, si, variantlar)
-                          : null
-                      }
+                      // 2026-08-08: avval bu faqat matching/
+                      // matching_headings turida berilardi va
+                      // foydalanuvchi tugmani umuman topa olmadi —
+                      // eski testlarda `tur` boshqa qiymat bo'lishi
+                      // mumkin, uni ko'rish/o'zgartirish esa qiyin.
+                      // Cheklov keraksiz: umumiy variantlar ro'yxati
+                      // "so'z banki" (fill_blanks) uchun ham AYNAN
+                      // shunday kerak. Guruh baribir `tur` bo'yicha
+                      // ajratiladi, ya'ni begona savolga tegmaydi.
+                      hammagaQoll={(variantlar) => variantlarniGuruhgaQoll(q.id, si, variantlar)}
                       t={t}
                     />
                   ))}
