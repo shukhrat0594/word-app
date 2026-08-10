@@ -393,7 +393,7 @@ function BlokTahrir({
  * alohida karta). */
 function MashqKartasi({
   mashq, mashqIdx, qutilar, imgEl, onChange, onOchir, onBlokKochir,
-  sahifaIndeks, barchaMashqlar, onUlash,
+  sahifaIndeks, barchaMashqlar, onUlash, onRasmQoshish,
 }) {
   const { t } = useI18n();
 
@@ -442,6 +442,9 @@ function MashqKartasi({
           />
           {t("kurs_blok_tasdiq_audio_kerak")}
         </label>
+        <button type="button" className="tugma ikkinchi kichik" onClick={onRasmQoshish}>
+          {t("kurs_blok_tasdiq_rasm_qoshish")}
+        </button>
         <button type="button" className="tugma ikkinchi kichik" onClick={() => onOchir(mashqIdx)}>
           {t("kurs_blok_tasdiq_mashqni_ochir")}
         </button>
@@ -569,6 +572,25 @@ function SahifaBlogi({ jarayonId, sahifa, sahifaHolati, ozgartir, barchaMashqlar
     ozgartir({ mashqlar: sahifaHolati.mashqlar.filter((_, i) => i !== mashqIdx) });
   }
 
+  // 2026-08-10, foydalanuvchi talabi: "rasm qo'shish tugmasini bosaman,
+  // kitob sahifasining rasmida yangi quti paydo bo'ladi, shu qutida
+  // belgilagan qismimni rasm qilib qo'shish". AI aniqlagan qutilarni
+  // FAQAT surish/o'lchamini o'zgartirish mumkin edi — bu YANGI quti
+  // qo'shadi (sahifa markazida, kichikroq) va uni SHU mashqning
+  // bloklariga "rasm" turi bilan biriktiradi. Quti joyi va o'lchami
+  // `QutiTahrirlagich`da (yuqorida, sahifa surati ustida) sudrab
+  // to'g'irlanadi — tomoni esa mashq kartasidagi mavjud tanlovdan.
+  function rasmQoshish(mashqIdx) {
+    const yangiIdx = sahifaHolati.qutilar.length;
+    const yangiQuti = { x1: 30, y1: 30, x2: 70, y2: 55 };
+    ozgartir({ qutilar: [...sahifaHolati.qutilar, yangiQuti] });
+    const yangiBlok = { tur: "rasm", rasm_idx: yangiIdx, tomon: "tepa", izoh: "" };
+    const mashqlar = sahifaHolati.mashqlar.map((m, i) =>
+      i === mashqIdx ? { ...m, bloklar: [...(m.bloklar || []), yangiBlok] } : m
+    );
+    ozgartir({ mashqlar });
+  }
+
   /** Bitta blokni (savol_idx'ga bog'liq bo'lmagan turlar — qarang
    * `SAVOL_BOGLIQ_TURLAR`) boshqa mashq raqamiga ko'chiradi (2026-08-05):
    * o'sha raqamli mashq allaqachon bor bo'lsa unga qo'shiladi, bo'lmasa
@@ -645,6 +667,7 @@ function SahifaBlogi({ jarayonId, sahifa, sahifaHolati, ozgartir, barchaMashqlar
                 sahifaIndeks={sahifa.indeks}
                 barchaMashqlar={barchaMashqlar}
                 onUlash={(nishonS, nishonM, blokIdx) => mashqniUlash(sahifa.indeks, i, nishonS, nishonM, blokIdx)}
+                onRasmQoshish={() => rasmQoshish(i)}
               />
             ))}
           </div>
