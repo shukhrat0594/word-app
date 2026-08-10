@@ -177,7 +177,6 @@ function TalabaMashqi({ mashq, raqam }) {
       {raqam != null && (
         <div style={{ fontWeight: 700, marginBottom: 6 }}>
           {t("kurs_mashq")} {raqam}
-          {mashq.unit_raqami && <span className="izoh" style={{ fontWeight: 400, marginLeft: 6 }}>({mashq.unit_raqami})</span>}
         </div>
       )}
       {mashq.matn && <div style={{ marginBottom: 8 }}>{mashq.matn}</div>}
@@ -266,23 +265,26 @@ function TalabaMashqi({ mashq, raqam }) {
   );
 }
 
-/** Bir nechta mashq BITTA rasmni ulashganda (2026-08-09, "bitta rasm
- * turadi, uning yonida ikkita mashq") — rasm faqat BIR MARTA chiqadi,
- * har mashqning `fon_rejimi` bo'lsa savollari o'sha rasm ustiga
- * pozitsiyalangan, aks holda o'z ostida oddiy ro'yxatda. Har mashq
- * javobi/tekshirishi MUSTAQIL (`/yechish/` alohida chaqiriladi) —
- * faqat vizual konteyner umumiy. */
-function RasmGuruhBlok({ guruh }) {
+/** Bir nechta mashq BITTA rasmni ulashganda (2026-08-10 da qayta
+ * qurilgan) — "bitta rasm turadi, uning yonida ikkita mashq".
+ *
+ * MUHIM: mashqlarning MATNI (dialog, grammar-box, ko'rsatma) TO'LIQ
+ * saqlanadi — har mashq o'zining odatdagi `BlokMashqi` ko'rinishida
+ * chiziladi, faqat ULASHILGAN RASM ular yonida BIR MARTA turadi
+ * (admin tanlagan tomonda: chap/o'ng/tepa/past).
+ *
+ * Avvalgi versiya (2026-08-09) mashqni "fon" ko'rinishiga o'tkazib,
+ * matnni yo'qotardi — foydalanuvchi buni rad etdi. */
+function RasmGuruhBlok({ guruh, boshRaqam }) {
   const { t } = useI18n();
   const [rasmUrl, setRasmUrl] = useState(null);
-  const [holatlar, setHolatlar] = useState(() =>
-    guruh.map((m) => ({ javoblar: m.savollar.map(() => ""), natija: null, xato: "", yuklanmoqda: false })),
-  );
+  const manba = guruh[0].rasm_url;
+  const tomon = guruh[0].rasm_guruhi_tomoni || "chap";
 
   useEffect(() => {
     let bekorQilindi = false;
     let joriy = null;
-    apiBlobUrl(guruh[0].rasm_url)
+    apiBlobUrl(manba)
       .then((u) => {
         if (bekorQilindi) {
           URL.revokeObjectURL(u);
@@ -296,119 +298,43 @@ function RasmGuruhBlok({ guruh }) {
       bekorQilindi = true;
       if (joriy) URL.revokeObjectURL(joriy);
     };
-    // Guruhdagi rasm HAMMASIDA bir xil — faqat birinchisidan olamiz.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [guruh[0].rasm_url]);
-
-  function javobniQoy(gIdx, i, qiymat) {
-    setHolatlar((h) =>
-      h.map((s, j) => (j === gIdx ? { ...s, javoblar: s.javoblar.map((x, k) => (k === i ? qiymat : x)) } : s)),
-    );
-  }
-
-  async function tekshir(gIdx) {
-    const m = guruh[gIdx];
-    setHolatlar((h) => h.map((s, j) => (j === gIdx ? { ...s, yuklanmoqda: true, xato: "" } : s)));
-    try {
-      const res = await api(`/api/kurslar/mashq/${m.id}/yechish/`, {
-        method: "POST",
-        body: { javoblar: holatlar[gIdx].javoblar },
-      });
-      setHolatlar((h) => h.map((s, j) => (j === gIdx ? { ...s, natija: res } : s)));
-    } catch (e) {
-      setHolatlar((h) =>
-        h.map((s, j) => (j === gIdx ? { ...s, xato: e.data?.detail || t("xato_yuz_berdi") } : s)),
-      );
-    } finally {
-      setHolatlar((h) => h.map((s, j) => (j === gIdx ? { ...s, yuklanmoqda: false } : s)));
-    }
-  }
-
-  const anyFon = guruh.some((m) => m.fon_rejimi);
+  }, [manba]);
 
   if (!rasmUrl) return <div className="izoh">{t("yuklanmoqda")}</div>;
 
-  return (
-    <div style={{ border: "1px solid var(--chiziq)", borderRadius: 8, padding: 10, marginBottom: 8 }}>
-      <div style={{ position: "relative", display: "inline-block", maxWidth: "100%", marginBottom: 8 }}>
-        <img src={rasmUrl} alt="" style={{ maxWidth: "100%", display: "block" }} />
-        {anyFon &&
-          guruh.flatMap((m, gIdx) =>
-            m.savollar.map((s, i) => {
-              if (!s.pozitsiya) return null;
-              const natija = holatlar[gIdx].natija;
-              const holat = natija ? (natija.natijalar[i] ? "togri" : "notogri") : "";
-              return (
-                <input
-                  key={`${m.id}-${i}`}
-                  {...IMLO_OFF}
-                  className={`imtihon-rasm-input ${holat}`}
-                  style={{
-                    left: `${s.pozitsiya.x}%`,
-                    top: `${s.pozitsiya.y}%`,
-                    ...(s.pozitsiya.kenglik ? { width: `${s.pozitsiya.kenglik}%` } : {}),
-                  }}
-                  disabled={!!natija}
-                  value={holatlar[gIdx].javoblar[i] || ""}
-                  onChange={(e) => javobniQoy(gIdx, i, e.target.value)}
-                  placeholder={`${i + 1}`}
-                />
-              );
-            }),
-          )}
-      </div>
+  const rasm = (
+    <img
+      src={rasmUrl}
+      alt=""
+      style={{ maxWidth: "100%", display: "block", borderRadius: 6 }}
+    />
+  );
+  const mazmun = guruh.map((m, i) => (
+    <BlokMashqi key={m.id} mashq={m} raqam={boshRaqam + i} />
+  ));
 
-      {guruh.map((m, gIdx) => {
-        const s = holatlar[gIdx];
-        const oddiySavollar = m.savollar
-          .map((sv, i) => [sv, i])
-          .filter(([sv]) => !(anyFon && sv.pozitsiya));
-        return (
-          <div key={m.id} style={{ marginTop: gIdx > 0 ? 10 : 0, paddingTop: gIdx > 0 ? 10 : 0, borderTop: gIdx > 0 ? "1px dashed var(--chiziq)" : "none" }}>
-            {m.matn && <div style={{ marginBottom: 8 }}>{m.matn}</div>}
-            {oddiySavollar.map(([sv, i]) => (
-              <div key={i} style={{ marginBottom: 6 }}>
-                <div className="izoh">{sv.savol}</div>
-                {sv.variantlar && sv.variantlar.length > 0 ? (
-                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                    {sv.variantlar.map((v) => (
-                      <label key={v} style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                        <input
-                          type="radio"
-                          name={`gmashq-${m.id}-${i}`}
-                          checked={s.javoblar[i] === v}
-                          disabled={!!s.natija}
-                          onChange={() => javobniQoy(gIdx, i, v)}
-                        />
-                        {v}
-                      </label>
-                    ))}
-                  </div>
-                ) : (
-                  <input
-                    {...IMLO_OFF}
-                    value={s.javoblar[i]}
-                    disabled={!!s.natija}
-                    onChange={(e) => javobniQoy(gIdx, i, e.target.value)}
-                    style={{ maxWidth: 260 }}
-                  />
-                )}
-                {s.natija && <span style={{ marginLeft: 8 }}>{s.natija.natijalar[i] ? "✓" : "✗"}</span>}
-              </div>
-            ))}
-            {!s.natija ? (
-              <button className="tugma ikkinchi" onClick={() => tekshir(gIdx)} disabled={s.yuklanmoqda}>
-                {s.yuklanmoqda ? t("tekshirilmoqda") : t("tekshirish")}
-              </button>
-            ) : (
-              <div className="izoh">
-                {t("band_ball")}: {s.natija.ball}/{s.natija.jami}
-              </div>
-            )}
-            {s.xato && <div className="xato-xabar">{s.xato}</div>}
-          </div>
-        );
-      })}
+  // Chap/o'ng — ikki ustun (rasm o'z ustunida, mashqlar ikkinchisida);
+  // tepa/past — ustma-ust.
+  if (tomon === "chap" || tomon === "ong") {
+    // `flex-basis: 0%` SHART — `auto` bo'lsa mazmun ustunining tabiiy
+    // (matn bo'yicha juda katta) eni asos qilib olinadi va ikki ustun
+    // konteynerga sig'may, `wrap` tufayli USTMA-UST tushib qoladi
+    // (2026-08-10, haqiqiy sinovda aynan shunday bo'ldi). `minWidth`
+    // esa faqat HAQIQATAN tor ekranda (mobil) pastga tushirish uchun.
+    const rasmUstuni = <div style={{ flex: "0 0 38%", minWidth: 120 }}>{rasm}</div>;
+    const mazmunUstuni = <div style={{ flex: "1 1 0%", minWidth: 220 }}>{mazmun}</div>;
+    return (
+      <div style={{ display: "flex", gap: 12, alignItems: "flex-start", marginBottom: 8, flexWrap: "wrap" }}>
+        {tomon === "chap" ? rasmUstuni : mazmunUstuni}
+        {tomon === "chap" ? mazmunUstuni : rasmUstuni}
+      </div>
+    );
+  }
+  return (
+    <div style={{ marginBottom: 8 }}>
+      {tomon === "tepa" && <div style={{ marginBottom: 8 }}>{rasm}</div>}
+      {mazmun}
+      {tomon === "past" && <div style={{ marginTop: 8 }}>{rasm}</div>}
     </div>
   );
 }
@@ -749,9 +675,6 @@ function AdminMashqBoshqaruv({ tugunId, jsonKiritishKorinadi = true }) {
   const [royxat, setRoyxat] = useState(null);
   const [javobOchiqId, setJavobOchiqId] = useState(null);
   const [joylashuvOchiqId, setJoylashuvOchiqId] = useState(null);
-  const [ulashOchiqId, setUlashOchiqId] = useState(null);
-  const [ulashTanlangan, setUlashTanlangan] = useState("");
-  const [ulashXato, setUlashXato] = useState("");
   const [jsonMatn, setJsonMatn] = useState('[\n  {"matn": "", "savollar": [{"savol": "...", "togri": "..."}]}\n]');
   const [xato, setXato] = useState("");
   const [saqlanmoqda, setSaqlanmoqda] = useState(false);
@@ -1029,28 +952,6 @@ function AdminMashqBoshqaruv({ tugunId, jsonKiritishKorinadi = true }) {
     yukla();
   }
 
-  async function fonRejiminiAlmashtir(m) {
-    await api(`/api/kurslar/mashq/${m.id}/`, {
-      method: "PATCH", body: { fon_rejimi: !m.fon_rejimi },
-    }).catch(() => {});
-    yukla();
-  }
-
-  async function rasmniUlash(id) {
-    if (!ulashTanlangan) return;
-    setUlashXato("");
-    try {
-      await api(`/api/kurslar/mashq/${id}/rasm-ulash/`, {
-        method: "POST", body: { boshqa_mashq_id: Number(ulashTanlangan) },
-      });
-      setUlashOchiqId(null);
-      setUlashTanlangan("");
-      yukla();
-    } catch (e) {
-      setUlashXato(e.data?.detail || t("xato_yuz_berdi"));
-    }
-  }
-
   async function mashqniQaytaYukla(id, e) {
     const fayl = e.target.files[0];
     e.target.value = "";
@@ -1209,7 +1110,7 @@ function AdminMashqBoshqaruv({ tugunId, jsonKiritishKorinadi = true }) {
             <div key={m.id}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <span className="izoh">
-                  #{m.tartib}{m.unit_raqami ? ` (${m.unit_raqami})` : ""} — {m.matn ? m.matn.slice(0, 40) : ""} ({m.savollar.length} {t("kurs_savol")})
+                  #{m.tartib} — {m.matn ? m.matn.slice(0, 40) : ""} ({m.savollar.length} {t("kurs_savol")})
                   {m.rasm_url ? " 🖼️" : ""}
                   {m.audio_url ? " 🔊" : ""}
                   {m.audiolar?.length ? ` 🔊×${m.audiolar.length}` : ""}
@@ -1244,27 +1145,6 @@ function AdminMashqBoshqaruv({ tugunId, jsonKiritishKorinadi = true }) {
                     onClick={() => setJoylashuvOchiqId((joriy) => (joriy === m.id ? null : m.id))}
                   >
                     {joylashuvOchiqId === m.id ? t("yopish") : t("kurs_rasm_fon_tahrirlash")}
-                  </button>
-                )}
-                {/* 2026-08-09: fon/oddiy aniq admin tanlovi — rasm-mode
-                    (bloksiz) mashqlarda. */}
-                {m.rasm_url && !m.bloklar?.length && (
-                  <button className="tugma ikkinchi" onClick={() => fonRejiminiAlmashtir(m)}>
-                    {m.fon_rejimi ? t("kurs_oddiy_qilish") : t("kurs_fon_qilish")}
-                  </button>
-                )}
-                {/* 2026-08-09: bitta rasmni ikkinchi mashqga ulashish —
-                    "bitta rasm turadi, yonida ikkita mashq" talabi. */}
-                {!m.bloklar?.length && (
-                  <button
-                    className="tugma ikkinchi"
-                    onClick={() => {
-                      setUlashXato("");
-                      setUlashTanlangan("");
-                      setUlashOchiqId((joriy) => (joriy === m.id ? null : m.id));
-                    }}
-                  >
-                    {ulashOchiqId === m.id ? t("yopish") : t("kurs_rasm_ulash")}
                   </button>
                 )}
                 <label className="tugma ikkinchi" style={{ cursor: "pointer" }}>
@@ -1305,23 +1185,6 @@ function AdminMashqBoshqaruv({ tugunId, jsonKiritishKorinadi = true }) {
                   royxatniYangila={yukla}
                   onYopish={() => setJoylashuvOchiqId(null)}
                 />
-              )}
-              {ulashOchiqId === m.id && (
-                <div style={{ marginTop: 6, marginBottom: 10, paddingLeft: 12, borderLeft: "2px solid var(--chiziq)", display: "flex", alignItems: "center", gap: 8 }}>
-                  <span className="izoh">{t("kurs_rasm_ulash_tanlang")}</span>
-                  <select value={ulashTanlangan} onChange={(e) => setUlashTanlangan(e.target.value)}>
-                    <option value="">—</option>
-                    {royxat.filter((x) => x.id !== m.id).map((x) => (
-                      <option key={x.id} value={x.id}>
-                        #{x.tartib} — {x.matn ? x.matn.slice(0, 30) : t("kurs_mashq")}
-                      </option>
-                    ))}
-                  </select>
-                  <button className="tugma" disabled={!ulashTanlangan} onClick={() => rasmniUlash(m.id)}>
-                    {t("kurs_rasm_ulash")}
-                  </button>
-                  {ulashXato && <span className="xato-xabar">{ulashXato}</span>}
-                </div>
               )}
             </div>
           ))}
@@ -1395,32 +1258,49 @@ function MashqPaneli({ tugunId, talabaMi, jsonKiritishKorinadi = true }) {
   // pozitsiyalangan input'lar). Ikki format yonma-yon yashaydi, chunki
   // eski usulda yuklangan kontent bor.
   //
-  // 2026-08-09: ketma-ket kelib bir xil `rasm_guruhi_id`ga ega
-  // mashqlar (rasm ulashilgan) BITTA `RasmGuruhBlok`ga birlashtiriladi
-  // (rasm bir marta chiqadi), qolganlari avvalgidek alohida.
+  // 2026-08-10: ketma-ket kelib bir xil `rasm_guruhi_id`ga ega mashqlar
+  // (rasm ulashilgan) BITTA `RasmGuruhBlok`ga birlashtiriladi — rasm
+  // bir marta, admin tanlagan tomonda chiqadi, mashqlarning MATNI esa
+  // o'z `BlokMashqi` ko'rinishida to'liq qoladi.
+  //
+  // DIQQAT: bu tekshiruv `bloklar`dan OLDIN turishi SHART — ulashilgan
+  // mashqlarda ham bloklar (matn) bo'ladi, aks holda ular guruhlanmay,
+  // rasmsiz alohida chiqib ketardi.
+  //
+  // 2026-08-10, HAQIQIY SINOVDA topilgan xato: ulashilgan mashqlar
+  // ro'yxatda YONMA-YON TURMASLIGI mumkin (masalan tartib 1 va 4 — biri
+  // sahifa boshida, ikkinchisi oxirida). Avval faqat KETMA-KET kelganlar
+  // guruhlanardi, natijada ulashilgan rasm umuman ko'rinmasdi. Endi
+  // guruh a'zolari butun ro'yxatdan yig'iladi va BIRINCHISINING o'rnida
+  // birga chiziladi.
+  const guruhlar = new Map();
+  for (const m of mashqlar) {
+    if (!m.rasm_guruhi_id) continue;
+    if (!guruhlar.has(m.rasm_guruhi_id)) guruhlar.set(m.rasm_guruhi_id, []);
+    guruhlar.get(m.rasm_guruhi_id).push(m);
+  }
+
   const bloklar = [];
-  for (let i = 0; i < mashqlar.length; ) {
-    const m = mashqlar[i];
-    if (m.bloklar?.length) {
-      bloklar.push(<BlokMashqi key={m.id} mashq={m} raqam={bloklar.length + 1} />);
-      i += 1;
+  const chizilgan = new Set();
+  let raqam = 1;
+  for (const m of mashqlar) {
+    if (chizilgan.has(m.id)) continue;
+    const guruh = m.rasm_guruhi_id ? guruhlar.get(m.rasm_guruhi_id) : null;
+    if (guruh && guruh.length > 1) {
+      guruh.forEach((x) => chizilgan.add(x.id));
+      bloklar.push(
+        <RasmGuruhBlok key={`guruh-${m.rasm_guruhi_id}`} guruh={guruh} boshRaqam={raqam} />,
+      );
+      raqam += guruh.length;
       continue;
     }
-    if (m.rasm_guruhi_id) {
-      const guruh = [m];
-      let j = i + 1;
-      while (j < mashqlar.length && mashqlar[j].rasm_guruhi_id === m.rasm_guruhi_id) {
-        guruh.push(mashqlar[j]);
-        j += 1;
-      }
-      if (guruh.length > 1) {
-        bloklar.push(<RasmGuruhBlok key={`guruh-${m.rasm_guruhi_id}`} guruh={guruh} />);
-        i = j;
-        continue;
-      }
+    chizilgan.add(m.id);
+    if (m.bloklar?.length) {
+      bloklar.push(<BlokMashqi key={m.id} mashq={m} raqam={raqam} />);
+    } else {
+      bloklar.push(<TalabaMashqi key={m.id} mashq={m} raqam={raqam} />);
     }
-    bloklar.push(<TalabaMashqi key={m.id} mashq={m} raqam={bloklar.length + 1} />);
-    i += 1;
+    raqam += 1;
   }
 
   return <div>{bloklar}</div>;

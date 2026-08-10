@@ -110,8 +110,24 @@ function Blok({ blok, blokIdx, rasmUrllar, faolRaqam, ijro, audioTanla, javoblar
       // matnga esa minimal kenglik (`min-width`) beriladi — qatorga
       // ikkalasi baravar sig'masa (ya'ni rasm katta bo'lsa), brauzer
       // matnni AVTOMATIK keyingi qatorga (pastga) tushiradi.
+      //
+      // 2026-08-10: admin `tomon`ni QO'LDA belgilaydi (tasdiqlash
+      // oynasida). "chap"/"ong" — CSS float, ya'ni KEYINGI bloklarning
+      // matni rasm atrofida oqadi (aynan kitobdagidek). "tepa" (standart)
+      // va "past" — yuqoridagi avtomatik xatti-harakat (past bo'lsa blok
+      // mashq oxiriga suriladi, qarang `BlokMashqi`).
+      const tomon = blok.tomon;
+      const suzuvchi = tomon === "chap" || tomon === "ong";
       return (
-        <div className="blok-rasm-izoh-qatori">
+        <div
+          className="blok-rasm-izoh-qatori"
+          style={suzuvchi ? {
+            float: tomon === "chap" ? "left" : "right",
+            maxWidth: "42%",
+            [tomon === "chap" ? "marginRight" : "marginLeft"]: 12,
+            marginBottom: 8,
+          } : undefined}
+        >
           <img className="blok-rasm" src={url} alt={blok.izoh || ""} />
           {blok.izoh && <div className="blok-rasm-izoh-matni">{blok.izoh}</div>}
         </div>
@@ -368,21 +384,28 @@ export default function BlokMashqi({ mashq, raqam }) {
     }
   }
 
-  const bloklar = mashq.bloklar || [];
+  // 2026-08-10: admin "past" (matn ostida) deb belgilagan rasm bloklari
+  // mashq OXIRIGA suriladi — asl indeksi (`k`) saqlanadi, chunki
+  // `blokNatijalar`/`tekshir` shu indeks bo'yicha ishlaydi.
+  const xomBloklar = mashq.bloklar || [];
+  const pastmi = (b) => b.tur === "rasm" && b.tomon === "past";
+  const bloklar = [
+    ...xomBloklar.map((b, k) => [b, k]).filter(([b]) => !pastmi(b)),
+    ...xomBloklar.map((b, k) => [b, k]).filter(([b]) => pastmi(b)),
+  ];
 
   return (
     <div className="blok-sahifa">
       {raqam != null && (
         <div className="blok-raqam-sarlavha">
           {t("kurs_mashq")} {raqam}
-          {mashq.unit_raqami && <span className="izoh" style={{ fontWeight: 400, marginLeft: 6 }}>({mashq.unit_raqami})</span>}
         </div>
       )}
       {!tayyor ? (
         <div className="izoh">{t("yuklanmoqda")}</div>
       ) : (
         <>
-          {bloklar.map((b, k) => (
+          {bloklar.map(([b, k]) => (
             <Blok
               key={k}
               blok={b}

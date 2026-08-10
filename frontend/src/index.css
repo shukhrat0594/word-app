@@ -659,6 +659,10 @@ input.imtihon-bosh-joy { font: inherit; font-size: 12.5px; text-align: center; }
   border: 1px solid var(--chiziq); border-radius: 10px; padding: 16px 18px;
   margin-bottom: 12px; background: var(--sirt);
 }
+/* 2026-08-10: "chap"/"o'ng" tomonga qo'yilgan rasm CSS `float` bilan
+   chiziladi (matn atrofida oqadi, kitobdagidek) — `clear` bo'lmasa u
+   mashq ramkasidan tashqariga chiqib, keyingi mashqqa tushib ketardi. */
+.blok-sahifa::after { content: ""; display: block; clear: both; }
 .blok-raqam-sarlavha { font-weight: 700; margin-bottom: 10px; }
 .blok-sarlavha { color: var(--si-rang); font-size: 20px; margin: 0 0 4px; }
 .blok-bolim { color: var(--si-rang); font-size: 16px; margin: 18px 0 4px; }

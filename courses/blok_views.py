@@ -780,41 +780,48 @@ def _jarayonni_yakunla(jarayon, foydalanuvchi, tahrirlar=None):
     yaratilgan_soni, rasm_soni, savol_soni, sozlar_soni = 0, 0, 0, 0
 
     with _jarayon_arxivi(jarayon) as arxiv:
-        # 1-BOSQICH (2026-08-10): "fon" qilib belgilangan mashqlar uchun
-        # ulashiladigan rasm-guruhlarini OLDINDAN tayyorlaymiz — shu
-        # tufayli ikkalasi TURLI sahifada bo'lsa ham (qaysi biri OLDIN
-        # ishlansa ham) `ulash_guruh` orqali to'g'ri topiladi. Mustaqil
-        # (ulashilmagan) fon-mashqlarning kesimi ham shu bosqichda
-        # tayyorlanadi va (fayl, mashq_o'rni) kaliti bilan eslab qolinadi.
+        # 1-BOSQICH (2026-08-10, qayta qurilgan): ULASHILGAN rasmlar.
+        # Admin tasdiqlash oynasida bir mashqning RASM BLOKIGA `ulash`
+        # kalitini qo'yadi, ikkinchi mashq esa shu kalitni `ulash_guruh`
+        # sifatida oladi. Bu yerda shunday rasm BIR MARTA kesib olinib,
+        # `KursMashqRasmGuruhi`ga saqlanadi — ikkala mashq ham o'shanga
+        # ishora qiladi, MATNLARI esa (dialog/grammar-box) JOYIDA qoladi.
+        #
+        # Guruhlar OLDINDAN yaratiladi, chunki ulashuvchi mashqlar TURLI
+        # sahifalarda bo'lishi mumkin — qaysi biri oldin ishlansa ham
+        # kalit bo'yicha topiladi.
         rasm_guruhlari = {}
-        mustaqil_fon_kesimlari = {}
-        guruh_kesimlari_soni = 0
         for t in tartiblangan:
             if t["xato"]:
                 continue
             mashqlar = t.get("mashqlar") or []
-            if not any(md.get("fon_rejimi") and md.get("fon_rasm_idx") is not None for md in mashqlar):
+            ulashli_bormi = any(
+                b.get("ulash")
+                for md in mashqlar
+                for b in (md.get("bloklar") or [])
+                if b.get("tur") == "rasm"
+            )
+            if not ulashli_bormi:
                 continue
             qutilar = t.get("qutilar") or []
             rasm_bytes = arxiv.read(t["fayl"])
-            for i, md in enumerate(mashqlar):
-                idx = md.get("fon_rasm_idx")
-                if not (md.get("fon_rejimi") and idx is not None and 0 <= idx < len(qutilar)):
-                    continue
-                kesilgan = rasmni_kes(rasm_bytes, qutilar[idx])
-                if not kesilgan:
-                    continue
-                ulash_kalit = md.get("ulash_guruh")
-                if ulash_kalit:
-                    if ulash_kalit not in rasm_guruhlari:
-                        guruhi = KursMashqRasmGuruhi.objects.create(tugun=mashq_tugun)
-                        guruhi.rasm.save("guruhi.jpg", ContentFile(kesilgan), save=True)
-                        rasm_guruhlari[ulash_kalit] = guruhi
-                        guruh_kesimlari_soni += 1
-                else:
-                    mustaqil_fon_kesimlari[(t["fayl"], i)] = kesilgan
-
-        rasm_soni += guruh_kesimlari_soni
+            for md in mashqlar:
+                for b in md.get("bloklar") or []:
+                    kalit = b.get("ulash")
+                    idx = b.get("rasm_idx")
+                    if not (b.get("tur") == "rasm" and kalit and kalit not in rasm_guruhlari):
+                        continue
+                    if idx is None or not 0 <= idx < len(qutilar):
+                        continue
+                    kesilgan = rasmni_kes(rasm_bytes, qutilar[idx])
+                    if not kesilgan:
+                        continue
+                    guruhi = KursMashqRasmGuruhi.objects.create(
+                        tugun=mashq_tugun, tomon=b.get("tomon") or "chap",
+                    )
+                    guruhi.rasm.save("guruhi.jpg", ContentFile(kesilgan), save=True)
+                    rasm_guruhlari[kalit] = guruhi
+                    rasm_soni += 1
 
         # 2-BOSQICH: mashqlarning o'zini yaratamiz.
         for t in tartiblangan:
@@ -823,43 +830,34 @@ def _jarayonni_yakunla(jarayon, foydalanuvchi, tahrirlar=None):
             sozlar_soni += _sozlarni_saqla(mashq_tugun, t.get("sozlar"))
             qutilar = t.get("qutilar") or []
             rasm_bytes = arxiv.read(t["fayl"]) if qutilar else None
-            for i, mashq_data in enumerate(t.get("mashqlar") or []):
-                if mashq_data.get("fon_rejimi"):
-                    # 2026-08-10: "fon" — sahifa qaytadan qurilmaydi,
-                    # bloklar (dialog/matn/grammar-box) TASHLAB YUBORILADI
-                    # (foydalanuvchi bilan kelishilgan), faqat tanlangan
-                    # rasm (yoki ulashilgan guruh) + savollar qoladi.
-                    tartib = _mashq_tartibini_aniqla(
-                        mashq_data.get("raqam"), boshlangich + yaratilgan_soni + 1
-                    )
-                    ulash_kalit = mashq_data.get("ulash_guruh")
-                    guruhi = rasm_guruhlari.get(ulash_kalit) if ulash_kalit else None
-                    kesilgan = None if guruhi else mustaqil_fon_kesimlari.get((t["fayl"], i))
-                    mashq = KursMashq.objects.create(
-                        tugun=mashq_tugun,
-                        tartib=tartib,
-                        matn=mashq_data.get("sarlavha") or "",
-                        savollar=mashq_data.get("savollar") or [],
-                        bloklar=[],
-                        fon_rejimi=True,
-                        rasm_guruhi=guruhi,
-                        audio_kerak=bool(mashq_data.get("audio_kerak")),
-                    )
-                    if kesilgan:
-                        mashq.rasm.save(f"{mashq.id}_fon.jpg", ContentFile(kesilgan), save=True)
-                        rasm_soni += 1
-                    savol_soni += len(mashq_data.get("savollar") or [])
-                    yaratilgan_soni += 1
-                    continue
+            for mashq_data in t.get("mashqlar") or []:
+                # Ulashilgan rasm bloki bloklardan OLIB TASHLANADI — u
+                # endi guruh orqali, mashqlar YONIDA bir marta chiziladi
+                # (`Kurslar.jsx: RasmGuruhBlok`), aks holda ikki marta
+                # ko'rinardi.
+                guruhi = None
+                bloklar = []
+                for b in mashq_data.get("bloklar") or []:
+                    kalit = b.get("ulash")
+                    if b.get("tur") == "rasm" and kalit and kalit in rasm_guruhlari:
+                        guruhi = rasm_guruhlari[kalit]
+                        continue
+                    bloklar.append(b)
+                if guruhi is None:
+                    guruhi = rasm_guruhlari.get(mashq_data.get("ulash_guruh"))
+                mashq_data = {**mashq_data, "bloklar": bloklar}
 
                 # Sof Wordlist mashqi (bloklar yo'q) — bo'sh KursMashq
                 # yaratilmaydi, faqat yuqoridagi so'zlar saqlanadi.
-                if not mashq_data.get("bloklar"):
+                if not bloklar and guruhi is None:
                     continue
                 tartib = _mashq_tartibini_aniqla(
                     mashq_data.get("raqam"), boshlangich + yaratilgan_soni + 1
                 )
                 mashq, r_soni = _mashqni_saqla(mashq_tugun, tartib, mashq_data, rasm_bytes, qutilar)
+                if guruhi is not None:
+                    mashq.rasm_guruhi = guruhi
+                    mashq.save(update_fields=["rasm_guruhi"])
                 savol_soni += len(mashq_data["savollar"])
                 rasm_soni += r_soni
                 yaratilgan_soni += 1

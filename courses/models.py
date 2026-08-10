@@ -99,8 +99,18 @@ class KursMashqRasmGuruhi(models.Model):
     o'zgaradi. `KursMashq.rasm_guruhi` to'ldirilgan bo'lsa, o'z alohida
     `KursMashq.rasm` maydoni o'rniga shu yerdagi rasm ishlatiladi."""
 
+    class Tomon(models.TextChoices):
+        TEPA = "tepa", "Matn tepasida"
+        PAST = "past", "Matn ostida"
+        CHAP = "chap", "Matnning chapida"
+        ONG = "ong", "Matnning o'ngida"
+
     tugun = models.ForeignKey(KursTugun, on_delete=models.CASCADE, related_name="rasm_guruhlari")
     rasm = models.ImageField(upload_to="kurslar/mashq_rasm_guruhi/")
+    tomon = models.CharField(
+        max_length=10, choices=Tomon.choices, default=Tomon.CHAP,
+        help_text="Ulashilgan rasm mashqlarga nisbatan qayerda turadi (admin tanlaydi)",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -129,14 +139,6 @@ class KursMashq(models.Model):
         help_text=(
             "To'ldirilgan bo'lsa, rasm shu YERDAN olinadi (o'z `rasm` maydoni "
             "e'tiborga olinmaydi) — bir nechta mashq bitta rasmni ulashishi uchun."
-        ),
-    )
-    fon_rejimi = models.BooleanField(
-        default=False,
-        help_text=(
-            "2026-08-09: admin qo'lda belgilaydi. True — rasm FON bo'lib "
-            "qoladi, savollar (pozitsiya bilan) rasm ustiga chiqadi. "
-            "False (standart) — rasm tepada, savollar oddiy ro'yxatda."
         ),
     )
     audio = models.FileField(
