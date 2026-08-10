@@ -1565,6 +1565,10 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
   const [papkalar, setPapkalar] = useState([]);
   const [yangiPapka, setYangiPapka] = useState("");
   const [ochiqPapkalar, setOchiqPapkalar] = useState({});
+  // 2026-08-10, foydalanuvchi talabi: papka nomini tahrirlash — backend
+  // (`TestPapkaDetailView.patch`) allaqachon bor edi, faqat UI yo'q edi.
+  const [papkaTahrirlanayotgan, setPapkaTahrirlanayotgan] = useState(null);
+  const [papkaNomiTahrir, setPapkaNomiTahrir] = useState("");
   // AI generatsiya (2026-08-02, foydalanuvchi talabi) — faqat "AI
   // mashqlari" (manba="ai") sahifasida, faqat 4 haqiqiy bo'lim uchun
   // (Mock/Hammasi'da yo'q — qaysi turni yaratish noaniq bo'lardi).
@@ -1608,6 +1612,18 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
     if (!window.confirm(t("imtihon_papka_ochirish_tasdiq"))) return;
     try {
       await api(`/api/imtihon/papkalar/${id}/`, { method: "DELETE" });
+      yukla(filtrBolim);
+    } catch (e) {
+      setJsonXato(e.data?.detail || t("xato_yuz_berdi"));
+    }
+  }
+
+  async function papkaNominiSaqla(id) {
+    const nomi = papkaNomiTahrir.trim();
+    if (!nomi) return;
+    try {
+      await api(`/api/imtihon/papkalar/${id}/`, { method: "PATCH", body: { nomi } });
+      setPapkaTahrirlanayotgan(null);
       yukla(filtrBolim);
     } catch (e) {
       setJsonXato(e.data?.detail || t("xato_yuz_berdi"));
@@ -1732,6 +1748,18 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
     if (!fayl) return;
     try {
       await qismgaAudioYukla(qismId, fayl);
+      yukla(filtrBolim);
+    } catch (e) {
+      setJsonXato(e.data?.detail || t("xato_yuz_berdi"));
+    }
+  }
+
+  // 2026-08-10, foydalanuvchi talabi: mavjud audio/rasmni O'CHIRISH
+  // (masalan noto'g'ri fayl yuklangan bo'lsa, qayta yuklashdan oldin).
+  async function qismdanFayilniOchir(qismId, maydon) {
+    if (!window.confirm(t("imtihon_fayl_ochirish_tasdiq"))) return;
+    try {
+      await api(`/api/imtihon/qism-boshqaruv/${qismId}/?maydon=${maydon}`, { method: "DELETE" });
       yukla(filtrBolim);
     } catch (e) {
       setJsonXato(e.data?.detail || t("xato_yuz_berdi"));
@@ -1872,7 +1900,32 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
                     fontSize: 13,
                   }}
                 >
-                  📁 {p.nomi}
+                  📁{" "}
+                  {papkaTahrirlanayotgan === p.id ? (
+                    <input
+                      type="text"
+                      value={papkaNomiTahrir}
+                      autoFocus
+                      onChange={(e) => setPapkaNomiTahrir(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") papkaNominiSaqla(p.id);
+                        if (e.key === "Escape") setPapkaTahrirlanayotgan(null);
+                      }}
+                      onBlur={() => papkaNominiSaqla(p.id)}
+                      style={{ maxWidth: 140, fontSize: 13 }}
+                    />
+                  ) : (
+                    <span
+                      onClick={() => {
+                        setPapkaTahrirlanayotgan(p.id);
+                        setPapkaNomiTahrir(p.nomi);
+                      }}
+                      title={t("imtihon_papka_nomini_tahrirlash")}
+                      style={{ cursor: "pointer" }}
+                    >
+                      {p.nomi}
+                    </span>
+                  )}
                   <span className="izoh">
                     ({royxat?.filter((x) => x.papka === p.id).length || 0})
                   </span>
@@ -2031,56 +2084,72 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
                     </div>
                     {test.bolim === "listening" && (
                       <div style={{ marginTop: 8, display: "grid", gap: 6 }}>
-                        {test.qismlar.some((q) => !q.audio_url) && (
-                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                            <span className="izoh" style={{ minWidth: 90 }}>{t("imtihon_audio_hammasiga")}</span>
-                            <input
-                              type="file"
-                              accept="audio/*"
-                              title={t("imtihon_audio_hammasiga_izoh")}
-                              style={{ maxWidth: 160 }}
-                              onChange={(e) => hammasigaAudioBiriktir(test, e.target.files[0])}
-                            />
-                          </div>
-                        )}
+                        {/* 2026-08-10, foydalanuvchi talabi: audio ALLAQACHON
+                            bor bo'lsa ham qayta yuklash (almashtirish) imkoni
+                            bo'lishi kerak — avval bu qator faqat KAMIDA BITTA
+                            qism audiosiz bo'lsagina ko'rinardi, ya'ni hammasida
+                            audio bo'lsa almashtirishning yo'li yo'q edi. */}
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <span className="izoh" style={{ minWidth: 90 }}>{t("imtihon_audio_hammasiga")}</span>
+                          <input
+                            type="file"
+                            accept="audio/*"
+                            title={t("imtihon_audio_hammasiga_izoh")}
+                            style={{ maxWidth: 160 }}
+                            onChange={(e) => hammasigaAudioBiriktir(test, e.target.files[0])}
+                          />
+                        </div>
                         {test.qismlar.map((q) => (
                           <div key={q.id} style={{ display: "flex", alignItems: "center", gap: 8 }}>
                             <span className="izoh" style={{ minWidth: 90 }}>{q.sarlavha || `#${q.tartib}`}</span>
-                            {q.audio_url ? (
-                              <span className="izoh">🎧</span>
-                            ) : (
-                              <>
-                                <span className="izoh">{t("imtihon_audio_yoq")}</span>
-                                <input
-                                  type="file"
-                                  accept="audio/*"
-                                  title={t("imtihon_audio_biriktir")}
-                                  style={{ maxWidth: 160 }}
-                                  onChange={(e) => audioBiriktir(q.id, e.target.files[0])}
-                                />
-                              </>
+                            <span className="izoh">{q.audio_url ? "🎧" : t("imtihon_audio_yoq")}</span>
+                            <input
+                              type="file"
+                              accept="audio/*"
+                              title={q.audio_url ? t("imtihon_audio_qayta_yukla") : t("imtihon_audio_biriktir")}
+                              style={{ maxWidth: 160 }}
+                              onChange={(e) => audioBiriktir(q.id, e.target.files[0])}
+                            />
+                            {q.audio_url && (
+                              <button
+                                type="button"
+                                className="tugma ikkinchi kichik"
+                                style={{ color: "#d33" }}
+                                title={t("ochirish")}
+                                onClick={() => qismdanFayilniOchir(q.id, "audio_fayl")}
+                              >
+                                🗑️
+                              </button>
                             )}
                           </div>
                         ))}
                       </div>
                     )}
                     <div style={{ marginTop: 8, display: "grid", gap: 6 }}>
+                      {/* 2026-08-10: rasm ham xuddi shunday — mavjud bo'lsa
+                          qayta yuklash, bo'lmasa yangi yuklash — ikkalasi
+                          uchun ham fayl maydoni doim ko'rinadi. */}
                       {test.qismlar.map((q) => (
                         <div key={q.id} style={{ display: "flex", alignItems: "center", gap: 8 }}>
                           <span className="izoh" style={{ minWidth: 90 }}>{q.sarlavha || `#${q.tartib}`}</span>
-                          {q.rasm_url ? (
-                            <span className="izoh">🖼️</span>
-                          ) : (
-                            <>
-                              <span className="izoh">{t("imtihon_rasm_yoq")}</span>
-                              <input
-                                type="file"
-                                accept="image/*"
-                                title={t("imtihon_rasm_biriktir")}
-                                style={{ maxWidth: 160 }}
-                                onChange={(e) => rasmBiriktir(q.id, e.target.files[0])}
-                              />
-                            </>
+                          <span className="izoh">{q.rasm_url ? "🖼️" : t("imtihon_rasm_yoq")}</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            title={q.rasm_url ? t("imtihon_rasm_qayta_yukla") : t("imtihon_rasm_biriktir")}
+                            style={{ maxWidth: 160 }}
+                            onChange={(e) => rasmBiriktir(q.id, e.target.files[0])}
+                          />
+                          {q.rasm_url && (
+                            <button
+                              type="button"
+                              className="tugma ikkinchi kichik"
+                              style={{ color: "#d33" }}
+                              title={t("ochirish")}
+                              onClick={() => qismdanFayilniOchir(q.id, "rasm")}
+                            >
+                              🗑️
+                            </button>
                           )}
                         </div>
                       ))}

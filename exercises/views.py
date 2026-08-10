@@ -1285,6 +1285,30 @@ class TestQismiFayllarBoshqaruvView(APIView):
             )
         return Response(_qism_admin_dict(qism))
 
+    def delete(self, request, pk):
+        """2026-08-10, foydalanuvchi talabi: audio yoki rasmni O'CHIRISH
+        (masalan noto'g'ri fayl yuklangan bo'lsa, qayta yuklashdan oldin
+        tozalash). `?maydon=audio_fayl` yoki `?maydon=rasm`."""
+        if not _mashq_admin_mi(request.user):
+            return Response({"detail": "Faqat admin/owner uchun"}, status=403)
+        qism = get_object_or_404(TestQismi, pk=pk)
+        maydon = request.query_params.get("maydon")
+        if maydon not in ("audio_fayl", "rasm"):
+            return Response({"detail": "'maydon' 'audio_fayl' yoki 'rasm' bo'lishi kerak"}, status=400)
+        fayl = getattr(qism, maydon)
+        if fayl:
+            fayl.delete(save=False)
+            qism.save(update_fields=[maydon])
+            logla(
+                foydalanuvchi=request.user,
+                harakat=FaoliyatYozuvi.Harakat.OZGARTIRISH,
+                obyekt=qism.test,
+                obyekt_turi="ImtihonTest",
+                obyekt_nomi=f"{qism.test.name} — {qism.sarlavha or qism.tartib}-qism",
+                ozgarishlar={maydon: {"eski": "yangilandi", "yangi": "—"}},
+            )
+        return Response(_qism_admin_dict(qism))
+
 
 class QismPozitsiyaAniqlashView(APIView):
     """Owner/admin uchun — B-BOSQICH (2026-08-05): shu qismda ALLAQACHON
