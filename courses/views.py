@@ -369,6 +369,24 @@ def _unit_bolimlari(tugun):
     return {}
 
 
+def _unit_boshmi(unit):
+    """Unit BUTUNLAY bo'shmi (o'chirish xavfsizmi).
+
+    `_unit_bolimlari` faqat BITTA kitobni tekshiradi (u Unit berilsa
+    Student's Book'ga tushadi) — bu yerda esa Unit'ning IKKALA kitobi
+    (Student's Book VA Workbook) ko'riladi, aks holda Workbook'dagi
+    kontent payqalmay o'chirilib ketishi mumkin edi."""
+    for kitob in KursTugun.objects.filter(parent=unit):
+        bolalar = _unit_bolimlari(kitob)
+        mashq_tugun = bolalar.get("mashqlar")
+        vocab_tugun = bolalar.get("vocabulary")
+        if mashq_tugun and mashq_tugun.mashqlar.exists():
+            return False
+        if vocab_tugun and (vocab_tugun.sozlar.exists() or vocab_tugun.matn):
+            return False
+    return True
+
+
 def _kurs_mashq_audiolar_royxati(m):
     """Bitta mashqqa biriktirilgan BIR NECHTA audio (2026-07-27) — yon
     panelda ro'yxat sifatida ko'rsatiladi, talaba keraklisini play qiladi."""
@@ -629,50 +647,59 @@ class KursDarajaUnitYaratishView(APIView):
         return Response(natija, status=201)
 
     def delete(self, request, pk):
+        """Oxiridan `soni` ta Unitni o'chiradi (2026-08-10 talabi: "unit
+        qo'shish maydonida nechi bo'lsa, oxiridan shuncha o'chirsin").
+        `soni` berilmasa — 1 ta (eski xatti-harakat).
+
+        HAMMASI-YOKI-HECH NARSA: avval o'chiriladigan BARCHA Unit bo'sh
+        ekani tekshiriladi, biror-birida kontent bo'lsa HECH NARSA
+        o'chirilmaydi. Aks holda admin "3 ta o'chir" deganda 1 tasi
+        o'chib, qolgani qolib ketardi — bu chalkash va xavfli."""
         if not _mashq_admin_mi(request.user):
             return Response({"detail": "Faqat admin/owner uchun"}, status=403)
         daraja = get_object_or_404(KursTugun, pk=pk)
-        oxirgi = (
-            KursTugun.objects.filter(parent=daraja, unit_darsi=True)
-            .order_by("-tartib")
-            .first()
-        )
-        if not oxirgi:
-            return Response({"detail": "Bu darajada Unit yo'q"}, status=400)
 
-        # `_unit_bolimlari` faqat BITTA kitobni tekshiradi (Unit'ning
-        # to'g'ridan-to'g'ri farzandi kutiladi) — bu yerda esa butun Unit
-        # (ikkala kitobi — Student's Book VA Workbook) bo'sh-yo'qligini
-        # bilish kerak, aks holda Workbook'dagi kontent payqalmay
-        # o'chirilib ketishi mumkin edi.
-        boshmi = True
-        for kitob in KursTugun.objects.filter(parent=oxirgi):
-            bolalar = _unit_bolimlari(kitob)
-            mashq_tugun = bolalar.get("mashqlar")
-            vocab_tugun = bolalar.get("vocabulary")
-            if mashq_tugun and mashq_tugun.mashqlar.exists():
-                boshmi = False
-                break
-            if vocab_tugun and (vocab_tugun.sozlar.exists() or vocab_tugun.matn):
-                boshmi = False
-                break
-        if not boshmi:
+        try:
+            soni = int(request.query_params.get("soni", 1))
+        except (TypeError, ValueError):
+            return Response({"detail": "'soni' butun son bo'lishi kerak"}, status=400)
+        if not 1 <= soni <= 50:
+            return Response({"detail": "'soni' 1 dan 50 gacha bo'lishi kerak"}, status=400)
+
+        unitlar = list(
+            KursTugun.objects.filter(parent=daraja, unit_darsi=True).order_by("-tartib")[:soni]
+        )
+        if not unitlar:
+            return Response({"detail": "Bu darajada Unit yo'q"}, status=400)
+        if len(unitlar) < soni:
             return Response(
-                {"detail": "Oxirgi Unit bo'sh emas (mashq/so'z bor) — avval \"Tozalash\" bilan bo'shating"},
+                {"detail": f"Bu darajada atigi {len(unitlar)} ta Unit bor"}, status=400
+            )
+
+        band = [u.nomi for u in unitlar if not _unit_boshmi(u)]
+        if band:
+            return Response(
+                {
+                    "detail": (
+                        f"Bo'sh emas (mashq/so'z bor): {', '.join(reversed(band))} — "
+                        'avval "Tozalash" bilan bo\'shating'
+                    )
+                },
                 status=400,
             )
 
-        nomi = oxirgi.nomi
-        oxirgi.delete()
+        nomlar = [u.nomi for u in reversed(unitlar)]
+        for u in unitlar:
+            u.delete()
         logla(
             foydalanuvchi=request.user,
             harakat=FaoliyatYozuvi.Harakat.OCHIRISH,
             obyekt=daraja,
             obyekt_turi="KursTugun",
-            obyekt_nomi=f"{daraja.nomi} — {nomi} o'chirildi",
-            snapshot={},
+            obyekt_nomi=f"{daraja.nomi} — {', '.join(nomlar)} o'chirildi",
+            snapshot={"ochirilgan_unit_soni": len(nomlar)},
         )
-        return Response({"ochirildi": nomi})
+        return Response({"ochirildi": nomlar, "soni": len(nomlar)})
 
 
 class KursUnitYuklashView(APIView):

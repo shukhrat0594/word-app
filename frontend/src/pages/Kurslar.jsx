@@ -1534,12 +1534,19 @@ function AdminUnitSoniBoshqarish({ darajaId, royxatniYangila }) {
     }
   }
 
+  // 2026-08-10 talabi: yuqoridagi son maydonida nechi bo'lsa, OXIRIDAN
+  // shuncha Unit o'chiriladi (avval har doim atigi 1 ta o'chirilardi).
   async function oxirginiOchir() {
-    if (!window.confirm(t("kurs_oxirgi_unit_ochirish_tasdiq"))) return;
+    const son = parseInt(unitSoni, 10);
+    if (!Number.isInteger(son) || son < 1 || son > 50) {
+      setXato(t("kurs_unit_soni_notogri"));
+      return;
+    }
+    if (!window.confirm(t("kurs_oxirgi_unit_ochirish_tasdiq").replace("{son}", son))) return;
     setXato("");
     setOchirilmoqda(true);
     try {
-      await api(`/api/kurslar/${darajaId}/daraja-unit-yaratish/`, { method: "DELETE" });
+      await api(`/api/kurslar/${darajaId}/daraja-unit-yaratish/?soni=${son}`, { method: "DELETE" });
       royxatniYangila();
     } catch (e) {
       setXato(e.data?.detail || t("xato_yuz_berdi"));
