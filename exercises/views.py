@@ -1198,17 +1198,67 @@ class TestPapkaDetailView(APIView):
         return Response(status=204)
 
 
+def _papka_bolim_testlari(papka):
+    """Ichki papkadagi testlar — {bolim: ImtihonTest}. Har bo'limdan
+    bittadan qoidasi papkaga qo'shishda allaqachon majburlangan
+    (`ImtihonBoshqaruvDetailView.patch`) — shu yerda ikkilanish bo'lsa
+    ham (masalan eski ma'lumot) oxirgisi olinadi."""
+    return {t.bolim: t for t in papka.testlar.all()}
+
+
+def _papkadan_mock_tayyorla(papka, foydalanuvchi):
+    """Ichki papkadagi testlardan `ImtihonMock`ni yaratadi yoki
+    mavjudini joriy holatga yangilaydi — IDEMPOTENT (`TestPapkasi.mock`
+    OneToOne orqali get_or_create). `PapkadanMockYaratishView` (qo'lda,
+    API uchun saqlangan) va `MockPapkalarView` (2026-08-11 kech,
+    AVTOMATIK — admin tugma bosishi shart emas) ikkalasi ham shu
+    funksiyani ishlatadi, mock yaratish mantig'i BITTA joyda."""
+    bolim_testlari = _papka_bolim_testlari(papka)
+    markaz = Markaz.objects.first()
+    if not markaz:
+        return None, bolim_testlari
+
+    mock, yaratildimi = ImtihonMock.objects.get_or_create(
+        papka=papka,
+        defaults={
+            "name": papka.nomi,
+            "markaz": markaz,
+            "korinish": "private",
+            "yaratuvchi": foydalanuvchi,
+            "manba": papka.manba,
+        },
+    )
+    mock.listening = bolim_testlari.get(Bolim.LISTENING)
+    mock.reading = bolim_testlari.get(Bolim.READING)
+    mock.writing = bolim_testlari.get(Bolim.WRITING)
+    mock.speaking = bolim_testlari.get(Bolim.SPEAKING)
+    mock.name = papka.nomi
+    mock.save(update_fields=["listening", "reading", "writing", "speaking", "name"])
+
+    logla(
+        foydalanuvchi=foydalanuvchi,
+        harakat=(
+            FaoliyatYozuvi.Harakat.YARATISH if yaratildimi else FaoliyatYozuvi.Harakat.OZGARTIRISH
+        ),
+        obyekt=mock,
+        obyekt_turi="ImtihonMock",
+        obyekt_nomi=mock.name,
+        snapshot={"papka": papka.nomi, "bolimlar": list(bolim_testlari)},
+    )
+    return mock, bolim_testlari
+
+
 class PapkadanMockYaratishView(APIView):
     """Owner/admin uchun — 2-darajali (ichki) papkadagi testlardan Mock
     imtihon yaratish yoki mavjudini qayta ishlatish (2026-08-11 kech,
     foydalanuvchi talabi: "mock test rejimida aynan shu 4 likni beramiz").
 
-    Idempotent — `TestPapkasi.mock` (OneToOne) orqali get_or_create: bir
-    xil papka uchun ikkinchi marta bosilsa YANGI mock yaratilmaydi, MAVJUDI
-    joriy papka testlariga mos yangilanadi (masalan test almashtirilgan
-    bo'lsa). Keyingi bosqich — talaba uchun mavjud
-    `ImtihonMockBoshlashView`/`ImtihonMockYechimView` oqimi, bu yerda YANGI
-    parallel mexanizm YO'Q, faqat `ImtihonMock` yozuvi tayyorlanadi."""
+    2026-08-11 (yana kech): admin panelidagi "Mock sifatida boshlash"
+    TUGMASI OLIB TASHLANDI — endi `MockPapkalarView` 4/4 to'liq
+    papkalarni O'ZI avtomatik aniqlab, shu funksiyani (`_papkadan_mock_
+    tayyorla`) chaqiradi, qo'lda bosish shart emas. Bu endpoint API
+    darajasida SAQLANDI (dasturiy/qo'lda chaqiruv uchun), lekin
+    frontend UI'da endi hech qayerdan chaqirilmaydi."""
 
     permission_classes = [IsAuthenticated]
 
@@ -1221,49 +1271,14 @@ class PapkadanMockYaratishView(APIView):
                 {"detail": "Mock faqat ichki (2-darajali) papkadan yig'iladi — bu 1-darajali papka."},
                 status=400,
             )
-        testlar = list(papka.testlar.all())
-        if not testlar:
+        if not papka.testlar.exists():
             return Response({"detail": "Bu papkada test yo'q"}, status=400)
 
-        bolim_testlari = {}
-        for t in testlar:
-            # Har bo'limdan bittadan qoidasi papkaga qo'shishda allaqachon
-            # majburlangan (`ImtihonBoshqaruvDetailView.patch`) — shu yerda
-            # ikkilanish bo'lsa ham (masalan eski ma'lumot) oxirgisi olinadi.
-            bolim_testlari[t.bolim] = t
-
-        markaz = Markaz.objects.first()
-        if not markaz:
+        mavjud_edimi = hasattr(papka, "mock")
+        mock, _bolim_testlari = _papkadan_mock_tayyorla(papka, request.user)
+        if mock is None:
             return Response({"detail": "Markaz topilmadi"}, status=400)
-
-        mock, yaratildimi = ImtihonMock.objects.get_or_create(
-            papka=papka,
-            defaults={
-                "name": papka.nomi,
-                "markaz": markaz,
-                "korinish": "private",
-                "yaratuvchi": request.user,
-                "manba": papka.manba,
-            },
-        )
-        mock.listening = bolim_testlari.get(Bolim.LISTENING)
-        mock.reading = bolim_testlari.get(Bolim.READING)
-        mock.writing = bolim_testlari.get(Bolim.WRITING)
-        mock.speaking = bolim_testlari.get(Bolim.SPEAKING)
-        mock.name = papka.nomi
-        mock.save(update_fields=["listening", "reading", "writing", "speaking", "name"])
-
-        logla(
-            foydalanuvchi=request.user,
-            harakat=(
-                FaoliyatYozuvi.Harakat.YARATISH if yaratildimi else FaoliyatYozuvi.Harakat.OZGARTIRISH
-            ),
-            obyekt=mock,
-            obyekt_turi="ImtihonMock",
-            obyekt_nomi=mock.name,
-            snapshot={"papka": papka.nomi, "bolimlar": list(bolim_testlari)},
-        )
-        return Response(_mock_admin_dict(mock), status=201 if yaratildimi else 200)
+        return Response(_mock_admin_dict(mock), status=200 if mavjud_edimi else 201)
 
 
 class ImtihonBoshqaruvDetailView(APIView):
@@ -1943,6 +1958,9 @@ class ImtihonMockRoyxatiView(APIView):
         return Response([dict_fn(m) for m in qs])
 
 
+_TOLIQ_BOLIMLAR = frozenset({Bolim.READING, Bolim.LISTENING, Bolim.WRITING, Bolim.SPEAKING})
+
+
 class MockPapkalarView(APIView):
     """Talaba/admin — Mock'larni PAPKA orqali ko'rish (2026-08-11,
     foydalanuvchi talabi: "mock qismida mavjud papkalar hammasi ko'rinadi,
@@ -1950,21 +1968,34 @@ class MockPapkalarView(APIView):
     mock sifatida ishlaydi" — R/L/W/S bo'limlari esa O'ZGARMAYDI, ular
     hamon o'z alohida mashqini ishlaydi).
 
-    Faqat 2-DARAJALI (ichki) papkalar Mock bilan bog'lanadi
-    (`PapkadanMockYaratishView`) — shuning uchun javobda FAQAT mock'i
-    tayyor bo'lgan ichki papkalar qaytariladi (mock hali yaratilmagan
-    ichki papka ko'rsatilmaydi — bosilsa hech narsa ishlamas edi). Tashqi
-    (1-darajali) papka faqat shunday ichki papkasi bo'lsagina qaytariladi.
+    2026-08-11 (yana kech), foydalanuvchi talabi: "Mock sifatida
+    boshlash" tugmasi OLIB TASHLANDI, "mashqlari to'liq 4 ta bo'lmagan
+    ichki papkalar mock ro'yxatida chiqmasin". Endi ikkalasi ham SHU
+    YERDA avtomatik hal qilinadi:
+      * Ichki papka FAQAT barcha 4 bo'limdan (reading/listening/writing/
+        speaking) BITTADAN test bo'lsagina ro'yxatga kiradi — qisman
+        to'lgan (masalan 2/4) papka butunlay ko'rsatilmaydi.
+      * Shunday to'liq papka uchun `ImtihonMock` yozuvi ADMIN so'rovida
+        AVTOMATIK yaratiladi/yangilanadi (`_papkadan_mock_tayyorla`) —
+        qo'lda tugma bosish shart emas. Talaba so'rovida esa faqat
+        ALLAQACHON tayyor mocklar ko'rsatiladi (talaba so'rovi bilan
+        yozuv yaratilmaydi/audit logga tushmaydi — bu FAQAT admin
+        tomonidan "ko'rilgan" narsa hisoblanadi, xuddi
+        `BildirishnomalarView`dagi CHANGELOG sinxronizatsiyasi kabi
+        GET so'rovida ID EMPOTENT yon ta'sir naqshi).
 
-    Eski, papka-siz (qo'lda `ImtihonMockYaratishView` orqali yaratilgan)
-    mocklar alohida `papkasiz_moklar` ro'yxatida — orqaga moslik uchun,
-    ular yo'qolib qolmasin."""
+    Tashqi (1-darajali) papka faqat shunday to'liq ichki papkasi
+    bo'lsagina qaytariladi. Eski, papka-siz (qo'lda
+    `ImtihonMockYaratishView` orqali yaratilgan) mocklar alohida
+    `papkasiz_moklar` ro'yxatida — orqaga moslik uchun, ular yo'qolib
+    qolmasin."""
 
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         manba = request.query_params.get("manba")
         oddiy_mi = request.user.role == "oddiy"
+        adminmi = _mashq_admin_mi(request.user)
 
         papka_qs = TestPapkasi.objects.filter(parent__isnull=True)
         if manba:
@@ -1976,10 +2007,22 @@ class MockPapkalarView(APIView):
         for top in papka_qs.order_by("tartib", "nomi"):
             ichkilar = []
             for ich in top.ichki_papkalar.order_by("tartib", "nomi"):
+                bolim_testlari = _papka_bolim_testlari(ich)
+                if set(bolim_testlari) != _TOLIQ_BOLIMLAR:
+                    continue  # 4/4 emas — ro'yxatda chiqmasin
+
                 # `OneToOneField` teskari bog'lanishi — mock yo'q bo'lsa
                 # `RelatedObjectDoesNotExist` (AttributeError avlodi)
                 # ko'taradi, shuning uchun `getattr(..., None)` xavfsiz.
                 mock = getattr(ich, "mock", None)
+                if adminmi:
+                    # Admin so'rovida HAR DOIM yangilaymiz — testlar
+                    # almashtirilgan bo'lishi mumkin (masalan eski
+                    # Reading o'chirilib, yangisi qo'shilgan).
+                    mock, _ = _papkadan_mock_tayyorla(ich, request.user)
+                elif not mock:
+                    continue  # talaba so'rovida yon ta'sir yo'q
+
                 if not mock:
                     continue
                 ichkilar.append({"id": ich.id, "nomi": ich.nomi, "mock_id": mock.id})

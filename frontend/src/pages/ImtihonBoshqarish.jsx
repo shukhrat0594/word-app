@@ -1590,7 +1590,6 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
   // (bir vaqtda faqat bittasi).
   const [ichkiQoshishOchiq, setIchkiQoshishOchiq] = useState(null);
   const [yangiIchkiPapka, setYangiIchkiPapka] = useState("");
-  const [mockYaratilmoqda, setMockYaratilmoqda] = useState(null);
   // 2026-08-10, foydalanuvchi talabi: papka nomini tahrirlash — backend
   // (`TestPapkaDetailView.patch`) allaqachon bor edi, faqat UI yo'q edi.
   const [papkaTahrirlanayotgan, setPapkaTahrirlanayotgan] = useState(null);
@@ -1659,27 +1658,6 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
       yukla(filtrBolim);
     } catch (e) {
       setJsonXato(e.data?.detail || t("xato_yuz_berdi"));
-    }
-  }
-
-  // Ichki papkadagi testlardan Mock yaratish/qayta ishlatish. Bu komponent
-  // (`AdminBoshqaruv`) va talaba/admin ko'radigan `ImtihonMock` ro'yxati
-  // (`bolim === "mock"` tabida, tashqi `ImtihonBoshqarish` komponentida)
-  // alohida state'larga ega — shu sababli avtomatik tab almashtirish
-  // yo'q, buning o'rniga muvaffaqiyat xabari ko'rsatiladi va admin
-  // yuqoridagi "Mock" tabini bosib ko'radi (`ImtihonMock` ro'yxati shu
-  // yerda saqlangan `ImtihonMock` yozuvini darhol ko'rsatadi).
-  async function papkadanMockYarat(papkaId) {
-    setMockYaratilmoqda(papkaId);
-    try {
-      const mock = await api(`/api/imtihon/papkalar/${papkaId}/mock-yaratish/`, { method: "POST" });
-      setJsonXato("");
-      window.alert(`${t("imtihon_mock_yaratildi_xabar")}: "${mock.name}"`);
-      yukla(filtrBolim);
-    } catch (e) {
-      setJsonXato(e.data?.detail || t("xato_yuz_berdi"));
-    } finally {
-      setMockYaratilmoqda(null);
     }
   }
 
@@ -2003,25 +1981,16 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
                         </button>
                       </div>
                     )}
+                    {/* 2026-08-11 (kech): "Mock sifatida boshlash" tugmasi
+                        OLIB TASHLANDI (foydalanuvchi talabi — qo'lda
+                        bosish shart emas). Ichki papka 4 bo'limdan
+                        (R/L/W/S) to'liq bo'lgan zahoti pastdagi "Mock"
+                        tabida AVTOMATIK ko'rinadi — backend
+                        (`MockPapkalarView`) buni o'zi tekshiradi. */}
                     {ichkilar.length > 0 && (
                       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginLeft: 24 }}>
                         {ichkilar.map((ich) => (
-                          <span key={ich.id} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                            {papkaChipi(ich)}
-                            <button
-                              type="button"
-                              className="tugma kichik"
-                              disabled={mockYaratilmoqda === ich.id}
-                              onClick={() => papkadanMockYarat(ich.id)}
-                              title={t("imtihon_mock_sifatida_boshlash_izoh")}
-                            >
-                              {mockYaratilmoqda === ich.id
-                                ? t("yuklanmoqda")
-                                : ich.mock_id
-                                  ? `▶ ${t("imtihon_mock_qayta_yaratish")}`
-                                  : `▶ ${t("imtihon_mock_sifatida_boshlash")}`}
-                            </button>
-                          </span>
+                          <span key={ich.id}>{papkaChipi(ich)}</span>
                         ))}
                       </div>
                     )}
@@ -2038,34 +2007,79 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
           <span className="izoh">{t("imtihon_royxat_boshi")}</span>
         ) : (
           <div style={{ display: "grid", gap: 8 }}>
-            {/* Papkalar bo'yicha guruhlangan (2026-08-01) — talaba
-                tomonidagi ro'yxat bilan bir xil accordion ko'rinish.
-                Papkasiz testlar ro'yxat oxirida, tekis. */}
+            {/* Papkalar bo'yicha guruhlangan (2026-08-01, 2026-08-11
+                tuzatildi: ichki papka endi tashqi papka ICHIDA, alohida
+                emas — foydalanuvchi topib berdi: "ichki papka kerakli
+                papka ichida emas, alohida chiqyabdi"). Sabab: avval
+                RO'YXAT tekis edi — faqat DIRECT test bor papkalar
+                chiqardi, shuning uchun tashqi papkaning o'zida test
+                bo'lmasa (hammasi ichki papkada bo'lsa) u ro'yxatdan
+                BUTUNLAY tushib qolar, ichki papka esa "bosh"siz,
+                mustaqil qatorday ko'rinardi. Endi HAR DOIM tashqi papka
+                birinchi aylanadi, ichki papkalar ESA UNING ICHIDA
+                (accordion ochilgach) ko'rinadi. Papkasiz testlar ro'yxat
+                oxirida, tekis. */}
             {papkalar
-              .filter((p) => royxat.some((r) => r.papka === p.id))
-              .map((p) => (
-                <div
-                  key={p.id}
-                  style={{
-                    border: "1px solid var(--chiziq)", borderRadius: 8, overflow: "hidden",
-                    marginLeft: p.parent ? 20 : 0,
-                  }}
-                >
-                  <div
-                    className="imtihon-papka-sarlavha"
-                    style={{ padding: "8px 10px" }}
-                    onClick={() => setOchiqPapkalar((v) => ({ ...v, [p.id]: !v[p.id] }))}
-                  >
-                    <span>{ochiqPapkalar[p.id] ? "▾" : "▸"} {p.parent ? "📂" : "📁"} {p.nomi}</span>
-                    <span className="izoh">{royxat.filter((r) => r.papka === p.id).length}</span>
-                  </div>
-                  {ochiqPapkalar[p.id] && (
-                    <div style={{ display: "grid", gap: 8, padding: "0 8px 8px" }}>
-                      {royxat.filter((r) => r.papka === p.id).map((test) => testKartasi(test))}
+              .filter((p) => !p.parent)
+              .filter((top) => {
+                const ichkilar = papkalar.filter((p) => p.parent === top.id);
+                return (
+                  royxat.some((r) => r.papka === top.id) ||
+                  ichkilar.some((ich) => royxat.some((r) => r.papka === ich.id))
+                );
+              })
+              .map((top) => {
+                const ichkilar = papkalar
+                  .filter((p) => p.parent === top.id)
+                  .filter((ich) => royxat.some((r) => r.papka === ich.id));
+                const topTestlar = royxat.filter((r) => r.papka === top.id);
+                const jamiSoni =
+                  topTestlar.length +
+                  ichkilar.reduce((s, ich) => s + royxat.filter((r) => r.papka === ich.id).length, 0);
+                return (
+                  <div key={top.id} style={{ border: "1px solid var(--chiziq)", borderRadius: 8, overflow: "hidden" }}>
+                    <div
+                      className="imtihon-papka-sarlavha"
+                      style={{ padding: "8px 10px" }}
+                      onClick={() => setOchiqPapkalar((v) => ({ ...v, [top.id]: !v[top.id] }))}
+                    >
+                      <span>{ochiqPapkalar[top.id] ? "▾" : "▸"} 📁 {top.nomi}</span>
+                      <span className="izoh">{jamiSoni}</span>
                     </div>
-                  )}
-                </div>
-              ))}
+                    {ochiqPapkalar[top.id] && (
+                      <div style={{ display: "grid", gap: 8, padding: "0 8px 8px" }}>
+                        {topTestlar.map((test) => testKartasi(test))}
+                        {ichkilar.map((ich) => {
+                          const ichTestlar = royxat.filter((r) => r.papka === ich.id);
+                          return (
+                            <div
+                              key={ich.id}
+                              style={{
+                                border: "1px solid var(--chiziq)", borderRadius: 8,
+                                overflow: "hidden", marginLeft: 20,
+                              }}
+                            >
+                              <div
+                                className="imtihon-papka-sarlavha"
+                                style={{ padding: "8px 10px" }}
+                                onClick={() => setOchiqPapkalar((v) => ({ ...v, [ich.id]: !v[ich.id] }))}
+                              >
+                                <span>{ochiqPapkalar[ich.id] ? "▾" : "▸"} 📂 {ich.nomi}</span>
+                                <span className="izoh">{ichTestlar.length}</span>
+                              </div>
+                              {ochiqPapkalar[ich.id] && (
+                                <div style={{ display: "grid", gap: 8, padding: "0 8px 8px" }}>
+                                  {ichTestlar.map((test) => testKartasi(test))}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             {royxat.filter((test) => !test.papka).map((test) => testKartasi(test))}
           </div>
         )}
