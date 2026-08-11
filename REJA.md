@@ -416,6 +416,7 @@ qilinishi darhol tushunilishi kerak):
 | **BEGINNER QAYTA QURISH** | Unit ostida 3 bo'lim + rasm ustiga javob kiritish | o'rta + katta kontent | muhandislik ✅ (2026-07-27), kontent kutilmoqda |
 | **PASTKI PANEL (footer)** | Doimiy ko'rinadigan panel, Utmost ijtimoiy tarmoqlari bilan | kichik | ✅ bajarildi 2026-07-27 |
 | **GURUHLARNI DARAJAGA BO'LISH** | Guruhlar (Guruhlar bo'limi) darajaga (Beginner/Elementary/...) qarab ajratilishi kerak | noma'lum (batafsili keyinroq) | 2026-07-28: eslatma sifatida yozildi, foydalanuvchi keyinroq izohlaydi — hali boshlanmagan |
+| **RECITATION (Reading PDF import — OCR fallback)** | Cambridge kabi mualliflik huquqi bilan himoyalangan kitoblarni import qilganda, passage matnini so'zma-so'z qaytarish talab qilinsa Gemini "RECITATION", Claude "content filtering policy" bilan bo'sh javob qaytaradi — ikkalasi ham. Yechim: matnni AI'dan emas, OCR (Tesseract) orqali olish, AI faqat savol tuzilishi/raqamlashda ishlatiladi | o'rta (yangi bog'liqlik — Tesseract binary, dev+prod) | 2026-08-10/11: eng past ustuvorlik, navbat oxiriga qo'yildi — batafsili pastda |
 
 **Uchtasi ham 2026-07-27 da qurildi va brauzerda tekshirildi** — pastdagi jadvaldagi yozuvga qarang.
 
