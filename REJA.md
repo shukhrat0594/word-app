@@ -333,14 +333,21 @@ Qolgan barcha bandlar (pastdagi jadvalda, ustuvorlik belgisiz) — **keyinroq**,
 
 ---
 
-## Server/backup rejasi (2026-08-02 qarori)
+## Server/backup rejasi (2026-08-02 qarori, 2026-08-11 yangilandi)
 
-Contabo VPS'ga ko'chirish **MUHOKAMA QILINDI VA RAD ETILDI** — Render'da
-qolamiz. Qaror:
+Contabo VPS'ga ko'chirish **MUHOKAMA QILINDI VA RAD ETILDI** (2026-08-02).
+Qaror:
 
-- **Render Starter'ga o'tish** ($7/oy) — Free tarifning uxlash rejimi
+- **Railway.app'ga o'tishni ko'rib chiqish** (2026-08-11, "Render
+  Starter'ga o'tish" o'rniga) — HALI QAROR EMAS, faqat solishtirish
+  bosqichi: narx, SQLite/persistent disk xatti-harakati, uxlash rejimi
+  bormi-yo'qmi, R2 (Cloudflare) bilan mosligi Render bilan
+  solishtiriladi. Boshlashdan oldin aniqlashtiriladi.
+- ~~Render Starter'ga o'tish~~ ($7/oy) — Free tarifning uxlash rejimi
   (15 daqiqa faolsizlikdan keyin, ~50s kutish) va past CPU (0.1)
-  muammosini hal qiladi. **Persistent Disk KERAK EMAS** — sabab pastda.
+  muammosini hal qilardi. **Persistent Disk KERAK EMAS** — sabab pastda.
+  Railway solishtiruvi natijasiga qarab bu variant HALI HAM amalda
+  qolishi mumkin.
 - **SQLite bilan davom etamiz** (Postgres'ga o'tish shart emas hozircha)
   — REJA.md 2026-07-22 yozuvida va 2026-08-02'da amaliy tasdiqlangan:
   ma'lumot ko'p marta deploy/restart'dan keyin ham yo'qolmagan.
