@@ -435,7 +435,8 @@ qilinishi darhol tushunilishi kerak):
 
 | Ish nomi | Qisqacha | Hajmi | Holat |
 |---|---|---|---|
-| **JAVOBSIZ SAVOLLAR HISOBOTI** | R/L testlarida `togri` bo'sh qolgan savollarni topib, jadval qilib ko'rsatish | o'rta | 2026-08-11: foydalanuvchi tasdiqladi, lekin BOSHLASHDAN OLDIN alohida "boshla" buyrug'i kutiladi (Headway kitoblari tahlilidan KEYINGI navbatda). Batafsili pastda |
+| **JAVOBSIZ SAVOLLAR HISOBOTI** | R/L testlarida `togri` bo'sh qolgan savollarni topib, jadval qilib ko'rsatish | o'rta | ✅ bajarildi 2026-08-11 (`517584b`), real HTTP (13/13) va brauzerda tekshirildi, push qilingan |
+| **F5'DA TEST HOLATI YO'QOLISHI** | Talaba R/L/W/S/Mock test yechayotganda sahifani yangilasa (F5) yoki internet uzilib ulansa — javoblari va taymeri BUTUNLAY yo'qoladi, boshidan boshlashga majbur bo'ladi | o'rta | 2026-08-11: Gemini AI maslahati tekshirilib TASDIQLANDI — `localStorage`/`IndexedDB` HAQIQATAN ishlatilmaydi (`ImtihonOtish.jsx`, `Writing.jsx`, `Speaking.jsx`, `ImtihonMock.jsx`da yo'q). Foydalanuvchi rejaga kiritishni so'radi, BOSHLASHGA ALOHIDA BUYRUQ kutilmoqda. Batafsili pastda |
 | **O'YINLAR — DARAJA RO'YXATI** | Daraja ochiladigan menyu emas, ko'rinib turgan tugmalar bo'lsin | kichik | ✅ bajarildi 2026-07-27 |
 | **O'Z MAVZUYIM** | Talaba o'z mavzusini kiritib Writing/Speaking tekshirtiradi | o'rta | ✅ bajarildi 2026-07-27 |
 | **O'YINLAR — EFFEKTLAR** | O'yinlar dizayniga chiroyliroq animatsiya/effektlar | o'rta | ✅ bajarildi 2026-07-27 |
@@ -451,56 +452,72 @@ qilinishi darhol tushunilishi kerak):
 
 ---
 
-### JAVOBSIZ SAVOLLAR HISOBOTI (o'rta) — ❗ NAVBATDAGI, BOSHLASHGA TASDIQ KUTILMOQDA
+### JAVOBSIZ SAVOLLAR HISOBOTI — ✅ BAJARILDI (2026-08-11, `517584b`)
 
-**Nima qilinadi:** owner/admin uchun yangi hisobot — IELTS testlari
-bo'limidagi Reading va Listening testlarida qaysi mashqning qaysi
-savoliga to'g'ri javob (`togri`) belgilanmagan (bo'sh qolgan)ligini
-topib, jadval ko'rinishida ko'rsatadi.
+"Hisobotlar" bo'limiga to'rtinchi tab. Backend: `GET /api/imtihon/
+javobsiz-hisobot/`. Savol raqami — foydalanuvchi aniqlashtirgan
+bo'yicha, BUTUN TEST bo'yicha uzluksiz (passage'ga bog'lanmagan, 1-40).
+"Mashq nomi"ga bosilganda mavjud `MashqTolaTahrir` (eksport qilindi)
+ochiladi — yangi tahrirlash UI yozilmagan. Real HTTP (13/13) va
+brauzerda (to'ldirilgach jadvaldan yo'qolishi) tekshirilgan.
 
-**MUHIM — boshlashdan oldin foydalanuvchidan aniq "boshla" buyrug'i
-kutiladi**, faqat rejaga yozib qo'yilgan (2026-08-11).
+---
 
-**Jadval ustunlari (foydalanuvchi talabi bilan aniq):**
-1. **Bo'lim** — Reading yoki Listening (Writing/Speaking bu hisobotga
-   kirmaydi — ularda `togri` maydoni yo'q, AI baholaydi).
-2. **Mashq nomi** — bosilganda test tahrirlash oynasi ochilishi kerak
-   (mavjud `ImtihonBoshqarish.jsx` ichidagi tahrir oqimi qayta
-   ishlatiladi — alohida yangi oyna yozilmaydi).
-3. **Savol raqami**.
-4. **Savol matni** (qisqartirilgan — to'liq matn emas, ro'yxatda joy
-   band qilmasligi uchun).
+### F5'DA TEST HOLATI YO'QOLISHI (o'rta) — ❗ NAVBATDAGI, BOSHLASHGA TASDIQ KUTILMOQDA
 
-**Tadqiqot natijasi (2026-08-11, implementatsiyadan oldin):**
-- Ma'lumot manbai: `exercises.TestQismi.savollar` — JSON ro'yxat,
-  har elementda `{"savol", "tur", "variantlar", "togri", ...}`.
-  "Javobsiz" — `togri` bo'sh string yoki umuman yo'q.
-- **Ochiq savol — savol raqami qanday hisoblanadi:** hozir bazada
-  global (butun test bo'yicha uzluksiz) raqam alohida saqlanmaydi,
-  faqat har `TestQismi.savollar` massividagi ORNI (index) bor.
-  Import vaqtida raqamlash mantig'i `pdf_generatsiya.py`da bor
-  (`boshlangich_raqam` + qism ichidagi offset), lekin bu saqlanmaydi,
-  faqat generatsiya paytida hisoblanadi. Hisobot yozilishidan oldin
-  aniqlashtirish kerak: (a) har qism ichidagi mahalliy raqam (1, 2, 3...
-  har passage/audio o'zidan boshlab) yetarlimi, yoki (b) butun test
-  bo'yicha uzluksiz raqam (masalan Passage 2'ning 1-savoli — testda
-  14-savol) kerakmi. Ikkinchisi to'g'riroq (real IELTS shunday
-  raqamlanadi), lekin hisoblashni talab qiladi.
-- Yangi backend endpoint kerak bo'ladi (masalan
-  `GET /api/imtihon/javobsiz-hisobot/`, owner/admin, `_mashq_admin_mi`
-  patterni bilan) — barcha `manba=admin` R/L testlarini aylanib,
-  `togri` bo'sh savollarni yig'adi.
-- Frontend: yangi sahifa yoki mavjud "Hisobotlar" bo'limiga qo'shimcha
-  bo'lim (`Hisobotlar.jsx`, faqat owner ko'radi). "Mashq nomi"ga bosilganda
-  ochiladigan tahrirlash oynasi — `ImtihonBoshqarish.jsx` ichidagi
-  `MashqTolaTahrir`ni test id bilan ochish (mavjud komponent, yangi
-  yozilmaydi).
+**Muammo:** talaba R/L/W/S yoki Mock test yechayotganda sahifani
+tasodifan yangilasa (F5) yoki internet vaqtincha uzilib qayta ulansa —
+barcha javoblari VA taymer **butunlay yo'qoladi**, boshidan boshlashga
+majbur bo'ladi.
 
-**Verification (implementatsiya boshlanganda):** haqiqiy bazadagi
-testlarda ataylab bitta savolning `togri`sini bo'shatib, hisobotda
-to'g'ri chiqishini tekshirish; "Mashq nomi"ga bosib, tahrirlash oynasi
-aynan o'sha testni ochishini tasdiqlash; bo'sh savolni to'ldirib,
-hisobotdan yo'qolishini tekshirish.
+**Qanday aniqlandi (2026-08-11):** foydalanuvchi Gemini AI'dan olgan
+IELTS-sayt optimallashtirish maslahatlarini tekshirish so'ralganda,
+shu muammo TASDIQLANDI — kod tekshirildi, `localStorage`/`IndexedDB`
+HECH BIR imtihon sahifasida (`ImtihonOtish.jsx`, `Writing.jsx`,
+`Speaking.jsx`, `ImtihonMock.jsx`) ishlatilmaydi. Javoblar va taymer
+FAQAT React state'da (`useState`) — sahifa yangilansa yo'qoladi.
+
+**Tekshirilgan, MUAMMO EMASLIGI tasdiqlangan boshqa Gemini
+takliflari** (bu ish bilan ARALASHTIRILMASIN, ular allaqachon to'g'ri
+ishlaydi):
+- Javoblar har savolda serverga YUBORILMAYDI — faqat "Testni
+  yakunlash"da BITTA so'rovda (`ImtihonOtish.jsx:913-926`).
+- Taymer serverdan so'ralmaydi, mahalliy hisoblanadi
+  (`ImtihonOtish.jsx:821`).
+- Writing'da har harfda saqlanmaydi, faqat yakunda.
+- WAL rejimi va tranzaksiya sozlamalari (`config/settings.py:166`)
+  allaqachon bor.
+- `cache_size`ni OSHIRISH — Gemini shuni ham tavsiya qilgan, lekin bu
+  NOTO'G'RI maslahat: `config/settings.py:163` da ATAYLAB
+  o'zgartirilmagan sababi yozilgan (har ulanish alohida ajratadi, ko'p
+  worker'da xotira tugaydi — avvalgi OOM tajribasi). BU YERGA TEGILMASIN.
+
+**Yechim yo'nalishi (implementatsiya boshlanmagan, boshlashda
+aniqlashtiriladi):**
+- Javoblar (`javoblar` state) va taymer boshlanish vaqti har
+  o'zgarishda `localStorage`ga yozilsin (test id bilan kalitlangan
+  holda — bir nechta test/mock bir vaqtda ochilishi mumkin emas,
+  lekin eski, tugallangan testning qoldig'i chalkashtirmasligi kerak).
+- Sahifa ochilganda (`useEffect` boshida) `localStorage`da shu testga
+  mos saqlangan holat bo'lsa, undan tiklansin; test yakunlangach yoki
+  "Testni yakunlash" muvaffaqiyatli bo'lgach — o'sha kalit
+  TOZALANSIN (aks holda eskirgan holat keyingi safar chalkashtiradi).
+- Qamrov: R/L (`ImtihonOtish.jsx`), Writing/Speaking (`ImtihonYozGap.jsx`,
+  ehtimol `Writing.jsx`/`Speaking.jsx` ham), Mock (`ImtihonMock.jsx` —
+  bu yerda TO'RT bo'lim ketma-ket bo'lgani uchun ayniqsa muhim, uzun
+  imtihon davomida F5 ehtimoli yuqoriroq).
+- Taymerni "boshqa qurilmada F5 bosilsa boshqa taymer boshlanadi"
+  degan holatdan himoya qilish uchun ABSOLYUT tugash vaqti (masalan
+  `Date.now() + standartVaqt(...)*1000`) saqlansin, nisbiy soniya emas
+  — shunda sahifa qayta ochilganda "qancha vaqt o'tdi" hisoblanadi,
+  taymer noldan boshlanmaydi.
+
+**Verification (implementatsiya boshlanganda):** test boshlanadi, bir
+nechta savolga javob beriladi, DevTools orqali sahifa yangilanadi
+(F5) — javoblar VA qolgan vaqt saqlanib qolishi tekshiriladi; test
+muvaffaqiyatli yakunlangach `localStorage`da iz qolmasligi
+tekshiriladi; ikkita turli test/mock orasida holat aralashmasligi
+tekshiriladi.
 
 ---
 
