@@ -6,6 +6,15 @@ import { useTestRejimi } from "../testRejimiContext";
 import ImtihonOtish from "./ImtihonOtish";
 import ImtihonYozGap from "./ImtihonYozGap";
 
+// 2026-08-11, foydalanuvchi talabi: qo'lda mock yaratish (mavjud
+// testlardan bo'lim tanlab) VAQTINCHA yashirildi — "papka ichida
+// papka" (2-darajali papka, har bo'limdan bittadan) tizimi tayyor
+// bo'lgach, mock BUTUNLAY shu papkalar orqali yig'iladi va bu forma
+// KERAKMAS bo'lib qoladi. Kod/backend endpoint ATAYLAB o'chirilmadi —
+// reja tasdiqlanmagan, tuzatish oson bo'lsin. O'chirish REJA.md'da
+// "Navbatdagi ishlar"ga yozib qo'yilgan.
+const QOLDA_MOCK_YARATISH_OCHIQ = false;
+
 const BOLIM_TARTIBI = ["listening", "reading", "writing", "speaking"];
 const BOLIM_KALIT = {
   listening: "listening_bolimi",
@@ -198,7 +207,9 @@ export default function ImtihonMock({ manba = "admin" }) {
 
   return (
     <>
-      {adminMi && <AdminMockYaratish manba={manba} royxatniYukla={royxatniYukla} />}
+      {adminMi && QOLDA_MOCK_YARATISH_OCHIQ && (
+        <AdminMockYaratish manba={manba} royxatniYukla={royxatniYukla} />
+      )}
       <div className="karta">
       {royxat === null && <div className="yuklanmoqda">{t("yuklanmoqda")}</div>}
       {royxat && royxat.length === 0 && <span className="izoh">{t("imtihon_royxati_boshi")}</span>}
