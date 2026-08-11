@@ -405,6 +405,26 @@ uchraydigan 3-4 tasini — dialog, jadval, moslashtirish — birinchi
 navbatga qo'yishni taklif qildi, lekin hali tasdiqlanmagan). Ish
 boshlanishidan oldin ko'lam aniqlashtiriladi.
 
+## 🔴 ENG YUQORI PRIORITET — Headway kitoblarini Kurslar bo'limiga tahlil qilish (2026-08-11)
+
+Foydalanuvchi 4 ta kitob yuborgan — Kurslar bo'limiga yuklanishi kerak.
+**MUHIM: fayllar yo'qolib qolmasin, aniq yo'llar shu yerda saqlanadi:**
+
+1. `C:\Users\Shuk\Desktop\Headway\Soars_J_Soars_L_Hancock_P_Headway_Pre_Intermediate_Student_39_s.pdf` (1000 bet, ~102 MB)
+2. `C:\Users\Shuk\Desktop\Headway\484_1_Headway_Upper_Intermediate_Student's_Book,_5th_edition_2019.pdf` (372 bet, ~38 MB)
+3. `C:\Users\Shuk\Desktop\Headway\Soars_J_Soars_L_Hancock_P_Headway_Elementary_Student_39_s_Book_5th.pdf` (909 bet, ~93 MB)
+4. `C:\Users\Shuk\Desktop\Headway\Soars_J_Soars_L_Hancock_P_Headway_Intermediate_Student_39_s_Book.pdf` (1199 bet, ~123 MB)
+
+**Vazifa** (foydalanuvchi so'rovi, 2026-08-11): shu kitoblarni ko'rib,
+mashqlarini tahlil qilish — pastdagi "Kurslar — kitobga mos mashq
+formatlarini kengaytirish" ishi bilan bog'liq: Beginner kitobida 16 tur
+aniqlangan edi, shu 4 kitobda YANGI tur bor-yo'qligini tekshirish kerak.
+
+**Holat:** boshlanmagan — foydalanuvchi "keyinroq aytaman" dedi, ALOHIDA
+buyruq kutilmoqda. Fayllar KATTA (poppler/pdftoppm yo'q, `pypdfium2`
+orqali sahifa-sahifa rasmga aylantirib ko'rish kerak bo'ladi — avvalgi
+urinishda shu usul boshlangan edi).
+
 ## Navbatdagi ishlar (2026-07-27 foydalanuvchi talablari)
 
 Quyidagilar 2026-07-26/27 suhbatida kelishildi. Birinchi uchtasi — navbatda,
@@ -415,7 +435,7 @@ qilinishi darhol tushunilishi kerak):
 
 | Ish nomi | Qisqacha | Hajmi | Holat |
 |---|---|---|---|
-| **JAVOBSIZ SAVOLLAR HISOBOTI** | R/L testlarida `togri` bo'sh qolgan savollarni topib, jadval qilib ko'rsatish | o'rta | ❗ **NAVBATDAGI (BIRINCHI)** — 2026-08-11: foydalanuvchi tasdiqladi, lekin BOSHLASHDAN OLDIN alohida "boshla" buyrug'i kutiladi. Batafsili pastda |
+| **JAVOBSIZ SAVOLLAR HISOBOTI** | R/L testlarida `togri` bo'sh qolgan savollarni topib, jadval qilib ko'rsatish | o'rta | 2026-08-11: foydalanuvchi tasdiqladi, lekin BOSHLASHDAN OLDIN alohida "boshla" buyrug'i kutiladi (Headway kitoblari tahlilidan KEYINGI navbatda). Batafsili pastda |
 | **O'YINLAR — DARAJA RO'YXATI** | Daraja ochiladigan menyu emas, ko'rinib turgan tugmalar bo'lsin | kichik | ✅ bajarildi 2026-07-27 |
 | **O'Z MAVZUYIM** | Talaba o'z mavzusini kiritib Writing/Speaking tekshirtiradi | o'rta | ✅ bajarildi 2026-07-27 |
 | **O'YINLAR — EFFEKTLAR** | O'yinlar dizayniga chiroyliroq animatsiya/effektlar | o'rta | ✅ bajarildi 2026-07-27 |
