@@ -408,6 +408,7 @@ qilinishi darhol tushunilishi kerak):
 
 | Ish nomi | Qisqacha | Hajmi | Holat |
 |---|---|---|---|
+| **JAVOBSIZ SAVOLLAR HISOBOTI** | R/L testlarida `togri` bo'sh qolgan savollarni topib, jadval qilib ko'rsatish | o'rta | ❗ **NAVBATDAGI (BIRINCHI)** — 2026-08-11: foydalanuvchi tasdiqladi, lekin BOSHLASHDAN OLDIN alohida "boshla" buyrug'i kutiladi. Batafsili pastda |
 | **O'YINLAR — DARAJA RO'YXATI** | Daraja ochiladigan menyu emas, ko'rinib turgan tugmalar bo'lsin | kichik | ✅ bajarildi 2026-07-27 |
 | **O'Z MAVZUYIM** | Talaba o'z mavzusini kiritib Writing/Speaking tekshirtiradi | o'rta | ✅ bajarildi 2026-07-27 |
 | **O'YINLAR — EFFEKTLAR** | O'yinlar dizayniga chiroyliroq animatsiya/effektlar | o'rta | ✅ bajarildi 2026-07-27 |
@@ -419,6 +420,59 @@ qilinishi darhol tushunilishi kerak):
 | **RECITATION (Reading PDF import — OCR fallback)** | Cambridge kabi mualliflik huquqi bilan himoyalangan kitoblarni import qilganda, passage matnini so'zma-so'z qaytarish talab qilinsa Gemini "RECITATION", Claude "content filtering policy" bilan bo'sh javob qaytaradi — ikkalasi ham. Yechim: matnni AI'dan emas, OCR (Tesseract) orqali olish, AI faqat savol tuzilishi/raqamlashda ishlatiladi | o'rta (yangi bog'liqlik — Tesseract binary, dev+prod) | 2026-08-10/11: eng past ustuvorlik, navbat oxiriga qo'yildi — batafsili pastda |
 
 **Uchtasi ham 2026-07-27 da qurildi va brauzerda tekshirildi** — pastdagi jadvaldagi yozuvga qarang.
+
+---
+
+### JAVOBSIZ SAVOLLAR HISOBOTI (o'rta) — ❗ NAVBATDAGI, BOSHLASHGA TASDIQ KUTILMOQDA
+
+**Nima qilinadi:** owner/admin uchun yangi hisobot — IELTS testlari
+bo'limidagi Reading va Listening testlarida qaysi mashqning qaysi
+savoliga to'g'ri javob (`togri`) belgilanmagan (bo'sh qolgan)ligini
+topib, jadval ko'rinishida ko'rsatadi.
+
+**MUHIM — boshlashdan oldin foydalanuvchidan aniq "boshla" buyrug'i
+kutiladi**, faqat rejaga yozib qo'yilgan (2026-08-11).
+
+**Jadval ustunlari (foydalanuvchi talabi bilan aniq):**
+1. **Bo'lim** — Reading yoki Listening (Writing/Speaking bu hisobotga
+   kirmaydi — ularda `togri` maydoni yo'q, AI baholaydi).
+2. **Mashq nomi** — bosilganda test tahrirlash oynasi ochilishi kerak
+   (mavjud `ImtihonBoshqarish.jsx` ichidagi tahrir oqimi qayta
+   ishlatiladi — alohida yangi oyna yozilmaydi).
+3. **Savol raqami**.
+4. **Savol matni** (qisqartirilgan — to'liq matn emas, ro'yxatda joy
+   band qilmasligi uchun).
+
+**Tadqiqot natijasi (2026-08-11, implementatsiyadan oldin):**
+- Ma'lumot manbai: `exercises.TestQismi.savollar` — JSON ro'yxat,
+  har elementda `{"savol", "tur", "variantlar", "togri", ...}`.
+  "Javobsiz" — `togri` bo'sh string yoki umuman yo'q.
+- **Ochiq savol — savol raqami qanday hisoblanadi:** hozir bazada
+  global (butun test bo'yicha uzluksiz) raqam alohida saqlanmaydi,
+  faqat har `TestQismi.savollar` massividagi ORNI (index) bor.
+  Import vaqtida raqamlash mantig'i `pdf_generatsiya.py`da bor
+  (`boshlangich_raqam` + qism ichidagi offset), lekin bu saqlanmaydi,
+  faqat generatsiya paytida hisoblanadi. Hisobot yozilishidan oldin
+  aniqlashtirish kerak: (a) har qism ichidagi mahalliy raqam (1, 2, 3...
+  har passage/audio o'zidan boshlab) yetarlimi, yoki (b) butun test
+  bo'yicha uzluksiz raqam (masalan Passage 2'ning 1-savoli — testda
+  14-savol) kerakmi. Ikkinchisi to'g'riroq (real IELTS shunday
+  raqamlanadi), lekin hisoblashni talab qiladi.
+- Yangi backend endpoint kerak bo'ladi (masalan
+  `GET /api/imtihon/javobsiz-hisobot/`, owner/admin, `_mashq_admin_mi`
+  patterni bilan) — barcha `manba=admin` R/L testlarini aylanib,
+  `togri` bo'sh savollarni yig'adi.
+- Frontend: yangi sahifa yoki mavjud "Hisobotlar" bo'limiga qo'shimcha
+  bo'lim (`Hisobotlar.jsx`, faqat owner ko'radi). "Mashq nomi"ga bosilganda
+  ochiladigan tahrirlash oynasi — `ImtihonBoshqarish.jsx` ichidagi
+  `MashqTolaTahrir`ni test id bilan ochish (mavjud komponent, yangi
+  yozilmaydi).
+
+**Verification (implementatsiya boshlanganda):** haqiqiy bazadagi
+testlarda ataylab bitta savolning `togri`sini bo'shatib, hisobotda
+to'g'ri chiqishini tekshirish; "Mashq nomi"ga bosib, tahrirlash oynasi
+aynan o'sha testni ochishini tasdiqlash; bo'sh savolni to'ldirib,
+hisobotdan yo'qolishini tekshirish.
 
 ---
 
