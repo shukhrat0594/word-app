@@ -421,14 +421,23 @@ class TestPapkasi(models.Model):
     ierarxik bo'lishi kerak emas"). Shu sababli `parent` maydoni yo'q —
     kerak bo'lib qolsa keyin qo'shiladi, hozir soddaligi afzal.
 
-    Har papka BITTA bo'limga (reading/listening/writing/speaking) VA
-    bitta manbaga (admin — "IELTS testlari", ai — "AI mashqlari")
-    tegishli: admin panelidagi tab'lar shu ikkisi bo'yicha ajratilgan,
-    papkalar ham xuddi shunday ajratilishi kerak.
+    2026-08-11: `bolim` maydoni OLIB TASHLANDI (foydalanuvchi talabi:
+    "IELTS Testlari bo'limidagi papkalarni birlashtirish"). Avval har
+    papka BITTA bo'limga tegishli edi — masalan "Cambridge 17 Test 1"
+    to'plamini kiritish uchun Reading/Listening/Writing/Speaking'ning
+    HAR BIRIDA alohida, bir xil nomli papka yaratish kerak bo'lardi.
+    Endi bitta papka barcha bo'lim testlarini birga saqlaydi; admin
+    biror bo'limni tanlaganda esa (masalan Reading) SHU PAPKA ICHIDAGI
+    faqat o'sha bo'lim testlari ko'rinadi — bu filtr backendda emas,
+    frontendda amalga oshadi (`ImtihonBoshqarish.jsx`: bo'lim bo'yicha
+    olingan test ro'yxati va papka ro'yxati kesishtiriladi).
+
+    Papka hamon BITTA manbaga (admin — "IELTS testlari", ai — "AI
+    mashqlari") tegishli — bu ikkisi admin panelida alohida tab, aralashib
+    ketmasligi kerak.
     """
 
     nomi = models.CharField(max_length=120)
-    bolim = models.CharField(max_length=10, choices=Bolim.choices)
     manba = models.CharField(max_length=10, choices=Manba.choices, default=Manba.ADMIN)
     markaz = models.ForeignKey(
         "accounts.Markaz", on_delete=models.CASCADE, related_name="test_papkalari"
@@ -441,7 +450,7 @@ class TestPapkasi(models.Model):
         verbose_name_plural = "Test papkalari"
 
     def __str__(self):
-        return f"{self.nomi} [{self.get_bolim_display()}]"
+        return f"{self.nomi} [{self.get_manba_display()}]"
 
 
 class ImtihonTest(models.Model):

@@ -1583,7 +1583,14 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
     api(`/api/imtihon/testlar-boshqaruv/?manba=${manba}${bolim ? `&bolim=${bolim}` : ""}`)
       .then(setRoyxat)
       .catch(() => {});
-    api(`/api/imtihon/papkalar/?manba=${manba}${bolim ? `&bolim=${bolim}` : ""}`)
+    // 2026-08-11: papkalar endi bo'limga BOG'LANMAGAN — bitta papka
+    // Reading/Listening/Writing/Speaking testlarini birga saqlaydi
+    // ("Cambridge 17 Test 1" kabi to'plam). Shuning uchun `&bolim=` YO'Q —
+    // har doim shu manbadagi BARCHA papkalar so'raladi. Joriy bo'limda
+    // faqat mos testlari bor papkalar ko'rinishi pastdagi render'da
+    // `royxat` (bo'lim bo'yicha filtrlangan) bilan kesishtirish orqali
+    // ta'minlanadi — alohida backend so'rovi kerak emas.
+    api(`/api/imtihon/papkalar/?manba=${manba}`)
       .then(setPapkalar)
       .catch(() => {});
   }
@@ -1595,11 +1602,13 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
 
   async function papkaYarat() {
     const nomi = yangiPapka.trim();
-    if (!nomi || !filtrBolim) return;
+    // 2026-08-11: `filtrBolim` shart EMAS — papka endi bo'limga
+    // bog'lanmagan, "Hammasi" tabida ham yaratish mumkin.
+    if (!nomi) return;
     try {
       await api("/api/imtihon/papkalar/", {
         method: "POST",
-        body: { nomi, bolim: filtrBolim, manba },
+        body: { nomi, manba },
       });
       setYangiPapka("");
       yukla(filtrBolim);
@@ -1866,28 +1875,23 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
           </div>
         )}
 
-        {/* Papkalar (2026-08-01) — har bo'lim uchun alohida, shuning uchun
-            "Hammasi" filtrida yaratib bo'lmaydi (qaysi bo'limga tegishli
-            ekani noaniq bo'lardi). */}
+        {/* Papkalar (2026-08-01, 2026-08-11: bo'limga bog'lanmagan) — bitta
+            papka barcha bo'lim testlarini birga saqlaydi (masalan
+            "Cambridge 17 Test 1"), shuning uchun "Hammasi" tabida ham
+            yaratish mumkin — bo'lim tanlash shart emas. */}
         <div style={{ marginBottom: 14, padding: 10, background: "var(--sirt-2)", borderRadius: 8 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             <strong style={{ fontSize: 14 }}>{t("imtihon_papkalar")}</strong>
-            {filtrBolim ? (
-              <>
-                <input
-                  placeholder={t("imtihon_papka_nomi")}
-                  value={yangiPapka}
-                  onChange={(e) => setYangiPapka(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && papkaYarat()}
-                  style={{ maxWidth: 220 }}
-                />
-                <button type="button" className="tugma" onClick={papkaYarat} disabled={!yangiPapka.trim()}>
-                  {t("imtihon_papka_qoshish")}
-                </button>
-              </>
-            ) : (
-              <span className="izoh">{t("imtihon_papka_bolim_tanlang")}</span>
-            )}
+            <input
+              placeholder={t("imtihon_papka_nomi")}
+              value={yangiPapka}
+              onChange={(e) => setYangiPapka(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && papkaYarat()}
+              style={{ maxWidth: 220 }}
+            />
+            <button type="button" className="tugma" onClick={papkaYarat} disabled={!yangiPapka.trim()}>
+              {t("imtihon_papka_qoshish")}
+            </button>
           </div>
           {papkalar.length > 0 && (
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
@@ -2032,10 +2036,12 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
                           : `⚠ ${t("imtihon_listening_davom")} (${test.qismlar.length}/4)`}
                       </button>
                     )}
-                    {/* Papkaga ko'chirish — faqat shu testning bo'limiga
-                        tegishli papkalar ko'rsatiladi (backend ham
-                        boshqa bo'lim papkasini rad qiladi). */}
-                    {papkalar.some((p) => p.bolim === test.bolim) && (
+                    {/* Papkaga ko'chirish (2026-08-11: bo'lim cheklovi
+                        olib tashlandi) — papka endi bo'limga bog'lanmagan,
+                        istalgan papkaga istalgan bo'lim testini qo'shish
+                        mumkin ("Cambridge 17 Test 1" ichida R/L/W/S birga
+                        turadi). */}
+                    {papkalar.length > 0 && (
                       <select
                         value={test.papka || ""}
                         onChange={(e) => papkagaKochir(test.id, e.target.value)}
@@ -2043,11 +2049,9 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
                         style={{ maxWidth: 170 }}
                       >
                         <option value="">{t("imtihon_papkasiz")}</option>
-                        {papkalar
-                          .filter((p) => p.bolim === test.bolim)
-                          .map((p) => (
-                            <option key={p.id} value={p.id}>📁 {p.nomi}</option>
-                          ))}
+                        {papkalar.map((p) => (
+                          <option key={p.id} value={p.id}>📁 {p.nomi}</option>
+                        ))}
                       </select>
                     )}
                     <button

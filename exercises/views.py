@@ -980,11 +980,14 @@ class MashqGeneratsiyaView(APIView):
                     qism.audio_fayl.save(f"{test.id}_{qism.tartib}_ai_audio.wav", ContentFile(audio_bytes), save=True)
 
         # Band bo'yicha papkaga avtomatik joylash (2026-08-02, foydalanuvchi
-        # talabi) — "Band 5-6" kabi papka shu bo'lim+manbada yo'q bo'lsa
-        # yaratiladi. Admin xohlasa keyin tahrirlashda boshqa papkaga
-        # ko'chirishi mumkin (papka maydoni oddiy FK, cheklanmagan).
+        # talabi) — "Band 5-6" kabi papka shu manbada yo'q bo'lsa yaratiladi.
+        # 2026-08-11: `bolim` KIRITILMAYDI — endi bitta "Band 5-6" papkasi
+        # Reading/Listening/Writing/Speaking'ning HAMMASINI birga saqlaydi
+        # (avval har bo'lim o'zining "Band 5-6" papkasini olardi, ya'ni
+        # bir xil nomli 4 ta alohida papka bo'lib chiqardi). Admin xohlasa
+        # keyin tahrirlashda boshqa papkaga ko'chirishi mumkin.
         papka, _yaratildimi = TestPapkasi.objects.get_or_create(
-            nomi=f"Band {band}", bolim=bolim, manba=Manba.AI, markaz=markaz,
+            nomi=f"Band {band}", manba=Manba.AI, markaz=markaz,
         )
         test.papka = papka
         test.save(update_fields=["papka"])
@@ -1107,10 +1110,14 @@ class ListeningDavomEttirishView(APIView):
 
 
 class TestPapkaBoshqaruvView(APIView):
-    """Owner/admin uchun — test papkalari ro'yxati va yaratish (2026-08-01).
+    """Owner/admin uchun — test papkalari ro'yxati va yaratish (2026-08-01,
+    2026-08-11: bo'lim bo'yicha ajratish olib tashlandi).
 
-    Papkalar TEKIS (ichma-ich emas) va har biri bitta bo'lim + manbaga
-    tegishli — `TestPapkasi` izohiga qarang."""
+    Papkalar TEKIS (ichma-ich emas) va BITTA manbaga tegishli — `TestPapkasi`
+    izohiga qarang. Bo'lim bo'yicha filtr ENDI YO'Q: ro'yxat har doim shu
+    manbadagi BARCHA papkalarni qaytaradi (qaysi bo'limlarning testi
+    borligidan qat'i nazar) — frontend buni joriy bo'lim testlari bilan
+    kesishtirib, faqat mos papkalarni/testlarni ko'rsatadi."""
 
     permission_classes = [IsAuthenticated]
 
@@ -1118,11 +1125,8 @@ class TestPapkaBoshqaruvView(APIView):
         if not _mashq_admin_mi(request.user):
             return Response({"detail": "Faqat admin/owner uchun"}, status=403)
         qs = TestPapkasi.objects.filter(manba=_manba_ol(request))
-        bolim = request.query_params.get("bolim")
-        if bolim:
-            qs = qs.filter(bolim=bolim)
         return Response(
-            [{"id": p.id, "nomi": p.nomi, "bolim": p.bolim, "tartib": p.tartib} for p in qs]
+            [{"id": p.id, "nomi": p.nomi, "tartib": p.tartib} for p in qs]
         )
 
     def post(self, request):
@@ -1132,16 +1136,13 @@ class TestPapkaBoshqaruvView(APIView):
         if not markaz:
             return Response({"detail": "Markaz topilmadi"}, status=400)
         nomi = (request.data.get("nomi") or "").strip()
-        bolim = request.data.get("bolim") or ""
         if not nomi:
             return Response({"detail": "Papka nomi majburiy"}, status=400)
-        if bolim not in Bolim.values:
-            return Response({"detail": "bolim noto'g'ri"}, status=400)
         papka = TestPapkasi.objects.create(
-            nomi=nomi, bolim=bolim, manba=_manba_ol(request), markaz=markaz,
+            nomi=nomi, manba=_manba_ol(request), markaz=markaz,
         )
         return Response(
-            {"id": papka.id, "nomi": papka.nomi, "bolim": papka.bolim, "tartib": papka.tartib},
+            {"id": papka.id, "nomi": papka.nomi, "tartib": papka.tartib},
             status=201,
         )
 
@@ -1163,7 +1164,7 @@ class TestPapkaDetailView(APIView):
             return Response({"detail": "Papka nomi majburiy"}, status=400)
         papka.nomi = nomi
         papka.save(update_fields=["nomi"])
-        return Response({"id": papka.id, "nomi": papka.nomi, "bolim": papka.bolim})
+        return Response({"id": papka.id, "nomi": papka.nomi})
 
     def delete(self, request, pk):
         if not _mashq_admin_mi(request.user):
@@ -1199,13 +1200,11 @@ class ImtihonBoshqaruvDetailView(APIView):
             if papka_id in (None, "", "null"):
                 test.papka = None
             else:
+                # 2026-08-11: bo'lim tekshiruvi olib tashlandi — papka endi
+                # bir nechta bo'lim testini birga saqlaydi (`TestPapkasi`
+                # izohiga qarang), shuning uchun bu yerda rad etish kerak
+                # emas.
                 papka = get_object_or_404(TestPapkasi, pk=papka_id)
-                # Papka boshqa bo'limga tegishli bo'lsa — testni u yerga
-                # solish talabaga chalkash ro'yxat beradi, shuning uchun rad.
-                if papka.bolim != test.bolim:
-                    return Response(
-                        {"detail": "Papka boshqa bo'limga tegishli"}, status=400
-                    )
                 test.papka = papka
             maydonlar.append("papka")
 
