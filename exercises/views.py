@@ -382,6 +382,13 @@ def _test_admin_dict(t):
         "id": t.id,
         "name": t.name,
         "bolim": t.bolim,
+        # 2026-08-11: "Javobsiz savollar hisoboti" uchun qo'shildi —
+        # `MashqTolaTahrir` ichidagi `<ImtihonOtish manba={manba} .../>`
+        # oldindan-ko'rish uchun kerak, avval ro'yxat sahifasi buni
+        # o'zining `manba` propidan (butun sahifa uchun bitta qiymat)
+        # olardi, yangi hisobot sahifasi esa bir nechta manba aralash
+        # ro'yxatni ko'rsatadi — har test o'z manbasini bilishi shart.
+        "manba": t.manba,
         "korinish": t.korinish,
         "papka": t.papka_id,
         "qismlar": [_qism_admin_dict(q) for q in t.qismlar.all()],
@@ -573,6 +580,65 @@ def _test_yarat(data, markaz, rasm_fayllar=None, audio_fayllar=None, yaratuvchi=
         _fayllarni_taqsimla(qism_obyektlari, qoldiq_rasm_fayllar, "rasm")
 
     return test, None
+
+
+def _savol_javobsizmi(savol):
+    """`togri` maydoni bo'sh — string ("") ham, ro'yxat ([]) ham, umuman
+    yo'q ham bo'lishi mumkin (`RoyxatMaydoni` ba'zi savol turlarida
+    massiv beradi — `imtihon_variantlar_izoh` atrofidagi kodga qarang)."""
+    togri = savol.get("togri")
+    if isinstance(togri, list):
+        return not any(str(x).strip() for x in togri)
+    return not str(togri or "").strip()
+
+
+def _savol_matni_qisqart(matn, uzunlik=90):
+    matn = (matn or "").strip()
+    return matn if len(matn) <= uzunlik else matn[:uzunlik].rstrip() + "…"
+
+
+class JavobsizSavollarHisobotiView(APIView):
+    """Owner/admin uchun — Reading/Listening testlarida to'g'ri javobi
+    (`togri`) belgilanmagan savollarni topib, jadval qatorlari sifatida
+    qaytaradi (2026-08-11, foydalanuvchi talabi: "IELTS mashqlari
+    bo'limidagi R/L mashqlarida qaysi mashqdagi qaysi savolning javobi
+    berilmaganini topib bersin").
+
+    FAQAT Reading/Listening — Writing/Speaking'da `togri` maydoni
+    umuman yo'q (AI baholaydi), shuning uchun ular tekshirilmaydi.
+
+    "Savol raqami" — foydalanuvchi aniq ko'rsatdi: "shu testdagi umumiy
+    raqam, passage'ga bog'lanmagan, 1-40 gacha bo'lgan son". Bazada bu
+    saqlanmaydi (har qism o'z `savollar` massividagi o'rnini biladi,
+    xolos) — shu yerda QISMLAR TARTIB BO'YICHA aylanib, o'sib boruvchi
+    hisoblagich bilan HISOBLANADI (talaba tomonidagi raqamlash bilan
+    bir xil mantiq: oldingi qismlar savol sonini yig'ib boriladi)."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if not _mashq_admin_mi(request.user):
+            return Response({"detail": "Faqat admin/owner uchun"}, status=403)
+
+        qatorlar = []
+        testlar = ImtihonTest.objects.filter(
+            bolim__in=[Bolim.READING, Bolim.LISTENING]
+        ).order_by("bolim", "name")
+        for test in testlar:
+            raqam = 0
+            for qism in test.qismlar.order_by("tartib"):
+                for savol in qism.savollar or []:
+                    raqam += 1
+                    if _savol_javobsizmi(savol):
+                        qatorlar.append({
+                            "bolim": test.bolim,
+                            "test_id": test.id,
+                            "test_nomi": test.name,
+                            "manba": test.manba,
+                            "savol_raqami": raqam,
+                            "savol_matni": _savol_matni_qisqart(savol.get("savol")),
+                        })
+        return Response(qatorlar)
 
 
 class ImtihonBoshqaruvView(APIView):
@@ -1314,6 +1380,19 @@ class ImtihonBoshqaruvDetailView(APIView):
     """Owner/admin uchun — to'liq testni o'chirish yoki papkaga ko'chirish."""
 
     permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        """Bitta testni TO'LIQ (qismlari, savollari bilan) olish
+        (2026-08-11, "Javobsiz savollar hisoboti" uchun) — avval bunday
+        yo'l yo'q edi, ro'yxat sahifasi test obyektini `royxat`dan
+        (allaqachon yuklangan) olardi. Hisobot sahifasi esa ro'yxatni
+        yuklamaydi, faqat topilgan savol qatorini ko'rsatadi — shuning
+        uchun "Mashq nomi"ga bosilganda tahrirlash oynasini ochish
+        uchun testni ALOHIDA so'rash kerak."""
+        if not _mashq_admin_mi(request.user):
+            return Response({"detail": "Faqat admin/owner uchun"}, status=403)
+        test = get_object_or_404(ImtihonTest, pk=pk)
+        return Response(_test_admin_dict(test))
 
     def patch(self, request, pk):
         """Testni papkaga ko'chirish va/yoki nomini o'zgartirish

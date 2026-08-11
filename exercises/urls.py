@@ -35,6 +35,11 @@ urlpatterns = [
         name="imtihon_boshqaruv_detail",
     ),
     path(
+        "imtihon/javobsiz-hisobot/",
+        views.JavobsizSavollarHisobotiView.as_view(),
+        name="imtihon_javobsiz_hisobot",
+    ),
+    path(
         "imtihon/mashq-generatsiya/",
         views.MashqGeneratsiyaView.as_view(),
         name="imtihon_mashq_generatsiya",

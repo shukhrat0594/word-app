@@ -1269,7 +1269,12 @@ function maxsusRoyxati(format) {
   return Array.isArray(format) ? format.filter(Boolean) : [format];
 }
 
-function MashqTolaTahrir({ test, manba, onYopish, onSaqlandi }) {
+/** 2026-08-11 ("Javobsiz savollar hisoboti"): boshqa sahifadan (masalan
+ * `JavobsizSavollarHisoboti.jsx`) ham ochish uchun eksport qilindi — u
+ * ro'yxatni oldindan yuklamaydi, faqat topilgan savol qatorini
+ * ko'rsatadi, shuning uchun `MashqTolaTahrir`ni to'g'ridan-to'g'ri
+ * ishlatadi (yangi tahrirlash komponenti YOZILMAYDI). */
+export function MashqTolaTahrir({ test, manba, onYopish, onSaqlandi }) {
   const { t } = useI18n();
   // qismHolat[qismId] = {sarlavha, yoriqnoma, matn, savollar} — lokal
   // tahrir nusxasi, faqat "Saqlash" bosilganda serverga yuboriladi.
