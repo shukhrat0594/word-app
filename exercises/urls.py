@@ -94,6 +94,7 @@ urlpatterns = [
     path("imtihon/qism/<int:pk>/audio/", views.TestQismAudioView.as_view(), name="imtihon_qism_audio"),
     path("imtihon/qism/<int:pk>/rasm/", views.TestQismRasmView.as_view(), name="imtihon_qism_rasm"),
     path("imtihon-mock/", views.ImtihonMockRoyxatiView.as_view(), name="imtihon_mock_royxat"),
+    path("imtihon-mock/papkalar/", views.MockPapkalarView.as_view(), name="imtihon_mock_papkalar"),
     path("imtihon-mock/yaratish/", views.ImtihonMockYaratishView.as_view(), name="imtihon_mock_yaratish"),
     path("imtihon-mock/<int:pk>/", views.ImtihonMockDetailView.as_view(), name="imtihon_mock_detail"),
     path(

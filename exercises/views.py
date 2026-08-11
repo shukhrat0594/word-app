@@ -1943,6 +1943,55 @@ class ImtihonMockRoyxatiView(APIView):
         return Response([dict_fn(m) for m in qs])
 
 
+class MockPapkalarView(APIView):
+    """Talaba/admin — Mock'larni PAPKA orqali ko'rish (2026-08-11,
+    foydalanuvchi talabi: "mock qismida mavjud papkalar hammasi ko'rinadi,
+    talaba papkani tanlaydi, ichidan yana bitta papkani tanlasa shuni
+    mock sifatida ishlaydi" — R/L/W/S bo'limlari esa O'ZGARMAYDI, ular
+    hamon o'z alohida mashqini ishlaydi).
+
+    Faqat 2-DARAJALI (ichki) papkalar Mock bilan bog'lanadi
+    (`PapkadanMockYaratishView`) — shuning uchun javobda FAQAT mock'i
+    tayyor bo'lgan ichki papkalar qaytariladi (mock hali yaratilmagan
+    ichki papka ko'rsatilmaydi — bosilsa hech narsa ishlamas edi). Tashqi
+    (1-darajali) papka faqat shunday ichki papkasi bo'lsagina qaytariladi.
+
+    Eski, papka-siz (qo'lda `ImtihonMockYaratishView` orqali yaratilgan)
+    mocklar alohida `papkasiz_moklar` ro'yxatida — orqaga moslik uchun,
+    ular yo'qolib qolmasin."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        manba = request.query_params.get("manba")
+        oddiy_mi = request.user.role == "oddiy"
+
+        papka_qs = TestPapkasi.objects.filter(parent__isnull=True)
+        if manba:
+            papka_qs = papka_qs.filter(manba=manba)
+        if oddiy_mi:
+            papka_qs = papka_qs.filter(manba=Manba.AI)
+
+        papkalar = []
+        for top in papka_qs.order_by("tartib", "nomi"):
+            ichkilar = []
+            for ich in top.ichki_papkalar.order_by("tartib", "nomi"):
+                # `OneToOneField` teskari bog'lanishi — mock yo'q bo'lsa
+                # `RelatedObjectDoesNotExist` (AttributeError avlodi)
+                # ko'taradi, shuning uchun `getattr(..., None)` xavfsiz.
+                mock = getattr(ich, "mock", None)
+                if not mock:
+                    continue
+                ichkilar.append({"id": ich.id, "nomi": ich.nomi, "mock_id": mock.id})
+            if ichkilar:
+                papkalar.append({"id": top.id, "nomi": top.nomi, "ichki": ichkilar})
+
+        papkasiz_qs = korinadigan_moklar(request.user, manba=manba).filter(papka__isnull=True)
+        papkasiz_moklar = [{"id": m.id, "name": m.name} for m in papkasiz_qs.order_by("-created_at")]
+
+        return Response({"papkalar": papkalar, "papkasiz_moklar": papkasiz_moklar})
+
+
 class ImtihonMockDetailView(APIView):
     """Bitta mock imtihon — 4 bo'lim testining asosiy ma'lumoti (qismlari
     emas, ular alohida `/api/imtihon/testlar/<id>/` orqali yuklanadi)."""

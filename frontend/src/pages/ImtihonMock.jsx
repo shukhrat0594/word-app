@@ -104,7 +104,18 @@ export default function ImtihonMock({ manba = "admin" }) {
   const { t } = useI18n();
   const { profil } = useProfil();
   const adminMi = profil?.is_owner || profil?.role === "admin";
-  const [royxat, setRoyxat] = useState(null);
+  // 2026-08-11, foydalanuvchi talabi: "mock qismida mavjud papkalar
+  // hammasi ko'rinadi, talaba papkani tanlaydi, ichidan yana bitta
+  // papkani tanlasa shuni mock sifatida ishlaydi". R/L/W/S bo'limlari
+  // (`ImtihonOtish`/`ImtihonYozGap`) BUTUNLAY O'ZGARMAYDI — faqat shu
+  // "Mock" tabi endi tekis ro'yxat o'rniga ikki bosqichli papka
+  // ko'rinishida (1-daraja -> 2-daraja -> mock boshlanadi).
+  const [royxat, setRoyxat] = useState(null); // {papkalar, papkasiz_moklar}
+  // Faqat ID saqlanadi (obyektning o'zi emas) — shunda "Ochirish"dan
+  // keyin `royxatniYukla()` yangi ma'lumot olib kelganda, tanlangan
+  // papkaning ICHKI RO'YXATI ham YANGI holatdan olinadi (pastda
+  // `.find()` bilan), eskirgan (stale) nusxa ko'rsatilmaydi.
+  const [tanlanganPapkaId, setTanlanganPapkaId] = useState(null);
   const [yechim, setYechim] = useState(null);
   const [xato, setXato] = useState("");
   const { setTestFaol } = useTestRejimi();
@@ -120,7 +131,7 @@ export default function ImtihonMock({ manba = "admin" }) {
   }, [yechim, setTestFaol]);
 
   function royxatniYukla() {
-    api(`/api/imtihon-mock/?manba=${manba}`).then(setRoyxat).catch(() => {});
+    api(`/api/imtihon-mock/papkalar/?manba=${manba}`).then(setRoyxat).catch(() => {});
   }
 
   useEffect(() => {
@@ -205,6 +216,28 @@ export default function ImtihonMock({ manba = "admin" }) {
     );
   }
 
+  const papkalar = royxat?.papkalar || [];
+  const papkasizMoklar = royxat?.papkasiz_moklar || [];
+  const tanlanganPapka = papkalar.find((p) => p.id === tanlanganPapkaId) || null;
+  const bosh = royxat && !tanlanganPapka;
+  const boshBosh = bosh && papkalar.length === 0 && papkasizMoklar.length === 0;
+
+  function ochirishTugmasi(mockId) {
+    if (!adminMi) return null;
+    return (
+      <button
+        className="tugma ikkinchi"
+        style={{ color: "#d33" }}
+        onClick={(e) => {
+          e.stopPropagation();
+          ochirish(mockId);
+        }}
+      >
+        {t("ochirish")}
+      </button>
+    );
+  }
+
   return (
     <>
       {adminMi && QOLDA_MOCK_YARATISH_OCHIQ && (
@@ -212,26 +245,53 @@ export default function ImtihonMock({ manba = "admin" }) {
       )}
       <div className="karta">
       {royxat === null && <div className="yuklanmoqda">{t("yuklanmoqda")}</div>}
-      {royxat && royxat.length === 0 && <span className="izoh">{t("imtihon_royxati_boshi")}</span>}
-      {royxat && royxat.map((m) => (
-        <div key={m.id} className="mashq-royxat-el" style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ flex: 1, cursor: "pointer" }} onClick={() => boshlash(m.id)}>
-            {m.name}
-          </span>
-          {adminMi && (
-            <button
-              className="tugma ikkinchi"
-              style={{ color: "#d33" }}
-              onClick={(e) => {
-                e.stopPropagation();
-                ochirish(m.id);
-              }}
+      {boshBosh && <span className="izoh">{t("imtihon_royxati_boshi")}</span>}
+
+      {/* 2-BOSQICH: bitta 1-darajali papka tanlangan — ichidagi
+          2-darajali (mock tayyor) papkalarni ko'rsatamiz. Bosilsa
+          O'SHA papkaga bog'langan mock boshlanadi. */}
+      {royxat && !bosh && (
+        <>
+          <button className="tugma ikkinchi kichik" style={{ marginBottom: 10 }} onClick={() => setTanlanganPapkaId(null)}>
+            {t("ortga")}
+          </button>
+          <div className="izoh" style={{ marginBottom: 8 }}>📁 {tanlanganPapka.nomi}</div>
+          {tanlanganPapka.ichki.map((ich) => (
+            <div key={ich.id} className="mashq-royxat-el" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ flex: 1, cursor: "pointer" }} onClick={() => boshlash(ich.mock_id)}>
+                📂 {ich.nomi}
+              </span>
+              {ochirishTugmasi(ich.mock_id)}
+            </div>
+          ))}
+        </>
+      )}
+
+      {/* 1-BOSQICH (asosiy ko'rinish): mavjud 1-darajali papkalar +
+          eski, papkasiz mocklar (orqaga moslik). */}
+      {bosh && (
+        <>
+          {papkalar.map((p) => (
+            <div
+              key={p.id}
+              className="mashq-royxat-el"
+              style={{ cursor: "pointer" }}
+              onClick={() => setTanlanganPapkaId(p.id)}
             >
-              {t("ochirish")}
-            </button>
-          )}
-        </div>
-      ))}
+              📁 {p.nomi} <span className="izoh">({p.ichki.length})</span>
+            </div>
+          ))}
+          {papkasizMoklar.map((m) => (
+            <div key={m.id} className="mashq-royxat-el" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ flex: 1, cursor: "pointer" }} onClick={() => boshlash(m.id)}>
+                {m.name}
+              </span>
+              {ochirishTugmasi(m.id)}
+            </div>
+          ))}
+        </>
+      )}
+
       {xato && <div className="xato-xabar" style={{ marginTop: 10 }}>{xato}</div>}
       </div>
     </>
