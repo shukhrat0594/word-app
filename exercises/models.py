@@ -416,10 +416,19 @@ class Manba(models.TextChoices):
 class TestPapkasi(models.Model):
     """Testlarni guruhlash uchun papka (2026-08-01, foydalanuvchi talabi).
 
-    TEKIS (flat) — papka ichida faqat testlar bo'ladi, boshqa papka
-    QO'SHILMAYDI (foydalanuvchi aniq shunday so'radi: "papka ko'p
-    ierarxik bo'lishi kerak emas"). Shu sababli `parent` maydoni yo'q —
-    kerak bo'lib qolsa keyin qo'shiladi, hozir soddaligi afzal.
+    2026-08-11 (kech): CHUQURLIK 2 gacha kengaytirildi (foydalanuvchi
+    talabi — "papkalarni ichiga yana papka qo'shish imkonini berish
+    kerak, ikkinchi darajadagi papkani ichiga papka qo'shib bo'lmaydi").
+    `parent` — self FK, faqat 1-DARAJALI (parent=None) papka ichiga
+    ichki (2-darajali) papka qo'shilishi mumkin, ichki papkaning o'ziga
+    yana ichki papka QO'SHILMAYDI — bu `clean()`da majburlanadi va
+    `TestPapkaBoshqaruvView.post`da ham view darajasida tekshiriladi.
+
+    2-darajali papka — Mock test yig'ish uchun MO'LJALLANGAN: unga har
+    bo'limdan (reading/listening/writing/speaking) FAQAT BITTADAN test
+    qo'shish mumkin (`ImtihonBoshqaruvDetailView.patch`da majburlanadi),
+    to'lgach "Mock sifatida boshlash" bilan shu 4 (yoki kamroq) testdan
+    `ImtihonMock` yaratiladi/qayta ishlatiladi (`PapkadanMockYaratishView`).
 
     2026-08-11: `bolim` maydoni OLIB TASHLANDI (foydalanuvchi talabi:
     "IELTS Testlari bo'limidagi papkalarni birlashtirish"). Avval har
@@ -442,6 +451,15 @@ class TestPapkasi(models.Model):
     markaz = models.ForeignKey(
         "accounts.Markaz", on_delete=models.CASCADE, related_name="test_papkalari"
     )
+    # Faqat 1-darajali papka (parent=None) berilishi mumkin — CASCADE:
+    # tashqi papka o'chsa, ichidagi 2-darajali papkalar ham o'chadi
+    # (ular tashqarisiz mustaqil ma'no bermaydi, testlar esa ularning
+    # ichida bo'lsa ham SET_NULL orqali baribir saqlanib qoladi).
+    parent = models.ForeignKey(
+        "self", on_delete=models.CASCADE, null=True, blank=True,
+        related_name="ichki_papkalar",
+        help_text="Faqat 1-darajali papkaga bog'lanadi — ichki papkaning o'ziga yana ichki papka bo'lmaydi.",
+    )
     tartib = models.PositiveSmallIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -451,6 +469,13 @@ class TestPapkasi(models.Model):
 
     def __str__(self):
         return f"{self.nomi} [{self.get_manba_display()}]"
+
+    def clean(self):
+        super().clean()
+        if self.parent_id and self.parent.parent_id:
+            raise ValidationError(
+                "Ichki papkaning ichiga yana ichki papka qo'shib bo'lmaydi — chuqurlik 2 bilan chegaralangan."
+            )
 
 
 class ImtihonTest(models.Model):
@@ -606,6 +631,15 @@ class ImtihonMock(models.Model):
     )
     speaking = models.ForeignKey(
         ImtihonTest, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    # 2026-08-11: 2-darajali papkadan "Mock sifatida boshlash" tugmasi bilan
+    # avtomatik yaratilgan/qayta ishlatilgan mocklar shu orqali bog'lanadi
+    # (`PapkadanMockYaratishView`, idempotent — get_or_create papka bo'yicha).
+    # `unique=True` — bitta papkaga bitta mock, qayta bosilganda YANGISI
+    # emas, MAVJUDI yangilanadi (testlar almashtirilgan bo'lishi mumkin).
+    papka = models.OneToOneField(
+        "TestPapkasi", on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="mock",
     )
     korinish = models.CharField(
         max_length=10, choices=[("private", "Shaxsiy"), ("public", "Umumiy")], default="private"

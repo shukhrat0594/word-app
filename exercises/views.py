@@ -1111,13 +1111,15 @@ class ListeningDavomEttirishView(APIView):
 
 class TestPapkaBoshqaruvView(APIView):
     """Owner/admin uchun — test papkalari ro'yxati va yaratish (2026-08-01,
-    2026-08-11: bo'lim bo'yicha ajratish olib tashlandi).
+    2026-08-11: bo'lim bo'yicha ajratish olib tashlandi; 2026-08-11 kech:
+    2 darajali ichki papka qo'shildi, `TestPapkasi.parent` izohiga qarang).
 
-    Papkalar TEKIS (ichma-ich emas) va BITTA manbaga tegishli — `TestPapkasi`
-    izohiga qarang. Bo'lim bo'yicha filtr ENDI YO'Q: ro'yxat har doim shu
-    manbadagi BARCHA papkalarni qaytaradi (qaysi bo'limlarning testi
-    borligidan qat'i nazar) — frontend buni joriy bo'lim testlari bilan
-    kesishtirib, faqat mos papkalarni/testlarni ko'rsatadi."""
+    Papkalar BITTA manbaga tegishli — `TestPapkasi` izohiga qarang. Bo'lim
+    bo'yicha filtr ENDI YO'Q: ro'yxat har doim shu manbadagi BARCHA
+    papkalarni qaytaradi (qaysi bo'limlarning testi borligidan qat'i
+    nazar) — frontend buni joriy bo'lim testlari bilan kesishtirib, faqat
+    mos papkalarni/testlarni ko'rsatadi. `parent` maydoni javobda
+    qaytariladi — frontend shu orqali 1/2-darajani ajratadi."""
 
     permission_classes = [IsAuthenticated]
 
@@ -1126,7 +1128,16 @@ class TestPapkaBoshqaruvView(APIView):
             return Response({"detail": "Faqat admin/owner uchun"}, status=403)
         qs = TestPapkasi.objects.filter(manba=_manba_ol(request))
         return Response(
-            [{"id": p.id, "nomi": p.nomi, "tartib": p.tartib} for p in qs]
+            [
+                {
+                    "id": p.id,
+                    "nomi": p.nomi,
+                    "tartib": p.tartib,
+                    "parent": p.parent_id,
+                    "mock_id": p.mock.id if hasattr(p, "mock") else None,
+                }
+                for p in qs
+            ]
         )
 
     def post(self, request):
@@ -1138,11 +1149,24 @@ class TestPapkaBoshqaruvView(APIView):
         nomi = (request.data.get("nomi") or "").strip()
         if not nomi:
             return Response({"detail": "Papka nomi majburiy"}, status=400)
+
+        parent = None
+        parent_id = request.data.get("parent")
+        if parent_id not in (None, "", "null"):
+            parent = get_object_or_404(TestPapkasi, pk=parent_id, manba=_manba_ol(request))
+            if parent.parent_id:
+                # Ichki (2-darajali) papkaning o'ziga yana ichki papka
+                # qo'shib bo'lmaydi — foydalanuvchi talabi, chuqurlik 2.
+                return Response(
+                    {"detail": "Ichki papkaning ichiga yana papka qo'shib bo'lmaydi (chuqurlik faqat 2 daraja)."},
+                    status=400,
+                )
+
         papka = TestPapkasi.objects.create(
-            nomi=nomi, manba=_manba_ol(request), markaz=markaz,
+            nomi=nomi, manba=_manba_ol(request), markaz=markaz, parent=parent,
         )
         return Response(
-            {"id": papka.id, "nomi": papka.nomi, "tartib": papka.tartib},
+            {"id": papka.id, "nomi": papka.nomi, "tartib": papka.tartib, "parent": papka.parent_id},
             status=201,
         )
 
@@ -1172,6 +1196,74 @@ class TestPapkaDetailView(APIView):
         papka = get_object_or_404(TestPapkasi, pk=pk)
         papka.delete()
         return Response(status=204)
+
+
+class PapkadanMockYaratishView(APIView):
+    """Owner/admin uchun — 2-darajali (ichki) papkadagi testlardan Mock
+    imtihon yaratish yoki mavjudini qayta ishlatish (2026-08-11 kech,
+    foydalanuvchi talabi: "mock test rejimida aynan shu 4 likni beramiz").
+
+    Idempotent — `TestPapkasi.mock` (OneToOne) orqali get_or_create: bir
+    xil papka uchun ikkinchi marta bosilsa YANGI mock yaratilmaydi, MAVJUDI
+    joriy papka testlariga mos yangilanadi (masalan test almashtirilgan
+    bo'lsa). Keyingi bosqich — talaba uchun mavjud
+    `ImtihonMockBoshlashView`/`ImtihonMockYechimView` oqimi, bu yerda YANGI
+    parallel mexanizm YO'Q, faqat `ImtihonMock` yozuvi tayyorlanadi."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        if not _mashq_admin_mi(request.user):
+            return Response({"detail": "Faqat admin/owner uchun"}, status=403)
+        papka = get_object_or_404(TestPapkasi, pk=pk)
+        if not papka.parent_id:
+            return Response(
+                {"detail": "Mock faqat ichki (2-darajali) papkadan yig'iladi — bu 1-darajali papka."},
+                status=400,
+            )
+        testlar = list(papka.testlar.all())
+        if not testlar:
+            return Response({"detail": "Bu papkada test yo'q"}, status=400)
+
+        bolim_testlari = {}
+        for t in testlar:
+            # Har bo'limdan bittadan qoidasi papkaga qo'shishda allaqachon
+            # majburlangan (`ImtihonBoshqaruvDetailView.patch`) — shu yerda
+            # ikkilanish bo'lsa ham (masalan eski ma'lumot) oxirgisi olinadi.
+            bolim_testlari[t.bolim] = t
+
+        markaz = Markaz.objects.first()
+        if not markaz:
+            return Response({"detail": "Markaz topilmadi"}, status=400)
+
+        mock, yaratildimi = ImtihonMock.objects.get_or_create(
+            papka=papka,
+            defaults={
+                "name": papka.nomi,
+                "markaz": markaz,
+                "korinish": "private",
+                "yaratuvchi": request.user,
+                "manba": papka.manba,
+            },
+        )
+        mock.listening = bolim_testlari.get(Bolim.LISTENING)
+        mock.reading = bolim_testlari.get(Bolim.READING)
+        mock.writing = bolim_testlari.get(Bolim.WRITING)
+        mock.speaking = bolim_testlari.get(Bolim.SPEAKING)
+        mock.name = papka.nomi
+        mock.save(update_fields=["listening", "reading", "writing", "speaking", "name"])
+
+        logla(
+            foydalanuvchi=request.user,
+            harakat=(
+                FaoliyatYozuvi.Harakat.YARATISH if yaratildimi else FaoliyatYozuvi.Harakat.OZGARTIRISH
+            ),
+            obyekt=mock,
+            obyekt_turi="ImtihonMock",
+            obyekt_nomi=mock.name,
+            snapshot={"papka": papka.nomi, "bolimlar": list(bolim_testlari)},
+        )
+        return Response(_mock_admin_dict(mock), status=201 if yaratildimi else 200)
 
 
 class ImtihonBoshqaruvDetailView(APIView):
@@ -1205,6 +1297,27 @@ class ImtihonBoshqaruvDetailView(APIView):
                 # izohiga qarang), shuning uchun bu yerda rad etish kerak
                 # emas.
                 papka = get_object_or_404(TestPapkasi, pk=papka_id)
+                # 2026-08-11 kech: 2-DARAJALI (ichki, parent bor) papka —
+                # Mock yig'ish uchun mo'ljallangan, shuning uchun har
+                # bo'limdan FAQAT BITTADAN test bo'lishi mumkin (foydalanuvchi
+                # talabi). 1-darajali papkalarda bu cheklov yo'q.
+                if papka.parent_id:
+                    band_test = (
+                        ImtihonTest.objects.filter(papka=papka, bolim=test.bolim)
+                        .exclude(pk=test.pk)
+                        .first()
+                    )
+                    if band_test:
+                        return Response(
+                            {
+                                "detail": (
+                                    f"Bu ichki papkada allaqachon '{test.get_bolim_display()}' "
+                                    f"bo'limidan test bor ({band_test.name}) — har bo'limdan "
+                                    "faqat bittadan test qo'shish mumkin."
+                                )
+                            },
+                            status=400,
+                        )
                 test.papka = papka
             maydonlar.append("papka")
 

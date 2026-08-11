@@ -55,6 +55,11 @@ urlpatterns = [
         name="imtihon_papka_detail",
     ),
     path(
+        "imtihon/papkalar/<int:pk>/mock-yaratish/",
+        views.PapkadanMockYaratishView.as_view(),
+        name="imtihon_papka_mock_yaratish",
+    ),
+    path(
         "imtihon/testlar-boshqaruv-zip/",
         views.ImtihonZipBoshqaruvView.as_view(),
         name="imtihon_boshqaruv_zip",
