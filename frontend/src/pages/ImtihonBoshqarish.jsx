@@ -746,12 +746,30 @@ function KiritishPanel({ manba, qismgaFaylYukla, royxatniYangila }) {
  * uzatilayotganda bajariladi. */
 function RoyxatMaydoni({ qiymat, ajratgich, ozgardi, ...qolgan }) {
   const [xom, setXom] = useState(qiymat);
-  // Tashqaridan (masalan boshqa savolga o'tilganda) qiymat o'zgarsa
-  // moslashtiramiz — lekin foydalanuvchi yozayotgan matnni buzmasdan.
+  // Tashqaridan (masalan "Guruhga qo'llash" tugmasi yoki boshqa savolga
+  // o'tilganda) qiymat o'zgarsa moslashtiramiz — lekin foydalanuvchi
+  // yozayotgan matnni buzmasdan.
   const oxirgiTashqiRef = useRef(qiymat);
+  // 2026-08-11 BUG TUZATILDI: "Enter bosib yangi qator qo'shib bo'lmayapti"
+  // (foydalanuvchi topib berdi). Sabab: pastdagi `onChange` `ozgardi()`ga
+  // filtrlangan massiv beradi — `filter(Boolean)` BO'SH qatorlarni olib
+  // tashlaydi. Enter bosilganda xom matnda YANGI BO'SH qator paydo bo'ladi,
+  // lekin filtrlangach parent'ga qaytgan qiymat o'sha bo'sh qatorsiz —
+  // ya'ni BIZNING O'ZIMIZNING chaqiruvimizdan qaytgan `qiymat` prop matn
+  // ko'rinishida ESKI holat bilan bir xil bo'lib chiqadi. Ba'zi render
+  // holatlarida bu "tashqaridan chinakam o'zgargan" deb noto'g'ri
+  // talqin qilinib, endigina kiritilgan bo'sh qatorni ORQAGA QAYTARIB
+  // YUBORARDI. Yechim: OQIB kelgan o'zgarish O'ZIMIZNING onChange'imizdan
+  // ekanini alohida bayroq bilan belgilaymiz — shunda faqat CHINAKAM
+  // tashqi o'zgarish (masalan guruhga qo'llash) `xom`ni qayta yozadi.
+  const ozChaqiruvimizRef = useRef(false);
   if (qiymat !== oxirgiTashqiRef.current) {
     oxirgiTashqiRef.current = qiymat;
-    if (qiymat !== xom) setXom(qiymat);
+    if (ozChaqiruvimizRef.current) {
+      ozChaqiruvimizRef.current = false;
+    } else if (qiymat !== xom) {
+      setXom(qiymat);
+    }
   }
   return (
     <textarea
@@ -759,6 +777,7 @@ function RoyxatMaydoni({ qiymat, ajratgich, ozgardi, ...qolgan }) {
       value={xom}
       onChange={(e) => {
         setXom(e.target.value);
+        ozChaqiruvimizRef.current = true;
         ozgardi(e.target.value.split(ajratgich).map((v) => v.trim()).filter(Boolean));
       }}
     />
