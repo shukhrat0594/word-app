@@ -1248,6 +1248,35 @@ def _papkadan_mock_tayyorla(papka, foydalanuvchi):
     return mock, bolim_testlari
 
 
+def _papka_mock_moslashtir(papka, foydalanuvchi):
+    """Ichki papkaning test tarkibi o'zgarganda (test qo'shildi/olib
+    tashlandi/almashtirildi) Mock holatini shu voqeaning O'ZIDA moslaydi
+    (2026-08-11, foydalanuvchi qarori: "bitta papkaga 4 ta mashqning
+    hammasi qo'shilgandan keyin AVTOMATIK mock yaratilsin, agar qaysidir
+    mashq olib tashlanib o'rniga boshqa mashq qo'shilsa, eski mock
+    o'rniga yangisini qo'shsin" — ya'ni Mock tabi ochilishini KUTMAYDI,
+    yaratish/yangilash yozish operatsiyasining o'zida bo'ladi).
+
+    Faqat 2 holatda ishlaydi:
+      * Papka ENDI 4/4 to'liq (barcha bo'limdan bittadan) — mock hali
+        yo'q bo'lsa YARATILADI.
+      * Mock ALLAQACHON bor (avval 4/4 bo'lgan) — tarkib o'zgargan
+        bo'lsa (masalan bitta bo'lim olib tashlanib, boshqasi qo'shilgan)
+        QAYTA YANGILANADI, hatto vaqtincha 4/4 dan pastga tushib
+        qolgan bo'lsa ham (aks holda eski, endi noto'g'ri testga ishora
+        stale FK qolib ketardi).
+    Hech qachon 4/4 ga YETMAGAN va mock hali YO'Q papka uchun YANGI mock
+    OCHIB QO'YMAYDI — "hammasi qo'shilgandan keyin" shartiga qat'iy
+    rioya qilinadi."""
+    if not papka.parent_id:
+        return  # faqat 2-darajali (ichki) papkalarga tegishli
+    bolim_testlari = _papka_bolim_testlari(papka)
+    toliqmi = set(bolim_testlari) == _TOLIQ_BOLIMLAR
+    mock_bor = hasattr(papka, "mock")
+    if toliqmi or mock_bor:
+        _papkadan_mock_tayyorla(papka, foydalanuvchi)
+
+
 class PapkadanMockYaratishView(APIView):
     """Owner/admin uchun — 2-darajali (ichki) papkadagi testlardan Mock
     imtihon yaratish yoki mavjudini qayta ishlatish (2026-08-11 kech,
@@ -1302,6 +1331,12 @@ class ImtihonBoshqaruvDetailView(APIView):
             test.name = nom
             maydonlar.append("name")
 
+        # 2026-08-11 (kech): eski papka ESLAB QOLINADI — testni boshqa
+        # papkaga ko'chirish ("olib tashlash + o'rniga boshqasini
+        # qo'shish") eski ichki papkani ham 4/4'dan tushirishi mumkin,
+        # shu papkaning Mock holati ham moslashtirilishi kerak.
+        eski_papka = test.papka
+
         if "papka" in request.data:
             papka_id = request.data.get("papka")
             if papka_id in (None, "", "null"):
@@ -1339,6 +1374,17 @@ class ImtihonBoshqaruvDetailView(APIView):
         if not maydonlar:
             return Response({"detail": "name yoki papka maydoni kerak"}, status=400)
         test.save(update_fields=maydonlar)
+
+        # 2026-08-11 (kech): papka o'zgargan bo'lsa — YANGI papka (agar
+        # shu bilan 4/4 to'lgan bo'lsa yaratadi/yangilaydi) VA eski papka
+        # (agar mock'i bor bo'lsa, endi bo'shagan bo'limni aks ettirib
+        # yangilanadi) ikkalasi ham moslashtiriladi.
+        if "papka" in maydonlar:
+            if eski_papka and eski_papka.pk != test.papka_id:
+                _papka_mock_moslashtir(eski_papka, request.user)
+            if test.papka:
+                _papka_mock_moslashtir(test.papka, request.user)
+
         return Response(_test_admin_dict(test))
 
     def delete(self, request, pk):
@@ -1346,7 +1392,10 @@ class ImtihonBoshqaruvDetailView(APIView):
             return Response({"detail": "Faqat admin/owner uchun"}, status=403)
         test = get_object_or_404(ImtihonTest, pk=pk)
         test_id, nomi, bolim = test.id, test.name, test.bolim
+        papka = test.papka  # o'chirishdan OLDIN — pastda Mock moslashtiriladi
         test.delete()
+        if papka:
+            _papka_mock_moslashtir(papka, request.user)
         FaoliyatYozuvi.objects.create(
             foydalanuvchi=request.user,
             harakat=FaoliyatYozuvi.Harakat.OCHIRISH,
@@ -1969,20 +2018,17 @@ class MockPapkalarView(APIView):
     hamon o'z alohida mashqini ishlaydi).
 
     2026-08-11 (yana kech), foydalanuvchi talabi: "Mock sifatida
-    boshlash" tugmasi OLIB TASHLANDI, "mashqlari to'liq 4 ta bo'lmagan
-    ichki papkalar mock ro'yxatida chiqmasin". Endi ikkalasi ham SHU
-    YERDA avtomatik hal qilinadi:
-      * Ichki papka FAQAT barcha 4 bo'limdan (reading/listening/writing/
-        speaking) BITTADAN test bo'lsagina ro'yxatga kiradi — qisman
-        to'lgan (masalan 2/4) papka butunlay ko'rsatilmaydi.
-      * Shunday to'liq papka uchun `ImtihonMock` yozuvi ADMIN so'rovida
-        AVTOMATIK yaratiladi/yangilanadi (`_papkadan_mock_tayyorla`) —
-        qo'lda tugma bosish shart emas. Talaba so'rovida esa faqat
-        ALLAQACHON tayyor mocklar ko'rsatiladi (talaba so'rovi bilan
-        yozuv yaratilmaydi/audit logga tushmaydi — bu FAQAT admin
-        tomonidan "ko'rilgan" narsa hisoblanadi, xuddi
-        `BildirishnomalarView`dagi CHANGELOG sinxronizatsiyasi kabi
-        GET so'rovida ID EMPOTENT yon ta'sir naqshi).
+    boshlash" tugmasi OLIB TASHLANDI, va Mock yozuvi endi bu sahifa
+    ochilishini KUTMAYDI — u YOZISH vaqtida (`ImtihonBoshqaruvDetailView.
+    patch`/`.delete` orqali `_papka_mock_moslashtir`) allaqachon
+    tayyorlangan bo'ladi: "bitta papkaga 4 ta mashqning hammasi
+    qo'shilgandan keyin avtomatik mock yaratilsin". Shuning uchun bu
+    GET — SOF O'QISH, yon ta'siri YO'Q: faqat 4/4 to'liq VA mock'i
+    ALLAQACHON tayyor bo'lgan ichki papkalarni qaytaradi (ikkinchi shart
+    amalda birinchisidan kelib chiqadi — `_papka_mock_moslashtir` har
+    to'liqlanganda mock yaratadi — lekin ikkalasini ham tekshirib
+    ehtiyot chorasi ko'ramiz, masalan eski ma'lumot yozish yo'lidan
+    o'tmasdan boshqa yo'l bilan o'zgargan bo'lsa).
 
     Tashqi (1-darajali) papka faqat shunday to'liq ichki papkasi
     bo'lsagina qaytariladi. Eski, papka-siz (qo'lda
@@ -1995,7 +2041,6 @@ class MockPapkalarView(APIView):
     def get(self, request):
         manba = request.query_params.get("manba")
         oddiy_mi = request.user.role == "oddiy"
-        adminmi = _mashq_admin_mi(request.user)
 
         papka_qs = TestPapkasi.objects.filter(parent__isnull=True)
         if manba:
@@ -2015,16 +2060,8 @@ class MockPapkalarView(APIView):
                 # `RelatedObjectDoesNotExist` (AttributeError avlodi)
                 # ko'taradi, shuning uchun `getattr(..., None)` xavfsiz.
                 mock = getattr(ich, "mock", None)
-                if adminmi:
-                    # Admin so'rovida HAR DOIM yangilaymiz — testlar
-                    # almashtirilgan bo'lishi mumkin (masalan eski
-                    # Reading o'chirilib, yangisi qo'shilgan).
-                    mock, _ = _papkadan_mock_tayyorla(ich, request.user)
-                elif not mock:
-                    continue  # talaba so'rovida yon ta'sir yo'q
-
                 if not mock:
-                    continue
+                    continue  # yozish yo'lidan hali o'tmagan (kutilmagan)
                 ichkilar.append({"id": ich.id, "nomi": ich.nomi, "mock_id": mock.id})
             if ichkilar:
                 papkalar.append({"id": top.id, "nomi": top.nomi, "ichki": ichkilar})
