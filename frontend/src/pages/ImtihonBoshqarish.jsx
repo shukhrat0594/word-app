@@ -1587,6 +1587,22 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
   // yaratish uchun bo'lim tanlangan bo'lishi shart ("Hammasi" filtrida
   // qaysi bo'limga tegishli ekani noaniq bo'lardi).
   const [papkalar, setPapkalar] = useState([]);
+  // 2026-08-12: backend papkalarni tekis (parent-child tartibsiz)
+  // qaytaradi — dropdown'da ichki papkalar o'z otasidan uzoqda,
+  // boshqa otalarning bolalari bilan aralashib chiqib turardi (masalan
+  // "Test 1 (Listening bor)" ostida qaysi ota papkaga tegishli ekani
+  // ko'rinmasdi). Bu yerda HAR bir ota'dan keyin DARHOL o'z bolalarini
+  // joylashtirib chiqamiz — ierarxiya faqat tartib orqali ko'rinadi
+  // (alohida "daraxt" komponent qurish shart emas).
+  const papkalarTartiblangan = (() => {
+    const otalar = papkalar.filter((p) => !p.parent);
+    const natija = [];
+    otalar.forEach((ota) => {
+      natija.push(ota);
+      papkalar.filter((p) => p.parent === ota.id).forEach((b) => natija.push(b));
+    });
+    return natija;
+  })();
   const [yangiPapka, setYangiPapka] = useState("");
   const [ochiqPapkalar, setOchiqPapkalar] = useState({});
   // 2026-08-11 kech: 2-darajali (ichki) papka qo'shish — foydalanuvchi
@@ -2218,7 +2234,7 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
                         style={{ maxWidth: 170 }}
                       >
                         <option value="">{t("imtihon_papkasiz")}</option>
-                        {papkalar.map((p) => {
+                        {papkalarTartiblangan.map((p) => {
                           const ichkimi = !!p.parent;
                           const toligmi =
                             ichkimi &&
