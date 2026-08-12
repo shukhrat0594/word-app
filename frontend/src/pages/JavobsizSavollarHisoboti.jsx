@@ -3,9 +3,38 @@ import { api } from "../api";
 import { useI18n } from "../i18n";
 import { MashqTolaTahrir } from "./ImtihonBoshqarish";
 
+/** Tekis qatorlar ro'yxatini Bo'lim → Mashq → savollar daraxtiga
+ * aylantiradi — birinchi uchragan tartibda (backend allaqachon
+ * `bolim, name` bo'yicha saralab beradi). */
+function bolimlargaGuruhla(qatorlar) {
+  const bolimlar = [];
+  const bolimMap = new Map();
+  for (const q of qatorlar) {
+    let b = bolimMap.get(q.bolim);
+    if (!b) {
+      b = { bolim: q.bolim, jami: 0, mashqlar: [], mashqMap: new Map() };
+      bolimMap.set(q.bolim, b);
+      bolimlar.push(b);
+    }
+    b.jami += 1;
+    let m = b.mashqMap.get(q.test_id);
+    if (!m) {
+      m = { test_id: q.test_id, test_nomi: q.test_nomi, savollar: [] };
+      b.mashqMap.set(q.test_id, m);
+      b.mashqlar.push(m);
+    }
+    m.savollar.push(q);
+  }
+  return bolimlar;
+}
+
 /** Owner/admin uchun — Reading/Listening testlarida to'g'ri javobi
- * belgilanmagan savollarni jadval qilib ko'rsatadi (2026-08-11,
- * foydalanuvchi talabi). Mashq nomiga bosilganda mavjud
+ * belgilanmagan savollarni papka-uslub ierarxik ko'rinishda ko'rsatadi
+ * (2026-08-11 yaratildi tekis jadval sifatida; 2026-08-12 foydalanuvchi
+ * talabi bilan Bo'lim → Mashq → savollar accordion'ga o'zgartirildi —
+ * `ImtihonOtish.jsx: PapkaliRoyxat`dagi bilan bir xil vizual naqsh,
+ * `imtihon-papka`/`imtihon-papka-sarlavha`/`imtihon-papka-ichi`
+ * CSS klasslari qayta ishlatildi). Mashq nomiga bosilganda mavjud
  * `MashqTolaTahrir` (IELTS testlari boshqaruvidagi tahrirlash oynasi)
  * ochiladi — yangi tahrirlash UI yozilmagan, borini qayta ishlatadi. */
 export default function JavobsizSavollarHisoboti() {
@@ -13,6 +42,7 @@ export default function JavobsizSavollarHisoboti() {
   const [qatorlar, setQatorlar] = useState(null);
   const [xato, setXato] = useState("");
   const [ochilganTest, setOchilganTest] = useState(null);
+  const [ochiq, setOchiq] = useState({});
 
   function yukla() {
     api("/api/imtihon/javobsiz-hisobot/")
@@ -49,35 +79,61 @@ export default function JavobsizSavollarHisoboti() {
       ) : qatorlar.length === 0 ? (
         <span className="izoh">{t("javobsiz_hisobot_boshi")}</span>
       ) : (
-        <div style={{ overflowX: "auto", marginTop: 10 }}>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr style={{ borderBottom: "2px solid var(--chiziq)", textAlign: "left" }}>
-                <th style={{ padding: "6px 10px" }}>{t("javobsiz_hisobot_bolim")}</th>
-                <th style={{ padding: "6px 10px" }}>{t("javobsiz_hisobot_mashq")}</th>
-                <th style={{ padding: "6px 10px" }}>{t("javobsiz_hisobot_savol_raqami")}</th>
-                <th style={{ padding: "6px 10px" }}>{t("javobsiz_hisobot_savol_matni")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {qatorlar.map((q, i) => (
-                <tr key={`${q.test_id}-${q.savol_raqami}-${i}`} style={{ borderBottom: "1px solid var(--chiziq)" }}>
-                  <td style={{ padding: "6px 10px" }}>{t(`mashq_bolim_${q.bolim}`)}</td>
-                  <td style={{ padding: "6px 10px" }}>
-                    <span
-                      style={{ cursor: "pointer", textDecoration: "underline dotted" }}
-                      title={t("imtihon_tola_ochish")}
-                      onClick={() => mashqniOch(q.test_id)}
-                    >
-                      {q.test_nomi}
-                    </span>
-                  </td>
-                  <td style={{ padding: "6px 10px" }}>{q.savol_raqami}</td>
-                  <td style={{ padding: "6px 10px" }}>{q.savol_matni}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div style={{ marginTop: 10 }}>
+          {bolimlargaGuruhla(qatorlar).map((b) => (
+            <div key={b.bolim} className="imtihon-papka">
+              <div
+                className="imtihon-papka-sarlavha"
+                onClick={() => setOchiq((v) => ({ ...v, [`b${b.bolim}`]: !v[`b${b.bolim}`] }))}
+              >
+                <span>{ochiq[`b${b.bolim}`] ? "▾" : "▸"} 📁 {t(`mashq_bolim_${b.bolim}`)}</span>
+                <span className="izoh">{b.jami}</span>
+              </div>
+              {ochiq[`b${b.bolim}`] && (
+                <div className="imtihon-papka-ichi">
+                  {b.mashqlar.map((m) => (
+                    <div key={m.test_id} className="imtihon-papka" style={{ marginLeft: 20 }}>
+                      <div
+                        className="imtihon-papka-sarlavha"
+                        onClick={() =>
+                          setOchiq((v) => ({ ...v, [`m${m.test_id}`]: !v[`m${m.test_id}`] }))
+                        }
+                      >
+                        <span>
+                          {ochiq[`m${m.test_id}`] ? "▾" : "▸"} 📂{" "}
+                          <span
+                            style={{ cursor: "pointer", textDecoration: "underline dotted" }}
+                            title={t("imtihon_tola_ochish")}
+                            onClick={(e) => { e.stopPropagation(); mashqniOch(m.test_id); }}
+                          >
+                            {m.test_nomi}
+                          </span>
+                        </span>
+                        <span className="izoh">{m.savollar.length}</span>
+                      </div>
+                      {ochiq[`m${m.test_id}`] && (
+                        <div className="imtihon-papka-ichi">
+                          {m.savollar.map((s, i) => (
+                            <div
+                              key={`${s.savol_raqami}-${i}`}
+                              style={{
+                                padding: "8px 0", borderBottom: "1px solid var(--chiziq)",
+                                fontSize: "13.5px",
+                              }}
+                            >
+                              <span>
+                                <strong>{s.savol_raqami}.</strong> {s.savol_matni}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       )}
 

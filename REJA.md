@@ -12,8 +12,10 @@
 - [x] TZ tayyor (`LMS_TZ_yangilangan.docx`)
 - [x] Claude API kalit olindi, $5 kredit qo'shildi
 - [x] Writing AI sinovdan o'tkazildi (ishlayapti)
-- [ ] Contabo Cloud VPS 20 (1 oylik) sotib olish
-- [ ] Domen nomi tanlash/sotib olish
+- ~~Contabo Cloud VPS 20 (1 oylik) sotib olish~~ — ESKIRDI, loyiha
+  Render'ga o'tgan, endi Railway'ga ko'chirilmoqda (pastga qarang)
+- ~~Domen nomi tanlash/sotib olish~~ — ESKIRDI, hozircha `.onrender.com`/
+  `.up.railway.app` bilan ishlanmoqda, custom domen alohida band emas
 - [x] Git repository — mavjud `https://github.com/shukhrat0594/word-app` qayta ishlatiladi (B1'da tozalanadi va LMS kodi push qilinadi)
 - [x] Jamoa aniqlandi — tashqi dasturchisiz, Shuxrat + Claude
 
@@ -338,11 +340,16 @@ Qolgan barcha bandlar (pastdagi jadvalda, ustuvorlik belgisiz) — **keyinroq**,
 Contabo VPS'ga ko'chirish **MUHOKAMA QILINDI VA RAD ETILDI** (2026-08-02).
 Qaror:
 
-- **Railway.app'ga o'tishni ko'rib chiqish** (2026-08-11, "Render
-  Starter'ga o'tish" o'rniga) — HALI QAROR EMAS, faqat solishtirish
-  bosqichi: narx, SQLite/persistent disk xatti-harakati, uxlash rejimi
-  bormi-yo'qmi, R2 (Cloudflare) bilan mosligi Render bilan
-  solishtiriladi. Boshlashdan oldin aniqlashtiriladi.
+- **Railway.app'ga ko'chirish — QAROR QILINDI** (2026-08-12): SQLite
+  o'rniga Railway'da **PostgreSQL** ishlatiladi (xotira xavfi yo'q —
+  Postgres alohida servis, web-app'ning 512MB'iga tegmaydi). Railway
+  hisobi ochilgan, Postgres yaratilgan (bo'sh). Muhit o'zgaruvchilari
+  ro'yxati tayyorlangan (Render'dagi nomlar asosida). **BUGUN
+  qilinishi kerak** — lekin BOSHLASHGA aniq buyruq foydalanuvchidan
+  kutilmoqda (hali "boshla" deyilmagan). Qolgan qadamlar: eksport
+  mexanizmi (hozir Render'dan bazani tashqariga chiqaradigan tayyor
+  yo'l yo'q), `requirements.txt`ga Postgres drayveri, migratsiya,
+  to'liq tekshirish, keyin frontend/DNS almashtirish.
 - ~~Render Starter'ga o'tish~~ ($7/oy) — Free tarifning uxlash rejimi
   (15 daqiqa faolsizlikdan keyin, ~50s kutish) va past CPU (0.1)
   muammosini hal qilardi. **Persistent Disk KERAK EMAS** — sabab pastda.
@@ -444,10 +451,9 @@ qilinishi darhol tushunilishi kerak):
 | **AI TEST KOMPLEKTI** | 1 ta to'liq mock (L+R+W+S), band 7+, hammasi AI generatsiyasi | katta | navbatda |
 | **BEGINNER QAYTA QURISH** | Unit ostida 3 bo'lim + rasm ustiga javob kiritish | o'rta + katta kontent | muhandislik ✅ (2026-07-27), kontent kutilmoqda |
 | **PASTKI PANEL (footer)** | Doimiy ko'rinadigan panel, Utmost ijtimoiy tarmoqlari bilan | kichik | ✅ bajarildi 2026-07-27 |
-| **GURUHLARNI DARAJAGA BO'LISH** | Guruhlar (Guruhlar bo'limi) darajaga (Beginner/Elementary/...) qarab ajratilishi kerak | noma'lum (batafsili keyinroq) | 2026-07-28: eslatma sifatida yozildi, foydalanuvchi keyinroq izohlaydi — hali boshlanmagan |
 | **RECITATION (Reading PDF import — OCR fallback)** | Cambridge kabi mualliflik huquqi bilan himoyalangan kitoblarni import qilganda, passage matnini so'zma-so'z qaytarish talab qilinsa Gemini "RECITATION", Claude "content filtering policy" bilan bo'sh javob qaytaradi — ikkalasi ham. Yechim: matnni AI'dan emas, OCR (Tesseract) orqali olish, AI faqat savol tuzilishi/raqamlashda ishlatiladi | o'rta (yangi bog'liqlik — Tesseract binary, dev+prod) | 2026-08-10/11: eng past ustuvorlik, navbat oxiriga qo'yildi — batafsili pastda |
 | **QO'LDA MOCK YARATISHNI O'CHIRISH** | "2-darajali papka" (papka ichida papka, har bo'limdan bittadan mashq) tizimi tayyor bo'lgach, mock endi shu papkalar orqali yig'iladi — mavjud "qo'lda mock yaratish" (bo'lim bo'yicha test tanlash) formasi KERAKMAS bo'lib qoladi | kichik (o'chirish) | 2026-08-11: HOZIRCHA faqat FRONTEND'da yashirildi (`ImtihonMock.jsx`: `QOLDA_MOCK_YARATISH_OCHIQ = false`), kod/backend endpoint (`ImtihonMockYaratishView`) ATAYLAB o'chirilmadi. 2-darajali papka tizimi tugagach — shu forma va endpoint TO'LIQ o'chirilishi kerak |
-| **JAVOBSIZ SAVOLLAR HISOBOTI — MASHQ BO'YICHA GURUHLASH** | Hozirgi tekis jadval (Bo'lim/Mashq/Savol raqami/matn) o'rniga papka-uslub ierarxik ko'rinish: Bo'lim (Listening/Reading) → Mashq (Test1, Test2...) → shu mashqning javobsiz savollari. Bo'lim va mashq ustiga bosilganda ichidagilar ochiladi/yopiladi (accordion), mashq nomiga bosilganda hozirgidek `MashqTolaTahrir` tahrirlash oynasi ochiladi | kichik-o'rta (frontend, backend o'zgarishsiz — ma'lumot allaqachon mashq/bo'lim bo'yicha keladi, faqat guruhlab render qilish kerak) | 2026-08-12: rejaga qo'shildi, hali boshlanmagan |
+| **JAVOBSIZ SAVOLLAR HISOBOTI — MASHQ BO'YICHA GURUHLASH** | Hozirgi tekis jadval (Bo'lim/Mashq/Savol raqami/matn) o'rniga papka-uslub ierarxik ko'rinish: Bo'lim (Listening/Reading) → Mashq (Test1, Test2...) → shu mashqning javobsiz savollari. Bo'lim va mashq ustiga bosilganda ichidagilar ochiladi/yopiladi (accordion), mashq nomiga bosilganda hozirgidek `MashqTolaTahrir` tahrirlash oynasi ochiladi | kichik-o'rta (frontend, backend o'zgarishsiz — ma'lumot allaqachon mashq/bo'lim bo'yicha keladi, faqat guruhlab render qilish kerak) | ✅ bajarildi 2026-08-12 — `JavobsizSavollarHisoboti.jsx` `ImtihonOtish.jsx: PapkaliRoyxat` bilan bir xil accordion naqshiga o'tkazildi, brauzerda (real test ma'lumoti bilan, 3 daraja ham) tekshirildi |
 
 **Uchtasi ham 2026-07-27 da qurildi va brauzerda tekshirildi** — pastdagi jadvaldagi yozuvga qarang.
 
