@@ -1619,7 +1619,11 @@ class ImtihonListView(APIView):
         bolim = request.query_params.get("bolim")
         if bolim:
             qs = qs.filter(bolim=bolim)
-        qs = qs.select_related("papka")
+        # 2026-08-12: `papka__parent` ham — talaba tomonida ichki (2-darajali)
+        # papkalar endi o'z otasi ICHIDA nested ko'rsatiladi (avval otasidan
+        # ajralib, boshqa otalarning bolalari bilan aralashib chiqardi —
+        # foydalanuvchi skrinshot bilan ko'rsatdi).
+        qs = qs.select_related("papka", "papka__parent")
         return Response([
             {
                 "id": t.id,
@@ -1627,6 +1631,10 @@ class ImtihonListView(APIView):
                 "bolim": t.bolim,
                 "papka": t.papka_id,
                 "papka_nomi": t.papka.nomi if t.papka_id else None,
+                "papka_ota_id": t.papka.parent_id if t.papka_id else None,
+                "papka_ota_nomi": (
+                    t.papka.parent.nomi if t.papka_id and t.papka.parent_id else None
+                ),
             }
             for t in qs
         ])

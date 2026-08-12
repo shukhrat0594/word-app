@@ -708,52 +708,94 @@ function OddiySavolBloki({ blok, javoblar, javobniQoy, natija, t }) {
 
 /** Testlar ro'yxati — papkalar bo'yicha guruhlangan (2026-08-01).
  *
- * Papkalar TEKIS (ichma-ich emas): har papka bosilganda ochiladi/yopiladi
- * (accordion), ichida faqat testlar bo'ladi. Papkaga solinmagan testlar
- * ro'yxat OXIRIDA, papkasiz holda ko'rsatiladi — ular ham yo'qolmasligi
- * kerak. Papka umuman bo'lmasa, ro'yxat avvalgidek oddiy chiqadi. */
+ * 2026-08-12: ichki (2-darajali) papkalar endi o'z OTASI ICHIDA nested
+ * ko'rsatiladi (avval har test faqat o'zining bevosita papkasini
+ * bilardi — ichki papka otasidan ajralib, boshqa otalarning bolalari
+ * bilan bitta tekis ro'yxatda aralashib chiqardi, foydalanuvchi
+ * skrinshot bilan ko'rsatdi). Backend endi `papka_ota_id`/
+ * `papka_ota_nomi`ni ham qaytaradi (`ImtihonListView`) — shu orqali
+ * ikki qavatli daraxt quramiz: OTA (accordion) → ICHKI PAPKA (ichida
+ * yana accordion) → testlar. Otaning o'zida BEVOSITA test bo'lsa
+ * (ichki papkasiz to'g'ridan-to'g'ri biriktirilgan), ular ham otaning
+ * ichida, ichki papkalardan OLDIN ko'rsatiladi. Papkaga umuman
+ * solinmagan testlar ro'yxat OXIRIDA, papkasiz holda qoladi. */
 export function PapkaliRoyxat({ royxat, ochish, t }) {
   const [ochiq, setOchiq] = useState({});
 
-  // Papka tartibi — testlar ro'yxatida birinchi uchragan tartibda
-  // (backend `tartib`, keyin nom bo'yicha saralab beradi).
-  const papkalar = [];
+  const otalar = [];
+  const otaMap = new Map();
   const papkasiz = [];
   for (const r of royxat) {
     if (!r.papka) {
       papkasiz.push(r);
       continue;
     }
-    let p = papkalar.find((x) => x.id === r.papka);
-    if (!p) {
-      p = { id: r.papka, nomi: r.papka_nomi || "—", testlar: [] };
-      papkalar.push(p);
+    const otaId = r.papka_ota_id || r.papka;
+    const otaNomi = r.papka_ota_id ? r.papka_ota_nomi : r.papka_nomi;
+    let ota = otaMap.get(otaId);
+    if (!ota) {
+      ota = { id: otaId, nomi: otaNomi || "—", bevosita: [], ichkilar: [], ichkiMap: new Map() };
+      otaMap.set(otaId, ota);
+      otalar.push(ota);
     }
-    p.testlar.push(r);
+    if (r.papka_ota_id) {
+      let ich = ota.ichkiMap.get(r.papka);
+      if (!ich) {
+        ich = { id: r.papka, nomi: r.papka_nomi || "—", testlar: [] };
+        ota.ichkiMap.set(r.papka, ich);
+        ota.ichkilar.push(ich);
+      }
+      ich.testlar.push(r);
+    } else {
+      ota.bevosita.push(r);
+    }
   }
 
   return (
     <>
-      {papkalar.map((p) => (
-        <div key={p.id} className="imtihon-papka">
-          <div
-            className="imtihon-papka-sarlavha"
-            onClick={() => setOchiq((v) => ({ ...v, [p.id]: !v[p.id] }))}
-          >
-            <span>{ochiq[p.id] ? "▾" : "▸"} 📁 {p.nomi}</span>
-            <span className="izoh">{p.testlar.length}</span>
-          </div>
-          {ochiq[p.id] && (
-            <div className="imtihon-papka-ichi">
-              {p.testlar.map((r) => (
-                <div key={r.id} className="mashq-royxat-el" onClick={() => ochish(r.id)}>
-                  <span>{r.name}</span>
-                </div>
-              ))}
+      {otalar.map((ota) => {
+        const jami = ota.bevosita.length + ota.ichkilar.reduce((s, i) => s + i.testlar.length, 0);
+        return (
+          <div key={ota.id} className="imtihon-papka">
+            <div
+              className="imtihon-papka-sarlavha"
+              onClick={() => setOchiq((v) => ({ ...v, [`o${ota.id}`]: !v[`o${ota.id}`] }))}
+            >
+              <span>{ochiq[`o${ota.id}`] ? "▾" : "▸"} 📁 {ota.nomi}</span>
+              <span className="izoh">{jami}</span>
             </div>
-          )}
-        </div>
-      ))}
+            {ochiq[`o${ota.id}`] && (
+              <div className="imtihon-papka-ichi">
+                {ota.bevosita.map((r) => (
+                  <div key={r.id} className="mashq-royxat-el" onClick={() => ochish(r.id)}>
+                    <span>{r.name}</span>
+                  </div>
+                ))}
+                {ota.ichkilar.map((ich) => (
+                  <div key={ich.id} className="imtihon-papka" style={{ marginLeft: 20 }}>
+                    <div
+                      className="imtihon-papka-sarlavha"
+                      onClick={() => setOchiq((v) => ({ ...v, [`i${ich.id}`]: !v[`i${ich.id}`] }))}
+                    >
+                      <span>{ochiq[`i${ich.id}`] ? "▾" : "▸"} 📂 {ich.nomi}</span>
+                      <span className="izoh">{ich.testlar.length}</span>
+                    </div>
+                    {ochiq[`i${ich.id}`] && (
+                      <div className="imtihon-papka-ichi">
+                        {ich.testlar.map((r) => (
+                          <div key={r.id} className="mashq-royxat-el" onClick={() => ochish(r.id)}>
+                            <span>{r.name}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
       {papkasiz.map((r) => (
         <div key={r.id} className="mashq-royxat-el" onClick={() => ochish(r.id)}>
           <span>{r.name}</span>
