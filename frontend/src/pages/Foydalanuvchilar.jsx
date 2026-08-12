@@ -148,6 +148,74 @@ export function ProfilRasmi({ user, ochir, t }) {
   );
 }
 
+/** "Qurilmani tiklash" (2026-08-12) — owner/admin uchun, `ProfilRasmi`
+ * bilan bir xil naqsh (majburiy sabab, kichik popup). Faqat
+ * `user.qurilma_bormi` bo'lsa va owner bo'lmasa ko'rinadi (owner'da
+ * cheklov umuman yo'q, tugma ko'rsatishning ma'nosi yo'q). */
+export function QurilmaTiklashTugmasi({ user, tiklash, t }) {
+  const [ochiq, setOchiq] = useState(false);
+  const [izoh, setIzoh] = useState("");
+  const [band, setBand] = useState(false);
+
+  if (!tiklash || user.is_owner || !user.qurilma_bormi) return null;
+
+  async function tasdiqla() {
+    if (!izoh.trim()) return;
+    setBand(true);
+    try {
+      await tiklash(user.id, izoh.trim());
+      setOchiq(false);
+      setIzoh("");
+    } finally {
+      setBand(false);
+    }
+  }
+
+  return (
+    <span style={{ position: "relative" }}>
+      <button type="button" className="tugma ikkinchi kichik" onClick={() => setOchiq((v) => !v)}>
+        {t("qurilma_tiklash")}
+      </button>
+      {ochiq && (
+        <div
+          style={{
+            position: "absolute", top: "100%", left: 0, marginTop: 6, width: 280,
+            background: "var(--sirt)", border: "1px solid var(--chiziq)",
+            borderRadius: 10, padding: 10, zIndex: 1200,
+            boxShadow: "0 6px 24px rgba(0,0,0,0.25)",
+          }}
+        >
+          <strong style={{ display: "block", marginBottom: 4 }}>{t("qurilma_tiklash")}</strong>
+          <div className="izoh" style={{ marginBottom: 6 }}>{t("qurilma_tiklash_izoh_soralmoqda")}</div>
+          <textarea
+            rows={3}
+            value={izoh}
+            onChange={(e) => setIzoh(e.target.value)}
+            style={{ width: "100%", marginBottom: 6 }}
+          />
+          <div style={{ display: "flex", gap: 6 }}>
+            <button
+              className="tugma kichik"
+              onClick={tasdiqla}
+              disabled={band || !izoh.trim()}
+              title={izoh.trim() ? undefined : t("rasm_ochirish_sababi_shart")}
+            >
+              {t("qurilma_tiklash")}
+            </button>
+            <button
+              className="tugma ikkinchi kichik"
+              onClick={() => { setOchiq(false); setIzoh(""); }}
+              disabled={band}
+            >
+              {t("kurs_blok_bekor_qilish")}
+            </button>
+          </div>
+        </div>
+      )}
+    </span>
+  );
+}
+
 /** Rolga QO'SHIMCHA "ko'rinadigan panellar" checkbox ro'yxati
  * (2026-08-05) — owner istalgan foydalanuvchi uchun, admin faqat
  * talabalar uchun ko'radi (`PatchYoli` orqali chaqiruvchi belgilaydi).
@@ -299,6 +367,19 @@ export default function Foydalanuvchilar() {
     }
   }
 
+  /** "Qurilmani tiklash" — sabab MAJBURIY, egasiga ogohlantirish
+   * boradi (`QurilmaTiklashTugmasi` izohiga qarang). */
+  async function qurilmaTiklash(id, izoh) {
+    setXabar((x) => ({ ...x, [id]: "" }));
+    try {
+      await api(`/api/foydalanuvchilar/${id}/qurilma-tiklash/`, { method: "POST", body: { izoh } });
+      setXabar((x) => ({ ...x, [id]: t("qurilma_tiklash_muvaffaqiyatli") }));
+      yukla();
+    } catch (e) {
+      setXabar((x) => ({ ...x, [id]: e.data?.detail || t("xato_yuz_berdi") }));
+    }
+  }
+
   async function yangiYarat(e) {
     e.preventDefault();
     setYangiXato("");
@@ -415,6 +496,7 @@ export default function Foydalanuvchilar() {
               {!u.is_owner && u.id !== profil?.id && (
                 <PanelTanlovi user={u} saqlash={panellarSaqla} t={t} />
               )}
+              <QurilmaTiklashTugmasi user={u} tiklash={qurilmaTiklash} t={t} />
               {!u.is_owner && u.id !== profil?.id && (
                 <button
                   className="tugma ikkinchi"

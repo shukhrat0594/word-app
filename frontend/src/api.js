@@ -30,6 +30,23 @@ export function tokenlarniTozala() {
   localStorage.removeItem("refresh");
 }
 
+// 2026-08-12: hisobni boshqalar bilan bo'lishmaslik uchun — har login
+// so'roviga shu brauzerga xos tasodifiy ID qo'shib yuboriladi
+// (backend: `accounts/views.py: XodimLoginView`/`_qurilma_tekshir`).
+// Birinchi loginda backend shu ID'ni "asosiy qurilma" qilib saqlaydi,
+// keyingi safar mos kelmasa kirish rad etiladi. Tokenlar kabi
+// localStorage'da — brauzer o'zgarsa yoki kesh tozalansa yangi ID
+// generatsiya bo'ladi (bu ATAYLAB shunday: "boshqa qurilma" aynan shu
+// orqali aniqlanadi).
+export function qurilmaIdOl() {
+  let id = localStorage.getItem("qurilma_id");
+  if (!id) {
+    id = crypto.randomUUID();
+    localStorage.setItem("qurilma_id", id);
+  }
+  return id;
+}
+
 // 2026-07-30 bug: PARALLEL_SAHIFA_SONI kabi bir vaqtda bir nechta so'rov
 // ketganda, access token muddati tugagan payt HAMMASI bir vaqtda 401 oladi
 // va har biri MUSTAQIL refresh chaqirardi — backendda ROTATE_REFRESH_TOKENS +

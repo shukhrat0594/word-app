@@ -155,6 +155,18 @@ class User(AbstractUser):
             "endpoint orqali uzatiladi — `FoydalanuvchiRasmView`."
         ),
     )
+    qurilma_id = models.CharField(
+        max_length=64, blank=True, default="",
+        help_text=(
+            "Hisobni boshqalar bilan bo'lishmaslik uchun (2026-08-12) — "
+            "OWNER'dan boshqa har bir foydalanuvchi FAQAT birinchi "
+            "muvaffaqiyatli login qilgan brauzeriga bog'lanadi (frontend "
+            "localStorage'da saqlagan tasodifiy ID). Bo'sh = hali hech "
+            "qaysi qurilmaga bog'lanmagan (keyingi login avtomatik "
+            "bog'laydi). Faqat owner/admin 'Qurilmani tiklash' orqali "
+            "tozalay oladi — `XodimLoginView`/`QurilmaTiklashView`ga qarang."
+        ),
+    )
 
     def __str__(self):
         return f"{self.username} ({self.get_role_display()})"

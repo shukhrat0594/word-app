@@ -3,7 +3,7 @@ import { api, apiForm } from "../api";
 import { useI18n } from "../i18n";
 import { useProfil } from "../profilContext";
 import NatijalarRoyxati from "../components/NatijalarRoyxati";
-import { PanelTanlovi, ProfilRasmi } from "./Foydalanuvchilar";
+import { PanelTanlovi, ProfilRasmi, QurilmaTiklashTugmasi } from "./Foydalanuvchilar";
 
 const BOSH_FORMA = { ism: "", login: "", parol: "" };
 
@@ -63,6 +63,20 @@ export default function Talabalar() {
     try {
       await api(`/api/foydalanuvchilar/${id}/rasm/`, { method: "DELETE", body: { izoh } });
       setXabar(t("rasm_ochirildi"));
+      yukla();
+    } catch (e) {
+      setXato(e.data?.detail || t("xato_yuz_berdi"));
+    }
+  }
+
+  /** "Qurilmani tiklash" — sabab MAJBURIY, talabaga ogohlantirish
+   * boradi (`QurilmaTiklashTugmasi` izohiga qarang). */
+  async function qurilmaTiklash(id, izoh) {
+    setXato("");
+    setXabar("");
+    try {
+      await api(`/api/foydalanuvchilar/${id}/qurilma-tiklash/`, { method: "POST", body: { izoh } });
+      setXabar(t("qurilma_tiklash_muvaffaqiyatli"));
       yukla();
     } catch (e) {
       setXato(e.data?.detail || t("xato_yuz_berdi"));
@@ -208,6 +222,7 @@ export default function Talabalar() {
             {boshqaruvMi && (
               <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
                 <PanelTanlovi user={tl} saqlash={panellarSaqla} t={t} />
+                <QurilmaTiklashTugmasi user={tl} tiklash={qurilmaTiklash} t={t} />
                 <button
                   className="tugma ikkinchi kichik"
                   onClick={() => arxivHolatiniOzgartir(tl.id, arxivKorish)}

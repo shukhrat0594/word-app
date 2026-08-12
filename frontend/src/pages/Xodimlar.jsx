@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, apiForm } from "../api";
 import { useI18n } from "../i18n";
-import { ProfilRasmi } from "./Foydalanuvchilar";
+import { ProfilRasmi, QurilmaTiklashTugmasi } from "./Foydalanuvchilar";
 
 const BOSH_FORMA = { ism: "", username: "", parol: "" };
 
@@ -46,6 +46,20 @@ export default function Xodimlar() {
     try {
       await api(`/api/foydalanuvchilar/${id}/rasm/`, { method: "DELETE", body: { izoh } });
       setXabar(t("rasm_ochirildi"));
+      yukla();
+    } catch (e) {
+      setXato(e.data?.detail || t("xato_yuz_berdi"));
+    }
+  }
+
+  /** "Qurilmani tiklash" — sabab MAJBURIY, xodimga ogohlantirish
+   * boradi (`QurilmaTiklashTugmasi` izohiga qarang). */
+  async function qurilmaTiklash(id, izoh) {
+    setXato("");
+    setXabar("");
+    try {
+      await api(`/api/foydalanuvchilar/${id}/qurilma-tiklash/`, { method: "POST", body: { izoh } });
+      setXabar(t("qurilma_tiklash_muvaffaqiyatli"));
       yukla();
     } catch (e) {
       setXato(e.data?.detail || t("xato_yuz_berdi"));
@@ -172,12 +186,15 @@ export default function Xodimlar() {
               <span>{o.ism}</span>
               <span className="izoh">{o.username}</span>
             </span>
-            <button
-              className="tugma ikkinchi kichik"
-              onClick={() => arxivHolatiniOzgartir(o.id, arxivKorish)}
-            >
-              {arxivKorish ? t("faollashtirish") : t("arxivlash")}
-            </button>
+            <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <QurilmaTiklashTugmasi user={o} tiklash={qurilmaTiklash} t={t} />
+              <button
+                className="tugma ikkinchi kichik"
+                onClick={() => arxivHolatiniOzgartir(o.id, arxivKorish)}
+              >
+                {arxivKorish ? t("faollashtirish") : t("arxivlash")}
+              </button>
+            </span>
           </div>
         ))}
       </div>

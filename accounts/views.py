@@ -442,6 +442,9 @@ class FoydalanuvchilarView(APIView):
                     "parol_bormi": u.has_usable_password(),
                     "korinadigan_panellar": u.korinadigan_panellar,
                     "rasm_url": f"/api/foydalanuvchilar/{u.id}/rasm/" if u.rasm else None,
+                    # 2026-08-12: qiymatning o'zi emas, faqat "bor/yo'q" —
+                    # "Qurilmani tiklash" tugmasini ko'rsatish/berkitish uchun.
+                    "qurilma_bormi": bool(u.qurilma_id),
                     # Ota-ona uchun — biriktirilgan farzandlar (2026-08-09).
                     "farzandlar": [
                         {"id": f.id, "ism": f.get_full_name() or f.username}
@@ -760,6 +763,63 @@ class FoydalanuvchiRasmView(APIView):
                 obyekt_turi="Foydalanuvchi",
                 ozgarishlar={"rasm": {"eski": "bor edi", "yangi": "o'chirildi"}, "izoh": izoh},
             )
+        return Response(status=204)
+
+
+class QurilmaTiklashView(APIView):
+    """Owner/admin uchun — foydalanuvchining qurilma qulfini tozalash
+    (2026-08-12). `_qurilma_tekshir`ga qarang: `qurilma_id` bo'sh bo'lsa
+    keyingi login AVTOMATIK yangi qurilmani "asosiy" qilib belgilaydi,
+    ya'ni bu yerda faqat MAYDONNI TOZALASH kifoya — qo'lda qiymat
+    kiritish shart emas.
+
+    Parol tiklashdan ATAYLAB MUSTAQIL (foydalanuvchi qarori) — ikkalasi
+    bog'lanmagan, alohida harakat sifatida qoladi.
+
+    Sabab (`izoh`) MAJBURIY — profil rasmi o'chirishdagi bilan bir xil
+    naqsh: foydalanuvchi nega qayta "yangi qurilma" sifatida kirishini
+    bilishi kerak."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        u = request.user
+        if not (owner_mi(u) or u.role == User.Role.ADMIN):
+            return Response({"detail": "Faqat owner/admin uchun"}, status=403)
+        user = get_object_or_404(User, pk=pk)
+        if user.is_superuser and not owner_mi(u):
+            return Response({"detail": "Owner'ning qurilmasiga tega olmaysiz"}, status=403)
+
+        izoh = str(request.data.get("izoh") or "").strip()
+        if not izoh:
+            return Response(
+                {"detail": "Tiklash sababini yozing — u foydalanuvchiga xabar bo'lib boradi"},
+                status=400,
+            )
+        izoh = izoh[:1000]
+
+        if not user.qurilma_id:
+            return Response({"detail": "Bu foydalanuvchida qurilma qulfi yo'q"}, status=400)
+        user.qurilma_id = ""
+        user.save(update_fields=["qurilma_id"])
+
+        Bildirishnoma.objects.create(
+            foydalanuvchi=user,
+            turi=Bildirishnoma.Turi.OGOHLANTIRISH,
+            kalit=f"ogohlantirish:qurilma-tiklash:{timezone.now().isoformat()}"[:200],
+            sarlavha="Qurilma qulfi tiklandi",
+            matn=(
+                f"{izoh}\n\nKeyingi login qilgan qurilmangiz endi 'asosiy' "
+                "sifatida qayta belgilanadi."
+            ),
+        )
+        logla(
+            foydalanuvchi=u,
+            harakat=FaoliyatYozuvi.Harakat.OZGARTIRISH,
+            obyekt=user,
+            obyekt_turi="Foydalanuvchi",
+            ozgarishlar={"qurilma_id": {"eski": "bor edi", "yangi": "tozalandi"}, "izoh": izoh},
+        )
         return Response(status=204)
 
 
@@ -1091,6 +1151,7 @@ class XodimlarView(APIView):
                     # owner/admin kiradi, ya'ni qo'shimcha rol tekshiruvi
                     # frontendda shart emas.
                     "rasm_url": f"/api/foydalanuvchilar/{u.id}/rasm/" if u.rasm else None,
+                    "qurilma_bormi": bool(u.qurilma_id),
                 }
                 for u in oqituvchilar
             ]
@@ -1267,6 +1328,7 @@ class TalabalarView(APIView):
                     # Adminda "Foydalanuvchilar" sahifasi YO'Q, shuning uchun
                     # unga yagona yo'l shu.
                     "rasm_url": f"/api/foydalanuvchilar/{t.id}/rasm/" if t.rasm else None,
+                    "qurilma_bormi": bool(t.qurilma_id),
                 }
                 for t in qs.order_by("first_name", "username")
             ]
@@ -1410,7 +1472,16 @@ class ParolOzgartirishView(APIView):
 
 class XodimLoginView(TokenObtainPairView):
     """Standart JWT login (`/api/token/`) — brute-force'dan himoya uchun
-    throttling qo'shilgan (login urinishlar soni cheklanadi)."""
+    throttling qo'shilgan (login urinishlar soni cheklanadi).
+
+    2026-08-12: hisobni boshqalar bilan bo'lishmaslik uchun — OWNER'dan
+    boshqa har bir foydalanuvchi FAQAT birinchi muvaffaqiyatli login
+    qilgan qurilmasidan kira oladi. Frontend har login so'rovida
+    `qurilma_id` yuboradi (localStorage'da saqlangan tasodifiy ID).
+    Parol TO'G'RI bo'lsa-da, `qurilma_id` mos kelmasa token BERILMAYDI
+    (javob 403'ga almashtiriladi) — boshqa qurilmaga hech qanday token
+    chiqmaydi. Birinchi login (`user.qurilma_id` hali bo'sh) — kelgan
+    ID avtomatik saqlanadi, qo'shimcha tasdiq shart emas."""
 
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = "login"
@@ -1420,8 +1491,51 @@ class XodimLoginView(TokenObtainPairView):
         if javob.status_code == 200:
             user = User.objects.filter(username=request.data.get("username")).first()
             if user is not None:
+                if not owner_mi(user):
+                    qurilma_javobi = _qurilma_tekshir(request, user)
+                    if qurilma_javobi is not None:
+                        return qurilma_javobi
                 LoginHistory.objects.create(foydalanuvchi=user, rol=user.role)
         return javob
+
+
+def _qurilma_tekshir(request, user):
+    """OWNER bo'lmagan foydalanuvchi uchun qurilma cheklovi — mos kelmasa
+    403 Response qaytaradi (login rad etiladi), mos kelsa/birinchi login
+    bo'lsa None qaytaradi (davom etaveradi)."""
+    qurilma_id = (request.data.get("qurilma_id") or "").strip()
+    if not qurilma_id:
+        return Response(
+            {"detail": "Qurilma identifikatori yuborilmadi", "kod": "qurilma_id_yoq"},
+            status=400,
+        )
+    if not user.qurilma_id:
+        user.qurilma_id = qurilma_id
+        user.save(update_fields=["qurilma_id"])
+        return None
+    if user.qurilma_id == qurilma_id:
+        return None
+
+    for admin in User.objects.filter(role=User.Role.ADMIN) | User.objects.filter(is_superuser=True):
+        Bildirishnoma.objects.create(
+            foydalanuvchi=admin,
+            turi=Bildirishnoma.Turi.OGOHLANTIRISH,
+            kalit=f"ogohlantirish:qurilma:{user.id}:{timezone.now().isoformat()}"[:200],
+            sarlavha="Boshqa qurilmadan kirishga urinish",
+            matn=(
+                f"{user.username} ({user.get_role_display()}) hisobiga "
+                "TANIB OLINMAGAN qurilmadan kirishga urinildi, rad etildi. "
+                "Agar bu haqiqatan shu foydalanuvchi bo'lsa (yangi telefon/"
+                "kompyuter), 'Qurilmani tiklash' orqali ruxsat bering."
+            ),
+        )
+    return Response(
+        {
+            "detail": "Bu hisob boshqa qurilmada faollashtirilgan. Administratorga murojaat qiling.",
+            "kod": "qurilma_mos_emas",
+        },
+        status=403,
+    )
 
 
 class GoogleLoginView(APIView):

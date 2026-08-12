@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { api, tokenlarniSaqla } from "../api";
+import { api, tokenlarniSaqla, qurilmaIdOl } from "../api";
 import { useI18n } from "../i18n";
 import IjtimoiyPanel from "../components/IjtimoiyPanel";
 import { useProfil } from "../profilContext";
@@ -28,13 +28,13 @@ export default function Login() {
     try {
       const data = await api("/api/token/", {
         method: "POST",
-        body: { username: login, password: parol },
+        body: { username: login, password: parol, qurilma_id: qurilmaIdOl() },
       });
       tokenlarniSaqla(data);
       await yangila();
       navigate("/");
-    } catch {
-      setXato(t("login_xato"));
+    } catch (e) {
+      setXato(e?.data?.kod === "qurilma_mos_emas" ? t("login_qurilma_xato") : t("login_xato"));
     } finally {
       setBand(false);
     }
