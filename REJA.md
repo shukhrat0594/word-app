@@ -360,7 +360,13 @@ Qaror:
   ma'lumot ko'p marta deploy/restart'dan keyin ham yo'qolmagan.
 - **Backup tizimi (owner-only, admin panelga EMAS) — 2026-08-02 aniqlashtirildi,
   UCHTA ALOHIDA tugma (bittaga birlashtirilmaydi — har biri boshqa
-  maqsad, har safar hammasini bajarish shart bo'lmasin):**
+  maqsad, har safar hammasini bajarish shart bo'lmasin). HALI KOD
+  YOZILMAGAN (2026-08-13 tekshirildi — hech qanday Backup view yo'q),
+  faqat reja sifatida turibdi. Foydalanuvchi eslatdi: bu Railway'ga
+  ko'chirish uchun ham foydali bo'lardi ("Kompyuterga yuklab olish"
+  tugmasi Render'dan ma'lumot eksport qilishni osonlashtiradi) — shuning
+  uchun Railway ko'chirish bilan BIRGA/UNDAN OLDIN qilinishi ko'rib
+  chiqilishi mumkin:**
   1. **"Kompyuterga yuklab olish"** — butun baza (`dumpdata`, barcha
      jadval — talabalar/testlar/javoblar) + R2'dagi barcha media fayllar
      (rasm/audio) bitta ZIP arxivga yig'ilib, brauzer orqali to'g'ridan-

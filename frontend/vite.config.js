@@ -12,4 +12,13 @@ export default defineConfig({
       '/media': 'http://127.0.0.1:8000',
     },
   },
+  // Railway.app'da `vite preview` bilan xizmat qilinganda (railway.json)
+  // — Vite domendan kelgan so'rovni "Blocked request" bilan rad etadi,
+  // chunki Railway domeni ("*.up.railway.app") standart ravishda ruxsat
+  // etilgan ro'yxatda emas (faqat localhost). Bu — statik HTML/JS
+  // beruvchi server, maxfiy ma'lumot yo'q, shuning uchun barcha host
+  // ruxsat etiladi.
+  preview: {
+    allowedHosts: true,
+  },
 })
