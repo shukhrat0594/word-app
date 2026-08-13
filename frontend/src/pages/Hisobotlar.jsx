@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useI18n } from "../i18n";
+import { useProfil } from "../profilContext";
 import AuditHisobot from "./AuditHisobot";
 import DavomatHisoboti from "./DavomatHisoboti";
 import FoydalanuvchilarStatistika from "./FoydalanuvchilarStatistika";
@@ -8,10 +9,23 @@ import JavobsizSavollarHisoboti from "./JavobsizSavollarHisoboti";
 /** Owner uchun — barcha hisobotlar bitta joyda: Davomat + Foydalanuvchilar
  * faoliyati (audit) + Foydalanuvchilar statistikasi + Javobsiz savollar
  * (2026-08-11). Har biri avval alohida nav bo'lim edi, endi shu yerga
- * birlashtirildi. */
+ * birlashtirildi.
+ *
+ * 2026-08-13: admin uchun ham ochildi (foydalanuvchi talabi), lekin
+ * FAQAT "Javobsiz savollar" tabi — "Faoliyat tarixi" va "Foydalanuvchilar
+ * statistikasi" ataylab faqat owner uchun qoldi (backend ham 403
+ * qaytaradi, `audit/views.py`), "Davomat" backend'da admin+owner ruxsat
+ * etilgan bo'lsa-da, foydalanuvchi aniq faqat javobsiz-hisobotni so'radi
+ * — shuning uchun admin uchun boshqa tab ko'rsatilmaydi. */
 export default function Hisobotlar() {
   const { t } = useI18n();
+  const { profil } = useProfil();
+  const ownerMi = profil?.is_owner;
   const [tab, setTab] = useState("davomat");
+
+  if (!ownerMi) {
+    return <JavobsizSavollarHisoboti />;
+  }
 
   return (
     <div>

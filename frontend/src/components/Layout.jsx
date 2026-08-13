@@ -84,9 +84,15 @@ export const ROL_PANELLARI = {
   // ko'chdi, faqat owner ko'radi) va "Markaz" (brend sozlash, hech kimga
   // ko'rinmasin deb so'ralgan) adminda YO'Q. Sahifalari va backendi
   // joyida — kerak bo'lsa shu ro'yxatga qaytariladi.
+  //
+  // 2026-08-13: "/hisobotlar" adminga QO'SHILDI (foydalanuvchi talabi) —
+  // lekin sahifaning o'zi (`Hisobotlar.jsx`) admin uchun FAQAT "Javobsiz
+  // savollar" tabini ko'rsatadi, qolgan 3 tab (Davomat/Audit/Statistika)
+  // hamon faqat owner uchun (backend ham 403 qaytaradi).
   admin: [
     "/", "/guruhlar", "/talabalar", "/xodimlar",
     "/ielts-boshqarish", "/ai-mashqlari", "/kurslar", "/ijtimoiy-tarmoqlar",
+    "/hisobotlar",
   ],
   teacher: [
     "/", "/ielts-boshqarish", "/ai-mashqlari", "/kurslar",
