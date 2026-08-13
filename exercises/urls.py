@@ -40,6 +40,16 @@ urlpatterns = [
         name="imtihon_javobsiz_hisobot",
     ),
     path(
+        "imtihon/javobsiz-hisobot/<int:pk>/",
+        views.JavobsizSavollarMashqView.as_view(),
+        name="imtihon_javobsiz_mashq",
+    ),
+    path(
+        "imtihon/javobsiz-hisobot/<int:pk>/javob-kiritish/",
+        views.JavobsizSavollarJavobKiritishView.as_view(),
+        name="imtihon_javobsiz_javob_kiritish",
+    ),
+    path(
         "imtihon/mashq-generatsiya/",
         views.MashqGeneratsiyaView.as_view(),
         name="imtihon_mashq_generatsiya",

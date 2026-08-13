@@ -744,7 +744,7 @@ function KiritishPanel({ manba, qismgaFaylYukla, royxatniYangila }) {
  * Yechim: ko'ringan matn LOKAL holatda xom saqlanadi (foydalanuvchi
  * nima yozsa — o'sha turadi), massivga ajratish esa faqat YUQORIGA
  * uzatilayotganda bajariladi. */
-function RoyxatMaydoni({ qiymat, ajratgich, ozgardi, ...qolgan }) {
+export function RoyxatMaydoni({ qiymat, ajratgich, ozgardi, ...qolgan }) {
   const [xom, setXom] = useState(qiymat);
   // Tashqaridan (masalan "Guruhga qo'llash" tugmasi yoki boshqa savolga
   // o'tilganda) qiymat o'zgarsa moslashtiramiz — lekin foydalanuvchi

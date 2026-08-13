@@ -641,6 +641,92 @@ class JavobsizSavollarHisobotiView(APIView):
         return Response(qatorlar)
 
 
+class JavobsizSavollarMashqView(APIView):
+    """Bitta mashqning javobsiz savollari — TO'LIQ matn bilan (2026-08-12).
+
+    `JavobsizSavollarHisobotiView` matnni 90 belgigacha qisqartiradi
+    (jadval/accordion ro'yxati uchun yetarli) — javob kiritish oynasida
+    esa savolning TO'LIQ matni ko'rinishi kerak, shuning uchun alohida."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        if not _mashq_admin_mi(request.user):
+            return Response({"detail": "Faqat admin/owner uchun"}, status=403)
+        test = get_object_or_404(ImtihonTest, pk=pk)
+
+        savollar = []
+        raqam = 0
+        for qism in test.qismlar.order_by("tartib"):
+            for savol in qism.savollar or []:
+                raqam += 1
+                if _savol_javobsizmi(savol):
+                    savollar.append({
+                        "savol_raqami": raqam,
+                        "savol_matni": (savol.get("savol") or "").strip(),
+                    })
+        return Response({"test_id": test.id, "test_nomi": test.name, "savollar": savollar})
+
+
+class JavobsizSavollarJavobKiritishView(APIView):
+    """Owner/admin uchun — bitta mashqning bir nechta javobsiz savoliga
+    BIR so'rovda javob kiritish (2026-08-12, foydalanuvchi talabi:
+    "javobsiz savollar hisobotida ... shu hisobotni o'zida kiritish
+    imkonini qilish"). Hisobot oynasidan alohida — talaba ko'radigan
+    haqiqiy mashq tahrirlash formasini ochmasdan, faqat javobsiz
+    qolgan savollarga tez-tez javob kiritish uchun.
+
+    `savol_raqami` — `JavobsizSavollarHisobotiView`dagi bilan AYNAN bir
+    xil hisoblash mantig'i (qismlar tartib bo'yicha, uzluksiz
+    hisoblagich) — shu orqali qaysi qism/band ekani topiladi.
+
+    `togri` — ro'yxat sifatida keladi (bir nechta qabul qilinadigan
+    variant, masalan ["20", "twenty"] — `javoblarni_tekshir()` buni
+    allaqachon qo'llab-quvvatlaydi, yangi tekshirish mantig'i kerak
+    emas)."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        if not _mashq_admin_mi(request.user):
+            return Response({"detail": "Faqat admin/owner uchun"}, status=403)
+        test = get_object_or_404(ImtihonTest, pk=pk)
+
+        javoblar = request.data.get("javoblar")
+        if not isinstance(javoblar, list) or not javoblar:
+            return Response({"detail": "javoblar ro'yxati majburiy"}, status=400)
+
+        # raqam -> [variantlar] xaritasi — pastda bitta aylanishda ishlatiladi.
+        raqam_javob = {}
+        for j in javoblar:
+            raqam = j.get("savol_raqami")
+            togri = j.get("togri")
+            if not isinstance(raqam, int) or not isinstance(togri, list):
+                return Response({"detail": "Har band {savol_raqami: int, togri: [str,...]}"}, status=400)
+            togri = [str(v).strip() for v in togri if str(v).strip()]
+            if togri:
+                raqam_javob[raqam] = togri
+
+        yangilandi = 0
+        raqam = 0
+        for qism in test.qismlar.order_by("tartib"):
+            savollar = qism.savollar or []
+            ozgardimi = False
+            for savol in savollar:
+                raqam += 1
+                if raqam in raqam_javob:
+                    savol["togri"] = raqam_javob[raqam]
+                    ozgardimi = True
+                    yangilandi += 1
+            if ozgardimi:
+                qism.savollar = savollar
+                qism.save(update_fields=["savollar"])
+
+        if yangilandi == 0:
+            return Response({"detail": "Mos savol topilmadi"}, status=400)
+        return Response({"yangilandi": yangilandi})
+
+
 class ImtihonBoshqaruvView(APIView):
     """Owner/admin uchun — to'liq testlar ro'yxati va yaratish (qismlari
     bilan birga, bitta JSON so'rovda). Audio/rasm har qismga keyinroq

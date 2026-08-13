@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
 import { useI18n } from "../i18n";
-import { MashqTolaTahrir } from "./ImtihonBoshqarish";
+import { RoyxatMaydoni } from "./ImtihonBoshqarish";
 
 /** Tekis qatorlar ro'yxatini Bo'lim → Mashq → savollar daraxtiga
  * aylantiradi — birinchi uchragan tartibda (backend allaqachon
@@ -28,20 +28,112 @@ function bolimlargaGuruhla(qatorlar) {
   return bolimlar;
 }
 
+/** Bitta mashqning javobsiz savollariga tez javob kiritish oynasi
+ * (2026-08-12, foydalanuvchi talabi: "javobsiz savollar hisobotida
+ * ... shu hisobotni o'zida kiritish imkonini qilish"). Har savol
+ * o'zining mashqdagi HAQIQIY raqami bilan ko'rsatiladi, yoniga
+ * `RoyxatMaydoni` (Enter — yangi qabul qilinadigan variant, masalan
+ * "20" va "twenty" ikkalasi ham) orqali javob kiritiladi. "Saqlash" —
+ * BITTA so'rovda faqat to'ldirilgan savollarni yangilaydi. */
+function JavobKiritishOynasi({ testId, onYopish, onSaqlandi, t }) {
+  const [mashq, setMashq] = useState(null);
+  const [javoblar, setJavoblar] = useState({});
+  const [xato, setXato] = useState("");
+  const [band, setBand] = useState(false);
+
+  useEffect(() => {
+    api(`/api/imtihon/javobsiz-hisobot/${testId}/`)
+      .then((r) => setMashq(r))
+      .catch((e) => setXato(e.data?.detail || t("xato_yuz_berdi")));
+  }, [testId]);
+
+  async function saqla() {
+    const toldirilgan = Object.entries(javoblar)
+      .filter(([, arr]) => arr && arr.length > 0)
+      .map(([raqam, arr]) => ({ savol_raqami: Number(raqam), togri: arr }));
+    if (toldirilgan.length === 0) return;
+    setBand(true);
+    setXato("");
+    try {
+      await api(`/api/imtihon/javobsiz-hisobot/${testId}/javob-kiritish/`, {
+        method: "POST",
+        body: { javoblar: toldirilgan },
+      });
+      onSaqlandi();
+      onYopish();
+    } catch (e) {
+      setXato(e.data?.detail || t("xato_yuz_berdi"));
+    } finally {
+      setBand(false);
+    }
+  }
+
+  return (
+    <div
+      onClick={onYopish}
+      style={{
+        position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)",
+        display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2000,
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="karta"
+        style={{ maxWidth: 640, width: "90%", maxHeight: "85vh", overflowY: "auto" }}
+      >
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <h3 style={{ margin: 0 }}>{mashq?.test_nomi || "…"}</h3>
+          <button className="tugma ikkinchi kichik" onClick={onYopish}>{t("yopish")}</button>
+        </div>
+        <p className="izoh">{t("javobsiz_javob_kiritish_izoh")}</p>
+
+        {xato && <div className="xato-xabar" style={{ marginTop: 8 }}>{xato}</div>}
+
+        {!mashq ? (
+          <div className="yuklanmoqda">{t("yuklanmoqda")}</div>
+        ) : (
+          <div style={{ display: "grid", gap: 12, marginTop: 10, maxHeight: "60vh", overflowY: "auto" }}>
+            {mashq.savollar.map((s) => (
+              <div key={s.savol_raqami} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                <strong style={{ minWidth: 28 }}>{s.savol_raqami}.</strong>
+                <span style={{ flex: 1 }}>{s.savol_matni}</span>
+                <RoyxatMaydoni
+                  qiymat={(javoblar[s.savol_raqami] || []).join("\n")}
+                  ajratgich={"\n"}
+                  ozgardi={(arr) => setJavoblar((v) => ({ ...v, [s.savol_raqami]: arr }))}
+                  rows={2}
+                  placeholder={t("javobsiz_javob_placeholder")}
+                  style={{ width: 220, fontSize: 13 }}
+                />
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div style={{ marginTop: 14 }}>
+          <button className="tugma" onClick={saqla} disabled={band}>
+            {band ? t("yuklanmoqda") : t("saqlash")}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /** Owner/admin uchun — Reading/Listening testlarida to'g'ri javobi
  * belgilanmagan savollarni papka-uslub ierarxik ko'rinishda ko'rsatadi
  * (2026-08-11 yaratildi tekis jadval sifatida; 2026-08-12 foydalanuvchi
  * talabi bilan Bo'lim → Mashq → savollar accordion'ga o'zgartirildi —
  * `ImtihonOtish.jsx: PapkaliRoyxat`dagi bilan bir xil vizual naqsh,
  * `imtihon-papka`/`imtihon-papka-sarlavha`/`imtihon-papka-ichi`
- * CSS klasslari qayta ishlatildi). Mashq nomiga bosilganda mavjud
- * `MashqTolaTahrir` (IELTS testlari boshqaruvidagi tahrirlash oynasi)
- * ochiladi — yangi tahrirlash UI yozilmagan, borini qayta ishlatadi. */
+ * CSS klasslari qayta ishlatildi). Mashq nomiga bosilganda YANGI
+ * "javob kiritish" oynasi ochiladi (2026-08-12) — to'liq tahrirlash
+ * formasi emas, faqat javobsiz savollarga tez javob kiritish. */
 export default function JavobsizSavollarHisoboti() {
   const { t } = useI18n();
   const [qatorlar, setQatorlar] = useState(null);
   const [xato, setXato] = useState("");
-  const [ochilganTest, setOchilganTest] = useState(null);
+  const [ochilganTestId, setOchilganTestId] = useState(null);
   const [ochiq, setOchiq] = useState({});
 
   function yukla() {
@@ -56,16 +148,6 @@ export default function JavobsizSavollarHisoboti() {
   useEffect(() => {
     yukla();
   }, []);
-
-  async function mashqniOch(testId) {
-    setXato("");
-    try {
-      const test = await api(`/api/imtihon/testlar-boshqaruv/${testId}/`);
-      setOchilganTest(test);
-    } catch (e) {
-      setXato(e.data?.detail || t("xato_yuz_berdi"));
-    }
-  }
 
   return (
     <div className="karta">
@@ -103,8 +185,8 @@ export default function JavobsizSavollarHisoboti() {
                           {ochiq[`m${m.test_id}`] ? "▾" : "▸"} 📂{" "}
                           <span
                             style={{ cursor: "pointer", textDecoration: "underline dotted" }}
-                            title={t("imtihon_tola_ochish")}
-                            onClick={(e) => { e.stopPropagation(); mashqniOch(m.test_id); }}
+                            title={t("javobsiz_javob_kiritish_ochish")}
+                            onClick={(e) => { e.stopPropagation(); setOchilganTestId(m.test_id); }}
                           >
                             {m.test_nomi}
                           </span>
@@ -137,15 +219,12 @@ export default function JavobsizSavollarHisoboti() {
         </div>
       )}
 
-      {ochilganTest && (
-        <MashqTolaTahrir
-          test={ochilganTest}
-          manba={ochilganTest.manba}
-          onYopish={() => setOchilganTest(null)}
-          onSaqlandi={() => {
-            mashqniOch(ochilganTest.id);
-            yukla();
-          }}
+      {ochilganTestId && (
+        <JavobKiritishOynasi
+          testId={ochilganTestId}
+          onYopish={() => setOchilganTestId(null)}
+          onSaqlandi={yukla}
+          t={t}
         />
       )}
     </div>
