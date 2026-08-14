@@ -85,9 +85,8 @@ export default function Profil() {
       setForma({
         ism: profil.ism === profil.username ? "" : profil.ism,
         bio: profil.bio || "",
-        maqsad: profil.maqsad || "",
-        sabab: profil.sabab || "",
         telefon: profil.telefon || "",
+        ota_ona_telefon: profil.ota_ona_telefon || "",
         tugilgan_sana: profil.tugilgan_sana || "",
       });
     }
@@ -238,26 +237,18 @@ export default function Profil() {
               />
             </label>
             <label>
-              <span className="izoh">{t("profil_maqsad")}</span>
-              <input
-                value={forma.maqsad}
-                onChange={(e) => setForma((f) => ({ ...f, maqsad: e.target.value }))}
-                placeholder={t("profil_maqsad_placeholder")}
-              />
-            </label>
-            <label>
-              <span className="izoh">{t("profil_sabab")}</span>
-              <input
-                value={forma.sabab}
-                onChange={(e) => setForma((f) => ({ ...f, sabab: e.target.value }))}
-                placeholder={t("profil_sabab_placeholder")}
-              />
-            </label>
-            <label>
               <span className="izoh">{t("profil_telefon")}</span>
               <input
                 value={forma.telefon}
                 onChange={(e) => setForma((f) => ({ ...f, telefon: e.target.value }))}
+                placeholder="+998 90 123 45 67"
+              />
+            </label>
+            <label>
+              <span className="izoh">{t("profil_ota_ona_telefon")}</span>
+              <input
+                value={forma.ota_ona_telefon}
+                onChange={(e) => setForma((f) => ({ ...f, ota_ona_telefon: e.target.value }))}
                 placeholder="+998 90 123 45 67"
               />
             </label>

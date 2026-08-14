@@ -181,17 +181,15 @@ class User(AbstractUser):
     )
 
     # 2026-08-14, foydalanuvchi talabi — profilga qo'shimcha maydonlar.
+    # ("maqsad"/"sabab" 2026-08-14'da QO'SHILGAN EDI, keyin shu kuni
+    # foydalanuvchi qarori bilan OLIB TASHLANDI — "bu maydonlar kerak
+    # emas" — o'rniga ota-ona telefon raqami qo'shildi.)
     # HAMMAGA OCHIQ (admin/owner ro'yxatlarida va o'ziga ko'rinadi):
     bio = models.TextField(blank=True, max_length=500, help_text="'O'zim haqimda' — qisqa erkin matn")
-    # 2026-08-14 (2-marta): dastlab "maqsad_band" (tanlov) + "maqsad_muddat"
-    # (sana) ikkita alohida maydon edi — foydalanuvchi buni BITTA erkin
-    # matnli "maqsad" maydoniga soddalashtirdi ("tanlaydigan emas, text
-    # yozadigan"). "sabab" ham xuddi shunday — tanlov emas, erkin matn.
-    maqsad = models.TextField(blank=True, max_length=500, help_text="Erkin matn, masalan 'IELTS 8.0'")
-    sabab = models.TextField(blank=True, max_length=500, help_text="Nima uchun o'qiyapti — erkin matn")
     # SHAXSIY — faqat admin/owner ko'radigan ro'yxatlarda chiqariladi,
     # boshqa (masalan o'qituvchi/guruh) endpoint'larga QO'SHILMAYDI.
     telefon = models.CharField(max_length=20, blank=True)
+    ota_ona_telefon = models.CharField(max_length=20, blank=True, help_text="Ota-ona/vasiy telefon raqami")
     tugilgan_sana = models.DateField(null=True, blank=True)
 
     def __str__(self):

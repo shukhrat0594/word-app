@@ -94,9 +94,8 @@ class ProfilView(APIView):
                 "rasm_url": f"/api/foydalanuvchilar/{u.id}/rasm/" if u.rasm else None,
                 # 2026-08-14 — o'z profili, hammasi (shaxsiylari ham) ko'rinadi.
                 "bio": u.bio,
-                "maqsad": u.maqsad,
-                "sabab": u.sabab,
                 "telefon": u.telefon,
+                "ota_ona_telefon": u.ota_ona_telefon,
                 "tugilgan_sana": u.tugilgan_sana,
             }
         )
@@ -457,9 +456,8 @@ class FoydalanuvchilarView(APIView):
                     "qurilmalar_soni": len(u.qurilmalar),
                     # 2026-08-14 — owner ko'radi (shaxsiylari ham).
                     "bio": u.bio,
-                    "maqsad": u.maqsad,
-                    "sabab": u.sabab,
                     "telefon": u.telefon,
+                    "ota_ona_telefon": u.ota_ona_telefon,
                     "tugilgan_sana": u.tugilgan_sana,
                     # Ota-ona uchun — biriktirilgan farzandlar (2026-08-09).
                     "farzandlar": [
@@ -1213,9 +1211,8 @@ class XodimlarView(APIView):
                     "qurilma_limiti": u.qurilma_limiti,
                     "qurilmalar_soni": len(u.qurilmalar),
                     "bio": u.bio,
-                    "maqsad": u.maqsad,
-                    "sabab": u.sabab,
                     "telefon": u.telefon,
+                    "ota_ona_telefon": u.ota_ona_telefon,
                     "tugilgan_sana": u.tugilgan_sana,
                 }
                 for u in oqituvchilar
@@ -1397,9 +1394,8 @@ class TalabalarView(APIView):
                     "qurilma_limiti": t.qurilma_limiti,
                     "qurilmalar_soni": len(t.qurilmalar),
                     "bio": t.bio,
-                    "maqsad": t.maqsad,
-                    "sabab": t.sabab,
                     "telefon": t.telefon,
+                    "ota_ona_telefon": t.ota_ona_telefon,
                     "tugilgan_sana": t.tugilgan_sana,
                 }
                 for t in qs.order_by("first_name", "username")
@@ -1520,11 +1516,11 @@ class ProfilTahrirlashView(APIView):
     so'roviga javoban qo'shilgan maydonlar).
 
     Ism — butun ism `first_name`ga yoziladi (`last_name` ishlatilmaydi,
-    loyihada ajratilmagan). Qolgan maydonlar — `bio`/`maqsad`/`sabab`
-    (ikkalasi ham ERKIN MATN, tanlov emas — 2026-08-14 ikkinchi
-    talabga ko'ra soddalashtirildi; OCHIQ, admin/owner ro'yxatlarida
-    chiqadi) va `telefon`/`tugilgan_sana` (SHAXSIY — faqat admin/owner
-    ko'radi, boshqa endpoint'larga qo'shilmagan).
+    loyihada ajratilmagan). `bio` — OCHIQ (admin/owner ro'yxatlarida
+    chiqadi). `telefon`/`ota_ona_telefon`/`tugilgan_sana` — SHAXSIY,
+    faqat admin/owner ko'radi, boshqa endpoint'larga qo'shilmagan.
+    ("maqsad"/"sabab" 2026-08-14'da qo'shilib, shu kuni foydalanuvchi
+    qarori bilan olib tashlandi — "bu maydonlar kerak emas".)
 
     Barcha maydonlar IXTIYORIY — faqat yuborilganlari yangilanadi,
     yuborilmagani tegilmaydi (frontend qisman formani ham yubora oladi)."""
@@ -1551,26 +1547,19 @@ class ProfilTahrirlashView(APIView):
             u.bio = bio
             yangilanadigan.append("bio")
 
-        if "maqsad" in request.data:
-            maqsad = str(request.data.get("maqsad") or "").strip()
-            if len(maqsad) > 500:
-                return Response({"detail": "Maqsad 500 belgigacha bo'lsin"}, status=400)
-            u.maqsad = maqsad
-            yangilanadigan.append("maqsad")
-
-        if "sabab" in request.data:
-            sabab = str(request.data.get("sabab") or "").strip()
-            if len(sabab) > 500:
-                return Response({"detail": "Sabab 500 belgigacha bo'lsin"}, status=400)
-            u.sabab = sabab
-            yangilanadigan.append("sabab")
-
         if "telefon" in request.data:
             telefon = str(request.data.get("telefon") or "").strip()
             if len(telefon) > 20:
                 return Response({"detail": "Telefon raqami juda uzun"}, status=400)
             u.telefon = telefon
             yangilanadigan.append("telefon")
+
+        if "ota_ona_telefon" in request.data:
+            ota_ona_telefon = str(request.data.get("ota_ona_telefon") or "").strip()
+            if len(ota_ona_telefon) > 20:
+                return Response({"detail": "Telefon raqami juda uzun"}, status=400)
+            u.ota_ona_telefon = ota_ona_telefon
+            yangilanadigan.append("ota_ona_telefon")
 
         if "tugilgan_sana" in request.data:
             sana = request.data.get("tugilgan_sana") or None
@@ -1589,9 +1578,8 @@ class ProfilTahrirlashView(APIView):
         return Response({
             "ism": u.get_full_name(),
             "bio": u.bio,
-            "maqsad": u.maqsad,
-            "sabab": u.sabab,
             "telefon": u.telefon,
+            "ota_ona_telefon": u.ota_ona_telefon,
             "tugilgan_sana": u.tugilgan_sana,
         })
 
