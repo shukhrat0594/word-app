@@ -70,7 +70,17 @@ async function refreshQil() {
       });
       if (!res.ok) return false;
       const data = await res.json();
-      tokenlarniSaqla({ access: data.access });
+      // 2026-08-14 BUG TUZATILDI (foydalanuvchi topib berdi: "mock test
+      // vaqtida chiqib ketmasligi kerak"): backend ROTATE_REFRESH_TOKENS
+      // yoqilgani uchun har yangilashda YANGI refresh token ham qaytaradi
+      // va ESKISINI blacklist qiladi. Avval bu yerda faqat `access`
+      // saqlanardi — eski (endi bekor qilingan) refresh token
+      // localStorage'da qolib ketardi. Birinchi yangilanish (30 daqiqada)
+      // muvaffaqiyatli o'tardi, lekin IKKINCHI marta (taxminan 60-daqiqada)
+      // eski refresh token bilan urinib, majburan logout bo'lardi — aynan
+      // uzoq davom etadigan Mock test kabi holatlarda. Endi yangi
+      // `refresh`ni ham saqlaymiz.
+      tokenlarniSaqla({ access: data.access, refresh: data.refresh });
       return true;
     } finally {
       refreshVadasi = null;
