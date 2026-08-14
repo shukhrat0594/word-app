@@ -328,43 +328,16 @@ class MashqYechim(models.Model):
         return f"{self.talaba} — {self.mashq} — {self.ball}/{self.jami}"
 
 
-class LimitTopUp(models.Model):
-    """Kunlik limit to'ldiruvi — 500 so'm = o'sha kunga har turdan +1.
-
-    Hozircha to'lov tizimi yo'q (2-faza, Payme/Click) — yozuvlar test/admin
-    orqali yaratiladi. To'lov qo'shilganda shu model to'lovga bog'lanadi.
-    """
-
-    talaba = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name="limit_topuplar",
-        limit_choices_to={"role": "student"},
-    )
-    bolim = models.CharField(max_length=10, choices=Bolim.choices)
-    sana = models.DateField(auto_now_add=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        verbose_name_plural = "Limit to'ldiruvlari"
-
-    def __str__(self):
-        return f"{self.talaba} — {self.get_bolim_display()} — {self.sana} (+har turdan 1)"
-
-
 def kunlik_limit_holati(talaba, bolim):
     """Talabaning bugungi limiti: har tur bo'yicha ruxsat/ishlatilgan/qolgan.
 
-    Qoida (B4.1): har turdan kuniga 1 ta bepul + har top-up har turga +1.
-    Tur ro'yxati BOLIM_TURLARI'dan olinadi — moslashuvchan.
+    Qoida (B4.1): har turdan kuniga 1 ta bepul. Tur ro'yxati
+    BOLIM_TURLARI'dan olinadi — moslashuvchan.
     """
     import datetime
 
     bugun = datetime.date.today()
-    topup = LimitTopUp.objects.filter(
-        talaba=talaba, bolim=bolim, sana=bugun
-    ).count()
-    ruxsat = 1 + topup
+    ruxsat = 1
 
     holat = {}
     for tur in BOLIM_TURLARI[bolim]:
@@ -383,20 +356,19 @@ def kunlik_limit_holati(talaba, bolim):
 
 
 def korinadigan_mashqlar(user):
-    """Foydalanuvchiga ko'rinadigan mashqlar (B3.1 qoidasi bilan bir xil).
+    """Foydalanuvchiga ko'rinadigan mashqlar.
 
     Markazga biriktirilmagan foydalanuvchi (masalan "oddiy foydalanuvchi")
     ham "hammaga ochiq" (`korinish="public"`) mashqlarni ko'radi — 9-faza
     qoidasi: Mashqlar Utmost talabasi bo'lmaganlar uchun ham ochiq.
-    """
-    from content.models import public_kontent_ochiqmi
 
+    2026-08-14: ko'p-markazli "boshqa markazning public kontentini
+    ochish" logikasi olib tashlandi — sayt bitta markaz rejimiga
+    o'tkazilmoqda, ko'p-markazli qoidalar kerak emas.
+    """
     if user.markaz_id is None:
         return Mashq.objects.filter(korinish="public")
-    ozimniki = models.Q(markaz_id=user.markaz_id)
-    if public_kontent_ochiqmi(user.markaz):
-        return Mashq.objects.filter(ozimniki | models.Q(korinish="public"))
-    return Mashq.objects.filter(ozimniki)
+    return Mashq.objects.filter(markaz_id=user.markaz_id)
 
 
 class Manba(models.TextChoices):

@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
@@ -13,7 +14,6 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 
 from audit.models import FaoliyatYozuvi, LoginHistory
 from audit.utils import logla, maydon_diff
-from config import narxlar as NARX
 
 from .authentication import asl_owner_mi
 from .models import Bildirishnoma, Markaz, User
@@ -35,25 +35,6 @@ def _parolni_tekshir(parol, user=None):
     except DjangoValidationError as e:
         return list(e.messages)
     return None
-
-
-class NarxlarView(APIView):
-    """Yagona narx manbai (`config/narxlar.py`) — frontend shu yerdan o'qiydi.
-
-    Narx o'zgarsa faqat `config/narxlar.py` tahrirlanadi, frontend/backend'da
-    hech qayerda qattiq yozilgan (hardcode) narx qolmaydi.
-    """
-
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        return Response(
-            {
-                "writing_tezkor": NARX.WRITING_TEZKOR,
-                "speaking_matn": NARX.SPEAKING_MATN,
-                "speaking_tezkor": NARX.SPEAKING_TEZKOR,
-            }
-        )
 
 
 class ProfilView(APIView):
@@ -657,6 +638,24 @@ class FoydalanuvchiFarzandlarView(APIView):
         })
 
 
+def _rasm_korish_ruxsati(request_user, target_user):
+    """2026-08-15: profil rasmini kim ko'ra oladi — o'zi, owner/admin
+    (hammasi), o'qituvchi (o'z guruhidagi talabalar), ota-ona (o'z
+    farzandi), bir xil guruhdagi talabalar (klassdoshlar)."""
+    if request_user.pk == target_user.pk:
+        return True
+    if owner_mi(request_user) or request_user.role == User.Role.ADMIN:
+        return True
+
+    from academics.models import Guruh
+
+    if request_user.role == User.Role.TEACHER:
+        return Guruh.objects.filter(oqituvchi=request_user, talabalar=target_user).exists()
+    if request_user.role == User.Role.PARENT:
+        return target_user.ota_ona_id == request_user.pk
+    return Guruh.objects.filter(talabalar=request_user).filter(talabalar=target_user).exists()
+
+
 class FoydalanuvchiRasmView(APIView):
     """Profil rasmi — yuklash (POST) va ko'rish (GET).
 
@@ -676,9 +675,14 @@ class FoydalanuvchiRasmView(APIView):
         egasiga "Ogohlantirish" bildirishnomasi bo'lib boradi — aks
         holda rasm jimgina yo'qolib, odam nima uchun ekanini bilmasdi.
         Admin owner'ning rasmiga TEGA OLMAYDI (huquq zinapoyasi).
-      * KO'RISH (GET) — ochiq (autentifikatsiyadan tashqari tekshiruv
-        yo'q): avatar ro'yxatlarda hammaga ko'rinishi kerak va sayt
-        bitta markaz uchun ishlaydi, ya'ni yashiradigan chegara yo'q."""
+      * KO'RISH (GET) — 2026-08-15 qarori: o'zi, owner/admin (hammasi),
+        o'qituvchi (FAQAT o'z guruhidagi talabalar), ota-ona (FAQAT o'z
+        farzandi), va bir xil guruhdagi talabalar (klassdoshlar) bir-
+        birining rasmini ko'radi. Boshqa guruhdagi/markazdagi begona
+        foydalanuvchi ID orqali ko'ra olmaydi — avval BUTUNLAY ochiq edi.
+        Oqibat: reytingda (markaz bo'yicha, guruhlararo) boshqa
+        guruhdagi talabalar uchun rasm o'rniga standart ikonka chiqadi
+        — bu ATAYLAB shunday (foydalanuvchi tasdiqladi)."""
 
     permission_classes = [IsAuthenticated]
     # JSONParser — DELETE tanasida `izoh` JSON ko'rinishida keladi;
@@ -695,6 +699,8 @@ class FoydalanuvchiRasmView(APIView):
         from django.http import FileResponse, Http404
 
         user = get_object_or_404(User, pk=pk)
+        if not _rasm_korish_ruxsati(request.user, user):
+            raise Http404
         if not user.rasm:
             raise Http404
         javob = FileResponse(user.rasm.open("rb"))
@@ -941,16 +947,18 @@ class FoydalanuvchiNatijalariView(APIView):
 
     Ko'ra oladi: FOYDALANUVCHINING O'ZI (har doim, rolidan qat'i nazar —
     "oddiy" foydalanuvchi ham shu orqali "/tarix"da o'zinikini ko'radi),
-    owner (istalgan foydalanuvchi), teacher (FAQAT o'z guruhidagi
-    talabalar — `Guruh.talabalar`), ota-ona (FAQAT O'Z farzandi —
-    2026-08-09, avval bu shox yo'q edi va ota-ona 403 olardi)."""
+    owner va admin (istalgan foydalanuvchi — 2026-08-14: avval admin
+    bu yerda 403 olardi, TalabalarView'da esa hammasini ko'rar edi,
+    nomuvofiqlik tuzatildi), teacher (FAQAT o'z guruhidagi talabalar —
+    `Guruh.talabalar`), ota-ona (FAQAT O'Z farzandi — 2026-08-09, avval
+    bu shox yo'q edi va ota-ona 403 olardi)."""
 
     permission_classes = [IsAuthenticated]
 
     def get(self, request, pk):
         talaba = get_object_or_404(User, pk=pk)
         u = request.user
-        if u.pk == talaba.pk or owner_mi(u):
+        if u.pk == talaba.pk or owner_mi(u) or u.role == User.Role.ADMIN:
             pass
         elif u.role == User.Role.TEACHER:
             from academics.models import Guruh
@@ -1648,19 +1656,28 @@ class XodimLoginView(TokenObtainPairView):
 def _qurilma_tekshir(request, user):
     """OWNER bo'lmagan foydalanuvchi uchun qurilma cheklovi — mos kelmasa
     403 Response qaytaradi (login rad etiladi), mos kelsa/ro'yxatga yangi
-    qo'shilsa None qaytaradi (davom etaveradi)."""
+    qo'shilsa None qaytaradi (davom etaveradi).
+
+    2026-08-14: `select_for_update()` bilan qatorni qulflab qayta o'qiymiz
+    — parallel (bir vaqtdagi) ikkita login urinishi limitni chetlab
+    o'tishining oldini olish uchun (avval check-then-act race condition
+    bor edi: ikkala so'rov ham "hali joy bor" deb o'qib, ikkalasi ham
+    qo'shilib ketishi mumkin edi)."""
     qurilma_id = (request.data.get("qurilma_id") or "").strip()
     if not qurilma_id:
         return Response(
             {"detail": "Qurilma identifikatori yuborilmadi", "kod": "qurilma_id_yoq"},
             status=400,
         )
-    if qurilma_id in user.qurilmalar:
-        return None
-    if len(user.qurilmalar) < user.qurilma_limiti:
-        user.qurilmalar = [*user.qurilmalar, qurilma_id]
-        user.save(update_fields=["qurilmalar"])
-        return None
+
+    with transaction.atomic():
+        user = User.objects.select_for_update().get(pk=user.pk)
+        if qurilma_id in user.qurilmalar:
+            return None
+        if len(user.qurilmalar) < user.qurilma_limiti:
+            user.qurilmalar = [*user.qurilmalar, qurilma_id]
+            user.save(update_fields=["qurilmalar"])
+            return None
 
     for admin in User.objects.filter(role=User.Role.ADMIN) | User.objects.filter(is_superuser=True):
         Bildirishnoma.objects.create(

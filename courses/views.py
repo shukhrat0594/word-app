@@ -1,6 +1,7 @@
 import zipfile
 
 from django.core.files.base import ContentFile
+from django.db.models import Count
 from django.shortcuts import get_object_or_404
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
@@ -68,24 +69,30 @@ def _shox_idlari(tugun):
     return idlar
 
 
-def _unit_otildimi(user, unit_tugun):
+def _unit_otildimi(user, unit_tugun, yechim_map):
     """Talaba shu Unit'ning BARCHA bo'limlaridagi mashqlaridan jami
     OTISH_FOIZ (60%) dan ko'p ball olganmi — Unit ichidagi har bir
     mashqqa javob yuborgan va o'rtacha ball yetarli bo'lishi shart.
 
     Unit ostidagi butun shox hisobga olinadi (Student's Book va Workbook
-    ikkalasi ham) — 2026-07-28 tuzilma o'zgarishidan keyin."""
+    ikkalasi ham) — 2026-07-28 tuzilma o'zgarishidan keyin.
+
+    2026-08-14: `yechim_map` ({mashq_id: (ball, jami)}) chaqiruvchi
+    tomonidan BITTA so'rovda oldindan tayyorlanadi — avval har mashq
+    uchun alohida `KursMashqYechim` so'rovi berilardi (N+1), endi
+    xotiradan o'qiladi."""
     mashqlar = list(KursMashq.objects.filter(tugun_id__in=_shox_idlari(unit_tugun)))
     if not mashqlar:
         return False
     jami_ball = 0
     jami_savol = 0
     for m in mashqlar:
-        yechim = KursMashqYechim.objects.filter(talaba=user, mashq=m).order_by("-created_at").first()
+        yechim = yechim_map.get(m.id)
         if not yechim:
             return False
-        jami_ball += yechim.ball
-        jami_savol += yechim.jami
+        ball, jami = yechim
+        jami_ball += ball
+        jami_savol += jami
     return jami_savol > 0 and (jami_ball / jami_savol) >= OTISH_FOIZ
 
 
@@ -111,7 +118,7 @@ def _boshlanish_unitdan_oldinmi(user, unit_tugun):
     return unit_tugun.tartib <= azolik.boshlanish_unit.tartib
 
 
-def _unit_qulflanganmi(user, unit_tugun):
+def _unit_qulflanganmi(user, unit_tugun, yechim_map):
     """Faqat talaba uchun: shu Unit'dan oldingi (bir xil ota-tugun ostidagi,
     tartibi kichikroq) Unit hali o'tilmagan bo'lsa — qulflangan. Guruhda
     belgilangan `boshlanish_unit`gacha (unga qo'shilgan holda) — har doim
@@ -129,7 +136,7 @@ def _unit_qulflanganmi(user, unit_tugun):
     )
     if not oldingi:
         return False
-    return not _unit_otildimi(user, oldingi)
+    return not _unit_otildimi(user, oldingi, yechim_map)
 
 
 def _eng_yaqin_unit(tugun):
@@ -143,6 +150,18 @@ def _eng_yaqin_unit(tugun):
     return None
 
 
+def _yechim_map_ol(user):
+    """Talabaning BARCHA KursMashq yechimlaridan {mashq_id: (ball, jami)}
+    xaritasi — bitta so'rovda (2026-08-14, N+1 tuzatish). `KursMashqYechim`
+    Meta'sida `ordering = ["-created_at"]` bo'lgani uchun har mashq
+    bo'yicha BIRINCHI uchraganini saqlash — eng yangi yechim demakdir."""
+    yechim_map = {}
+    qs = KursMashqYechim.objects.filter(talaba=user).values_list("mashq_id", "ball", "jami")
+    for mashq_id, ball, jami in qs:
+        yechim_map.setdefault(mashq_id, (ball, jami))
+    return yechim_map
+
+
 def _talaba_tugun_qulflanganmi(user, tugun):
     """Himoya qatlami: talaba uchun shu tugun (yoki uning eng yaqin Unit
     ota-tuguni) hali qulflanganmi — fayl/mashq amallarini to'g'ridan-to'g'ri
@@ -152,7 +171,7 @@ def _talaba_tugun_qulflanganmi(user, tugun):
     unit = tugun if tugun.unit_darsi else _eng_yaqin_unit(tugun)
     if not unit:
         return False
-    return _unit_qulflanganmi(user, unit)
+    return _unit_qulflanganmi(user, unit, _yechim_map_ol(user))
 
 
 def _mashqlar_sonini_hisobla(tugun):
@@ -180,7 +199,7 @@ def _mashqlar_sonini_hisobla(tugun):
     return jami
 
 
-def _tugun_dict(tugun, user, bolalar_keshi, tugatgan_idlar, qulflangan=False):
+def _tugun_dict(tugun, user, bolalar_keshi, tugatgan_idlar, sozlar_soni_map, yechim_map, qulflangan=False):
     bolalar = bolalar_keshi.get(tugun.id, [])
     oxirgi_qatlammi = len(bolalar) == 0
     natija = {
@@ -207,7 +226,7 @@ def _tugun_dict(tugun, user, bolalar_keshi, tugatgan_idlar, qulflangan=False):
         # soni) — Unit'ning boshqa 2 bo'limi, mashq emas.
         if tugun.matn:
             natija["matn"] = tugun.matn
-        sozlar_soni = tugun.sozlar.count()
+        sozlar_soni = sozlar_soni_map.get(tugun.id, 0)
         if sozlar_soni:
             natija["sozlar_soni"] = sozlar_soni
         if user.role == User.Role.STUDENT:
@@ -215,8 +234,10 @@ def _tugun_dict(tugun, user, bolalar_keshi, tugatgan_idlar, qulflangan=False):
     else:
         children = []
         for b in bolalar:
-            b_qulflangan = _unit_qulflanganmi(user, b) if b.unit_darsi else False
-            children.append(_tugun_dict(b, user, bolalar_keshi, tugatgan_idlar, b_qulflangan))
+            b_qulflangan = _unit_qulflanganmi(user, b, yechim_map) if b.unit_darsi else False
+            children.append(
+                _tugun_dict(b, user, bolalar_keshi, tugatgan_idlar, sozlar_soni_map, yechim_map, b_qulflangan)
+            )
         natija["children"] = children
     return natija
 
@@ -232,10 +253,21 @@ class KursDaraxtiView(APIView):
             return Response({"detail": "Ruxsat yo'q"}, status=403)
 
         tugatgan_idlar = set()
+        yechim_map = {}
         if request.user.role == User.Role.STUDENT:
             tugatgan_idlar = set(
                 KursProgress.objects.filter(talaba=request.user).values_list("tugun_id", flat=True)
             )
+            # 2026-08-14: avval har mashq uchun `_unit_otildimi` ichida
+            # alohida so'rov berilardi (N+1) — endi bitta so'rovda.
+            yechim_map = _yechim_map_ol(request.user)
+
+        # 2026-08-14: "Wordlist" so'zlar soni — avval har oxirgi qatlam
+        # tuguni uchun alohida `.count()` so'rovi berilardi (N+1), endi
+        # bitta guruhlangan so'rovda.
+        sozlar_soni_map = dict(
+            KursSoz.objects.values("tugun_id").annotate(soni=Count("id")).values_list("tugun_id", "soni")
+        )
 
         barcha = list(KursTugun.objects.all().order_by("tartib", "id"))
         bolalar_keshi = {}
@@ -257,7 +289,8 @@ class KursDaraxtiView(APIView):
                 "id": ildiz.id,
                 "nomi": ildiz.nomi,
                 "children": [
-                    _tugun_dict(b, request.user, bolalar_keshi, tugatgan_idlar) for b in bolalar
+                    _tugun_dict(b, request.user, bolalar_keshi, tugatgan_idlar, sozlar_soni_map, yechim_map)
+                    for b in bolalar
                 ],
             }
         )

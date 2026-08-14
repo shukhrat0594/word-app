@@ -1,8 +1,21 @@
+import random
+
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .models import GrammatikaSavoli, Soz
+
+
+def _tasodifiy_tanlash(qs, soni):
+    """`order_by("?")` o'rniga (2026-08-15) — u SQL darajasida BUTUN
+    jadvalni tasodifiy saralaydi (`ORDER BY RANDOM()`), jadval
+    kattalashsa sekinlashadi. Bu yerda: avval faqat ID'lar arzon
+    so'rovda olinadi, Python'da tasodifiy tanlanadi, keyin FAQAT
+    tanlangan qatorlar to'liq o'qiladi."""
+    barcha_idlar = list(qs.values_list("id", flat=True))
+    tanlangan_idlar = random.sample(barcha_idlar, min(soni, len(barcha_idlar)))
+    return list(qs.filter(id__in=tanlangan_idlar))
 
 
 class SozlarView(APIView):
@@ -21,9 +34,7 @@ class SozlarView(APIView):
         except ValueError:
             soni = 8
 
-        sozlar = list(
-            Soz.objects.filter(daraja=daraja).order_by("?")[:soni]
-        )
+        sozlar = _tasodifiy_tanlash(Soz.objects.filter(daraja=daraja), soni)
         return Response(
             [
                 {
@@ -86,7 +97,7 @@ class GrammatikaSavollariView(APIView):
         qs = GrammatikaSavoli.objects.all()
         if mavzu:
             qs = qs.filter(mavzu=mavzu)
-        savollar = list(qs.order_by("?")[:soni])
+        savollar = _tasodifiy_tanlash(qs, soni)
         return Response(
             [
                 {"id": s.id, "savol": s.savol, "variantlar": s.variantlar}

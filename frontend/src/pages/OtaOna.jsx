@@ -108,31 +108,16 @@ export default function OtaOna() {
             <NatijalarRoyxati talabaId={tanlangan} />
           </div>
 
-          <div className="ikki-ustun">
-            <div className="karta">
-              <h3>{t("dars_faolligi")}</h3>
-              <div className="stat-qator" style={{ gridTemplateColumns: "repeat(2, 1fr)" }}>
-                <div className="stat">
-                  <div className="nom">{t("boshlangan")}</div>
-                  <div className="qiymat">{stat.dars_faollik.boshlangan}</div>
-                </div>
-                <div className="stat">
-                  <div className="nom">{t("tugatilgan")}</div>
-                  <div className="qiymat">{stat.dars_faollik.tugatilgan}</div>
-                </div>
+          <div className="karta">
+            <h3>{t("davomat")}</h3>
+            <div className="stat-qator" style={{ gridTemplateColumns: "repeat(2, 1fr)" }}>
+              <div className="stat">
+                <div className="nom">{t("keldi")}</div>
+                <div className="qiymat">{stat.davomat.keldi}</div>
               </div>
-            </div>
-            <div className="karta">
-              <h3>{t("davomat")}</h3>
-              <div className="stat-qator" style={{ gridTemplateColumns: "repeat(2, 1fr)" }}>
-                <div className="stat">
-                  <div className="nom">{t("keldi")}</div>
-                  <div className="qiymat">{stat.davomat.keldi}</div>
-                </div>
-                <div className="stat">
-                  <div className="nom">{t("kelmadi")}</div>
-                  <div className="qiymat">{stat.davomat.kelmadi}</div>
-                </div>
+              <div className="stat">
+                <div className="nom">{t("kelmadi")}</div>
+                <div className="qiymat">{stat.davomat.kelmadi}</div>
               </div>
             </div>
           </div>

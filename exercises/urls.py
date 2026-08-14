@@ -23,7 +23,6 @@ urlpatterns = [
         name="mashq_yechish",
     ),
     path("limit/", views.LimitHolatiView.as_view(), name="limit_holati"),
-    path("limit/topup/", views.LimitTopUpView.as_view(), name="limit_topup"),
     path(
         "imtihon/testlar-boshqaruv/",
         views.ImtihonBoshqaruvView.as_view(),

@@ -43,7 +43,6 @@ from accounts.views import (
     KorishRejimiView,
     MarkazSozlamaView,
     MarkazTasdiqlashView,
-    NarxlarView,
     OddiyStudentgaOtkazishView,
     ParolOzgartirishView,
     ProfilView,
@@ -65,7 +64,6 @@ urlpatterns = [
     path('api/profil/parol/', ParolOzgartirishView.as_view(), name='parol_ozgartirish'),
     path('api/profil/tahrirlash/', ProfilTahrirlashView.as_view(), name='profil_tahrirlash'),
     path('api/profil/korish-rejimi/', KorishRejimiView.as_view(), name='korish_rejimi'),
-    path('api/narxlar/', NarxlarView.as_view(), name='narxlar'),
     path('api/markazlar/', MarkazlarView.as_view(), name='markazlar'),
     path(
         'api/markazlar/<int:pk>/admin-tayinlash/',
@@ -159,7 +157,6 @@ urlpatterns = [
     path('api/', include('assessment.urls')),
     path('api/', include('stats.urls')),
     path('api/', include('gamification.urls')),
-    path('api/', include('packages.urls')),
     path('api/', include('games.urls')),
     path('api/', include('audit.urls')),
     path('api/', include('courses.urls')),

@@ -3,6 +3,7 @@ import logging
 import re
 
 from django.core.exceptions import ValidationError
+from django.db import transaction
 from django.shortcuts import get_object_or_404
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
@@ -19,7 +20,6 @@ from .models import (
     Bolim,
     ImtihonMock,
     ImtihonTest,
-    LimitTopUp,
     Manba,
     Mashq,
     MashqYechim,
@@ -342,23 +342,6 @@ class LimitHolatiView(APIView):
                 str(b): kunlik_limit_holati(request.user, b)
                 for b in (Bolim.LISTENING, Bolim.READING)
             }
-        )
-
-
-class LimitTopUpView(APIView):
-    """Limit to'ldirish (+har turdan 1). DIQQAT: to'lov tizimi 2-fazada —
-    hozircha bu endpoint to'lovsiz yaratadi (test rejimi)."""
-
-    permission_classes = [IsAuthenticated]
-
-    def post(self, request):
-        bolim = request.data.get("bolim")
-        if bolim not in Bolim.values:
-            return Response({"detail": "bolim: listening yoki reading"}, status=400)
-        LimitTopUp.objects.create(talaba=request.user, bolim=bolim)
-        return Response(
-            {"detail": "+1 har turga qo'shildi (bugunga)",
-             "limit": kunlik_limit_holati(request.user, bolim)}
         )
 
 
@@ -1929,7 +1912,6 @@ class ImtihonYozGapTekshirishView(APIView):
         from assessment.models import SpeakingTekshiruv, WritingTekshiruv
         from assessment.providers import ProviderXatosi, provider_tanla
         from assessment.views import ai_xatosi_javobi
-        from packages.models import paketdan_ishlat
 
         test, topilmadi = _yechilayotgan_testni_ol(request.user, pk)
         if topilmadi:
@@ -2069,9 +2051,6 @@ class ImtihonYozGapTekshirishView(APIView):
         bandlar = [b for b in bandlar if b is not None]
         umumiy_band = round(sum(bandlar) / len(bandlar) * 2) / 2 if bandlar else None
 
-        xizmat = "w" if test.bolim == Bolim.WRITING else "s"
-        paket = paketdan_ishlat(request.user, xizmat)
-
         # Speaking endi part-part topshirilishi mumkin — bu yerdagi
         # `umumiy_band` faqat SHU so'rovda kelgan part(lar)niki, butun
         # Speaking bo'liminiki emas. Shuning uchun MockYechim'ni bu yerda
@@ -2088,7 +2067,6 @@ class ImtihonYozGapTekshirishView(APIView):
             {
                 "natijalar": natijalar,
                 "umumiy_band": umumiy_band,
-                "paketdan": paket is not None,
                 "mock": mock_natija,
             }
         )
@@ -2272,22 +2250,30 @@ class ImtihonMockDetailView(APIView):
 
 class ImtihonMockBoshlashView(APIView):
     """Talaba mock imtihonni boshlaydi — tugallanmagan urinishi bo'lsa
-    o'shani davom ettiradi (qayta boshlamaydi), bo'lmasa yangi yaratadi."""
+    o'shani davom ettiradi (qayta boshlamaydi), bo'lmasa yangi yaratadi.
+
+    2026-08-14: `mock` qatori `select_for_update()` bilan qulflanadi —
+    avval tekshirish+yaratish orasida qulf yo'q edi (race condition:
+    parallel ikkita so'rov ikkalasi ham "urinish yo'q" deb topib,
+    ikkalasi ham alohida MockYechim yaratishi mumkin edi)."""
 
     permission_classes = [IsAuthenticated]
 
     def post(self, request, pk):
-        mock = get_object_or_404(korinadigan_moklar(request.user), pk=pk)
         if request.user.role != User.Role.STUDENT:
             return Response({"detail": "Faqat talaba uchun"}, status=403)
 
-        yechim = (
-            MockYechim.objects.filter(talaba=request.user, mock=mock, tugallandi_at__isnull=True)
-            .order_by("-created_at")
-            .first()
-        )
-        if not yechim:
-            yechim = MockYechim.objects.create(talaba=request.user, mock=mock)
+        with transaction.atomic():
+            mock = get_object_or_404(
+                korinadigan_moklar(request.user).select_for_update(), pk=pk
+            )
+            yechim = (
+                MockYechim.objects.filter(talaba=request.user, mock=mock, tugallandi_at__isnull=True)
+                .order_by("-created_at")
+                .first()
+            )
+            if not yechim:
+                yechim = MockYechim.objects.create(talaba=request.user, mock=mock)
 
         return Response(_mock_yechim_dict(yechim))
 

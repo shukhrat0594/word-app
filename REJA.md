@@ -418,6 +418,26 @@ uchraydigan 3-4 tasini — dialog, jadval, moslashtirish — birinchi
 navbatga qo'yishni taklif qildi, lekin hali tasdiqlanmagan). Ish
 boshlanishidan oldin ko'lam aniqlashtiriladi.
 
+---
+
+### IELTS MASHQLARINI KURSLAR BO'LIMIGA KO'CHIRISH (katta, arxitektura) — REJADA
+**Muammo (2026-08-14 audit'da aniqlandi):** hozir `exercises` (IELTS
+testlari) va `courses` (Kurslar) — ikkita alohida app, va ular bir-
+birini import qiladi (aylanma bog'liqlik: `courses/views.py` →
+`exercises.models`, `exercises/views.py:12` → `courses.blok_generatsiya`).
+Bu ikkalasini alohida qo'llab-quvvatlash/tushunishni qiyinlashtiradi.
+
+**Kelishilgan yo'nalish (2026-08-14):** IELTS bo'limidagi mashqlarni
+(`exercises` app) Kurslar bo'limi ichidagi IELTS qismiga o'tkazish —
+ya'ni ikkita alohida tizim o'rniga bitta joyga birlashtirish. Bu
+aylanma bog'liqlik muammosini ham tabiiy ravishda hal qiladi (endi
+ikkita app o'rniga bittasi bo'ladi).
+
+**Implementatsiya boshlanmagan.** Katta arxitektura ishi — boshlashdan
+oldin ko'lam (qaysi modellar/endpointlar ko'chadi, frontend qanday
+qayta tuziladi, mavjud talaba natijalari/tarixi qanday saqlanadi)
+alohida aniqlashtirilishi kerak.
+
 ## 🔴 ENG YUQORI PRIORITET — Headway kitoblarini Kurslar bo'limiga tahlil qilish (2026-08-11)
 
 Foydalanuvchi 4 ta kitob yuborgan — Kurslar bo'limiga yuklanishi kerak.
@@ -532,6 +552,131 @@ nechta savolga javob beriladi, DevTools orqali sahifa yangilanadi
 muvaffaqiyatli yakunlangach `localStorage`da iz qolmasligi
 tekshiriladi; ikkita turli test/mock orasida holat aralashmasligi
 tekshiriladi.
+
+---
+
+### VAQT TUGAGANDA MAJBURIY YAKUNLASH (o'rta) — ❗ NAVBATDAGI, BOSHLASHGA TASDIQ KUTILMOQDA
+**Muammo (2026-08-14 audit'da aniqlandi):** `ImtihonOtish.jsx:1036-1042`
+— taymer faqat vizual ko'rsatkich, 0 ga yetganda hech qanday amal
+bajarilmaydi. Talaba istagancha davom eta oladi, real IELTS shartlariga
+mos emas.
+
+**Kelishilgan yechim (2026-08-14, foydalanuvchi bilan muhokama qilingan):**
+- **Alohida mashq** (bitta bo'lim — Reading/Listening/Writing/Speaking
+  alohida yechilayotganda): vaqt tugagach hech qanday o'zgartirish
+  imkoni qolmasligi kerak (input'lar bloklanadi) va avtomatik tekshirishga
+  yuboriladi.
+- **Mock imtihon** (4 bo'lim ketma-ket): vaqt tugagach imtihon oynasi
+  bloklanadi, yangi oyna/modal ochiladi — bitta tugma ("Keyingisi"),
+  shu tugmaning o'zida 30 soniyalik teskari sanoq ketadi, sanoq 0 ga
+  yetganda avtomatik keyingi bo'limga o'tadi (Listening → Reading →
+  Writing → ...). Tugmani qo'lda bosish ham mumkin (30 soniyani kutmasdan).
+
+**Bog'liq ish:** yuqoridagi "F5'DA TEST HOLATI YO'QOLISHI" bilan bir xil
+faylga (`ImtihonOtish.jsx`, `ImtihonMock.jsx`) tegishli — ikkalasini
+birga rejalashtirish maqsadga muvofiq (taymer/absolyut tugash vaqti
+logikasi ikkalasida ham kerak bo'ladi).
+
+**Implementatsiya boshlanmagan, boshlashda aniqlashtiriladi:** aniq
+qaysi holatda "alohida mashq" deb hisoblanadi (Mock ichidagi bitta
+bo'lim ham shu qoidaga tushadimi yoki faqat Mock-maxsus oynasi orqali
+o'tadimi) — implementatsiya boshlanganda kelishiladi.
+
+---
+
+### MOBILDA TEST SPLIT-PANEL ISHLAMAYDI (kichik-o'rta, faqat CSS) — ❗ NAVBATDAGI
+**Muammo (2026-08-14 audit'da aniqlandi):** `index.css:290` —
+`.imtihon-split` (Reading testida chap=matn/o'ng=savollar) uchun hech
+qanday `@media` query yo'q. Tor ekranda (telefon) ikkala panel ham
+yon-yonlab qisilib qoladi, o'qib/javob berish qiyinlashadi.
+
+**Kelishilgan yechim yo'nalishi:**
+- `@media (max-width: 768px)` ichida `.imtihon-split { flex-direction: column; height: auto; }` — chap panel tepada, o'ng panel pastda, ikkalasi to'liq en.
+- `.imtihon-drag-tutqich { display: none; }` mobilda (sudrash tugmasi endi ma'nosiz).
+- Fixed `calc(100vh - 230px)` balandlik o'rniga `height: auto`, ichki scroll emas — butun sahifa scroll qiladi.
+- `imtihon-pastki-panel` part-tab raqam tugmalari (26x26px) — touch-target sifatida 32-36px'gacha kattalashtirish.
+- Faqat CSS o'zgarishi, React logikasiga tegilmaydi. O'zgargach `resize_window`/brauzer orqali mobil rejimda sinab ko'rish kerak.
+
+---
+
+### XATO HOLATIDA "ABADIY YUKLANMOQDA" (kichik) — ❗ NAVBATDAGI
+**Muammo (2026-08-14 audit'da aniqlandi):** `.catch(() => {})` naqshi
+bir nechta sahifada — `Dashboard.jsx:22-24`, `Leaderboard.jsx:81-82`,
+`Davomat.jsx:19`, `Markazlar.jsx:14`, `Guruhlar.jsx:35`. Tarmoq xatosi
+bo'lsa, xato jimgina yutib yuboriladi, foydalanuvchi "yuklanmoqda..."
+holatida abadiy qolib ketadi, xabar/qayta urinish tugmasi yo'q.
+
+**Kelishilgan yechim:**
+1. Yangi umumiy komponent `components/XatolikHolati.jsx` (~15 qator) —
+   xabar + "Qayta urinish" tugmasi.
+2. Har sahifada bitta qo'shimcha `xato` state qo'shiladi, yuklash
+   funksiyasi alohida chiqariladi (`yukla()`), `.catch` xatoni
+   `setXato(true)` qiladi, `xato` bo'lsa `<XatolikHolati qaytaUrin={yukla} />`
+   ko'rsatiladi.
+3. Naqsh bir xilda 5 ta faylga qo'llanadi: `Dashboard.jsx`,
+   `Leaderboard.jsx`, `Davomat.jsx`, `Markazlar.jsx`, `Guruhlar.jsx`.
+
+Faqat frontend, backend'ga tegilmaydi. Murakkablik: past (~1-1.5 soat).
+
+---
+
+### AI XATOSIDA TALABANING MATNI YO'QOLADI (o'rta) — ❗ NAVBATDAGI
+**Muammo (2026-08-14 audit'da aniqlandi):** `assessment/views.py` —
+Writing (:122-140), Speaking matn (:180-203) va Speaking audio
+(:277-303) endpointlarida talabaning matni/audiosi FAQAT AI
+muvaffaqiyatli javob qaytarsa saqlanadi (`WritingTekshiruv.objects.create`
+va h.k. AI chaqiruvidan KEYIN). AI xato bersa (tarmoq, Gemini vaqtincha
+ishlamasligi, kvota) — talabaning matni/ovozi hech qayerda saqlanmaydi,
+u qaytadan yozishi/gapirishi kerak bo'ladi. Writing insho 5-15 daqiqa
+vaqt oladi — bu mehnat behuda ketadi.
+
+**Kelishilgan yo'nalish (2026-08-14):** foydalanuvchi tasdiqladi, ikkala
+yo'nalish ham ko'rib chiqiladi:
+- **A) Backend:** AI chaqirishdan OLDIN talabaning matni/audiosini
+  "xom" holda (masalan `holat="kutilmoqda"`) saqlab qo'yish, AI natija
+  kelganda o'sha yozuvni yangilash — AI xato bersa ham matn saqlangan
+  bo'ladi, "qayta urinish" o'sha matn bilan ishlaydi.
+- **B) Frontend:** xato kelganda kiritilgan matnni yo'qotmaslik (masalan
+  `localStorage`ga vaqtinchalik saqlash) — faqat sahifa ochiq turganda
+  ishlaydi, A bilan bir xil kafolat bermaydi.
+
+Implementatsiya boshlanmagan — boshlashda qaysi yo'nalish (A/B/ikkalasi)
+tanlanishi aniqlashtiriladi.
+
+---
+
+### KURSLAR BO'LIMIDA FAYL YUKLASH VALIDATSIYASI YO'Q (kichik-o'rta) — ❗ NAVBATDAGI
+**Muammo (2026-08-14 audit'da aniqlandi):** `courses/views.py` — kurs
+fayli (:302-308), mashq rasmi (:1189-1198), mashq audiosi (:1228-1232)
+yuklashda fayl turi/hajmi tekshirilmaydi. Solishtirma: `accounts/views.py`
+(`FoydalanuvchiRasmView`)da bunday tekshiruv bor — o'sha namunadan
+foydalanish mumkin. Faqat admin/o'qituvchi ishlatadigan joy (talaba
+emas) — asosiy xavf ataylab zararli fayl emas, tasodifiy noto'g'ri
+format/juda katta fayl yuklab qo'yish.
+
+**Eslatma (2026-08-14 tekshirildi):** fayllarni R2'ga yuklash/o'qish
+ALLAQACHON ishlaydi — `config/settings.py:218-253`dagi global `STORAGES`
+sozlamasi orqali (R2_BUCKET_NAME sozlangan bo'lsa), barcha
+FileField/ImageField (jumladan courses'dagilar) avtomatik R2'ga
+yozadi/o'qiydi. Bu masala FAQAT validatsiya (tur/hajm tekshiruvi)
+haqida, R2 bilan bog'liq qo'shimcha ish yo'q.
+
+Implementatsiya boshlanmagan.
+
+---
+
+### `role` MAYDONIGA INDEKS (kichik, xavfsiz) — ❗ NAVBATDAGI
+**Muammo (2026-08-14 audit'da aniqlandi):** `accounts/models.py:111` —
+`User.role` maydonida DB indeksi yo'q (`db_index=True` yo'q), holbuki
+deyarli har bir so'rov (masalan barcha talabalar/o'qituvchilar/adminlarni
+olish) shu maydon bo'yicha filtrlaydi. Foydalanuvchilar soni kam bo'lgani
+uchun hozircha sezilmaydi, lekin son minglab bo'lganda sekinlashadi.
+
+**Yechim:** `role` maydoniga `db_index=True` qo'shish, keyin
+`makemigrations` + `migrate`. Faqat DB'ga indeks qo'shadi, ma'lumotlarga
+tegmaydi — juda kichik va xavfsiz o'zgarish.
+
+Implementatsiya boshlanmagan.
 
 ---
 

@@ -139,20 +139,7 @@ class WritingTekshirishView(APIView):
         except Exception as e:
             return ai_xatosi_javobi(e, f"Writing tekshiruvi (talaba id={request.user.id})")
 
-        # B9: aktiv paket bo'lsa, undan 1 ta Writing yechiladi (nechta model
-        # tanlangan bo'lishidan qat'iy nazar — bitta foydalanuvchi harakati).
-        # Paket bo'lmasa — alohida to'lov (narx: config/narxlar.WRITING_TEZKOR,
-        # to'lov tizimi 2-fazada).
-        from packages.models import paketdan_ishlat
-
-        paket = paketdan_ishlat(request.user, "w")
-        return Response(
-            {
-                "natijalar": natijalar,
-                "paketdan": paket is not None,
-                "paket_w_qolgan": paket.w_qolgan if paket else None,
-            }
-        )
+        return Response({"natijalar": natijalar})
 
 
 class SpeakingMatnView(APIView):
@@ -202,18 +189,7 @@ class SpeakingMatnView(APIView):
         except Exception as e:
             return ai_xatosi_javobi(e, f"Speaking tekshiruvi (talaba id={request.user.id})")
 
-        # B9: aktiv paket bo'lsa, undan 1 ta Speaking yechiladi (nechta model
-        # tanlangan bo'lishidan qat'iy nazar — bitta foydalanuvchi harakati).
-        from packages.models import paketdan_ishlat
-
-        paket = paketdan_ishlat(request.user, "s")
-        return Response(
-            {
-                "natijalar": natijalar,
-                "paketdan": paket is not None,
-                "paket_s_qolgan": paket.s_qolgan if paket else None,
-            }
-        )
+        return Response({"natijalar": natijalar})
 
 
 class SpeakingTranskripsiyaView(APIView):
@@ -302,16 +278,11 @@ class SpeakingAudioView(APIView):
         except Exception as e:
             return ai_xatosi_javobi(e, f"Speaking audio tekshiruvi (talaba id={request.user.id})")
 
-        from packages.models import paketdan_ishlat
-
-        paket = paketdan_ishlat(request.user, "s")
         return Response(
             {
                 "transkript": baho["transkript"],
                 "natija": baho["natija"],
                 "id": tekshiruv.id,
-                "paketdan": paket is not None,
-                "paket_s_qolgan": paket.s_qolgan if paket else None,
             }
         )
 

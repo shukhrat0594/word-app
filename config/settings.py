@@ -44,20 +44,14 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt.token_blacklist',
     'accounts',
     'academics',
-    'content',
     'exercises',
     'assessment',
     'stats',
     'gamification',
-    'packages',
     'games',
     'audit',
     'courses',
 ]
-
-# B3.1: markaz shuncha Public material kiritgach, boshqa markazlarning
-# Public kontentini ko'rish ochiladi (moslashuvchan chegara)
-PUBLIC_UNLOCK_LIMIT = 5
 
 AUTH_USER_MODEL = 'accounts.User'
 

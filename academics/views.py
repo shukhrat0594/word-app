@@ -24,13 +24,17 @@ def _foydalanuvchi_dict(u):
     }
 
 
-def _guruh_dict(g, toliq=False):
+def _guruh_dict(g, toliq=False, talaba_soni=None):
+    """2026-08-15: `talaba_soni` — ro'yxat ko'rinishida N+1'dan qochish
+    uchun chaqiruvchi tomonidan oldindan (`annotate(Count(...))` bilan)
+    hisoblab beriladi; berilmasa (masalan bitta guruh — detail view)
+    oddiy `.count()` bilan hisoblanadi."""
     d = {
         "id": g.id,
         "name": g.name,
         "faol": g.faol,
         "oqituvchi": _foydalanuvchi_dict(g.oqituvchi) if g.oqituvchi else None,
-        "talaba_soni": g.talabalar.count(),
+        "talaba_soni": talaba_soni if talaba_soni is not None else g.talabalar.count(),
         "fan": {"id": g.fan_id, "nomi": g.fan.nomi, "kalit": g.fan.kalit} if g.fan_id else None,
         "daraja": {"id": g.daraja_id, "nomi": g.daraja.nomi, "kalit": g.daraja.kalit} if g.daraja_id else None,
     }
@@ -120,7 +124,13 @@ class GuruhlarView(APIView):
         # `?arxiv=1` — faqat arxivlangan (faol=False) guruhlar (2026-08-02).
         # Standart holatda faqat FAOL guruhlar ko'rinadi.
         qs = qs.filter(faol=False) if request.query_params.get("arxiv") else qs.filter(faol=True)
-        return Response([_guruh_dict(g) for g in qs])
+        # 2026-08-15: avval har guruh uchun `oqituvchi`/`fan`/`daraja`
+        # (FK) va `talabalar.count()` alohida so'rov berardi (N+1) —
+        # endi select_related + annotate bilan bitta so'rovda.
+        qs = qs.select_related("oqituvchi", "fan", "daraja").annotate(
+            _talaba_soni=Count("talabalar", distinct=True)
+        )
+        return Response([_guruh_dict(g, talaba_soni=g._talaba_soni) for g in qs])
 
     def post(self, request):
         if owner_mi(request.user):

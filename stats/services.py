@@ -5,28 +5,34 @@ from django.db.models import Avg, Count, Q
 
 from academics.models import Davomat
 from assessment.models import SpeakingTekshiruv, WritingTekshiruv
-from content.models import DarsFaollik
 from exercises.models import BOLIM_TURLARI, Bolim, MashqYechim
 
 
 def _bolim_statistikasi(talaba, bolim):
-    """L yoki R bo'limi: jami yechilgan, o'rtacha foiz, har tur bo'yicha."""
-    yechimlar = MashqYechim.objects.filter(talaba=talaba, mashq__bolim=bolim)
+    """L yoki R bo'limi: jami yechilgan, o'rtacha foiz, har tur bo'yicha.
+
+    2026-08-15: avval har tur uchun queryset qayta baholanardi (sum() x2
+    + .count() — bitta DB so'rovi o'rniga 3 tadan) — endi hammasi BITTA
+    so'rovda (`.values()`) xotiraga olinadi, qolgani Python ichida."""
+    yechimlar = list(
+        MashqYechim.objects.filter(talaba=talaba, mashq__bolim=bolim)
+        .values("mashq__tur", "ball", "jami")
+    )
     jami_ball = 0
     jami_savol = 0
     tur_boyicha = {}
     for tur in BOLIM_TURLARI[bolim]:
-        tur_yechimlar = yechimlar.filter(mashq__tur=tur)
-        ball = sum(y.ball for y in tur_yechimlar)
-        savol = sum(y.jami for y in tur_yechimlar)
+        tur_yechimlar = [y for y in yechimlar if y["mashq__tur"] == tur]
+        ball = sum(y["ball"] for y in tur_yechimlar)
+        savol = sum(y["jami"] for y in tur_yechimlar)
         jami_ball += ball
         jami_savol += savol
         tur_boyicha[str(tur)] = {
-            "yechildi": tur_yechimlar.count(),
+            "yechildi": len(tur_yechimlar),
             "foiz": round(ball / savol * 100) if savol else None,
         }
     return {
-        "jami_yechildi": yechimlar.count(),
+        "jami_yechildi": len(yechimlar),
         "ortacha_foiz": round(jami_ball / jami_savol * 100) if jami_savol else None,
         "tur_boyicha": tur_boyicha,
     }
@@ -40,11 +46,11 @@ def talaba_statistikasi(talaba):
         {"sana": t.created_at.date(), "band": t.overall_band, "task_type": t.task_type}
         for t in writing.order_by("created_at")
     ]
-
-    faollik = DarsFaollik.objects.filter(talaba=talaba).aggregate(
-        boshlangan=Count("id"),
-        tugatilgan=Count("id", filter=Q(holat="tugatdi")),
-    )
+    # 2026-08-15: avval `.count()` + `.aggregate()` alohida, va
+    # `.aggregate()` yana "konikmalar" uchun QAYTA chaqirilardi (3 ta
+    # so'rov) — endi bitta `.aggregate()`da ikkalasi, natija qayta
+    # ishlatiladi.
+    writing_agg = writing.aggregate(soni=Count("id"), ortacha_band=Avg("overall_band"))
 
     davomat = Davomat.objects.filter(talaba=talaba).aggregate(
         keldi=Count("id", filter=Q(holat="keldi")),
@@ -60,17 +66,18 @@ def talaba_statistikasi(talaba):
          "rejim": t.rejim, "part_type": t.part_type}
         for t in speaking.order_by("created_at")
     ]
+    speaking_agg = speaking.aggregate(soni=Count("id"), ortacha_band=Avg("overall_band"))
 
     return {
         "writing": {
-            "soni": writing.count(),
-            "ortacha_band": writing.aggregate(a=Avg("overall_band"))["a"],
+            "soni": writing_agg["soni"],
+            "ortacha_band": writing_agg["ortacha_band"],
             "oxirgi_band": writing_dinamika[-1]["band"] if writing_dinamika else None,
             "dinamika": writing_dinamika,
         },
         "speaking": {
-            "soni": speaking.count(),
-            "ortacha_band": speaking.aggregate(a=Avg("overall_band"))["a"],
+            "soni": speaking_agg["soni"],
+            "ortacha_band": speaking_agg["ortacha_band"],
             "oxirgi_band": speaking_dinamika[-1]["band"] if speaking_dinamika else None,
             "dinamika": speaking_dinamika,
         },
@@ -78,11 +85,10 @@ def talaba_statistikasi(talaba):
         "reading": reading,
         # Ko'nikmalar diagrammasi (radar) uchun tayyor qiymatlar
         "konikmalar": {
-            "writing_band": writing.aggregate(a=Avg("overall_band"))["a"],
+            "writing_band": writing_agg["ortacha_band"],
             "listening_foiz": listening["ortacha_foiz"],
             "reading_foiz": reading["ortacha_foiz"],
-            "speaking_band": speaking.aggregate(a=Avg("overall_band"))["a"],
+            "speaking_band": speaking_agg["ortacha_band"],
         },
-        "dars_faollik": faollik,
         "davomat": davomat,
     }

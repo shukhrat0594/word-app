@@ -17,7 +17,6 @@ SABAB_NOMI = {
     "mashq_mukammal": "Mashqni mukammal yechdi",
     "writing_tekshiruv": "Writing tekshiruvi",
     "speaking_tekshiruv": "Speaking tekshiruvi",
-    "material_tugatildi": "Material tugatdi",
     "davomat_keldi": "Darsga keldi",
 }
 
@@ -60,7 +59,17 @@ class AuditHisobotView(APIView):
         except ValueError:
             offset = 0
 
+        # 2026-08-15: ikkita turli jadval (FaoliyatYozuvi/XPYozuv) vaqt
+        # bo'yicha bitta ro'yxatga birlashtiriladi — DB'ning oddiy
+        # LIMIT/OFFSET'i buni to'g'ridan-to'g'ri qila olmaydi. Avval
+        # BUTUN ikkala jadval xotiraga o'qib olinar edi. Endi: haqiqiy
+        # umumiy son arzon `.count()` bilan (DB darajasida, qatorlarsiz)
+        # olinadi, qatorlar esa faqat kerakli sahifagacha (`offset+limit`)
+        # yuklanadi — chuqur (masalan 1000+) sahifalashda hali ham
+        # ko'proq yuklanadi, lekin oddiy foydalanishda (birinchi sahifalar)
+        # butun jadvalni o'qishning oldi olinadi.
         yozuvlar = []
+        jami = 0
 
         if turi != "mashq":
             qs = FaoliyatYozuvi.objects.select_related("foydalanuvchi", "markaz").all()
@@ -72,7 +81,8 @@ class AuditHisobotView(APIView):
                 qs = qs.filter(vaqt__date__gte=sana_dan)
             if sana_gacha:
                 qs = qs.filter(vaqt__date__lte=sana_gacha)
-            for y in qs:
+            jami += qs.count()
+            for y in qs.order_by("-vaqt")[: offset + limit]:
                 yozuvlar.append(
                     {
                         "turi": "boshqaruv",
@@ -96,7 +106,8 @@ class AuditHisobotView(APIView):
                 qs = qs.filter(created_at__date__gte=sana_dan)
             if sana_gacha:
                 qs = qs.filter(created_at__date__lte=sana_gacha)
-            for x in qs:
+            jami += qs.count()
+            for x in qs.order_by("-created_at")[: offset + limit]:
                 yozuvlar.append(
                     {
                         "turi": "mashq",
@@ -111,7 +122,6 @@ class AuditHisobotView(APIView):
                 )
 
         yozuvlar.sort(key=lambda y: y["vaqt"], reverse=True)
-        jami = len(yozuvlar)
         sahifa = yozuvlar[offset : offset + limit]
 
         return Response({"jami": jami, "natijalar": sahifa})

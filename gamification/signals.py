@@ -8,7 +8,6 @@ from django.dispatch import receiver
 
 from academics.models import Davomat
 from assessment.models import SpeakingTekshiruv, WritingTekshiruv
-from content.models import DarsFaollik
 from exercises.models import MashqYechim
 
 from .models import xp_ber
@@ -33,12 +32,6 @@ def writing_uchun_xp(sender, instance, created, **kwargs):
 def speaking_uchun_xp(sender, instance, created, **kwargs):
     if created:
         xp_ber(instance.talaba, "speaking_tekshiruv", manba_id=instance.id)
-
-
-@receiver(post_save, sender=DarsFaollik)
-def material_uchun_xp(sender, instance, **kwargs):
-    if instance.holat == "tugatdi":
-        xp_ber(instance.talaba, "material_tugatildi", manba_id=instance.id)
 
 
 @receiver(post_save, sender=Davomat)
