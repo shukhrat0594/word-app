@@ -180,6 +180,32 @@ class User(AbstractUser):
         ),
     )
 
+    class Sabab(models.TextChoices):
+        """2026-08-14 — nima uchun IELTS/til o'qiyapti (profil maydoni,
+        foydalanuvchi talabi)."""
+        OQISH = "oqish", "Chet elda o'qish"
+        ISH = "ish", "Ish/immigratsiya"
+        SHAXSIY = "shaxsiy", "Shaxsiy rivojlanish"
+        BOSHQA = "boshqa", "Boshqa"
+
+    BAND_TANLOVLARI = [
+        (str(b / 2), str(b / 2)) for b in range(8, 19)  # 4.0 dan 9.0 gacha, 0.5 qadam
+    ]
+
+    # 2026-08-14, foydalanuvchi talabi — profilga qo'shimcha maydonlar.
+    # HAMMAGA OCHIQ (admin/owner ro'yxatlarida va o'ziga ko'rinadi):
+    bio = models.TextField(blank=True, max_length=500, help_text="'O'zim haqimda' — qisqa erkin matn")
+    maqsad_band = models.CharField(
+        max_length=3, blank=True, choices=BAND_TANLOVLARI,
+        help_text="Maqsad IELTS band bahosi (masalan '8.0')",
+    )
+    maqsad_muddat = models.DateField(null=True, blank=True, help_text="Maqsadga qadar muddat")
+    sabab = models.CharField(max_length=10, blank=True, choices=Sabab.choices)
+    # SHAXSIY — faqat admin/owner ko'radigan ro'yxatlarda chiqariladi,
+    # boshqa (masalan o'qituvchi/guruh) endpoint'larga QO'SHILMAYDI.
+    telefon = models.CharField(max_length=20, blank=True)
+    tugilgan_sana = models.DateField(null=True, blank=True)
+
     def __str__(self):
         return f"{self.username} ({self.get_role_display()})"
 

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api, apiForm } from "../api";
 import Avatar from "../components/Avatar";
 import { useI18n } from "../i18n";
@@ -70,6 +70,49 @@ export default function Profil() {
   const [band, setBand] = useState(false);
   const [rasmBand, setRasmBand] = useState(false);
   const [rasmXato, setRasmXato] = useState("");
+
+  // 2026-08-14: profil tahrirlash formasi — ism + bio/maqsad/sabab
+  // (ochiq) + telefon/tugilgan_sana (shaxsiy, faqat admin/owner ko'radi
+  // — bu yerda "o'zi" ko'rgani uchun muammo emas). `profil` async
+  // kelgani uchun useEffect bilan formani to'ldiramiz.
+  const [forma, setForma] = useState(null);
+  const [formaBand, setFormaBand] = useState(false);
+  const [formaXato, setFormaXato] = useState("");
+  const [formaXabar, setFormaXabar] = useState("");
+
+  useEffect(() => {
+    if (profil && !forma) {
+      setForma({
+        ism: profil.ism === profil.username ? "" : profil.ism,
+        bio: profil.bio || "",
+        maqsad_band: profil.maqsad_band || "",
+        maqsad_muddat: profil.maqsad_muddat || "",
+        sabab: profil.sabab || "",
+        telefon: profil.telefon || "",
+        tugilgan_sana: profil.tugilgan_sana || "",
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profil]);
+
+  async function formaniSaqla() {
+    setFormaXato("");
+    setFormaXabar("");
+    if (!forma.ism.trim()) {
+      setFormaXato(t("ism_bosh_bolmasin"));
+      return;
+    }
+    setFormaBand(true);
+    try {
+      await api("/api/profil/tahrirlash/", { method: "POST", body: forma });
+      setFormaXabar(t("saqlandi"));
+      await yangila();
+    } catch (e) {
+      setFormaXato(e.data?.detail || t("xato_yuz_berdi"));
+    } finally {
+      setFormaBand(false);
+    }
+  }
 
   async function rasmniYukla(fayl) {
     setRasmXato("");
@@ -156,10 +199,6 @@ export default function Profil() {
         {rasmXato && <div className="xato-xabar">{rasmXato}</div>}
         <div style={{ display: "grid", gap: 8 }}>
           <div>
-            <span className="izoh">{t("ism")}: </span>
-            {profil.ism}
-          </div>
-          <div>
             <span className="izoh">{t("login")}: </span>
             {profil.username}
           </div>
@@ -175,6 +214,95 @@ export default function Profil() {
           )}
         </div>
       </div>
+
+      {forma && (
+        <div className="karta" style={{ marginTop: 16 }}>
+          <h3>{t("profil_tahrirlash")}</h3>
+          <div style={{ display: "grid", gap: 14, maxWidth: 420 }}>
+            <label>
+              <span className="izoh">{t("ism")}</span>
+              <input
+                value={forma.ism}
+                onChange={(e) => setForma((f) => ({ ...f, ism: e.target.value }))}
+                placeholder={t("ism")}
+              />
+            </label>
+            <label>
+              <span className="izoh">{t("profil_bio")}</span>
+              <textarea
+                rows={3}
+                maxLength={500}
+                value={forma.bio}
+                onChange={(e) => setForma((f) => ({ ...f, bio: e.target.value }))}
+                placeholder={t("profil_bio_placeholder")}
+                style={{ width: "100%" }}
+              />
+            </label>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <label style={{ flex: 1, minWidth: 140 }}>
+                <span className="izoh">{t("profil_maqsad_band")}</span>
+                <select
+                  value={forma.maqsad_band}
+                  onChange={(e) => setForma((f) => ({ ...f, maqsad_band: e.target.value }))}
+                  style={{ width: "100%" }}
+                >
+                  <option value="">—</option>
+                  {["4.0", "4.5", "5.0", "5.5", "6.0", "6.5", "7.0", "7.5", "8.0", "8.5", "9.0"].map(
+                    (b) => (
+                      <option key={b} value={b}>{b}</option>
+                    )
+                  )}
+                </select>
+              </label>
+              <label style={{ flex: 1, minWidth: 140 }}>
+                <span className="izoh">{t("profil_maqsad_muddat")}</span>
+                <input
+                  type="date"
+                  value={forma.maqsad_muddat}
+                  onChange={(e) => setForma((f) => ({ ...f, maqsad_muddat: e.target.value }))}
+                  style={{ width: "100%" }}
+                />
+              </label>
+            </div>
+            <label>
+              <span className="izoh">{t("profil_sabab")}</span>
+              <select
+                value={forma.sabab}
+                onChange={(e) => setForma((f) => ({ ...f, sabab: e.target.value }))}
+                style={{ width: "100%" }}
+              >
+                <option value="">—</option>
+                <option value="oqish">{t("profil_sabab_oqish")}</option>
+                <option value="ish">{t("profil_sabab_ish")}</option>
+                <option value="shaxsiy">{t("profil_sabab_shaxsiy")}</option>
+                <option value="boshqa">{t("profil_sabab_boshqa")}</option>
+              </select>
+            </label>
+            <p className="izoh" style={{ margin: 0 }}>{t("profil_shaxsiy_izoh")}</p>
+            <label>
+              <span className="izoh">{t("profil_telefon")}</span>
+              <input
+                value={forma.telefon}
+                onChange={(e) => setForma((f) => ({ ...f, telefon: e.target.value }))}
+                placeholder="+998 90 123 45 67"
+              />
+            </label>
+            <label>
+              <span className="izoh">{t("profil_tugilgan_sana")}</span>
+              <input
+                type="date"
+                value={forma.tugilgan_sana}
+                onChange={(e) => setForma((f) => ({ ...f, tugilgan_sana: e.target.value }))}
+              />
+            </label>
+            {formaXato && <div className="xato-xabar">{formaXato}</div>}
+            {formaXabar && <div className="izoh">{formaXabar}</div>}
+            <button className="tugma" onClick={formaniSaqla} disabled={formaBand}>
+              {formaBand ? t("yuklanmoqda") : t("saqlash")}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* 2026-07-29: faqat HAQIQIY owner ko'radi (`asl_owner_mi` —
           simulyatsiyadan mustaqil, aks holda owner "Ko'rish rejimi"ga

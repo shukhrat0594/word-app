@@ -92,6 +92,13 @@ class ProfilView(APIView):
                 "korish_rejimi": u.korish_rejimi,
                 "korinadigan_panellar": u.korinadigan_panellar,
                 "rasm_url": f"/api/foydalanuvchilar/{u.id}/rasm/" if u.rasm else None,
+                # 2026-08-14 — o'z profili, hammasi (shaxsiylari ham) ko'rinadi.
+                "bio": u.bio,
+                "maqsad_band": u.maqsad_band,
+                "maqsad_muddat": u.maqsad_muddat,
+                "sabab": u.sabab,
+                "telefon": u.telefon,
+                "tugilgan_sana": u.tugilgan_sana,
             }
         )
 
@@ -449,6 +456,13 @@ class FoydalanuvchilarView(APIView):
                     # hozir nechta qurilma band ekanini ko'rsatish uchun.
                     "qurilma_limiti": u.qurilma_limiti,
                     "qurilmalar_soni": len(u.qurilmalar),
+                    # 2026-08-14 — owner ko'radi (shaxsiylari ham).
+                    "bio": u.bio,
+                    "maqsad_band": u.maqsad_band,
+                    "maqsad_muddat": u.maqsad_muddat,
+                    "sabab": u.sabab,
+                    "telefon": u.telefon,
+                    "tugilgan_sana": u.tugilgan_sana,
                     # Ota-ona uchun — biriktirilgan farzandlar (2026-08-09).
                     "farzandlar": [
                         {"id": f.id, "ism": f.get_full_name() or f.username}
@@ -1200,6 +1214,12 @@ class XodimlarView(APIView):
                     "qurilma_bormi": bool(u.qurilmalar),
                     "qurilma_limiti": u.qurilma_limiti,
                     "qurilmalar_soni": len(u.qurilmalar),
+                    "bio": u.bio,
+                    "maqsad_band": u.maqsad_band,
+                    "maqsad_muddat": u.maqsad_muddat,
+                    "sabab": u.sabab,
+                    "telefon": u.telefon,
+                    "tugilgan_sana": u.tugilgan_sana,
                 }
                 for u in oqituvchilar
             ]
@@ -1379,6 +1399,12 @@ class TalabalarView(APIView):
                     "qurilma_bormi": bool(t.qurilmalar),
                     "qurilma_limiti": t.qurilma_limiti,
                     "qurilmalar_soni": len(t.qurilmalar),
+                    "bio": t.bio,
+                    "maqsad_band": t.maqsad_band,
+                    "maqsad_muddat": t.maqsad_muddat,
+                    "sabab": t.sabab,
+                    "telefon": t.telefon,
+                    "tugilgan_sana": t.tugilgan_sana,
                 }
                 for t in qs.order_by("first_name", "username")
             ]
@@ -1489,6 +1515,94 @@ class TalabalarExcelImportView(APIView):
             )
 
         return Response({"yaratildi": yaratilganlar, "xatolar": xatolar}, status=201)
+
+
+class ProfilTahrirlashView(APIView):
+    """Joriy foydalanuvchi o'z profilini tahrirlaydi (2026-08-14,
+    foydalanuvchi talabi: "chap tomon tepada pochtam turibdi, ism
+    familiyaga almashtira olay" + "yana nimalar qo'shish mumkin"
+    so'roviga javoban qo'shilgan maydonlar).
+
+    Ism — butun ism `first_name`ga yoziladi (`last_name` ishlatilmaydi,
+    loyihada ajratilmagan). Qolgan maydonlar — `bio`/`maqsad_band`/
+    `maqsad_muddat`/`sabab` (OCHIQ, admin/owner ro'yxatlarida chiqadi)
+    va `telefon`/`tugilgan_sana` (SHAXSIY — faqat admin/owner ko'radi,
+    boshqa endpoint'larga qo'shilmagan).
+
+    Barcha maydonlar IXTIYORIY — faqat yuborilganlari yangilanadi,
+    yuborilmagani tegilmaydi (frontend qisman formani ham yubora oladi)."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        u = request.user
+        yangilanadigan = []
+
+        if "ism" in request.data:
+            ism = str(request.data.get("ism") or "").strip()
+            if not ism:
+                return Response({"detail": "Ism bo'sh bo'lmasin"}, status=400)
+            if len(ism) > 150:
+                return Response({"detail": "Ism juda uzun (150 belgigacha)"}, status=400)
+            u.first_name = ism
+            yangilanadigan.append("first_name")
+
+        if "bio" in request.data:
+            bio = str(request.data.get("bio") or "").strip()
+            if len(bio) > 500:
+                return Response({"detail": "'O'zim haqimda' 500 belgigacha bo'lsin"}, status=400)
+            u.bio = bio
+            yangilanadigan.append("bio")
+
+        if "maqsad_band" in request.data:
+            band = str(request.data.get("maqsad_band") or "").strip()
+            if band and band not in dict(User.BAND_TANLOVLARI):
+                return Response({"detail": "Noto'g'ri band qiymati"}, status=400)
+            u.maqsad_band = band
+            yangilanadigan.append("maqsad_band")
+
+        if "maqsad_muddat" in request.data:
+            muddat = request.data.get("maqsad_muddat") or None
+            u.maqsad_muddat = muddat
+            yangilanadigan.append("maqsad_muddat")
+
+        if "sabab" in request.data:
+            sabab = str(request.data.get("sabab") or "").strip()
+            if sabab and sabab not in User.Sabab.values:
+                return Response({"detail": "Noto'g'ri sabab qiymati"}, status=400)
+            u.sabab = sabab
+            yangilanadigan.append("sabab")
+
+        if "telefon" in request.data:
+            telefon = str(request.data.get("telefon") or "").strip()
+            if len(telefon) > 20:
+                return Response({"detail": "Telefon raqami juda uzun"}, status=400)
+            u.telefon = telefon
+            yangilanadigan.append("telefon")
+
+        if "tugilgan_sana" in request.data:
+            sana = request.data.get("tugilgan_sana") or None
+            u.tugilgan_sana = sana
+            yangilanadigan.append("tugilgan_sana")
+
+        if not yangilanadigan:
+            return Response({"detail": "Hech narsa yuborilmadi"}, status=400)
+
+        try:
+            u.full_clean(validate_unique=False)
+        except DjangoValidationError as e:
+            return Response({"detail": " ".join(e.messages)}, status=400)
+
+        u.save(update_fields=yangilanadigan)
+        return Response({
+            "ism": u.get_full_name(),
+            "bio": u.bio,
+            "maqsad_band": u.maqsad_band,
+            "maqsad_muddat": u.maqsad_muddat,
+            "sabab": u.sabab,
+            "telefon": u.telefon,
+            "tugilgan_sana": u.tugilgan_sana,
+        })
 
 
 class ParolOzgartirishView(APIView):
