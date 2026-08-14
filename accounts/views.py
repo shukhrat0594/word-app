@@ -445,8 +445,10 @@ class FoydalanuvchilarView(APIView):
                     # 2026-08-12: qiymatning o'zi emas, faqat "bor/yo'q" —
                     # "Qurilmani tiklash" tugmasini ko'rsatish/berkitish uchun.
                     "qurilma_bormi": bool(u.qurilmalar),
-                    # 2026-08-13: limit tahrirlash (owner-only) uchun.
+                    # 2026-08-13: limit tahrirlash (owner-only) va
+                    # hozir nechta qurilma band ekanini ko'rsatish uchun.
                     "qurilma_limiti": u.qurilma_limiti,
+                    "qurilmalar_soni": len(u.qurilmalar),
                     # Ota-ona uchun — biriktirilgan farzandlar (2026-08-09).
                     "farzandlar": [
                         {"id": f.id, "ism": f.get_full_name() or f.username}
@@ -1197,6 +1199,7 @@ class XodimlarView(APIView):
                     "rasm_url": f"/api/foydalanuvchilar/{u.id}/rasm/" if u.rasm else None,
                     "qurilma_bormi": bool(u.qurilmalar),
                     "qurilma_limiti": u.qurilma_limiti,
+                    "qurilmalar_soni": len(u.qurilmalar),
                 }
                 for u in oqituvchilar
             ]
@@ -1375,6 +1378,7 @@ class TalabalarView(APIView):
                     "rasm_url": f"/api/foydalanuvchilar/{t.id}/rasm/" if t.rasm else None,
                     "qurilma_bormi": bool(t.qurilmalar),
                     "qurilma_limiti": t.qurilma_limiti,
+                    "qurilmalar_soni": len(t.qurilmalar),
                 }
                 for t in qs.order_by("first_name", "username")
             ]
@@ -1572,10 +1576,9 @@ def _qurilma_tekshir(request, user):
             kalit=f"ogohlantirish:qurilma:{user.id}:{timezone.now().isoformat()}"[:200],
             sarlavha="Boshqa qurilmadan kirishga urinish",
             matn=(
-                f"{user.username} ({user.get_role_display()}) hisobiga "
-                f"TANIB OLINMAGAN qurilmadan kirishga urinildi, rad etildi "
-                f"(joriy limit: {user.qurilma_limiti}, ro'yxatda: "
-                f"{len(user.qurilmalar)} ta). Agar bu haqiqatan shu "
+                f"Foydalanuvchi {user.username} ruxsat etilgan "
+                f"{user.qurilma_limiti} ta qurilmadan tashqari yana 1 ta "
+                "qurilmadan kirishga urindi. Agar bu haqiqatan shu "
                 "foydalanuvchi bo'lsa (yangi telefon/kompyuter), 'Qurilma "
                 "limiti'ni oshiring — keyingi urinishda avtomatik kiradi. "
                 "Yoki 'Qurilmani tiklash' orqali eski qurilmalarni tozalab, "

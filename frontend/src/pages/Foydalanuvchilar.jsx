@@ -251,7 +251,7 @@ export function QurilmaLimitiBoshqaruv({ user, ozgartir, t }) {
       >
         −
       </button>
-      <strong>{user.qurilma_limiti}</strong>
+      <strong>{user.qurilmalar_soni ?? 0}/{user.qurilma_limiti}</strong>
       <button
         type="button"
         className="tugma ikkinchi kichik"
