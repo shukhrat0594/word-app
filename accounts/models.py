@@ -155,16 +155,28 @@ class User(AbstractUser):
             "endpoint orqali uzatiladi — `FoydalanuvchiRasmView`."
         ),
     )
-    qurilma_id = models.CharField(
-        max_length=64, blank=True, default="",
+    qurilmalar = models.JSONField(
+        default=list, blank=True,
         help_text=(
-            "Hisobni boshqalar bilan bo'lishmaslik uchun (2026-08-12) — "
-            "OWNER'dan boshqa har bir foydalanuvchi FAQAT birinchi "
-            "muvaffaqiyatli login qilgan brauzeriga bog'lanadi (frontend "
-            "localStorage'da saqlagan tasodifiy ID). Bo'sh = hali hech "
-            "qaysi qurilmaga bog'lanmagan (keyingi login avtomatik "
-            "bog'laydi). Faqat owner/admin 'Qurilmani tiklash' orqali "
-            "tozalay oladi — `XodimLoginView`/`QurilmaTiklashView`ga qarang."
+            "Hisobni boshqalar bilan bo'lishmaslik uchun (2026-08-12, "
+            "2026-08-13'da ko'p-qurilmali qilib kengaytirildi) — "
+            "OWNER'dan boshqa har bir foydalanuvchi FAQAT shu ro'yxatdagi "
+            "qurilmalardan (frontend localStorage'dagi tasodifiy ID'lar) "
+            "kira oladi. Yangi qurilma `qurilma_limiti`ga yetmagunча "
+            "AVTOMATIK qo'shiladi (keyingi login), limit to'lgach rad "
+            "etiladi. Bo'sh ro'yxat = hali hech qaysi qurilmaga "
+            "bog'lanmagan. Faqat owner/admin 'Qurilmani tiklash' orqali "
+            "TO'LIQ tozalay oladi (limitga tegmasdan) — "
+            "`XodimLoginView`/`QurilmaTiklashView`ga qarang."
+        ),
+    )
+    qurilma_limiti = models.PositiveSmallIntegerField(
+        default=1,
+        help_text=(
+            "2026-08-13 — nechta qurilmadan bir vaqtda kirish mumkinligi "
+            "(standart 1). Hozircha FAQAT owner o'zgartira oladi "
+            "(`QurilmaLimitiView`) — kelajakda adminga ham berilishi "
+            "mumkin (foydalanuvchi qarori)."
         ),
     )
 

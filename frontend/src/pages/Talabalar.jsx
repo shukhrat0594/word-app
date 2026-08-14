@@ -3,7 +3,7 @@ import { api, apiForm } from "../api";
 import { useI18n } from "../i18n";
 import { useProfil } from "../profilContext";
 import NatijalarRoyxati from "../components/NatijalarRoyxati";
-import { PanelTanlovi, ProfilRasmi, QurilmaTiklashTugmasi } from "./Foydalanuvchilar";
+import { PanelTanlovi, ProfilRasmi, QurilmaTiklashTugmasi, QurilmaLimitiBoshqaruv } from "./Foydalanuvchilar";
 
 const BOSH_FORMA = { ism: "", login: "", parol: "" };
 
@@ -77,6 +77,17 @@ export default function Talabalar() {
     try {
       await api(`/api/foydalanuvchilar/${id}/qurilma-tiklash/`, { method: "POST", body: { izoh } });
       setXabar(t("qurilma_tiklash_muvaffaqiyatli"));
+      yukla();
+    } catch (e) {
+      setXato(e.data?.detail || t("xato_yuz_berdi"));
+    }
+  }
+
+  /** "Qurilma limiti" o'zgartirish — faqat owner. */
+  async function qurilmaLimitOzgartir(id, limit) {
+    setXato("");
+    try {
+      await api(`/api/foydalanuvchilar/${id}/qurilma-limit/`, { method: "POST", body: { limit } });
       yukla();
     } catch (e) {
       setXato(e.data?.detail || t("xato_yuz_berdi"));
@@ -223,6 +234,9 @@ export default function Talabalar() {
               <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
                 <PanelTanlovi user={tl} saqlash={panellarSaqla} t={t} />
                 <QurilmaTiklashTugmasi user={tl} tiklash={qurilmaTiklash} t={t} />
+                {profil?.is_owner && (
+                  <QurilmaLimitiBoshqaruv user={tl} ozgartir={qurilmaLimitOzgartir} t={t} />
+                )}
                 <button
                   className="tugma ikkinchi kichik"
                   onClick={() => arxivHolatiniOzgartir(tl.id, arxivKorish)}

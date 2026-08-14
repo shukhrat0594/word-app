@@ -166,6 +166,9 @@ const LUGAT = {
     qurilma_tiklash_izoh_soralmoqda: "Qurilmani tiklash sababini yozing",
     qurilma_tiklash_muvaffaqiyatli: "Qurilma qulfi tozalandi",
     qurilma_yoq: "Bu foydalanuvchida qurilma qulfi yo'q",
+    qurilma_limiti: "Qurilma limiti",
+    qurilma_limiti_izoh:
+      "Nechta qurilmadan bir vaqtda kirish mumkinligi. Oshirilsa, bloklangan foydalanuvchi qayta urinishda avtomatik kiradi.",
     yuklanmoqda: "Yuklanmoqda…",
     hali_yoq: "hali yo'q",
     tekshiruv: "tekshiruv",
@@ -780,6 +783,9 @@ const LUGAT = {
     qurilma_tiklash_izoh_soralmoqda: "Укажите причину сброса устройства",
     qurilma_tiklash_muvaffaqiyatli: "Блокировка устройства снята",
     qurilma_yoq: "У этого пользователя нет привязанного устройства",
+    qurilma_limiti: "Лимит устройств",
+    qurilma_limiti_izoh:
+      "Сколько устройств может быть одновременно активно. При увеличении заблокированный пользователь войдёт автоматически при следующей попытке.",
     yuklanmoqda: "Загрузка…",
     hali_yoq: "пока нет",
     tekshiruv: "проверок",
@@ -1394,6 +1400,9 @@ const LUGAT = {
     qurilma_tiklash_izoh_soralmoqda: "Enter a reason for resetting the device",
     qurilma_tiklash_muvaffaqiyatli: "Device lock cleared",
     qurilma_yoq: "This user has no device lock",
+    qurilma_limiti: "Device limit",
+    qurilma_limiti_izoh:
+      "How many devices can be active at once. If increased, a blocked user will log in automatically on the next attempt.",
     yuklanmoqda: "Loading…",
     hali_yoq: "none yet",
     tekshiruv: "checks",

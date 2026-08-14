@@ -1,12 +1,14 @@
 import { useEffect, useState } from "react";
 import { api, apiForm } from "../api";
 import { useI18n } from "../i18n";
-import { ProfilRasmi, QurilmaTiklashTugmasi } from "./Foydalanuvchilar";
+import { ProfilRasmi, QurilmaTiklashTugmasi, QurilmaLimitiBoshqaruv } from "./Foydalanuvchilar";
+import { useProfil } from "../profilContext";
 
 const BOSH_FORMA = { ism: "", username: "", parol: "" };
 
 export default function Xodimlar() {
   const { t } = useI18n();
+  const { profil } = useProfil();
   const [oqituvchilar, setOqituvchilar] = useState(null);
   const [forma, setForma] = useState(BOSH_FORMA);
   const [xato, setXato] = useState("");
@@ -60,6 +62,17 @@ export default function Xodimlar() {
     try {
       await api(`/api/foydalanuvchilar/${id}/qurilma-tiklash/`, { method: "POST", body: { izoh } });
       setXabar(t("qurilma_tiklash_muvaffaqiyatli"));
+      yukla();
+    } catch (e) {
+      setXato(e.data?.detail || t("xato_yuz_berdi"));
+    }
+  }
+
+  /** "Qurilma limiti" o'zgartirish — faqat owner. */
+  async function qurilmaLimitOzgartir(id, limit) {
+    setXato("");
+    try {
+      await api(`/api/foydalanuvchilar/${id}/qurilma-limit/`, { method: "POST", body: { limit } });
       yukla();
     } catch (e) {
       setXato(e.data?.detail || t("xato_yuz_berdi"));
@@ -188,6 +201,9 @@ export default function Xodimlar() {
             </span>
             <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
               <QurilmaTiklashTugmasi user={o} tiklash={qurilmaTiklash} t={t} />
+              {profil?.is_owner && (
+                <QurilmaLimitiBoshqaruv user={o} ozgartir={qurilmaLimitOzgartir} t={t} />
+              )}
               <button
                 className="tugma ikkinchi kichik"
                 onClick={() => arxivHolatiniOzgartir(o.id, arxivKorish)}

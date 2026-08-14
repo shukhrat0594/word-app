@@ -444,7 +444,9 @@ class FoydalanuvchilarView(APIView):
                     "rasm_url": f"/api/foydalanuvchilar/{u.id}/rasm/" if u.rasm else None,
                     # 2026-08-12: qiymatning o'zi emas, faqat "bor/yo'q" —
                     # "Qurilmani tiklash" tugmasini ko'rsatish/berkitish uchun.
-                    "qurilma_bormi": bool(u.qurilma_id),
+                    "qurilma_bormi": bool(u.qurilmalar),
+                    # 2026-08-13: limit tahrirlash (owner-only) uchun.
+                    "qurilma_limiti": u.qurilma_limiti,
                     # Ota-ona uchun — biriktirilgan farzandlar (2026-08-09).
                     "farzandlar": [
                         {"id": f.id, "ism": f.get_full_name() or f.username}
@@ -767,11 +769,14 @@ class FoydalanuvchiRasmView(APIView):
 
 
 class QurilmaTiklashView(APIView):
-    """Owner/admin uchun — foydalanuvchining qurilma qulfini tozalash
-    (2026-08-12). `_qurilma_tekshir`ga qarang: `qurilma_id` bo'sh bo'lsa
-    keyingi login AVTOMATIK yangi qurilmani "asosiy" qilib belgilaydi,
-    ya'ni bu yerda faqat MAYDONNI TOZALASH kifoya — qo'lda qiymat
-    kiritish shart emas.
+    """Owner/admin uchun — foydalanuvchining BARCHA qurilmalarini
+    tozalash (2026-08-12, 2026-08-13 ko'p-qurilmali qilib yangilandi).
+    `qurilmalar` bo'sh bo'lsa keyingi login(lar) AVTOMATIK yangi
+    ro'yxatni (limitgacha) to'ldiradi — bu yerda faqat RO'YXATNI
+    TOZALASH kifoya.
+
+    `qurilma_limiti`ga TEGMAYDI — faqat ro'yxatni bo'shatadi. Limitni
+    o'zgartirish uchun alohida `QurilmaLimitiView`.
 
     Parol tiklashdan ATAYLAB MUSTAQIL (foydalanuvchi qarori) — ikkalasi
     bog'lanmagan, alohida harakat sifatida qoladi.
@@ -798,10 +803,10 @@ class QurilmaTiklashView(APIView):
             )
         izoh = izoh[:1000]
 
-        if not user.qurilma_id:
+        if not user.qurilmalar:
             return Response({"detail": "Bu foydalanuvchida qurilma qulfi yo'q"}, status=400)
-        user.qurilma_id = ""
-        user.save(update_fields=["qurilma_id"])
+        user.qurilmalar = []
+        user.save(update_fields=["qurilmalar"])
 
         Bildirishnoma.objects.create(
             foydalanuvchi=user,
@@ -818,9 +823,48 @@ class QurilmaTiklashView(APIView):
             harakat=FaoliyatYozuvi.Harakat.OZGARTIRISH,
             obyekt=user,
             obyekt_turi="Foydalanuvchi",
-            ozgarishlar={"qurilma_id": {"eski": "bor edi", "yangi": "tozalandi"}, "izoh": izoh},
+            ozgarishlar={"qurilmalar": {"eski": "bor edi", "yangi": "tozalandi"}, "izoh": izoh},
         )
         return Response(status=204)
+
+
+class QurilmaLimitiView(APIView):
+    """Owner uchun (2026-08-13, foydalanuvchi qarori: "hozircha bundan
+    huquq faqat ownerda bo'lsin, keyinchalik adminga ham berish imkoni
+    bilan" — shuning uchun bu yerda FAQAT `owner_mi` tekshiriladi,
+    admin emas, lekin kod tuzilishi keyin adminga ochish oson bo'lsin
+    deb `QurilmaTiklashView`bilan bir xil naqshda yozildi) —
+    foydalanuvchining ruxsat etilgan qurilmalar sonini (`qurilma_limiti`)
+    o'zgartiradi.
+
+    Ro'yxatni (`qurilmalar`) TOZALAMAYDI — limit oshirilsa, bloklangan
+    foydalanuvchi hech qanday qo'shimcha harakatsiz, keyingi login
+    urinishida AVTOMATIK kira oladi (`_qurilma_tekshir`)."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        u = request.user
+        if not owner_mi(u):
+            return Response({"detail": "Faqat owner uchun"}, status=403)
+        user = get_object_or_404(User, pk=pk)
+
+        limit = request.data.get("limit")
+        if not isinstance(limit, int) or limit < 1 or limit > 20:
+            return Response({"detail": "limit 1 dan 20 gacha butun son bo'lishi kerak"}, status=400)
+
+        eski = user.qurilma_limiti
+        user.qurilma_limiti = limit
+        user.save(update_fields=["qurilma_limiti"])
+
+        logla(
+            foydalanuvchi=u,
+            harakat=FaoliyatYozuvi.Harakat.OZGARTIRISH,
+            obyekt=user,
+            obyekt_turi="Foydalanuvchi",
+            ozgarishlar={"qurilma_limiti": {"eski": eski, "yangi": limit}},
+        )
+        return Response({"qurilma_limiti": limit})
 
 
 # frontend/src/components/Layout.jsx'dagi nav yo'llari bilan BIR XIL
@@ -1151,7 +1195,8 @@ class XodimlarView(APIView):
                     # owner/admin kiradi, ya'ni qo'shimcha rol tekshiruvi
                     # frontendda shart emas.
                     "rasm_url": f"/api/foydalanuvchilar/{u.id}/rasm/" if u.rasm else None,
-                    "qurilma_bormi": bool(u.qurilma_id),
+                    "qurilma_bormi": bool(u.qurilmalar),
+                    "qurilma_limiti": u.qurilma_limiti,
                 }
                 for u in oqituvchilar
             ]
@@ -1328,7 +1373,8 @@ class TalabalarView(APIView):
                     # Adminda "Foydalanuvchilar" sahifasi YO'Q, shuning uchun
                     # unga yagona yo'l shu.
                     "rasm_url": f"/api/foydalanuvchilar/{t.id}/rasm/" if t.rasm else None,
-                    "qurilma_bormi": bool(t.qurilma_id),
+                    "qurilma_bormi": bool(t.qurilmalar),
+                    "qurilma_limiti": t.qurilma_limiti,
                 }
                 for t in qs.order_by("first_name", "username")
             ]
@@ -1475,13 +1521,16 @@ class XodimLoginView(TokenObtainPairView):
     throttling qo'shilgan (login urinishlar soni cheklanadi).
 
     2026-08-12: hisobni boshqalar bilan bo'lishmaslik uchun — OWNER'dan
-    boshqa har bir foydalanuvchi FAQAT birinchi muvaffaqiyatli login
-    qilgan qurilmasidan kira oladi. Frontend har login so'rovida
-    `qurilma_id` yuboradi (localStorage'da saqlangan tasodifiy ID).
-    Parol TO'G'RI bo'lsa-da, `qurilma_id` mos kelmasa token BERILMAYDI
-    (javob 403'ga almashtiriladi) — boshqa qurilmaga hech qanday token
-    chiqmaydi. Birinchi login (`user.qurilma_id` hali bo'sh) — kelgan
-    ID avtomatik saqlanadi, qo'shimcha tasdiq shart emas."""
+    boshqa har bir foydalanuvchi FAQAT `qurilmalar` ro'yxatidagi (eng
+    ko'pi bilan `qurilma_limiti` ta, standart 1) qurilmalardan kira
+    oladi. Frontend har login so'rovida `qurilma_id` yuboradi
+    (localStorage'da saqlangan tasodifiy ID). Parol TO'G'RI bo'lsa-da,
+    yangi qurilma limitdan oshsa token BERILMAYDI (javob 403'ga
+    almashtiriladi). Ro'yxat limitga yetmagan bo'lsa — kelgan ID
+    AVTOMATIK qo'shiladi, qo'shimcha tasdiq shart emas (2026-08-13:
+    owner qurilma limitini oshirsa, foydalanuvchi qayta urinib
+    avtomatik kira oladi — alohida "ruxsat berish" tugmasi kerak
+    emas)."""
 
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = "login"
@@ -1501,19 +1550,19 @@ class XodimLoginView(TokenObtainPairView):
 
 def _qurilma_tekshir(request, user):
     """OWNER bo'lmagan foydalanuvchi uchun qurilma cheklovi — mos kelmasa
-    403 Response qaytaradi (login rad etiladi), mos kelsa/birinchi login
-    bo'lsa None qaytaradi (davom etaveradi)."""
+    403 Response qaytaradi (login rad etiladi), mos kelsa/ro'yxatga yangi
+    qo'shilsa None qaytaradi (davom etaveradi)."""
     qurilma_id = (request.data.get("qurilma_id") or "").strip()
     if not qurilma_id:
         return Response(
             {"detail": "Qurilma identifikatori yuborilmadi", "kod": "qurilma_id_yoq"},
             status=400,
         )
-    if not user.qurilma_id:
-        user.qurilma_id = qurilma_id
-        user.save(update_fields=["qurilma_id"])
+    if qurilma_id in user.qurilmalar:
         return None
-    if user.qurilma_id == qurilma_id:
+    if len(user.qurilmalar) < user.qurilma_limiti:
+        user.qurilmalar = [*user.qurilmalar, qurilma_id]
+        user.save(update_fields=["qurilmalar"])
         return None
 
     for admin in User.objects.filter(role=User.Role.ADMIN) | User.objects.filter(is_superuser=True):
@@ -1524,9 +1573,13 @@ def _qurilma_tekshir(request, user):
             sarlavha="Boshqa qurilmadan kirishga urinish",
             matn=(
                 f"{user.username} ({user.get_role_display()}) hisobiga "
-                "TANIB OLINMAGAN qurilmadan kirishga urinildi, rad etildi. "
-                "Agar bu haqiqatan shu foydalanuvchi bo'lsa (yangi telefon/"
-                "kompyuter), 'Qurilmani tiklash' orqali ruxsat bering."
+                f"TANIB OLINMAGAN qurilmadan kirishga urinildi, rad etildi "
+                f"(joriy limit: {user.qurilma_limiti}, ro'yxatda: "
+                f"{len(user.qurilmalar)} ta). Agar bu haqiqatan shu "
+                "foydalanuvchi bo'lsa (yangi telefon/kompyuter), 'Qurilma "
+                "limiti'ni oshiring — keyingi urinishda avtomatik kiradi. "
+                "Yoki 'Qurilmani tiklash' orqali eski qurilmalarni tozalab, "
+                "qaytadan boshlang."
             ),
         )
     return Response(

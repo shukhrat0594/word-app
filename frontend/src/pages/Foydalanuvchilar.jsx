@@ -216,6 +216,54 @@ export function QurilmaTiklashTugmasi({ user, tiklash, t }) {
   );
 }
 
+/** "Qurilma limiti" boshqaruvi (2026-08-13, foydalanuvchi talabi) —
+ * FAQAT owner uchun (adminga keyinchalik berilishi mumkin, hozircha
+ * yo'q). Standart 1 — necha ta qurilmadan bir vaqtda kirish mumkinligi.
+ * Limit oshirilsa, bloklangan foydalanuvchi HECH QANDAY qo'shimcha
+ * harakatsiz, keyingi login urinishida avtomatik kiradi
+ * (`_qurilma_tekshir` backend'da). */
+export function QurilmaLimitiBoshqaruv({ user, ozgartir, t }) {
+  const [band, setBand] = useState(false);
+
+  if (user.is_owner || user.qurilma_limiti === undefined) return null;
+
+  async function ozgar(yangi) {
+    if (yangi < 1 || band) return;
+    setBand(true);
+    try {
+      await ozgartir(user.id, yangi);
+    } finally {
+      setBand(false);
+    }
+  }
+
+  return (
+    <span
+      style={{ display: "flex", alignItems: "center", gap: 4 }}
+      title={t("qurilma_limiti_izoh")}
+    >
+      <span className="izoh">{t("qurilma_limiti")}:</span>
+      <button
+        type="button"
+        className="tugma ikkinchi kichik"
+        onClick={() => ozgar(user.qurilma_limiti - 1)}
+        disabled={band || user.qurilma_limiti <= 1}
+      >
+        −
+      </button>
+      <strong>{user.qurilma_limiti}</strong>
+      <button
+        type="button"
+        className="tugma ikkinchi kichik"
+        onClick={() => ozgar(user.qurilma_limiti + 1)}
+        disabled={band}
+      >
+        +
+      </button>
+    </span>
+  );
+}
+
 /** Rolga QO'SHIMCHA "ko'rinadigan panellar" checkbox ro'yxati
  * (2026-08-05) — owner istalgan foydalanuvchi uchun, admin faqat
  * talabalar uchun ko'radi (`PatchYoli` orqali chaqiruvchi belgilaydi).
@@ -380,6 +428,18 @@ export default function Foydalanuvchilar() {
     }
   }
 
+  /** "Qurilma limiti" o'zgartirish — faqat owner (`QurilmaLimitiBoshqaruv`
+   * izohiga qarang). */
+  async function qurilmaLimitOzgartir(id, limit) {
+    setXabar((x) => ({ ...x, [id]: "" }));
+    try {
+      await api(`/api/foydalanuvchilar/${id}/qurilma-limit/`, { method: "POST", body: { limit } });
+      yukla();
+    } catch (e) {
+      setXabar((x) => ({ ...x, [id]: e.data?.detail || t("xato_yuz_berdi") }));
+    }
+  }
+
   async function yangiYarat(e) {
     e.preventDefault();
     setYangiXato("");
@@ -497,6 +557,7 @@ export default function Foydalanuvchilar() {
                 <PanelTanlovi user={u} saqlash={panellarSaqla} t={t} />
               )}
               <QurilmaTiklashTugmasi user={u} tiklash={qurilmaTiklash} t={t} />
+              <QurilmaLimitiBoshqaruv user={u} ozgartir={qurilmaLimitOzgartir} t={t} />
               {!u.is_owner && u.id !== profil?.id && (
                 <button
                   className="tugma ikkinchi"
