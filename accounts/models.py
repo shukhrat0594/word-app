@@ -29,6 +29,13 @@ class Markaz(models.Model):
         help_text="Qaysi AI ishlatilsa ham, xarajat doim platforma (owner) kaliti orqali to'lanadi",
     )
 
+    # 2026-08-15: Railway'ga ko'chirishda foydalanuvchilar adashib eski
+    # (Render) saytga kirib qolmasligi uchun — yoqilsa, OWNER'dan boshqa
+    # HECH KIM (parol to'g'ri bo'lsa ham) kira olmaydi. Bitta markaz
+    # rejimida ishlagani uchun bu amalda "butun sayt" darajasidagi
+    # bayroq (`accounts.backup_views.SaytHolatiView`).
+    kirish_cheklangan = models.BooleanField(default=False)
+
     # Ijtimoiy tarmoqlar (2026-07-27) — saytning pastki panelida ko'rsatiladi.
     # Bo'sh qoldirilgani ko'rsatilmaydi, ya'ni markaz faqat o'zida bor
     # tarmoqlarni chiqaradi. Kodga qattiq yozilmagan — admin panelidan

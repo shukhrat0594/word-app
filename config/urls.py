@@ -20,6 +20,7 @@ from django.urls import include, path, re_path
 from django.views.static import serve as media_serve
 from rest_framework_simplejwt.views import TokenRefreshView
 
+from accounts.backup_views import BackupdanTiklashView, BackupYuklabOlishView
 from accounts.views import (
     BildirishnomalarView,
     FoydalanuvchilarView,
@@ -46,6 +47,7 @@ from accounts.views import (
     OddiyStudentgaOtkazishView,
     ParolOzgartirishView,
     ProfilView,
+    SaytHolatiView,
     TalabaDetailView,
     TalabalarExcelImportView,
     TalabalarView,
@@ -82,6 +84,9 @@ urlpatterns = [
     ),
     path('api/markaz-sorovi/', MarkazSorovView.as_view(), name='markaz_sorovi'),
     path('api/markaz-sozlama/', MarkazSozlamaView.as_view(), name='markaz_sozlama'),
+    path('api/sayt-holati/', SaytHolatiView.as_view(), name='sayt_holati'),
+    path('api/backup/yuklab-olish/', BackupYuklabOlishView.as_view(), name='backup_yuklab_olish'),
+    path('api/backup/tiklash/', BackupdanTiklashView.as_view(), name='backup_tiklash'),
     # Ochiq — login talab qilinmaydi (pastki panel har sahifada, jumladan
     # kirish ekranida ham ko'rinadi).
     path('api/ijtimoiy/', IjtimoiyHavolalarView.as_view(), name='ijtimoiy_havolalar'),

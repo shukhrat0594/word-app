@@ -140,6 +140,53 @@ export async function apiBlobUrl(yol) {
   return URL.createObjectURL(blob);
 }
 
+// Autentifikatsiyalangan faylni brauzerga YUKLAB OLISH (masalan backup ZIP,
+// 2026-08-15) — oddiy <a href> ishlamaydi (Authorization header kerak),
+// shuning uchun blob qilib olib, vaqtinchalik <a download> orqali "Saqlash"
+// dialogini ochamiz.
+export async function apiFayluniYuklab(yol) {
+  const sorov = () =>
+    fetch(apiManzil(yol), {
+      headers: tokenOl() ? { Authorization: `Bearer ${tokenOl()}` } : {},
+    });
+
+  let res = await sorov();
+  if (res.status === 401 && (await refreshQil())) {
+    res = await sorov();
+  }
+  if (res.status === 401) {
+    tokenlarniTozala();
+    window.location.href = "/login";
+    throw new Error("401");
+  }
+  if (!res.ok) {
+    let detail = `HTTP ${res.status}`;
+    try {
+      const data = await res.json();
+      detail = data?.detail || detail;
+    } catch {
+      // javob JSON emas (masalan muvaffaqiyatli fayl oqimi) — o'zgarishsiz
+    }
+    const e = new Error(detail);
+    e.status = res.status;
+    throw e;
+  }
+
+  const disposition = res.headers.get("Content-Disposition") || "";
+  const mos = disposition.match(/filename="?([^";]+)"?/);
+  const nomi = mos ? mos[1] : "yuklab-olindi";
+
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = nomi;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 // Fayl yuklash (masalan markaz logotipi) — Content-Type'ni brauzer o'zi
 // (multipart boundary bilan) qo'yishi kerak, shuning uchun JSON.stringify
 // qilinmaydi va header qo'lda belgilanmaydi.

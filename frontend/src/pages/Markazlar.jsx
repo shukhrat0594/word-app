@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
+import XatolikHolati from "../components/XatolikHolati";
 import { useI18n } from "../i18n";
 
 const BOSH_ADMIN_FORMA = { username: "", parol: "", ism: "" };
@@ -9,9 +10,11 @@ export default function Markazlar() {
   const [markazlar, setMarkazlar] = useState(null);
   const [adminForma, setAdminForma] = useState({});
   const [xabar, setXabar] = useState({});
+  const [xato, setXato] = useState(false);
 
   function yukla() {
-    api("/api/markazlar/").then(setMarkazlar).catch(() => {});
+    setXato(false);
+    api("/api/markazlar/").then(setMarkazlar).catch(() => setXato(true));
   }
 
   useEffect(() => {
@@ -43,6 +46,8 @@ export default function Markazlar() {
       setXabar((x) => ({ ...x, [markazId]: e.data?.detail || t("xato_yuz_berdi") }));
     }
   }
+
+  if (xato) return <XatolikHolati qaytaUrin={yukla} />;
 
   if (!markazlar) return <div className="yuklanmoqda">{t("yuklanmoqda")}</div>;
 

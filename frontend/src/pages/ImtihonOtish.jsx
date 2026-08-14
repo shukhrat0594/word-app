@@ -14,6 +14,37 @@ export function vaqtFormat(soniya) {
   return `${m}:${s}`;
 }
 
+// Bitta bo'lim vaqti tugab, avtomatik tekshirilgandan keyin (Mock ichida)
+// ko'rsatiladigan bloklovchi oyna — bitta "Keyingisi" tugmasi, ustida 30
+// soniyalik teskari sanoq, 0 ga yetganda AVTOMATIK keyingi bo'limga
+// o'tadi. Tugmani qo'lda bosish ham mumkin (2026-08-15, VAQT TUGAGANDA
+// MAJBURIY YAKUNLASH ishi, foydalanuvchi bilan 2026-08-14 kelishilgan).
+export function VaqtTugadiModal({ onKeyingisi, t }) {
+  const [qoldi, setQoldi] = useState(30);
+
+  useEffect(() => {
+    if (qoldi <= 0) {
+      onKeyingisi();
+      return;
+    }
+    const id = setTimeout(() => setQoldi((q) => q - 1), 1000);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [qoldi]);
+
+  return (
+    <div className="imtihon-vaqt-modal-fon">
+      <div className="imtihon-vaqt-modal">
+        <h3>{t("vaqt_tugadi_bolim_sarlavha")}</h3>
+        <p>{t("vaqt_tugadi_bolim_izoh")}</p>
+        <button className="tugma katta" onClick={onKeyingisi}>
+          {t("keyingisi_sanoq").replace("{n}", qoldi)}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // Konteyner ichidagi (node, offset) DOM nuqtasini butun matnning tekis
 // belgi-indeksiga aylantiradi — highlight range'larini matn ustida
 // hisoblash uchun kerak (2026-08-02).
@@ -805,6 +836,16 @@ export function PapkaliRoyxat({ royxat, ochish, t }) {
   );
 }
 
+// F5'da (yoki internet uzilib qayta ulanganda) test holati yo'qolmasligi
+// uchun — javoblar va taymerning ABSOLYUT tugash vaqti shu kalit bilan
+// sessionStorage'ga yoziladi (2026-08-15, F5'DA TEST HOLATI YO'QOLISHI
+// ishi). `mockYechimId` ham kalitga kirdi — bir xil test Mock ichida VA
+// alohida mashq sifatida turlicha sessiyada yechilishi mumkin, ular bir-
+// biriga aralashmasligi kerak.
+export function holatKaliti(bolim, testId, mockYechimId) {
+  return `imtihon_holat_v1_${bolim}_${testId}_${mockYechimId || "yakka"}`;
+}
+
 /** Cambridge-uslubidagi to'liq IELTS testi — ro'yxat, split-screen yechish
  * rejimi (chapda matn/audio, o'ngda savollar), pastki Part-navigatsiya. */
 export default function ImtihonOtish({ bolim, manba = "admin", testId, mockYechimId, onYakunlandi, ochirilganId }) {
@@ -827,9 +868,15 @@ export default function ImtihonOtish({ bolim, manba = "admin", testId, mockYechi
   const [teskariMi, setTeskariMi] = useState(false);
   const [faolQism, setFaolQism] = useState(0);
   const [chapKenglik, setChapKenglik] = useState(45);
+  // Vaqt tugab, avtomatik yuborilgach (Mock ichida) bloklovchi "Keyingisi"
+  // oynasini ko'rsatish uchun — qo'lda yakunlashda bu oyna CHIQMAYDI.
+  const [vaqtSababliYakun, setVaqtSababliYakun] = useState(false);
   const taymerRef = useRef(null);
   const splitRef = useRef(null);
   const sudralmoqda = useRef(false);
+  const boshlanishVaqtiRef = useRef(null);
+  const avtoYuborildiRef = useRef(false);
+  const keyingigaOtildiRef = useRef(false);
 
   useEffect(() => {
     setTest(null);
@@ -915,10 +962,39 @@ export default function ImtihonOtish({ bolim, manba = "admin", testId, mockYechi
     setMasshtab(100);
     setFaolQism(0);
     setTayyorlanmoqda(true);
+    setVaqtSababliYakun(false);
+    avtoYuborildiRef.current = false;
+    keyingigaOtildiRef.current = false;
     try {
       const t2 = await api(`/api/imtihon/testlar/${id}/`);
       const urllar = {};
       const rasmlar = {};
+      // F5'da (yoki internet uzilib qayta ulanganda) holatni tiklash —
+      // sessionStorage'da shu test/mock uchun saqlangan javoblar+boshlanish
+      // vaqti bo'lsa, o'shandan davom etamiz (2026-08-15).
+      const kalit = holatKaliti(bolim, id, mockYechimId);
+      let tiklanganJavoblar = {};
+      let boshlanishVaqti = Date.now();
+      try {
+        const saqlangan = JSON.parse(sessionStorage.getItem(kalit) || "null");
+        if (saqlangan && saqlangan.testId === id && Number.isFinite(saqlangan.boshlanishVaqti)) {
+          tiklanganJavoblar = saqlangan.javoblar || {};
+          boshlanishVaqti = saqlangan.boshlanishVaqti;
+        }
+      } catch {
+        // sessionStorage buzilgan bo'lsa — jim o'tkazib yuboramiz, boshidan boshlanadi.
+      }
+      boshlanishVaqtiRef.current = boshlanishVaqti;
+      setJavoblar(tiklanganJavoblar);
+      setSoniya(Math.max(0, Math.floor((Date.now() - boshlanishVaqti) / 1000)));
+      try {
+        sessionStorage.setItem(
+          kalit,
+          JSON.stringify({ testId: id, boshlanishVaqti, javoblar: tiklanganJavoblar })
+        );
+      } catch {
+        // to'lgan bo'lsa — kritik emas, faqat F5'da tiklash ishlamaydi.
+      }
       // Barcha qismlarning audio/rasmini PARALLEL (Promise.all) yuklab
       // olamiz, test oynasi FAQAT hammasi tayyor bo'lgandan keyin ochiladi
       // — shunda talaba "Audio yuklanmoqda..." holatini ko'rmaydi, buning
@@ -956,6 +1032,32 @@ export default function ImtihonOtish({ bolim, manba = "admin", testId, mockYechi
     setJavoblar((prev) => ({ ...prev, [i]: qiymat }));
   }
 
+  // Har javob o'zgarganda sessionStorage'dagi holatni yangilaymiz (F5'da
+  // tiklash uchun). Taymer ABSOLYUT boshlanish vaqti (boshlanishVaqtiRef)
+  // o'zgarmaydi — shuning uchun bu yerda qayta yozilmaydi, faqat javoblar.
+  useEffect(() => {
+    if (!test || natija || boshlanishVaqtiRef.current == null) return;
+    const kalit = holatKaliti(bolim, test.id, mockYechimId);
+    try {
+      sessionStorage.setItem(
+        kalit,
+        JSON.stringify({ testId: test.id, boshlanishVaqti: boshlanishVaqtiRef.current, javoblar })
+      );
+    } catch {
+      // to'lgan bo'lsa — kritik emas.
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [javoblar, test, natija]);
+
+  function saqlanganHolatniTozala() {
+    if (!test) return;
+    try {
+      sessionStorage.removeItem(holatKaliti(bolim, test.id, mockYechimId));
+    } catch {
+      // kritik emas.
+    }
+  }
+
   async function yuborish() {
     setYuklanmoqda(true);
     setXato("");
@@ -967,6 +1069,9 @@ export default function ImtihonOtish({ bolim, manba = "admin", testId, mockYechi
         body: { javoblar: tartib, mock_yechim_id: mockYechimId },
       });
       setNatija(res);
+      // Test muvaffaqiyatli yakunlangach — saqlangan holat endi kerak emas,
+      // eski qoldiq keyingi safar chalkashtirmasin (2026-08-15).
+      saqlanganHolatniTozala();
     } catch (e) {
       // 2026-07-31: test yechilayotganda o'chirilgan/qayta yuklangan bo'lsa
       // (admin paneli shu sahifaning tepasida) — xom 404 o'rniga tushunarli
@@ -978,6 +1083,23 @@ export default function ImtihonOtish({ bolim, manba = "admin", testId, mockYechi
     }
   }
 
+  // Vaqt tugaganda (real IELTS shartlariga mos) majburiy yakunlash
+  // (2026-08-15, VAQT TUGAGANDA MAJBURIY YAKUNLASH ishi). Standalone
+  // mashqda — avtomatik yuboriladi, natija kelgach barcha input'lar
+  // `disabled={!!natija}` orqali allaqachon bloklanadi. Mock ichida
+  // (`onYakunlandi` mavjud) — avtomatik yuborilgach, alohida
+  // "Keyingisi" (30s) oynasi ko'rsatiladi (pastda, `vaqtSababliYakun`).
+  const qolganVaqt = test ? standartVaqt(bolim) - soniya : null;
+  const vaqtTugadi = !!test && !natija && qolganVaqt <= 0;
+  useEffect(() => {
+    if (vaqtTugadi && !avtoYuborildiRef.current && !yuklanmoqda) {
+      avtoYuborildiRef.current = true;
+      setVaqtSababliYakun(true);
+      yuborish();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vaqtTugadi, yuklanmoqda]);
+
   function royxatgaQayt() {
     setTestYoq(false);
     setXato("");
@@ -987,6 +1109,9 @@ export default function ImtihonOtish({ bolim, manba = "admin", testId, mockYechi
 
   function ortgaQaytish() {
     if (!natija && !window.confirm(t("imtihon_ortga_tasdiq"))) return;
+    // Foydalanuvchi ATAYLAB ortga qaytdi — "javoblar saqlanmaydi" degan
+    // tasdiqqa mos, saqlangan F5-holati ham tozalanadi (2026-08-15).
+    saqlanganHolatniTozala();
     setTest(null);
   }
 
@@ -1027,8 +1152,21 @@ export default function ImtihonOtish({ bolim, manba = "admin", testId, mockYechi
   const jamiSavollar = hisoblagich;
   const faol = qismMalumot[faolQism];
 
+  // Vaqt tugab, hali natija kelmagan (avtomatik yuborilish jarayonida)
+  // oraliqda — barcha input/tugmalar vizual ham, funksional ham
+  // bloklansin (pointer-events: none) va qisqa xabar chiqsin.
+  const bloklanganOraliqda = vaqtTugadi && !natija;
+
   const mazmun = (
-    <div style={{ fontSize: `${masshtab}%` }}>
+    <div
+      style={{ fontSize: `${masshtab}%` }}
+      className={bloklanganOraliqda ? "imtihon-vaqt-tugadi-overlay" : ""}
+    >
+      {bloklanganOraliqda && (
+        <div className="izoh" style={{ marginBottom: 8, fontWeight: 700 }}>
+          ⏱ {t("vaqt_tugadi_yuborilmoqda")}
+        </div>
+      )}
       <div className="imtihon-asboblar">
         <button className="tugma ikkinchi" onClick={ortgaQaytish}>
           {t("ortga")}
@@ -1319,7 +1457,7 @@ export default function ImtihonOtish({ bolim, manba = "admin", testId, mockYechi
         </button>
 
         {!natija ? (
-          <button className="tugma katta" onClick={yuborishBosildi} disabled={yuklanmoqda}>
+          <button className="tugma katta" onClick={yuborishBosildi} disabled={yuklanmoqda || bloklanganOraliqda}>
             {yuklanmoqda ? t("tekshirilmoqda") : t("imtihon_topshirish")}
           </button>
         ) : (
@@ -1330,7 +1468,9 @@ export default function ImtihonOtish({ bolim, manba = "admin", testId, mockYechi
             <span style={{ fontSize: 12.5 }}>
               {t("band_ball")} · {t("xom_ball")} {natija.ball}/{natija.jami}
             </span>
-            {onYakunlandi && (
+            {/* Vaqt tugab avtomatik yuborilgan bo'lsa — bu tugma o'rniga
+                pastdagi bloklovchi "Keyingisi" (30s) oynasi ko'rsatiladi. */}
+            {onYakunlandi && !vaqtSababliYakun && (
               <button className="tugma katta" onClick={() => onYakunlandi(natija)}>
                 {t("mock_keyingi_bolim")}
               </button>
@@ -1351,5 +1491,26 @@ export default function ImtihonOtish({ bolim, manba = "admin", testId, mockYechi
     </div>
   );
 
-  return fokus ? <div className="imtihon-fokus-ustma">{mazmun}</div> : mazmun;
+  // Vaqt tugab (Mock ichida) avtomatik yuborilgach — imtihon oynasi
+  // bloklanadi, "Keyingisi" (30s teskari sanoq) oynasi ochiladi
+  // (2026-08-15). Qo'lda yakunlashda bu oyna chiqmaydi (yuqoridagi
+  // "mock_keyingi_bolim" tugmasi o'zi ishlaydi).
+  const vaqtModal =
+    natija && onYakunlandi && vaqtSababliYakun ? (
+      <VaqtTugadiModal
+        t={t}
+        onKeyingisi={() => {
+          if (keyingigaOtildiRef.current) return;
+          keyingigaOtildiRef.current = true;
+          onYakunlandi(natija);
+        }}
+      />
+    ) : null;
+
+  return (
+    <>
+      {fokus ? <div className="imtihon-fokus-ustma">{mazmun}</div> : mazmun}
+      {vaqtModal}
+    </>
+  );
 }

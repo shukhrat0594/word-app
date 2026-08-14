@@ -394,6 +394,42 @@ class MarkazSozlamaView(APIView):
         return Response(_markaz_sozlama_dict(m))
 
 
+class SaytHolatiView(APIView):
+    """Sayt kirish holati (2026-08-15) — Railway'ga ko'chirishda eski
+    (Render) saytga adashib kirishning oldini olish uchun. Yoqilsa,
+    OWNER'dan boshqa hech kim (parol to'g'ri bo'lsa ham) kira olmaydi.
+
+    GET — OCHIQ (login sahifasi hali autentifikatsiyalanmagan holatda
+    forma ko'rsatish-ko'rsatmaslikni shundan biladi). PATCH — faqat
+    owner."""
+
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        m = Markaz.objects.first()
+        return Response({"kirish_cheklangan": bool(m and m.kirish_cheklangan)})
+
+    def patch(self, request):
+        if not request.user.is_authenticated or not owner_mi(request.user):
+            return Response({"detail": "Faqat owner uchun"}, status=403)
+        m = Markaz.objects.first()
+        if not m:
+            return Response({"detail": "Markaz topilmadi"}, status=404)
+        yangi = bool(request.data.get("kirish_cheklangan"))
+        eski = m.kirish_cheklangan
+        m.kirish_cheklangan = yangi
+        m.save(update_fields=["kirish_cheklangan"])
+        if eski != yangi:
+            logla(
+                foydalanuvchi=request.user,
+                harakat=FaoliyatYozuvi.Harakat.OZGARTIRISH,
+                obyekt=m,
+                obyekt_turi="Markaz",
+                ozgarishlar={"kirish_cheklangan": {"eski": eski, "yangi": yangi}},
+            )
+        return Response({"kirish_cheklangan": m.kirish_cheklangan})
+
+
 class FoydalanuvchilarView(APIView):
     """Owner uchun — barcha foydalanuvchilar ro'yxati (parol boshqarish uchun)."""
 
@@ -890,7 +926,7 @@ class QurilmaLimitiView(APIView):
 KORINADIGAN_PANEL_YOLLARI = {
     "/mashqlar", "/ielts-boshqarish", "/ai-mashqlari", "/kurslar", "/oyinlar",
     "/tarix", "/reyting", "/guruhlar", "/talabalar", "/xodimlar", "/davomat",
-    "/ijtimoiy-tarmoqlar", "/foydalanuvchilar", "/hisobotlar",
+    "/markaz-sozlash", "/foydalanuvchilar", "/hisobotlar",
 }
 
 
@@ -1646,6 +1682,18 @@ class XodimLoginView(TokenObtainPairView):
             user = User.objects.filter(username=request.data.get("username")).first()
             if user is not None:
                 if not owner_mi(user):
+                    # 2026-08-15: sayt kirish cheklangan bo'lsa (Railway
+                    # ko'chirish davrida), OWNER'dan boshqa hech kim —
+                    # parol to'g'ri bo'lsa ham — kira olmaydi. Frontend
+                    # login formani ham umuman ko'rsatmaydi, bu esa
+                    # himoya sifatida backend darajasida qo'shimcha.
+                    markaz = Markaz.objects.first()
+                    if markaz and markaz.kirish_cheklangan:
+                        return Response(
+                            {"detail": "Saytga kirish vaqtincha cheklangan",
+                             "kod": "kirish_cheklangan"},
+                            status=403,
+                        )
                     qurilma_javobi = _qurilma_tekshir(request, user)
                     if qurilma_javobi is not None:
                         return qurilma_javobi

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
 import Avatar from "../components/Avatar";
+import XatolikHolati from "../components/XatolikHolati";
 import { useI18n } from "../i18n";
 import { useProfil } from "../profilContext";
 
@@ -76,11 +77,19 @@ export default function Leaderboard() {
   const [lb, setLb] = useState(null);
   const [gami, setGami] = useState(null);
   const [tab, setTab] = useState("umumiy");
+  const [xato, setXato] = useState(false);
+
+  function yukla() {
+    setXato(false);
+    api("/api/leaderboard/").then(setLb).catch(() => setXato(true));
+    api("/api/gamifikatsiya/").then(setGami).catch(() => setXato(true));
+  }
 
   useEffect(() => {
-    api("/api/leaderboard/").then(setLb).catch(() => {});
-    api("/api/gamifikatsiya/").then(setGami).catch(() => {});
+    yukla();
   }, []);
+
+  if (xato) return <XatolikHolati qaytaUrin={yukla} />;
 
   if (!lb || !gami) return <div className="yuklanmoqda">{t("yuklanmoqda")}</div>;
 

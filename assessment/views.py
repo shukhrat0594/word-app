@@ -114,6 +114,14 @@ class WritingTekshirishView(APIView):
         savol_matni = (request.data.get("savol_matni") or "").strip()
         tur = request.data.get("tur") or "task2"
 
+        # 2026-08-15: AI chaqirishdan OLDIN talabaning matnini "kutilmoqda"
+        # holatida saqlab qo'yamiz — AI xato bersa ham matn yo'qolmaydi.
+        tekshiruv = WritingTekshiruv.objects.create(
+            talaba=request.user,
+            matn=matn,
+            holat=WritingTekshiruv.Holat.KUTILMOQDA,
+        )
+
         try:
             # 2026-07-29(7): Task 1/Task 2 ENDI avtomatik turli model
             # bilan tekshiriladi (frontend "model" tanlovidan mustaqil) —
@@ -122,21 +130,23 @@ class WritingTekshirishView(APIView):
             baho = provider.writing_baholash(
                 matn, savol_matni=savol_matni, tur=tur, rasm_bytes=rasm_bytes, rasm_mime=rasm_mime
             )
-            tekshiruv = WritingTekshiruv.objects.create(
-                talaba=request.user,
-                matn=matn,
-                natija=baho["natija"],
-                task_type=str(baho["natija"].get("task_type", "")),
-                overall_band=baho["natija"].get("overall_band"),
-                provider=baho["provider"],
-                model=baho["model"],
-                input_tokens=baho["input_tokens"],
-                output_tokens=baho["output_tokens"],
-            )
+            tekshiruv.natija = baho["natija"]
+            tekshiruv.task_type = str(baho["natija"].get("task_type", ""))
+            tekshiruv.overall_band = baho["natija"].get("overall_band")
+            tekshiruv.provider = baho["provider"]
+            tekshiruv.model = baho["model"]
+            tekshiruv.input_tokens = baho["input_tokens"]
+            tekshiruv.output_tokens = baho["output_tokens"]
+            tekshiruv.holat = WritingTekshiruv.Holat.TAYYOR
+            tekshiruv.save()
             natijalar = [{"model_kaliti": None, "id": tekshiruv.id, "natija": baho["natija"]}]
         except ProviderXatosi as e:
+            tekshiruv.holat = WritingTekshiruv.Holat.XATO
+            tekshiruv.save(update_fields=["holat"])
             return Response({"detail": str(e)}, status=502)
         except Exception as e:
+            tekshiruv.holat = WritingTekshiruv.Holat.XATO
+            tekshiruv.save(update_fields=["holat"])
             return ai_xatosi_javobi(e, f"Writing tekshiruvi (talaba id={request.user.id})")
 
         return Response({"natijalar": natijalar})
@@ -164,29 +174,41 @@ class SpeakingMatnView(APIView):
         savol_matni = (request.data.get("savol_matni") or "").strip()
         tur = request.data.get("tur") or "part1"
 
+        # 2026-08-15: har bir model uchun AI chaqirishdan OLDIN talabaning
+        # matnini "kutilmoqda" holatida saqlab qo'yamiz.
+        tekshiruv = None
         try:
             providerlar = _tanlangan_providerlar(request)
             natijalar = []
             for model_kaliti, provider in providerlar:
-                baho = provider.speaking_matn_baholash(matn, savol_matni=savol_matni, tur=tur)
                 tekshiruv = SpeakingTekshiruv.objects.create(
                     talaba=request.user,
                     rejim=SpeakingTekshiruv.Rejim.MATN,
                     matn=matn,
-                    natija=baho["natija"],
-                    part_type=str(baho["natija"].get("part_type", "")),
-                    overall_band=baho["natija"].get("overall_band_no_pronunciation"),
-                    provider=baho["provider"],
-                    model=baho["model"],
-                    input_tokens=baho["input_tokens"],
-                    output_tokens=baho["output_tokens"],
+                    holat=SpeakingTekshiruv.Holat.KUTILMOQDA,
                 )
+                baho = provider.speaking_matn_baholash(matn, savol_matni=savol_matni, tur=tur)
+                tekshiruv.natija = baho["natija"]
+                tekshiruv.part_type = str(baho["natija"].get("part_type", ""))
+                tekshiruv.overall_band = baho["natija"].get("overall_band_no_pronunciation")
+                tekshiruv.provider = baho["provider"]
+                tekshiruv.model = baho["model"]
+                tekshiruv.input_tokens = baho["input_tokens"]
+                tekshiruv.output_tokens = baho["output_tokens"]
+                tekshiruv.holat = SpeakingTekshiruv.Holat.TAYYOR
+                tekshiruv.save()
                 natijalar.append(
                     {"model_kaliti": model_kaliti, "id": tekshiruv.id, "natija": baho["natija"]}
                 )
         except ProviderXatosi as e:
+            if tekshiruv is not None and tekshiruv.holat == SpeakingTekshiruv.Holat.KUTILMOQDA:
+                tekshiruv.holat = SpeakingTekshiruv.Holat.XATO
+                tekshiruv.save(update_fields=["holat"])
             return Response({"detail": str(e)}, status=502)
         except Exception as e:
+            if tekshiruv is not None and tekshiruv.holat == SpeakingTekshiruv.Holat.KUTILMOQDA:
+                tekshiruv.holat = SpeakingTekshiruv.Holat.XATO
+                tekshiruv.save(update_fields=["holat"])
             return ai_xatosi_javobi(e, f"Speaking tekshiruvi (talaba id={request.user.id})")
 
         return Response({"natijalar": natijalar})
@@ -250,32 +272,46 @@ class SpeakingAudioView(APIView):
         savol_matni = (request.data.get("savol_matni") or "").strip()
         tur = request.data.get("tur") or "part1"
 
+        # 2026-08-15: AI chaqirishdan OLDIN xom audio faylni "kutilmoqda"
+        # holatida saqlab qo'yamiz — AI (transkripsiya yoki baholash) xato
+        # bersa ham talabaning audiosi yo'qolmaydi (matn hali yo'q, chunki
+        # transkripsiya AI natijasining bir qismi).
+        audio_bytes = audio.read()
+        tekshiruv = SpeakingTekshiruv.objects.create(
+            talaba=request.user,
+            rejim=SpeakingTekshiruv.Rejim.TEZKOR,
+            matn="",
+            holat=SpeakingTekshiruv.Holat.KUTILMOQDA,
+        )
+        audio.seek(0)
+        tekshiruv.audio_fayl.save(f"{tekshiruv.id}.webm", audio, save=True)
+
         try:
             kalit = getattr(settings, "GEMINI_API_KEY", "")
             if not kalit:
                 raise ProviderXatosi("Platforma GEMINI_API_KEY sozlanmagan (.env)")
             provider = GeminiProvider(kalit, model=GEMINI_MODEL)
             baho = provider.speaking_audio_baholash(
-                audio.read(), audio.content_type or "audio/webm",
+                audio_bytes, audio.content_type or "audio/webm",
                 savol_matni=savol_matni, tur=tur,
             )
-            tekshiruv = SpeakingTekshiruv.objects.create(
-                talaba=request.user,
-                rejim=SpeakingTekshiruv.Rejim.TEZKOR,
-                matn=baho["transkript"],
-                natija=baho["natija"],
-                part_type=str(baho["natija"].get("part_type", "")),
-                overall_band=baho["natija"].get("overall_band_no_pronunciation"),
-                provider=baho["provider"],
-                model=baho["model"],
-                input_tokens=baho["input_tokens"],
-                output_tokens=baho["output_tokens"],
-            )
-            audio.seek(0)
-            tekshiruv.audio_fayl.save(f"{tekshiruv.id}.webm", audio, save=True)
+            tekshiruv.matn = baho["transkript"]
+            tekshiruv.natija = baho["natija"]
+            tekshiruv.part_type = str(baho["natija"].get("part_type", ""))
+            tekshiruv.overall_band = baho["natija"].get("overall_band_no_pronunciation")
+            tekshiruv.provider = baho["provider"]
+            tekshiruv.model = baho["model"]
+            tekshiruv.input_tokens = baho["input_tokens"]
+            tekshiruv.output_tokens = baho["output_tokens"]
+            tekshiruv.holat = SpeakingTekshiruv.Holat.TAYYOR
+            tekshiruv.save()
         except ProviderXatosi as e:
+            tekshiruv.holat = SpeakingTekshiruv.Holat.XATO
+            tekshiruv.save(update_fields=["holat"])
             return Response({"detail": str(e)}, status=502)
         except Exception as e:
+            tekshiruv.holat = SpeakingTekshiruv.Holat.XATO
+            tekshiruv.save(update_fields=["holat"])
             return ai_xatosi_javobi(e, f"Speaking audio tekshiruvi (talaba id={request.user.id})")
 
         return Response(

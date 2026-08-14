@@ -34,7 +34,14 @@ export default function Login() {
       await yangila();
       navigate("/");
     } catch (e) {
-      setXato(e?.data?.kod === "qurilma_mos_emas" ? t("login_qurilma_xato") : t("login_xato"));
+      // 2026-08-15: Railway ko'chirish davrida owner'dan boshqa hech kim
+      // kira olmaydigan holat — backend `kod: "kirish_cheklangan"` bilan
+      // 403 qaytaradi, alohida tushunarli xabar ko'rsatiladi.
+      if (e?.data?.kod === "kirish_cheklangan") {
+        setXato(t("login_kirish_cheklangan"));
+      } else {
+        setXato(e?.data?.kod === "qurilma_mos_emas" ? t("login_qurilma_xato") : t("login_xato"));
+      }
     } finally {
       setBand(false);
     }

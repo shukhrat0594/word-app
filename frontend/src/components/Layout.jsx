@@ -31,7 +31,7 @@ const PANELLAR = {
   "/talabalar": { ikon: "🎒", kalit: "nav_talabalar" },
   "/xodimlar": { ikon: "🧑‍🏫", kalit: "nav_xodimlar" },
   "/davomat": { ikon: "🗓", kalit: "nav_davomat" },
-  "/ijtimoiy-tarmoqlar": { ikon: "🔗", kalit: "nav_ijtimoiy" },
+  "/markaz-sozlash": { ikon: "🏢", kalit: "nav_markaz_sozlama" },
   "/foydalanuvchilar": { ikon: "🧑‍🤝‍🧑", kalit: "nav_foydalanuvchilar" },
   "/hisobotlar": { ikon: "📊", kalit: "nav_hisobotlar" },
   "/profil": { ikon: "👤", kalit: "nav_profil" },
@@ -77,13 +77,14 @@ export const ROL_PANELLARI = {
     "/", "/guruhlar", "/talabalar", "/xodimlar", "/davomat",
     "/ielts-boshqarish", "/ai-mashqlari", "/kurslar",
     "/oyinlar", "/tarix", "/reyting",
-    "/ijtimoiy-tarmoqlar", "/foydalanuvchilar", "/hisobotlar",
+    "/markaz-sozlash", "/foydalanuvchilar", "/hisobotlar",
   ],
   // 2026-07-21: "Mashqlar boshqarish" (bo'lim o'zi ham yopiq), "Davomat"
   // (endi faqat o'qituvchida — u belgilaydi; hisoboti "Hisobotlar"ga
-  // ko'chdi, faqat owner ko'radi) va "Markaz" (brend sozlash, hech kimga
-  // ko'rinmasin deb so'ralgan) adminda YO'Q. Sahifalari va backendi
-  // joyida — kerak bo'lsa shu ro'yxatga qaytariladi.
+  // ko'chdi, faqat owner ko'radi) va "Markaz sozlamalari" (logo/ijtimoiy/
+  // backup — 2026-08-15: backup FAQAT owner uchun bo'lgani sabab butun
+  // sahifa ham owner-only qilib qoldirildi) adminda YO'Q. Sahifalari va
+  // backendi joyida — kerak bo'lsa shu ro'yxatga qaytariladi.
   //
   // 2026-08-13: "/hisobotlar" adminga QO'SHILDI (foydalanuvchi talabi) —
   // lekin sahifaning o'zi (`Hisobotlar.jsx`) admin uchun FAQAT "Javobsiz
@@ -91,7 +92,7 @@ export const ROL_PANELLARI = {
   // hamon faqat owner uchun (backend ham 403 qaytaradi).
   admin: [
     "/", "/guruhlar", "/talabalar", "/xodimlar",
-    "/ielts-boshqarish", "/ai-mashqlari", "/kurslar", "/ijtimoiy-tarmoqlar",
+    "/ielts-boshqarish", "/ai-mashqlari", "/kurslar",
     "/hisobotlar",
   ],
   teacher: [

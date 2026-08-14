@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
 import { Dinamika, Radar } from "../components/Grafiklar";
+import XatolikHolati from "../components/XatolikHolati";
 import { useI18n } from "../i18n";
 
 const BADGE_IKONLAR = {
@@ -17,12 +18,20 @@ export default function Dashboard() {
   const [stat, setStat] = useState(null);
   const [gami, setGami] = useState(null);
   const [lb, setLb] = useState(null);
+  const [xato, setXato] = useState(false);
+
+  function yukla() {
+    setXato(false);
+    api("/api/statistika/").then(setStat).catch(() => setXato(true));
+    api("/api/gamifikatsiya/").then(setGami).catch(() => setXato(true));
+    api("/api/leaderboard/").then(setLb).catch(() => setXato(true));
+  }
 
   useEffect(() => {
-    api("/api/statistika/").then(setStat).catch(() => {});
-    api("/api/gamifikatsiya/").then(setGami).catch(() => {});
-    api("/api/leaderboard/").then(setLb).catch(() => {});
+    yukla();
   }, []);
+
+  if (xato) return <XatolikHolati qaytaUrin={yukla} />;
 
   if (!stat || !gami) return <div className="yuklanmoqda">{t("yuklanmoqda")}</div>;
 

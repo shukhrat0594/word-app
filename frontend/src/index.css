@@ -312,7 +312,41 @@ a.logo:hover .logo-nom { color: var(--sariq); }
   background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.2); color: #F2F0EA; cursor: pointer;
 }
 .imtihon-part-tab .raqamlar button.javob-berilgan { background: var(--sariq); border-color: var(--sariq); color: var(--komir); }
+
+/* Vaqt tugaganda: hali natija kelmagan (submit/tekshirish ketmoqda)
+   oraliqda barcha input/tugmalar bloklansin — F5/VAQT TUGASHI ishi
+   (2026-08-15). */
+.imtihon-vaqt-tugadi-overlay { pointer-events: none; opacity: .55; filter: grayscale(.15); transition: opacity .2s; }
+.imtihon-vaqt-modal-fon {
+  position: fixed; inset: 0; z-index: 300; background: rgba(0,0,0,.55);
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+}
+.imtihon-vaqt-modal {
+  background: var(--sirt); border-radius: 14px; padding: 28px 32px; max-width: 380px;
+  text-align: center; box-shadow: 0 10px 40px rgba(0,0,0,.35);
+}
+.imtihon-vaqt-modal h3 { margin: 0 0 10px; }
+.imtihon-vaqt-modal p { color: var(--matn-sokin); margin: 0 0 20px; font-size: 13.5px; }
 .imtihon-pastki-panel .tugma.katta { margin-left: auto; padding: 8px 20px; }
+
+/* 2026-08-15: mobilda (768px'gacha) split-panel yon-yonlab qisilib
+   qolmasin — ustma-ust (chap tepada, o'ng pastda) joylashadi.
+   `flexBasis` inline (%) — column yo'nalishda balandlikka aylanib,
+   noto'g'ri chiqmasligi uchun `!important` bilan bekor qilinadi. */
+@media (max-width: 768px) {
+  .imtihon-split, .imtihon-fokus-ustma .imtihon-split {
+    flex-direction: column;
+    height: auto;
+  }
+  .imtihon-panel-chap, .imtihon-panel-ong {
+    flex-basis: auto !important;
+    max-height: 45vh;
+    overflow-y: auto;
+  }
+  .imtihon-panel-chap { border-right: none; border-bottom: 1px solid var(--chiziq); }
+  .imtihon-drag-tutqich { display: none; }
+  .imtihon-part-tab .raqamlar button { width: 32px; height: 32px; }
+}
 
 .imtihon-oqim-matn { line-height: 2.1; font-size: 14.5px; }
 .imtihon-bosh-joy {

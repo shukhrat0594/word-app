@@ -7,7 +7,18 @@ class WritingTekshiruv(models.Model):
 
     MVP'da bitta tarif: Tezkor tahlil (600 so'm). Chuqurroq tahlil (Sonnet)
     keyingi fazada qo'shiladi. To'lov 2-fazada — hozircha yozuvlar to'lovsiz.
+
+    2026-08-15: `holat` maydoni qo'shildi — talabaning matni AI chaqirilishidan
+    OLDIN, "kutilmoqda" holatida saqlanadi (AI xato bersa ham matn yo'qolmaydi).
+    Standart qiymat TAYYOR — bu maydon qo'shilishidan oldin yaratilgan barcha
+    yozuvlar muvaffaqiyatli tugatilgan edi, ular orqaga moslik uchun TAYYOR
+    hisoblanadi.
     """
+
+    class Holat(models.TextChoices):
+        KUTILMOQDA = "kutilmoqda", "Kutilmoqda"
+        TAYYOR = "tayyor", "Tayyor"
+        XATO = "xato", "Xato"
 
     talaba = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -15,11 +26,12 @@ class WritingTekshiruv(models.Model):
         related_name="writing_tekshiruvlar",
     )
     matn = models.TextField()
-    natija = models.JSONField()
+    holat = models.CharField(max_length=12, choices=Holat.choices, default=Holat.TAYYOR)
+    natija = models.JSONField(null=True, blank=True)
     task_type = models.CharField(max_length=10, blank=True)
     overall_band = models.FloatField(null=True, blank=True)
-    provider = models.CharField(max_length=10)
-    model = models.CharField(max_length=50)
+    provider = models.CharField(max_length=10, blank=True)
+    model = models.CharField(max_length=50, blank=True)
     input_tokens = models.PositiveIntegerField(default=0)
     output_tokens = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -44,15 +56,21 @@ class SpeakingTekshiruv(models.Model):
         MATN = "matn", "Matn rejimi"
         TEZKOR = "tezkor", "Tezkor tahlil (audio)"
 
+    class Holat(models.TextChoices):
+        KUTILMOQDA = "kutilmoqda", "Kutilmoqda"
+        TAYYOR = "tayyor", "Tayyor"
+        XATO = "xato", "Xato"
+
     talaba = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name="speaking_tekshiruvlar",
     )
     rejim = models.CharField(max_length=10, choices=Rejim.choices)
-    matn = models.TextField(help_text="Kiritilgan matn yoki Azure transkripsiyasi")
+    holat = models.CharField(max_length=12, choices=Holat.choices, default=Holat.TAYYOR)
+    matn = models.TextField(help_text="Kiritilgan matn yoki Azure transkripsiyasi", blank=True)
     audio_fayl = models.FileField(upload_to="speaking/audio/", blank=True)
-    natija = models.JSONField()
+    natija = models.JSONField(null=True, blank=True)
     pronunciation = models.JSONField(
         null=True, blank=True, help_text="Azure Pronunciation natijasi (Tezkor rejimda)"
     )
@@ -61,8 +79,8 @@ class SpeakingTekshiruv(models.Model):
         null=True, blank=True,
         help_text="Matn rejimida — Pronunciation'siz 3 mezon o'rtachasi",
     )
-    provider = models.CharField(max_length=10)
-    model = models.CharField(max_length=50)
+    provider = models.CharField(max_length=10, blank=True)
+    model = models.CharField(max_length=50, blank=True)
     input_tokens = models.PositiveIntegerField(default=0)
     output_tokens = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)

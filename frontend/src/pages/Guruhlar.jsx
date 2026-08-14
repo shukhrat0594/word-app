@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
+import XatolikHolati from "../components/XatolikHolati";
 import { useI18n } from "../i18n";
 import { useProfil } from "../profilContext";
 import { ProfilRasmi } from "./Foydalanuvchilar";
@@ -31,9 +32,14 @@ export default function Guruhlar() {
   // Arxivlangan guruhlarni ko'rish (2026-08-02) — standart holatda faqat
   // faol guruhlar ko'rinadi.
   const [arxivKorish, setArxivKorish] = useState(false);
+  // Ro'yxatni yuklashda tarmoq xatosi (2026-08-15) — form ichidagi
+  // validatsiya xatolari uchun ishlatiladigan `xato` dan alohida,
+  // sahifa darajasidagi "qayta urinish" holati uchun.
+  const [yuklashXato, setYuklashXato] = useState(false);
 
   function guruhlarniYukla(arxiv = arxivKorish) {
-    api(`/api/guruhlar/${arxiv ? "?arxiv=1" : ""}`).then(setGuruhlar).catch(() => {});
+    setYuklashXato(false);
+    api(`/api/guruhlar/${arxiv ? "?arxiv=1" : ""}`).then(setGuruhlar).catch(() => setYuklashXato(true));
   }
 
   useEffect(() => {
@@ -165,6 +171,8 @@ export default function Guruhlar() {
       setBand(false);
     }
   }
+
+  if (yuklashXato) return <XatolikHolati qaytaUrin={() => guruhlarniYukla(arxivKorish)} />;
 
   if (!azolar) return <div className="yuklanmoqda">{t("yuklanmoqda")}</div>;
 

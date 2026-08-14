@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
+import XatolikHolati from "../components/XatolikHolati";
 import { useI18n } from "../i18n";
 
 function bugun() {
@@ -14,15 +15,16 @@ export default function Davomat() {
   const [talabalar, setTalabalar] = useState(null);
   const [xabar, setXabar] = useState("");
   const [band, setBand] = useState(false);
+  const [xato, setXato] = useState(false);
 
-  useEffect(() => {
+  function guruhlarniYukla() {
     api("/api/guruhlar/").then((qs) => {
       setGuruhlar(qs);
       if (qs.length === 1) setGuruhId(String(qs[0].id));
-    }).catch(() => {});
-  }, []);
+    }).catch(() => setXato(true));
+  }
 
-  useEffect(() => {
+  function talabalarniYukla() {
     if (!guruhId) {
       setTalabalar(null);
       return;
@@ -30,7 +32,21 @@ export default function Davomat() {
     setXabar("");
     api(`/api/davomat/?guruh=${guruhId}&sana=${sana}`)
       .then((d) => setTalabalar(d.talabalar))
-      .catch(() => {});
+      .catch(() => setXato(true));
+  }
+
+  function yukla() {
+    setXato(false);
+    guruhlarniYukla();
+    talabalarniYukla();
+  }
+
+  useEffect(() => {
+    guruhlarniYukla();
+  }, []);
+
+  useEffect(() => {
+    talabalarniYukla();
   }, [guruhId, sana]);
 
   function holatQoy(talabaId, holat) {
@@ -57,6 +73,8 @@ export default function Davomat() {
       setBand(false);
     }
   }
+
+  if (xato) return <XatolikHolati qaytaUrin={yukla} />;
 
   return (
     <div className="karta">
