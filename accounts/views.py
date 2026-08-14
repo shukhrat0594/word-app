@@ -94,8 +94,7 @@ class ProfilView(APIView):
                 "rasm_url": f"/api/foydalanuvchilar/{u.id}/rasm/" if u.rasm else None,
                 # 2026-08-14 — o'z profili, hammasi (shaxsiylari ham) ko'rinadi.
                 "bio": u.bio,
-                "maqsad_band": u.maqsad_band,
-                "maqsad_muddat": u.maqsad_muddat,
+                "maqsad": u.maqsad,
                 "sabab": u.sabab,
                 "telefon": u.telefon,
                 "tugilgan_sana": u.tugilgan_sana,
@@ -458,8 +457,7 @@ class FoydalanuvchilarView(APIView):
                     "qurilmalar_soni": len(u.qurilmalar),
                     # 2026-08-14 — owner ko'radi (shaxsiylari ham).
                     "bio": u.bio,
-                    "maqsad_band": u.maqsad_band,
-                    "maqsad_muddat": u.maqsad_muddat,
+                    "maqsad": u.maqsad,
                     "sabab": u.sabab,
                     "telefon": u.telefon,
                     "tugilgan_sana": u.tugilgan_sana,
@@ -1215,8 +1213,7 @@ class XodimlarView(APIView):
                     "qurilma_limiti": u.qurilma_limiti,
                     "qurilmalar_soni": len(u.qurilmalar),
                     "bio": u.bio,
-                    "maqsad_band": u.maqsad_band,
-                    "maqsad_muddat": u.maqsad_muddat,
+                    "maqsad": u.maqsad,
                     "sabab": u.sabab,
                     "telefon": u.telefon,
                     "tugilgan_sana": u.tugilgan_sana,
@@ -1400,8 +1397,7 @@ class TalabalarView(APIView):
                     "qurilma_limiti": t.qurilma_limiti,
                     "qurilmalar_soni": len(t.qurilmalar),
                     "bio": t.bio,
-                    "maqsad_band": t.maqsad_band,
-                    "maqsad_muddat": t.maqsad_muddat,
+                    "maqsad": t.maqsad,
                     "sabab": t.sabab,
                     "telefon": t.telefon,
                     "tugilgan_sana": t.tugilgan_sana,
@@ -1524,10 +1520,11 @@ class ProfilTahrirlashView(APIView):
     so'roviga javoban qo'shilgan maydonlar).
 
     Ism — butun ism `first_name`ga yoziladi (`last_name` ishlatilmaydi,
-    loyihada ajratilmagan). Qolgan maydonlar — `bio`/`maqsad_band`/
-    `maqsad_muddat`/`sabab` (OCHIQ, admin/owner ro'yxatlarida chiqadi)
-    va `telefon`/`tugilgan_sana` (SHAXSIY — faqat admin/owner ko'radi,
-    boshqa endpoint'larga qo'shilmagan).
+    loyihada ajratilmagan). Qolgan maydonlar — `bio`/`maqsad`/`sabab`
+    (ikkalasi ham ERKIN MATN, tanlov emas — 2026-08-14 ikkinchi
+    talabga ko'ra soddalashtirildi; OCHIQ, admin/owner ro'yxatlarida
+    chiqadi) va `telefon`/`tugilgan_sana` (SHAXSIY — faqat admin/owner
+    ko'radi, boshqa endpoint'larga qo'shilmagan).
 
     Barcha maydonlar IXTIYORIY — faqat yuborilganlari yangilanadi,
     yuborilmagani tegilmaydi (frontend qisman formani ham yubora oladi)."""
@@ -1554,22 +1551,17 @@ class ProfilTahrirlashView(APIView):
             u.bio = bio
             yangilanadigan.append("bio")
 
-        if "maqsad_band" in request.data:
-            band = str(request.data.get("maqsad_band") or "").strip()
-            if band and band not in dict(User.BAND_TANLOVLARI):
-                return Response({"detail": "Noto'g'ri band qiymati"}, status=400)
-            u.maqsad_band = band
-            yangilanadigan.append("maqsad_band")
-
-        if "maqsad_muddat" in request.data:
-            muddat = request.data.get("maqsad_muddat") or None
-            u.maqsad_muddat = muddat
-            yangilanadigan.append("maqsad_muddat")
+        if "maqsad" in request.data:
+            maqsad = str(request.data.get("maqsad") or "").strip()
+            if len(maqsad) > 500:
+                return Response({"detail": "Maqsad 500 belgigacha bo'lsin"}, status=400)
+            u.maqsad = maqsad
+            yangilanadigan.append("maqsad")
 
         if "sabab" in request.data:
             sabab = str(request.data.get("sabab") or "").strip()
-            if sabab and sabab not in User.Sabab.values:
-                return Response({"detail": "Noto'g'ri sabab qiymati"}, status=400)
+            if len(sabab) > 500:
+                return Response({"detail": "Sabab 500 belgigacha bo'lsin"}, status=400)
             u.sabab = sabab
             yangilanadigan.append("sabab")
 
@@ -1597,8 +1589,7 @@ class ProfilTahrirlashView(APIView):
         return Response({
             "ism": u.get_full_name(),
             "bio": u.bio,
-            "maqsad_band": u.maqsad_band,
-            "maqsad_muddat": u.maqsad_muddat,
+            "maqsad": u.maqsad,
             "sabab": u.sabab,
             "telefon": u.telefon,
             "tugilgan_sana": u.tugilgan_sana,

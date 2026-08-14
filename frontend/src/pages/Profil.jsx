@@ -85,8 +85,7 @@ export default function Profil() {
       setForma({
         ism: profil.ism === profil.username ? "" : profil.ism,
         bio: profil.bio || "",
-        maqsad_band: profil.maqsad_band || "",
-        maqsad_muddat: profil.maqsad_muddat || "",
+        maqsad: profil.maqsad || "",
         sabab: profil.sabab || "",
         telefon: profil.telefon || "",
         tugilgan_sana: profil.tugilgan_sana || "",
@@ -238,47 +237,22 @@ export default function Profil() {
                 style={{ width: "100%" }}
               />
             </label>
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-              <label style={{ flex: 1, minWidth: 140 }}>
-                <span className="izoh">{t("profil_maqsad_band")}</span>
-                <select
-                  value={forma.maqsad_band}
-                  onChange={(e) => setForma((f) => ({ ...f, maqsad_band: e.target.value }))}
-                  style={{ width: "100%" }}
-                >
-                  <option value="">—</option>
-                  {["4.0", "4.5", "5.0", "5.5", "6.0", "6.5", "7.0", "7.5", "8.0", "8.5", "9.0"].map(
-                    (b) => (
-                      <option key={b} value={b}>{b}</option>
-                    )
-                  )}
-                </select>
-              </label>
-              <label style={{ flex: 1, minWidth: 140 }}>
-                <span className="izoh">{t("profil_maqsad_muddat")}</span>
-                <input
-                  type="date"
-                  value={forma.maqsad_muddat}
-                  onChange={(e) => setForma((f) => ({ ...f, maqsad_muddat: e.target.value }))}
-                  style={{ width: "100%" }}
-                />
-              </label>
-            </div>
+            <label>
+              <span className="izoh">{t("profil_maqsad")}</span>
+              <input
+                value={forma.maqsad}
+                onChange={(e) => setForma((f) => ({ ...f, maqsad: e.target.value }))}
+                placeholder={t("profil_maqsad_placeholder")}
+              />
+            </label>
             <label>
               <span className="izoh">{t("profil_sabab")}</span>
-              <select
+              <input
                 value={forma.sabab}
                 onChange={(e) => setForma((f) => ({ ...f, sabab: e.target.value }))}
-                style={{ width: "100%" }}
-              >
-                <option value="">—</option>
-                <option value="oqish">{t("profil_sabab_oqish")}</option>
-                <option value="ish">{t("profil_sabab_ish")}</option>
-                <option value="shaxsiy">{t("profil_sabab_shaxsiy")}</option>
-                <option value="boshqa">{t("profil_sabab_boshqa")}</option>
-              </select>
+                placeholder={t("profil_sabab_placeholder")}
+              />
             </label>
-            <p className="izoh" style={{ margin: 0 }}>{t("profil_shaxsiy_izoh")}</p>
             <label>
               <span className="izoh">{t("profil_telefon")}</span>
               <input
