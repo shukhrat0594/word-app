@@ -1214,7 +1214,7 @@ export default function ImtihonOtish({ bolim, manba = "admin", testId, mockYechi
 
   const mazmun = (
     <div
-      style={{ fontSize: `${masshtab}%` }}
+      style={{ zoom: `${masshtab}%` }}
       className={bloklanganOraliqda ? "imtihon-vaqt-tugadi-overlay" : ""}
     >
       {bloklanganOraliqda && (

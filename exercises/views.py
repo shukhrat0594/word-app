@@ -49,6 +49,19 @@ def _manba_ol(request):
     return qiymat if qiymat in Manba.values else Manba.ADMIN
 
 
+def _papka_tabiiy_kaliti(papka):
+    """Papka nomidagi raqamlarni SONNI hisobga olib tartiblash uchun kalit
+    (2026-08-16, foydalanuvchi talabi — "Test 4, Test 3, Test 2" kabi
+    teskari ko'rinib qolgan edi). `tartib` maydoni bu yerda hech qachon
+    admin panelidan o'zgartirilmaydi (doim 0) — shuning uchun oddiy
+    `nomi` bo'yicha alfavit tartibi "Test 10" ni "Test 2"dan OLDIN
+    qo'yib yuborardi. Bu kalit sonlarni SON sifatida solishtiradi."""
+    return [
+        (0, int(qism)) if qism.isdigit() else (1, qism)
+        for qism in re.split(r"(\d+)", papka.nomi)
+    ]
+
+
 def _mashq_admin_mi(user):
     return owner_mi(user) or user.role == User.Role.ADMIN
 
@@ -1261,7 +1274,10 @@ class TestPapkaBoshqaruvView(APIView):
     def get(self, request):
         if not _mashq_admin_mi(request.user):
             return Response({"detail": "Faqat admin/owner uchun"}, status=403)
-        qs = TestPapkasi.objects.filter(manba=_manba_ol(request))
+        qs = sorted(
+            TestPapkasi.objects.filter(manba=_manba_ol(request)),
+            key=_papka_tabiiy_kaliti,
+        )
         return Response(
             [
                 {
@@ -2200,9 +2216,9 @@ class MockPapkalarView(APIView):
             papka_qs = papka_qs.filter(manba=Manba.AI)
 
         papkalar = []
-        for top in papka_qs.order_by("tartib", "nomi"):
+        for top in sorted(papka_qs, key=_papka_tabiiy_kaliti):
             ichkilar = []
-            for ich in top.ichki_papkalar.order_by("tartib", "nomi"):
+            for ich in sorted(top.ichki_papkalar.all(), key=_papka_tabiiy_kaliti):
                 bolim_testlari = _papka_bolim_testlari(ich)
                 if set(bolim_testlari) != _TOLIQ_BOLIMLAR:
                     continue  # 4/4 emas — ro'yxatda chiqmasin
