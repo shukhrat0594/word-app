@@ -401,13 +401,38 @@ class SaytHolatiView(APIView):
 
     GET — OCHIQ (login sahifasi hali autentifikatsiyalanmagan holatda
     forma ko'rsatish-ko'rsatmaslikni shundan biladi). PATCH — faqat
-    owner."""
+    owner.
+
+    GET javobidagi `aktiv_foydalanuvchilar` (2026-08-15 talabi) —
+    hozir tizimda bo'lgan, OWNER BO'LMAGAN foydalanuvchilar soni:
+    owner cheklovni yoqishdan oldin "N kishi ishlayapti, ular darhol
+    chiqarib yuboriladi" deb ogohlantirilishi uchun."""
 
     permission_classes = [AllowAny]
 
+    def _aktiv_foydalanuvchilar_soni(self):
+        """Amaldagi (muddati o'tmagan va bekor qilinmagan) refresh
+        tokenga ega, owner bo'lmagan foydalanuvchilar soni."""
+        from rest_framework_simplejwt.token_blacklist.models import OutstandingToken
+
+        return (
+            OutstandingToken.objects.filter(
+                expires_at__gt=timezone.now(),
+                blacklistedtoken__isnull=True,
+                user__isnull=False,
+                user__is_superuser=False,
+            )
+            .values("user_id")
+            .distinct()
+            .count()
+        )
+
     def get(self, request):
         m = Markaz.objects.first()
-        return Response({"kirish_cheklangan": bool(m and m.kirish_cheklangan)})
+        return Response({
+            "kirish_cheklangan": bool(m and m.kirish_cheklangan),
+            "aktiv_foydalanuvchilar": self._aktiv_foydalanuvchilar_soni(),
+        })
 
     def patch(self, request):
         if not request.user.is_authenticated or not owner_mi(request.user):

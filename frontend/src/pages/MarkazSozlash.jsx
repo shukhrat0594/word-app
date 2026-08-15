@@ -32,12 +32,21 @@ export default function MarkazSozlash() {
   const [backupBand, setBackupBand] = useState(false);
   const [backupXato, setBackupXato] = useState("");
   const [backupXabar, setBackupXabar] = useState("");
+  const [tanlanganFayl, setTanlanganFayl] = useState("");
   const tiklashFaylRef = useRef(null);
+
+  function faylniTozala() {
+    if (tiklashFaylRef.current) tiklashFaylRef.current.value = "";
+    setTanlanganFayl("");
+    setBackupXato("");
+    setBackupXabar("");
+  }
 
   // 2026-08-15: Railway ko'chirish davrida eski (Render) saytga adashib
   // kirishning oldini olish uchun — yoqilsa OWNER'dan boshqa hech kim
   // kira olmaydi (backend: `accounts.views.SaytHolatiView`/`XodimLoginView`).
   const [kirishCheklangan, setKirishCheklangan] = useState(false);
+  const [aktivFoydalanuvchilar, setAktivFoydalanuvchilar] = useState(0);
   const [cheklovBand, setCheklovBand] = useState(false);
   const [cheklovXato, setCheklovXato] = useState("");
 
@@ -47,10 +56,32 @@ export default function MarkazSozlash() {
       setRang(m.brend_rang);
       setIjtimoiy(m.ijtimoiy || {});
     }).catch(() => {});
-    api("/api/sayt-holati/").then((r) => setKirishCheklangan(r.kirish_cheklangan)).catch(() => {});
+    saytHolatiniYukla();
   }, []);
 
+  function saytHolatiniYukla() {
+    return api("/api/sayt-holati/")
+      .then((r) => {
+        setKirishCheklangan(r.kirish_cheklangan);
+        setAktivFoydalanuvchilar(r.aktiv_foydalanuvchilar || 0);
+      })
+      .catch(() => {});
+  }
+
   async function kirishCheklovniOzgartir(yangiQiymat) {
+    // 2026-08-15 talabi: yoqishdan oldin — hozir tizimda ishlayotgan
+    // foydalanuvchilar bo'lsa ogohlantirish (ular DARHOL chiqarib
+    // yuboriladi, chunki cheklov har so'rovda tekshiriladi).
+    if (yangiQiymat) {
+      const holat = await api("/api/sayt-holati/").catch(() => null);
+      const soni = holat?.aktiv_foydalanuvchilar ?? aktivFoydalanuvchilar;
+      setAktivFoydalanuvchilar(soni);
+      const savol = soni > 0
+        ? `${t("aktiv_foydalanuvchilar_ogoh").replace("{n}", soni)}\n\n${t("kirishni_cheklash_tasdiq")}`
+        : t("kirishni_cheklash_tasdiq");
+      if (!window.confirm(savol)) return;
+    }
+
     setCheklovXato("");
     setCheklovBand(true);
     try {
@@ -59,6 +90,7 @@ export default function MarkazSozlash() {
         body: { kirish_cheklangan: yangiQiymat },
       });
       setKirishCheklangan(r.kirish_cheklangan);
+      await saytHolatiniYukla();
     } catch (e) {
       setCheklovXato(e.data?.detail || t("xato_yuz_berdi"));
     } finally {
@@ -121,6 +153,7 @@ export default function MarkazSozlash() {
       const res = await apiForm("/api/backup/tiklash/", { method: "POST", formData: fd });
       setBackupXabar(res.detail || t("backup_tiklandi"));
       if (tiklashFaylRef.current) tiklashFaylRef.current.value = "";
+      setTanlanganFayl("");
     } catch (e) {
       setBackupXato(e.data?.detail || t("xato_yuz_berdi"));
     } finally {
@@ -193,10 +226,15 @@ export default function MarkazSozlash() {
         <p className="izoh">{t("kirish_cheklovi_izoh")}</p>
 
         <div style={{ display: "grid", gap: 10, marginTop: 4 }}>
-          <div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
             <span className={`chip ${kirishCheklangan ? "tugadi" : "bor"}`}>
               {kirishCheklangan ? t("kirish_cheklangan_holat") : t("kirish_ochiq_holat")}
             </span>
+            {!kirishCheklangan && aktivFoydalanuvchilar > 0 && (
+              <span className="izoh">
+                {t("aktiv_foydalanuvchilar_ogoh").replace("{n}", aktivFoydalanuvchilar)}
+              </span>
+            )}
           </div>
           {kirishCheklangan ? (
             <button
@@ -235,7 +273,22 @@ export default function MarkazSozlash() {
           <div>
             <div className="izoh" style={{ marginBottom: 6 }}>{t("backup_tiklash")}</div>
             <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-              <input type="file" accept=".zip" ref={tiklashFaylRef} />
+              <input
+                type="file"
+                accept=".zip"
+                ref={tiklashFaylRef}
+                onChange={(e) => setTanlanganFayl(e.target.files?.[0]?.name || "")}
+              />
+              {tanlanganFayl && (
+                <button
+                  type="button"
+                  className="tugma ikkinchi"
+                  onClick={faylniTozala}
+                  disabled={backupBand}
+                >
+                  {t("faylni_ochirish")}
+                </button>
+              )}
               <button className="tugma xavfli" onClick={backupdanTiklash} disabled={backupBand}>
                 {t("backup_tiklash")}
               </button>

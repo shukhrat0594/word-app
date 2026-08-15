@@ -680,6 +680,34 @@ Implementatsiya boshlanmagan.
 
 ---
 
+### AKTIV SEANSLAR BO'LIMI (o'rta) — ❗ NAVBATDAGI
+**Talab (2026-08-15, foydalanuvchi):** "Foydalanuvchilar" bo'limida
+"Aktiv seanslar" qismi kerak — hozir kim tizimga kirgan holatda
+ekanini ko'rish va biror seans OSILIB QOLGAN bo'lsa (masalan qurilma
+limiti band bo'lib qolgan, foydalanuvchi kira olmayapti) uni majburan
+o'chirib tashlash imkoni bo'lsin.
+
+**Mavjud asos (tekshirilgan):** loyihada `rest_framework_simplejwt`
+`token_blacklist` app'i YOQILGAN (`config/settings.py` INSTALLED_APPS) —
+ya'ni `OutstandingToken` (berilgan refresh tokenlar) va
+`BlacklistedToken` (bekor qilinganlari) jadvallari allaqachon bor.
+Demak "kim kirgan"ni shu jadvaldan o'qish va seansni bekor qilish
+(blacklist'ga qo'shish) mumkin — yangi model qurish shart emas.
+
+**Diqqat qilinadigan joy:** access token'ning o'z amal qilish muddati
+bor — refresh tokenni blacklist qilish darhol chiqarib yubormaydi
+(muddat tugaguncha ishlashda davom etadi). Darhol uzish kerak bo'lsa,
+"Kirish cheklovi" kabi `accounts/authentication.py` darajasida tekshiruv
+qo'shish kerak bo'ladi (2026-08-15 da shu naqsh bilan qilingan).
+
+**Bog'liq:** `qurilma_limiti`/`qurilmalar` tizimi bilan birga ko'rib
+chiqilsin — "osilib qolgan seans" muammosi ko'pincha o'sha bilan bog'liq
+(`accounts/views.py: QurilmaTiklashView` allaqachon mavjud).
+
+Implementatsiya boshlanmagan.
+
+---
+
 ### O'YINLAR — DARAJA RO'YXATI (kichik)
 **Nima qilinadi:** o'yin boshlashdan oldin daraja tanlash ochiladigan menyu (`<select>`) o'rniga ko'rinib turgan tugmalar qatoriga aylantiriladi.
 

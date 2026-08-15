@@ -1114,23 +1114,42 @@ function SavolTahrirQatori({ savol, oz, hammagaQoll, t }) {
             mumkin (bir savolga bir nechta qabul qilinadigan javob).
             Massiv bo'lsa — xuddi variantlar kabi, har javob alohida
             qatorda; oddiy matn bo'lsa erkin yoziladi. */}
-        {Array.isArray(savol.togri) ? (
-          <RoyxatMaydoni
-            style={{ flex: 1 }}
-            rows={3}
-            placeholder={t("imtihon_togri_javob")}
-            qiymat={savol.togri.join("\n")}
-            ajratgich={"\n"}
-            ozgardi={(royxat) => maydonOz({ togri: royxat })}
-          />
-        ) : (
-          <input
-            style={{ flex: 1 }}
-            placeholder={t("imtihon_togri_javob")}
-            value={togriMatni}
-            onChange={(e) => maydonOz({ togri: e.target.value })}
-          />
-        )}
+        {/* 2026-08-15: avval `togri` oddiy MATN bo'lsa bir qatorli
+            `<input>` chiqardi va uni ko'p-javobli (massiv) rejimga
+            o'tkazishning HECH QANDAY yo'li yo'q edi — admin Enter bosa
+            olmasdi va ikkita javobni bitta qatorga tire bilan yozishga
+            majbur bo'lardi ("Jupiter-Saturn"). Endi yonida almashtirish
+            tugmasi bor. */}
+        <div style={{ flex: 1, display: "grid", gap: 3 }}>
+          {Array.isArray(savol.togri) ? (
+            <RoyxatMaydoni
+              rows={3}
+              placeholder={t("imtihon_togri_javob")}
+              qiymat={savol.togri.join("\n")}
+              ajratgich={"\n"}
+              ozgardi={(royxat) => maydonOz({ togri: royxat })}
+            />
+          ) : (
+            <input
+              placeholder={t("imtihon_togri_javob")}
+              value={togriMatni}
+              onChange={(e) => maydonOz({ togri: e.target.value })}
+            />
+          )}
+          <button
+            className="tugma ikkinchi kichik"
+            title={t("imtihon_kop_javob_izoh")}
+            onClick={() =>
+              maydonOz({
+                togri: Array.isArray(savol.togri)
+                  ? savol.togri.filter(Boolean).join(", ")
+                  : String(togriMatni || "").split(/\s*,\s*/).filter(Boolean),
+              })
+            }
+          >
+            {Array.isArray(savol.togri) ? t("imtihon_bitta_javob") : t("imtihon_kop_javob")}
+          </button>
+        </div>
       </div>
     </div>
   );

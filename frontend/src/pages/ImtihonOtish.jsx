@@ -311,24 +311,68 @@ const HARFLAR = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 // o'rniga kichik input (n — testdagi UMUMIY savol raqami, 1-based; javoblar
 // massividagi indeks n-1), \n bo'lsa qatorga o'tadi. Table/Flow-chart
 // Completion (2026-07-24) uchun.
+/** Savolga javob berilganmi — ko'p-katakchali savolda javob RO'YXAT
+ * bo'ladi, va faqat bo'sh satrlardan iborat ro'yxat "javob berilgan"
+ * deb hisoblanmasligi kerak (2026-08-15). */
+function javobBormi(qiymat) {
+  if (Array.isArray(qiymat)) return qiymat.some((x) => String(x || "").trim());
+  return !!qiymat;
+}
+
 function matnniBoslarGaAjrat(matn, javoblar, javobniQoy, natija) {
   if (!matn) return null;
   const qismlar = matn.split(/(\{\{\d+\}\}|\n)/g);
+
+  // 2026-08-15 BUG TUZATILDI: bitta savol raqami matnda BIR NECHTA marta
+  // uchrasa (masalan "pictures of both {{33}} and {{33}}" — asl IELTS
+  // kalitida "IN EITHER ORDER; BOTH REQUIRED FOR ONE MARK"), avval
+  // ikkala katakcha ham AYNAN BIR XIL indeksga yozardi — ya'ni birinchisiga
+  // yozilgan matn ikkinchisida ham paydo bo'lardi (ko'zgu effekti).
+  // Endi har uchrash o'z o'rniga (`sub`) ega bo'ladi va javob ro'yxat
+  // sifatida saqlanadi. Bitta marta uchraydigan (odatiy) savollar
+  // avvalgidek satr bilan ishlaydi — eski testlar buzilmaydi.
+  const uchrashSoni = {};
+  qismlar.forEach((b) => {
+    const m = b.match(/^\{\{(\d+)\}\}$/);
+    if (m) {
+      const n = parseInt(m[1], 10) - 1;
+      uchrashSoni[n] = (uchrashSoni[n] || 0) + 1;
+    }
+  });
+
+  const korilgan = {};
   return qismlar.map((b, i) => {
     if (b === "\n") return <br key={i} />;
     const mos = b.match(/^\{\{(\d+)\}\}$/);
     if (!mos) return <span key={i}>{b}</span>;
     const idx = parseInt(mos[1], 10) - 1;
+    const kopKatakcha = (uchrashSoni[idx] || 0) > 1;
+    korilgan[idx] = (korilgan[idx] ?? -1) + 1;
+    const sub = korilgan[idx];
+
+    const saqlangan = javoblar[idx];
+    const qiymat = kopKatakcha
+      ? Array.isArray(saqlangan)
+        ? saqlangan[sub] || ""
+        : sub === 0
+          ? saqlangan || ""
+          : ""
+      : saqlangan || "";
+
     const holat = natija ? (natija.natijalar[idx] ? "togri" : "notogri") : "";
     return (
       <span key={i} className="imtihon-inline-juft">
-        <span className="imtihon-inline-raqam">{idx + 1}</span>
+        {/* Ko'p katakchali savolda raqam FAQAT birinchisida — asl
+            kitobdagidek ("33 ..... and .....", ikkinchi chiziqda raqam yo'q). */}
+        {(!kopKatakcha || sub === 0) && (
+          <span className="imtihon-inline-raqam">{idx + 1}</span>
+        )}
         <input
           {...IMLO_OFF}
           className={`imtihon-inline-input ${holat}`}
           disabled={!!natija}
-          value={javoblar[idx] || ""}
-          onChange={(e) => javobniQoy(idx, e.target.value)}
+          value={qiymat}
+          onChange={(e) => javobniQoy(idx, e.target.value, kopKatakcha ? sub : undefined)}
         />
       </span>
     );
@@ -1028,8 +1072,19 @@ export default function ImtihonOtish({ bolim, manba = "admin", testId, mockYechi
     }
   }
 
-  function javobniQoy(i, qiymat) {
-    setJavoblar((prev) => ({ ...prev, [i]: qiymat }));
+  /** `sub` berilsa — BITTA savolning bir NECHTA katakchasidan biri
+   * (2026-08-15, masalan Reading "...both 33 ..... and ..... " —
+   * asl kalitda "IN EITHER ORDER; BOTH REQUIRED FOR ONE MARK").
+   * Bunday savolda javob RO'YXAT bo'lib saqlanadi va shu holida
+   * backendga boradi; oddiy savollarda esa avvalgidek satr. */
+  function javobniQoy(i, qiymat, sub) {
+    setJavoblar((prev) => {
+      if (sub === undefined) return { ...prev, [i]: qiymat };
+      const eski = Array.isArray(prev[i]) ? [...prev[i]] : prev[i] ? [prev[i]] : [];
+      while (eski.length <= sub) eski.push("");
+      eski[sub] = qiymat;
+      return { ...prev, [i]: eski };
+    });
   }
 
   // Har javob o'zgarganda sessionStorage'dagi holatni yangilaymiz (F5'da
@@ -1430,7 +1485,7 @@ export default function ImtihonOtish({ bolim, manba = "admin", testId, mockYechi
                   return (
                     <button
                       key={i}
-                      className={javoblar[i] ? "javob-berilgan" : ""}
+                      className={javobBormi(javoblar[i]) ? "javob-berilgan" : ""}
                       onClick={(e) => {
                         e.stopPropagation();
                         savolgaOt(qi, i);

@@ -44,6 +44,35 @@ CHIQARIB_TASHLANADIGAN_APPLAR = [
 ]
 
 
+def _tiklashda_tozalanadigan_modellar():
+    """Tiklashdan OLDIN bo'shatiladigan modellar — backup qamragan
+    to'plamning AYNAN o'zi (`CHIQARIB_TASHLANADIGAN_APPLAR`dan boshqasi).
+
+    Nega kerak (2026-08-15, sinovda aniqlangan haqiqiy muammo): Railway
+    ishga tushganda `prod_boshlangich` avtomatik ravishda bo'sh Markaz
+    (pk=1), mashqlar, so'zlar yaratadi. Tozalashsiz tiklaganda backupdagi
+    HAQIQIY Markaz (masalan pk=16) qo'shimcha yozuv bo'lib qo'shiladi va
+    ikkalasi yonma-yon qoladi. Kodda esa bir necha joyda
+    `Markaz.objects.first()` ishlatiladi — u BO'SH markazni (pk=1)
+    qaytaradi, natijada logo/ijtimoiy tarmoqlar/kirish cheklovi noto'g'ri
+    markazga ishora qiladi.
+
+    Tozalashdan keyin natija — aynan backup olingan paytdagi holat."""
+    from django.apps import apps
+
+    chiqarilgan_applar = {a for a in CHIQARIB_TASHLANADIGAN_APPLAR if "." not in a}
+    chiqarilgan_modellar = {a for a in CHIQARIB_TASHLANADIGAN_APPLAR if "." in a}
+
+    modellar = []
+    for model in apps.get_models():
+        if model._meta.app_label in chiqarilgan_applar:
+            continue
+        if model._meta.label_lower in chiqarilgan_modellar:
+            continue
+        modellar.append(model)
+    return modellar
+
+
 class BackupYuklabOlishView(APIView):
     """GET — butun bazani (yuqoridagi ro'yxatdan tashqari) JSON'ga olib,
     ZIP qilib, browserga to'g'ridan-to'g'ri yuklab beradi. Faqat owner."""
@@ -77,10 +106,19 @@ class BackupYuklabOlishView(APIView):
 
 
 class BackupdanTiklashView(APIView):
-    """POST — yuklangan ZIP ichidagi `baza.json`ni `loaddata` bilan
-    bazaga qayta yozadi. Faqat owner, VA `tasdiqlash="HA"` maydoni
-    majburiy (frontend'dagi tasdiqlash dialogisiz bu endpoint ishlamaydi
-    — tasodifan chaqirilishdan himoya)."""
+    """POST — yuklangan ZIP ichidagi `baza.json`ni bazaga qayta yozadi.
+    Faqat owner, VA `tasdiqlash="HA"` maydoni majburiy (frontend'dagi
+    tasdiqlash dialogisiz bu endpoint ishlamaydi — tasodifan
+    chaqirilishdan himoya).
+
+    2026-08-15: yuklashdan OLDIN mavjud ma'lumot TOZALANADI (sabab
+    `_tiklashda_tozalanadigan_modellar` izohida) — ya'ni bu amal
+    "qo'shish" emas, "butunlay almashtirish". Ikkalasi bitta
+    tranzaksiyada: xato bo'lsa baza tegilmagan holida qoladi.
+
+    ESLATMA: tiklashdan keyin joriy foydalanuvchi hisobi ham backupdagisi
+    bilan almashadi — token yaroqsiz bo'lishi mumkin, qayta kirish
+    kerak bo'ladi (javobda `qayta_kirish` bayrog'i bilan bildiriladi)."""
 
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser]
@@ -126,6 +164,17 @@ class BackupdanTiklashView(APIView):
                 f.write(xom_json)
                 vaqtinchalik_yol = f.name
             with transaction.atomic():
+                # 1-qadam: mavjud ma'lumotni tozalash. Bitta tranzaksiya
+                # ichida — quyidagi `loaddata` xato bersa, O'CHIRISH HAM
+                # ortga qaytariladi (baza tegilmagan holida qoladi).
+                # FK'lar CASCADE (`PROTECT` yo'q — 2026-08-15 tekshirilgan),
+                # shuning uchun tartib muhim emas: bog'liq yozuvlar
+                # o'zi bilan birga o'chadi, keyingi `delete()` esa bo'sh
+                # to'plamda bemalol ishlaydi.
+                for model in _tiklashda_tozalanadigan_modellar():
+                    model.objects.all().delete()
+
+                # 2-qadam: backupni yuklash.
                 call_command("loaddata", vaqtinchalik_yol)
         except Exception as e:
             return Response(
@@ -136,4 +185,7 @@ class BackupdanTiklashView(APIView):
             if vaqtinchalik_yol and os.path.exists(vaqtinchalik_yol):
                 os.remove(vaqtinchalik_yol)
 
-        return Response({"detail": "Baza muvaffaqiyatli tiklandi"})
+        return Response({
+            "detail": "Baza muvaffaqiyatli tiklandi. Qayta kirish talab qilinishi mumkin.",
+            "qayta_kirish": True,
+        })

@@ -166,8 +166,36 @@ def javoblarni_tekshir(savollar, javoblar):
             # belgilanmagan bo'lsa ham ball berardi (2026-08-01 xatosi).
             if not qabul:
                 continue
+            # Kengaytirilishidan OLDINGI ro'yxat — ko'p-katakchali savolda
+            # "nechta javob kerak"ni aynan shundan bilamiz (kengaytirilgan
+            # to'plamda harf/matn juftliklari qo'shilib, son buzilishi mumkin).
+            asl_qabul_soni = len(set(qabul))
             qabul = _harf_va_matn_qabul(savol, qabul)
             javob = javoblar[bosh] if bosh < len(javoblar) else ""
+
+            # 2026-08-15: BITTA savol ichida BIR NECHTA bo'sh joy
+            # (masalan Reading "...pictures of both 33 ..... and ..... ").
+            # Asl IELTS kalitida: "IN EITHER ORDER; BOTH REQUIRED FOR ONE
+            # MARK" — ya'ni ikkala so'z ham kerak, TARTIB muhim emas,
+            # ball esa BITTA. Frontend bunday savolda javobni RO'YXAT
+            # qilib yuboradi (matnda `{{N}}` bir necha marta uchraganda),
+            # oddiy savollarda esa avvalgidek satr — shuning uchun
+            # ro'yxatmi-yo'qmi degan shaklning O'ZI ajratuvchi belgi
+            # bo'lib xizmat qiladi (yangi maydon kerak emas, eski
+            # testlar o'zgarishsiz ishlaydi).
+            #
+            # DIQQAT — semantika farqi: `togri` ro'yxat bo'lsa odatda
+            # "shulardan HAR BIRI qabul qilinadi" (alternativalar)
+            # degani. Bu yerda esa talaba javobi ham ro'yxat bo'lgani
+            # uchun "HAMMASI kerak" deb talqin qilinadi.
+            if isinstance(javob, list):
+                berilgan = {norm(x) for x in javob if str(x).strip()}
+                natijalar[bosh] = (
+                    len(berilgan) == asl_qabul_soni
+                    and berilgan <= set(qabul)
+                )
+                continue
+
             natijalar[bosh] = norm(javob) in qabul
             continue
 

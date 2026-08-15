@@ -30,9 +30,10 @@ maydon modelda emas, faqat shu so'rov uchun Python ob'ektida). Frontend
 va `KorishRejimiView` shu belgiga qaraydi — `owner_mi()`/`is_superuser`
 emas (ular simulyatsiya paytida ATAYLAB yolg'on qaytaradi)."""
 
+from rest_framework.exceptions import AuthenticationFailed
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
-from .models import User
+from .models import Markaz, User
 
 
 def asl_owner_mi(user):
@@ -56,6 +57,21 @@ class KorishRejimliJWTAuthentication(JWTAuthentication):
         user, token = natija
 
         if not user.is_superuser:
+            # 2026-08-15: "Kirish cheklovi" — owner'dan boshqa hamma
+            # DARHOL chiqarib yuboriladi. Tekshiruv AYNAN shu yerda
+            # (har so'rovda), faqat login'da emas: aks holda allaqachon
+            # kirib turgan (faol seansdagi) foydalanuvchilar cheklov
+            # yoqilganidan keyin ham ishlashda davom etardi.
+            # `is_superuser` bu nuqtada HALI haqiqiy qiymat ("Ko'rish
+            # rejimi" simulyatsiyasi pastda, undan keyin) — ya'ni owner
+            # talaba rolini sinayotgan bo'lsa ham qulflanib qolmaydi.
+            markaz = Markaz.objects.first()
+            if markaz and markaz.kirish_cheklangan:
+                raise AuthenticationFailed(
+                    {"detail": "Saytga kirish vaqtincha cheklangan",
+                     "kod": "kirish_cheklangan"},
+                    code="kirish_cheklangan",
+                )
             return user, token  # oddiy foydalanuvchilarga tegilmaydi
 
         rejim = user.korish_rejimi or User.KorishRejimi.OWNER
