@@ -497,7 +497,7 @@ brauzerda (to'ldirilgach jadvaldan yo'qolishi) tekshirilgan.
 
 ---
 
-### F5'DA TEST HOLATI YO'QOLISHI (o'rta) — ❗ NAVBATDAGI, BOSHLASHGA TASDIQ KUTILMOQDA
+### F5'DA TEST HOLATI YO'QOLISHI (o'rta) — ✅ BAJARILDI (2026-08-15)
 
 **Muammo:** talaba R/L/W/S yoki Mock test yechayotganda sahifani
 tasodifan yangilasa (F5) yoki internet vaqtincha uzilib qayta ulansa —
@@ -555,7 +555,7 @@ tekshiriladi.
 
 ---
 
-### VAQT TUGAGANDA MAJBURIY YAKUNLASH (o'rta) — ❗ NAVBATDAGI, BOSHLASHGA TASDIQ KUTILMOQDA
+### VAQT TUGAGANDA MAJBURIY YAKUNLASH (o'rta) — ✅ BAJARILDI (2026-08-15, bo'sh Writing/Speaking qismi mahalliy 0-band bilan yakunlanadi degan qo'shimcha tuzatish bilan)
 **Muammo (2026-08-14 audit'da aniqlandi):** `ImtihonOtish.jsx:1036-1042`
 — taymer faqat vizual ko'rsatkich, 0 ga yetganda hech qanday amal
 bajarilmaydi. Talaba istagancha davom eta oladi, real IELTS shartlariga
@@ -584,7 +584,7 @@ o'tadimi) — implementatsiya boshlanganda kelishiladi.
 
 ---
 
-### MOBILDA TEST SPLIT-PANEL ISHLAMAYDI (kichik-o'rta, faqat CSS) — ❗ NAVBATDAGI
+### MOBILDA TEST SPLIT-PANEL ISHLAMAYDI (kichik-o'rta, faqat CSS) — ✅ BAJARILDI (2026-08-15)
 **Muammo (2026-08-14 audit'da aniqlandi):** `index.css:290` —
 `.imtihon-split` (Reading testida chap=matn/o'ng=savollar) uchun hech
 qanday `@media` query yo'q. Tor ekranda (telefon) ikkala panel ham
@@ -599,7 +599,7 @@ yon-yonlab qisilib qoladi, o'qib/javob berish qiyinlashadi.
 
 ---
 
-### XATO HOLATIDA "ABADIY YUKLANMOQDA" (kichik) — ❗ NAVBATDAGI
+### XATO HOLATIDA "ABADIY YUKLANMOQDA" (kichik) — ✅ BAJARILDI (2026-08-15)
 **Muammo (2026-08-14 audit'da aniqlandi):** `.catch(() => {})` naqshi
 bir nechta sahifada — `Dashboard.jsx:22-24`, `Leaderboard.jsx:81-82`,
 `Davomat.jsx:19`, `Markazlar.jsx:14`, `Guruhlar.jsx:35`. Tarmoq xatosi
@@ -620,7 +620,7 @@ Faqat frontend, backend'ga tegilmaydi. Murakkablik: past (~1-1.5 soat).
 
 ---
 
-### AI XATOSIDA TALABANING MATNI YO'QOLADI (o'rta) — ❗ NAVBATDAGI
+### AI XATOSIDA TALABANING MATNI YO'QOLADI (o'rta) — ✅ BAJARILDI (2026-08-15, A varianti)
 **Muammo (2026-08-14 audit'da aniqlandi):** `assessment/views.py` —
 Writing (:122-140), Speaking matn (:180-203) va Speaking audio
 (:277-303) endpointlarida talabaning matni/audiosi FAQAT AI
@@ -705,6 +705,46 @@ chiqilsin — "osilib qolgan seans" muammosi ko'pincha o'sha bilan bog'liq
 (`accounts/views.py: QurilmaTiklashView` allaqachon mavjud).
 
 Implementatsiya boshlanmagan.
+
+---
+
+### BUGUN (2026-08-15) QO'SHIMCHA BAJARILGAN ISHLAR — ✅ BAJARILDI
+Yuqoridagi audit ro'yxatida yo'q, lekin shu kuni qilingan va tekshirilgan:
+
+- **"Markaz sozlamalari" paneli** (owner-only, `/markaz-sozlash`) —
+  logo+brend rangi+ijtimoiy tarmoqlar bitta sahifaga birlashtirildi
+  (eski "Ijtimoiy tarmoqlar" panel olib tashlandi).
+- **Backup — yuklab olish/tiklash** — faqat baza (dumpdata/loaddata),
+  R2 media'ga tegilmaydi. Tiklashdan OLDIN baza tozalanadi (Railway'ning
+  avtomatik seed yozuvlari bilan dublikat bo'lmasligi uchun). Haqiqiy
+  brauzer orqali to'liq sinaldi (real backup → real tiklash, sonlar
+  aynan mos, xatoda hech narsa yo'qolmasligi ham tekshirildi).
+  Yo'l-yo'lakay haqiqiy bug topildi va tuzatildi: `loaddata` paytida
+  `gamification` signal ikki barobar XP yozuvi yaratib
+  `UniqueConstraint` xatosi berardi (`raw=True` tekshiruvi qo'shildi).
+- **Kirish cheklovi** — owner'dan boshqa hech kim kira olmaydigan
+  vaqtinchalik rejim (Railway ko'chirish uchun). Faol seanslarni ham
+  darhol uzadi (`accounts/authentication.py`, har so'rovda tekshiradi).
+  Yoqishdan oldin "N ta foydalanuvchi tizimda" ogohlantirishi.
+  **Kengaytirildi:** cheklov yoqilganda OWNER'ning o'zi ham IELTS
+  testlari/Kurslar/AI mashqlari/Guruh/Talaba/Xodim/Foydalanuvchi
+  bo'limlarida yaratish/tahrirlash/yechish qila olmaydi, "Ko'rish
+  rejimi"ni almashtira olmaydi (`accounts/middleware.py`,
+  `OwnerYozishCheklashMiddleware` — 403, tizimdan chiqarilmasdan).
+  Barchasi funksional test bilan tasdiqlangan.
+- **Reading — bitta savolda bir nechta bo'sh joy** — matnda `{{N}}`
+  bir necha marta yozilganda avval ikkala katakcha ham bir xil
+  indeksga yozardi (ko'zgu effekti). Endi har biri o'z o'rniga ega,
+  backend tartibsiz to'plam sifatida tekshiradi (IELTS kalitidagi
+  "IN EITHER ORDER; BOTH REQUIRED FOR ONE MARK"). Admin tomonda
+  "To'g'ri javob"ni ko'p-javobli rejimga o'tkazish tugmasi qo'shildi
+  (avval Enter ishlamasdi).
+- **Login — parolni brauzerda eslab qolish** — maydonlarga `name`/`id`
+  atributlari qo'shildi.
+- **Davomat** endi alohida panel emas — guruh ichida ochiladi.
+- **Talaba natijalari** — "Tarix" alohida panel emas, Profil sahifasida
+  (admin ko'radigani bilan bir xil komponent). Eski `/tarix`, `/davomat`
+  havolalari mos ravishda `/profil`, `/guruhlar`ga yo'naltiriladi.
 
 ---
 
