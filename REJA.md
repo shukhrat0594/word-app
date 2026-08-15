@@ -645,7 +645,17 @@ tanlanishi aniqlashtiriladi.
 
 ---
 
-### KURSLAR BO'LIMIDA FAYL YUKLASH VALIDATSIYASI YO'Q (kichik-o'rta) — ❗ NAVBATDAGI
+### KURSLAR BO'LIMIDA FAYL YUKLASH VALIDATSIYASI YO'Q (kichik-o'rta) — ✅ BAJARILDI (2026-08-15)
+
+`courses/views.py` — `_rasm_tekshir`/`_audio_tekshir`/`_fayl_tekshir`
+yordamchi funksiyalari qo'shildi (`accounts/views.py: FoydalanuvchiRasmView`
+namunasi asosida), uchta endpointga ulandi: `KursTugunFaylBoshqaruvView`,
+`KursMashqRasmBoshqaruvView`, `KursMashqAudioBoshqaruvView`. Rasm —
+hajm (8 MB) + PIL orqali mazmun tekshiruvi (kengaytmaga ishonilmaydi).
+Audio — hajm (50 MB) + kengaytma oq ro'yxati. Unit fayli — hajm (20 MB)
++ kengaytma oq ro'yxati (pdf/doc/docx/ppt/pptx + rasm/audio formatlari).
+7 ta stsenariyli funksional test + real view orqali HTTP test bilan
+tasdiqlandi.
 **Muammo (2026-08-14 audit'da aniqlandi):** `courses/views.py` — kurs
 fayli (:302-308), mashq rasmi (:1189-1198), mashq audiosi (:1228-1232)
 yuklashda fayl turi/hajmi tekshirilmaydi. Solishtirma: `accounts/views.py`
@@ -665,7 +675,10 @@ Implementatsiya boshlanmagan.
 
 ---
 
-### `role` MAYDONIGA INDEKS (kichik, xavfsiz) — ❗ NAVBATDAGI
+### `role` MAYDONIGA INDEKS (kichik, xavfsiz) — ✅ BAJARILDI (2026-08-15)
+
+`accounts/models.py: User.role` — `db_index=True` qo'shildi, migratsiya
+(`0021_alter_user_role`) yaratildi va lokal bazaga qo'llanildi.
 **Muammo (2026-08-14 audit'da aniqlandi):** `accounts/models.py:111` —
 `User.role` maydonida DB indeksi yo'q (`db_index=True` yo'q), holbuki
 deyarli har bir so'rov (masalan barcha talabalar/o'qituvchilar/adminlarni
@@ -748,17 +761,24 @@ Yuqoridagi audit ro'yxatida yo'q, lekin shu kuni qilingan va tekshirilgan:
 
 ---
 
-### O'YINLAR — DARAJA RO'YXATI (kichik)
-**Nima qilinadi:** o'yin boshlashdan oldin daraja tanlash ochiladigan menyu (`<select>`) o'rniga ko'rinib turgan tugmalar qatoriga aylantiriladi.
+### O'YINLAR — DARAJA RO'YXATI (kichik) — ✅ BAJARILDI (2026-07-27'da, REJA 2026-08-15'da tekshirib tasdiqladi — qator raqamlari eskirgan bo'lib chiqdi)
 
-Hozir `Oyinlar.jsx`da daraja ochiladigan `<select>` orqali tanlanadi (532-qator) — talaba ro'yxatni ko'rmaydi, ochishi kerak. Talab: **A1, A2, B1, B2, C1, Idioms** ro'yxat holida ko'rinib tursin va bosib tanlansin.
-- `Oyinlar.jsx:532` daraja `<select>` → chip/tugma qatori (`tab-guruh`/`chip` uslubida, tanlangani `aktiv`); darajalar allaqachon `GET /api/oyinlar/darajalar/`dan so'z soni bilan keladi
-- `Oyinlar.jsx:550` grammatika mavzusi `<select>` → xuddi shunday tugmalar ("Qolganlarida ham" talabi)
-- Backend o'zgarmaydi
+`Oyinlar.jsx:169-217` — daraja (A1-C1, Idioms) VA grammatika mavzusi
+ikkalasi ham `<select>` emas, `tanlov-tugma` qatori (bosib tanlanadi,
+tanlangani `aktiv`). Kodda aniq izoh bor: "avval ochiladigan `<select>`
+edi... Endi hammasi ko'rinib turadi". Faylda `<select>` umuman yo'q
+(tekshirildi). Backendga tegilmagan.
 
-### O'Z MAVZUYIM (o'rta)
+### O'Z MAVZUYIM (o'rta) — ✅ BAJARILDI (2026-08-15'da tekshirilib tasdiqlandi — reja eskirgan ekan, bu ish avvalroq bajarilgan bo'lib chiqdi)
 
-**Nima qilinadi:** talaba tayyor mavzular ro'yxatidan tanlash o'rniga, o'zi xohlagan mavzuni kiritib javobini AI'ga tekshirtira oladigan bo'lim qo'shiladi.
+`frontend/src/pages/OzMavzum.jsx` — pastdagi rejaga AYNAN mos to'liq
+amalga oshirilgan: tur tanlash, mavzu maydoni, Task1 uchun rasm yuklash
+(hajm chegarasi bilan), javob maydoni + so'z sanog'i, tekshirish
+tugmasi, natija ko'rsatish. Ikkala joyda ham ulangan: `Writing.jsx`/
+`Speaking.jsx` (Mashqlar) VA `ImtihonYozGap.jsx` (IELTS testlari/AI
+mashqlari talaba tomoni). `npm run build` bilan tasdiqlandi.
+
+**Nima qilinadi edi (tarixiy yozuv, endi bajarilgan):** talaba tayyor mavzular ro'yxatidan tanlash o'rniga, o'zi xohlagan mavzuni kiritib javobini AI'ga tekshirtira oladigan bo'lim qo'shiladi.
 
 Ikki joyda bo'lishi kerak: `/mashqlar` → IELTS → Writing/Speaking, VA `/ielts-boshqarish` → Writing/Speaking.
 - Dublikat yozmaslik uchun **bitta umumiy komponent** — `frontend/src/pages/OzMavzum.jsx` (`bolim="writing"|"speaking"`), ikki joyda mount qilinadi:
@@ -769,27 +789,19 @@ Ikki joyda bo'lishi kerak: `/mashqlar` → IELTS → Writing/Speaking, VA `/ielt
 - Natija mavjud `Natija` komponentlari bilan ko'rsatiladi, `WritingTekshiruv`/`SpeakingTekshiruv`ga yoziladi (XP/statistika/tarix avtomatik ishlaydi)
 - **Paket masalasi hal qilindi (2026-07-27): O'ZGARTIRILMAYDI.** "O'z mavzuyim" ham boshqa tekshiruvlar kabi paketdan birlik yechadi, chunki AI chaqiruvi pul turadi va mavzu kimdan kelgani ahamiyatsiz. Amalda hozir farqi yo'q — paket tizimi ishlamayapti (frontendda UI yo'q, F6 MVP'dan olib tashlangan, to'lov qurilmagan, `paketdan_ishlat()` doim `None` qaytaradi), ya'ni barcha tekshiruvlar bepul va cheksiz. To'lov yoqilganda avtomatik pullik bo'ladi
 
-### O'YINLAR — EFFEKTLAR (o'rta)
+### O'YINLAR — EFFEKTLAR (o'rta) — ✅ BAJARILDI (2026-07-27'da, REJA 2026-08-15'da tekshirib tasdiqladi)
 
-**Nima qilinadi:** o'yinlar bo'limi ko'rinishi animatsiya va vizual effektlar bilan chiroyliroq qilinadi.
+`index.css:511-590` — "O'yinlar — vizual effektlar" bo'limi to'liq
+mavjud: kartalar ochilish/topilganda pop/porlash animatsiyasi, to'g'ri
+javobda sakrash — noto'g'risida silkinish, unscramble harflarida
+tanlash animatsiyasi, Speed Quiz taymeri vaqt kamayganda qizil+pulslash,
+natija ekranida yumshoq kirish animatsiyasi, daraja/mavzu tugmalarida
+hover/faol holat effekti. `prefers-reduced-motion` qoidasi bilan
+harakatga sezgir foydalanuvchilar uchun o'chiriladi. Qamrov to'g'ri —
+faqat o'yinlar bo'limiga tegishli klasslar, boshqa joyga tegilmagan.
+Kartochka 3D-aylanishi saqlangan, ustiga soya qo'shilgan.
 
-Talab: "qanaqadir chiroyliroq effektlar bilan". **Qamrov aniqlandi (2026-07-27): FAQAT O'YINLAR bo'limi** — ilovaning qolgan qismiga tegilmaydi.
-- Ehtimoliy effektlar: hover/bosish animatsiyalari, kartalarda yumshoq soya va o'tishlar, to'g'ri/noto'g'ri javob feedback animatsiyasi (rang+silkinish/porlash), Speed Quiz taymerining vizual holati, natija ekranida ochko animatsiyasi, daraja tugmalarida faol holat effekti ("O'YINLAR — DARAJA RO'YXATI" ishi bilan birga)
-- Kartochka 3D-aylanishi allaqachon bor (`index.css`, 2026-07-18) — saqlanadi, kerak bo'lsa yumshatiladi
-- Uslub yo'nalishi (mavjud palitra yoki `design/f1_dizayn.html`dagi sariq/ko'mir) hali aniqlanmagan — ish boshlanishidan oldin so'ralsin
-
-### AI TEST KOMPLEKTI (katta) — navbatda
-
-**Nima qilinadi:** "AI mashqlari" bo'limini to'ldirish uchun 1 ta to'liq mock komplekti (Listening + Reading + Writing + Speaking) butunlay AI tomonidan generatsiya qilinadi. Foydalanuvchi talabi: 4 bo'lim uchun TENG miqdorda, mock yig'ilishi uchun.
-
-- **Daraja:** band 7 dan balandroq (2026-07-27 kelishuvi)
-- **Listening:** 4 qism, 40 savol, har qismga ALOHIDA audio (qismlar soni bo'yicha bo'linadi — foydalanuvchi talabi), ko'p ovozli; ba'zi qismlarda jadval/rasm
-- **Reading:** 3 passage, 40 savol, rasm va jadval bilan; mavzular tanlovi menda
-- **Writing:** Task 1 (grafik rasm ALBATTA yasaladi) + Task 2
-- **Speaking:** Part 1/2/3; savol matnida jadval/rasm bo'lishi mumkin
-- **Audio:** `gemini-2.5-flash-preview-tts` (foydalanuvchi tanlovi — sinovda ovozi ko'proq yoqdi), kunlik limit tugasa `gemini-3.1-flash-tts-preview`ga o'tiladi. Ko'p ovozli konfiguratsiya (`MultiSpeakerVoiceConfig`) sinovdan o'tgan va ishlaydi; ma'ruzachilar soni qancha bo'lsa, ovozlar ham shuncha xil bo'lishi kerak
-- **Hajmi:** taxminan 5,500 so'z original matn + 80 savol + ~20 daqiqa audio + bir nechta rasm. Bo'lib-bo'lib qilinadi (avval Listening, keyin Reading va h.k.)
-- Yetkazish: mavjud ZIP yuklash mexanizmi orqali, `manba=ai` bilan
+**Nima qilinishi kerak edi (tarixiy yozuv, endi bajarilgan):** o'yinlar bo'limi ko'rinishi animatsiya va vizual effektlar bilan chiroyliroq qilinadi.
 
 ### BEGINNER QAYTA QURISH (o'rta muhandislik + katta kontent) — MUHANDISLIK QISMI ✅ BAJARILDI (2026-07-27)
 

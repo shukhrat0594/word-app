@@ -17,6 +17,8 @@ from exercises.models import javoblarni_tekshir
 
 from .excel_import import javob_qatorlarini_oqi, javoblarni_yangila
 from .kontent_generatsiya import (
+    AUDIO_EXTS,
+    IMAGE_EXTS,
     audio_raqamini_ajrat,
     javob_kaliti_indeksla,
     javob_kaliti_sahifasini_tahlil_qil,
@@ -39,6 +41,61 @@ from .models import (
 from .unit_qurish import unit_ichki_tuzilmasini_yarat
 
 OTISH_FOIZ = 0.6
+
+# 2026-08-15: fayl yuklashda validatsiya — avval bu uchta endpoint
+# (`KursTugunFaylBoshqaruvView`, `KursMashqRasmBoshqaruvView`,
+# `KursMashqAudioBoshqaruvView`) hech qanday tur/hajm tekshiruvisiz
+# istalgan faylni to'g'ridan-to'g'ri R2'ga yozardi (2026-08-14 audit'da
+# aniqlangan). Namuna — `accounts/views.py: FoydalanuvchiRasmView`.
+RASM_MAKS_HAJM = 8 * 1024 * 1024  # 8 MB — darslik skanerlari kattaroq bo'lishi mumkin
+AUDIO_MAKS_HAJM = 50 * 1024 * 1024  # 50 MB — mavjud izohda ("_audio_xeshi") ko'rsatilgan chegara
+FAYL_MAKS_HAJM = 20 * 1024 * 1024  # 20 MB — Unit fayli (PDF/hujjat)
+FAYL_RUXSAT_KENGAYTMALARI = {".pdf", ".doc", ".docx", ".ppt", ".pptx"} | IMAGE_EXTS | AUDIO_EXTS
+
+
+def _rasm_tekshir(fayl, maks_hajm=RASM_MAKS_HAJM):
+    """Hajm + mazmun tekshiruvi (kengaytmaga ishonib bo'lmaydi — ".png"
+    deb nomlangan istalgan fayl yuborilishi mumkin). Xato bo'lsa xabar
+    qatorini, hammasi joyida bo'lsa `None` qaytaradi."""
+    if fayl.size > maks_hajm:
+        return f"Rasm hajmi {maks_hajm // (1024 * 1024)} MB dan oshmasin"
+    from PIL import Image, UnidentifiedImageError
+
+    try:
+        Image.open(fayl).verify()
+    except (UnidentifiedImageError, OSError, ValueError):
+        return "Fayl rasm emas yoki buzuq"
+    fayl.seek(0)  # `verify()` faylni oxirigacha o'qiydi
+    return None
+
+
+def _audio_tekshir(fayl, maks_hajm=AUDIO_MAKS_HAJM):
+    """Hajm + kengaytma tekshiruvi. Audio mazmunini rasm kabi to'liq
+    dekodlab tekshirish qimmatga tushadi (butun faylni o'qish kerak) —
+    kengaytma + hajm yetarli himoya darajasi hisoblanadi."""
+    if fayl.size > maks_hajm:
+        return f"Audio hajmi {maks_hajm // (1024 * 1024)} MB dan oshmasin"
+    import os
+
+    _, ext = os.path.splitext(fayl.name.lower())
+    if ext not in AUDIO_EXTS:
+        return f"Ruxsat etilgan audio formatlari: {', '.join(sorted(AUDIO_EXTS))}"
+    return None
+
+
+def _fayl_tekshir(fayl, maks_hajm=FAYL_MAKS_HAJM):
+    """Unit fayli uchun — kengaytma oq ro'yxati + hajm. Bu maydon
+    umumiy (PDF/hujjat/rasm/audio bo'lishi mumkin), shuning uchun
+    mazmun tekshiruvi emas, faqat xavfli fayllarni (masalan .exe/.sh)
+    chiqarib tashlaydigan kengaytma cheklovi."""
+    if fayl.size > maks_hajm:
+        return f"Fayl hajmi {maks_hajm // (1024 * 1024)} MB dan oshmasin"
+    import os
+
+    _, ext = os.path.splitext(fayl.name.lower())
+    if ext not in FAYL_RUXSAT_KENGAYTMALARI:
+        return f"Ruxsat etilgan formatlar: {', '.join(sorted(FAYL_RUXSAT_KENGAYTMALARI))}"
+    return None
 
 
 def _kurslar_korinadimi(user):
@@ -335,6 +392,9 @@ class KursTugunFaylBoshqaruvView(APIView):
         fayl = request.FILES.get("fayl")
         if not fayl:
             return Response({"detail": "fayl majburiy"}, status=400)
+        xato = _fayl_tekshir(fayl)
+        if xato:
+            return Response({"detail": xato}, status=400)
 
         eski_bormi = bool(tugun.fayl)
         tugun.fayl = fayl
@@ -1222,6 +1282,9 @@ class KursMashqRasmBoshqaruvView(APIView):
         rasm = request.FILES.get("rasm")
         if not rasm:
             return Response({"detail": "rasm majburiy"}, status=400)
+        xato = _rasm_tekshir(rasm)
+        if xato:
+            return Response({"detail": xato}, status=400)
         # Yangi, MUSTAQIL rasm yuklanmoqda — agar mashq ilgari boshqa
         # mashq(lar) bilan rasm ulashgan bo'lsa (`rasm_guruhi`), shu
         # ulanish uziladi (guruhning o'zi, ya'ni undagi BOSHQA mashqlar
@@ -1261,6 +1324,9 @@ class KursMashqAudioBoshqaruvView(APIView):
         audio = request.FILES.get("audio")
         if not audio:
             return Response({"detail": "audio majburiy"}, status=400)
+        xato = _audio_tekshir(audio)
+        if xato:
+            return Response({"detail": xato}, status=400)
         mashq.audio = audio
         mashq.save()
         return Response(_kurs_mashq_admin_dict(mashq))

@@ -115,7 +115,7 @@ class User(AbstractUser):
         PARENT = "parent", "Ota-ona"
         ODDIY = "oddiy", "Mehmon (oddiy foydalanuvchi)"
 
-    role = models.CharField(max_length=10, choices=Role.choices, default=Role.STUDENT)
+    role = models.CharField(max_length=10, choices=Role.choices, default=Role.STUDENT, db_index=True)
     korish_rejimi = models.CharField(
         max_length=10, choices=KorishRejimi.choices, default=KorishRejimi.OWNER, blank=True,
         help_text="Faqat owner uchun — 'Ko'rish rejimi' (View As) joriy tanlovi",
