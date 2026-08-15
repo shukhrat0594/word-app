@@ -950,7 +950,7 @@ class QurilmaLimitiView(APIView):
 # saqlanishi kerak (2026-08-05) — bu yerda faqat validatsiya uchun.
 KORINADIGAN_PANEL_YOLLARI = {
     "/mashqlar", "/ielts-boshqarish", "/ai-mashqlari", "/kurslar", "/oyinlar",
-    "/tarix", "/reyting", "/guruhlar", "/talabalar", "/xodimlar", "/davomat",
+    "/reyting", "/guruhlar", "/talabalar", "/xodimlar",
     "/markaz-sozlash", "/foydalanuvchilar", "/hisobotlar",
 }
 

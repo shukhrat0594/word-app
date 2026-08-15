@@ -3,6 +3,7 @@ import { api } from "../api";
 import XatolikHolati from "../components/XatolikHolati";
 import { useI18n } from "../i18n";
 import { useProfil } from "../profilContext";
+import Davomat from "./Davomat";
 import { ProfilRasmi } from "./Foydalanuvchilar";
 
 const BOSH_FORMA = { id: null, name: "", faol: true, oqituvchi_id: "", talaba_idlar: [], fan_id: "", daraja_id: "" };
@@ -323,6 +324,17 @@ export default function Guruhlar() {
           <button className="tugma ikkinchi" onClick={yopish} style={{ marginTop: 14 }}>
             {t("ortga")}
           </button>
+        </div>
+      )}
+
+      {/* 2026-08-15: Davomat endi ALOHIDA panel emas — guruh ichida
+          ochiladi (admin ham, o'qituvchi ham). Guruh allaqachon
+          tanlangani uchun `guruhId` prop bilan beriladi — ichida guruh
+          tanlash ro'yxati chiqmaydi. */}
+      {tanlangan && (
+        <div className="karta" style={{ marginTop: 12 }}>
+          <h3>{t("nav_davomat")}</h3>
+          <Davomat guruhId={tanlangan.id} />
         </div>
       )}
 

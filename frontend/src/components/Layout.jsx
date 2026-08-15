@@ -25,12 +25,10 @@ const PANELLAR = {
   "/ai-mashqlari": { ikon: "🤖", kalit: "nav_ai_mashqlari" },
   "/kurslar": { ikon: "📚", kalit: "nav_kurslar" },
   "/oyinlar": { ikon: "🎮", kalit: "nav_oyinlar" },
-  "/tarix": { ikon: "🕐", kalit: "nav_tarix" },
   "/reyting": { ikon: "🏆", kalit: "nav_reyting" },
   "/guruhlar": { ikon: "☰", kalit: "nav_guruhlar" },
   "/talabalar": { ikon: "🎒", kalit: "nav_talabalar" },
   "/xodimlar": { ikon: "🧑‍🏫", kalit: "nav_xodimlar" },
-  "/davomat": { ikon: "🗓", kalit: "nav_davomat" },
   "/markaz-sozlash": { ikon: "🏢", kalit: "nav_markaz_sozlama" },
   "/foydalanuvchilar": { ikon: "🧑‍🤝‍🧑", kalit: "nav_foydalanuvchilar" },
   "/hisobotlar": { ikon: "📊", kalit: "nav_hisobotlar" },
@@ -58,6 +56,10 @@ export const MAJBURIY_PANELLAR = ["/", "/profil"];
 // DIQQAT: bu FAQAT navigatsiya. Backend ruxsatlari bunga tayanmaydi —
 // talabaga mo'ljallangan sahifalar (Reyting, Tarix, O'yinlar) ownerga
 // uning O'Z ma'lumotini ko'rsatadi, ya'ni odatda bo'sh bo'ladi.
+// 2026-08-15: "/tarix" ALOHIDA panel sifatida olib tashlandi — talaba
+// o'z natijalarini endi PROFIL sahifasida ko'radi (bir xil
+// `NatijalarRoyxati` komponenti). "/davomat" ham olib tashlandi —
+// u endi guruh ichida ochiladi (`Guruhlar.jsx`).
 const TALABA_PANELLARI = [
   "/",
   ...(NAMUNAVIY_MASHQLAR_OCHIQ ? ["/mashqlar"] : []),
@@ -65,7 +67,6 @@ const TALABA_PANELLARI = [
   "/ai-mashqlari",
   "/kurslar",
   "/oyinlar",
-  "/tarix",
   "/reyting",
 ];
 
@@ -74,9 +75,9 @@ export const ROL_PANELLARI = {
   // admin ro'yxatini olardi va Davomat/O'yinlar/Tarix/Reyting unga
   // ko'rinmasdi.
   owner: [
-    "/", "/guruhlar", "/talabalar", "/xodimlar", "/davomat",
+    "/", "/guruhlar", "/talabalar", "/xodimlar",
     "/ielts-boshqarish", "/ai-mashqlari", "/kurslar",
-    "/oyinlar", "/tarix", "/reyting",
+    "/oyinlar", "/reyting",
     "/markaz-sozlash", "/foydalanuvchilar", "/hisobotlar",
   ],
   // 2026-07-21: "Mashqlar boshqarish" (bo'lim o'zi ham yopiq), "Davomat"
@@ -97,7 +98,7 @@ export const ROL_PANELLARI = {
   ],
   teacher: [
     "/", "/ielts-boshqarish", "/ai-mashqlari", "/kurslar",
-    "/guruhlar", "/talabalar", "/davomat",
+    "/guruhlar", "/talabalar",
   ],
   student: TALABA_PANELLARI,
   // "Oddiy foydalanuvchi" talaba ro'yxatidan farq qiladi: "IELTS

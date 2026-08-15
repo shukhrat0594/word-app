@@ -70,14 +70,24 @@ export default function Login() {
         ) : (
           <>
             <div className="yoki">{t("yoki_xodim")}</div>
+            {/* 2026-08-15: `name`/`id` ATRIBUTLARI SHART — brauzer parol
+                menejeri (Chrome/Edge) formani shular orqali tanidi va
+                "parolni saqlaymi?" taklifini beradi. Faqat `autoComplete`
+                bilan bu ba'zan ishlamas edi. Eslatma: parollar sayt
+                MANZILI bo'yicha saqlanadi — yangi domenda (masalan
+                Railway) bir marta qaytadan saqlash kerak bo'ladi. */}
             <form onSubmit={xodimKirish} style={{ display: "grid", gap: 14 }}>
               <input
+                id="login-username"
+                name="username"
                 placeholder="Login"
                 value={login}
                 onChange={(e) => setLogin(e.target.value)}
                 autoComplete="username"
               />
               <input
+                id="login-parol"
+                name="password"
                 type="password"
                 placeholder="Parol"
                 value={parol}
@@ -86,7 +96,7 @@ export default function Login() {
               />
               <p className="izoh" style={{ margin: 0 }}>{t("xodim_izoh")}</p>
               {xato && <div className="xato-xabar">{xato}</div>}
-              <button className="tugma katta" disabled={band}>
+              <button type="submit" className="tugma katta" disabled={band}>
                 {t("kirish")}
               </button>
             </form>

@@ -3,7 +3,6 @@ import { tokenOl } from "./api";
 import ErrorBoundary from "./components/ErrorBoundary";
 import Layout, { NAMUNAVIY_MASHQLAR_OCHIQ } from "./components/Layout";
 import BoshSahifa from "./pages/BoshSahifa";
-import Davomat from "./pages/Davomat";
 import Foydalanuvchilar from "./pages/Foydalanuvchilar";
 import Guruhlar from "./pages/Guruhlar";
 import Hisobotlar from "./pages/Hisobotlar";
@@ -18,7 +17,6 @@ import Markazlar from "./pages/Markazlar";
 import Oyinlar from "./pages/Oyinlar";
 import Profil from "./pages/Profil";
 import Talabalar from "./pages/Talabalar";
-import Tarix from "./pages/Tarix";
 import Xodimlar from "./pages/Xodimlar";
 
 function Himoyalangan({ children }) {
@@ -56,9 +54,14 @@ export default function App() {
             <Route path="kurslar" element={<Kurslar />} />
             <Route path="reyting" element={<Leaderboard />} />
             <Route path="oyinlar" element={<Oyinlar />} />
-            <Route path="tarix" element={<Tarix />} />
+            {/* 2026-08-15: "Tarix" alohida sahifa sifatida olib tashlandi
+                (natijalar endi Profil sahifasida), "Davomat" esa guruh
+                ichiga ko'chdi. Marshrutlar O'CHIRILMAYDI, balki yangi
+                joyga yo'naltiradi — aks holda eski xatcho'p/havola bo'sh
+                oq sahifa berardi (xuddi "/mashqlar" holatidagidek). */}
+            <Route path="tarix" element={<Navigate to="/profil" replace />} />
             <Route path="guruhlar" element={<Guruhlar />} />
-            <Route path="davomat" element={<Davomat />} />
+            <Route path="davomat" element={<Navigate to="/guruhlar" replace />} />
             <Route path="hisobotlar" element={<Hisobotlar />} />
             <Route path="markazlar" element={<Markazlar />} />
             <Route path="xodimlar" element={<Xodimlar />} />

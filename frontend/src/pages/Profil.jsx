@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, apiForm } from "../api";
 import Avatar from "../components/Avatar";
+import NatijalarRoyxati from "../components/NatijalarRoyxati";
 import { useI18n } from "../i18n";
 import { useProfil } from "../profilContext";
 
@@ -297,6 +298,17 @@ export default function Profil() {
           </button>
         </div>
       </div>
+
+      {/* 2026-08-15: avval alohida "Tarix" paneli edi, endi shu yerda —
+          foydalanuvchi o'z natijalarini profilida ko'radi. Admin/
+          o'qituvchi boshqa talaba uchun ochadigani bilan AYNAN BIR XIL
+          komponent (`Talabalar.jsx`da ham shu ishlatiladi). */}
+      {profil && (
+        <div className="karta">
+          <h3>{t("mening_tarixim")}</h3>
+          <NatijalarRoyxati talabaId={profil.id} />
+        </div>
+      )}
     </>
   );
 }

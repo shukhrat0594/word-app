@@ -7,17 +7,29 @@ function bugun() {
   return new Date().toISOString().slice(0, 10);
 }
 
-export default function Davomat() {
+/** Davomat belgilash.
+ *
+ * 2026-08-15: avval alohida "/davomat" paneli edi, endi GURUH ICHIDA
+ * ochiladi (`Guruhlar.jsx`) — o'qituvchi guruhni tanlab, o'sha yerdayoq
+ * davomat qo'yadi, ikki bo'lim orasida sakrash shart emas.
+ * `guruhId` prop berilsa guruh tanlash ro'yxati KO'RSATILMAYDI (guruh
+ * allaqachon ma'lum); berilmasa — avvalgidek o'zi tanlaydi (mustaqil
+ * sahifa sifatida ishlatilsa). */
+export default function Davomat({ guruhId: tashqiGuruhId }) {
   const { t } = useI18n();
   const [guruhlar, setGuruhlar] = useState([]);
-  const [guruhId, setGuruhId] = useState("");
+  const [ichkiGuruhId, setIchkiGuruhId] = useState("");
   const [sana, setSana] = useState(bugun());
   const [talabalar, setTalabalar] = useState(null);
   const [xabar, setXabar] = useState("");
   const [band, setBand] = useState(false);
   const [xato, setXato] = useState(false);
 
+  const guruhId = tashqiGuruhId != null ? String(tashqiGuruhId) : ichkiGuruhId;
+  const setGuruhId = setIchkiGuruhId;
+
   function guruhlarniYukla() {
+    if (tashqiGuruhId != null) return; // guruh tashqaridan berilgan
     api("/api/guruhlar/").then((qs) => {
       setGuruhlar(qs);
       if (qs.length === 1) setGuruhId(String(qs[0].id));
@@ -76,20 +88,24 @@ export default function Davomat() {
 
   if (xato) return <XatolikHolati qaytaUrin={yukla} />;
 
+  // Guruh ichiga joylashtirilganda tashqi "karta" o'rami berilmaydi —
+  // aks holda karta ichida karta bo'lib ko'rinadi.
   return (
-    <div className="karta">
+    <div className={tashqiGuruhId == null ? "karta" : ""}>
       <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginBottom: 16 }}>
-        <div>
-          <div className="izoh" style={{ marginBottom: 6 }}>{t("guruh_tanlang")}</div>
-          <select value={guruhId} onChange={(e) => setGuruhId(e.target.value)}>
-            <option value="">— {t("tanlanmagan")} —</option>
-            {guruhlar.map((g) => (
-              <option key={g.id} value={g.id}>
-                {g.name}
-              </option>
-            ))}
-          </select>
-        </div>
+        {tashqiGuruhId == null && (
+          <div>
+            <div className="izoh" style={{ marginBottom: 6 }}>{t("guruh_tanlang")}</div>
+            <select value={guruhId} onChange={(e) => setGuruhId(e.target.value)}>
+              <option value="">— {t("tanlanmagan")} —</option>
+              {guruhlar.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         <div>
           <div className="izoh" style={{ marginBottom: 6 }}>{t("davomat_sana")}</div>
           <input type="date" value={sana} onChange={(e) => setSana(e.target.value)} />
