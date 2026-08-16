@@ -51,18 +51,19 @@ def _erkin(matn_oldin, matn_keyin=""):
 # Rasmlar: 0=Mara, 1=Leo, 2=Nari, 3=Tom&Serena.
 # Baholanadigan savol YO'Q (faqat nutqiy/mingle) — savollar=[].
 # ---------------------------------------------------------------------
-SAHIFA2_RASMLAR = ["p1_mara.png", "p1_leo.png", "p1_nari.png", "p1_tomserena.png"]
+SAHIFA2_RASMLAR = ["p0_cover.png", "p1_mara.png", "p1_leo.png", "p1_nari.png", "p1_tomserena.png"]
 SAHIFA2_BLOKLAR = [
+    {"tur": "rasm", "rasm_idx": 0},
     {"tur": "korsatma", "raqam": "STARTER", "audio_raqam": "1.1", "matn": "Read and listen. Say your name."},
     {"tur": "rasm_qatori", "qator": [
-        {"rasm_idx": 0, "izoh": "Mara", "matn": "Hello, I'm Mara."},
-        {"rasm_idx": 1, "izoh": "Leo", "matn": "Hello, I'm Leo."},
-        {"rasm_idx": 2, "izoh": "Nari", "matn": "Hello, I'm Nari."},
+        {"rasm_idx": 1, "izoh": "Mara", "matn": "Hello, I'm Mara."},
+        {"rasm_idx": 2, "izoh": "Leo", "matn": "Hello, I'm Leo."},
+        {"rasm_idx": 3, "izoh": "Nari", "matn": "Hello, I'm Nari."},
     ]},
     {"tur": "mashq", "bulut": True, "bolaklar": _erkin("Hello, I'm ", ". What's your name?")},
     {"tur": "bolim_sarlavha", "matn": "Grammar — am/is, my/your"},
     {"tur": "korsatma", "raqam": "1", "audio_raqam": "1.2", "matn": "Read and listen."},
-    {"tur": "rasm", "rasm_idx": 3, "tomon": "ong"},
+    {"tur": "rasm", "rasm_idx": 4, "tomon": "ong"},
     {"tur": "dialog", "audio_raqam": "1.2", "qatorlar": [
         {"kim": "Serena", "gap": "Hello. I'm Serena. What's your name?"},
         {"kim": "Tom", "gap": "My name's Tom."},

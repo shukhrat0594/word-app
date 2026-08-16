@@ -88,6 +88,16 @@ urlpatterns = [
         name="kurslar_unit_tozalash",
     ),
     path(
+        "kurslar/<int:pk>/eksport/",
+        views.KursEksportView.as_view(),
+        name="kurslar_eksport",
+    ),
+    path(
+        "kurslar/<int:pk>/import/",
+        views.KursImportView.as_view(),
+        name="kurslar_import",
+    ),
+    path(
         "kurslar/<int:pk>/sozlar/",
         views.KursSozlarView.as_view(),
         name="kurslar_sozlar",

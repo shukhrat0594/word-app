@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { api, apiBlobUrl, apiForm } from "../api";
+import { api, apiBlobUrl, apiFayluniYuklab, apiForm } from "../api";
 import { AUDIO_HIMOYA, faqatBittaAudioIjro } from "../audio";
 import BlokMashqi from "../components/BlokMashqi";
 import BlokTasdiqlash from "../components/BlokTasdiqlash";
@@ -1644,6 +1644,68 @@ function UnitTozalashTugmasi({ unitId, royxatniYangila }) {
   );
 }
 
+/** Owner/admin uchun — bitta tugunni (masalan bitta Unit) BUTUN ichki
+ * daraxti bilan (mashqlar, so'zlar, rasm/audio fayllari) ZIP qilib
+ * yuklab olish va boshqa muhitga (masalan prod<->local) import qilish
+ * (2026-08-16, foydalanuvchi talabi: "backup qilgandek yuklab olib,
+ * boshqa bazaga yuklash"). */
+function EksportImportTugmalari({ tugunId, royxatniYangila }) {
+  const { t } = useI18n();
+  const [eksportBand, setEksportBand] = useState(false);
+  const [importBand, setImportBand] = useState(false);
+  const [xato, setXato] = useState("");
+
+  async function eksportQil() {
+    setXato("");
+    setEksportBand(true);
+    try {
+      await apiFayluniYuklab(`/api/kurslar/${tugunId}/eksport/`);
+    } catch (e) {
+      setXato(e.data?.detail || e.message || t("xato_yuz_berdi"));
+    } finally {
+      setEksportBand(false);
+    }
+  }
+
+  async function importQil(e) {
+    const fayl = e.target.files[0];
+    e.target.value = "";
+    if (!fayl) return;
+    if (!window.confirm(t("kurs_import_tasdiq"))) return;
+    setXato("");
+    setImportBand(true);
+    try {
+      const fd = new FormData();
+      fd.append("fayl", fayl);
+      await apiForm(`/api/kurslar/${tugunId}/import/`, { method: "POST", formData: fd });
+      royxatniYangila();
+    } catch (e2) {
+      setXato(e2.data?.detail || t("xato_yuz_berdi"));
+    } finally {
+      setImportBand(false);
+    }
+  }
+
+  return (
+    <span style={{ display: "inline-flex", gap: 8, alignItems: "center" }}>
+      <button className="tugma ikkinchi" onClick={eksportQil} disabled={eksportBand}>
+        {eksportBand ? t("yuklanmoqda") : t("kurs_eksport")}
+      </button>
+      <label className="tugma ikkinchi" style={{ cursor: "pointer" }}>
+        {importBand ? t("yuklanmoqda") : t("kurs_import")}
+        <input
+          type="file"
+          accept=".zip"
+          onChange={importQil}
+          disabled={importBand}
+          style={{ display: "none" }}
+        />
+      </label>
+      {xato && <span className="xato-xabar">{xato}</span>}
+    </span>
+  );
+}
+
 /** Bitta tugun — akkordeon (agar children bo'lsa) yoki oxirgi qatlam
  * (fayl + mashqlar + tugallandimi belgisi + admin uchun boshqaruv).
  *
@@ -1869,8 +1931,16 @@ function Tugun({ tugun, chuqurlik, adminMi, talabaMi, royxatniYangila, ichkariUn
               Mashq qo'shish (rasm/ZIP) endi "Mashqlar" bo'limining o'zida
               (AdminMashqBoshqaruv, 2026-07-30). */}
           {adminMi && kitobmi && (
-            <div style={{ paddingLeft: otstup + 18, display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 6 }}>
+            <div style={{ paddingLeft: otstup + 18, display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
               <UnitTozalashTugmasi unitId={tugun.id} royxatniYangila={royxatniYangila} />
+            </div>
+          )}
+          {/* 2026-08-16, foydalanuvchi talabi: "faqat TANLANGAN Unit"
+              eksport qilinsin — shuning uchun tugma KITOB emas, Unit'ning
+              O'ZI darajasida (`tugun.unit_darsi`), bir marta chiqadi. */}
+          {adminMi && tugun.unit_darsi && (
+            <div style={{ paddingLeft: otstup + 18, display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
+              <EksportImportTugmalari tugunId={tugun.id} royxatniYangila={royxatniYangila} />
             </div>
           )}
           {/* 2026-07-29: Elementary...Upper-Intermediate — Unit hali

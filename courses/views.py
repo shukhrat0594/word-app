@@ -1,7 +1,11 @@
+import io
+import json
+import uuid
 import zipfile
 
 from django.core.files.base import ContentFile
 from django.db.models import Count
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
@@ -33,6 +37,7 @@ from .models import (
     KursMashq,
     KursMashqAudio,
     KursMashqRasmGuruhi,
+    KursMashqRasmi,
     KursMashqYechim,
     KursProgress,
     KursSoz,
@@ -605,6 +610,195 @@ class KursMashqBoshqaruvView(APIView):
             snapshot={"yangi_mashqlar_soni": len(yaratilganlar)},
         )
         return Response([_kurs_mashq_admin_dict(m) for m in yaratilganlar], status=201)
+
+
+def _tugun_eksport_qil(tugun, zf, fayllar_indeksi):
+    """`tugun` va uning BUTUN farzandlar daraxtini rekursiv JSON'ga
+    o'giradi. Har bir haqiqiy fayl (rasm/audio) ZIP ichiga `files/<uuid>`
+    nomi bilan qo'shiladi, JSON esa faqat shu nomga ishora qiladi —
+    fayllar bir necha joyda ishlatilsa ham (masalan ulashilgan rasm
+    guruhi) ikki marta yozilmaydi (`fayllar_indeksi` shu uchun keshlaydi)."""
+
+    def fayl_qosh(fayl_maydoni):
+        if not fayl_maydoni:
+            return None
+        nomi = fayl_maydoni.name
+        if nomi not in fayllar_indeksi:
+            kalit = f"files/{uuid.uuid4().hex}_{nomi.rsplit('/', 1)[-1]}"
+            with fayl_maydoni.open("rb") as fh:
+                zf.writestr(kalit, fh.read())
+            fayllar_indeksi[nomi] = kalit
+        return fayllar_indeksi[nomi]
+
+    natija = {
+        "kalit": tugun.kalit,
+        "nomi": tugun.nomi,
+        "ikonka": tugun.ikonka,
+        "tartib": tugun.tartib,
+        "tez_kunda": tugun.tez_kunda,
+        "unit_darsi": tugun.unit_darsi,
+        "matn": tugun.matn,
+        "fayl": fayl_qosh(tugun.fayl) if tugun.fayl else None,
+        "children": [
+            _tugun_eksport_qil(bola, zf, fayllar_indeksi)
+            for bola in tugun.children.order_by("tartib", "id")
+        ],
+        "mashqlar": [
+            {
+                "tartib": m.tartib,
+                "matn": m.matn,
+                "savollar": m.savollar,
+                "bloklar": m.bloklar,
+                "rasm": fayl_qosh(m.rasm) if m.rasm else None,
+                "audio": fayl_qosh(m.audio) if m.audio else None,
+                "rasmlar": [
+                    {"tartib": r.tartib, "izoh": r.izoh, "rasm": fayl_qosh(r.rasm)}
+                    for r in m.rasmlar.all()
+                ],
+                "audiolar": [
+                    {"tartib": a.tartib, "raqam": a.raqam, "audio": fayl_qosh(a.audio)}
+                    for a in m.audiolar.all()
+                ],
+            }
+            for m in tugun.mashqlar.order_by("tartib", "id")
+        ],
+        "sozlar": [
+            {"tartib": s.tartib, "en": s.en, "uz": s.uz, "turkum": s.turkum, "misol": s.misol}
+            for s in tugun.sozlar.order_by("tartib", "id")
+        ],
+    }
+    return natija
+
+
+class KursEksportView(APIView):
+    """Owner/admin uchun — bitta tugun (masalan bitta Unit) va uning
+    BUTUN ichidagi daraxtini (kichik tugunlar, mashqlar, so'zlar,
+    rasm/audio fayllari bilan birga) BITTA ZIP faylga yig'ib beradi
+    (2026-08-16, foydalanuvchi talabi: "backup qilgandek yuklab olib,
+    boshqa bazaga yuklash"). Bu faylni `KursImportView` orqali istalgan
+    boshqa muhitga (masalan prod<->local) aynan bir xil holda ko'chirish
+    mumkin — versiyalar farqidan mustaqil, chunki BAZA HOLATINING O'ZI
+    ko'chiriladi, kod emas."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        if not _mashq_admin_mi(request.user):
+            return Response({"detail": "Faqat admin/owner uchun"}, status=403)
+        tugun = get_object_or_404(KursTugun, pk=pk)
+
+        bufer = io.BytesIO()
+        fayllar_indeksi = {}
+        with zipfile.ZipFile(bufer, "w", zipfile.ZIP_DEFLATED) as zf:
+            daraxt = _tugun_eksport_qil(tugun, zf, fayllar_indeksi)
+            zf.writestr("data.json", json.dumps(daraxt, ensure_ascii=False, indent=1))
+        bufer.seek(0)
+
+        fayl_nomi = f"kurslar_{tugun.kalit or tugun.id}_eksport.zip"
+        javob = HttpResponse(bufer.read(), content_type="application/zip")
+        javob["Content-Disposition"] = f'attachment; filename="{fayl_nomi}"'
+        return javob
+
+
+def _tugun_import_qil(daraxt, ota, markaz, zf):
+    """`_tugun_eksport_qil`ning teskarisi — JSON tugun tavsifidan haqiqiy
+    `KursTugun` (+ mashq/so'z/fayl) yaratadi. `kalit+ota` bo'yicha MAVJUD
+    tugun topilsa o'shanga YOZILADI (import ikki marta bajarilsa
+    dublikat yaratilmaydi) — boshqa joylardagi idempotent naqsh bilan
+    bir xil (`kurslar_urugla.py`)."""
+
+    def fayl_ol(kalit):
+        if not kalit:
+            return None
+        nomi = kalit.rsplit("/", 1)[-1]
+        return nomi, ContentFile(zf.read(kalit))
+
+    tugun = KursTugun.objects.filter(
+        kalit=daraxt["kalit"], parent=ota, markaz=markaz
+    ).first() if daraxt["kalit"] else None
+    if not tugun:
+        tugun = KursTugun(parent=ota, markaz=markaz, kalit=daraxt["kalit"])
+    tugun.nomi = daraxt["nomi"]
+    tugun.ikonka = daraxt["ikonka"]
+    tugun.tartib = daraxt["tartib"]
+    tugun.tez_kunda = daraxt["tez_kunda"]
+    tugun.unit_darsi = daraxt["unit_darsi"]
+    tugun.matn = daraxt["matn"]
+    if daraxt["fayl"]:
+        nomi, tarkib = fayl_ol(daraxt["fayl"])
+        tugun.fayl.save(nomi, tarkib, save=False)
+    tugun.save()
+
+    for m in daraxt["mashqlar"]:
+        mashq = KursMashq(
+            tugun=tugun, tartib=m["tartib"], matn=m["matn"],
+            savollar=m["savollar"], bloklar=m["bloklar"],
+        )
+        if m["rasm"]:
+            nomi, tarkib = fayl_ol(m["rasm"])
+            mashq.rasm.save(nomi, tarkib, save=False)
+        if m["audio"]:
+            nomi, tarkib = fayl_ol(m["audio"])
+            mashq.audio.save(nomi, tarkib, save=False)
+        mashq.save()
+        for r in m["rasmlar"]:
+            rasm = KursMashqRasmi(mashq=mashq, tartib=r["tartib"], izoh=r["izoh"])
+            nomi, tarkib = fayl_ol(r["rasm"])
+            rasm.rasm.save(nomi, tarkib, save=False)
+            rasm.save()
+        for a in m["audiolar"]:
+            audio = KursMashqAudio(mashq=mashq, tartib=a["tartib"], raqam=a["raqam"])
+            nomi, tarkib = fayl_ol(a["audio"])
+            audio.audio.save(nomi, tarkib, save=False)
+            audio.save()
+
+    KursSoz.objects.bulk_create([
+        KursSoz(
+            tugun=tugun, tartib=s["tartib"], en=s["en"], uz=s["uz"],
+            turkum=s["turkum"], misol=s["misol"],
+        )
+        for s in daraxt["sozlar"]
+    ])
+
+    for bola in daraxt["children"]:
+        _tugun_import_qil(bola, tugun, markaz, zf)
+
+    return tugun
+
+
+class KursImportView(APIView):
+    """Owner/admin uchun — `KursEksportView` yaratgan ZIP faylni
+    ko'rsatilgan ota-tugun ICHIGA import qiladi. Idempotent: bir xil
+    kalitli tugun/mashqlar mavjud bo'lsa ustiga yozadi (dublikat
+    yaratmaydi) — shuning uchun xavfsiz qayta-qayta ishga tushiriladi."""
+
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request, pk):
+        if not _mashq_admin_mi(request.user):
+            return Response({"detail": "Faqat admin/owner uchun"}, status=403)
+        ota = get_object_or_404(KursTugun, pk=pk)
+        fayl = request.FILES.get("fayl")
+        if not fayl:
+            return Response({"detail": "fayl majburiy"}, status=400)
+
+        try:
+            with zipfile.ZipFile(fayl) as zf:
+                daraxt = json.loads(zf.read("data.json").decode("utf-8"))
+                yangi_tugun = _tugun_import_qil(daraxt, ota, ota.markaz, zf)
+        except (zipfile.BadZipFile, KeyError, json.JSONDecodeError) as exc:
+            return Response({"detail": f"ZIP fayl noto'g'ri: {exc}"}, status=400)
+
+        logla(
+            foydalanuvchi=request.user,
+            harakat=FaoliyatYozuvi.Harakat.YARATISH,
+            obyekt=yangi_tugun,
+            obyekt_turi="KursTugun",
+            obyekt_nomi=f"Import: {yangi_tugun.nomi}",
+            snapshot={"ota": ota.nomi},
+        )
+        return Response({"id": yangi_tugun.id, "nomi": yangi_tugun.nomi}, status=201)
 
 
 class KursUnitTozalashView(APIView):
