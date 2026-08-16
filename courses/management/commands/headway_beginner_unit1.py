@@ -3,6 +3,20 @@ to'g'ri bazaga yozadi (2026-08-16, foydalanuvchi talabi: "push qilinganda
 chiqadigan qilib" — ya'ni admin panelidan qo'lda JSON/rasm yuklashning
 o'rniga, shu buyruq orqali tayyor holda).
 
+2026-08-16 (2-marta): rasm-ustiga-pozitsiya usulidan BUTUNLAY voz kechildi
+(foydalanuvchi talabi — "Gemini'ga yuborib emas, o'zing mashqlar ishlash
+oynasini yasab bergin"). Endi sahifa BLOK formatida ("bloklar" maydoni,
+`courses/blok_generatsiya.py`da AI-generatsiya uchun ishlatiladigan format,
+bu yerda qo'lda yozilgan): matn haqiqiy HTML matni (dialog/grammar_spot/
+mashq bloklari), suratlar sahifadan ALOHIDA kesib olingan (`KursMashqRasmi`),
+bo'sh joylar esa `mashq`/`grammar_spot` bloklari ichidagi haqiqiy <input>
+maydonlari — rasm ustidan pozitsiya bo'yicha EMAS.
+
+Har KITOB SAHIFASI — bitta alohida `KursMashq` (kitobdagi kabi ketma-ket
+sahifalar). Faqat chinakam BAHOLANADIGAN bo'sh joylar `savollar`ga kiradi;
+nutqiy/roleplay/mingle mashqlar "erkin" (baholanmaydigan) input sifatida
+ko'rsatiladi yoki umuman kiritilmaydi.
+
 Manba: Student's Book 5th edition (Teacher's Guide bilan tasdiqlangan
 javoblar). Rasmlar shu fayl bilan bir papkada, `courses/fixtures/headway/
 unit1/*.png` — repo bilan birga push qilinadi, shuning uchun prod'da ham
@@ -17,87 +31,260 @@ from django.core.files import File
 from django.core.management.base import BaseCommand
 
 from accounts.models import Markaz
-from courses.models import KursMashq, KursSoz, KursTugun
+from courses.models import KursMashq, KursMashqRasmi, KursSoz, KursTugun
 from courses.unit_qurish import unit_ichki_tuzilmasini_yarat
 
 RASM_PAPKA = os.path.join(os.path.dirname(__file__), "..", "..", "fixtures", "headway", "unit1")
 
-MASHQLAR = [
-    {
-        "rasm": "grammar_spot.png",
-        "matn": "GRAMMAR SPOT — Write 'm, is, or are.",
-        "savollar": [
-            {"savol": "I ____ Helen.", "variantlar": ["'m", "is", "are"], "togri": "'m", "pozitsiya": {"x": 25, "y": 64, "kenglik": 12}},
-            {"savol": "How ____ you?", "variantlar": ["'m", "is", "are"], "togri": "are", "pozitsiya": {"x": 30, "y": 66, "kenglik": 12}},
-            {"savol": "This ____ Tom.", "variantlar": ["'m", "is", "are"], "togri": "is", "pozitsiya": {"x": 30, "y": 68, "kenglik": 12}},
-        ],
-    },
-    {
-        "rasm": "check_it.png",
-        "matn": "Check it — Complete the conversations.",
-        "savollar": [
-            {"savol": "1. Hello. My name's Usha. ____ your name?", "togri": "What's", "pozitsiya": {"x": 62, "y": 30, "kenglik": 12}},
-            {"savol": "1. ____ Ben.", "togri": "My name's", "pozitsiya": {"x": 25, "y": 32, "kenglik": 15}},
-            {"savol": "2. Shi, ____ is Huan.", "togri": "this", "pozitsiya": {"x": 19, "y": 55, "kenglik": 12}},
-            {"savol": "2. Hello, Shi. ____ to meet you.", "togri": "Nice", "pozitsiya": {"x": 28, "y": 59, "kenglik": 12}},
-            {"savol": "3. Hi, Sophie. How ____ you?", "togri": "are", "pozitsiya": {"x": 43, "y": 79, "kenglik": 12}},
-            {"savol": "3. Fine, thanks, Amy. And ____?", "togri": "you", "pozitsiya": {"x": 50, "y": 81, "kenglik": 12}},
-            {"savol": "3. ____ well, thanks.", "togri": "Very", "pozitsiya": {"x": 19, "y": 83, "kenglik": 12}},
-        ],
-    },
-    {
-        "rasm": "everyday1.png",
-        "matn": "Everyday English 1 — Complete the conversations (Goodbye! / Goodnight! / Good afternoon!).",
-        "savollar": [
-            {"savol": "A: ____ / B: Hello. A cup of tea, please.", "variantlar": ["Goodbye!", "Goodnight!", "Good afternoon!"], "togri": "Good afternoon!", "pozitsiya": {"x": 30, "y": 38, "kenglik": 20}},
-            {"savol": "A: ____. Have a nice day! / B: Bye! See you later, Mum!", "variantlar": ["Goodbye!", "Goodnight!", "Good afternoon!"], "togri": "Goodbye!", "pozitsiya": {"x": 34, "y": 57, "kenglik": 20}},
-            {"savol": "A: ____! Sleep well. / B: Night night, Daddy.", "variantlar": ["Goodbye!", "Goodnight!", "Good afternoon!"], "togri": "Goodnight!", "pozitsiya": {"x": 34, "y": 75, "kenglik": 20}},
-        ],
-    },
-    {
-        "rasm": "everyday2.png",
-        "matn": "Everyday English 2 — Put the words in the correct order.",
-        "savollar": [
-            {"savol": "2-suhbat, B: please / coffee, / A", "togri": "A coffee, please.", "pozitsiya": {"x": 57, "y": 38, "kenglik": 25}},
-            {"savol": "3-suhbat, A: nice / Have / day / a", "togri": "Have a nice day.", "pozitsiya": {"x": 57, "y": 54, "kenglik": 25}},
-            {"savol": "3-suhbat, B: you / later / See", "togri": "See you later.", "pozitsiya": {"x": 57, "y": 61, "kenglik": 25}},
-            {"savol": "4-suhbat, A: well / Sleep", "togri": "Sleep well.", "pozitsiya": {"x": 57, "y": 74, "kenglik": 25}},
-            {"savol": "4-suhbat, B: you / And", "togri": "And you.", "pozitsiya": {"x": 57, "y": 81, "kenglik": 25}},
-        ],
-    },
-    {
-        "rasm": "vocabulary.png",
-        "matn": "Vocabulary — What's this in English? Write the words.",
-        "savollar": [
-            {"savol": "1-rasm", "togri": "a book", "pozitsiya": {"x": 14, "y": 26, "kenglik": 12}},
-            {"savol": "2-rasm", "togri": "a phone", "pozitsiya": {"x": 38, "y": 26, "kenglik": 12}},
-            {"savol": "3-rasm", "togri": "a photo", "pozitsiya": {"x": 59, "y": 26, "kenglik": 12}},
-            {"savol": "4-rasm", "togri": "a bike", "pozitsiya": {"x": 84, "y": 26, "kenglik": 12}},
-            {"savol": "5-rasm", "togri": "a sandwich", "pozitsiya": {"x": 21, "y": 40, "kenglik": 12}},
-            {"savol": "6-rasm", "togri": "a house", "pozitsiya": {"x": 84, "y": 40, "kenglik": 12}},
-            {"savol": "7-rasm", "togri": "a laptop", "pozitsiya": {"x": 14, "y": 56, "kenglik": 12}},
-            {"savol": "8-rasm", "togri": "a bag", "pozitsiya": {"x": 84, "y": 56, "kenglik": 12}},
-            {"savol": "9-rasm", "togri": "a watch", "pozitsiya": {"x": 21, "y": 70, "kenglik": 12}},
-            {"savol": "10-rasm", "togri": "a bus", "pozitsiya": {"x": 38, "y": 70, "kenglik": 12}},
-            {"savol": "11-rasm", "togri": "an apple", "pozitsiya": {"x": 59, "y": 70, "kenglik": 12}},
-            {"savol": "12-rasm", "togri": "an umbrella", "pozitsiya": {"x": 84, "y": 70, "kenglik": 12}},
-        ],
-    },
-    {
-        "rasm": "numbers.png",
-        "matn": "Numbers 1-10 and plurals — Write the numbers.",
-        "savollar": [
-            {"savol": "1-band (books)", "togri": "five books", "pozitsiya": {"x": 43, "y": 15, "kenglik": 14}},
-            {"savol": "2-band (bikes)", "togri": "three bikes", "pozitsiya": {"x": 38, "y": 21, "kenglik": 14}},
-            {"savol": "3-band (houses)", "togri": "eight houses", "pozitsiya": {"x": 46, "y": 27, "kenglik": 14}},
-            {"savol": "4-band (umbrellas)", "togri": "six umbrellas", "pozitsiya": {"x": 43, "y": 34, "kenglik": 14}},
-            {"savol": "5-band (photos)", "togri": "nine photos", "pozitsiya": {"x": 41, "y": 44, "kenglik": 14}},
-            {"savol": "6-band (laptops)", "togri": "four laptops", "pozitsiya": {"x": 41, "y": 47, "kenglik": 14}},
-            {"savol": "7-band (watches)", "togri": "seven watches", "pozitsiya": {"x": 46, "y": 53, "kenglik": 14}},
-            {"savol": "8-band (apples)", "togri": "ten apples", "pozitsiya": {"x": 46, "y": 65, "kenglik": 14}},
-            {"savol": "9-band (sandwiches)", "togri": "two sandwiches", "pozitsiya": {"x": 40, "y": 67, "kenglik": 14}},
-        ],
-    },
+
+def _erkin(matn_oldin, matn_keyin=""):
+    """Baholanmaydigan (talaba o'zi to'ldiradigan, masalan o'z ismi)
+    bo'sh joyli bolak — mingle/speaking mashqlari uchun."""
+    bolaklar = [{"matn": matn_oldin}, {"bosh_joy": True, "erkin": True}]
+    if matn_keyin:
+        bolaklar.append({"matn": matn_keyin})
+    return bolaklar
+
+
+# ---------------------------------------------------------------------
+# SAHIFA 2 (Student's Book p8) — Starter + Grammar am/is, my/your.
+# Rasmlar: 0=Mara, 1=Leo, 2=Nari, 3=Tom&Serena.
+# Baholanadigan savol YO'Q (faqat nutqiy/mingle) — savollar=[].
+# ---------------------------------------------------------------------
+SAHIFA2_RASMLAR = ["p1_mara.png", "p1_leo.png", "p1_nari.png", "p1_tomserena.png"]
+SAHIFA2_BLOKLAR = [
+    {"tur": "korsatma", "raqam": "STARTER", "audio_raqam": "1.1", "matn": "Read and listen. Say your name."},
+    {"tur": "rasm_qatori", "qator": [
+        {"rasm_idx": 0, "izoh": "Mara", "matn": "Hello, I'm Mara."},
+        {"rasm_idx": 1, "izoh": "Leo", "matn": "Hello, I'm Leo."},
+        {"rasm_idx": 2, "izoh": "Nari", "matn": "Hello, I'm Nari."},
+    ]},
+    {"tur": "mashq", "bolaklar": _erkin("Hello, I'm ", ". What's your name?")},
+    {"tur": "bolim_sarlavha", "matn": "Grammar — am/is, my/your"},
+    {"tur": "korsatma", "raqam": "1", "audio_raqam": "1.2", "matn": "Read and listen."},
+    {"tur": "dialog", "audio_raqam": "1.2", "qatorlar": [
+        {"kim": "Serena", "gap": "Hello. I'm Serena. What's your name?"},
+        {"kim": "Tom", "gap": "My name's Tom."},
+        {"kim": "Serena", "gap": "Hello, Tom."},
+    ]},
+    {"tur": "korsatma", "raqam": "2", "audio_raqam": "1.2", "matn": "Listen again and repeat."},
+    {"tur": "grammar_spot", "sarlavha": "GRAMMAR SPOT", "qatorlar": [
+        "I'm = I am", "What's = What is", "name's = name is",
+    ]},
+    {"tur": "rasm", "rasm_idx": 3, "izoh": "Tom and Serena", "tomon": "past"},
+    {"tur": "korsatma", "raqam": "3", "matn": "Stand up and practise."},
+    {"tur": "mashq", "bolaklar": _erkin("Hello, I'm ", ". What's your name?")},
+    {"tur": "mashq", "bolaklar": _erkin("My name's ", ".")},
+]
+
+# ---------------------------------------------------------------------
+# SAHIFA 3 (Student's Book p9) — Introductions (This is.../Nice to meet you).
+# Rasmlar: 0=Serena/Tom/Carlos, 1=Paul/Sarah.
+# Baholanadigan savol YO'Q.
+# ---------------------------------------------------------------------
+SAHIFA3_RASMLAR = ["p2_group3.png", "p2_paulsarah.png"]
+SAHIFA3_BLOKLAR = [
+    {"tur": "bolim_sarlavha", "matn": "Introductions — This is..."},
+    {"tur": "korsatma", "raqam": "1", "audio_raqam": "1.3", "matn": "Read and listen."},
+    {"tur": "rasm", "rasm_idx": 0, "izoh": "Serena, Tom and Carlos"},
+    {"tur": "dialog", "audio_raqam": "1.3", "qatorlar": [
+        {"kim": "Serena", "gap": "Tom, this is Carlos. Carlos, this is Tom."},
+        {"kim": "Tom", "gap": "Hello, Carlos."},
+        {"kim": "Carlos", "gap": "Hello, Tom."},
+    ]},
+    {"tur": "korsatma", "raqam": "2", "matn": "Practise in groups of three."},
+    {"tur": "mashq", "bolaklar": _erkin("____, this is ", ".")},
+    {"tur": "mashq", "bolaklar": _erkin("____, this is ", ".")},
+    {"tur": "mashq", "bolaklar": _erkin("Hello, ", ".")},
+    {"tur": "mashq", "bolaklar": _erkin("Hello, ", ".")},
+    {"tur": "bolim_sarlavha", "matn": "Nice to meet you"},
+    {"tur": "korsatma", "raqam": "3", "audio_raqam": "1.4", "matn": "Read and listen."},
+    {"tur": "rasm", "rasm_idx": 1, "izoh": "Paul and Sarah"},
+    {"tur": "dialog", "audio_raqam": "1.4", "qatorlar": [
+        {"kim": "Paul", "gap": "Hello. My name's Paul Bartosz."},
+        {"kim": "Sarah", "gap": "Hello. I'm Sarah Taylor. Nice to meet you."},
+        {"kim": "Paul", "gap": "Nice to meet you, too."},
+    ]},
+    {"tur": "korsatma", "raqam": "4", "matn": "Practise in pairs. Say your first name and your surname."},
+    {"tur": "mashq", "bolaklar": _erkin("Hello. My name's ", ".")},
+    {"tur": "korsatma", "raqam": "5", "matn": "Choose a name. Stand up and say hello (masalan: Elvis Presley, Cleopatra)."},
+    {"tur": "mashq", "bolaklar": _erkin("Hello. My name's ", ". Nice to meet you.")},
+]
+
+# ---------------------------------------------------------------------
+# SAHIFA 4 (Student's Book p10) — How are you? + Check it.
+# Rasmlar: 0=Artur/Dinos, 1=Linda/May, 2=Check1, 3=Check2, 4=Check3.
+# GRADED savol_idx 0-9.
+# ---------------------------------------------------------------------
+SAHIFA4_RASMLAR = [
+    "p3_arturdinos.png", "p3_lindamay.png", "p3_check1.png", "p3_check2.png", "p3_check3.png",
+]
+SAHIFA4_SAVOLLAR = [
+    {"savol": "I ____ Helen.", "togri": "'m", "variantlar": ["'m", "is", "are"]},
+    {"savol": "How ____ you?", "togri": "are", "variantlar": ["'m", "is", "are"]},
+    {"savol": "This ____ Tom.", "togri": "is", "variantlar": ["'m", "is", "are"]},
+    {"savol": "Hello. My name's Usha. ____ your name?", "togri": "What's"},
+    {"savol": "____ Ben.", "togri": "My name's"},
+    {"savol": "Shi, ____ is Huan.", "togri": "this"},
+    {"savol": "Hello, Shi. ____ to meet you.", "togri": "Nice"},
+    {"savol": "Hi, Sophie. How ____ you?", "togri": "are"},
+    {"savol": "Fine, thanks, Amy. And ____?", "togri": "you"},
+    {"savol": "____ well, thanks.", "togri": "Very"},
+]
+SAHIFA4_BLOKLAR = [
+    {"tur": "bolim_sarlavha", "matn": "How are you?"},
+    {"tur": "korsatma", "raqam": "1", "audio_raqam": "1.5", "matn": "Read and listen."},
+    {"tur": "rasm", "rasm_idx": 0, "izoh": "Artur and Dinos"},
+    {"tur": "dialog", "qatorlar": [
+        {"kim": "Artur", "gap": "Hi, Dinos. How are you?"},
+        {"kim": "Dinos", "gap": "Fine, thanks, Artur. And you?"},
+        {"kim": "Artur", "gap": "I'm OK, thanks."},
+    ]},
+    {"tur": "rasm", "rasm_idx": 1, "izoh": "Linda and May"},
+    {"tur": "dialog", "qatorlar": [
+        {"kim": "Linda", "gap": "Hello, May. How are you?"},
+        {"kim": "May", "gap": "Very well, thank you. How are you?"},
+        {"kim": "Linda", "gap": "Fine."},
+    ]},
+    {"tur": "korsatma", "raqam": "2", "matn": "Listen again and repeat."},
+    {"tur": "grammar_spot", "sarlavha": "GRAMMAR SPOT — Write 'm, is, or are.", "qatorlar": [
+        {"bolaklar": [{"matn": "I "}, {"bosh_joy": True, "savol_idx": 0}, {"matn": " Helen."}]},
+        {"bolaklar": [{"matn": "How "}, {"bosh_joy": True, "savol_idx": 1}, {"matn": " you?"}]},
+        {"bolaklar": [{"matn": "This "}, {"bosh_joy": True, "savol_idx": 2}, {"matn": " Tom."}]},
+    ]},
+    {"tur": "korsatma", "raqam": "4", "matn": "Check it — Complete the conversations."},
+    {"tur": "rasm", "rasm_idx": 2, "izoh": "1"},
+    {"tur": "mashq", "bolaklar": [
+        {"matn": "A: Hello. My name's Usha. "}, {"bosh_joy": True, "savol_idx": 3}, {"matn": " your name?"},
+        {"matn": "  B: "}, {"bosh_joy": True, "savol_idx": 4}, {"matn": " Ben."},
+    ]},
+    {"tur": "rasm", "rasm_idx": 3, "izoh": "2"},
+    {"tur": "mashq", "bolaklar": [
+        {"matn": "A: Shi, "}, {"bosh_joy": True, "savol_idx": 5}, {"matn": " is Huan."},
+        {"matn": "  B: Hello, Huan.  C: Hello, Shi. "}, {"bosh_joy": True, "savol_idx": 6}, {"matn": " to meet you."},
+    ]},
+    {"tur": "rasm", "rasm_idx": 4, "izoh": "3"},
+    {"tur": "mashq", "bolaklar": [
+        {"matn": "A: Hi, Sophie. How "}, {"bosh_joy": True, "savol_idx": 7}, {"matn": " you?"},
+        {"matn": "  B: Fine, thanks, Amy. And "}, {"bosh_joy": True, "savol_idx": 8}, {"matn": "?"},
+        {"matn": "  A: "}, {"bosh_joy": True, "savol_idx": 9}, {"matn": " well, thanks."},
+    ]},
+]
+
+# ---------------------------------------------------------------------
+# SAHIFA 5 (Student's Book p11) — Everyday English: Good morning!
+# Rasmlar: 0=morning, 1=afternoon, 2=goodbye, 3=goodnight.
+# GRADED savol_idx 0-7.
+# ---------------------------------------------------------------------
+SAHIFA5_RASMLAR = ["p4_morning.png", "p4_afternoon.png", "p4_goodbye.png", "p4_goodnight.png"]
+SAHIFA5_SAVOLLAR = [
+    {"savol": "A: ____ / B: Hello. A cup of tea, please.", "togri": "Good afternoon!",
+     "variantlar": ["Goodbye!", "Goodnight!", "Good afternoon!"]},
+    {"savol": "A: ____. Have a nice day! / B: Bye! See you later, Mum!", "togri": "Goodbye!",
+     "variantlar": ["Goodbye!", "Goodnight!", "Good afternoon!"]},
+    {"savol": "A: ____! Sleep well. / B: Night night, Daddy.", "togri": "Goodnight!",
+     "variantlar": ["Goodbye!", "Goodnight!", "Good afternoon!"]},
+    {"savol": "2-suhbat, B: (please / coffee, / A)", "togri": "A coffee, please."},
+    {"savol": "3-suhbat, A: (nice / Have / day / a)", "togri": "Have a nice day."},
+    {"savol": "3-suhbat, B: (you / later / See)", "togri": "See you later."},
+    {"savol": "4-suhbat, A: (well / Sleep)", "togri": "Sleep well."},
+    {"savol": "4-suhbat, B: (you / And)", "togri": "And you."},
+]
+SAHIFA5_BLOKLAR = [
+    {"tur": "bolim_sarlavha", "matn": "Everyday English — Good morning!"},
+    {"tur": "korsatma", "raqam": "1", "audio_raqam": "1.6", "matn": "Complete the conversations."},
+    {"tur": "soz_banki", "qatorlar": ["Goodbye!", "Goodnight!", "Good morning! (namuna)", "Good afternoon!"]},
+    {"tur": "rasm", "rasm_idx": 0, "izoh": "Good morning", "tomon": "ong"},
+    {"tur": "dialog", "qatorlar": [
+        {"kim": "A", "gap": "Good morning!"},
+        {"kim": "B", "gap": "Good morning! What a lovely day!"},
+    ]},
+    {"tur": "rasm", "rasm_idx": 1, "izoh": "?", "tomon": "ong"},
+    {"tur": "mashq", "bolaklar": [
+        {"matn": "A: "}, {"bosh_joy": True, "savol_idx": 0}, {"matn": "  B: Hello. A cup of tea, please."},
+    ]},
+    {"tur": "rasm", "rasm_idx": 2, "izoh": "?", "tomon": "ong"},
+    {"tur": "mashq", "bolaklar": [
+        {"matn": "A: "}, {"bosh_joy": True, "savol_idx": 1}, {"matn": " Have a nice day!  B: Bye! See you later, Mum!"},
+    ]},
+    {"tur": "rasm", "rasm_idx": 3, "izoh": "?", "tomon": "ong"},
+    {"tur": "mashq", "bolaklar": [
+        {"matn": "A: "}, {"bosh_joy": True, "savol_idx": 2}, {"matn": "! Sleep well.  B: Night night, Daddy."},
+    ]},
+    {"tur": "korsatma", "raqam": "2", "audio_raqam": "1.7", "matn": "Put the words in the correct order."},
+    {"tur": "matn", "matn": "1) A: Good morning! How are you today? (namuna)  B: Fine, thanks. And you?"},
+    {"tur": "mashq", "bolaklar": [
+        {"matn": "2) A: Good afternoon!  B: Good afternoon! "}, {"bosh_joy": True, "savol_idx": 3},
+        {"matn": " (please / coffee, / A)  A: Sugar?  B: Yes, please."},
+    ]},
+    {"tur": "mashq", "bolaklar": [
+        {"matn": "3) A: Goodbye! "}, {"bosh_joy": True, "savol_idx": 4}, {"matn": " (nice / Have / day / a)"},
+        {"matn": "  B: Thank you. And you. "}, {"bosh_joy": True, "savol_idx": 5}, {"matn": " (you / later / See)"},
+    ]},
+    {"tur": "mashq", "bolaklar": [
+        {"matn": "4) A: Goodnight! "}, {"bosh_joy": True, "savol_idx": 6}, {"matn": " (well / Sleep)"},
+        {"matn": "  B: Thank you. "}, {"bosh_joy": True, "savol_idx": 7}, {"matn": " (you / And)"},
+    ]},
+]
+
+# ---------------------------------------------------------------------
+# SAHIFA 6 (Student's Book p12) — Vocabulary: What's this in English?
+# Rasmlar: 0-11 = v1_book..v12_umbrella.
+# GRADED savol_idx 0-11.
+# ---------------------------------------------------------------------
+SAHIFA6_RASMLAR = [
+    "v1_book.png", "v2_phone.png", "v3_photo.png", "v4_bike.png", "v5_sandwich.png", "v6_house.png",
+    "v7_laptop.png", "v8_bag.png", "v9_watch.png", "v10_bus.png", "v11_apple.png", "v12_umbrella.png",
+]
+SAHIFA6_SAVOLLAR_TOGRI = [
+    "a book", "a phone", "a photo", "a bike", "a sandwich", "a house",
+    "a laptop", "a bag", "a watch", "a bus", "an apple", "an umbrella",
+]
+SAHIFA6_SAVOLLAR = [{"savol": f"{i}-rasm", "togri": t} for i, t in enumerate(SAHIFA6_SAVOLLAR_TOGRI, start=1)]
+SAHIFA6_BLOKLAR = [
+    {"tur": "bolim_sarlavha", "matn": "Vocabulary — What's this in English?"},
+    {"tur": "korsatma", "raqam": "1", "audio_raqam": "1.8", "matn": "Write the words."},
+    {"tur": "soz_banki", "qatorlar": [
+        "a bus", "a phone", "an apple", "a laptop", "an umbrella", "a bike",
+        "a house", "a bag", "a watch", "a book", "a sandwich", "a photo",
+    ]},
+    {"tur": "rasm_javobli_grid", "itemlar": [
+        {"rasm_idx": i, "raqam": str(i + 1), "savol_idx": i} for i in range(12)
+    ]},
+]
+
+# ---------------------------------------------------------------------
+# SAHIFA 7 (Student's Book p13) — Numbers 1-10 and plurals.
+# Rasmlar: 0-8 = n1_books..n9_sandwiches.
+# GRADED savol_idx 0-8.
+# ---------------------------------------------------------------------
+SAHIFA7_RASMLAR = [
+    "n1_books.png", "n2_bikes.png", "n3_houses.png", "n4_umbrellas.png", "n5_photos.png",
+    "n6_laptops.png", "n7_watches.png", "n8_apples.png", "n9_sandwiches.png",
+]
+SAHIFA7_SAVOLLAR_TOGRI = [
+    "five books", "three bikes", "eight houses", "six umbrellas", "nine photos",
+    "four laptops", "seven watches", "ten apples", "two sandwiches",
+]
+SAHIFA7_SAVOLLAR = [{"savol": f"{i}-band", "togri": t} for i, t in enumerate(SAHIFA7_SAVOLLAR_TOGRI, start=1)]
+SAHIFA7_BLOKLAR = [
+    {"tur": "bolim_sarlavha", "matn": "Numbers 1-10 and plurals"},
+    {"tur": "korsatma", "raqam": "1", "audio_raqam": "1.10", "matn": "Read and listen. Practise the numbers."},
+    {"tur": "matn", "matn": "one, two, three, four, five, six, seven, eight, nine, ten"},
+    {"tur": "korsatma", "raqam": "3", "audio_raqam": "1.11", "matn": "Write the numbers."},
+    {"tur": "rasm_javobli_grid", "itemlar": [
+        {"rasm_idx": i, "raqam": str(i + 1), "savol_idx": i} for i in range(9)
+    ]},
+    {"tur": "korsatma", "raqam": "4", "audio_raqam": "1.12", "matn": "Listen and repeat: /s/ books, bikes, laptops — /z/ apples, bags, phones, photos, umbrellas — /ɪz/ buses, houses, watches, sandwiches."},
+]
+
+SAHIFALAR = [
+    (2, SAHIFA2_RASMLAR, SAHIFA2_BLOKLAR, []),
+    (3, SAHIFA3_RASMLAR, SAHIFA3_BLOKLAR, []),
+    (4, SAHIFA4_RASMLAR, SAHIFA4_BLOKLAR, SAHIFA4_SAVOLLAR),
+    (5, SAHIFA5_RASMLAR, SAHIFA5_BLOKLAR, SAHIFA5_SAVOLLAR),
+    (6, SAHIFA6_RASMLAR, SAHIFA6_BLOKLAR, SAHIFA6_SAVOLLAR),
+    (7, SAHIFA7_RASMLAR, SAHIFA7_BLOKLAR, SAHIFA7_SAVOLLAR),
 ]
 
 VOCABULARY_MATN = (
@@ -184,7 +371,7 @@ WORDLIST = [
 
 
 class Command(BaseCommand):
-    help = "Headway Beginner Unit 1 (\"Hello!\") kontentini yaratadi (idempotent)"
+    help = "Headway Beginner Unit 1 (\"Hello!\") kontentini yaratadi (idempotent, blok format)"
 
     def handle(self, *args, **options):
         markaz = Markaz.objects.first()
@@ -225,17 +412,19 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING("Unit 1 allaqachon to'ldirilgan — o'tkazib yuborildi"))
             return
 
-        for i, m in enumerate(MASHQLAR, start=1):
-            mashq = KursMashq(
-                tugun=mashq_tugun, tartib=i, matn=m["matn"], savollar=m["savollar"],
-            )
-            rasm_yoli = os.path.join(RASM_PAPKA, m["rasm"])
-            if os.path.exists(rasm_yoli):
-                with open(rasm_yoli, "rb") as fh:
-                    mashq.rasm.save(m["rasm"], File(fh), save=False)
-            else:
-                self.stdout.write(self.style.WARNING(f"Rasm topilmadi: {rasm_yoli}"))
+        for tartib, rasmlar, bloklar, savollar in SAHIFALAR:
+            mashq = KursMashq(tugun=mashq_tugun, tartib=tartib, bloklar=bloklar, savollar=savollar)
             mashq.save()
+            for idx, rasm_nomi in enumerate(rasmlar):
+                rasm_yoli = os.path.join(RASM_PAPKA, rasm_nomi)
+                if not os.path.exists(rasm_yoli):
+                    self.stdout.write(self.style.WARNING(f"Rasm topilmadi: {rasm_yoli}"))
+                    continue
+                r = KursMashqRasmi(mashq=mashq, tartib=idx)
+                with open(rasm_yoli, "rb") as fh:
+                    r.rasm.save(rasm_nomi, File(fh), save=False)
+                r.save()
+            self.stdout.write(f"Sahifa {tartib} tayyor: {len(bloklar)} blok, {len(rasmlar)} rasm")
 
         vocab_tugun.matn = VOCABULARY_MATN
         vocab_tugun.save(update_fields=["matn"])
@@ -249,5 +438,5 @@ class Command(BaseCommand):
         ])
 
         self.stdout.write(self.style.SUCCESS(
-            f"Unit 1 tayyor: {len(MASHQLAR)} mashq, {len(WORDLIST)} so'z"
+            f"Unit 1 tayyor: {len(SAHIFALAR)} sahifa, {len(WORDLIST)} so'z"
         ))

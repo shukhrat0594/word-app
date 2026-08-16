@@ -175,17 +175,51 @@ function Blok({ blok, blokIdx, rasmUrllar, faolRaqam, ijro, audioTanla, javoblar
           ))}
         </div>
       );
-    case "grammar_spot":
+    case "grammar_spot": {
+      // 2026-08-16: GRAMMAR SPOT ichida ham bo'sh joy (masalan "Write
+      // 'm, is, or are.") bo'lishi mumkin — shu holatda "qatorlar" har
+      // biri {"bolaklar": [...]} bo'lishi mumkin ("mashq" bolaklari
+      // bilan bir xil shakl), oddiy matn qatorlari bilan aralash holda.
+      const bosBolaklar = (blok.qatorlar || []).flatMap((q) =>
+        typeof q === "object" && q.bolaklar ? q.bolaklar.filter((b) => b.bosh_joy && !b.erkin) : []
+      );
+      const savolIdxlari = bosBolaklar.map((b) => b.savol_idx);
+      const blokNatija = blokNatijalar[blokIdx];
       return (
-        <div className="blok-gs">
-          <div className="blok-gs-bosh">{blok.sarlavha || "GRAMMAR SPOT"}</div>
-          <div className="blok-gs-tan">
-            {(blok.qatorlar || []).map((q, k) => (
-              <div key={k}>{typeof q === "string" ? q : q.matn}</div>
-            ))}
+        <div className="blok-mashq-blok">
+          <div className="blok-gs">
+            <div className="blok-gs-bosh">{blok.sarlavha || "GRAMMAR SPOT"}</div>
+            <div className="blok-gs-tan">
+              {(blok.qatorlar || []).map((q, k) =>
+                typeof q === "object" && q.bolaklar ? (
+                  <div key={k}>
+                    <Bolaklar bolaklar={q.bolaklar} javoblar={javoblar} javobniQoy={javobniQoy} blokNatija={blokNatija} />
+                  </div>
+                ) : (
+                  <div key={k}>{typeof q === "string" ? q : q.matn}</div>
+                )
+              )}
+            </div>
           </div>
+          {savolIdxlari.length > 0 && (
+            blokNatija ? (
+              <div className="izoh blok-mashq-natija">
+                {savolIdxlari.filter((i) => blokNatija.natijalar[i]).length}/{savolIdxlari.length} {t("togri")}
+              </div>
+            ) : (
+              <button
+                type="button"
+                className="tugma ikkinchi kichik"
+                onClick={() => tekshir(blokIdx, savolIdxlari)}
+                disabled={yuborilayotganBlok === blokIdx}
+              >
+                {yuborilayotganBlok === blokIdx ? t("tekshirilmoqda") : t("tekshirish")}
+              </button>
+            )
+          )}
         </div>
       );
+    }
     case "pufakcha":
       return <div className="blok-pufakcha">{blok.matn}</div>;
     case "soz_banki":
