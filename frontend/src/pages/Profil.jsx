@@ -165,7 +165,13 @@ export default function Profil() {
 
   return (
     <>
-      <div className="karta">
+      {/* 2026-08-16, foydalanuvchi talabi: "Ko'rish rejimi" owner uchun
+          eng tez-tez ishlatiladigan panel — profil sahifasining ENG
+          TEPASIGA chiqarildi (avval pastda, parol o'zgartirishdan keyin
+          edi). */}
+      {profil.asl_owner_mi && <KorishRejimiPaneli profil={profil} t={t} />}
+
+      <div className="karta" style={{ marginTop: profil.asl_owner_mi ? 16 : 0 }}>
         <h3>{t("profil_malumot")}</h3>
         {/* 2026-08-09: har foydalanuvchi O'Z profil rasmini shu yerdan
             qo'yadi (owner boshqalarnikini "Foydalanuvchilar" sahifasida
@@ -269,11 +275,6 @@ export default function Profil() {
           </div>
         </div>
       )}
-
-      {/* 2026-07-29: faqat HAQIQIY owner ko'radi (`asl_owner_mi` —
-          simulyatsiyadan mustaqil, aks holda owner "Ko'rish rejimi"ga
-          o'tgach o'zini qaytarib bo'lmay qolardi). */}
-      {profil.asl_owner_mi && <KorishRejimiPaneli profil={profil} t={t} />}
 
       <div className="karta" style={{ marginTop: 16 }}>
         <h3>{t("parolni_ozgartirish")}</h3>

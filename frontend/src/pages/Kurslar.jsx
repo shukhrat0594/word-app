@@ -979,7 +979,7 @@ function AdminMashqBoshqaruv({ tugunId, jsonKiritishKorinadi = true }) {
     return raqamlar;
   }
 
-  async function mashqgaAudioYukla(id, e) {
+  async function mashqgaAudioYukla(id, e, raqam) {
     const fayl = e.target.files[0];
     e.target.value = "";
     if (!fayl) return;
@@ -988,6 +988,11 @@ function AdminMashqBoshqaruv({ tugunId, jsonKiritishKorinadi = true }) {
     try {
       const fd = new FormData();
       fd.append("audio", fayl);
+      // 2026-08-16, foydalanuvchi talabi: bitta sahifada bir nechta
+      // audio belgisi (masalan 1.1 VA 1.2) bo'lsa, admin QAYSI trekka
+      // yuklayotganini aniq ko'rsatishi kerak — aks holda backend doim
+      // BIRINCHI raqamga yozardi, qolgan treklar umuman yuklanmasdi.
+      if (raqam) fd.append("raqam", raqam);
       const d = await apiForm(`/api/kurslar/mashq/${id}/blok-audio-yuklash/`, { method: "POST", formData: fd });
       // 2026-08-08: bu fayl markazda allaqachon bor edi — diskka yangi
       // nusxa yozilmadi, mavjudi ishlatildi. Admin qaysi mashqdan
@@ -1160,18 +1165,41 @@ function AdminMashqBoshqaruv({ tugunId, jsonKiritishKorinadi = true }) {
                 {/* 2026-08-07: `audio_kerak` — rasm-fon rejimi uchun.
                     U yerda `bloklar` bo'sh, ya'ni `mashqAudioRaqamlari`
                     har doim bo'sh qaytaradi va tugma ko'rinmay qolardi. */}
-                {(mashqAudioRaqamlari(m).length > 0 || m.audio_kerak) && (
-                  <label className="tugma ikkinchi" style={{ cursor: "pointer" }}>
-                    {audioYuklanayotganId === m.id ? t("yuklanmoqda") : t("kurs_mashq_audio_yuklash")}
-                    <input
-                      type="file"
-                      accept="audio/*"
-                      onChange={(e) => mashqgaAudioYukla(m.id, e)}
-                      disabled={audioYuklanayotganId === m.id}
-                      style={{ display: "none" }}
-                    />
-                  </label>
-                )}
+                {(() => {
+                  const raqamlar = mashqAudioRaqamlari(m);
+                  if (raqamlar.length > 1) {
+                    // Bir nechta audio belgisi bor — har biriga ALOHIDA
+                    // tugma, aks holda backend doim BIRINCHI raqamga
+                    // yozardi va qolgan treklar yuklanmay qolardi.
+                    return raqamlar.map((r) => (
+                      <label key={r} className="tugma ikkinchi" style={{ cursor: "pointer" }}>
+                        {audioYuklanayotganId === m.id ? t("yuklanmoqda") : `🎵 ${r}`}
+                        <input
+                          type="file"
+                          accept="audio/*"
+                          onChange={(e) => mashqgaAudioYukla(m.id, e, r)}
+                          disabled={audioYuklanayotganId === m.id}
+                          style={{ display: "none" }}
+                        />
+                      </label>
+                    ));
+                  }
+                  if (raqamlar.length === 1 || m.audio_kerak) {
+                    return (
+                      <label className="tugma ikkinchi" style={{ cursor: "pointer" }}>
+                        {audioYuklanayotganId === m.id ? t("yuklanmoqda") : t("kurs_mashq_audio_yuklash")}
+                        <input
+                          type="file"
+                          accept="audio/*"
+                          onChange={(e) => mashqgaAudioYukla(m.id, e, raqamlar[0])}
+                          disabled={audioYuklanayotganId === m.id}
+                          style={{ display: "none" }}
+                        />
+                      </label>
+                    );
+                  }
+                  return null;
+                })()}
                 <button className="tugma ikkinchi" style={{ color: "#d33" }} onClick={() => ochir(m.id)}>
                   {t("ochirish")}
                 </button>

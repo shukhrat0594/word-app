@@ -698,8 +698,8 @@ input.imtihon-bosh-joy { font: inherit; font-size: 12.5px; text-align: center; }
    mashq ramkasidan tashqariga chiqib, keyingi mashqqa tushib ketardi. */
 .blok-sahifa::after { content: ""; display: block; clear: both; }
 .blok-raqam-sarlavha { font-weight: 700; margin-bottom: 10px; }
-.blok-sarlavha { color: var(--si-rang); font-size: 20px; margin: 0 0 4px; }
-.blok-bolim { color: var(--si-rang); font-size: 16px; margin: 18px 0 4px; }
+.blok-sarlavha { color: var(--matn); font-size: 20px; margin: 0 0 4px; font-weight: 800; }
+.blok-bolim { color: var(--matn); font-size: 16px; margin: 18px 0 4px; font-weight: 700; }
 .blok-matn { margin: 8px 0; }
 .blok-rasm {
   /* 2026-08-03: 320px -> 260px (foydalanuvchi talabi: "rasmlarni hajmini
@@ -725,6 +725,17 @@ input.imtihon-bosh-joy { font: inherit; font-size: 12.5px; text-align: center; }
   justify-content: center;
 }
 .blok-soz-banki span { font-weight: 600; }
+/* 2026-08-16, foydalanuvchi talabi: kitobdagi ustunli jadval (masalan
+   /s/ /z/ /ɪz/ talaffuz jadvali). */
+.blok-jadval {
+  border-collapse: collapse; margin: 10px 0 16px; max-width: 480px; width: 100%;
+}
+.blok-jadval th {
+  background: color-mix(in srgb, var(--yaxshi) 18%, var(--sirt-2));
+  text-align: left; font-weight: 700; padding: 6px 16px 6px 0;
+  border-bottom: 1px solid var(--chiziq);
+}
+.blok-jadval td { padding: 3px 16px 3px 0; }
 .blok-rasm-javobli-grid {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   gap: 14px; margin: 10px 0 6px;
@@ -735,56 +746,135 @@ input.imtihon-bosh-joy { font: inherit; font-size: 12.5px; text-align: center; }
    yakka rasmdagi (`.blok-rasm`) 260px cheklovi bu yerda BEKOR bo'lib
    qolgan edi. Guruhdagi rasm sonli bo'lgani uchun kichikroq (180px) qat'iy tavan. */
 .blok-rasm-javobli-karta .blok-rasm { max-width: 180px; width: 100%; margin: 0 0 6px; }
+.blok-rasm-javobli-javob-qatori { display: flex; align-items: center; gap: 8px; }
+.blok-rasm-javobli-birlik { font-weight: 600; }
+/* 2026-08-16, foydalanuvchi talabi: KENG rasmlar (masalan Numbers
+   mashqidagi buyum qatorlari) panjarada emas, HAR BIRI ALOHIDA
+   qatorda, kattaroq chiqsin. */
+.blok-rasm-javobli-ustun { display: flex; flex-direction: column; gap: 18px; margin: 10px 0 6px; }
+.blok-rasm-javobli-ustun .blok-rasm-javobli-karta { align-items: flex-start; }
+.blok-rasm-javobli-ustun .blok-rasm { max-width: 520px; width: 100%; height: auto; }
 .blok-rasm-javobli-raqam { font-weight: 700; font-size: 12px; color: var(--matn-sokin); margin-bottom: 2px; }
 .blok-rasm-javobli-tek { display: flex; justify-content: flex-end; margin-top: 4px; }
 .blok-rasm-qatori {
-  display: flex; gap: 10px; margin: 10px 0; flex-wrap: wrap; align-items: flex-start;
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 14px; margin: 14px 0; align-items: stretch;
 }
-.blok-rasm-karta { display: flex; flex-direction: column; align-items: center; min-width: 110px; }
+.blok-rasm-karta {
+  display: flex; flex-direction: column; align-items: center; text-align: center;
+  background: var(--sirt); border: 1px solid var(--chiziq); border-radius: 10px;
+  padding: 10px; box-shadow: var(--soya);
+}
 /* 2026-08-07: xuddi rasm-javobli-karta'dagi bilan bir xil bug — bu yerda
    ham 260px'lik yakka-rasm cheklovi bekor bo'lib, rasm qatordagi
    flex-katak kengligiga qarab kattalashib ketardi. */
-.blok-rasm-karta .blok-rasm { margin: 0 0 6px; max-width: 200px; width: 100%; }
+.blok-rasm-karta .blok-rasm { margin: 0 0 10px; max-width: 100%; width: 100%; height: 140px; object-fit: cover; }
 .blok-rasm-karta .blok-pufakcha { margin: 0; }
-.blok-korsatma { display: flex; align-items: center; gap: 8px; margin: 12px 0; flex-wrap: wrap; }
-.blok-raqam { color: var(--sariq-toq); font-weight: 800; }
+.blok-korsatma {
+  display: flex; align-items: center; gap: 10px; margin: 16px 0 12px; flex-wrap: wrap;
+  background: color-mix(in srgb, var(--sariq) 12%, var(--sirt)); border-left: 4px solid var(--sariq);
+  border-radius: 8px; padding: 9px 14px;
+}
+.blok-raqam {
+  background: var(--sariq); color: #2B2A28; font-weight: 800; font-size: 12.5px;
+  padding: 3px 10px; border-radius: 5px; line-height: 1.4;
+}
 .blok-pufakcha {
-  display: inline-block; background: var(--sirt-2); border: 1.5px solid var(--chiziq);
-  border-radius: 6px; padding: 5px 11px; font-weight: 600; margin: 4px 6px 4px 0;
+  display: inline-block; background: var(--sirt); border: 2px solid var(--sariq);
+  border-radius: 8px; padding: 6px 12px; font-weight: 700; margin: 4px 6px 4px 0;
+  color: var(--matn);
+}
+/* 2026-08-16: mingle/roleplay mashqlari uchun — bo'sh-joyli "suhbat
+   pufakchasi" (kitobdagi speech bubble ko'rinishi), oddiy dashed
+   kartadan farqli. `blok-pufakcha`ga o'xshaydi, lekin ichida input
+   bo'lgani uchun kenglik/joylashuv biroz boshqacha. */
+.blok-pufakcha-mashq {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
+  background: var(--sirt); border: 2px solid var(--sariq); border-radius: 10px 10px 10px 2px;
+  padding: 9px 14px; margin: 0 0 10px; max-width: 420px; font-weight: 600;
+}
+.blok-pufakcha-kim {
+  background: var(--sariq); color: #2B2A28; font-size: 11px; font-weight: 800;
+  padding: 2px 8px; border-radius: 4px; letter-spacing: .3px;
 }
 .blok-dialog {
-  background: var(--sirt-2); border: 1px solid var(--chiziq); border-radius: 6px;
-  padding: 10px 14px; margin: 8px 0 14px; max-width: 480px;
+  background: var(--sirt); border: 1px solid var(--chiziq); border-left: 4px solid var(--sariq);
+  border-radius: 8px; padding: 12px 16px; margin: 10px 0 16px; max-width: 520px;
 }
-.blok-dialog-qator { display: flex; gap: 12px; margin-bottom: 3px; }
-.blok-dialog-kim { min-width: 62px; font-weight: 700; color: var(--matn-sokin); }
-.blok-gs { border-radius: 6px; overflow: hidden; max-width: 340px; margin: 8px 0 16px; }
+.blok-dialog-qator { display: flex; gap: 12px; margin-bottom: 6px; }
+.blok-dialog-qator:last-child { margin-bottom: 0; }
+.blok-dialog-kim { min-width: 68px; font-weight: 700; color: var(--matn-sokin); }
+.blok-dialog-namuna { color: var(--sariq-toq); font-weight: 700; text-decoration: underline; font-style: italic; }
+/* 2026-08-16, foydalanuvchi talabi: so'zlovchisiz qisqa savol-javob
+   namunalari (masalan "What's this in English? / It's a photo.")
+   kitobdagi kabi haqiqiy SUHBAT PUFAKCHASI shaklida — pastki burchakda
+   uchburchak "dum" bilan. Chap/o'ng navbatma-navbat biroz boshqa fonda
+   (kitobda ham savol/javob rangi farqlanadi). */
+.blok-suhbat-pufakchalar {
+  display: flex; align-items: flex-start; flex-wrap: wrap; gap: 10px 14px;
+  margin: 10px 0 16px;
+}
+.blok-suhbat-pufakcha {
+  position: relative; display: inline-block; max-width: 260px;
+  background: var(--sirt-2); border: 1.5px solid var(--chiziq);
+  border-radius: 14px; padding: 8px 14px; font-weight: 700; color: var(--matn);
+}
+.blok-suhbat-pufakcha::after {
+  content: ""; position: absolute; bottom: -8px; width: 0; height: 0;
+  border: 8px solid transparent;
+}
+.blok-suhbat-pufakcha.so-ol {
+  background: color-mix(in srgb, var(--yaxshi) 12%, var(--sirt-2));
+}
+.blok-suhbat-pufakcha.so-ol::after {
+  left: 18px; border-top-color: color-mix(in srgb, var(--yaxshi) 12%, var(--sirt-2));
+  border-bottom: none;
+}
+.blok-suhbat-pufakcha.so-ong {
+  background: color-mix(in srgb, var(--si-rang, var(--sariq)) 14%, var(--sirt-2));
+}
+.blok-suhbat-pufakcha.so-ong::after {
+  right: 18px; border-top-color: color-mix(in srgb, var(--si-rang, var(--sariq)) 14%, var(--sirt-2));
+  border-bottom: none;
+}
+.blok-gs { border-radius: 8px; overflow: hidden; max-width: 380px; margin: 10px 0 16px; box-shadow: var(--soya); }
 .blok-gs-bosh {
-  background: var(--si-rang); color: #fff; font-weight: 700; font-size: 12px;
-  letter-spacing: .5px; padding: 6px 13px;
+  background: var(--sariq); color: #2B2A28; font-weight: 700; font-size: 12px;
+  letter-spacing: .5px; padding: 7px 14px;
 }
-.blok-gs-tan { background: color-mix(in srgb, var(--si-rang) 12%, var(--sirt)); padding: 9px 14px; line-height: 1.8; }
+.blok-gs-tan {
+  background: color-mix(in srgb, var(--sariq) 12%, var(--sirt));
+  border: 2px solid color-mix(in srgb, var(--sariq) 35%, transparent); border-top: none;
+  padding: 12px 16px; line-height: 2;
+}
 /* Har "mashq" bloki + o'z Tekshirish tugmasi/natijasi (2026-07-29) —
    bitta guruh sifatida joylashadi, shuning uchun tugma AYNAN shu
    mashq ostida chiqadi, sahifa oxirida emas. */
-.blok-mashq-blok { margin: 0 0 14px; }
-.blok-mashq {
-  display: flex; align-items: center; flex-wrap: wrap; gap: 4px;
-  background: var(--sirt-2); border: 1.5px solid var(--chiziq); border-radius: 6px;
-  padding: 9px 13px; margin: 0 0 6px; font-weight: 600;
+.blok-mashq-blok {
+  margin: 0 0 16px; background: var(--sirt); border: 2px dashed color-mix(in srgb, var(--sariq) 55%, var(--chiziq));
+  border-radius: 10px; padding: 14px 16px;
 }
-.blok-mashq-natija { margin-left: 2px; }
+.blok-mashq { font-weight: 600; line-height: 1.9; }
+/* 2026-08-16, foydalanuvchi talabi: ko'p so'zlovchili suhbat (masalan
+   Check it — A/B/C) HAR BIR qatori alohida qatordan boshlansin, bitta
+   uzun oqim bo'lib ketmasin. */
+.blok-mashq-qator {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 4px;
+  margin-bottom: 4px;
+}
+.blok-mashq-qator:last-child { margin-bottom: 0; }
+.blok-mashq-natija { margin-left: 2px; font-weight: 700; }
 .tugma.kichik { padding: 4px 12px; font-size: 12.5px; }
 .blok-bosh-joy {
-  border: none; border-bottom: 2px solid var(--sariq-toq); background: var(--sirt);
-  font: inherit; color: var(--matn); width: 120px; padding: 1px 6px;
-  border-radius: 3px 3px 0 0; outline: none;
+  border: 2px solid var(--chiziq); background: var(--sirt-2);
+  font: inherit; color: var(--matn); width: 130px; padding: 3px 8px;
+  border-radius: 6px; outline: none; margin: 0 3px;
 }
-.blok-bosh-joy:focus { box-shadow: 0 0 0 2px color-mix(in srgb, var(--sariq-toq) 45%, transparent); }
+.blok-bosh-joy:focus { border-color: var(--yaxshi); box-shadow: 0 0 0 2px color-mix(in srgb, var(--yaxshi) 30%, transparent); }
 /* "erkin" — talaba o'z ismini yozadi, baholanmaydi (to'g'ri javob yo'q) */
-.blok-bosh-joy.erkin { border-bottom-style: dashed; }
-.blok-bosh-joy.togri { border-bottom-color: var(--yaxshi); background: color-mix(in srgb, var(--yaxshi) 15%, var(--sirt)); }
-.blok-bosh-joy.notogri { border-bottom-color: var(--xato); background: color-mix(in srgb, var(--xato) 15%, var(--sirt)); }
+.blok-bosh-joy.erkin { border-style: dashed; }
+.blok-bosh-joy.togri { border-color: var(--yaxshi); background: color-mix(in srgb, var(--yaxshi) 15%, var(--sirt)); }
+.blok-bosh-joy.notogri { border-color: var(--xato); background: color-mix(in srgb, var(--xato) 15%, var(--sirt)); }
 
 /* Audio — KICHIK TUGMA, o'z topshirig'i yonida (to'liq pleyer emas:
    foydalanuvchi talabi + yuklab olish tugmasi ko'rinmasligi uchun) */

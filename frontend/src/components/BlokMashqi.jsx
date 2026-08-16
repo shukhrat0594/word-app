@@ -47,19 +47,24 @@ function AudioBelgi({ raqam, faolRaqam, ijro, tanla }) {
 /** Bitta rasm + uning javob maydoni (2026-08-03, "so'z banki + raqamlangan
  * rasmlar" mashqi) — "rasm_javobli" (yagona) va "rasm_javobli_grid"
  * (panjara) ikkisida ham qayta ishlatiladi. */
-function RasmJavobKartasi({ url, raqam, savolIdx, javoblar, javobniQoy, blokNatija }) {
+function RasmJavobKartasi({ url, raqam, birlik, savolIdx, javoblar, javobniQoy, blokNatija }) {
   const holat = blokNatija ? (blokNatija.natijalar[savolIdx] ? "togri" : "notogri") : "";
   return (
     <div className="blok-rasm-javobli-karta">
       {raqam && <div className="blok-rasm-javobli-raqam">{raqam}</div>}
       {url && <img className="blok-rasm" src={url} alt="" />}
-      <input
-        {...IMLO_OFF}
-        className={`blok-bosh-joy ${holat}`}
-        value={javoblar[savolIdx] || ""}
-        disabled={!!blokNatija}
-        onChange={(e) => javobniQoy(savolIdx, e.target.value)}
-      />
+      <div className="blok-rasm-javobli-javob-qatori">
+        <input
+          {...IMLO_OFF}
+          className={`blok-bosh-joy ${holat}`}
+          value={javoblar[savolIdx] || ""}
+          disabled={!!blokNatija}
+          onChange={(e) => javobniQoy(savolIdx, e.target.value)}
+        />
+        {/* 2026-08-16, foydalanuvchi talabi: kitobdagi kabi otning o'zi
+            statik yozilgan, faqat SON kiritiladi (masalan "___ books"). */}
+        {birlik && <span className="blok-rasm-javobli-birlik">{birlik}</span>}
+      </div>
     </div>
   );
 }
@@ -163,18 +168,42 @@ function Blok({ blok, blokIdx, rasmUrllar, faolRaqam, ijro, audioTanla, javoblar
           <span>{blok.matn}</span>
         </div>
       );
-    case "dialog":
+    case "dialog": {
+      const qatorlar = blok.qatorlar || [];
+      // 2026-08-16, foydalanuvchi talabi: so'zlovchi nomi bo'lmagan qisqa
+      // savol-javob namunalari (masalan "What's this in English? / It's
+      // a photo.") kitobdagi kabi haqiqiy SUHBAT PUFAKCHASI (uchburchak
+      // "dumi" bilan) shaklida chiqsin — A/B nomli to'liq suhbat
+      // qutisidan farqli.
+      const hammaKimsiz = qatorlar.length > 0 && qatorlar.every((q) => !q.kim);
+      if (hammaKimsiz) {
+        return (
+          <div className="blok-suhbat-pufakchalar">
+            {audioBelgi}
+            {qatorlar.map((q, k) => (
+              <span key={k} className={`blok-suhbat-pufakcha ${k % 2 === 0 ? "so-ol" : "so-ong"}`}>
+                {q.gap}
+              </span>
+            ))}
+          </div>
+        );
+      }
       return (
         <div className="blok-dialog">
           {audioBelgi}
-          {(blok.qatorlar || []).map((q, k) => (
+          {qatorlar.map((q, k) => (
             <div key={k} className="blok-dialog-qator">
               <span className="blok-dialog-kim">{q.kim}</span>
-              <span>{q.gap}</span>
+              {/* 2026-08-16, foydalanuvchi talabi: kitobdagi "namuna"
+                  (allaqachon to'ldirilgan misol) javobi alohida rangda,
+                  tagiga chizilgan holda ko'rinsin — oddiy gap matnidan
+                  ajralib turishi uchun. */}
+              <span className={q.namuna ? "blok-dialog-namuna" : undefined}>{q.gap}</span>
             </div>
           ))}
         </div>
       );
+    }
     case "grammar_spot": {
       // 2026-08-16: GRAMMAR SPOT ichida ham bo'sh joy (masalan "Write
       // 'm, is, or are.") bo'lishi mumkin — shu holatda "qatorlar" har
@@ -204,7 +233,7 @@ function Blok({ blok, blokIdx, rasmUrllar, faolRaqam, ijro, audioTanla, javoblar
           {savolIdxlari.length > 0 && (
             blokNatija ? (
               <div className="izoh blok-mashq-natija">
-                {savolIdxlari.filter((i) => blokNatija.natijalar[i]).length}/{savolIdxlari.length} {t("togri")}
+                {savolIdxlari.filter((i) => blokNatija.natijalar[i]).length}/{savolIdxlari.length} {"correct"}
               </div>
             ) : (
               <button
@@ -213,7 +242,7 @@ function Blok({ blok, blokIdx, rasmUrllar, faolRaqam, ijro, audioTanla, javoblar
                 onClick={() => tekshir(blokIdx, savolIdxlari)}
                 disabled={yuborilayotganBlok === blokIdx}
               >
-                {yuborilayotganBlok === blokIdx ? t("tekshirilmoqda") : t("tekshirish")}
+                {yuborilayotganBlok === blokIdx ? "Checking…" : "Check"}
               </button>
             )
           )}
@@ -222,10 +251,44 @@ function Blok({ blok, blokIdx, rasmUrllar, faolRaqam, ijro, audioTanla, javoblar
     }
     case "pufakcha":
       return <div className="blok-pufakcha">{blok.matn}</div>;
+    case "jadval": {
+      // 2026-08-16, foydalanuvchi talabi: kitobdagi ustunli jadval
+      // (masalan /s/ /z/ /ɪz/ talaffuz jadvali) — "sarlavhalar" ustun
+      // nomlari, "qatorlar" har biri o'sha ustunlar soniga mos massiv
+      // (bo'sh katak uchun "" yoziladi).
+      const sarlavhalar = blok.sarlavhalar || [];
+      const qatorlar = blok.qatorlar || [];
+      return (
+        <table className="blok-jadval">
+          {sarlavhalar.length > 0 && (
+            <thead>
+              <tr>{sarlavhalar.map((s, k) => <th key={k}>{s}</th>)}</tr>
+            </thead>
+          )}
+          <tbody>
+            {qatorlar.map((q, k) => (
+              <tr key={k}>{q.map((c, ci) => <td key={ci}>{c}</td>)}</tr>
+            ))}
+          </tbody>
+        </table>
+      );
+    }
     case "soz_banki":
       return (
         <div className="blok-soz-banki">
-          {(blok.qatorlar || []).map((s, k) => <span key={k}>{s}</span>)}
+          {(blok.qatorlar || []).map((s, k) => {
+            const matn = typeof s === "string" ? s : s.matn;
+            // 2026-08-16: kitobda namuna sifatida ISHLATILGAN so'z
+            // ustidan chizilgan holda ko'rsatiladi (masalan "Good
+            // morning!") — endi bank ichida qayta tanlanmasligi ko'rinib
+            // tursin.
+            const ishlatilgan = typeof s === "object" && s.ishlatilgan;
+            return (
+              <span key={k} style={ishlatilgan ? { textDecoration: "line-through", opacity: 0.55 } : undefined}>
+                {matn}
+              </span>
+            );
+          })}
         </div>
       );
     case "rasm_javobli": {
@@ -243,7 +306,7 @@ function Blok({ blok, blokIdx, rasmUrllar, faolRaqam, ijro, audioTanla, javoblar
           <div className="blok-rasm-javobli-tek">
             {blokNatija ? (
               <div className="izoh blok-mashq-natija">
-                {blokNatija.natijalar[blok.savol_idx] ? "✓" : "✗"} {t("togri")}
+                {blokNatija.natijalar[blok.savol_idx] ? "✓" : "✗"} {"correct"}
               </div>
             ) : (
               <button
@@ -252,7 +315,7 @@ function Blok({ blok, blokIdx, rasmUrllar, faolRaqam, ijro, audioTanla, javoblar
                 onClick={() => tekshir(blokIdx, [blok.savol_idx])}
                 disabled={yuborilayotganBlok === blokIdx}
               >
-                {yuborilayotganBlok === blokIdx ? t("tekshirilmoqda") : t("tekshirish")}
+                {yuborilayotganBlok === blokIdx ? "Checking…" : "Check"}
               </button>
             )}
           </div>
@@ -263,14 +326,20 @@ function Blok({ blok, blokIdx, rasmUrllar, faolRaqam, ijro, audioTanla, javoblar
       const itemlar = blok.itemlar || [];
       const savolIdxlari = itemlar.map((it) => it.savol_idx);
       const blokNatija = blokNatijalar[blokIdx];
+      // 2026-08-16, foydalanuvchi talabi: "kenglik" (rasm keng, kvadrat
+      // emas — masalan Numbers mashqidagi buyum qatorlari) belgisi
+      // bo'lsa HAR BIRI ALOHIDA QATORDA, kattaroq chiqadi — kichik
+      // kvadrat kartochkalar panjarasi emas.
+      const ustunKo = blok.qator_boyicha;
       return (
         <div className="blok-mashq-blok">
-          <div className="blok-rasm-javobli-grid">
+          <div className={ustunKo ? "blok-rasm-javobli-ustun" : "blok-rasm-javobli-grid"}>
             {itemlar.map((it, k) => (
               <RasmJavobKartasi
                 key={k}
                 url={rasmUrllar[it.rasm_idx]}
                 raqam={it.raqam}
+                birlik={it.birlik}
                 savolIdx={it.savol_idx}
                 javoblar={javoblar}
                 javobniQoy={javobniQoy}
@@ -282,7 +351,7 @@ function Blok({ blok, blokIdx, rasmUrllar, faolRaqam, ijro, audioTanla, javoblar
             <div className="blok-rasm-javobli-tek">
               {blokNatija ? (
                 <div className="izoh blok-mashq-natija">
-                  {savolIdxlari.filter((i) => blokNatija.natijalar[i]).length}/{savolIdxlari.length} {t("togri")}
+                  {savolIdxlari.filter((i) => blokNatija.natijalar[i]).length}/{savolIdxlari.length} {"correct"}
                 </div>
               ) : (
                 <button
@@ -291,7 +360,7 @@ function Blok({ blok, blokIdx, rasmUrllar, faolRaqam, ijro, audioTanla, javoblar
                   onClick={() => tekshir(blokIdx, savolIdxlari)}
                   disabled={yuborilayotganBlok === blokIdx}
                 >
-                  {yuborilayotganBlok === blokIdx ? t("tekshirilmoqda") : t("tekshirish")}
+                  {yuborilayotganBlok === blokIdx ? "Checking…" : "Check"}
                 </button>
               )}
             </div>
@@ -300,19 +369,63 @@ function Blok({ blok, blokIdx, rasmUrllar, faolRaqam, ijro, audioTanla, javoblar
       );
     }
     case "mashq": {
-      const bolaklar = blok.bolaklar || [];
+      // 2026-08-16, foydalanuvchi talabi: bir nechta so'zlovchili suhbat
+      // (masalan "Check it" — A/B/C) HAR BIRI O'Z QATORIDAN boshlansin,
+      // bitta uzun oqim sifatida emas. "qatorlar" bo'lsa — har biri
+      // ({"bolaklar":[...]}) ALOHIDA qatorda chiqadi, hammasi bitta
+      // umumiy Tekshirish tugmasini ulashadi (xuddi "grammar_spot"dagi
+      // kabi). "bolaklar" (yagona, eski) hamon ishlaydi — orqaga moslik.
+      const qatorlarRoyxati = blok.qatorlar
+        ? blok.qatorlar.map((q) => q.bolaklar || [])
+        : [blok.bolaklar || []];
+      const bolaklar = qatorlarRoyxati.flat();
       const savolIdxlari = bolaklar.filter((b) => b.bosh_joy && !b.erkin).map((b) => b.savol_idx);
       const blokNatija = blokNatijalar[blokIdx];
+      // 2026-08-16, foydalanuvchi talabi: mingle/roleplay mashqlari
+      // (masalan "___, this is ___.") kitobdagi kabi suhbat pufakchasi
+      // ko'rinishida chiqsin — oddiy chizilgan (dashed) qutidan farqli.
+      // `blok.kim` bo'lsa (masalan "A"/"B" yoki ism) pufakcha ustida
+      // kichik yorliq sifatida ko'rsatiladi — dialog/monolog ekani
+      // ko'rinib turishi uchun.
+      if (blok.bulut) {
+        return (
+          <div className="blok-pufakcha-mashq">
+            {blok.kim && <span className="blok-pufakcha-kim">{blok.kim}</span>}
+            {audioBelgi}
+            <Bolaklar bolaklar={bolaklar} javoblar={javoblar} javobniQoy={javobniQoy} blokNatija={blokNatija} />
+            {savolIdxlari.length > 0 && (
+              blokNatija ? (
+                <span className="izoh blok-mashq-natija">
+                  {savolIdxlari.filter((i) => blokNatija.natijalar[i]).length}/{savolIdxlari.length} {"correct"}
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  className="tugma ikkinchi kichik"
+                  onClick={() => tekshir(blokIdx, savolIdxlari)}
+                  disabled={yuborilayotganBlok === blokIdx}
+                >
+                  {yuborilayotganBlok === blokIdx ? "Checking…" : "Check"}
+                </button>
+              )
+            )}
+          </div>
+        );
+      }
       return (
         <div className="blok-mashq-blok">
           <div className="blok-mashq">
             {audioBelgi}
-            <Bolaklar bolaklar={bolaklar} javoblar={javoblar} javobniQoy={javobniQoy} blokNatija={blokNatija} />
+            {qatorlarRoyxati.map((qatorBolaklari, qi) => (
+              <div key={qi} className="blok-mashq-qator">
+                <Bolaklar bolaklar={qatorBolaklari} javoblar={javoblar} javobniQoy={javobniQoy} blokNatija={blokNatija} />
+              </div>
+            ))}
           </div>
           {savolIdxlari.length > 0 && (
             blokNatija ? (
               <div className="izoh blok-mashq-natija">
-                {savolIdxlari.filter((i) => blokNatija.natijalar[i]).length}/{savolIdxlari.length} {t("togri")}
+                {savolIdxlari.filter((i) => blokNatija.natijalar[i]).length}/{savolIdxlari.length} {"correct"}
               </div>
             ) : (
               <button
@@ -321,7 +434,7 @@ function Blok({ blok, blokIdx, rasmUrllar, faolRaqam, ijro, audioTanla, javoblar
                 onClick={() => tekshir(blokIdx, savolIdxlari)}
                 disabled={yuborilayotganBlok === blokIdx}
               >
-                {yuborilayotganBlok === blokIdx ? t("tekshirilmoqda") : t("tekshirish")}
+                {yuborilayotganBlok === blokIdx ? "Checking…" : "Check"}
               </button>
             )
           )}
