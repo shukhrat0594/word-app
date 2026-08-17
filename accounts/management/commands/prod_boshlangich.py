@@ -89,6 +89,10 @@ class Command(BaseCommand):
         call_command("listening_yangi_mashqlar")
         call_command("writing_speaking_yangi_mashqlar")
         call_command("kurslar_urugla")
-        call_command("headway_beginner_unit1")
-        call_command("headway_beginner_unit2")
+        # 2026-08-17, foydalanuvchi talabi: Headway Unit'lar endi bu yerda
+        # AVTOMATIK yaratilmaydi — admin ularni lokalda tayyorlab, Kurslar
+        # bo'limidagi "Saqlash"/"Yuklash" (eksport/import ZIP) tugmalari
+        # orqali o'zi prod'ga ko'chiradi. Avval shu yerda ishga tushirilib,
+        # keyin qo'lda import qilinganda ikkalasi to'qnashib, tasodifiy
+        # ichma-ich (nested) dublikat Unit yaratilishi mumkin edi.
         call_command("kunlik_mashqlarni_ishga_tushir")
