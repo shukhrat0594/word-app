@@ -90,4 +90,5 @@ class Command(BaseCommand):
         call_command("writing_speaking_yangi_mashqlar")
         call_command("kurslar_urugla")
         call_command("headway_beginner_unit1")
+        call_command("headway_beginner_unit2")
         call_command("kunlik_mashqlarni_ishga_tushir")

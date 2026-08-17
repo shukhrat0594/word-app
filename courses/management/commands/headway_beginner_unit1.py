@@ -53,7 +53,7 @@ def _erkin(matn_oldin, matn_keyin=""):
 # ---------------------------------------------------------------------
 SAHIFA2_RASMLAR = ["p0_cover.png", "p1_mara.png", "p1_leo.png", "p1_nari.png", "p1_tomserena.png"]
 SAHIFA2_BLOKLAR = [
-    {"tur": "rasm", "rasm_idx": 0},
+    {"tur": "rasm", "rasm_idx": 0, "katta": True},
     {"tur": "korsatma", "raqam": "STARTER", "audio_raqam": "1.1", "matn": "Read and listen. Say your name."},
     {"tur": "rasm_qatori", "qator": [
         {"rasm_idx": 1, "izoh": "Mara", "matn": "Hello, I'm Mara."},
@@ -94,8 +94,12 @@ SAHIFA3_BLOKLAR = [
         {"kim": "Carlos", "gap": "Hello, Tom."},
     ]},
     {"tur": "korsatma", "raqam": "2", "matn": "Practise in groups of three."},
-    {"tur": "mashq", "bulut": True, "kim": "A", "bolaklar": _erkin("____, this is ", ".")},
-    {"tur": "mashq", "bulut": True, "kim": "B", "bolaklar": _erkin("____, this is ", ".")},
+    {"tur": "mashq", "bulut": True, "kim": "A", "bolaklar": [
+        {"bosh_joy": True, "erkin": True}, {"matn": ", this is "}, {"bosh_joy": True, "erkin": True}, {"matn": "."},
+    ]},
+    {"tur": "mashq", "bulut": True, "kim": "B", "bolaklar": [
+        {"bosh_joy": True, "erkin": True}, {"matn": ", this is "}, {"bosh_joy": True, "erkin": True}, {"matn": "."},
+    ]},
     {"tur": "mashq", "bulut": True, "kim": "C", "bolaklar": _erkin("Hello, ", ".")},
     {"tur": "mashq", "bulut": True, "kim": "A", "bolaklar": _erkin("Hello, ", ".")},
     {"tur": "bolim_sarlavha", "matn": "Nice to meet you"},
@@ -451,10 +455,14 @@ class Command(BaseCommand):
 
         unit = KursTugun.objects.filter(kalit="beginner_unit_1", parent=beginner).first()
         if not unit:
-            mavjud = KursTugun.objects.filter(parent=beginner, unit_darsi=True).count()
+            # 2026-08-17: tartib qat'iy 1 (mavjud Unitlar soniga qarab
+            # HISOBLANMAYDI) — aks holda Unit 1 biror sababga ko'ra
+            # (masalan qayta yaratilganda) Unit 2'dan KEYIN ishga
+            # tushsa, ikkalasi ham bir xil tartibga ega bo'lib, ro'yxatda
+            # adashib qolar edi (haqiqiy production xatosi, 2026-08-17).
             unit = KursTugun.objects.create(
                 kalit="beginner_unit_1", nomi="Unit 1 — Hello!", parent=beginner,
-                markaz=markaz, tartib=mavjud + 1, unit_darsi=True,
+                markaz=markaz, tartib=1, unit_darsi=True,
             )
             unit_ichki_tuzilmasini_yarat(unit)
             self.stdout.write("Unit 1 tuguni yaratildi")

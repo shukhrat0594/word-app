@@ -708,6 +708,9 @@ input.imtihon-bosh-joy { font: inherit; font-size: 12.5px; text-align: center; }
   max-width: 260px; width: 100%; border-radius: 6px; display: block;
   margin: 10px 0; box-shadow: var(--soya);
 }
+/* 2026-08-17, foydalanuvchi talabi: Unit boshlanish (muqova) rasmi
+   kattaroq chiqsin — oddiy mashq rasmlaridan farqli. */
+.blok-rasm-katta { max-width: 480px; }
 /* 2026-08-05, foydalanuvchi talabi: rasm KATTA bo'lsa izoh matni
    PASTDA, KICHKINA bo'lsa O'NG TOMONDA chiqsin — server o'lcham
    yubormagani uchun sof CSS flex-wrap orqali: rasm o'z tabiiy (max
@@ -864,6 +867,15 @@ input.imtihon-bosh-joy { font: inherit; font-size: 12.5px; text-align: center; }
 }
 .blok-mashq-qator:last-child { margin-bottom: 0; }
 .blok-mashq-natija { margin-left: 2px; font-weight: 700; }
+/* 2026-08-17, foydalanuvchi talabi: har blok o'z tugmasi emas, HAR
+   MAVZU (sahifa) uchun BITTA umumiy Tekshirish tugmasi — sahifa
+   oxirida, markazlashtirilgan. */
+.blok-umumiy-tekshirish { display: flex; justify-content: center; margin: 18px 0 8px; }
+.blok-umumiy-natija {
+  font-weight: 800; font-size: 15px; color: var(--sariq-toq);
+  background: color-mix(in srgb, var(--sariq) 14%, var(--sirt-2));
+  padding: 9px 22px; border-radius: 999px;
+}
 .tugma.kichik { padding: 4px 12px; font-size: 12.5px; }
 .blok-bosh-joy {
   border: 2px solid var(--chiziq); background: var(--sirt-2);
@@ -908,9 +920,21 @@ input.imtihon-bosh-joy { font: inherit; font-size: 12.5px; text-align: center; }
 .blok-audio-panel-tugma {
   width: 34px; height: 34px; border-radius: 50%; border: none;
   background: var(--sariq); color: var(--komir); font-size: 14px;
-  display: grid; place-items: center; cursor: pointer;
+  display: grid; place-items: center; cursor: pointer; flex-shrink: 0;
 }
-.blok-audio-panel-raqam { font-weight: 700; font-size: 13px; letter-spacing: .3px; }
+.blok-audio-panel-raqam { font-weight: 700; font-size: 13px; letter-spacing: .3px; flex-shrink: 0; }
+/* 2026-08-16, foydalanuvchi talabi: qaysi mavzu ekani ham shu panelda
+   ko'rinsin — uzun bo'lsa qisqartiriladi (...), panel eniga cheklov
+   qo'yilgani uchun. */
+.blok-audio-panel-mavzu {
+  font-size: 12px; color: color-mix(in srgb, var(--sariq) 75%, transparent);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 220px;
+}
+.blok-audio-panel-yopish {
+  width: 26px; height: 26px; border-radius: 50%; border: none;
+  background: color-mix(in srgb, #fff 12%, transparent); color: var(--sariq);
+  font-size: 12px; display: grid; place-items: center; cursor: pointer; flex-shrink: 0;
+}
 
 @media (max-width: 640px) {
   .blok-sahifa { padding: 12px; }

@@ -159,12 +159,17 @@ def javoblarni_tekshir(savollar, javoblar):
             togri = savol.get("togri", "")
             qabul = togri if isinstance(togri, list) else [togri]
             qabul = [norm(t) for t in qabul if str(t).strip()]
-            # "togri" bo'sh (AI hali javobni bilmay, admin to'ldirishi kutilgan
-            # savol — qarang: courses/blok_generatsiya.py) — bunday savol HECH
-            # QACHON to'g'ri deb hisoblanmaydi, talaba javob yozmagan bo'lsa
-            # ham. Aks holda "" in [""] => True bo'lib, javob umuman
-            # belgilanmagan bo'lsa ham ball berardi (2026-08-01 xatosi).
+            # 2026-08-17, foydalanuvchi talabi: "togri" bo'sh (AI hali
+            # javobni bilmay, admin to'ldirishi kutilgan savol — qarang:
+            # courses/blok_generatsiya.py) — bunday savolda talaba
+            # yozgan HAR QANDAY (bo'sh bo'lmagan) javob to'g'ri
+            # hisoblanadi, bo'sh qoldirilsa noto'g'ri (xuddi "erkin"
+            # savol kabi). Avval bunday savol HECH QACHON to'g'ri
+            # hisoblanmasdi — endi kalit hali kiritilmagan bo'lsa ham
+            # talaba adolatsiz ball yo'qotmaydi.
             if not qabul:
+                javob = javoblar[bosh] if bosh < len(javoblar) else ""
+                natijalar[bosh] = bool(str(javob).strip())
                 continue
             # Kengaytirilishidan OLDINGI ro'yxat — ko'p-katakchali savolda
             # "nechta javob kerak"ni aynan shundan bilamiz (kengaytirilgan
