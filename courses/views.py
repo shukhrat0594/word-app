@@ -12,6 +12,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from accounts.authentication import asl_owner_mi
 from accounts.models import User
 from accounts.permissions import owner_mi
 from assessment.providers import ProviderXatosi
@@ -184,7 +185,15 @@ def _unit_qulflanganmi(user, unit_tugun, yechim_map):
     """Faqat talaba uchun: shu Unit'dan oldingi (bir xil ota-tugun ostidagi,
     tartibi kichikroq) Unit hali o'tilmagan bo'lsa — qulflangan. Guruhda
     belgilangan `boshlanish_unit`gacha (unga qo'shilgan holda) — har doim
-    qulfsiz, oldingi Unit'lar o'tilganligiga qaramay."""
+    qulfsiz, oldingi Unit'lar o'tilganligiga qaramay.
+
+    2026-08-16, foydalanuvchi talabi: owner "Ko'rish rejimi" orqali
+    Talaba sifatida ko'rayotganda ham (`asl_owner_mi` — simulyatsiyadan
+    MUSTAQIL, haqiqiy owner ekanligini bildiradi) BARCHA Unit'lar ochiq
+    ko'rinsin — owner sinab ko'rish uchun, haqiqiy talaba progressiga
+    bog'lanmasdan."""
+    if asl_owner_mi(user):
+        return False
     if user.role != User.Role.STUDENT:
         return False
     if _boshlanish_unitdan_oldinmi(user, unit_tugun):
