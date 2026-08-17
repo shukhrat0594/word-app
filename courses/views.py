@@ -795,7 +795,21 @@ class KursImportView(APIView):
         try:
             with zipfile.ZipFile(fayl) as zf:
                 daraxt = json.loads(zf.read("data.json").decode("utf-8"))
-                yangi_tugun = _tugun_import_qil(daraxt, ota, ota.markaz, zf)
+                # 2026-08-17, HAQIQIY XATO: admin odatda Import tugmasini
+                # AYNAN O'SHA Unit'ning o'zida bosadi ("shu Unit'ni
+                # yangilash" niyatida) — lekin ZIP'ning tepa tuguni ham
+                # O'SHA Unit (bir xil kalit). Agar shu holatda `ota`ni
+                # o'zgartirmasdan import qilsak, dastur "ota ichida shu
+                # kalitli BOLA"ni qidiradi, topmaydi (chunki bu kalit
+                # ota'NING O'ZIDA, farzandida emas) va uni ICHIGA
+                # DUBLIKAT qilib yaratadi. Shuning uchun: agar ZIP tepa
+                # tuguni aynan `ota`ning o'zi bilan bir xil kalitga ega
+                # bo'lsa — qidiruv `ota.parent` ichida (ya'ni ota bilan
+                # BIR DARAJADA, uning o'rniga) olib boriladi.
+                qidiruv_ota = ota
+                if ota.kalit and daraxt.get("kalit") == ota.kalit and ota.parent_id:
+                    qidiruv_ota = ota.parent
+                yangi_tugun = _tugun_import_qil(daraxt, qidiruv_ota, ota.markaz, zf)
         except (zipfile.BadZipFile, KeyError, json.JSONDecodeError) as exc:
             return Response({"detail": f"ZIP fayl noto'g'ri: {exc}"}, status=400)
 
