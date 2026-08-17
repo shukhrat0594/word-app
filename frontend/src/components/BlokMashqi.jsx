@@ -47,12 +47,16 @@ function AudioBelgi({ raqam, faolRaqam, ijro, tanla }) {
 /** Bitta rasm + uning javob maydoni (2026-08-03, "so'z banki + raqamlangan
  * rasmlar" mashqi) — "rasm_javobli" (yagona) va "rasm_javobli_grid"
  * (panjara) ikkisida ham qayta ishlatiladi. */
-function RasmJavobKartasi({ url, raqam, birlik, savolIdx, javoblar, javobniQoy, natija }) {
+function RasmJavobKartasi({ url, raqam, birlik, izoh, savolIdx, javoblar, javobniQoy, natija }) {
   const holat = natija ? (natija.natijalar[savolIdx] ? "togri" : "notogri") : "";
   return (
     <div className="blok-rasm-javobli-karta">
       {raqam && <div className="blok-rasm-javobli-raqam">{raqam}</div>}
       {url && <img className="blok-rasm" src={url} alt="" />}
+      {/* 2026-08-17, foydalanuvchi talabi: kitobda rasm ostida odamning
+          ismi (masalan "___ name's Nadia.") ham yozilgan edi — rasmni
+          kesganda shu matn tushib qolgan, endi qayta qo'shildi. */}
+      {izoh && <div className="blok-rasm-javobli-izoh">{izoh}</div>}
       <div className="blok-rasm-javobli-javob-qatori">
         <input
           {...IMLO_OFF}
@@ -303,6 +307,7 @@ function Blok({ blok, rasmUrllar, faolRaqam, ijro, audioTanla, javoblar, javobni
                 url={rasmUrllar[it.rasm_idx]}
                 raqam={it.raqam}
                 birlik={it.birlik}
+                izoh={it.izoh}
                 savolIdx={it.savol_idx}
                 javoblar={javoblar}
                 javobniQoy={javobniQoy}

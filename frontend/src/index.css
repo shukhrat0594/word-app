@@ -751,6 +751,7 @@ input.imtihon-bosh-joy { font: inherit; font-size: 12.5px; text-align: center; }
 .blok-rasm-javobli-karta .blok-rasm { max-width: 180px; width: 100%; margin: 0 0 6px; }
 .blok-rasm-javobli-javob-qatori { display: flex; align-items: center; gap: 8px; }
 .blok-rasm-javobli-birlik { font-weight: 600; }
+.blok-rasm-javobli-izoh { font-size: 13px; font-weight: 600; margin: 2px 0 4px; text-align: center; }
 /* 2026-08-16, foydalanuvchi talabi: KENG rasmlar (masalan Numbers
    mashqidagi buyum qatorlari) panjarada emas, HAR BIRI ALOHIDA
    qatorda, kattaroq chiqsin. */
