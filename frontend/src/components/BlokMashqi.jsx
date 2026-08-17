@@ -73,11 +73,172 @@ function RasmJavobKartasi({ url, raqam, birlik, izoh, savolIdx, javoblar, javobn
   );
 }
 
+/** Moslashtirish mashqi (2026-08-17, foydalanuvchi talabi: kitobdagi
+ * "chiziq tortib moslashtirish" — chapdan bandni, keyin o'ngdan mos
+ * javobni bosish orqali "bog'lanadi", ular orasiga SVG chiziq chiziladi.
+ * Javob xuddi oddiy matn kiritilgandek `javobniQoy(savol_idx, matn)`
+ * orqali saqlanadi — backend tekshiruvi o'zgarishsiz ishlaydi. */
+function Moslashtirish({ chap, ong, javoblar, javobniQoy, natija }) {
+  const [tanlanganChap, setTanlanganChap] = useState(null);
+  const [chiziqlar, setChiziqlar] = useState([]);
+  const contRef = useRef(null);
+  const chapRefs = useRef([]);
+  const ongRefs = useRef([]);
+
+  const hisoblaChiziqlar = () => {
+    if (!contRef.current) return;
+    const contRect = contRef.current.getBoundingClientRect();
+    const yangi = [];
+    chap.forEach((item, i) => {
+      const javob = javoblar[item.savol_idx];
+      if (!javob) return;
+      const ongIdx = ong.indexOf(javob);
+      const a = chapRefs.current[i];
+      const b = ongRefs.current[ongIdx];
+      if (ongIdx === -1 || !a || !b) return;
+      const ar = a.getBoundingClientRect();
+      const br = b.getBoundingClientRect();
+      yangi.push({
+        x1: ar.right - contRect.left, y1: ar.top - contRect.top + ar.height / 2,
+        x2: br.left - contRect.left, y2: br.top - contRect.top + br.height / 2,
+        savolIdx: item.savol_idx,
+      });
+    });
+    setChiziqlar(yangi);
+  };
+
+  useEffect(() => {
+    hisoblaChiziqlar();
+    window.addEventListener("resize", hisoblaChiziqlar);
+    return () => window.removeEventListener("resize", hisoblaChiziqlar);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [javoblar, natija]);
+
+  const chapBosildi = (i) => {
+    if (natija) return;
+    setTanlanganChap(tanlanganChap === i ? null : i);
+  };
+  const ongBosildi = (matn) => {
+    if (natija || tanlanganChap === null) return;
+    javobniQoy(chap[tanlanganChap].savol_idx, matn);
+    setTanlanganChap(null);
+  };
+
+  return (
+    <div className="blok-moslashtir" ref={contRef}>
+      <svg className="blok-moslashtir-svg">
+        {chiziqlar.map((c, k) => {
+          const holat = natija ? (natija.natijalar[c.savolIdx] ? "togri" : "notogri") : "";
+          const orta = (c.x1 + c.x2) / 2;
+          return (
+            <path
+              key={k}
+              className={`blok-moslashtir-chiziq ${holat}`}
+              d={`M ${c.x1} ${c.y1} C ${orta} ${c.y1}, ${orta} ${c.y2}, ${c.x2} ${c.y2}`}
+              fill="none"
+            />
+          );
+        })}
+      </svg>
+      <div className="blok-moslashtir-ustun">
+        {chap.map((item, i) => (
+          <button
+            key={i}
+            type="button"
+            ref={(el) => (chapRefs.current[i] = el)}
+            className={`blok-moslashtir-band ${tanlanganChap === i ? "tanlangan" : ""}`}
+            disabled={!!natija}
+            onClick={() => chapBosildi(i)}
+          >
+            {item.matn}
+          </button>
+        ))}
+      </div>
+      <div className="blok-moslashtir-ustun blok-moslashtir-ustun-ong">
+        {ong.map((matn, i) => (
+          <button
+            key={i}
+            type="button"
+            ref={(el) => (ongRefs.current[i] = el)}
+            className="blok-moslashtir-band"
+            disabled={!!natija}
+            onClick={() => ongBosildi(matn)}
+          >
+            {matn}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+const RAQAM_RANGLARI = [
+  "#7EC8C0", "#8FCB8C", "#C7DE8C", "#E8B87A", "#E29B9B",
+  "#E7A8CB", "#B9A8DB", "#8FB6D8", "#6FB8DE", "#9AD1D6",
+];
+
+/** Statik rangli raqam-kartalar (2026-08-17, foydalanuvchi talabi:
+ * kitobdagi kabi "11 eleven, 12 twelve..." rangli kartochkalarda,
+ * oddiy matn qatori emas). Faqat ko'rsatish uchun, javob yo'q. */
+function RaqamKartalari({ itemlar }) {
+  return (
+    <div className="blok-raqam-kartalari">
+      {itemlar.map((it, k) => (
+        <div key={k} className="blok-raqam-karta" style={{ background: RAQAM_RANGLARI[k % RAQAM_RANGLARI.length] }}>
+          <div className="blok-raqam-katta">{it.raqam}</div>
+          <div className="blok-raqam-soz">{it.soz}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** "Eshitib, to'g'ri raqamni belgilang" — o'yin kartochkalaridagi kabi,
+ * har qatorda bitta sonni bosib tanlash (2026-08-17, foydalanuvchi
+ * talabi). Tanlangan songa ✓ chiqadi, Tekshirish bosilganda shu
+ * tanlovning to'g'ri/noto'g'riligi rangda ko'rsatiladi. */
+function RaqamTanlash({ qatorlar, javoblar, javobniQoy, natija, keng }) {
+  return (
+    <div className={`blok-raqam-tanlash ${keng ? "keng" : ""}`}>
+      {qatorlar.map((q, qi) => {
+        const tanlangan = javoblar[q.savol_idx];
+        const holat = natija ? (natija.natijalar[q.savol_idx] ? "togri" : "notogri") : "";
+        return (
+          <div key={qi} className="blok-raqam-tanlash-qator">
+            {q.raqam && <span className="blok-raqam-tanlash-raqam">{q.raqam}</span>}
+            {(q.variantlar || []).map((v, vi) => {
+              const tanlanganMi = tanlangan === v;
+              return (
+                <button
+                  key={vi}
+                  type="button"
+                  className={`blok-raqam-tanlash-band ${tanlanganMi ? "tanlangan" : ""} ${tanlanganMi ? holat : ""}`}
+                  disabled={!!natija}
+                  onClick={() => javobniQoy(q.savol_idx, v)}
+                >
+                  {v}
+                  {tanlanganMi && <span className="blok-raqam-tanlash-belgi">✓</span>}
+                </button>
+              );
+            })}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function Bolaklar({ bolaklar, javoblar, javobniQoy, natija }) {
   return (
     <>
       {bolaklar.map((b, k) => {
-        if (!b.bosh_joy) return <span key={k}>{b.matn}</span>;
+        if (!b.bosh_joy) {
+          // 2026-08-17, foydalanuvchi talabi: kitobdagi kabi namuna
+          // sifatida ISHLATILGAN so'z (masalan "the _weather_!") tagiga
+          // chizilgan holda ajratib ko'rsatiladi.
+          if (b.namuna) return <span key={k} className="blok-dialog-namuna">{b.matn}</span>;
+          return <span key={k}>{b.matn}</span>;
+        }
         if (b.erkin) {
           // Baholanmaydi (to'g'ri javob yo'q) — lekin talaba yozadi.
           return <input key={k} {...IMLO_OFF} className="blok-bosh-joy erkin" />;
@@ -236,6 +397,41 @@ function Blok({ blok, rasmUrllar, faolRaqam, ijro, audioTanla, javoblar, javobni
         </div>
       );
     }
+    case "moslashtir":
+      return (
+        <Moslashtirish
+          chap={blok.chap || []}
+          ong={blok.ong || []}
+          javoblar={javoblar}
+          javobniQoy={javobniQoy}
+          natija={natija}
+        />
+      );
+    case "raqam_kartalari":
+      return <RaqamKartalari itemlar={blok.itemlar || []} />;
+    case "raqam_tanlash":
+      return (
+        <RaqamTanlash
+          qatorlar={blok.qatorlar || []}
+          javoblar={javoblar}
+          javobniQoy={javobniQoy}
+          natija={natija}
+        />
+      );
+    case "tanlov":
+      // 2026-08-17, foydalanuvchi talabi: "Tick the correct sentence"
+      // kabi ikki variantli mashqlar — matn kiritish o'rniga variantning
+      // USTIGA BOSILADI, tanlangani sariq rangga aylanadi va yoniga ✓
+      // chiqadi (raqam_tanlash bilan bir xil mexanika, matn variantlar).
+      return (
+        <RaqamTanlash
+          qatorlar={blok.qatorlar || []}
+          javoblar={javoblar}
+          javobniQoy={javobniQoy}
+          natija={natija}
+          keng
+        />
+      );
     case "pufakcha":
       return <div className="blok-pufakcha">{blok.matn}</div>;
     case "jadval": {

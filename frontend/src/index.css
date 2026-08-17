@@ -739,6 +739,67 @@ input.imtihon-bosh-joy { font: inherit; font-size: 12.5px; text-align: center; }
   border-bottom: 1px solid var(--chiziq);
 }
 .blok-jadval td { padding: 3px 16px 3px 0; }
+/* 2026-08-17, foydalanuvchi talabi: kitobdagi "chiziq tortib
+   moslashtirish" mashqi — chapdan bandni, o'ngdan mos javobni bosish
+   orqali ular orasiga SVG chiziq chiziladi. */
+.blok-moslashtir {
+  position: relative; display: flex; justify-content: space-between;
+  gap: 48px; margin: 10px 0 16px; padding: 14px 18px;
+  background: var(--sirt-2); border-radius: 10px; max-width: 560px;
+}
+.blok-moslashtir-svg {
+  position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none;
+}
+.blok-moslashtir-chiziq { stroke: var(--sariq); stroke-width: 2.5; }
+.blok-moslashtir-chiziq.togri { stroke: var(--yaxshi); }
+.blok-moslashtir-chiziq.notogri { stroke: var(--xato); }
+.blok-moslashtir-ustun {
+  display: flex; flex-direction: column; gap: 8px; z-index: 1;
+}
+.blok-moslashtir-ustun-ong { align-items: flex-start; }
+.blok-moslashtir-band {
+  font: inherit; font-weight: 700; border: 2px solid transparent;
+  background: var(--sirt); border-radius: 8px; padding: 5px 12px;
+  cursor: pointer; text-align: left;
+}
+.blok-moslashtir-band:disabled { cursor: default; }
+.blok-moslashtir-band.tanlangan { border-color: var(--sariq); }
+/* 2026-08-17, foydalanuvchi talabi: kitobdagi rangli raqam-kartalar
+   ("11 eleven, 12 twelve..."). */
+.blok-raqam-kartalari {
+  display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin: 10px 0 16px;
+  max-width: 560px;
+}
+.blok-raqam-karta {
+  border-radius: 8px; padding: 10px 4px; text-align: center; color: #1d1d1d;
+}
+.blok-raqam-katta { font-size: 26px; font-weight: 800; line-height: 1.1; }
+.blok-raqam-soz { font-size: 12px; font-weight: 700; margin-top: 2px; }
+/* "Eshitib, to'g'ri sonni belgilang" — o'yin kartochkalaridek bosib
+   tanlash, tanlangan songa ✓ chiqadi. */
+.blok-raqam-tanlash { margin: 10px 0 16px; }
+.blok-raqam-tanlash-qator {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 8px; flex-wrap: wrap;
+}
+.blok-raqam-tanlash.keng .blok-raqam-tanlash-qator { margin-bottom: 14px; }
+.blok-raqam-tanlash-raqam { font-weight: 700; min-width: 16px; }
+.blok-raqam-tanlash-band {
+  font: inherit; font-weight: 700; border: 2px solid var(--chiziq);
+  background: var(--sirt); border-radius: 8px; padding: 6px 14px;
+  cursor: pointer; position: relative;
+}
+.blok-raqam-tanlash-band:disabled { cursor: default; }
+/* 2026-08-17, foydalanuvchi talabi: tanlangan variant TEKSHIRISHGACHA
+   to'liq SARIQ rangga aylanadi (faqat chegara emas). */
+.blok-raqam-tanlash-band.tanlangan {
+  border-color: var(--sariq); background: var(--sariq); color: #1d1d1d;
+}
+.blok-raqam-tanlash-band.togri { border-color: var(--yaxshi); background: color-mix(in srgb, var(--yaxshi) 15%, var(--sirt)); color: inherit; }
+.blok-raqam-tanlash-band.notogri { border-color: var(--xato); background: color-mix(in srgb, var(--xato) 15%, var(--sirt)); color: inherit; }
+.blok-raqam-tanlash-belgi { margin-left: 6px; }
+.blok-raqam-tanlash-band.tanlangan .blok-raqam-tanlash-belgi { color: #1d1d1d; }
+.blok-raqam-tanlash-band.togri .blok-raqam-tanlash-belgi,
+.blok-raqam-tanlash-band.notogri .blok-raqam-tanlash-belgi { color: inherit; }
 .blok-rasm-javobli-grid {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   gap: 14px; margin: 10px 0 6px;

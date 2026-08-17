@@ -738,6 +738,17 @@ def _tugun_import_qil(daraxt, ota, markaz, zf):
         tugun.fayl.save(nomi, tarkib, save=False)
     tugun.save()
 
+    # 2026-08-18, HAQIQIY XATO: tugun o'zi kalit+ota bo'yicha idempotent
+    # topilar edi, lekin ICHIDAGI mashq/so'z yozuvlari HECH QACHON
+    # o'chirilmasdi — shu sababli BIR XIL ZIP ikki marta import qilinsa
+    # yoki maqsad tugunda avvaldan (masalan eski/tugallanmagan) kontent
+    # bo'lsa, eski va yangi yozuvlar ARALASHIB dublikat hosil qilardi
+    # (savollar soni ikki barobar, rasm-mashq mos kelmay qolardi).
+    # Import "zaxiradan tiklash" degani — shu tugunning eski
+    # mashq/so'zlarini tozalab, ZIPdagi holatga TO'LIQ almashtiramiz.
+    tugun.mashqlar.all().delete()
+    tugun.sozlar.all().delete()
+
     for m in daraxt["mashqlar"]:
         mashq = KursMashq(
             tugun=tugun, tartib=m["tartib"], matn=m["matn"],
