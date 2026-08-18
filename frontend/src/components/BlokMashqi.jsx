@@ -393,19 +393,36 @@ function Blok({ blok, rasmUrllar, faolRaqam, ijro, audioTanla, javoblar, javobni
       // 'm, is, or are.") bo'lishi mumkin — shu holatda "qatorlar" har
       // biri {"bolaklar": [...]} bo'lishi mumkin ("mashq" bolaklari
       // bilan bir xil shakl), oddiy matn qatorlari bilan aralash holda.
+      // 2026-08-18, foydalanuvchi talabi: kitobda GRAMMAR SPOT ICHIDA ham
+      // audio tugmasi bo'ladi (masalan SB p54: "6.6 Listen to the verbs
+      // and repeat."). Avval bu shox audio belgisini umuman chizmasdi,
+      // shuning uchun trek raqami oddiy matn bo'lib yozilardi va talaba
+      // uni ESHITA OLMASDI. Endi qator obyekt bo'lsa va `audio_raqam`
+      // bo'lsa — o'sha qatorda haqiqiy ▶ tugmasi chiqadi.
       return (
         <div className="blok-gs">
           <div className="blok-gs-bosh">{blok.sarlavha || "GRAMMAR SPOT"}</div>
+          {audioBelgi}
           <div className="blok-gs-tan">
-            {(blok.qatorlar || []).map((q, k) =>
-              typeof q === "object" && q.bolaklar ? (
+            {(blok.qatorlar || []).map((q, k) => {
+              const qAudio = typeof q === "object" && q.audio_raqam ? (
+                <AudioBelgi raqam={q.audio_raqam} faolRaqam={faolRaqam} ijro={ijro} tanla={audioTanla} />
+              ) : null;
+              if (typeof q === "object" && q.bolaklar) {
+                return (
+                  <div key={k}>
+                    {qAudio}
+                    <Bolaklar bolaklar={q.bolaklar} javoblar={javoblar} javobniQoy={javobniQoy} natija={natija} />
+                  </div>
+                );
+              }
+              return (
                 <div key={k}>
-                  <Bolaklar bolaklar={q.bolaklar} javoblar={javoblar} javobniQoy={javobniQoy} natija={natija} />
+                  {qAudio}
+                  {typeof q === "string" ? q : q.matn}
                 </div>
-              ) : (
-                <div key={k}>{typeof q === "string" ? q : q.matn}</div>
-              )
-            )}
+              );
+            })}
           </div>
         </div>
       );
