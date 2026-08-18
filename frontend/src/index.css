@@ -659,10 +659,36 @@ input.imtihon-bosh-joy { font: inherit; font-size: 12.5px; text-align: center; }
 
 .yuklanmoqda { display: grid; place-items: center; padding: 60px; color: var(--matn-sokin); }
 
+/* 2026-08-18, foydalanuvchi talabi: yon panelni yig'ish/qaytarish.
+   Yig'ish tugmasi panelning tepasida (avatar yonidagi bo'sh joyda),
+   qaytarish tugmasi esa topbar'da — faqat panel yig'ilgan holatda. */
+.sidebar-bosh { display: flex; align-items: flex-start; gap: 6px; }
+.sidebar-bosh .logo { flex: 1; min-width: 0; }
+.panel-yigish {
+  flex-shrink: 0; margin-top: 4px; width: 28px; height: 28px;
+  display: grid; place-items: center; cursor: pointer;
+  border: 1px solid rgba(242, 240, 234, .25); border-radius: 7px;
+  background: transparent; color: #F2F0EA; font-size: 15px; line-height: 1;
+}
+.panel-yigish:hover { background: rgba(242, 240, 234, .12); }
+.panel-yigilgan .sidebar { display: none; }
+.panel-ochish { display: none; }
+.panel-yigilgan .panel-ochish {
+  display: grid; place-items: center; width: 36px; height: 36px;
+  border: 1px solid var(--chiziq); background: var(--sirt); color: var(--matn);
+  border-radius: 8px; font-size: 18px; line-height: 1; cursor: pointer;
+}
+.panel-yigilgan .panel-ochish:hover { background: var(--fon); }
+
 .menyu-tugma { display: none; }
 .menyu-parda { display: none; }
 
 @media (max-width: 900px) {
+  /* Mobil ko'rinishda panel allaqachon off-canvas ("³0"), qo'shimcha
+     yig'ish/qaytarish tugmalari faqat chalkashtiradi. */
+  .panel-yigish { display: none; }
+  .panel-yigilgan .panel-ochish { display: none; }
+  .panel-yigilgan .sidebar { display: flex; }
   .menyu-tugma {
     display: grid; place-items: center; width: 36px; height: 36px;
     border: 1px solid var(--chiziq); background: var(--sirt); color: var(--matn);

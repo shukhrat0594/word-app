@@ -303,7 +303,14 @@ class IjtimoiyHavolalarView(APIView):
 
     def get(self, request):
         m = Markaz.objects.first()
-        return Response(m.ijtimoiy_havolalar() if m else {})
+        if not m:
+            return Response({})
+        # 2026-08-18: login ekrani ham markaz nomini ko'rsatishi kerak,
+        # lekin u yerda profil yo'q (autentifikatsiya qilinmagan). Nom
+        # ommaviy ma'lumot (sayt sarlavhasida turadi), shuning uchun shu
+        # OCHIQ endpointga qo'shildi. `IjtimoiyPanel` faqat o'zi biladigan
+        # kalitlarni o'qiydi, ya'ni qo'shimcha kalit unga xalaqit bermaydi.
+        return Response({**m.ijtimoiy_havolalar(), "markaz_nomi": m.name})
 
 
 def _havolani_normalla(qiymat):
@@ -369,6 +376,19 @@ class MarkazSozlamaView(APIView):
                 ijtimoiy_yangi[kalit] = yangi or "—"
                 setattr(m, kalit, yangi)
 
+        # 2026-08-18, foydalanuvchi talabi: markaz NOMI ham shu sahifadan
+        # o'zgartirilsin (avval faqat owner bazadan/admin panelidan
+        # o'zgartira olardi). Nom brauzer tab sarlavhasida, topbar'da,
+        # profilda va login ekranida ko'rinadi.
+        eski_nom = m.name
+        if "name" in request.data:
+            nom = (request.data.get("name") or "").strip()
+            if not nom:
+                return Response({"detail": "Markaz nomi bo'sh bo'lishi mumkin emas"}, status=400)
+            if len(nom) > 200:
+                return Response({"detail": "Markaz nomi 200 belgidan oshmasin"}, status=400)
+            m.name = nom
+
         eski_rang = m.brend_rang
         logo_ozgardimi = False
         rang = request.data.get("brend_rang")
@@ -379,7 +399,10 @@ class MarkazSozlamaView(APIView):
             m.logo = logo
             logo_ozgardimi = True
         m.save()
-        ozgarishlar = maydon_diff({"brend_rang": eski_rang}, {"brend_rang": m.brend_rang})
+        ozgarishlar = maydon_diff(
+            {"name": eski_nom, "brend_rang": eski_rang},
+            {"name": m.name, "brend_rang": m.brend_rang},
+        )
         if logo_ozgardimi:
             ozgarishlar["logo"] = {"eski": "—", "yangi": "yangilandi"}
         ozgarishlar.update(maydon_diff(ijtimoiy_eski, ijtimoiy_yangi))

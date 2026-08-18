@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api, tokenlarniSaqla, qurilmaIdOl } from "../api";
 import { useI18n } from "../i18n";
@@ -15,9 +15,27 @@ export default function Login() {
   const { t } = useI18n();
   const { yangila } = useProfil();
   const navigate = useNavigate();
+  // 2026-08-18, foydalanuvchi talabi: markaz nomi HAMMA joyda chiqsin.
+  // Login ekranida profil yo'q (hali kirilmagan), shuning uchun nom OCHIQ
+  // `/api/ijtimoiy/` endpointidan olinadi. Kelmaguncha standart nom turadi.
+  const [markazNomi, setMarkazNomi] = useState("Utmost o'quv markazi");
   const [login, setLogin] = useState("");
   const [parol, setParol] = useState("");
   const [xato, setXato] = useState("");
+
+  useEffect(() => {
+    let bekor = false;
+    api("/api/ijtimoiy/")
+      .then((d) => {
+        if (bekor || !d?.markaz_nomi) return;
+        setMarkazNomi(d.markaz_nomi);
+        document.title = d.markaz_nomi;
+      })
+      .catch(() => {});
+    return () => {
+      bekor = true;
+    };
+  }, []);
   const [band, setBand] = useState(false);
   const [xodimForma, setXodimForma] = useState(false);
 
@@ -52,8 +70,8 @@ export default function Login() {
       <div className="login-ekran">
       <div className="login-brend">
         <div className="login-brend-sarlavha">
-          <img src="/logo.jpg" alt="Utmost" className="katta-logo" />
-          <div className="login-markaz-nomi">Utmost o'quv markazi</div>
+          <img src="/logo.jpg" alt={markazNomi} className="katta-logo" />
+          <div className="login-markaz-nomi">{markazNomi}</div>
         </div>
         <h2>{t("login_sarlavha")}</h2>
       </div>

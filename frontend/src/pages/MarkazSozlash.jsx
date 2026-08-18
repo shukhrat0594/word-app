@@ -22,6 +22,7 @@ export default function MarkazSozlash() {
   const { t } = useI18n();
   const { yangila } = useProfil();
   const [markaz, setMarkaz] = useState(null);
+  const [nom, setNom] = useState("");
   const [rang, setRang] = useState("#FFD400");
   const [logoFayl, setLogoFayl] = useState(null);
   const [ijtimoiy, setIjtimoiy] = useState({});
@@ -52,6 +53,7 @@ export default function MarkazSozlash() {
 
   useEffect(() => {
     api("/api/markaz-sozlama/").then((m) => {
+      setNom(m.name || "");
       setMarkaz(m);
       setRang(m.brend_rang);
       setIjtimoiy(m.ijtimoiy || {});
@@ -104,11 +106,13 @@ export default function MarkazSozlash() {
     setBand(true);
     try {
       const fd = new FormData();
+      fd.append("name", nom.trim());
       fd.append("brend_rang", rang);
       if (logoFayl) fd.append("logo", logoFayl);
       TARMOQLAR.forEach(({ kalit }) => fd.append(kalit, ijtimoiy[kalit] || ""));
       const m = await apiForm("/api/markaz-sozlama/", { method: "PATCH", formData: fd });
       setMarkaz(m);
+      setNom(m.name || "");
       setLogoFayl(null);
       setIjtimoiy(m.ijtimoiy || {});
       setXabar(t("saqlandi"));
@@ -170,6 +174,20 @@ export default function MarkazSozlash() {
         <p className="izoh">{t("markaz_sozlama_izoh")}</p>
 
         <div style={{ display: "grid", gap: 16, marginTop: 4 }}>
+          {/* 2026-08-18, foydalanuvchi talabi: markaz nomi shu yerdan
+              o'zgartiriladi — u brauzer tab sarlavhasida, tepa panelda,
+              profilda va login ekranida ko'rinadi. */}
+          <div>
+            <div className="izoh" style={{ marginBottom: 6 }}>{t("markaz_nomi")}</div>
+            <input
+              type="text"
+              value={nom}
+              maxLength={200}
+              onChange={(e) => setNom(e.target.value)}
+              style={{ width: "100%" }}
+            />
+          </div>
+
           <div>
             <div className="izoh" style={{ marginBottom: 6 }}>{t("logo")}</div>
             {markaz.logo_url && (

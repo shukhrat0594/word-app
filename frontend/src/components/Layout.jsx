@@ -278,6 +278,21 @@ export default function Layout() {
   const { profil } = useProfil();
   const { testFaol } = useTestRejimi();
   const [menyuOchiq, setMenyuOchiq] = useState(false);
+  // 2026-08-18, foydalanuvchi talabi: yon panelni YIG'IB qo'yish (ekran
+  // joyi kengaysin), keyin qaytarish uchun alohida tugma. Tanlov
+  // localStorage'da saqlanadi — har sahifa yangilanganda qayta yig'ish
+  // shart emas. Faqat KENG ekran uchun: mobil (<900px) da panel
+  // allaqachon "☰" orqali chiqadi/yopiladi.
+  const [panelYigilgan, setPanelYigilgan] = useState(
+    () => localStorage.getItem("panel_yigilgan") === "1",
+  );
+
+  function panelniAlmashtir() {
+    setPanelYigilgan((v) => {
+      localStorage.setItem("panel_yigilgan", v ? "0" : "1");
+      return !v;
+    });
+  }
 
   const markazNomi = profil?.markaz?.name || "Utmost o'quv markazi";
   // Owner markazga biriktirilmagan (markaz=null) — shu holatda ham standart
@@ -351,7 +366,7 @@ export default function Layout() {
   }
 
   return (
-    <div className="qobiq">
+    <div className={"qobiq" + (panelYigilgan ? " panel-yigilgan" : "")}>
       <div
         className={"menyu-parda" + (menyuOchiq ? " ochiq" : "")}
         onClick={() => setMenyuOchiq(false)}
@@ -361,6 +376,7 @@ export default function Layout() {
             o'zi ko'rinadi — profil rasmi va ism-familiyasi, ustiga bosilganda o'z
             profiliga o'tadi. Markaz nomi topbar sarlavhasida, logotipi esa brauzer
             tab ikonkasida qoladi (yuqoridagi `markazLogo` shu uchun saqlanadi). */}
+        <div className="sidebar-bosh">
         <Link to="/profil" className="logo" onClick={() => setMenyuOchiq(false)}>
           <Avatar rasmUrl={profil?.rasm_url} olcham={38} sarlavha={t("nav_profil")} />
           <div className="logo-nom">
@@ -376,6 +392,15 @@ export default function Layout() {
             )}
           </div>
         </Link>
+        <button
+          className="panel-yigish"
+          onClick={panelniAlmashtir}
+          title={t("panel_yigish")}
+          aria-label={t("panel_yigish")}
+        >
+          «
+        </button>
+        </div>
         {yakuniyNavlar.map((n) => (
           <NavLink
             key={n.yol}
@@ -418,6 +443,15 @@ export default function Layout() {
               aria-label="Menyu"
             >
               ☰
+            </button>
+            {/* Yon panel yig'ilgan bo'lsa — uni qaytaradigan tugma. */}
+            <button
+              className="panel-ochish"
+              onClick={panelniAlmashtir}
+              title={t("panel_ochish")}
+              aria-label={t("panel_ochish")}
+            >
+              »
             </button>
             <h1>{markazNomi}</h1>
           </div>
