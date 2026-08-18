@@ -47,7 +47,7 @@ function AudioBelgi({ raqam, faolRaqam, ijro, tanla }) {
 /** Bitta rasm + uning javob maydoni (2026-08-03, "so'z banki + raqamlangan
  * rasmlar" mashqi) — "rasm_javobli" (yagona) va "rasm_javobli_grid"
  * (panjara) ikkisida ham qayta ishlatiladi. */
-function RasmJavobKartasi({ url, raqam, birlik, izoh, savolIdx, javoblar, javobniQoy, natija }) {
+function RasmJavobKartasi({ url, raqam, birlik, izoh, namuna, savolIdx, javoblar, javobniQoy, natija }) {
   const holat = natija ? (natija.natijalar[savolIdx] ? "togri" : "notogri") : "";
   return (
     <div className="blok-rasm-javobli-karta">
@@ -58,13 +58,22 @@ function RasmJavobKartasi({ url, raqam, birlik, izoh, savolIdx, javoblar, javobn
           kesganda shu matn tushib qolgan, endi qayta qo'shildi. */}
       {izoh && <div className="blok-rasm-javobli-izoh">{izoh}</div>}
       <div className="blok-rasm-javobli-javob-qatori">
-        <input
-          {...IMLO_OFF}
-          className={`blok-bosh-joy ${holat}`}
-          value={javoblar[savolIdx] || ""}
-          disabled={!!natija}
-          onChange={(e) => javobniQoy(savolIdx, e.target.value)}
-        />
+        {/* 2026-08-18, foydalanuvchi talabi: kitobda BIRINCHI rasm javobi
+            namuna sifatida allaqachon yozilgan bo'ladi (masalan "1 a
+            businessman") — u kiritish maydoni emas, tagi chizilgan
+            tayyor matn bo'lib chiqsin (mashq qatoridagi `namuna` bilan
+            bir xil ko'rinish). */}
+        {namuna ? (
+          <span className="blok-dialog-namuna">{namuna}</span>
+        ) : (
+          <input
+            {...IMLO_OFF}
+            className={`blok-bosh-joy ${holat}`}
+            value={javoblar[savolIdx] || ""}
+            disabled={!!natija}
+            onChange={(e) => javobniQoy(savolIdx, e.target.value)}
+          />
+        )}
         {/* 2026-08-16, foydalanuvchi talabi: kitobdagi kabi otning o'zi
             statik yozilgan, faqat SON kiritiladi (masalan "___ books"). */}
         {birlik && <span className="blok-rasm-javobli-birlik">{birlik}</span>}
@@ -216,8 +225,12 @@ function RaqamTanlash({ qatorlar, javoblar, javobniQoy, natija, keng }) {
                   disabled={!!natija}
                   onClick={() => javobniQoy(q.savol_idx, v)}
                 >
+                  {/* 2026-08-18, foydalanuvchi talabi: variantning O'ZI
+                      ✓ yoki ✗ bo'lishi mumkin ("Tick or cross") — bunda
+                      yoniga yana ✓ qo'yilsa "✓ ✓" / "✗ ✓" bo'lib
+                      chalkashtirardi. Tanlangani sariq fon bilan
+                      allaqachon ajralib turadi, qo'shimcha belgi KERAK EMAS. */}
                   {v}
-                  {tanlanganMi && <span className="blok-raqam-tanlash-belgi">✓</span>}
                 </button>
               );
             })}
@@ -449,8 +462,22 @@ function Blok({ blok, rasmUrllar, faolRaqam, ijro, audioTanla, javoblar, javobni
             </thead>
           )}
           <tbody>
+            {/* 2026-08-18, foydalanuvchi talabi: kitobdagi to'ldiriladigan
+                jadval (masalan "Listen and complete the chart") — katak
+                oddiy matn (string) YOKI bo'sh joyli mashq bo'lagi
+                ({"bolaklar": [...]}) bo'lishi mumkin. */}
             {qatorlar.map((q, k) => (
-              <tr key={k}>{q.map((c, ci) => <td key={ci}>{c}</td>)}</tr>
+              <tr key={k}>
+                {q.map((c, ci) => (
+                  <td key={ci}>
+                    {c && typeof c === "object" && c.bolaklar ? (
+                      <Bolaklar bolaklar={c.bolaklar} javoblar={javoblar} javobniQoy={javobniQoy} natija={natija} />
+                    ) : (
+                      c
+                    )}
+                  </td>
+                ))}
+              </tr>
             ))}
           </tbody>
         </table>
@@ -480,6 +507,7 @@ function Blok({ blok, rasmUrllar, faolRaqam, ijro, audioTanla, javoblar, javobni
           <RasmJavobKartasi
             url={rasmUrllar[blok.rasm_idx]}
             raqam={blok.raqam}
+            namuna={blok.namuna}
             savolIdx={blok.savol_idx}
             javoblar={javoblar}
             javobniQoy={javobniQoy}
@@ -504,6 +532,7 @@ function Blok({ blok, rasmUrllar, faolRaqam, ijro, audioTanla, javoblar, javobni
                 raqam={it.raqam}
                 birlik={it.birlik}
                 izoh={it.izoh}
+                namuna={it.namuna}
                 savolIdx={it.savol_idx}
                 javoblar={javoblar}
                 javobniQoy={javobniQoy}
@@ -557,9 +586,15 @@ function Blok({ blok, rasmUrllar, faolRaqam, ijro, audioTanla, javoblar, javobni
   }
 }
 
-export default function BlokMashqi({ mashq, raqam }) {
+/** `javoblarOchiq` (2026-08-18, foydalanuvchi talabi) — O'QITUVCHI
+ * ko'rinishi: sahifa talaba ko'rgan bilan bir xil chiziladi, lekin bo'sh
+ * joylar to'g'ri javob bilan oldindan to'ldirilgan va "Check" tugmasi
+ * chiqmaydi (javob yuborish backendda faqat TALABAGA ruxsat etilgan). */
+export default function BlokMashqi({ mashq, raqam, javoblarOchiq }) {
   const { t } = useI18n();
-  const [javoblar, setJavoblar] = useState(() => mashq.savollar.map(() => ""));
+  const [javoblar, setJavoblar] = useState(() =>
+    mashq.savollar.map((s) => (javoblarOchiq ? s.togri || "" : "")),
+  );
   // 2026-08-17, foydalanuvchi talabi: endi BUTUN sahifa uchun BITTA
   // natija (avval har blok o'z natijasini mustaqil saqlar edi).
   const [natija, setNatija] = useState(null);
@@ -683,7 +718,7 @@ export default function BlokMashqi({ mashq, raqam }) {
 
           {/* 2026-08-17, foydalanuvchi talabi: HAR MAVZU (sahifa) uchun
               BITTA umumiy Tekshirish tugmasi. */}
-          {mashq.savollar.length > 0 && (
+          {mashq.savollar.length > 0 && !javoblarOchiq && (
             <div className="blok-umumiy-tekshirish">
               {natija ? (
                 <div className="izoh blok-umumiy-natija">

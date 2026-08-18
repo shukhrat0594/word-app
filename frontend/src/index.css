@@ -796,10 +796,6 @@ input.imtihon-bosh-joy { font: inherit; font-size: 12.5px; text-align: center; }
 }
 .blok-raqam-tanlash-band.togri { border-color: var(--yaxshi); background: color-mix(in srgb, var(--yaxshi) 15%, var(--sirt)); color: inherit; }
 .blok-raqam-tanlash-band.notogri { border-color: var(--xato); background: color-mix(in srgb, var(--xato) 15%, var(--sirt)); color: inherit; }
-.blok-raqam-tanlash-belgi { margin-left: 6px; }
-.blok-raqam-tanlash-band.tanlangan .blok-raqam-tanlash-belgi { color: #1d1d1d; }
-.blok-raqam-tanlash-band.togri .blok-raqam-tanlash-belgi,
-.blok-raqam-tanlash-band.notogri .blok-raqam-tanlash-belgi { color: inherit; }
 .blok-rasm-javobli-grid {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   gap: 14px; margin: 10px 0 6px;

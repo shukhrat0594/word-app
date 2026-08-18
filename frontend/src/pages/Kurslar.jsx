@@ -93,9 +93,11 @@ function RasmMashqi({ rasmUrl, savollar, idxlar, javoblar, javobniQoy, natija })
 /** Talaba uchun — bitta mashqqa javob yozish va natija ko'rish.
  * `raqam` (2026-07-27) — "raqamlangan mashqlar" talabi bo'yicha har bir
  * mashq tartib raqami bilan ko'rsatiladi. */
-function TalabaMashqi({ mashq, raqam }) {
+function TalabaMashqi({ mashq, raqam, javoblarOchiq }) {
   const { t } = useI18n();
-  const [javoblar, setJavoblar] = useState(mashq.savollar.map(() => ""));
+  const [javoblar, setJavoblar] = useState(
+    mashq.savollar.map((s) => (javoblarOchiq ? s.togri || "" : "")),
+  );
   const [natija, setNatija] = useState(null);
   const [rasmUrl, setRasmUrl] = useState(null);
   const [audioUrl, setAudioUrl] = useState(null);
@@ -250,9 +252,14 @@ function TalabaMashqi({ mashq, raqam }) {
             </div>
           ))}
           {!natija ? (
-            <button className="tugma ikkinchi" onClick={tekshir} disabled={yuklanmoqda}>
-              {yuklanmoqda ? t("tekshirilmoqda") : t("tekshirish")}
-            </button>
+            // O'qituvchi ko'rinishida javoblar allaqachon ochiq —
+            // Tekshirish tugmasi chiqmaydi (backend javob yuborishni
+            // faqat TALABAGA ruxsat beradi).
+            !javoblarOchiq && (
+              <button className="tugma ikkinchi" onClick={tekshir} disabled={yuklanmoqda}>
+                {yuklanmoqda ? t("tekshirilmoqda") : t("tekshirish")}
+              </button>
+            )
           ) : (
             <div className="izoh">
               {t("band_ball")}: {natija.ball}/{natija.jami}
@@ -275,7 +282,7 @@ function TalabaMashqi({ mashq, raqam }) {
  *
  * Avvalgi versiya (2026-08-09) mashqni "fon" ko'rinishiga o'tkazib,
  * matnni yo'qotardi — foydalanuvchi buni rad etdi. */
-function RasmGuruhBlok({ guruh, boshRaqam }) {
+function RasmGuruhBlok({ guruh, boshRaqam, javoblarOchiq }) {
   const { t } = useI18n();
   const [rasmUrl, setRasmUrl] = useState(null);
   const manba = guruh[0].rasm_url;
@@ -310,7 +317,7 @@ function RasmGuruhBlok({ guruh, boshRaqam }) {
     />
   );
   const mazmun = guruh.map((m, i) => (
-    <BlokMashqi key={m.id} mashq={m} raqam={boshRaqam + i} />
+    <BlokMashqi key={m.id} mashq={m} raqam={boshRaqam + i} javoblarOchiq={javoblarOchiq} />
   ));
 
   // Chap/o'ng — ikki ustun (rasm o'z ustunida, mashqlar ikkinchisida);
@@ -1260,20 +1267,26 @@ function AdminMashqBoshqaruv({ tugunId, jsonKiritishKorinadi = true }) {
 }
 
 /** Mashqlar paneli — talaba uchun yechish, admin uchun boshqarish. */
-function MashqPaneli({ tugunId, talabaMi, jsonKiritishKorinadi = true }) {
+/** 2026-08-18, foydalanuvchi talabi: o'qituvchi kurslardagi mashqlarni
+ * O'QUVCHI KABI ko'rsin (mashq qo'shish/tahrirlash kerak emas). Avval bu
+ * yerda faqat `talabaMi` tekshirilardi — o'qituvchi ADMIN paneliga
+ * yuborilar, u esa backendda 403 qaytarar va xato `catch(() => {})` bilan
+ * yutilib, o'qituvchiga BO'SH panel ko'rinardi. */
+function MashqPaneli({ tugunId, talabaMi, oqituvchiMi, jsonKiritishKorinadi = true }) {
+  const korinishMi = talabaMi || oqituvchiMi;
   const { t } = useI18n();
   const [mashqlar, setMashqlar] = useState(null);
   const [xato, setXato] = useState("");
 
   useEffect(() => {
-    if (!talabaMi) return;
+    if (!korinishMi) return;
     api(`/api/kurslar/${tugunId}/mashqlar/`)
       .then(setMashqlar)
       .catch((e) => setXato(e.data?.detail || t("xato_yuz_berdi")));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tugunId, talabaMi]);
+  }, [tugunId, korinishMi]);
 
-  if (!talabaMi) {
+  if (!korinishMi) {
     return <AdminMashqBoshqaruv tugunId={tugunId} jsonKiritishKorinadi={jsonKiritishKorinadi} />;
   }
 
@@ -1317,16 +1330,21 @@ function MashqPaneli({ tugunId, talabaMi, jsonKiritishKorinadi = true }) {
     if (guruh && guruh.length > 1) {
       guruh.forEach((x) => chizilgan.add(x.id));
       bloklar.push(
-        <RasmGuruhBlok key={`guruh-${m.rasm_guruhi_id}`} guruh={guruh} boshRaqam={raqam} />,
+        <RasmGuruhBlok
+          key={`guruh-${m.rasm_guruhi_id}`}
+          guruh={guruh}
+          boshRaqam={raqam}
+          javoblarOchiq={oqituvchiMi}
+        />,
       );
       raqam += guruh.length;
       continue;
     }
     chizilgan.add(m.id);
     if (m.bloklar?.length) {
-      bloklar.push(<BlokMashqi key={m.id} mashq={m} raqam={raqam} />);
+      bloklar.push(<BlokMashqi key={m.id} mashq={m} raqam={raqam} javoblarOchiq={oqituvchiMi} />);
     } else {
-      bloklar.push(<TalabaMashqi key={m.id} mashq={m} raqam={raqam} />);
+      bloklar.push(<TalabaMashqi key={m.id} mashq={m} raqam={raqam} javoblarOchiq={oqituvchiMi} />);
     }
     raqam += 1;
   }
@@ -1713,7 +1731,7 @@ function EksportImportTugmalari({ tugunId, royxatniYangila }) {
  * (`unit_darsi=True`) bo'lsa true. Shu bo'lsa, nomi bo'yicha ("Mashqlar" /
  * "Vocabulary") maxsus ko'rinish tanlanadi — boshqa (flat) bo'limlar
  * avvalgidek fayl+mashq ko'rinishida qoladi. */
-function Tugun({ tugun, chuqurlik, adminMi, talabaMi, royxatniYangila, ichkariUnitMi, ochiqmi, onOchish }) {
+function Tugun({ tugun, chuqurlik, adminMi, talabaMi, oqituvchiMi, royxatniYangila, ichkariUnitMi, ochiqmi, onOchish }) {
   const { t } = useI18n();
   // Tugun nomi 3 tilda (2026-07-28) — bazadagi `nomi` o'zgarmaydi, u
   // faqat ZAXIRA: kaliti yo'q tugunlar uchun. `t()` kalit topilmasa
@@ -1830,7 +1848,7 @@ function Tugun({ tugun, chuqurlik, adminMi, talabaMi, royxatniYangila, ichkariUn
             </button>
           </div>
           {mashqOchiq && (
-            <MashqPaneli tugunId={tugun.id} talabaMi={talabaMi} jsonKiritishKorinadi={false} />
+            <MashqPaneli tugunId={tugun.id} talabaMi={talabaMi} oqituvchiMi={oqituvchiMi} jsonKiritishKorinadi={false} />
           )}
         </div>
       );
@@ -1906,7 +1924,7 @@ function Tugun({ tugun, chuqurlik, adminMi, talabaMi, royxatniYangila, ichkariUn
         </div>
         {mashqOchiq && (
           <div style={{ paddingLeft: otstup, marginTop: 6 }}>
-            <MashqPaneli tugunId={tugun.id} talabaMi={talabaMi} />
+            <MashqPaneli tugunId={tugun.id} talabaMi={talabaMi} oqituvchiMi={oqituvchiMi} />
           </div>
         )}
       </div>
@@ -1933,6 +1951,14 @@ function Tugun({ tugun, chuqurlik, adminMi, talabaMi, royxatniYangila, ichkariUn
           {adminMi && kitobmi && (
             <div style={{ paddingLeft: otstup + 18, display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
               <UnitTozalashTugmasi unitId={tugun.id} royxatniYangila={royxatniYangila} />
+              {/* 2026-08-18, foydalanuvchi talabi: Saqlash/Yuklash faqat
+                  BUTUN Unit uchun emas, Student's Book va Workbook uchun
+                  ALOHIDA ham kerak (masalan faqat Student's Book kontentini
+                  boshqa muhitga ko'chirish). Backend o'zgarmaydi: eksport
+                  istalgan tugunni butun ichki daraxti bilan oladi, import
+                  esa ZIP tepa tuguni bilan bir xil kalitli tugun ustiga
+                  yozadi (`KursImportView` dagi `qidiruv_ota` mantig'i). */}
+              <EksportImportTugmalari tugunId={tugun.id} royxatniYangila={royxatniYangila} />
             </div>
           )}
           {/* 2026-08-16, foydalanuvchi talabi: "faqat TANLANGAN Unit"
@@ -1969,6 +1995,7 @@ function Tugun({ tugun, chuqurlik, adminMi, talabaMi, royxatniYangila, ichkariUn
               tugun={b}
               chuqurlik={chuqurlik + 1}
               adminMi={adminMi}
+              oqituvchiMi={oqituvchiMi}
               talabaMi={talabaMi}
               royxatniYangila={royxatniYangila}
               ichkariUnitMi={kitobmi}
@@ -1994,6 +2021,7 @@ export default function Kurslar() {
   const { profil } = useProfil();
   const adminMi = profil?.is_owner || profil?.role === "admin";
   const talabaMi = profil?.role === "student";
+  const oqituvchiMi = profil?.role === "teacher";
   const [daraxt, setDaraxt] = useState(null);
   // Akkordeon (2026-07-27) — ildiz darajasida (Rus tili/Matematika/Ingliz
   // tili/CEFR) ham bir vaqtda faqat bittasi ochiq turishi uchun; birinchi
@@ -2025,6 +2053,7 @@ export default function Kurslar() {
           tugun={tugun}
           chuqurlik={0}
           adminMi={adminMi}
+          oqituvchiMi={oqituvchiMi}
           talabaMi={talabaMi}
           royxatniYangila={yukla}
           ichkariUnitMi={false}

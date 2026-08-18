@@ -565,6 +565,17 @@ def _kurs_mashq_talaba_dict(m):
     }
 
 
+def _kurs_mashq_oqituvchi_dict(m):
+    """O'qituvchi uchun — talaba ko'rinishining AYNAN o'zi, lekin to'g'ri
+    javoblar OCHIQ (2026-08-18, foydalanuvchi talabi: o'qituvchi kurslardagi
+    mashqlarni o'quvchi kabi ko'rsin, mashq qo'shish/tahrirlash esa kerak
+    emas). Boshqaruv maydonlari (`audio_kerak` va h.k.) bu yerda YO'Q —
+    o'qituvchi kontentni o'zgartira olmaydi, faqat ko'radi."""
+    d = _kurs_mashq_talaba_dict(m)
+    d["savollar"] = m.savollar
+    return d
+
+
 class KursMashqBoshqaruvView(APIView):
     """Admin/owner uchun — bitta tugunning mashqlari ro'yxati va yangi
     mashq(lar) qo'shish (JSON, bir nechtasi birga — "mashqlar" ro'yxati)."""
@@ -1843,8 +1854,15 @@ class KursMashqRoyxatiView(APIView):
         tugun = get_object_or_404(KursTugun, pk=pk)
         if _talaba_tugun_qulflanganmi(request.user, tugun):
             return Response({"detail": "Bu qism hali qulflangan"}, status=403)
+        # Talabaga javoblar YUBORILMAYDI, o'qituvchi/admin/owner esa
+        # darsda tushuntirishi uchun to'g'ri javoblarni ko'radi.
+        tayyorla = (
+            _kurs_mashq_talaba_dict
+            if request.user.role == User.Role.STUDENT
+            else _kurs_mashq_oqituvchi_dict
+        )
         return Response(
-            [_kurs_mashq_talaba_dict(m) for m in tugun.mashqlar.prefetch_related("audiolar", "rasmlar")]
+            [tayyorla(m) for m in tugun.mashqlar.prefetch_related("audiolar", "rasmlar")]
         )
 
 
