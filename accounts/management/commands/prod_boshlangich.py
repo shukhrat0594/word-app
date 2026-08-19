@@ -89,6 +89,13 @@ class Command(BaseCommand):
         call_command("listening_yangi_mashqlar")
         call_command("writing_speaking_yangi_mashqlar")
         call_command("kurslar_urugla")
+        # 2026-08-19: Vocabulary Unit darajasiga chiqarilgan tuzilma
+        # o'zgarishi — eski (Student's Book/Workbook ichida "Mashqlar"/
+        # "Vocabulary" oraliq tugunlari bo'lgan) Unit'larni avtomatik
+        # tuzatadi. Idempotent: bunday eski tugun topilmasa hech narsa
+        # qilmaydi — har deploy'da xavfsiz ishga tushiriladi, qo'lda
+        # ishga tushirish shart emas.
+        call_command("vocab_birlashtirish_migratsiyasi")
         # 2026-08-17, foydalanuvchi talabi: Headway Unit'lar endi bu yerda
         # AVTOMATIK yaratilmaydi — admin ularni lokalda tayyorlab, Kurslar
         # bo'limidagi "Saqlash"/"Yuklash" (eksport/import ZIP) tugmalari
