@@ -45,7 +45,17 @@ class ProfilView(APIView):
     def get(self, request):
         u = request.user
         markaz = None
-        if u.markaz:
+        # 2026-08-19, HAQIQIY XATO: owner ko'pincha hech qanday markazga
+        # biriktirilmagan bo'ladi (`u.markaz_id` bo'sh) — bitta markaz
+        # rejimida bu normal, chunki `MarkazSozlash`/`_admin_markaz_ol`
+        # bunday holatda "yagona mavjud markaz"ni tahrirlaydi. Lekin bu
+        # yerda o'sha fallback YO'Q edi, shuning uchun profil `markaz:
+        # null` qaytarardi va topbar/brauzer tab sarlavhasi doim standart
+        # "Utmost o'quv markazi"da qolib qolardi — owner nomni Markaz
+        # sozlamalaridan o'zgartirsa ham, o'zi buni HECH QACHON ko'rmasdi.
+        markaz_obyekti = u.markaz or (Markaz.objects.first() if owner_mi(u) else None)
+        if markaz_obyekti:
+            u.markaz = markaz_obyekti
             markaz = {
                 "id": u.markaz.id,
                 "name": u.markaz.name,

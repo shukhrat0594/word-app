@@ -307,8 +307,10 @@ export default function Layout() {
   }, [profil]);
 
   // Brauzer tab sarlavhasi va favicon — markaz nomi/logotipiga moslanadi.
+  // 2026-08-19, foydalanuvchi talabi: sarlavhada FAQAT markaz nomi
+  // chiqsin — avval "{nom} — IELTS platforma" qo'shimchasi bor edi.
   useEffect(() => {
-    document.title = `${markazNomi} — ${t("platforma")}`;
+    document.title = markazNomi;
     if (markazLogo) {
       let ikon = document.querySelector('link[rel="icon"]');
       if (!ikon) {
