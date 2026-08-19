@@ -294,6 +294,10 @@ export default function Layout() {
     });
   }
 
+  // 2026-08-19, foydalanuvchi talabi: uzun ism-familiya yon panelda 2
+  // qatorga sig'sin, kerak bo'lsa shrift kichrayadi (avval har harfda
+  // sinib, uch qatorga bo'linib ketardi — `overflow-wrap: anywhere`).
+  const ismUzunmi = (profil?.ism || "").length > 16;
   const markazNomi = profil?.markaz?.name || "Utmost o'quv markazi";
   // Owner markazga biriktirilmagan (markaz=null) — shu holatda ham standart
   // logo ko'rsatiladi, umumiy "U" harfiga tushib qolmasin.
@@ -382,7 +386,12 @@ export default function Layout() {
         <Link to="/profil" className="logo" onClick={() => setMenyuOchiq(false)}>
           <Avatar rasmUrl={profil?.rasm_url} olcham={38} sarlavha={t("nav_profil")} />
           <div className="logo-nom">
-            {profil?.ism || t("platforma")}
+            {/* Ism-familiya alohida "qutida" 2 qatorga cheklanadi (ortig'i
+                "..." bilan kesiladi) — rol yorlig'i (OWNER va h.k.) shu
+                cheklovdan TASHQARIDA, doim to'liq ko'rinadi. */}
+            <span className={"logo-nom-matn" + (ismUzunmi ? " logo-nom-kichik" : "")}>
+              {profil?.ism || t("platforma")}
+            </span>
             {/* 2026-07-29 talabi: foydalanuvchi qaysi rol nazari bilan
                 ko'rayotganini aniqlash uchun — ayniqsa owner "Ko'rish
                 rejimi"da bo'lganda, ekranda qaysi profilni sinab

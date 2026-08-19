@@ -107,7 +107,19 @@ textarea {
   width: 38px; height: 38px; border-radius: 9px; object-fit: cover;
   background: var(--sariq); flex-shrink: 0;
 }
-.logo-nom { font-weight: 700; font-size: 17px; overflow-wrap: anywhere; }
+/* 2026-08-19, foydalanuvchi talabi: uzun ism-familiya har harfda emas,
+   FAQAT so'z chegaralarida (yoki so'zning o'zi juda uzun bo'lsagina)
+   buzilsin va 2 qatordan oshmasin — ortig'i "..." bilan kesiladi.
+   `overflow-wrap: anywhere` OLDIN har qanday joyda uzardi, natijada
+   "Kurbonaliyev" kabi so'zlar "Kurbonaliye" + "v" bo'lib 3-qatorga
+   chiqib ketardi. */
+.logo-nom { font-weight: 700; font-size: 17px; min-width: 0; }
+.logo-nom-matn {
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+  overflow: hidden; line-height: 1.18;
+  word-break: break-word; overflow-wrap: break-word;
+}
+.logo-nom-matn.logo-nom-kichik { font-size: 13px; }
 .logo-nom small { display: block; font-weight: 400; font-size: 11px; color: #A6A29A; letter-spacing: .8px; text-transform: uppercase; }
 /* 2026-07-29: rol ko'rsatkichi (ism yonidagi qavs) — "Ko'rish rejimi"
    faol bo'lganda owner qaysi profilni sinayotganini unutmasligi uchun. */
