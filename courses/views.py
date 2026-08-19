@@ -852,6 +852,36 @@ class KursImportView(APIView):
                 qidiruv_ota = ota
                 if ota.kalit and daraxt.get("kalit") == ota.kalit and ota.parent_id:
                     qidiruv_ota = ota.parent
+
+                # 2026-08-19, HAQIQIY XATO: admin butun Unit'ni eksport
+                # qilib, keyin "Yuklash" tugmasini Student's Book/Workbook
+                # QATORIDA bossa (bu tugma endi o'sha darajada ham
+                # chiqadi), ZIP'ning tepa tuguni ("beginner_unit_1",
+                # unit_darsi=True) Student's Book ICHIGA farzand qilib
+                # yaratilardi — natijada "Student's Book > Unit 1" kabi
+                # noto'g'ri, ikki qavatli Unit paydo bo'lardi. Student's
+                # Book/Workbook ICHIDA hech qachon Unit tugun bo'lmasligi
+                # kerak — shuning uchun daraxt turi bilan qidiruv_ota
+                # turi mos kelmasa, import rad etiladi.
+                KONTEYNER_KALITLAR = {"students_book", "workbook"}
+                if daraxt.get("unit_darsi") and qidiruv_ota.kalit in KONTEYNER_KALITLAR:
+                    return Response(
+                        {"detail": "Bu ZIP butun Unit hisoblanadi — uni Student's Book yoki "
+                                   "Workbook ichiga emas, Unit'ning o'zi ustida yuklang."},
+                        status=400,
+                    )
+                daraxt_kaliti = daraxt.get("kalit")
+                if (
+                    daraxt_kaliti in KONTEYNER_KALITLAR
+                    and qidiruv_ota.kalit in KONTEYNER_KALITLAR
+                    and daraxt_kaliti != qidiruv_ota.kalit
+                ):
+                    return Response(
+                        {"detail": f"Bu ZIP '{daraxt_kaliti}' bo'limi — uni "
+                                   f"'{qidiruv_ota.kalit}' ichiga yuklab bo'lmaydi."},
+                        status=400,
+                    )
+
                 yangi_tugun = _tugun_import_qil(daraxt, qidiruv_ota, ota.markaz, zf)
         except (zipfile.BadZipFile, KeyError, json.JSONDecodeError) as exc:
             return Response({"detail": f"ZIP fayl noto'g'ri: {exc}"}, status=400)
@@ -868,49 +898,71 @@ class KursImportView(APIView):
 
 
 class KursUnitTozalashView(APIView):
-    """Admin/owner uchun — bitta Unit'ning BARCHA kontentini (Mashqlar +
-    Vocabulary so'zlari + matni) BITTA harakatda o'chirish (2026-07-28,
-    foydalanuvchi talabi — qayta yuklashdan oldin eskisini tozalash uchun).
-    Tugunlarning O'ZI (Mashqlar/Vocabulary bo'lim tugunlari) qolади, faqat
-    ichidagi kontent tozalanadi — Unit tuzilmasi buzilmaydi.
+    """Admin/owner uchun — bitta kitob (Student's Book/Workbook) yoki
+    Unit'ning BARCHA kontentini BITTA harakatda tozalash (2026-07-28,
+    foydalanuvchi talabi — qayta yuklashdan oldin eskisini tozalash
+    uchun; 2026-08-19 yangilandi).
+
+    2026-08-19, HAQIQIY XATO: avval faqat "mashqlar"/"vocabulary"
+    tugunlarining ICHIDAGI kontentini (mashq/so'z yozuvlarini) tozalar
+    edi, lekin TUGUNLARNING O'ZI (jumladan noto'g'ri import natijasida
+    paydo bo'lgan begona farzand tugunlar — masalan Student's Book
+    ichiga xato tushib qolgan butun bir Unit) qolib ketardi. Endi
+    "Tozalash" kitobning BARCHA farzandlarini (qanday tuzilishda
+    bo'lishidan qat'iy nazar) to'liq o'chirib, so'ng toza
+    "Mashqlar"/"Vocabulary" tugunlarini QAYTADAN yaratadi — shu bilan
+    tasodifiy buzilgan tuzilma ham tuzatiladi.
 
     2026-07-30: ATAYLAB tugallanmagan blok-ZIP jarayoniga TEGMAYDI — bu
     ikkita MUSTAQIL amal (foydalanuvchi aniq ajratdi): "Tozalash" faqat
-    mashq/so'z kontentini o'chiradi, tiqilib qolgan jarayonni bekor
-    qilish uchun alohida "Bekor qilish" tugmasi bor (Davom ettirish
-    yonida, `KursBlokJarayonHolatiView.delete`)."""
+    kontentni o'chiradi, tiqilib qolgan jarayonni bekor qilish uchun
+    alohida "Bekor qilish" tugmasi bor (Davom ettirish yonida,
+    `KursBlokJarayonHolatiView.delete`)."""
 
     permission_classes = [IsAuthenticated]
 
     def post(self, request, pk):
+        from .unit_qurish import UNIT_BOLIMLARI
+
         if not _mashq_admin_mi(request.user):
             return Response({"detail": "Faqat admin/owner uchun"}, status=403)
-        unit = get_object_or_404(KursTugun, pk=pk)
-        bolalar = _unit_bolimlari(unit)
+        tugun = get_object_or_404(KursTugun, pk=pk)
+
+        # `tugun` kitob (Student's Book/Workbook) bo'lsa — o'shani
+        # tozalaymiz. Unit'ning o'zi berilgan bo'lsa (eski keshlangan
+        # JS yoki Unit darajasida chaqirilsa) — ikkala kitobini ham.
+        if tugun.kalit in ("students_book", "workbook"):
+            kitoblar = [tugun]
+        else:
+            kitoblar = list(tugun.children.filter(kalit__in=("students_book", "workbook")))
 
         mashqlar_soni = 0
         sozlar_soni = 0
+        begona_tugunlar = 0
 
-        mashq_tugun = bolalar.get("mashqlar")
-        if mashq_tugun:
-            mashqlar_soni = mashq_tugun.mashqlar.count()
-            mashq_tugun.mashqlar.all().delete()
+        for kitob in kitoblar:
+            for farzand in kitob.children.all():
+                mashqlar_soni += KursMashq.objects.filter(tugun__in=_shox_idlari(farzand)).count()
+                sozlar_soni += KursSoz.objects.filter(tugun__in=_shox_idlari(farzand)).count()
+                if farzand.kalit not in ("mashqlar", "vocabulary"):
+                    begona_tugunlar += 1
+            kitob.children.all().delete()
+            for j, (b_kalit, b_nomi) in enumerate(UNIT_BOLIMLARI, start=1):
+                KursTugun.objects.create(
+                    kalit=b_kalit, nomi=b_nomi, parent=kitob, markaz=kitob.markaz, tartib=j,
+                )
 
-        vocab_tugun = bolalar.get("vocabulary")
-        if vocab_tugun:
-            sozlar_soni = vocab_tugun.sozlar.count()
-            vocab_tugun.sozlar.all().delete()
-            if vocab_tugun.matn:
-                vocab_tugun.matn = ""
-                vocab_tugun.save(update_fields=["matn"])
-
-        natija = {"mashqlar_ochirildi": mashqlar_soni, "sozlar_ochirildi": sozlar_soni}
+        natija = {
+            "mashqlar_ochirildi": mashqlar_soni,
+            "sozlar_ochirildi": sozlar_soni,
+            "begona_tugunlar_ochirildi": begona_tugunlar,
+        }
         logla(
             foydalanuvchi=request.user,
             harakat=FaoliyatYozuvi.Harakat.OCHIRISH,
-            obyekt=unit,
+            obyekt=tugun,
             obyekt_turi="KursTugun",
-            obyekt_nomi=f"{unit.nomi} (tozalandi)",
+            obyekt_nomi=f"{tugun.nomi} (tozalandi)",
             snapshot=natija,
         )
         return Response(natija)
@@ -1719,6 +1771,37 @@ class KursMashqBlokAudioBoshqaruvView(APIView):
                 "url": f"/api/kurslar/mashq-audio/{mavjud.id}/",
             }
         return Response(javob)
+
+    def delete(self, request, pk):
+        # 2026-08-19, foydalanuvchi talabi: audio noto'g'ri fayl bilan
+        # yuklangan bo'lsa, uni "qayta yuklash" bilan almashtirish emas,
+        # butunlay OLIB TASHLASH imkoni ham kerak (masalan trek darslikda
+        # yo'q bo'lib chiqsa). `raqam` ko'rsatilmasa va mashqda faqat
+        # bitta audio bo'lsa — o'shani o'chiradi.
+        if not _mashq_admin_mi(request.user):
+            return Response({"detail": "Faqat admin/owner uchun"}, status=403)
+        mashq = get_object_or_404(KursMashq, pk=pk)
+        raqam = request.query_params.get("raqam")
+        if raqam is None:
+            audiolar = list(mashq.audiolar.all())
+            if len(audiolar) != 1:
+                return Response({"detail": "Qaysi audioni o'chirish kerakligini bildiruvchi 'raqam' kerak"}, status=400)
+            yozuv = audiolar[0]
+        else:
+            yozuv = mashq.audiolar.filter(raqam=raqam).first()
+            if not yozuv:
+                return Response({"detail": "Bunday raqamli audio topilmadi"}, status=404)
+
+        _audio_faylini_xavfsiz_ochir(yozuv)
+        logla(
+            foydalanuvchi=request.user,
+            harakat=FaoliyatYozuvi.Harakat.OZGARTIRISH,
+            obyekt=mashq.tugun,
+            obyekt_turi="KursTugun",
+            obyekt_nomi=f"{mashq.tugun.nomi} (#{mashq.tartib} mashqdan audio {yozuv.raqam or ''} o'chirildi)",
+        )
+        yozuv.delete()
+        return Response(_kurs_mashq_admin_dict(mashq))
 
 
 class KursMashqRasmView(APIView):

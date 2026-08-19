@@ -700,7 +700,9 @@ function AdminMashqBoshqaruv({ tugunId, jsonKiritishKorinadi = true }) {
   const [qaytaYuklashXato, setQaytaYuklashXato] = useState("");
   // 2026-07-31 talabi: mashq yaratilgach, uning audio belgisiga (audio_raqam)
   // darslikdagi audio faylni to'g'ridan-to'g'ri biriktirish.
-  const [audioYuklanayotganId, setAudioYuklanayotganId] = useState(null);
+  // 2026-08-19, foydalanuvchi talabi: avval BITTA mashq.id bo'yicha kuzatilardi -- bitta mashqda 2 audio bo'lsa (masalan 1.3 va 1.4), 1.3'ga yuklaganda IKKALA tugma ham "Yuklanmoqda..." bo'lib qolardi (qaysi RAQAMga yuklanayotgani farqlanmasdi). Endi kalit `"${mashqId}:${raqam}"` -- faqat aynan o'sha tugma holatini ko'rsatadi.
+  const [audioYuklanayotganKalit, setAudioYuklanayotganKalit] = useState(null);
+  const [audioOchirilayotganKalit, setAudioOchirilayotganKalit] = useState(null);
   const [audioYuklashXato, setAudioYuklashXato] = useState("");
 
   // ZIP jarayoni holati (rasm-bo'yicha yuklashning ko'p-sahifali varianti).
@@ -990,8 +992,9 @@ function AdminMashqBoshqaruv({ tugunId, jsonKiritishKorinadi = true }) {
     const fayl = e.target.files[0];
     e.target.value = "";
     if (!fayl) return;
+    const kalit = `${id}:${raqam || ""}`;
     setAudioYuklashXato("");
-    setAudioYuklanayotganId(id);
+    setAudioYuklanayotganKalit(kalit);
     try {
       const fd = new FormData();
       fd.append("audio", fayl);
@@ -1010,7 +1013,23 @@ function AdminMashqBoshqaruv({ tugunId, jsonKiritishKorinadi = true }) {
     } catch (e2) {
       setAudioYuklashXato(e2.data?.detail || t("xato_yuz_berdi"));
     } finally {
-      setAudioYuklanayotganId(null);
+      setAudioYuklanayotganKalit(null);
+    }
+  }
+
+  async function mashqdanAudioniOchir(id, raqam) {
+    if (!window.confirm(t("kurs_audio_ochirish_tasdiq"))) return;
+    const kalit = `${id}:${raqam || ""}`;
+    setAudioYuklashXato("");
+    setAudioOchirilayotganKalit(kalit);
+    try {
+      const soralar = raqam ? `?raqam=${encodeURIComponent(raqam)}` : "";
+      await api(`/api/kurslar/mashq/${id}/blok-audio-yuklash/${soralar}`, { method: "DELETE" });
+      yukla();
+    } catch (e2) {
+      setAudioYuklashXato(e2.data?.detail || t("xato_yuz_berdi"));
+    } finally {
+      setAudioOchirilayotganKalit(null);
     }
   }
 
@@ -1174,35 +1193,76 @@ function AdminMashqBoshqaruv({ tugunId, jsonKiritishKorinadi = true }) {
                     har doim bo'sh qaytaradi va tugma ko'rinmay qolardi. */}
                 {(() => {
                   const raqamlar = mashqAudioRaqamlari(m);
+                  const mavjudRaqamlar = new Set((m.audiolar || []).map((a) => a.raqam || ""));
                   if (raqamlar.length > 1) {
                     // Bir nechta audio belgisi bor — har biriga ALOHIDA
                     // tugma, aks holda backend doim BIRINCHI raqamga
                     // yozardi va qolgan treklar yuklanmay qolardi.
-                    return raqamlar.map((r) => (
-                      <label key={r} className="tugma ikkinchi" style={{ cursor: "pointer" }}>
-                        {audioYuklanayotganId === m.id ? t("yuklanmoqda") : `🎵 ${r}`}
-                        <input
-                          type="file"
-                          accept="audio/*"
-                          onChange={(e) => mashqgaAudioYukla(m.id, e, r)}
-                          disabled={audioYuklanayotganId === m.id}
-                          style={{ display: "none" }}
-                        />
-                      </label>
-                    ));
+                    // 2026-08-19: holat endi mashq+RAQAM bo'yicha
+                    // kuzatiladi (avval faqat mashq bo'yicha edi — bitta
+                    // trekka yuklaganda IKKALA tugma ham "Yuklanmoqda..."
+                    // bo'lib qolar, xato chiqsa abadiy shu holatda
+                    // qotib qolardi). Fayl allaqachon biriktirilgan
+                    // bo'lsa — yoniga 🗑️ o'chirish tugmasi qo'shiladi.
+                    return raqamlar.map((r) => {
+                      const kalit = `${m.id}:${r}`;
+                      return (
+                        <span key={r} style={{ display: "inline-flex", gap: 4 }}>
+                          <label className="tugma ikkinchi" style={{ cursor: "pointer" }}>
+                            {audioYuklanayotganKalit === kalit ? t("yuklanmoqda") : `🎵 ${r}`}
+                            <input
+                              type="file"
+                              accept="audio/*"
+                              onChange={(e) => mashqgaAudioYukla(m.id, e, r)}
+                              disabled={audioYuklanayotganKalit === kalit}
+                              style={{ display: "none" }}
+                            />
+                          </label>
+                          {mavjudRaqamlar.has(r) && (
+                            <button
+                              type="button"
+                              className="tugma ikkinchi"
+                              style={{ color: "#d33" }}
+                              title={t("kurs_audio_ochirish")}
+                              disabled={audioOchirilayotganKalit === kalit}
+                              onClick={() => mashqdanAudioniOchir(m.id, r)}
+                            >
+                              🗑️
+                            </button>
+                          )}
+                        </span>
+                      );
+                    });
                   }
                   if (raqamlar.length === 1 || m.audio_kerak) {
+                    const yagonaRaqam = raqamlar[0] || "";
+                    const kalit = `${m.id}:${yagonaRaqam}`;
+                    const borMi = m.audio_url || mavjudRaqamlar.has(yagonaRaqam);
                     return (
-                      <label className="tugma ikkinchi" style={{ cursor: "pointer" }}>
-                        {audioYuklanayotganId === m.id ? t("yuklanmoqda") : t("kurs_mashq_audio_yuklash")}
-                        <input
-                          type="file"
-                          accept="audio/*"
-                          onChange={(e) => mashqgaAudioYukla(m.id, e, raqamlar[0])}
-                          disabled={audioYuklanayotganId === m.id}
-                          style={{ display: "none" }}
-                        />
-                      </label>
+                      <span style={{ display: "inline-flex", gap: 4 }}>
+                        <label className="tugma ikkinchi" style={{ cursor: "pointer" }}>
+                          {audioYuklanayotganKalit === kalit ? t("yuklanmoqda") : t("kurs_mashq_audio_yuklash")}
+                          <input
+                            type="file"
+                            accept="audio/*"
+                            onChange={(e) => mashqgaAudioYukla(m.id, e, yagonaRaqam)}
+                            disabled={audioYuklanayotganKalit === kalit}
+                            style={{ display: "none" }}
+                          />
+                        </label>
+                        {borMi && (
+                          <button
+                            type="button"
+                            className="tugma ikkinchi"
+                            style={{ color: "#d33" }}
+                            title={t("kurs_audio_ochirish")}
+                            disabled={audioOchirilayotganKalit === kalit}
+                            onClick={() => mashqdanAudioniOchir(m.id, yagonaRaqam)}
+                          >
+                            🗑️
+                          </button>
+                        )}
+                      </span>
                     );
                   }
                   return null;
