@@ -1787,11 +1787,16 @@ function EksportImportTugmalari({ tugunId, royxatniYangila }) {
 /** Bitta tugun — akkordeon (agar children bo'lsa) yoki oxirgi qatlam
  * (fayl + mashqlar + tugallandimi belgisi + admin uchun boshqaruv).
  *
- * `ichkariUnitMi` (2026-07-27) — shu tugunning BEVOSITA ota-tuguni Unit
- * (`unit_darsi=True`) bo'lsa true. Shu bo'lsa, nomi bo'yicha ("Mashqlar" /
- * "Vocabulary") maxsus ko'rinish tanlanadi — boshqa (flat) bo'limlar
- * avvalgidek fayl+mashq ko'rinishida qoladi. */
-function Tugun({ tugun, chuqurlik, adminMi, talabaMi, oqituvchiMi, royxatniYangila, ichkariUnitMi, ochiqmi, onOchish }) {
+ * `otaUnitMi` (2026-08-19, avvalgi nomi `ichkariUnitMi`) — shu
+ * tugunning BEVOSITA ota-tuguni Unit (`unit_darsi=True`) bo'lsa true.
+ * Shu bo'lsa, KALIT bo'yicha ("students_book"/"workbook"/"vocabulary")
+ * maxsus ko'rinish tanlanadi — boshqa (flat) bo'limlar avvalgidek
+ * fayl+mashq ko'rinishida qoladi. Tuzilma o'zgarishi (2026-08-19):
+ * Student's Book/Workbook endi BEVOSITA "oxirgi qatlam" (mashqlar
+ * ularga to'g'ridan-to'g'ri biriktiriladi, oraliq "Mashqlar" tuguni
+ * yo'q), Vocabulary esa ikkala kitobga UMUMIY, Unit'ning uchinchi
+ * farzandi sifatida. */
+function Tugun({ tugun, chuqurlik, adminMi, talabaMi, oqituvchiMi, royxatniYangila, otaUnitMi, ochiqmi, onOchish }) {
   const { t } = useI18n();
   // Tugun nomi 3 tilda (2026-07-28) — bazadagi `nomi` o'zgarmaydi, u
   // faqat ZAXIRA: kaliti yo'q tugunlar uchun. `t()` kalit topilmasa
@@ -1815,9 +1820,9 @@ function Tugun({ tugun, chuqurlik, adminMi, talabaMi, oqituvchiMi, royxatniYangi
 
   const otstup = 14 + chuqurlik * 20;
   // Bo'lim turi KALIT bo'yicha aniqlanadi (2026-07-28) — nomi endi
-  // tarjima qilingani uchun u kalit bo'la olmaydi. `ichkariUnitMi` endi
-  // "ota-tugun KITOB (Student's Book/Workbook)mi" degani.
-  const unitBolimi = ichkariUnitMi ? tugun.kalit : null;
+  // tarjima qilingani uchun u kalit bo'la olmaydi. `otaUnitMi` — ota
+  // tugun Unit (`unit_darsi=True`)mi.
+  const unitBolimi = otaUnitMi ? tugun.kalit : null;
   // Kitob tuguni — yuklash/tozalash tugmalari aynan shu darajada chiqadi.
   const kitobmi = tugun.kalit === "students_book" || tugun.kalit === "workbook";
 
@@ -1878,35 +1883,53 @@ function Tugun({ tugun, chuqurlik, adminMi, talabaMi, oqituvchiMi, royxatniYangi
           className="kurs-qator kurs-qator-oxirgi"
           style={{ paddingLeft: otstup, display: "block" }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: mashqOchiq ? 8 : 0 }}>
+          <div
+            style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: mashqOchiq ? 8 : 0, cursor: "pointer" }}
+            onClick={() => setMashqOchiq((v) => !v)}
+          >
+            <span>{mashqOchiq ? "▾" : "▸"}</span>
             <span>{tugun.ikonka}</span>
-            <span style={{ fontWeight: 600 }}>{nomi}</span>
-            <button className="tugma ikkinchi" onClick={() => setMashqOchiq((v) => !v)}>
-              {mashqOchiq
-                ? t("yopish")
-                : `${t("kurs_ochish")}${tugun.sozlar_soni ? ` (${tugun.sozlar_soni} ${t("kurs_soz")})` : ""}`}
-            </button>
+            <span style={{ fontWeight: 600 }}>
+              {nomi}{tugun.sozlar_soni ? ` (${tugun.sozlar_soni} ${t("kurs_soz")})` : ""}
+            </span>
           </div>
           {mashqOchiq && <VocabularyKorinishi tugunId={tugun.id} matn={tugun.matn} />}
         </div>
       );
     }
 
-    if (unitBolimi === "mashqlar") {
+    if (kitobmi) {
+      // 2026-08-19: Student's Book/Workbook endi BEVOSITA "oxirgi
+      // qatlam" — mashqlar shu tugunga to'g'ridan-to'g'ri biriktiriladi
+      // ("Mashqlar" oraliq qatlami olib tashlandi). Tozalash/Saqlash-
+      // Yuklash tugmalari avval akkordeon (branch) ko'rinishida chiqardi
+      // — kitob endi leaf bo'lgani uchun shu yerga ko'chirildi.
+      // 2026-08-19(2), foydalanuvchi talabi: alohida "Ochish" tugmasi
+      // emas, qator ustiga bosilganda ochilsin/yopilsin.
       return (
         <div
           className="kurs-qator kurs-qator-oxirgi"
           style={{ paddingLeft: otstup, display: "block" }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: mashqOchiq ? 8 : 0 }}>
+          <div
+            style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: mashqOchiq ? 8 : 0, cursor: "pointer" }}
+            onClick={() => setMashqOchiq((v) => !v)}
+          >
+            <span>{mashqOchiq ? "▾" : "▸"}</span>
             <span>{tugun.ikonka}</span>
-            <span style={{ fontWeight: 600 }}>{nomi}</span>
-            <button className="tugma ikkinchi" onClick={() => setMashqOchiq((v) => !v)}>
-              {mashqOchiq
-                ? t("yopish")
-                : `${t("kurs_ochish")}${tugun.mashqlar_soni ? ` (${tugun.mashqlar_soni})` : ""}`}
-            </button>
+            <span style={{ fontWeight: 600 }}>
+              {nomi}{tugun.mashqlar_soni ? ` (${tugun.mashqlar_soni})` : ""}
+            </span>
           </div>
+          {adminMi && (
+            <div
+              style={{ display: "flex", alignItems: "flex-start", gap: 8, marginTop: 6, marginBottom: mashqOchiq ? 8 : 0, flexWrap: "wrap" }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <UnitTozalashTugmasi unitId={tugun.id} royxatniYangila={royxatniYangila} />
+              <EksportImportTugmalari tugunId={tugun.id} royxatniYangila={royxatniYangila} />
+            </div>
+          )}
           {mashqOchiq && (
             <MashqPaneli tugunId={tugun.id} talabaMi={talabaMi} oqituvchiMi={oqituvchiMi} jsonKiritishKorinadi={false} />
           )}
@@ -2004,23 +2027,10 @@ function Tugun({ tugun, chuqurlik, adminMi, talabaMi, oqituvchiMi, royxatniYangi
       </div>
       {ochiqmi && (
         <div>
-          {/* Tozalash tugmasi KITOB darajasida (2026-07-28 tuzilma
-              o'zgarishi: Unit > Student's Book/Workbook > bo'limlar).
-              Mashq qo'shish (rasm/ZIP) endi "Mashqlar" bo'limining o'zida
-              (AdminMashqBoshqaruv, 2026-07-30). */}
-          {adminMi && kitobmi && (
-            <div style={{ paddingLeft: otstup + 18, display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
-              <UnitTozalashTugmasi unitId={tugun.id} royxatniYangila={royxatniYangila} />
-              {/* 2026-08-18, foydalanuvchi talabi: Saqlash/Yuklash faqat
-                  BUTUN Unit uchun emas, Student's Book va Workbook uchun
-                  ALOHIDA ham kerak (masalan faqat Student's Book kontentini
-                  boshqa muhitga ko'chirish). Backend o'zgarmaydi: eksport
-                  istalgan tugunni butun ichki daraxti bilan oladi, import
-                  esa ZIP tepa tuguni bilan bir xil kalitli tugun ustiga
-                  yozadi (`KursImportView` dagi `qidiruv_ota` mantig'i). */}
-              <EksportImportTugmalari tugunId={tugun.id} royxatniYangila={royxatniYangila} />
-            </div>
-          )}
+          {/* 2026-08-19: Student's Book/Workbook uchun Tozalash/Saqlash-
+              Yuklash tugmalari endi kitob leaf ko'rinishining o'zida
+              (yuqorida, `kitobmi` bloki) — bu yerga kitob tuguni hech
+              qachon yetib kelmaydi (u har doim "oxirgi qatlam"). */}
           {/* 2026-08-16, foydalanuvchi talabi: "faqat TANLANGAN Unit"
               eksport qilinsin — shuning uchun tugma KITOB emas, Unit'ning
               O'ZI darajasida (`tugun.unit_darsi`), bir marta chiqadi. */}
@@ -2058,7 +2068,7 @@ function Tugun({ tugun, chuqurlik, adminMi, talabaMi, oqituvchiMi, royxatniYangi
               oqituvchiMi={oqituvchiMi}
               talabaMi={talabaMi}
               royxatniYangila={royxatniYangila}
-              ichkariUnitMi={kitobmi}
+              otaUnitMi={tugun.unit_darsi}
               ochiqmi={ochiqBolaId === b.id}
               onOchish={() => setOchiqBolaId((joriy) => (joriy === b.id ? null : b.id))}
             />
@@ -2116,7 +2126,7 @@ export default function Kurslar() {
           oqituvchiMi={oqituvchiMi}
           talabaMi={talabaMi}
           royxatniYangila={yukla}
-          ichkariUnitMi={false}
+          otaUnitMi={false}
           ochiqmi={ochiqIldizId === tugun.id}
           onOchish={() => setOchiqIldizId((joriy) => (joriy === tugun.id ? null : tugun.id))}
         />

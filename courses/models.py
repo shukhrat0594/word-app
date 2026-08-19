@@ -62,7 +62,21 @@ class KursTugun(models.Model):
             "bo'yicha qisqa grammatika xulosasi, so'zlar ro'yxati bilan "
             "BIR sahifada keladi). Fayl emas, chunki AI buni to'g'ridan-"
             "to'g'ri matn sifatida generatsiya qiladi (2026-07-27, Unit'ni "
-            "bitta so'rovda yuklash imkoniyati)."
+            "bitta so'rovda yuklash imkoniyati). 2026-08-19dan buyon "
+            "Vocabulary tuguni UNIT darajasida BITTA — bu maydon Student's "
+            "Book manbasidan kelgan matnni saqlaydi, Workbook'niki "
+            "`matn_workbook`da (pastga qarang)."
+        ),
+    )
+    matn_workbook = models.TextField(
+        blank=True,
+        help_text=(
+            "Vocabulary tugunining Workbook manbasidan kelgan matni — "
+            "`matn` (Student's Book) bilan bir xil tugunda, lekin alohida "
+            "saqlanadi, chunki 'Tozalash' faqat BITTA kitobning ulushini "
+            "o'chirishi kerak (2026-08-19, foydalanuvchi talabi: "
+            "Vocabulary Unit uchun umumiy, lekin manba backendda "
+            "kuzatiladi, foydalanuvchiga ko'rinmaydi)."
         ),
     )
 
@@ -331,12 +345,26 @@ class KursSoz(models.Model):
     kirmaydi — u gap-asosidagi savollarga ishlaydi, so'zga bog'liq emas).
     """
 
+    class Manba(models.TextChoices):
+        STUDENTS_BOOK = "students_book", "Student's Book"
+        WORKBOOK = "workbook", "Workbook"
+
     tugun = models.ForeignKey(KursTugun, on_delete=models.CASCADE, related_name="sozlar")
     tartib = models.PositiveSmallIntegerField(default=0)
     en = models.CharField(max_length=200)
     uz = models.CharField(max_length=300)
     turkum = models.CharField(max_length=50, blank=True, help_text="So'z turkumi (ixtiyoriy)")
     misol = models.TextField(blank=True, help_text="Namuna gap (ixtiyoriy)")
+    manba = models.CharField(
+        max_length=15, choices=Manba.choices, default=Manba.STUDENTS_BOOK,
+        help_text=(
+            "2026-08-19: Vocabulary Unit darajasida BITTA (Student's Book "
+            "va Workbook ulashadi), lekin har so'z qaysi kitobdan "
+            "kelganini shu maydon orqali eslab qoladi — 'Tozalash' faqat "
+            "shu kitobga tegishli so'zlarni o'chirishi uchun. Talabaga "
+            "ko'rinmaydi (faqat backend mantig'i)."
+        ),
+    )
 
     class Meta:
         ordering = ["tartib", "id"]

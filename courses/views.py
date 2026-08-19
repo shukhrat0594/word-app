@@ -295,8 +295,14 @@ def _tugun_dict(tugun, user, bolalar_keshi, tugatgan_idlar, sozlar_soni_map, yec
             natija["mashqlar_soni"] = mashqlar_soni
         # 2026-07-27: "Grammar reference" (matn) va "Wordlist" (so'zlar
         # soni) — Unit'ning boshqa 2 bo'limi, mashq emas.
-        if tugun.matn:
-            natija["matn"] = tugun.matn
+        # 2026-08-19: Vocabulary endi Student's Book VA Workbook uchun
+        # umumiy — ikkala manbaning matni birlashtirib ko'rsatiladi,
+        # talaba/admin uchun bo'linish ko'rinmaydi (faqat backendda
+        # `matn`/`matn_workbook` alohida saqlanadi, "Tozalash" shu
+        # bo'yicha tanlab tozalaydi).
+        matn_birlashgan = "\n\n".join(m for m in (tugun.matn, tugun.matn_workbook) if m)
+        if matn_birlashgan:
+            natija["matn"] = matn_birlashgan
         sozlar_soni = sozlar_soni_map.get(tugun.id, 0)
         if sozlar_soni:
             natija["sozlar_soni"] = sozlar_soni
@@ -452,45 +458,46 @@ class KursTugunTugallandiView(APIView):
         return Response({"tugallandimi": True})
 
 
+KITOB_KALITLARI = ("students_book", "workbook")
+
+
 def _unit_bolimlari(tugun):
-    """Kontent yuklanadigan bo'limlarni (`mashqlar`, `vocabulary`) KALIT
-    bo'yicha qaytaradi — nomi bo'yicha emas (2026-07-28: nomlar 3 tilda
+    """`{"mashqlar": kitob, "vocabulary": vocab}` ko'rinishida qaytaradi —
+    KALIT bo'yicha, nomi bo'yicha emas (2026-07-28: nomlar 3 tilda
     ko'rsatiladi, shuning uchun ular kalit bo'la olmaydi).
 
-    2026-07-28 tuzilma o'zgarishi: bo'limlar endi Unit ostida EMAS,
-    kitob (Student's Book / Workbook) ostida turadi. Shuning uchun bu
-    endpointlar KITOB tugunini kutadi.
-
-    Unit tuguni berilsa — Student's Book'ga tushamiz. Sabab: eski kontent
-    aynan o'sha yerga ko'chirilgan va brauzerda keshlangan eski JS hali
-    Unit id bilan so'rov yuborishi mumkin — bunday so'rov xato bermay,
-    to'g'ri joyga tushsin."""
-    bolalar = list(KursTugun.objects.filter(parent=tugun))
-    bolimlar = {b.kalit: b for b in bolalar if b.kalit in ("mashqlar", "vocabulary")}
-    if bolimlar:
-        return bolimlar
-    kitob = next((b for b in bolalar if b.kalit == "students_book"), None)
-    if kitob:
-        return {b.kalit: b for b in KursTugun.objects.filter(parent=kitob)
-                if b.kalit in ("mashqlar", "vocabulary")}
-    return {}
+    2026-08-19 qayta qurildi: "Mashqlar" oraliq qatlami olib tashlandi —
+    kitob (Student's Book/Workbook) o'zi mashqlar tuguni, Vocabulary esa
+    endi kitob ICHIDA emas, Unit darajasida ikkala kitobga UMUMIY
+    (`unit_qurish.py`ga qarang). `tugun` sifatida kitobning o'zi YOKI
+    Unit berilishi mumkin — Unit berilsa Student's Book'ga tushamiz (eski
+    keshlangan JS moslik uchun)."""
+    if tugun.kalit in KITOB_KALITLARI:
+        kitob, unit = tugun, tugun.parent
+    elif tugun.unit_darsi:
+        kitob = KursTugun.objects.filter(parent=tugun, kalit="students_book").first()
+        unit = tugun
+    else:
+        return {}
+    if not kitob:
+        return {}
+    natija = {"mashqlar": kitob}
+    if unit:
+        vocab = KursTugun.objects.filter(parent=unit, kalit="vocabulary").first()
+        if vocab:
+            natija["vocabulary"] = vocab
+    return natija
 
 
 def _unit_boshmi(unit):
-    """Unit BUTUNLAY bo'shmi (o'chirish xavfsizmi).
-
-    `_unit_bolimlari` faqat BITTA kitobni tekshiradi (u Unit berilsa
-    Student's Book'ga tushadi) — bu yerda esa Unit'ning IKKALA kitobi
-    (Student's Book VA Workbook) ko'riladi, aks holda Workbook'dagi
-    kontent payqalmay o'chirilib ketishi mumkin edi."""
-    for kitob in KursTugun.objects.filter(parent=unit):
-        bolalar = _unit_bolimlari(kitob)
-        mashq_tugun = bolalar.get("mashqlar")
-        vocab_tugun = bolalar.get("vocabulary")
-        if mashq_tugun and mashq_tugun.mashqlar.exists():
+    """Unit BUTUNLAY bo'shmi (o'chirish xavfsizmi) — Student's Book,
+    Workbook va umumiy Vocabulary (ikkala manba ham) tekshiriladi."""
+    for kitob in KursTugun.objects.filter(parent=unit, kalit__in=KITOB_KALITLARI):
+        if kitob.mashqlar.exists():
             return False
-        if vocab_tugun and (vocab_tugun.sozlar.exists() or vocab_tugun.matn):
-            return False
+    vocab = KursTugun.objects.filter(parent=unit, kalit="vocabulary").first()
+    if vocab and (vocab.sozlar.exists() or vocab.matn or vocab.matn_workbook):
+        return False
     return True
 
 
@@ -658,6 +665,7 @@ def _tugun_eksport_qil(tugun, zf, fayllar_indeksi):
         "tez_kunda": tugun.tez_kunda,
         "unit_darsi": tugun.unit_darsi,
         "matn": tugun.matn,
+        "matn_workbook": tugun.matn_workbook,
         "fayl": fayl_qosh(tugun.fayl) if tugun.fayl else None,
         "children": [
             _tugun_eksport_qil(bola, zf, fayllar_indeksi)
@@ -683,10 +691,29 @@ def _tugun_eksport_qil(tugun, zf, fayllar_indeksi):
             for m in tugun.mashqlar.order_by("tartib", "id")
         ],
         "sozlar": [
-            {"tartib": s.tartib, "en": s.en, "uz": s.uz, "turkum": s.turkum, "misol": s.misol}
+            {
+                "tartib": s.tartib, "en": s.en, "uz": s.uz, "turkum": s.turkum,
+                "misol": s.misol, "manba": s.manba,
+            }
             for s in tugun.sozlar.order_by("tartib", "id")
         ],
     }
+    # 2026-08-19: Vocabulary endi Unit darajasida UMUMIY (Student's
+    # Book/Workbook'ning farzandi emas, birodari) — shuning uchun bitta
+    # kitobni ALOHIDA eksport qilganda uning o'z manbasiga tegishli
+    # Vocabulary ulushi (matn + so'zlar) daraxtga QOSHIMCHA kalitlar
+    # sifatida qo'shib qo'yiladi, aks holda kitob ZIP'i vocab'ni
+    # umuman olib ketmasdi. Import (`_tugun_import_qil`) shu kalitlarni
+    # o'qib, umumiy Vocabulary tuguniga manba bo'yicha yozadi.
+    if tugun.kalit in KITOB_KALITLARI and tugun.parent_id:
+        vocab = KursTugun.objects.filter(parent_id=tugun.parent_id, kalit="vocabulary").first()
+        if vocab:
+            matn_maydoni = "matn" if tugun.kalit == "students_book" else "matn_workbook"
+            natija["kitob_vocab_matn"] = getattr(vocab, matn_maydoni)
+            natija["kitob_vocab_sozlar"] = [
+                {"tartib": s.tartib, "en": s.en, "uz": s.uz, "turkum": s.turkum, "misol": s.misol}
+                for s in vocab.sozlar.filter(manba=tugun.kalit).order_by("tartib", "id")
+            ]
     return natija
 
 
@@ -765,6 +792,7 @@ def _tugun_import_qil(daraxt, ota, markaz, zf):
     tugun.tez_kunda = daraxt["tez_kunda"]
     tugun.unit_darsi = daraxt["unit_darsi"]
     tugun.matn = daraxt["matn"]
+    tugun.matn_workbook = daraxt.get("matn_workbook", "")
     if daraxt["fayl"]:
         nomi, tarkib = fayl_ol(daraxt["fayl"])
         tugun.fayl.save(nomi, tarkib, save=False)
@@ -808,12 +836,39 @@ def _tugun_import_qil(daraxt, ota, markaz, zf):
         KursSoz(
             tugun=tugun, tartib=s["tartib"], en=s["en"], uz=s["uz"],
             turkum=s["turkum"], misol=s["misol"],
+            manba=s.get("manba", KursSoz.Manba.STUDENTS_BOOK),
         )
         for s in daraxt["sozlar"]
     ])
 
     for bola in daraxt["children"]:
         _tugun_import_qil(bola, tugun, markaz, zf)
+
+    # 2026-08-19: kitob (Student's Book/Workbook) ZIP'i ALOHIDA import
+    # qilinganda — `_tugun_eksport_qil`da qo'shilgan `kitob_vocab_*`
+    # kalitlaridan umumiy Vocabulary tuguniga (Unit darajasida, kitob
+    # bilan bir birodar) shu kitobning manba-ulushi yoziladi. Butun
+    # Unit import qilinganda ham ishlaydi (Vocabulary allaqachon o'z
+    # farzand-yo'li orqali to'g'ri tiklangan bo'ladi — bu blok faqat
+    # bir xil qiymatlarni qayta yozadi, ziddiyat yo'q).
+    if tugun.kalit in KITOB_KALITLARI and (
+        "kitob_vocab_matn" in daraxt or "kitob_vocab_sozlar" in daraxt
+    ):
+        vocab, _ = KursTugun.objects.get_or_create(
+            kalit="vocabulary", parent=ota, markaz=markaz,
+            defaults={"nomi": "Vocabulary", "tartib": 3},
+        )
+        matn_maydoni = "matn" if tugun.kalit == "students_book" else "matn_workbook"
+        setattr(vocab, matn_maydoni, daraxt.get("kitob_vocab_matn") or "")
+        vocab.save(update_fields=[matn_maydoni])
+        vocab.sozlar.filter(manba=tugun.kalit).delete()
+        KursSoz.objects.bulk_create([
+            KursSoz(
+                tugun=vocab, tartib=s["tartib"], en=s["en"], uz=s["uz"],
+                turkum=s.get("turkum", ""), misol=s.get("misol", ""), manba=tugun.kalit,
+            )
+            for s in daraxt.get("kitob_vocab_sozlar") or []
+        ])
 
     return tugun
 
@@ -903,15 +958,17 @@ class KursUnitTozalashView(APIView):
     foydalanuvchi talabi — qayta yuklashdan oldin eskisini tozalash
     uchun; 2026-08-19 yangilandi).
 
-    2026-08-19, HAQIQIY XATO: avval faqat "mashqlar"/"vocabulary"
-    tugunlarining ICHIDAGI kontentini (mashq/so'z yozuvlarini) tozalar
-    edi, lekin TUGUNLARNING O'ZI (jumladan noto'g'ri import natijasida
-    paydo bo'lgan begona farzand tugunlar — masalan Student's Book
-    ichiga xato tushib qolgan butun bir Unit) qolib ketardi. Endi
-    "Tozalash" kitobning BARCHA farzandlarini (qanday tuzilishda
-    bo'lishidan qat'iy nazar) to'liq o'chirib, so'ng toza
-    "Mashqlar"/"Vocabulary" tugunlarini QAYTADAN yaratadi — shu bilan
-    tasodifiy buzilgan tuzilma ham tuzatiladi.
+    2026-08-19 (2): Vocabulary Unit darajasida UMUMIY bo'lgani uchun
+    (Student's Book/Workbook o'rtasida ulashiladi) — kitobni tozalash
+    endi Vocabulary'ni BUTUNLAY o'chirmaydi, faqat SHU kitobga tegishli
+    ulushini (`KursSoz.manba`, `matn`/`matn_workbook`) tozalaydi. Boshqa
+    kitobning so'zlari/matni tegilmay qoladi.
+
+    2026-08-19, avvalgi tuzatish: "Tozalash" kitobning BARCHA
+    farzandlarini (import xatosi natijasida paydo bo'lgan begona
+    tugunlar ham) to'liq o'chiradi — endi kitob o'zi "oxirgi qatlam"
+    (farzandsiz, mashqlar bevosita unga biriktiriladi), shuning uchun
+    har qanday farzand begona hisoblanadi.
 
     2026-07-30: ATAYLAB tugallanmagan blok-ZIP jarayoniga TEGMAYDI — bu
     ikkita MUSTAQIL amal (foydalanuvchi aniq ajratdi): "Tozalash" faqat
@@ -922,8 +979,6 @@ class KursUnitTozalashView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, pk):
-        from .unit_qurish import UNIT_BOLIMLARI
-
         if not _mashq_admin_mi(request.user):
             return Response({"detail": "Faqat admin/owner uchun"}, status=403)
         tugun = get_object_or_404(KursTugun, pk=pk)
@@ -931,26 +986,33 @@ class KursUnitTozalashView(APIView):
         # `tugun` kitob (Student's Book/Workbook) bo'lsa — o'shani
         # tozalaymiz. Unit'ning o'zi berilgan bo'lsa (eski keshlangan
         # JS yoki Unit darajasida chaqirilsa) — ikkala kitobini ham.
-        if tugun.kalit in ("students_book", "workbook"):
+        if tugun.kalit in KITOB_KALITLARI:
             kitoblar = [tugun]
+            unit = tugun.parent
         else:
-            kitoblar = list(tugun.children.filter(kalit__in=("students_book", "workbook")))
+            kitoblar = list(tugun.children.filter(kalit__in=KITOB_KALITLARI))
+            unit = tugun
+
+        vocab = KursTugun.objects.filter(parent=unit, kalit="vocabulary").first() if unit else None
 
         mashqlar_soni = 0
         sozlar_soni = 0
         begona_tugunlar = 0
 
         for kitob in kitoblar:
-            for farzand in kitob.children.all():
-                mashqlar_soni += KursMashq.objects.filter(tugun__in=_shox_idlari(farzand)).count()
-                sozlar_soni += KursSoz.objects.filter(tugun__in=_shox_idlari(farzand)).count()
-                if farzand.kalit not in ("mashqlar", "vocabulary"):
-                    begona_tugunlar += 1
-            kitob.children.all().delete()
-            for j, (b_kalit, b_nomi) in enumerate(UNIT_BOLIMLARI, start=1):
-                KursTugun.objects.create(
-                    kalit=b_kalit, nomi=b_nomi, parent=kitob, markaz=kitob.markaz, tartib=j,
-                )
+            begona_tugunlar += kitob.children.count()
+            mashqlar_soni += KursMashq.objects.filter(tugun__in=_shox_idlari(kitob)).count()
+            kitob.children.all().delete()  # begona (import xatosi) tugunlar — kaskad, ichidagi mashqlar bilan
+            kitob.mashqlar.all().delete()  # kitobning bevosita mashqlari
+
+            if vocab:
+                manba = kitob.kalit
+                sozlar_soni += vocab.sozlar.filter(manba=manba).count()
+                vocab.sozlar.filter(manba=manba).delete()
+                matn_maydoni = "matn" if manba == "students_book" else "matn_workbook"
+                if getattr(vocab, matn_maydoni):
+                    setattr(vocab, matn_maydoni, "")
+                    vocab.save(update_fields=[matn_maydoni])
 
         natija = {
             "mashqlar_ochirildi": mashqlar_soni,
@@ -1149,6 +1211,14 @@ class KursUnitYuklashView(APIView):
             )
 
         natija = {}
+        # 2026-08-19: Vocabulary Unit darajasida umumiy — bu tugma qaysi
+        # kitob (Student's Book/Workbook) ustida chaqirilgan bo'lsa,
+        # shu manba bo'yicha yoziladi (kitob o'zi bo'lmasa, Unit
+        # berilganda ham ishlaydigan qoidaga ko'ra Student's Book).
+        manba = bolalar["mashqlar"].kalit
+        if manba not in KITOB_KALITLARI:
+            manba = "students_book"
+        matn_maydoni = "matn" if manba == "students_book" else "matn_workbook"
 
         if mashqlar:
             if not isinstance(mashqlar, list):
@@ -1174,15 +1244,19 @@ class KursUnitYuklashView(APIView):
         if vocabulary_matn:
             if not isinstance(vocabulary_matn, str):
                 return Response({"detail": "'vocabulary_matn' matn bo'lishi kerak"}, status=400)
-            vocab_tugun = bolalar["vocabulary"]
-            vocab_tugun.matn = vocabulary_matn
-            vocab_tugun.save(update_fields=["matn"])
+            vocab_tugun = bolalar.get("vocabulary")
+            if not vocab_tugun:
+                return Response({"detail": "Bu Unit'da Vocabulary bo'limi topilmadi"}, status=400)
+            setattr(vocab_tugun, matn_maydoni, vocabulary_matn)
+            vocab_tugun.save(update_fields=[matn_maydoni])
             natija["vocabulary_matn_qoshildi"] = True
 
         if wordlist:
             if not isinstance(wordlist, list):
                 return Response({"detail": "'wordlist' massiv bo'lishi kerak"}, status=400)
-            vocab_tugun = bolalar["vocabulary"]
+            vocab_tugun = bolalar.get("vocabulary")
+            if not vocab_tugun:
+                return Response({"detail": "Bu Unit'da Vocabulary bo'limi topilmadi"}, status=400)
             boshlangich = vocab_tugun.sozlar.count()
             yangi_sozlar = []
             for i, s in enumerate(wordlist, start=1):
@@ -1196,6 +1270,7 @@ class KursUnitYuklashView(APIView):
                         uz=s["uz"],
                         turkum=s.get("turkum", ""),
                         misol=s.get("misol", ""),
+                        manba=manba,
                     )
                 )
             KursSoz.objects.bulk_create(yangi_sozlar)
@@ -1291,6 +1366,8 @@ class KursZipYuklashView(APIView):
 
         mashq_tugun = bolalar["mashqlar"]
         vocab_tugun = bolalar["vocabulary"]
+        manba = mashq_tugun.kalit if mashq_tugun.kalit in KITOB_KALITLARI else "students_book"
+        matn_maydoni = "matn" if manba == "students_book" else "matn_workbook"
 
         # === 1-BOSQICH: barcha sahifani tahlil qilish (hali bazaga yozmasdan) ===
         xato_sahifalar = []
@@ -1353,14 +1430,15 @@ class KursZipYuklashView(APIView):
                             uz=s["uz"],
                             turkum=s.get("turkum", ""),
                             misol=s.get("misol", ""),
+                            manba=manba,
                         )
                     )
             # "javob_kaliti" turi — bazaga alohida yozilmaydi, faqat yuqorida
             # savollarga qo'llanildi.
 
         if grammar_matnlari:
-            vocab_tugun.matn = "\n\n".join(grammar_matnlari)
-            vocab_tugun.save(update_fields=["matn"])
+            setattr(vocab_tugun, matn_maydoni, "\n\n".join(grammar_matnlari))
+            vocab_tugun.save(update_fields=[matn_maydoni])
         if yangi_sozlar:
             KursSoz.objects.bulk_create(yangi_sozlar)
 

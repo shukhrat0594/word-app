@@ -367,24 +367,28 @@ class KursMashqRasmdanQoshishView(APIView):
 def _sozlarni_saqla(mashq_tugun, sozlar):
     """AI aniqlagan Wordlist so'zlarini (2026-08-03, foydalanuvchi talabi:
     "wordlistdagi so'zlar vocabulary'ga o'tishi kerak") shu Unit'ning
-    "vocabulary" bo'limiga qo'shadi — mavjudlarga QO'SHILADI (append),
-    `KursUnitYuklashView`dagi qo'lda "wordlist" bilan bir xil qoida.
+    umumiy "vocabulary" bo'limiga qo'shadi — mavjudlarga QO'SHILADI
+    (append), `KursUnitYuklashView`dagi qo'lda "wordlist" bilan bir xil
+    qoida.
 
-    `mashq_tugun` — mashqlar (oxirgi qatlam) tuguni, uning ota-tuguni
-    (kitob — Student's Book/Workbook) ostida "vocabulary" birodar tugun
-    bor deb kutiladi (`unit_qurish.UNIT_BOLIMLARI`). Topilmasa (masalan
+    `mashq_tugun` — kitob (Student's Book/Workbook) tuguni, mashqlar
+    endi bevosita shunga biriktiriladi (2026-08-19dan "Mashqlar" oraliq
+    qatlami yo'q). Vocabulary Unit darajasida UMUMIY — so'zlar
+    `manba=mashq_tugun.kalit` bilan belgilanadi, shunda "Tozalash" faqat
+    shu kitobning ulushini o'chiradi. Vocabulary topilmasa (masalan
     eski/qattiq tuzilmadagi bo'lim) — jimgina o'tkazib yuboriladi, xato
     chiqarilmaydi (Wordlist so'zlari ixtiyoriy qo'shimcha, asosiy mashq
     saqlanishini to'sib qo'ymasligi kerak)."""
     if not sozlar:
         return 0
-    bolalar = _unit_bolimlari(mashq_tugun.parent) if mashq_tugun.parent_id else {}
+    bolalar = _unit_bolimlari(mashq_tugun)
     vocab_tugun = bolalar.get("vocabulary")
     if not vocab_tugun:
         return 0
+    manba = mashq_tugun.kalit if mashq_tugun.kalit in ("students_book", "workbook") else "students_book"
     boshlangich = vocab_tugun.sozlar.count()
     yangilar = [
-        KursSoz(tugun=vocab_tugun, tartib=boshlangich + i, en=s["en"], uz=s["uz"])
+        KursSoz(tugun=vocab_tugun, tartib=boshlangich + i, en=s["en"], uz=s["uz"], manba=manba)
         for i, s in enumerate(sozlar, start=1)
         if s.get("en") and s.get("uz")
     ]
