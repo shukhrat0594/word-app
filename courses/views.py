@@ -714,7 +714,28 @@ class KursEksportView(APIView):
             zf.writestr("data.json", json.dumps(daraxt, ensure_ascii=False, indent=1))
         bufer.seek(0)
 
-        fayl_nomi = f"kurslar_{tugun.kalit or tugun.id}_eksport.zip"
+        # 2026-08-19, foydalanuvchi talabi: "Saqlash" bosilganda barcha
+        # Unitlar bir xil nom bilan (masalan "kurslar_students_book_
+        # eksport.zip") saqlanardi -- chunki Saqlash endi Unit darajasida
+        # ham, Student's Book/Workbook darajasida ham ishlaydi, va
+        # "students_book"/"workbook" kaliti barcha Unitlarda BIR XIL.
+        # Endi fayl nomi tugundan ILDIZGACHA bo'lgan BUTUN yo'lni o'z
+        # ichiga oladi (masalan "beginner_unit_3-students_book"), shuning
+        # uchun qaysi Unit ekani fayl nomining o'zidan ko'rinadi.
+        # "kurslar-ingliz_tili-beginner-" kabi umumiy old qismni cho'zib
+        # o'tirmaslik uchun — eng yaqin Unit tugunidan (unit_darsi=True)
+        # boshlab yo'l quramiz, topilmasa (masalan IELTS bo'limlarida
+        # unit_darsi belgisi yo'q) BUTUN yo'lga qaytamiz.
+        zanjir = []
+        node = tugun
+        while node:
+            zanjir.append(node)
+            node = node.parent
+        zanjir.reverse()
+        boshlanish = next((i for i, n in enumerate(zanjir) if n.unit_darsi), 0)
+        yol_qismlari = [n.kalit for n in zanjir[boshlanish:] if n.kalit]
+        yol = "-".join(yol_qismlari) or str(tugun.id)
+        fayl_nomi = f"kurslar_{yol}_eksport.zip"
         javob = HttpResponse(bufer.read(), content_type="application/zip")
         javob["Content-Disposition"] = f'attachment; filename="{fayl_nomi}"'
         return javob
