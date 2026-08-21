@@ -149,6 +149,8 @@ a.logo:hover .logo-nom { color: var(--sariq); }
    talabi) — havola DOM'da qoladi, lekin bosilmaydigan ko'rinishga o'tadi. */
 .nav-tugma.nofaol { opacity: .4; cursor: not-allowed; }
 .nav-tugma.nofaol:hover { background: none; color: #CFCCC4; }
+.nav-yigish-tugmasi { background: var(--sariq); color: #2B2A28; font-weight: 600; }
+.nav-yigish-tugmasi:hover { background: var(--sariq); color: #2B2A28; opacity: .85; }
 .nav-ikon { width: 20px; text-align: center; flex-shrink: 0; }
 
 .asosiy { flex: 1; display: flex; flex-direction: column; min-width: 0; height: 100vh; overflow-y: auto; }
@@ -486,6 +488,12 @@ input.imtihon-bosh-joy { font: inherit; font-size: 12.5px; text-align: center; }
 @media (max-width: 640px) {
   .oyin-modal { padding: 16px; max-height: 92vh; }
 }
+.tasdiq-modal {
+  background: var(--sirt); border-radius: 14px; padding: 24px 28px;
+  max-width: 360px; width: 100%; box-shadow: 0 10px 40px rgba(0, 0, 0, .35);
+  text-align: center;
+}
+.tasdiq-modal p { margin: 0 0 18px; font-size: 15px; font-weight: 600; }
 .oyin-grid {
   display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px; max-width: 420px; margin: 0 auto;

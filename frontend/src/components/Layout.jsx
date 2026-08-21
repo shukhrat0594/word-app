@@ -292,6 +292,10 @@ export default function Layout() {
   // bir xil g'oyada, lekin bu FAQAT menyu bandlarining pastki qismini
   // yashiradi/ko'rsatadi.
   const [qolganPanellarOchiq, setQolganPanellarOchiq] = useState(false);
+  // 2026-08-21, foydalanuvchi talabi: "Chiqish" bosilganda brauzerning
+  // standart confirm() oynasi emas, saytning o'z ichidagi kichik modal
+  // oynasi chiqsin — "Ha" saytdan chiqaradi, "Yo'q" oynani yopadi.
+  const [chiqishTasdiqOchiq, setChiqishTasdiqOchiq] = useState(false);
   // 2026-08-18, foydalanuvchi talabi: yon panelni YIG'IB qo'yish (ekran
   // joyi kengaysin), keyin qaytarish uchun alohida tugma. Tanlov
   // localStorage'da saqlanadi — har sahifa yangilanganda qayta yig'ish
@@ -410,6 +414,10 @@ export default function Layout() {
       window.alert(t("test_faol_navigatsiya_yoq"));
       return;
     }
+    setChiqishTasdiqOchiq(true);
+  }
+
+  function chiqishniTasdiqla() {
     tokenlarniTozala();
     navigate("/login");
   }
@@ -538,6 +546,21 @@ export default function Layout() {
         </main>
         <IjtimoiyPanel havolalar={profil?.markaz?.ijtimoiy} />
       </div>
+      {chiqishTasdiqOchiq && (
+        <div className="oyin-modal-fon" onClick={() => setChiqishTasdiqOchiq(false)}>
+          <div className="tasdiq-modal" onClick={(e) => e.stopPropagation()}>
+            <p>{t("chiqish_tasdiq")}</p>
+            <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
+              <button className="tugma ikkinchi" onClick={() => setChiqishTasdiqOchiq(false)}>
+                {t("yoq")}
+              </button>
+              <button className="tugma" onClick={chiqishniTasdiqla}>
+                {t("ha")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
