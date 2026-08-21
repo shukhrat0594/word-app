@@ -9,6 +9,23 @@ import { useEffect, useState } from "react";
  * savollarga ishlaydi, so'z juftlariga bog'liq emas, shuning uchun Wordlist
  * kontekstiga mos kelmaydi; Oyinlar.jsx'da o'zicha qoladi. */
 
+/** O'yin davomida (natija ekranigacha) ham yopish imkoni bo'lishi
+ * uchun kichik tugma (2026-08-21, foydalanuvchi talabi — avval faqat
+ * natija ekranida "Boshqa daraja" bor edi, o'rtada chiqib ketish uchun
+ * "Games"ga qayta bosish kerak edi). */
+function YopishTugmasi({ onBoshqaDaraja, t }) {
+  return (
+    <button
+      className="oyin-yopish"
+      onClick={onBoshqaDaraja}
+      title={t("yopish")}
+      aria-label={t("yopish")}
+    >
+      ✕
+    </button>
+  );
+}
+
 export function shuffle(arr) {
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) {
@@ -18,6 +35,12 @@ export function shuffle(arr) {
   return a;
 }
 
+// 2026-08-21, foydalanuvchi talabi: "Barcha Unitlar" rejimida so'zlar
+// soni 100+ ga yetishi mumkin — hammasi BITTA katta panelda chiqsa
+// o'yin qiyin/chalkash bo'lib qolardi. Endi har turda TASODIFIY 8 ta
+// so'z (16 karta = 4x4 panel) tanlanadi.
+const JUFTLAR_SONI = 8;
+
 export function JuftiniTopOyini({ sozlar, t, onQaytaOynash, onBoshqaDaraja }) {
   const [kartalar, setKartalar] = useState([]);
   const [ochiq, setOchiq] = useState([]);
@@ -26,7 +49,8 @@ export function JuftiniTopOyini({ sozlar, t, onQaytaOynash, onBoshqaDaraja }) {
   const [band, setBand] = useState(false);
 
   useEffect(() => {
-    const juftlar = sozlar.flatMap((s) => [
+    const shuTur = shuffle(sozlar).slice(0, JUFTLAR_SONI);
+    const juftlar = shuTur.flatMap((s) => [
       { kalit: `en-${s.id}`, sozId: s.id, matn: s.en },
       { kalit: `uz-${s.id}`, sozId: s.id, matn: s.uz },
     ]);
@@ -34,6 +58,7 @@ export function JuftiniTopOyini({ sozlar, t, onQaytaOynash, onBoshqaDaraja }) {
     setOchiq([]);
     setTopilgan([]);
     setHarakat(0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sozlar]);
 
   function bosildi(kalit) {
@@ -77,9 +102,12 @@ export function JuftiniTopOyini({ sozlar, t, onQaytaOynash, onBoshqaDaraja }) {
         </div>
       ) : (
         <>
-          <p className="izoh" style={{ marginBottom: 12 }}>
-            {t("harakat_soni")}: {harakat}
-          </p>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+            <p className="izoh" style={{ margin: 0 }}>
+              {t("harakat_soni")}: {harakat}
+            </p>
+            <YopishTugmasi onBoshqaDaraja={onBoshqaDaraja} t={t} />
+          </div>
           <div className="oyin-grid">
             {kartalar.map((k) => {
               const ochilganmi = ochiq.includes(k.kalit) || topilgan.includes(k.kalit);
@@ -105,14 +133,18 @@ export function JuftiniTopOyini({ sozlar, t, onQaytaOynash, onBoshqaDaraja }) {
 }
 
 export function FlashcardOyini({ sozlar, t, onBoshqaDaraja }) {
+  // 2026-08-21, foydalanuvchi talabi: so'zlar ketma-ketligi HAR SAFAR
+  // (backenddan kelgan `tartib`) emas, tasodifiy bo'lsin — bir marta
+  // (mount'da) aralashtirilib, o'yin davomida shu tartibda qoladi.
+  const [tartiblanganSozlar] = useState(() => shuffle(sozlar));
   const [i, setI] = useState(0);
   const [ochiq, setOchiq] = useState(false);
 
-  const soz = sozlar[i];
+  const soz = tartiblanganSozlar[i];
 
   function keyingi() {
     setOchiq(false);
-    setI((x) => Math.min(x + 1, sozlar.length - 1));
+    setI((x) => Math.min(x + 1, tartiblanganSozlar.length - 1));
   }
   function oldingi() {
     setOchiq(false);
@@ -123,11 +155,22 @@ export function FlashcardOyini({ sozlar, t, onBoshqaDaraja }) {
 
   return (
     <div className="karta" style={{ textAlign: "center" }}>
-      <p className="izoh">
-        {i + 1} / {sozlar.length}
-      </p>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <p className="izoh" style={{ margin: 0 }}>
+          {i + 1} / {tartiblanganSozlar.length}
+        </p>
+        <YopishTugmasi onBoshqaDaraja={onBoshqaDaraja} t={t} />
+      </div>
       <div className="flashcard-sahna">
+        {/* 2026-08-21, foydalanuvchi talabi: "Keyingisi" bosilganda
+            kartochka aylanib (flip animatsiyasi bilan) emas, TO'G'RIDAN-
+            TO'G'RI keyingi so'zga o'tsin. `key={i}` bilan har so'zda
+            butunlay YANGI DOM elementi yaratiladi — eskisi "aylangan"
+            holatdan CSS `transition` orqali qaytmaydi, chunki undan
+            umuman VORIS emas (o'tish animatsiyasi faqat bitta elementning
+            o'zgargan holatiga tegishli, yangisiga emas). */}
         <div
+          key={i}
           className={"flashcard" + (ochiq ? " aylangan" : "")}
           onClick={() => setOchiq(!ochiq)}
         >
@@ -144,11 +187,11 @@ export function FlashcardOyini({ sozlar, t, onBoshqaDaraja }) {
         <button className="tugma ikkinchi" onClick={oldingi} disabled={i === 0}>
           {t("oldingi")}
         </button>
-        <button className="tugma" onClick={keyingi} disabled={i === sozlar.length - 1}>
+        <button className="tugma" onClick={keyingi} disabled={i === tartiblanganSozlar.length - 1}>
           {t("keyingi")}
         </button>
       </div>
-      {i === sozlar.length - 1 && (
+      {i === tartiblanganSozlar.length - 1 && (
         <button className="tugma ikkinchi" style={{ marginTop: 12 }} onClick={onBoshqaDaraja}>
           {t("boshqa_daraja")}
         </button>
@@ -159,19 +202,21 @@ export function FlashcardOyini({ sozlar, t, onBoshqaDaraja }) {
 
 export function SpeedQuizOyini({ sozlar, t, onQaytaOynash, onBoshqaDaraja }) {
   const SONIYA = 10;
+  // 2026-08-21, foydalanuvchi talabi: so'zlar tartibi tasodifiy bo'lsin.
+  const [tartiblanganSozlar] = useState(() => shuffle(sozlar));
   const [i, setI] = useState(0);
   const [variantlar, setVariantlar] = useState([]);
   const [tanlangan, setTanlangan] = useState(null);
   const [ball, setBall] = useState(0);
   const [qoldi, setQoldi] = useState(SONIYA);
 
-  const soz = sozlar[i];
-  const tugadi = i >= sozlar.length;
+  const soz = tartiblanganSozlar[i];
+  const tugadi = i >= tartiblanganSozlar.length;
 
   useEffect(() => {
     if (tugadi) return;
     const notogrilar = shuffle(
-      sozlar.filter((s) => s.id !== soz.id).map((s) => s.uz)
+      tartiblanganSozlar.filter((s) => s.id !== soz.id).map((s) => s.uz)
     ).slice(0, 3);
     setVariantlar(shuffle([soz.uz, ...notogrilar]));
     setTanlangan(null);
@@ -189,14 +234,22 @@ export function SpeedQuizOyini({ sozlar, t, onQaytaOynash, onBoshqaDaraja }) {
     return () => clearTimeout(timer);
   }, [qoldi, tanlangan, tugadi]);
 
+  function keyingi() {
+    setI((x) => x + 1);
+  }
+
+  // 2026-08-21, foydalanuvchi talabi: javob TO'G'RI bo'lsa — 2 soniyadan
+  // keyin AVTOMATIK keyingi savolga o'tadi, "Keyingisi" tugmasi bu vaqtda
+  // umuman ko'rsatilmaydi (chalg'itmasin). Javob NOTO'G'RI (yoki vaqt
+  // tugab bo'sh qoldirilgan) bo'lsa — avtomatik o'tmaydi, talaba o'zi
+  // "Keyingisi" tugmasini bosishi kerak (to'g'ri javobni ko'rib olsin).
   function javobBer(variant) {
     if (tanlangan) return;
     setTanlangan(variant);
-    if (variant === soz.uz) setBall((b) => b + 1);
-  }
-
-  function keyingi() {
-    setI((x) => x + 1);
+    if (variant === soz.uz) {
+      setBall((b) => b + 1);
+      setTimeout(keyingi, 2000);
+    }
   }
 
   if (tugadi) {
@@ -204,7 +257,7 @@ export function SpeedQuizOyini({ sozlar, t, onQaytaOynash, onBoshqaDaraja }) {
       <div className="karta oyin-natija" style={{ textAlign: "center", padding: "20px 0" }}>
         <h3>{t("tabriklaymiz")}</h3>
         <div className="oyin-ball">
-          {ball} / {sozlar.length}
+          {ball} / {tartiblanganSozlar.length}
         </div>
         <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
           <button className="tugma" onClick={onQaytaOynash}>
@@ -222,10 +275,11 @@ export function SpeedQuizOyini({ sozlar, t, onQaytaOynash, onBoshqaDaraja }) {
     <div className="karta">
       <div style={{ display: "flex", justifyContent: "space-between" }}>
         <span className="izoh">
-          {i + 1} / {sozlar.length}
+          {i + 1} / {tartiblanganSozlar.length}
         </span>
         <span className="chip bor">{t("toplangan_ball")}: {ball}</span>
         <span className={"chip " + (qoldi <= 3 ? "tugadi" : "bor")}>{qoldi}s</span>
+        <YopishTugmasi onBoshqaDaraja={onBoshqaDaraja} t={t} />
       </div>
       <div className={"oyin-taymer" + (qoldi <= 3 ? " kam" : "")}>
         <div className="oyin-taymer-ip" style={{ width: `${(qoldi / SONIYA) * 100}%` }} />
@@ -250,7 +304,7 @@ export function SpeedQuizOyini({ sozlar, t, onQaytaOynash, onBoshqaDaraja }) {
           );
         })}
       </div>
-      {tanlangan !== null && (
+      {tanlangan !== null && tanlangan !== soz.uz && (
         <button className="tugma" style={{ marginTop: 16 }} onClick={keyingi}>
           {t("keyingi")}
         </button>
@@ -268,6 +322,8 @@ export function harflargaBol(soz) {
 }
 
 export function UnscrambleOyini({ sozlar, t, onQaytaOynash, onBoshqaDaraja }) {
+  // 2026-08-21, foydalanuvchi talabi: so'zlar tartibi tasodifiy bo'lsin.
+  const [tartiblanganSozlar] = useState(() => shuffle(sozlar));
   const [i, setI] = useState(0);
   const [harflar, setHarflar] = useState([]);
   const [tanlangan, setTanlangan] = useState([]);
@@ -275,8 +331,8 @@ export function UnscrambleOyini({ sozlar, t, onQaytaOynash, onBoshqaDaraja }) {
   const [ball, setBall] = useState(0);
   const [koʻrsatma, setKorsatma] = useState(false);
 
-  const soz = sozlar[i];
-  const tugadi = i >= sozlar.length;
+  const soz = tartiblanganSozlar[i];
+  const tugadi = i >= tartiblanganSozlar.length;
 
   useEffect(() => {
     if (tugadi) return;
@@ -287,10 +343,32 @@ export function UnscrambleOyini({ sozlar, t, onQaytaOynash, onBoshqaDaraja }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [i]);
 
+  // 2026-08-21, foydalanuvchi talabi: "Ko'rsatma" endi tarjimani emas,
+  // BIRINCHI XATO pozitsiyadagi kerakli harfni ko'rsatadi — agar talaba
+  // 1-harfni noto'g'ri tanlagan bo'lsa, xuddi 1-katak belgilanadi va
+  // 1-harf ko'rsatiladi; agar 1-harf to'g'ri-yu 2-harf xato bo'lsa,
+  // 2-katak belgilanadi va h.k. Harf bosgach ko'rsatma o'zi o'chadi —
+  // keyingi harf uchun "Ko'rsatma" tugmasi qayta bosilishi kerak.
+  const togriJavob = soz ? soz.en.toLowerCase() : "";
+  let xatoPozitsiya = tanlangan.length;
+  for (let idx = 0; idx < tanlangan.length; idx++) {
+    if (tanlangan[idx] !== togriJavob[idx]) {
+      xatoPozitsiya = idx;
+      break;
+    }
+  }
+  const keyingiKerakliHarf = koʻrsatma && togriJavob ? togriJavob[xatoPozitsiya] : null;
+  const hintIndeksi =
+    koʻrsatma && keyingiKerakliHarf != null
+      ? harflar.findIndex((h) => h === keyingiKerakliHarf)
+      : -1;
+  const xatoKatakIndeksi = koʻrsatma && xatoPozitsiya < tanlangan.length ? xatoPozitsiya : -1;
+
   function harfBos(idx) {
     if (natija) return;
     setTanlangan((t2) => [...t2, harflar[idx]]);
     setHarflar((h) => h.filter((_, hi) => hi !== idx));
+    setKorsatma(false);
   }
 
   function tozala() {
@@ -305,6 +383,15 @@ export function UnscrambleOyini({ sozlar, t, onQaytaOynash, onBoshqaDaraja }) {
     if (togrimi) setBall((b) => b + 1);
   }
 
+  // 2026-08-21, foydalanuvchi talabi: javob NOTO'G'RI bo'lsa, to'g'ri
+  // javobni darhol ko'rsatib qo'ymasdan, harflarni QAYTADAN aralashtirib
+  // (bir xil so'z bilan) yana urinib ko'rish imkoni beriladi.
+  function qaytaUrin() {
+    setHarflar(harflargaBol(soz.en.toLowerCase()));
+    setTanlangan([]);
+    setNatija(null);
+  }
+
   function keyingi() {
     setI((x) => x + 1);
   }
@@ -314,7 +401,7 @@ export function UnscrambleOyini({ sozlar, t, onQaytaOynash, onBoshqaDaraja }) {
       <div className="karta oyin-natija" style={{ textAlign: "center", padding: "20px 0" }}>
         <h3>{t("tabriklaymiz")}</h3>
         <div className="oyin-ball">
-          {ball} / {sozlar.length}
+          {ball} / {tartiblanganSozlar.length}
         </div>
         <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
           <button className="tugma" onClick={onQaytaOynash}>
@@ -330,12 +417,18 @@ export function UnscrambleOyini({ sozlar, t, onQaytaOynash, onBoshqaDaraja }) {
 
   return (
     <div className="karta" style={{ textAlign: "center" }}>
+      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+        <YopishTugmasi onBoshqaDaraja={onBoshqaDaraja} t={t} />
+      </div>
       <p className="izoh">
-        {i + 1} / {sozlar.length} · {t("toplangan_ball")}: {ball}
+        {i + 1} / {tartiblanganSozlar.length} · {t("toplangan_ball")}: {ball}
       </p>
       <div className="unscramble-javob">
         {tanlangan.map((h, idx) => (
-          <span key={idx} className="unscramble-harf tanlangan">
+          <span
+            key={idx}
+            className={"unscramble-harf tanlangan" + (idx === xatoKatakIndeksi ? " unscramble-hint-xato" : "")}
+          >
             {h}
           </span>
         ))}
@@ -343,37 +436,48 @@ export function UnscrambleOyini({ sozlar, t, onQaytaOynash, onBoshqaDaraja }) {
       </div>
       <div className="unscramble-harflar">
         {harflar.map((h, idx) => (
-          <button key={idx} className="unscramble-harf" onClick={() => harfBos(idx)}>
+          <button
+            key={idx}
+            className={"unscramble-harf" + (idx === hintIndeksi ? " unscramble-hint" : "")}
+            onClick={() => harfBos(idx)}
+          >
             {h}
           </button>
         ))}
       </div>
-      {koʻrsatma && <p className="izoh">{soz.uz}</p>}
-      {natija !== null && (
-        <p className={natija ? "izoh" : "xato-xabar"}>
-          {natija ? t("togri_javob") : soz.en}
-        </p>
+      {/* 2026-08-21, foydalanuvchi talabi: to'g'ri javobda kattaroq
+          matn + animatsiya; noto'g'ri bo'lsa javob DARHOL ochib
+          qo'yilmasdan, qayta urinishga taklif qilinadi. */}
+      {natija === true && (
+        <p className="izoh oyin-togri-xabar">{t("togri_javob")}</p>
+      )}
+      {natija === false && (
+        <p className="xato-xabar oyin-notogri-xabar">{t("qayta_urinib_koring")}</p>
       )}
       <div style={{ display: "flex", gap: 10, justifyContent: "center", marginTop: 12 }}>
-        {!natija && (
+        {natija === null && (
           <>
             <button className="tugma ikkinchi" onClick={tozala} disabled={tanlangan.length === 0}>
               {t("tozalash")}
             </button>
-            <button className="tugma ikkinchi" onClick={() => setKorsatma(true)}>
+            <button
+              className={"tugma ikkinchi" + (koʻrsatma ? " aktiv" : "")}
+              onClick={() => setKorsatma((v) => !v)}
+            >
               {t("korsatma")}
             </button>
-            <button
-              className="tugma"
-              onClick={tekshir}
-              disabled={harflar.length > 0 || !!natija}
-            >
+            <button className="tugma" onClick={tekshir} disabled={harflar.length > 0}>
               {t("tekshir")}
             </button>
           </>
         )}
+        {natija === false && (
+          <button className="tugma" onClick={qaytaUrin}>
+            {t("qayta_urinish")}
+          </button>
+        )}
         {natija !== null && (
-          <button className="tugma" onClick={keyingi}>
+          <button className="tugma ikkinchi" onClick={keyingi}>
             {t("keyingi")}
           </button>
         )}

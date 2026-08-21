@@ -1458,17 +1458,13 @@ function SozlarniYozishMashqi({ sozlar }) {
 }
 
 /** "Vocabulary" bo'limi ko'rinishi (2026-07-27, ikkinchi marta qayta
- * ishlab chiqildi) — Grammar reference + Wordlist BIRLASHTIRILGAN
- * (darslikda BIR sahifada birga keladi): grammatika qisqa xulosasi
- * (bo'lsa) + so'zlarni tarjima yozib mashq qilish + O'yinlar bo'limidagi
- * 4 ta so'z o'yini, FAQAT shu Unit so'zlari bilan. Grammatika testi bu
- * yerga kirmaydi — u gap-asosidagi savollarga ishlaydi, so'z juftlariga
- * bog'liq emas. */
+ * ishlab chiqildi) — grammatika qisqa xulosasi (bo'lsa) + so'zlarni
+ * tarjima yozib mashq qilish. O'yinlar 2026-08-21'dan buyon BU YERDA
+ * emas, Unit'ning alohida "Games" bo'limida (`GamesKorinishi`) — shu
+ * Unit'ning aynan shu so'zlaridan foydalanadi. */
 function VocabularyKorinishi({ tugunId, matn }) {
   const { t } = useI18n();
   const [sozlar, setSozlar] = useState(null);
-  const [oyin, setOyin] = useState(null);
-  const [oyinKey, setOyinKey] = useState(0);
 
   useEffect(() => {
     api(`/api/kurslar/${tugunId}/sozlar/`).then(setSozlar).catch(() => setSozlar([]));
@@ -1476,11 +1472,51 @@ function VocabularyKorinishi({ tugunId, matn }) {
 
   if (!sozlar) return <div className="izoh">{t("yuklanmoqda")}</div>;
 
+  return (
+    <div>
+      {matn && (
+        <div className="mashq-passage" style={{ whiteSpace: "pre-wrap", marginBottom: 12 }}>
+          {matn}
+        </div>
+      )}
+      {sozlar.length === 0 ? (
+        <div className="izoh">{t("kurs_wordlist_yoq")}</div>
+      ) : (
+        <SozlarniYozishMashqi sozlar={sozlar} />
+      )}
+    </div>
+  );
+}
+
+/** "Games" bo'limi ko'rinishi (2026-08-21, foydalanuvchi talabi) —
+ * O'yinlar bo'limidagi 4 ta so'z o'yini, FAQAT shu Unit'ning
+ * Vocabulary'sidagi so'zlar bilan. `vocabTugunId` — birodar Vocabulary
+ * tugunining id'si (bu "games" tuguni o'zi so'z saqlamaydi, o'sha
+ * yerdan o'qiydi — qarang `Tugun` komponentidagi hisoblash). */
+function GamesKorinishi({ vocabTugunId }) {
+  const { t } = useI18n();
+  const [sozlar, setSozlar] = useState(null);
+  const [oyin, setOyin] = useState(null);
+  const [oyinKey, setOyinKey] = useState(0);
+  // 2026-08-21, foydalanuvchi talabi: "faqat shu Unit" / "barcha
+  // Unitlar" (bu Unit + undan OLDINGI Unitlar) vklyuchateli.
+  const [jamlanganMi, setJamlanganMi] = useState(false);
+
+  useEffect(() => {
+    if (!vocabTugunId) {
+      setSozlar([]);
+      return;
+    }
+    setSozlar(null);
+    const soralgan = jamlanganMi ? `?jamlangan=1` : "";
+    api(`/api/kurslar/${vocabTugunId}/sozlar/${soralgan}`).then(setSozlar).catch(() => setSozlar([]));
+  }, [vocabTugunId, jamlanganMi]);
+
+  if (!sozlar) return <div className="izoh">{t("yuklanmoqda")}</div>;
+
   if (oyin) {
     // `key={oyinKey}` — "qayta o'ynash" bosilganda komponent qayta
-    // MOUNT bo'lib, ichki holat (ball, joriy savol) toza boshlanadi;
-    // Oyinlar.jsx'da bu API'dan yangi tasodifiy so'zlar olib erishilardi,
-    // bu yerda so'zlar ro'yxati Unit bo'yicha FIKS, shuning uchun shart emas.
+    // MOUNT bo'lib, ichki holat (ball, joriy savol) toza boshlanadi.
     const qaytaOynash = () => setOyinKey((k) => k + 1);
     const orqaga = () => setOyin(null);
     const Komponent = {
@@ -1502,31 +1538,31 @@ function VocabularyKorinishi({ tugunId, matn }) {
 
   return (
     <div>
-      {matn && (
-        <div className="mashq-passage" style={{ whiteSpace: "pre-wrap", marginBottom: 12 }}>
-          {matn}
-        </div>
-      )}
+      <div className="tab-guruh" style={{ marginBottom: 10 }}>
+        <button className={!jamlanganMi ? "aktiv" : undefined} onClick={() => setJamlanganMi(false)}>
+          {t("kurs_games_shu_unit")}
+        </button>
+        <button className={jamlanganMi ? "aktiv" : undefined} onClick={() => setJamlanganMi(true)}>
+          {t("kurs_games_barcha_unit")}
+        </button>
+      </div>
       {sozlar.length === 0 ? (
         <div className="izoh">{t("kurs_wordlist_yoq")}</div>
       ) : (
-        <>
-          <SozlarniYozishMashqi sozlar={sozlar} />
-          <div className="tanlov-royxat">
-            <button className="tanlov-tugma" onClick={() => setOyin("juftini_top")}>
-              {t("juftini_top")}
-            </button>
-            <button className="tanlov-tugma" onClick={() => setOyin("flashcard")}>
-              {t("flashcard_oyin")}
-            </button>
-            <button className="tanlov-tugma" onClick={() => setOyin("speed_quiz")}>
-              {t("speed_quiz_oyin")}
-            </button>
-            <button className="tanlov-tugma" onClick={() => setOyin("unscramble")}>
-              {t("unscramble_oyin")}
-            </button>
-          </div>
-        </>
+        <div className="tanlov-royxat">
+          <button className="tanlov-tugma" onClick={() => setOyin("juftini_top")}>
+            {t("juftini_top")}
+          </button>
+          <button className="tanlov-tugma" onClick={() => setOyin("flashcard")}>
+            {t("flashcard_oyin")}
+          </button>
+          <button className="tanlov-tugma" onClick={() => setOyin("speed_quiz")}>
+            {t("speed_quiz_oyin")}
+          </button>
+          <button className="tanlov-tugma" onClick={() => setOyin("unscramble")}>
+            {t("unscramble_oyin")}
+          </button>
+        </div>
       )}
     </div>
   );
@@ -1796,7 +1832,7 @@ function EksportImportTugmalari({ tugunId, royxatniYangila }) {
  * ularga to'g'ridan-to'g'ri biriktiriladi, oraliq "Mashqlar" tuguni
  * yo'q), Vocabulary esa ikkala kitobga UMUMIY, Unit'ning uchinchi
  * farzandi sifatida. */
-function Tugun({ tugun, chuqurlik, adminMi, talabaMi, oqituvchiMi, royxatniYangila, otaUnitMi, ochiqmi, onOchish }) {
+function Tugun({ tugun, chuqurlik, adminMi, talabaMi, oqituvchiMi, royxatniYangila, otaUnitMi, birodarVocabId, ochiqmi, onOchish }) {
   const { t } = useI18n();
   // Tugun nomi 3 tilda (2026-07-28) — bazadagi `nomi` o'zgarmaydi, u
   // faqat ZAXIRA: kaliti yo'q tugunlar uchun. `t()` kalit topilmasa
@@ -1902,6 +1938,44 @@ function Tugun({ tugun, chuqurlik, adminMi, talabaMi, oqituvchiMi, royxatniYangi
             </div>
           )}
         </div>
+      );
+    }
+
+    if (unitBolimi === "games") {
+      // 2026-08-21, foydalanuvchi talabi: Games endi akkordeon ichida
+      // emas, TO'LIQ EKRAN modalda ochiladi (kartochka/viktorina uchun
+      // ko'proq joy, boshqa kontent chalg'itmaydi). `mashqOchiq` shu
+      // yerda "modal ochiqmi" degani.
+      return (
+        <>
+          <div className="kurs-qator kurs-qator-oxirgi" style={{ display: "block" }}>
+            <div
+              style={{ paddingLeft: otstup, display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}
+              onClick={() => setMashqOchiq(true)}
+            >
+              <span>{tugun.ikonka}</span>
+              <span style={{ fontWeight: 600 }}>{nomi}</span>
+            </div>
+          </div>
+          {mashqOchiq && (
+            <div className="oyin-modal-fon" onClick={() => setMashqOchiq(false)}>
+              <div className="oyin-modal" onClick={(e) => e.stopPropagation()}>
+                <div className="oyin-modal-bosh">
+                  <span style={{ fontWeight: 700 }}>{nomi}</span>
+                  <button
+                    className="oyin-yopish"
+                    onClick={() => setMashqOchiq(false)}
+                    title={t("yopish")}
+                    aria-label={t("yopish")}
+                  >
+                    ✕
+                  </button>
+                </div>
+                <GamesKorinishi vocabTugunId={birodarVocabId} />
+              </div>
+            </div>
+          )}
+        </>
       );
     }
 
@@ -2080,6 +2154,11 @@ function Tugun({ tugun, chuqurlik, adminMi, talabaMi, oqituvchiMi, royxatniYangi
               talabaMi={talabaMi}
               royxatniYangila={royxatniYangila}
               otaUnitMi={tugun.unit_darsi}
+              // 2026-08-21: "Games" tuguni o'z so'zini saqlamaydi —
+              // birodar "Vocabulary" tugunidan oladi, shuning uchun
+              // Unit o'zining farzandlarini chizayotganda o'sha id'ni
+              // oldindan hisoblab, PASTGA uzatadi.
+              birodarVocabId={tugun.unit_darsi ? tugun.children.find((c) => c.kalit === "vocabulary")?.id : undefined}
               ochiqmi={ochiqBolaId === b.id}
               onOchish={() => setOchiqBolaId((joriy) => (joriy === b.id ? null : b.id))}
             />

@@ -70,15 +70,22 @@ const TALABA_PANELLARI = [
   "/reyting",
 ];
 
+// 2026-08-21: owner menyusida shu sondan KEYINGI bandlar ("AI mashqlari"
+// dan boshlab) "Qolgan bo'limlar" strelkasi ostiga yig'iladi.
+export const OWNER_ASOSIY_SONI = 8;
+
 export const ROL_PANELLARI = {
   // 2026-08-08 talabi: "ownerga hamma panellar ko'rinsin". Avval owner
   // admin ro'yxatini olardi va Davomat/O'yinlar/Tarix/Reyting unga
   // ko'rinmasdi.
+  // 2026-08-21, foydalanuvchi talabi: aniq ketma-ketlik. Birinchi 8 tasi
+  // (Bosh sahifa...IELTS testlari) doim ko'rinadi, qolgan 4 tasi
+  // (`OWNER_ASOSIY_SONI`dan keyingilari) menyudagi "Qolgan bo'limlar"
+  // strelkasi bilan yig'iladi/ochiladi — qarang `Layout()` render qismi.
   owner: [
-    "/", "/guruhlar", "/talabalar", "/xodimlar",
-    "/ielts-boshqarish", "/ai-mashqlari", "/kurslar",
-    "/oyinlar", "/reyting",
-    "/markaz-sozlash", "/foydalanuvchilar", "/hisobotlar",
+    "/", "/hisobotlar", "/guruhlar", "/reyting", "/talabalar", "/xodimlar",
+    "/kurslar", "/ielts-boshqarish",
+    "/ai-mashqlari", "/oyinlar", "/foydalanuvchilar", "/markaz-sozlash",
   ],
   // 2026-07-21: "Mashqlar boshqarish" (bo'lim o'zi ham yopiq), "Davomat"
   // (endi faqat o'qituvchida — u belgilaydi; hisoboti "Hisobotlar"ga
@@ -278,6 +285,13 @@ export default function Layout() {
   const { profil } = useProfil();
   const { testFaol } = useTestRejimi();
   const [menyuOchiq, setMenyuOchiq] = useState(false);
+  // 2026-08-21, foydalanuvchi talabi: owner menyusida birinchi 8 bandi
+  // (Bosh sahifa...IELTS testlari) doim ko'rinadi, qolganlari
+  // ("AI mashqlari"dan boshlab) shu holat bilan yig'ilgan/ochiq —
+  // sarlavha panelini yopib-ochadigan strelka (`panel-yigish`) bilan
+  // bir xil g'oyada, lekin bu FAQAT menyu bandlarining pastki qismini
+  // yashiradi/ko'rsatadi.
+  const [qolganPanellarOchiq, setQolganPanellarOchiq] = useState(false);
   // 2026-08-18, foydalanuvchi talabi: yon panelni YIG'IB qo'yish (ekran
   // joyi kengaysin), keyin qaytarish uchun alohida tugma. Tanlov
   // localStorage'da saqlanadi — har sahifa yangilanganda qayta yig'ish
@@ -330,12 +344,11 @@ export default function Layout() {
   // Menyu QAT'IY rol jadvalidan quriladi (`ROL_PANELLARI`) — "Markazlar"
   // bo'limi ataylab hech bir rolda yo'q (2026-07-21, sahifa/backend
   // joyida), "Faoliyat tarixi" esa alohida bo'lim emas, "Hisobotlar"
-  // ichiga ko'chgan. "/profil" oxirida — u jadvalda emas, chunki HAR
-  // rolga beriladi (`MAJBURIY_PANELLAR`).
-  const navlar = menyuQur(
-    [...rolPanellariOl(profil?.role, profil?.is_owner), "/profil"],
-    profil?.role
-  );
+  // ichiga ko'chgan.
+  // 2026-08-21, foydalanuvchi talabi: "Profil" endi ALOHIDA menyu
+  // bandi sifatida chiqarilmaydi — chap panel yuqorisidagi ism-familiya
+  // (avatar) allaqachon profilga olib boradi, ikkalasi ortiqcha edi.
+  const navlar = menyuQur(rolPanellariOl(profil?.role, profil?.is_owner), profil?.role);
 
   // 2026-08-05, foydalanuvchi qarori: rolga QO'SHIMCHA cheklov — owner
   // yoki admin bu foydalanuvchiga "korinadigan_panellar" belgilagan
@@ -352,6 +365,36 @@ export default function Layout() {
             profil.korinadigan_panellar.includes(n.yol)
         )
       : navlar;
+
+  /** Bitta menyu bandi (NavLink) — owner'ning yig'iladigan qolgan
+   * qismida ham, oddiy ro'yxatda ham bir xil ishlatiladi. */
+  function NavBandi({ n }) {
+    return (
+      <NavLink
+        to={n.yol}
+        end={n.yol === "/"}
+        className={({ isActive }) =>
+          "nav-tugma" + (isActive ? " aktiv" : "") + (testFaol ? " nofaol" : "")
+        }
+        title={testFaol ? t("test_faol_navigatsiya_yoq") : undefined}
+        onClick={(e) => {
+          // 2026-07-30 talabi: test yechilayotganda boshqa bo'limga
+          // o'tish MUMKIN EMAS — havola DOM'da qoladi (fokusdan
+          // chiqib ketmasin), lekin bosilganda hech qayerga
+          // yubormaydi, faqat sababini tushuntiradi.
+          if (testFaol) {
+            e.preventDefault();
+            window.alert(t("test_faol_navigatsiya_yoq"));
+            return;
+          }
+          setMenyuOchiq(false);
+        }}
+      >
+        <span className="nav-ikon">{n.ikon}</span>
+        {t(n.kalit)}
+      </NavLink>
+    );
+  }
 
   function temaAlmash() {
     const r = document.documentElement;
@@ -412,32 +455,29 @@ export default function Layout() {
           «
         </button>
         </div>
-        {yakuniyNavlar.map((n) => (
-          <NavLink
-            key={n.yol}
-            to={n.yol}
-            end={n.yol === "/"}
-            className={({ isActive }) =>
-              "nav-tugma" + (isActive ? " aktiv" : "") + (testFaol ? " nofaol" : "")
-            }
-            title={testFaol ? t("test_faol_navigatsiya_yoq") : undefined}
-            onClick={(e) => {
-              // 2026-07-30 talabi: test yechilayotganda boshqa bo'limga
-              // o'tish MUMKIN EMAS — havola DOM'da qoladi (fokusdan
-              // chiqib ketmasin), lekin bosilganda hech qayerga
-              // yubormaydi, faqat sababini tushuntiradi.
-              if (testFaol) {
-                e.preventDefault();
-                window.alert(t("test_faol_navigatsiya_yoq"));
-                return;
-              }
-              setMenyuOchiq(false);
-            }}
-          >
-            <span className="nav-ikon">{n.ikon}</span>
-            {t(n.kalit)}
-          </NavLink>
-        ))}
+        {yakuniyNavlar.map((n, i) => {
+          // 2026-08-21, foydalanuvchi talabi: owner menyusida 8-banddan
+          // (IELTS testlari) keyingilari strelka bilan yig'ilgan/ochiq
+          // holatda turadi. Boshqa rollarda hammasi doim ko'rinadi.
+          if (profil?.is_owner && i === OWNER_ASOSIY_SONI) {
+            return (
+              <div key="qolgan-panellar-blok">
+                <button
+                  className="nav-tugma nav-yigish-tugmasi"
+                  onClick={() => setQolganPanellarOchiq((v) => !v)}
+                >
+                  <span className="nav-ikon">{qolganPanellarOchiq ? "▾" : "▸"}</span>
+                  {t("nav_qolgan_bolimlar")}
+                </button>
+                {qolganPanellarOchiq && <NavBandi n={n} />}
+              </div>
+            );
+          }
+          if (profil?.is_owner && i > OWNER_ASOSIY_SONI && !qolganPanellarOchiq) {
+            return null;
+          }
+          return <NavBandi key={n.yol} n={n} />;
+        })}
         <div style={{ flex: 1 }} />
         <button className="nav-tugma" onClick={chiqish}>
           <span className="nav-ikon">⇥</span>

@@ -1501,8 +1501,15 @@ class KursZipYuklashView(APIView):
 
 
 class KursSozlarView(APIView):
-    """Bitta "Wordlist" tuguniga tegishli so'zlar ro'yxati — talaba uchun
-    o'yinlarda ishlatiladi, admin uchun ro'yxatni ko'rish (2026-07-27)."""
+    """Bitta "Vocabulary" tuguniga tegishli so'zlar ro'yxati — talaba
+    uchun o'yinlarda ishlatiladi, admin uchun ro'yxatni ko'rish
+    (2026-07-27).
+
+    2026-08-21, foydalanuvchi talabi: "Games" bo'limida ikki rejim —
+    "faqat shu Unit" (standart) va "barcha Unitlar" (`?jamlangan=1`) —
+    ikkinchisida shu Unit VA undan OLDINGI barcha Unitlarning
+    Vocabulary so'zlari birga qaytariladi (keyingi Unitlar EMAS —
+    talaba hali o'tmagan so'zlar bilan sinalmasin)."""
 
     permission_classes = [IsAuthenticated]
 
@@ -1512,10 +1519,25 @@ class KursSozlarView(APIView):
         tugun = get_object_or_404(KursTugun, pk=pk)
         if _talaba_tugun_qulflanganmi(request.user, tugun):
             return Response({"detail": "Bu qism hali qulflangan"}, status=403)
+
+        sozlar_qs = tugun.sozlar.all()
+        if request.query_params.get("jamlangan") == "1":
+            unit = tugun.parent
+            if unit and unit.unit_darsi:
+                oldingi_va_ozi = KursTugun.objects.filter(
+                    parent_id=unit.parent_id, unit_darsi=True, tartib__lte=unit.tartib
+                )
+                vocab_idlar = KursTugun.objects.filter(
+                    parent__in=oldingi_va_ozi, kalit="vocabulary"
+                ).values_list("id", flat=True)
+                sozlar_qs = KursSoz.objects.filter(
+                    tugun_id__in=vocab_idlar
+                ).order_by("tugun__parent__tartib", "tartib", "id")
+
         return Response(
             [
                 {"id": s.id, "en": s.en, "uz": s.uz, "turkum": s.turkum, "misol": s.misol}
-                for s in tugun.sozlar.all()
+                for s in sozlar_qs
             ]
         )
 

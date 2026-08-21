@@ -303,7 +303,7 @@ function Blok({ blok, rasmUrllar, faolRaqam, ijro, audioTanla, javoblar, javobni
       const suzuvchi = tomon === "chap" || tomon === "ong";
       return (
         <div
-          className="blok-rasm-izoh-qatori"
+          className={suzuvchi ? "blok-rasm-izoh-qatori blok-rasm-suzuvchi" : "blok-rasm-izoh-qatori"}
           style={suzuvchi ? {
             float: tomon === "chap" ? "left" : "right",
             maxWidth: "42%",
@@ -718,19 +718,27 @@ export default function BlokMashqi({ mashq, raqam, javoblarOchiq }) {
         <div className="izoh">{t("yuklanmoqda")}</div>
       ) : (
         <>
-          {bloklar.map(([b, k]) => (
-            <Blok
-              key={k}
-              blok={b}
-              rasmUrllar={rasmUrllar}
-              faolRaqam={faolRaqam}
-              ijro={ijro}
-              audioTanla={audioTanla}
-              javoblar={javoblar}
-              javobniQoy={javobniQoy}
-              natija={natija}
-            />
-          ))}
+          {/* 2026-08-21, foydalanuvchi talabi: chap/o'ng tomonga
+              "suzuvchi" (float) rasm mobil ekranda dialog matnini
+              torайтirib, ustiga chiqib qolardi — `.blok-oqim` mobilda
+              flex-column'ga o'tadi (float flex ichida ishlamaydi,
+              o'zi ham to'liq kenglikka qaytadi) va `blok-rasm-suzuvchi`
+              CSS orqali oqim OXIRIGA (dialogdan keyinga) suriladi. */}
+          <div className="blok-oqim">
+            {bloklar.map(([b, k]) => (
+              <Blok
+                key={k}
+                blok={b}
+                rasmUrllar={rasmUrllar}
+                faolRaqam={faolRaqam}
+                ijro={ijro}
+                audioTanla={audioTanla}
+                javoblar={javoblar}
+                javobniQoy={javobniQoy}
+                natija={natija}
+              />
+            ))}
+          </div>
           {xato && <div className="xato-xabar">{xato}</div>}
 
           {/* 2026-08-17, foydalanuvchi talabi: HAR MAVZU (sahifa) uchun

@@ -96,6 +96,10 @@ class Command(BaseCommand):
         # qilmaydi — har deploy'da xavfsiz ishga tushiriladi, qo'lda
         # ishga tushirish shart emas.
         call_command("vocab_birlashtirish_migratsiyasi")
+        # 2026-08-21: Unit'larga "Games" tugunini qo'shadi (avval
+        # yaratilgan Unit'larda hali yo'q) — idempotent, har deploy'da
+        # xavfsiz.
+        call_command("games_tugun_qoshish")
         # 2026-08-17, foydalanuvchi talabi: Headway Unit'lar endi bu yerda
         # AVTOMATIK yaratilmaydi — admin ularni lokalda tayyorlab, Kurslar
         # bo'limidagi "Saqlash"/"Yuklash" (eksport/import ZIP) tugmalari

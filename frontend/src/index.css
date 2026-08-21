@@ -87,10 +87,17 @@ textarea {
 .tab-guruh button:disabled { opacity: .5; cursor: not-allowed; }
 
 /* ==== App qobiq ==== */
-.qobiq { display: flex; min-height: 100vh; }
+/* 2026-08-21, foydalanuvchi talabi: chap panel (navigatsiya) va o'ng
+   asosiy oyna MUSTAQIL skroll qilinsin — avval `.qobiq` `min-height`
+   bo'lgani uchun ikkalasi BIR BUTUN sahifa sifatida birga skroll
+   bo'lardi (kontentni pastga surganda navigatsiya ham ketib qolardi).
+   Endi `.qobiq` ekran balandligiga QATTIQ tenglashtiriladi, ikkala
+   ustun esa o'z ichida `overflow-y: auto` bilan mustaqil aylanadi. */
+.qobiq { display: flex; height: 100vh; overflow: hidden; }
 .sidebar {
   width: 232px; flex-shrink: 0; background: var(--komir); color: #F2F0EA;
   display: flex; flex-direction: column; padding: 20px 14px; gap: 4px;
+  height: 100vh; overflow-y: auto;
 }
 .logo { display: flex; align-items: center; gap: 10px; padding: 4px 10px 18px; }
 .logo-belgi {
@@ -144,7 +151,7 @@ a.logo:hover .logo-nom { color: var(--sariq); }
 .nav-tugma.nofaol:hover { background: none; color: #CFCCC4; }
 .nav-ikon { width: 20px; text-align: center; flex-shrink: 0; }
 
-.asosiy { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.asosiy { flex: 1; display: flex; flex-direction: column; min-width: 0; height: 100vh; overflow-y: auto; }
 .topbar {
   display: flex; align-items: center; justify-content: space-between;
   padding: 14px 28px; border-bottom: 1px solid var(--chiziq); background: var(--sirt);
@@ -453,6 +460,32 @@ input.imtihon-bosh-joy { font: inherit; font-size: 12.5px; text-align: center; }
 .xp-hodisa .h-miqdor { font-weight: 700; color: var(--yaxshi); font-variant-numeric: tabular-nums; }
 
 /* ==== O'yinlar ==== */
+/* 2026-08-21, foydalanuvchi talabi: o'yin davomida ham yopish imkoni
+   (avval faqat natija ekranida "Boshqa daraja" bor edi). */
+.oyin-yopish {
+  width: 26px; height: 26px; border-radius: 50%; border: 1px solid var(--chiziq);
+  background: var(--sirt); color: var(--matn-sokin); font-size: 13px;
+  display: grid; place-items: center; cursor: pointer; flex-shrink: 0;
+}
+.oyin-yopish:hover { background: var(--sirt-2); color: var(--xato); }
+/* 2026-08-21, foydalanuvchi talabi: Kurslar > Unit > Games endi
+   akkordeon ichida emas, TO'LIQ EKRAN modalda ochiladi. */
+.oyin-modal-fon {
+  position: fixed; inset: 0; z-index: 300; background: rgba(0, 0, 0, .55);
+  display: flex; align-items: center; justify-content: center; padding: 20px;
+}
+.oyin-modal {
+  background: var(--sirt); border-radius: 14px; padding: 20px 24px;
+  max-width: 520px; width: 100%; max-height: 88vh; overflow-y: auto;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, .35);
+}
+.oyin-modal-bosh {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 14px;
+}
+@media (max-width: 640px) {
+  .oyin-modal { padding: 16px; max-height: 92vh; }
+}
 .oyin-grid {
   display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px; max-width: 420px; margin: 0 auto;
@@ -549,6 +582,14 @@ input.imtihon-bosh-joy { font: inherit; font-size: 12.5px; text-align: center; }
   0%, 100% { opacity: 1; }
   50% { opacity: .45; }
 }
+/* 2026-08-21, foydalanuvchi talabi: Unscramble "Ko'rsatma" — tarjima
+   o'rniga KEYINGI kerakli harf o'z joyida (harflar panelida) qimirlab
+   ko'rsatiladi. */
+@keyframes oyin-qimirla {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  25% { transform: translateY(-3px) rotate(-4deg); }
+  75% { transform: translateY(-3px) rotate(4deg); }
+}
 
 /* Daraja/mavzu tanlash */
 .tanlov-tugma {
@@ -571,11 +612,26 @@ input.imtihon-bosh-joy { font: inherit; font-size: 12.5px; text-align: center; }
 /* Javob feedback — to'g'ri: sakrash, noto'g'ri: silkinish */
 .variant-togri { animation: oyin-pop .28s ease; }
 .variant-notogri { animation: oyin-silkin .34s ease; }
+/* 2026-08-21, foydalanuvchi talabi: Unscramble natija xabari — to'g'ri
+   bo'lsa kattaroq matn + sakrash, noto'g'ri bo'lsa silkinish. */
+.oyin-togri-xabar {
+  display: inline-block; font-size: 22px; font-weight: 800; color: var(--yaxshi) !important;
+  animation: oyin-pop .4s ease, oyin-porla .6s ease;
+}
+.oyin-notogri-xabar { font-size: 15px; animation: oyin-silkin .34s ease; }
 
 /* Unscramble harflari */
 .unscramble-harf { transition: transform .15s ease, box-shadow .15s ease, background .2s ease, color .2s ease; }
 .unscramble-harf:not(.tanlangan):hover { transform: translateY(-3px); box-shadow: var(--soya); }
 .unscramble-harf.tanlangan { animation: oyin-pop .2s ease; }
+.unscramble-hint {
+  animation: oyin-qimirla .6s ease-in-out infinite;
+  border-color: var(--sariq); box-shadow: 0 0 0 2px var(--sariq);
+}
+.unscramble-hint-xato {
+  animation: oyin-qimirla .6s ease-in-out infinite;
+  border-color: var(--xato); box-shadow: 0 0 0 2px var(--xato);
+}
 
 /* Kartochka — 3D aylanish allaqachon bor, ustiga yumshoq soya */
 .flashcard-old, .flashcard-orqa { transition: box-shadow .2s ease; }
@@ -1037,6 +1093,16 @@ input.imtihon-bosh-joy { font: inherit; font-size: 12.5px; text-align: center; }
   .blok-rasm { max-width: 100%; }
   .blok-dialog, .blok-gs, .blok-mashq { max-width: 100%; }
   .blok-bosh-joy { width: 92px; }
+  /* 2026-08-21, foydalanuvchi talabi: chap/o'ng "suzuvchi" (float) rasm
+     mobilda dialog matniga sig'may, ustiga chiqib qolardi. `.blok-oqim`
+     flex-column'ga o'tkaziladi — flex ichida `float` beэ'tibor
+     qoldiriladi (rasm o'zi to'liq kenglikka qaytadi), suzuvchi rasm esa
+     `order` bilan oqim OXIRIGA (dialogdan keyinga) suriladi. */
+  .blok-oqim { display: flex; flex-direction: column; }
+  .blok-oqim > .blok-rasm-suzuvchi {
+    order: 9999; float: none !important; max-width: 100% !important;
+    margin-left: 0 !important; margin-right: 0 !important;
+  }
 }
 
 /* ZIP yuklanayotganda BUTUN saytni bloklovchi qatlam (2026-07-29 talabi:
