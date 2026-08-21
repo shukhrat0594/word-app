@@ -53,7 +53,17 @@ class ProfilView(APIView):
         # null` qaytarardi va topbar/brauzer tab sarlavhasi doim standart
         # "Utmost o'quv markazi"da qolib qolardi — owner nomni Markaz
         # sozlamalaridan o'zgartirsa ham, o'zi buni HECH QACHON ko'rmasdi.
-        markaz_obyekti = u.markaz or (Markaz.objects.first() if owner_mi(u) else None)
+        #
+        # 2026-08-20, YANA BIR XATO: fallback FAQAT owner uchun ishlar
+        # edi. Bazada tasodifan bir nechta Markaz yozuvi paydo bo'lib
+        # qolsa (masalan eski sinov yozuvi), `markaz_id`i bo'sh yoki
+        # noto'g'ri/eski yozuvga bog'langan TALABA logo/rangni hech qachon
+        # yangilanmagan holda ko'rardi — owner esa har doim
+        # `_admin_markaz_ol` orqali "birinchi mavjud markaz"ni tahrirlagani
+        # uchun o'zgarishni darhol ko'rardi. Tizim "bitta markaz" rejimida
+        # ishlashi kerak, shuning uchun fallback endi BARCHA rollar uchun
+        # bir xil (`_admin_markaz_ol`/`XodimlarView._markaz_ol` bilan mos).
+        markaz_obyekti = u.markaz or Markaz.objects.first()
         if markaz_obyekti:
             u.markaz = markaz_obyekti
             markaz = {

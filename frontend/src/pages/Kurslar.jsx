@@ -1879,12 +1879,9 @@ function Tugun({ tugun, chuqurlik, adminMi, talabaMi, oqituvchiMi, royxatniYangi
     // ==== Beginner Unit'iga xos 2 bo'lim — maxsus ko'rinish ====
     if (unitBolimi === "vocabulary") {
       return (
-        <div
-          className="kurs-qator kurs-qator-oxirgi"
-          style={{ paddingLeft: otstup, display: "block" }}
-        >
+        <div className="kurs-qator kurs-qator-oxirgi" style={{ display: "block" }}>
           <div
-            style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: mashqOchiq ? 8 : 0, cursor: "pointer" }}
+            style={{ paddingLeft: otstup, display: "flex", alignItems: "center", gap: 10, marginBottom: mashqOchiq ? 8 : 0, cursor: "pointer" }}
             onClick={() => setMashqOchiq((v) => !v)}
           >
             <span>{mashqOchiq ? "▾" : "▸"}</span>
@@ -1893,7 +1890,17 @@ function Tugun({ tugun, chuqurlik, adminMi, talabaMi, oqituvchiMi, royxatniYangi
               {nomi}{tugun.sozlar_soni ? ` (${tugun.sozlar_soni} ${t("kurs_soz")})` : ""}
             </span>
           </div>
-          {mashqOchiq && <VocabularyKorinishi tugunId={tugun.id} matn={tugun.matn} />}
+          {/* 2026-08-21, foydalanuvchi talabi: mashq/so'z KONTENTI daraxt
+              chuqurligiga qarab siljimasin — mobil ekranda chuqur
+              joylashgan Unit'larda (Kurslar > Ingliz tili > Beginner >
+              Unit > Vocabulary) otstup yig'ilib, kontent ekrandan
+              chiqib ketardi. Sarlavha qatori hali ham chuqurlikni
+              ko'rsatadi, kontent esa doim kichik sobit chetdan boshlanadi. */}
+          {mashqOchiq && (
+            <div style={{ paddingLeft: 14 }}>
+              <VocabularyKorinishi tugunId={tugun.id} matn={tugun.matn} />
+            </div>
+          )}
         </div>
       );
     }
@@ -1907,12 +1914,9 @@ function Tugun({ tugun, chuqurlik, adminMi, talabaMi, oqituvchiMi, royxatniYangi
       // 2026-08-19(2), foydalanuvchi talabi: alohida "Ochish" tugmasi
       // emas, qator ustiga bosilganda ochilsin/yopilsin.
       return (
-        <div
-          className="kurs-qator kurs-qator-oxirgi"
-          style={{ paddingLeft: otstup, display: "block" }}
-        >
+        <div className="kurs-qator kurs-qator-oxirgi" style={{ display: "block" }}>
           <div
-            style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: mashqOchiq ? 8 : 0, cursor: "pointer" }}
+            style={{ paddingLeft: otstup, display: "flex", alignItems: "center", gap: 10, marginBottom: mashqOchiq ? 8 : 0, cursor: "pointer" }}
             onClick={() => setMashqOchiq((v) => !v)}
           >
             <span>{mashqOchiq ? "▾" : "▸"}</span>
@@ -1923,15 +1927,22 @@ function Tugun({ tugun, chuqurlik, adminMi, talabaMi, oqituvchiMi, royxatniYangi
           </div>
           {adminMi && (
             <div
-              style={{ display: "flex", alignItems: "flex-start", gap: 8, marginTop: 6, marginBottom: mashqOchiq ? 8 : 0, flexWrap: "wrap" }}
+              style={{ paddingLeft: otstup, display: "flex", alignItems: "flex-start", gap: 8, marginTop: 6, marginBottom: mashqOchiq ? 8 : 0, flexWrap: "wrap" }}
               onClick={(e) => e.stopPropagation()}
             >
               <UnitTozalashTugmasi unitId={tugun.id} royxatniYangila={royxatniYangila} />
               <EksportImportTugmalari tugunId={tugun.id} royxatniYangila={royxatniYangila} />
             </div>
           )}
+          {/* 2026-08-21, foydalanuvchi talabi: mashq KONTENTI daraxt
+              chuqurligiga qarab siljimasin (mobil ekranda chuqur
+              Unit'larda otstup yig'ilib, kontent ekrandan chiqib
+              ketardi) — sarlavha/admin tugmalari otstup bilan qoladi,
+              kontent doim kichik sobit chetdan boshlanadi. */}
           {mashqOchiq && (
-            <MashqPaneli tugunId={tugun.id} talabaMi={talabaMi} oqituvchiMi={oqituvchiMi} jsonKiritishKorinadi={false} />
+            <div style={{ paddingLeft: 14 }}>
+              <MashqPaneli tugunId={tugun.id} talabaMi={talabaMi} oqituvchiMi={oqituvchiMi} jsonKiritishKorinadi={false} />
+            </div>
           )}
         </div>
       );
@@ -2006,7 +2017,7 @@ function Tugun({ tugun, chuqurlik, adminMi, talabaMi, oqituvchiMi, royxatniYangi
           )}
         </div>
         {mashqOchiq && (
-          <div style={{ paddingLeft: otstup, marginTop: 6 }}>
+          <div style={{ paddingLeft: 14, marginTop: 6 }}>
             <MashqPaneli tugunId={tugun.id} talabaMi={talabaMi} oqituvchiMi={oqituvchiMi} />
           </div>
         )}
