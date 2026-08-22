@@ -53,10 +53,10 @@ function RasmJavobKartasi({ url, raqam, birlik, izoh, namuna, savolIdx, javoblar
     <div className="blok-rasm-javobli-karta">
       {raqam && <div className="blok-rasm-javobli-raqam">{raqam}</div>}
       {url && <img className="blok-rasm" src={url} alt="" />}
-      {/* 2026-08-17, foydalanuvchi talabi: kitobda rasm ostida odamning
-          ismi (masalan "___ name's Nadia.") ham yozilgan edi — rasmni
-          kesganda shu matn tushib qolgan, endi qayta qo'shildi. */}
-      {izoh && <div className="blok-rasm-javobli-izoh">{izoh}</div>}
+      {/* 2026-08-22, foydalanuvchi talabi: rasm nomi/izohi mashqda
+          umuman ko'rinmasin (talabaga keraksiz ichki yozuv bo'lib
+          chiqadi) — endi hech qachon chizilmaydi, faqat ma'lumot
+          sifatida saqlanadi. */}
       <div className="blok-rasm-javobli-javob-qatori">
         {/* 2026-08-18, foydalanuvchi talabi: kitobda BIRINCHI rasm javobi
             namuna sifatida allaqachon yozilgan bo'ladi (masalan "1 a
@@ -318,7 +318,7 @@ function Blok({ blok, rasmUrllar, faolRaqam, ijro, audioTanla, javoblar, javobni
             src={url}
             alt={blok.izoh || ""}
           />
-          {blok.izoh && <div className="blok-rasm-izoh-matni">{blok.izoh}</div>}
+          {/* 2026-08-22, foydalanuvchi talabi: izoh mashqda ko'rinmasin. */}
         </div>
       );
     }

@@ -34,6 +34,6 @@ tmp/
 
 # Headway Unit kontenti — faqat lokalda, prodga Saqlash/Yuklash orqali
 # qo'lda ko'chiriladi (git push bilan tarqatilmasin, 2026-08-17)
-/courses/management/commands/headway_beginner_unit*.py
-/courses/management/commands/headway_beginner_workbook_unit*.py
+/courses/management/commands/headway_*_unit*.py
+/courses/management/commands/headway_*_workbook_unit*.py
 /courses/fixtures/headway/
