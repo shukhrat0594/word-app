@@ -366,7 +366,13 @@ function Blok({ blok, rasmUrllar, faolRaqam, ijro, audioTanla, javoblar, javobni
             {audioBelgi}
             {qatorlar.map((q, k) => (
               <span key={k} className={`blok-suhbat-pufakcha ${k % 2 === 0 ? "so-ol" : "so-ong"}`}>
-                {q.gap}
+                {/* 2026-08-26: bu yerda ham qator `bolaklar` (bo'sh joyli)
+                    bo'lishi mumkin — pastdagi izohga qarang. */}
+                {q.bolaklar ? (
+                  <Bolaklar bolaklar={q.bolaklar} javoblar={javoblar} javobniQoy={javobniQoy} natija={natija} />
+                ) : (
+                  q.gap
+                )}
               </span>
             ))}
           </div>
@@ -382,7 +388,16 @@ function Blok({ blok, rasmUrllar, faolRaqam, ijro, audioTanla, javoblar, javobni
                   (allaqachon to'ldirilgan misol) javobi alohida rangda,
                   tagiga chizilgan holda ko'rinsin — oddiy gap matnidan
                   ajralib turishi uchun. */}
-              <span className={q.namuna ? "blok-dialog-namuna" : undefined}>{q.gap}</span>
+              {/* 2026-08-26: suhbat qatori `gap` (oddiy matn) O'RNIGA
+                  `bolaklar` (bo'sh joyli) bo'lishi ham mumkin — avval
+                  faqat `q.gap` chizilgani uchun bunday qatorlar
+                  butunlay KO'RINMAY qolar edi (U4 SB s2 / WB s2, s3,
+                  U6 SB s8 — jami 33 qator). */}
+              {q.bolaklar ? (
+                <Bolaklar bolaklar={q.bolaklar} javoblar={javoblar} javobniQoy={javobniQoy} natija={natija} />
+              ) : (
+                <span className={q.namuna ? "blok-dialog-namuna" : undefined}>{q.gap}</span>
+              )}
             </div>
           ))}
         </div>
@@ -560,6 +575,19 @@ function Blok({ blok, rasmUrllar, faolRaqam, ijro, audioTanla, javoblar, javobni
         </div>
       );
     }
+    // 2026-08-26: `gap` — Unit 5 seed'ida ishlatilgan bo'sh joyli suhbat
+    // QATORI (shakli `mashq`ning eski yagona `bolaklar` ko'rinishi bilan
+    // bir xil). Renderda `case` bo'lmagani uchun butun Unit 5 mashq
+    // kontenti talabaga KO'RINMAY qolgan edi. Ketma-ket suhbat
+    // qatorlari bo'lgani uchun har birini alohida chizilgan qutiga
+    // solmasdan, oddiy qator sifatida chiqaramiz.
+    case "gap":
+      return (
+        <div className="blok-mashq-qator">
+          {audioBelgi}
+          <Bolaklar bolaklar={blok.bolaklar || []} javoblar={javoblar} javobniQoy={javobniQoy} natija={natija} />
+        </div>
+      );
     case "mashq": {
       // 2026-08-16, foydalanuvchi talabi: bir nechta so'zlovchili suhbat
       // (masalan "Check it" — A/B/C) HAR BIRI O'Z QATORIDAN boshlansin,
