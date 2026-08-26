@@ -221,6 +221,13 @@ a.logo:hover .logo-nom { color: var(--sariq); }
 .tarix-el:last-child { border-bottom: none; }
 .tarix-el:hover { color: var(--sariq); }
 
+.guruh-papka { margin-top: 6px; }
+.guruh-papka + .guruh-papka { border-top: 1px solid var(--chiziq); padding-top: 6px; }
+.guruh-papka-sarlavha { cursor: pointer; font-weight: 600; padding: 8px 0; list-style: none; display: flex; gap: 6px; align-items: center; }
+.guruh-papka-sarlavha::-webkit-details-marker { display: none; }
+.guruh-papka-sarlavha::before { content: "▸"; color: var(--matn-sokin); transition: transform 0.15s; }
+.guruh-papka[open] > .guruh-papka-sarlavha::before { transform: rotate(90deg); }
+
 /* ==== Kurslar (ko'p bosqichli daraxt menyu) ==== */
 .kurs-qator { min-height: 40px; border-bottom: 1px solid var(--chiziq); }
 .kurs-qator:last-child { border-bottom: none; }

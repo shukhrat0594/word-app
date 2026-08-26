@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { api, apiForm } from "../api";
 import { useI18n } from "../i18n";
 import { useProfil } from "../profilContext";
@@ -133,6 +133,29 @@ export default function Talabalar() {
     }
   }
 
+  // 2026-08-25, foydalanuvchi talabi: ro'yxat guruh bo'yicha "papka"larga
+  // bo'linadi — adashib ketmaslik uchun bittalab flat ro'yxat o'rniga.
+  // Talaba bir nechta guruhga a'zo bo'lsa — har biriga chiqadi (`Guruh.
+  // talabalar` M2M). Guruhi yo'q talabalar "Guruhsiz" bo'limida, oxirida.
+  const guruhlangan = useMemo(() => {
+    if (!talabalar) return [];
+    const xarita = new Map();
+    const guruhsiz = [];
+    for (const tl of talabalar) {
+      if (!tl.guruhlar || tl.guruhlar.length === 0) {
+        guruhsiz.push(tl);
+        continue;
+      }
+      for (const g of tl.guruhlar) {
+        if (!xarita.has(g.id)) xarita.set(g.id, { id: g.id, nomi: g.nomi, talabalar: [] });
+        xarita.get(g.id).talabalar.push(tl);
+      }
+    }
+    const royxat = [...xarita.values()].sort((a, b) => a.nomi.localeCompare(b.nomi));
+    if (guruhsiz.length > 0) royxat.push({ id: "guruhsiz", nomi: t("guruhsiz"), talabalar: guruhsiz });
+    return royxat;
+  }, [talabalar, t]);
+
   if (!talabalar) return <div className="yuklanmoqda">{t("yuklanmoqda")}</div>;
 
   return (
@@ -214,38 +237,45 @@ export default function Talabalar() {
           )}
         </div>
         {talabalar.length === 0 && <span className="izoh">{t("talaba_yoq")}</span>}
-        {talabalar.map((tl) => (
-          <div className="tarix-el" key={tl.id}>
-            <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              {/* Rasm ALOHIDA turadi — ismga bosilganda natijalar oynasi
-                  ochiladi, rasmga bosilganda esa o'chirish oynasi; ikkisi
-                  bir joyda bo'lsa bosish bir-biriga tushib ketardi. */}
-              <ProfilRasmi user={tl} ochir={boshqaruvMi ? rasmOchir : undefined} t={t} />
-              <span
-                style={{ display: "flex", gap: 8, cursor: "pointer", alignItems: "center" }}
-                onClick={() => setNatijaTalaba(tl)}
-                title={t("talaba_natijalarini_kor")}
-              >
-                <span>{tl.ism}</span>
-                <span className="izoh">{tl.username}</span>
-              </span>
-            </span>
-            {boshqaruvMi && (
-              <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <PanelTanlovi user={tl} saqlash={panellarSaqla} t={t} />
-                <QurilmaTiklashTugmasi user={tl} tiklash={qurilmaTiklash} t={t} />
-                {profil?.is_owner && (
-                  <QurilmaLimitiBoshqaruv user={tl} ozgartir={qurilmaLimitOzgartir} t={t} />
+        {guruhlangan.map((g) => (
+          <details className="guruh-papka" key={g.id} open>
+            <summary className="guruh-papka-sarlavha">
+              {g.nomi} <span className="izoh">({g.talabalar.length})</span>
+            </summary>
+            {g.talabalar.map((tl) => (
+              <div className="tarix-el" key={tl.id}>
+                <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  {/* Rasm ALOHIDA turadi — ismga bosilganda natijalar oynasi
+                      ochiladi, rasmga bosilganda esa o'chirish oynasi; ikkisi
+                      bir joyda bo'lsa bosish bir-biriga tushib ketardi. */}
+                  <ProfilRasmi user={tl} ochir={boshqaruvMi ? rasmOchir : undefined} t={t} />
+                  <span
+                    style={{ display: "flex", gap: 8, cursor: "pointer", alignItems: "center" }}
+                    onClick={() => setNatijaTalaba(tl)}
+                    title={t("talaba_natijalarini_kor")}
+                  >
+                    <span>{tl.ism}</span>
+                    <span className="izoh">{tl.username}</span>
+                  </span>
+                </span>
+                {boshqaruvMi && (
+                  <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <PanelTanlovi user={tl} saqlash={panellarSaqla} t={t} />
+                    <QurilmaTiklashTugmasi user={tl} tiklash={qurilmaTiklash} t={t} />
+                    {profil?.is_owner && (
+                      <QurilmaLimitiBoshqaruv user={tl} ozgartir={qurilmaLimitOzgartir} t={t} />
+                    )}
+                    <button
+                      className="tugma ikkinchi kichik"
+                      onClick={() => arxivHolatiniOzgartir(tl.id, arxivKorish)}
+                    >
+                      {arxivKorish ? t("faollashtirish") : t("arxivlash")}
+                    </button>
+                  </span>
                 )}
-                <button
-                  className="tugma ikkinchi kichik"
-                  onClick={() => arxivHolatiniOzgartir(tl.id, arxivKorish)}
-                >
-                  {arxivKorish ? t("faollashtirish") : t("arxivlash")}
-                </button>
-              </span>
-            )}
-          </div>
+              </div>
+            ))}
+          </details>
         ))}
       </div>
 

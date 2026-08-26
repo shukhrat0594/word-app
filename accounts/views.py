@@ -1487,11 +1487,21 @@ class TalabalarView(APIView):
         else:
             return Response({"detail": "Ruxsat yo'q"}, status=403)
 
+        # 2026-08-25, foydalanuvchi talabi: Talabalar panelida ro'yxat
+        # guruh bo'yicha bo'lib ko'rsatilishi uchun har talabaning
+        # guruh(lar)i (id+nomi) ham qo'shiladi — guruhsiz talabada bo'sh
+        # massiv qaytadi. `prefetch_related` N+1 so'rovning oldini oladi.
+        qs = qs.prefetch_related("talaba_guruhlari")
+
         return Response(
             [
                 {
                     "id": t.id, "ism": t.get_full_name() or t.username, "username": t.username,
                     "korinadigan_panellar": t.korinadigan_panellar,
+                    "guruhlar": [
+                        {"id": g.id, "nomi": g.name}
+                        for g in t.talaba_guruhlari.all() if g.faol
+                    ],
                     # 2026-08-09: "ko'rinadigan panellar" tanlovi endi ROLGA
                     # qarab chiqadi (`panelTanloviOl`). Bu ro'yxatda faqat
                     # talaba bo'lsa ham, rol ANIQ berilsin — komponent

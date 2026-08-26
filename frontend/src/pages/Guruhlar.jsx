@@ -37,6 +37,23 @@ export default function Guruhlar() {
   // validatsiya xatolari uchun ishlatiladigan `xato` dan alohida,
   // sahifa darajasidagi "qayta urinish" holati uchun.
   const [yuklashXato, setYuklashXato] = useState(false);
+  // 2026-08-25, foydalanuvchi talabi: talaba qo'shish endi "+" tugmasi
+  // bosilganda ochiladigan BITTA qatorda — shu qatordagi ro'yxatdan talaba
+  // tanlanadi (qidiruv ro'yxatni qisqartirish uchun), yonida daraja
+  // Unit'ga ega bo'lsa (Ingliz tili darajalari) boshlanish Unit'ini
+  // tanlash ham chiqadi, standart — Unit 1.
+  const [azoQidiruv, setAzoQidiruv] = useState("");
+  const [qoshishOchiq, setQoshishOchiq] = useState(false);
+  const [yangiUnitId, setYangiUnitId] = useState("");
+  // Guruh ochilganda (yoki yangi guruh boshlanganda) MAVJUD (serverda
+  // haqiqatan saqlangan) a'zolar to'plami — yangi qo'shilgan (hali
+  // saqlanmagan) a'zodan farqlash uchun: mavjudlarning Unit'i darhol
+  // PATCH bilan o'zgaradi, yangilarniki esa saqlashda qo'shiladi (chunki
+  // ularning `GuruhAzoligi` yozuvi saqlashdan oldin serverda yo'q).
+  const [mavjudAzoIds, setMavjudAzoIds] = useState(new Set());
+  // Guruhdan o'chirish uchun o'ziga xos tasdiqlash oynasi (2026-08-25,
+  // foydalanuvchi talabi: brauzerning window.confirm() EMAS).
+  const [ochirishSorash, setOchirishSorash] = useState(null);
 
   function guruhlarniYukla(arxiv = arxivKorish) {
     setYuklashXato(false);
@@ -68,6 +85,7 @@ export default function Guruhlar() {
       setBoshlanishMap(
         Object.fromEntries(g.talabalar.map((t2) => [t2.id, t2.boshlanish_unit_id || ""]))
       );
+      setMavjudAzoIds(new Set(g.talabalar.map((t2) => t2.id)));
       if (!oqituvchiMi) {
         setForma({
           id: g.id,
@@ -84,15 +102,43 @@ export default function Guruhlar() {
     }
   }
 
+  // Daraja tanlanganda/o'zgarganda shu darajaning Unit'lari so'raladi —
+  // "boshlanish Unit'i" tanlovi uchun kerak (2026-08-25). Yangi guruh
+  // uchun ham, mavjud guruhni tahrirlashda daraja o'zgartirilganda ham
+  // ishlaydi (`guruhniOch` allaqachon o'z Unit'larini bergan bo'lsa ham,
+  // bu yerda qayta so'ralishi zararsiz — natija bir xil).
+  useEffect(() => {
+    if (!forma) return;
+    if (!forma.daraja_id) {
+      setDarajaUnitlari([]);
+      return;
+    }
+    api(`/api/kurslar/${forma.daraja_id}/unitlari/`)
+      .then(setDarajaUnitlari)
+      .catch(() => setDarajaUnitlari([]));
+  }, [forma?.daraja_id]);
+
   function yopish() {
     setTanlangan(null);
     setForma(null);
     setBoshlanishMap({});
     setDarajaUnitlari([]);
+    setAzoQidiruv("");
+    setQoshishOchiq(false);
+    setYangiUnitId("");
+    setMavjudAzoIds(new Set());
   }
 
+  /** Bitta a'zoning "boshlanish Unit'i"ni o'zgartirish. MAVJUD (serverda
+   * saqlangan) a'zo bo'lsa — darhol PATCH bilan saqlanadi. Yangi (hali
+   * saqlanmagan, `talabaBelgila` orqali lokal qo'shilgan) a'zo bo'lsa —
+   * uning `GuruhAzoligi`si serverda hali yo'q (guruh o'zi ham hali
+   * saqlanmagan bo'lishi mumkin), shuning uchun faqat lokal saqlanadi —
+   * asosiy `saqla()` guruhni yaratgach/yangilagach shu qiymatlarni ham
+   * PATCH qiladi. */
   async function boshlanishUnitiniOzgartir(talabaId, unitId) {
     setBoshlanishMap((m) => ({ ...m, [talabaId]: unitId }));
+    if (!forma.id || !mavjudAzoIds.has(talabaId)) return;
     try {
       await api(`/api/guruhlar/${forma.id}/azolik/${talabaId}/`, {
         method: "PATCH",
@@ -144,6 +190,31 @@ export default function Guruhlar() {
     }));
   }
 
+  /** Qidiruv qatoridan tanlab, YANGI a'zo qo'shish — tanlangan Unit
+   * (agar bo'lsa) ham darhol saqlanadi (`boshlanishMap`ga), asosiy
+   * saqlashda serverga yuboriladi (`saqla()`). Qidiruv qatori ochiq
+   * qoladi — bir nechta talabani ketma-ket qo'shish uchun. */
+  function yangiTalabaQosh(id) {
+    talabaBelgila(id);
+    if (yangiUnitId) setBoshlanishMap((m) => ({ ...m, [id]: yangiUnitId }));
+    setAzoQidiruv("");
+  }
+
+  /** Guruhdan o'chirish — o'ziga xos tasdiqlash oynasi orqali (2026-08-25,
+   * foydalanuvchi talabi: brauzerning window.confirm() emas). Faqat
+   * lokal forma holatidan olib tashlaydi — haqiqiy o'chirish "Saqlash"
+   * bosilganda backenddagi diff orqali sodir bo'ladi. */
+  function ochirishTasdiqlandi() {
+    if (!ochirishSorash) return;
+    talabaBelgila(ochirishSorash.id);
+    setBoshlanishMap((m) => {
+      const nusxa = { ...m };
+      delete nusxa[ochirishSorash.id];
+      return nusxa;
+    });
+    setOchirishSorash(null);
+  }
+
   async function saqla() {
     setXato("");
     if (!forma.name.trim()) {
@@ -159,10 +230,24 @@ export default function Guruhlar() {
       daraja_id: forma.daraja_id || null,
     };
     try {
+      let guruhId = forma.id;
       if (forma.id) {
         await api(`/api/guruhlar/${forma.id}/`, { method: "PATCH", body });
       } else {
-        await api("/api/guruhlar/", { method: "POST", body });
+        const yaratilgan = await api("/api/guruhlar/", { method: "POST", body });
+        guruhId = yaratilgan.id;
+      }
+      // Yangi (hali serverda mavjud bo'lmagan) a'zolar uchun standart
+      // bo'lmagan boshlanish Unit'i tanlangan bo'lsa — endi guruh (va
+      // a'zolik) real mavjud, shularni alohida PATCH qilamiz.
+      const yangiOverride = forma.talaba_idlar.filter(
+        (id) => !mavjudAzoIds.has(id) && boshlanishMap[id]
+      );
+      for (const id of yangiOverride) {
+        await api(`/api/guruhlar/${guruhId}/azolik/${id}/`, {
+          method: "PATCH",
+          body: { boshlanish_unit_id: boshlanishMap[id] },
+        }).catch(() => {});
       }
       yopish();
       guruhlarniYukla();
@@ -242,26 +327,77 @@ export default function Guruhlar() {
               </select>
             </div>
             <div>
-              <div className="izoh" style={{ marginBottom: 6 }}>{t("talabalar")}</div>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                <h4 style={{ margin: 0 }}>
+                  {t("talabalar")} ({forma.talaba_idlar.length})
+                </h4>
+                <button
+                  type="button"
+                  className="tugma ikkinchi kichik"
+                  onClick={() => setQoshishOchiq((v) => !v)}
+                >
+                  + {t("talaba_qosh")}
+                </button>
+              </div>
               <div className="azo-royxat">
-                {azolar.talabalar.map((tl) => (
-                  <div className="azo-qator" key={tl.id} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <label style={{ display: "flex", alignItems: "center", gap: 8, flex: 1 }}>
-                      <input
-                        type="checkbox"
-                        checked={forma.talaba_idlar.includes(tl.id)}
-                        onChange={() => talabaBelgila(tl.id)}
-                      />
-                      <ProfilRasmi user={tl} t={t} />
-                      {tl.ism}
-                    </label>
-                    {forma.id && darajaUnitlari.length > 0 && forma.talaba_idlar.includes(tl.id) && (
+                {azolar.talabalar.filter((tl) => forma.talaba_idlar.includes(tl.id)).length === 0 && (
+                  <span className="izoh">{t("talaba_yoq")}</span>
+                )}
+                {azolar.talabalar
+                  .filter((tl) => forma.talaba_idlar.includes(tl.id))
+                  .map((tl) => (
+                    <div className="azo-qator" key={tl.id} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <span style={{ display: "flex", alignItems: "center", gap: 8, flex: 1 }}>
+                        <ProfilRasmi user={tl} t={t} />
+                        {tl.ism}
+                      </span>
+                      {darajaUnitlari.length > 0 && (
+                        <select
+                          value={boshlanishMap[tl.id] || ""}
+                          onChange={(e) => boshlanishUnitiniOzgartir(tl.id, e.target.value)}
+                          title={t("boshlanish_uniti")}
+                        >
+                          <option value="">— {t("boshlanish_uniti")}: Unit 1 —</option>
+                          {darajaUnitlari.map((u) => (
+                            <option key={u.id} value={u.id}>
+                              {u.nomi}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                      <button
+                        type="button"
+                        className="tugma xavfli kichik"
+                        onClick={() => setOchirishSorash(tl)}
+                        title={t("ochirish")}
+                      >
+                        {t("ochirish")}
+                      </button>
+                    </div>
+                  ))}
+              </div>
+
+              {/* 2026-08-25, foydalanuvchi talabi: "+" bosilganda bitta
+                  qidiruv+ro'yxat qatori ochiladi, shundan talaba tanlanadi;
+                  daraja Unit'larga ega bo'lsa (Ingliz tili darajalari)
+                  yonida boshlanish Unit'i ham tanlanadi (standart — Unit 1),
+                  qator ochiq qoladi — ketma-ket bir nechtasini qo'shish uchun. */}
+              {qoshishOchiq && (
+                <div style={{ marginTop: 10, display: "grid", gap: 6 }}>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    <input
+                      placeholder={t("talaba_qidir")}
+                      value={azoQidiruv}
+                      onChange={(e) => setAzoQidiruv(e.target.value)}
+                      style={{ flex: 1, minWidth: 160 }}
+                    />
+                    {darajaUnitlari.length > 0 && (
                       <select
-                        value={boshlanishMap[tl.id] || ""}
-                        onChange={(e) => boshlanishUnitiniOzgartir(tl.id, e.target.value)}
+                        value={yangiUnitId}
+                        onChange={(e) => setYangiUnitId(e.target.value)}
                         title={t("boshlanish_uniti")}
                       >
-                        <option value="">— {t("boshlanish_uniti")}: Unit 1 —</option>
+                        <option value="">— {t("boshlanish_uniti_standart")} —</option>
                         {darajaUnitlari.map((u) => (
                           <option key={u.id} value={u.id}>
                             {u.nomi}
@@ -270,8 +406,32 @@ export default function Guruhlar() {
                       </select>
                     )}
                   </div>
-                ))}
-              </div>
+                  <div className="azo-royxat">
+                    {azolar.talabalar
+                      .filter((tl) => !forma.talaba_idlar.includes(tl.id))
+                      .filter((tl) => tl.ism.toLowerCase().includes(azoQidiruv.trim().toLowerCase()))
+                      .slice(0, 20)
+                      .map((tl) => (
+                        <div
+                          className="azo-qator"
+                          key={tl.id}
+                          style={{ cursor: "pointer" }}
+                          onClick={() => yangiTalabaQosh(tl.id)}
+                        >
+                          <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <ProfilRasmi user={tl} t={t} />
+                            {tl.ism}
+                          </span>
+                        </div>
+                      ))}
+                    {azolar.talabalar
+                      .filter((tl) => !forma.talaba_idlar.includes(tl.id))
+                      .filter((tl) => tl.ism.toLowerCase().includes(azoQidiruv.trim().toLowerCase())).length === 0 && (
+                      <span className="izoh">{t("hech_narsa_topilmadi")}</span>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
             {xato && <div className="xato-xabar">{xato}</div>}
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
@@ -363,6 +523,26 @@ export default function Guruhlar() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* 2026-08-25, foydalanuvchi talabi: guruhdan o'chirish uchun
+          o'ziga xos tasdiqlash oynasi (window.confirm() EMAS). */}
+      {ochirishSorash && (
+        <div className="blok-yuklash-qoplama" onClick={() => setOchirishSorash(null)}>
+          <div className="blok-tasdiq-karta" onClick={(e) => e.stopPropagation()}>
+            <p style={{ marginTop: 0 }}>
+              {t("guruhdan_ochirish_tasdiq").replace("{nom}", ochirishSorash.ism)}
+            </p>
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+              <button className="tugma ikkinchi" onClick={() => setOchirishSorash(null)}>
+                {t("yoq")}
+              </button>
+              <button className="tugma xavfli" onClick={ochirishTasdiqlandi}>
+                {t("ha")}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </>

@@ -141,8 +141,20 @@ def javoblarni_tekshir(savollar, javoblar):
     hisoblanadi.
     """
 
+    # 2026-08-26, foydalanuvchi topgan xato: telefon/planshet klaviaturasi
+    # apostrofni avtomatik "aqlli" ko'rinishga (’ ’) o'zgartiradi,
+    # lekin kontentdagi "togri" qiymatlar oddiy to'g'ri chiziqli (' ')
+    # apostrof bilan yozilgan — natijada "can't" kabi to'g'ri javob ham
+    # XATO deb belgilanardi. Solishtirishdan oldin apostrof/tirnoq
+    # variantlari bir xillashtiriladi (faqat taqqoslash uchun — talabaga
+    # ko'rsatiladigan matn o'zgarmaydi).
+    _TIRNOQ_JADVALI = str.maketrans({
+        "‘": "'", "’": "'", "ʼ": "'", "´": "'", "`": "'",
+        "“": '"', "”": '"',
+    })
+
     def norm(s):
-        return str(s).strip().lower()
+        return str(s).strip().lower().translate(_TIRNOQ_JADVALI)
 
     natijalar = [False] * len(savollar)
     for bosh, uzunlik in kop_javobli_guruhlar(savollar):

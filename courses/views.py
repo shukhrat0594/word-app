@@ -1040,6 +1040,21 @@ UNIT_YARATISH_MUMKIN_DARAJALAR = {
 }
 
 
+class KursDarajaUnitlariView(APIView):
+    """Berilgan daraja (masalan Beginner, Elementary...Upper-Intermediate)
+    ostidagi Unit'lar ro'yxati — Guruh yaratish/tahrirlashda "talaba
+    qaysi Unit'dan boshlaydi" tanlovi uchun (2026-08-25). Yengil: faqat
+    id+nomi, boshqa hech narsa (`GuruhFanlarView`ga o'xshash sabab —
+    daraja tanlanganda darhol so'ralishi mumkin, og'ir `KursDaraxtiView`
+    daraxtini yuklashga hojat yo'q)."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        unitlar = KursTugun.objects.filter(parent_id=pk, unit_darsi=True).order_by("tartib", "id")
+        return Response([{"id": u.id, "nomi": u.nomi} for u in unitlar])
+
+
 class KursDarajaUnitYaratishView(APIView):
     """Admin/owner uchun — Ingliz tili darajasida (Beginner yoki
     Elementary...Upper-Intermediate) Unit'lar (har biri Student's
