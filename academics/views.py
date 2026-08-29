@@ -135,8 +135,26 @@ class GuruhlarView(APIView):
     def post(self, request):
         if owner_mi(request.user):
             markaz_id = request.data.get("markaz_id") or request.user.markaz_id
+            # 2026-08-26, foydalanuvchi topgan xato: owner markazga
+            # biriktirilmagan bo'lsa (bu MUMKIN — owner platforma egasi,
+            # markazga bog'liq emas) guruh yaratish "markaz_id majburiy"
+            # bilan to'xtardi, frontendda esa faqat umumiy "Xatolik yuz
+            # berdi" ko'rinardi. Endi markaz TANLANGAN O'QITUVCHIdan
+            # olinadi — guruh mantiqan o'z o'qituvchisining markaziga
+            # tegishli. O'qituvchi ham tanlanmagan bo'lsa — yagona/birinchi
+            # markaz (platforma amalda bitta markaz bilan ishlaydi).
             if not markaz_id:
-                return Response({"detail": "markaz_id majburiy"}, status=400)
+                oqituvchi_id = request.data.get("oqituvchi_id")
+                if oqituvchi_id:
+                    markaz_id = (
+                        User.objects.filter(pk=oqituvchi_id, role=User.Role.TEACHER)
+                        .values_list("markaz_id", flat=True)
+                        .first()
+                    )
+            if not markaz_id:
+                markaz_id = Markaz.objects.order_by("id").values_list("id", flat=True).first()
+            if not markaz_id:
+                return Response({"detail": "Platformada birorta markaz yo'q"}, status=400)
         elif request.user.role == User.Role.ADMIN:
             if not request.user.markaz_id:
                 return Response({"detail": "Sizning markazingiz belgilanmagan"}, status=400)
@@ -367,24 +385,34 @@ class MarkazAzolariView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        if owner_mi(request.user):
+        egasi = owner_mi(request.user)
+        if egasi:
             markaz_id = request.query_params.get("markaz") or request.user.markaz_id
         elif request.user.role == User.Role.ADMIN:
             markaz_id = request.user.markaz_id
         else:
             return Response({"detail": "Faqat admin uchun"}, status=403)
 
-        if not markaz_id:
+        # 2026-08-26, foydalanuvchi topgan xato: owner markazga biriktirilmagan
+        # bo'lsa (bu MUMKIN — owner platforma egasi, markazga bog'liq emas)
+        # bu yerda 400 qaytardi va guruh formasidagi o'qituvchi/talaba
+        # ochiluvchi ro'yxatlari jimgina BO'SH chiqardi. Endi owner uchun
+        # markaz ko'rsatilmasa — BARCHA markazdagi o'qituvchilar qaytadi
+        # (u baribir hammasini ko'rish huquqiga ega). Oddiy admin uchun esa
+        # markazsizlik haqiqiy sozlama xatosi — 400 qoladi.
+        if not markaz_id and not egasi:
             return Response({"detail": "markaz belgilanmagan"}, status=400)
+
+        oqituvchilar = User.objects.filter(role=User.Role.TEACHER)
+        if markaz_id:
+            oqituvchilar = oqituvchilar.filter(markaz_id=markaz_id)
+
         # Talabalar markazga bog'lanmaydi (2026-08-02) — BARCHA talabalar
-        # ko'rinadi ("Utmost talabasi"), faqat o'qituvchilar shu markaz
+        # ko'rinadi ("Utmost talabasi"), faqat o'qituvchilar markaz
         # bilan cheklanadi (ular admin kabi markazga tegishli xodim).
         return Response(
             {
-                "oqituvchilar": [
-                    _foydalanuvchi_dict(u)
-                    for u in User.objects.filter(markaz_id=markaz_id, role=User.Role.TEACHER)
-                ],
+                "oqituvchilar": [_foydalanuvchi_dict(u) for u in oqituvchilar],
                 "talabalar": [
                     _foydalanuvchi_dict(u)
                     for u in User.objects.filter(role=User.Role.STUDENT)
