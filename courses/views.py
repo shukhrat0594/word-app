@@ -1,11 +1,13 @@
 import io
 import json
+import tempfile
 import uuid
 import zipfile
 
 from django.core.files.base import ContentFile
+from django.db import transaction
 from django.db.models import Count
-from django.http import HttpResponse
+from django.http import FileResponse, HttpResponse
 from django.shortcuts import get_object_or_404
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
@@ -734,7 +736,18 @@ class KursEksportView(APIView):
             return Response({"detail": "Faqat admin/owner uchun"}, status=403)
         tugun = get_object_or_404(KursTugun, pk=pk)
 
-        bufer = io.BytesIO()
+        # 2026-08-27, foydalanuvchi talabi: eksport endi BUTUN DARAJA
+        # (masalan Pre-Intermediate — 12 ta Unit) uchun ham ishlaydi.
+        # Avval ZIP butunlay `io.BytesIO()` da yig'ilib, so'ng
+        # `bufer.read()` bilan yana bir nusxa `HttpResponse` ichiga
+        # ko'chirilardi — ya'ni RAMda ZIP hajmidan IKKI BAROBAR joy
+        # egallanardi. Bitta Unit uchun bu sezilmasdi, butun daraja esa
+        # yuzlab MB bo'lishi mumkin va Render'ning cheklangan xotirasida
+        # jarayon o'ldirilardi. Endi ZIP `SpooledTemporaryFile`ga
+        # yoziladi: kichik eksport RAMda qoladi (tez), belgilangan
+        # chegaradan oshgani avtomatik DISKKA o'tadi, va `FileResponse`
+        # uni bo'lak-bo'lak (stream) uzatadi — nusxa olinmaydi.
+        bufer = tempfile.SpooledTemporaryFile(max_size=16 * 1024 * 1024)
         fayllar_indeksi = {}
         with zipfile.ZipFile(bufer, "w", zipfile.ZIP_DEFLATED) as zf:
             daraxt = _tugun_eksport_qil(tugun, zf, fayllar_indeksi)
@@ -760,20 +773,35 @@ class KursEksportView(APIView):
             node = node.parent
         zanjir.reverse()
         boshlanish = next((i for i, n in enumerate(zanjir) if n.unit_darsi), 0)
+        # 2026-08-27: butun DARAJA eksport qilinganda zanjirda birorta
+        # `unit_darsi` tugun yo'q (daraja Unit'larning OTASI), shuning
+        # uchun `boshlanish` 0 bo'lib qolardi va nom ildizdan boshlanib
+        # "kurslar_kurslar-ingliz_tili-pre_intermediate_eksport.zip"
+        # kabi takroriy chiqardi. Endi bunday holatda tugunning O'ZIDAN
+        # boshlanadi — "kurslar_pre_intermediate_eksport.zip".
+        if boshlanish == 0 and not any(n.unit_darsi for n in zanjir):
+            boshlanish = len(zanjir) - 1
         yol_qismlari = [n.kalit for n in zanjir[boshlanish:] if n.kalit]
         yol = "-".join(yol_qismlari) or str(tugun.id)
         fayl_nomi = f"kurslar_{yol}_eksport.zip"
-        javob = HttpResponse(bufer.read(), content_type="application/zip")
+        javob = FileResponse(bufer, content_type="application/zip")
         javob["Content-Disposition"] = f'attachment; filename="{fayl_nomi}"'
         return javob
 
 
-def _tugun_import_qil(daraxt, ota, markaz, zf):
+def _tugun_import_qil(daraxt, ota, markaz, zf, toliq=False):
     """`_tugun_eksport_qil`ning teskarisi — JSON tugun tavsifidan haqiqiy
     `KursTugun` (+ mashq/so'z/fayl) yaratadi. `kalit+ota` bo'yicha MAVJUD
     tugun topilsa o'shanga YOZILADI (import ikki marta bajarilsa
     dublikat yaratilmaydi) — boshqa joylardagi idempotent naqsh bilan
-    bir xil (`kurslar_urugla.py`)."""
+    bir xil (`kurslar_urugla.py`).
+
+    `toliq=True` (2026-08-27, foydalanuvchi talabi: "mavjud darajani
+    to'liq o'chirib qayta yozsin") — ZIPda YO'Q bo'lgan farzand tugunlar
+    ham o'chiriladi, ya'ni maqsad tugun ZIPdagi holatning AYNAN nusxasiga
+    aylanadi. Bunsiz (standart) eski farzandlar joyida qolardi: masalan
+    14 Unitli darajaga 12 Unitli ZIP yuklansa, ortiqcha 2 Unit qolib
+    ketardi va daraja aralash holatga tushardi."""
 
     def fayl_ol(kalit):
         if not kalit:
@@ -841,8 +869,17 @@ def _tugun_import_qil(daraxt, ota, markaz, zf):
         for s in daraxt["sozlar"]
     ])
 
+    # To'liq almashtirish rejimida — ZIPda YO'Q farzandlarni o'chiramiz.
+    # Farzandlarni yaratishdan OLDIN bajariladi, shunda o'chirish kaskadi
+    # (mashq/so'z/fayl) yangi yozilganlarga tegmaydi.
+    if toliq:
+        zip_kalitlari = {b["kalit"] for b in daraxt["children"] if b.get("kalit")}
+        ortiqcha = tugun.children.exclude(kalit__in=zip_kalitlari) if zip_kalitlari \
+            else tugun.children.all()
+        ortiqcha.delete()
+
     for bola in daraxt["children"]:
-        _tugun_import_qil(bola, tugun, markaz, zf)
+        _tugun_import_qil(bola, tugun, markaz, zf, toliq=toliq)
 
     # 2026-08-19: kitob (Student's Book/Workbook) ZIP'i ALOHIDA import
     # qilinganda — `_tugun_eksport_qil`da qo'shilgan `kitob_vocab_*`
@@ -889,6 +926,10 @@ class KursImportView(APIView):
         fayl = request.FILES.get("fayl")
         if not fayl:
             return Response({"detail": "fayl majburiy"}, status=400)
+        # 2026-08-27: butun daraja yuklanganda maqsad tugun ZIPdagi
+        # holatning AYNAN nusxasi bo'lishi kerak — ZIPda yo'q eski
+        # Unit'lar qolib ketmasin (`_tugun_import_qil` izohiga qara).
+        toliq = str(request.data.get("toliq", "")).lower() in ("1", "true", "ha")
 
         try:
             with zipfile.ZipFile(fayl) as zf:
@@ -937,7 +978,14 @@ class KursImportView(APIView):
                         status=400,
                     )
 
-                yangi_tugun = _tugun_import_qil(daraxt, qidiruv_ota, ota.markaz, zf)
+                # 2026-08-27: butun daraja importi uzoq davom etadi va
+                # `toliq` rejimida eskisini O'CHIRIB yozadi — yarim
+                # yo'lda xato bo'lsa daraja buzuq holatda qolmasligi
+                # uchun hammasi bitta tranzaksiyada bajariladi.
+                with transaction.atomic():
+                    yangi_tugun = _tugun_import_qil(
+                        daraxt, qidiruv_ota, ota.markaz, zf, toliq=toliq
+                    )
         except (zipfile.BadZipFile, KeyError, json.JSONDecodeError) as exc:
             return Response({"detail": f"ZIP fayl noto'g'ri: {exc}"}, status=400)
 

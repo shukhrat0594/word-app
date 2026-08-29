@@ -1,3 +1,5 @@
+import re
+
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
@@ -89,6 +91,159 @@ def kop_javobli_guruhlar(savollar):
 HARFLAR = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
 
+# 2026-08-26, foydalanuvchi topgan xato: telefon/planshet klaviaturasi
+# apostrofni avtomatik "aqlli" ko'rinishga (‘ ’) o'zgartiradi,
+# lekin kontentdagi "togri" qiymatlar oddiy to'g'ri chiziqli (' ')
+# apostrof bilan yozilgan — natijada "can't" kabi to'g'ri javob ham
+# XATO deb belgilanardi. Solishtirishdan oldin apostrof/tirnoq
+# variantlari bir xillashtiriladi (faqat taqqoslash uchun — talabaga
+# ko'rsatiladigan matn o'zgarmaydi).
+_TIRNOQ_JADVALI = str.maketrans({
+    "‘": "'", "’": "'", "ʼ": "'", "´": "'", "`": "'",
+    "“": '"', "”": '"',
+})
+
+# 2026-08-26, Elementary QA: javob kalitlari kitobdagidek to'liq gap bo'lib
+# yozilgan ("To the shops.", "Yes, there is."), lekin talaba odatda faqat
+# mazmunni yozadi — nuqta/vergulni tashlab ketgani uchun to'g'ri javob
+# XATO deb belgilanardi (butun Elementary bo'ylab 250 ta savol). Tinish
+# belgisi mashqning o'zi tekshiradigan narsa emas, shuning uchun
+# solishtirishda e'tiborga olinmaydi. Apostrof va defis SAQLANADI — ular
+# so'zning bir qismi ("don't", "twenty-five").
+_TINISH = str.maketrans({c: " " for c in ".,!?;:…–—"})
+
+# 2026-08-27, Pre-Intermediate QA: javob kalitlari kitobdagidek QISQARTMA
+# shaklda yozilgan ("I'll", "don't have to", "'d travel", "mustn't"), lekin
+# to'liq shakl ham xuddi shunday to'g'ri javob ("I will", "do not have to",
+# "would travel", "must not") — 12 Unit bo'ylab 114 ta savolda talaba
+# bilimini bilib turib xato olardi.
+#
+# 2026-08-28, TUZATILDI (jiddiy xato). Avvalgi yechim har ikkala shaklni
+# BITTA "kanonik" ko'rinishga keltirardi — ya'ni "he is" ham, "he has" ham
+# bir xil "he's" ga tushardi. Natijada butun baza bo'ylab 85 ta grammatik
+# BEMA'NI javob to'g'ri deb qabul qilinardi (24 ta mashqda):
+#     kalit "Yes, he has."  <-  talaba "Yes, he is."          -> QABUL
+#     kalit "He had woken up"  <-  "He would woken up"        -> QABUL
+#     kalit "She has tea."  <-  "She is tea."                 -> QABUL
+# Eng yomoni — bular AYNAN shu farqni o'rgatadigan mashqlar edi (Present
+# Perfect qisqa javoblari, Past Perfect).
+#
+# Yangi yechim: normalizator yo'qotishli EMAS (qisqartmaga tegmaydi),
+# uning o'rniga KALITDAN qabul qilinadigan variantlar TO'PLAMI yasaladi
+# (`_qabul_variantlari`). Kengaytirish faqat KALITNING O'ZIDAGI
+# qisqartmaga qo'llanadi, yasalgan variantga QAYTA qo'llanmaydi — aynan
+# shu zanjirni uzish "he is" -> "he's" -> "he has" sirg'alishini
+# to'xtatadi:
+#     "he is"  -> {he is, he's}          ("he has" YO'Q)
+#     "he has" -> {he has, he's}          ("he is" YO'Q)
+#     "he's"   -> {he's, he is, he has}   (kalitning O'ZI noaniq — o'rinli)
+_EGA = r"(?:i|you|he|she|it|we|they|there|that|this|who|what|where)"
+_YORDAMCHI = (r"(do|does|did|is|are|was|were|has|have|had|could|should"
+              r"|would|must|might|need|ought|dare)")
+
+# To'liq shakl -> qisqartma. Maxsus shakllar umumiy "... not" qoidasidan
+# OLDIN turishi shart, aks holda "will not" dan "willn't" chiqadi.
+_QISQARTIRISH = [
+    (r"\bcan\s?not\b", "can't"),
+    (r"\bwill not\b", "won't"),
+    (r"\bshall not\b", "shan't"),
+    (rf"\b{_YORDAMCHI}\s+not\b", r"\1n't"),
+    (rf"\b({_EGA})\s+am\b", r"\1'm"),
+    (rf"\b({_EGA})\s+is\b", r"\1's"),
+    (rf"\b({_EGA})\s+has\b", r"\1's"),
+    (rf"\b({_EGA})\s+are\b", r"\1're"),
+    (rf"\b({_EGA})\s+have\b", r"\1've"),
+    (rf"\b({_EGA})\s+will\b", r"\1'll"),
+    (rf"\b({_EGA})\s+would\b", r"\1'd"),
+    (rf"\b({_EGA})\s+had\b", r"\1'd"),
+    # Ega gapda qolib, bo'sh joyga faqat fe'l yoziladigan mashqlar:
+    # kalit "'d travel", talaba "would travel".
+    (r"^\s*will\s+", "'ll "),
+    (r"^\s*would\s+", "'d "),
+    (r"^\s*had\s+", "'d "),
+    (r"^\s*have\s+", "'ve "),
+    (r"^\s*am\s+", "'m "),
+    (r"^\s*are\s+", "'re "),
+]
+
+# Qisqartma -> to'liq shakl. FAQAT MA'NOSI ANIQ qisqartmalar kengaytiriladi.
+#
+# `'s` (= is yoki has) va `'d` (= would yoki had) ATAYLAB YO'Q. Ular ikki
+# xil ma'noni bersa, kalit "There's" dan "there has" ham chiqib ketardi va
+# talaba bema'ni javob yozib ham o'tib ketardi. Amalda tekshirildi: kontent
+# mualliflari bunday holatda to'liq shaklni ALLAQACHON alohida variant
+# qilib yozishgan — masalan ['There is', "There's"], ['Who is', "Who's"],
+# ["he had woken up ...", "he'd woken up ..."] — shuning uchun taxmin
+# qilishning hojati yo'q, kalit o'zi aytib turadi.
+_KENGAYTIRISH = [
+    (r"\bcan't\b", ["cannot", "can not"]),
+    (r"\bwon't\b", ["will not"]),
+    (r"\bshan't\b", ["shall not"]),
+    (rf"\b{_YORDAMCHI}n't\b", [r"\1 not"]),
+    (rf"\b({_EGA})'m\b", [r"\1 am"]),
+    (rf"\b({_EGA})'re\b", [r"\1 are"]),
+    (rf"\b({_EGA})'ve\b", [r"\1 have"]),
+    (rf"\b({_EGA})'ll\b", [r"\1 will"]),
+    (r"^\s*'ll\s+", ["will "]),
+    (r"^\s*'ve\s+", ["have "]),
+    (r"^\s*'m\s+", ["am "]),
+    (r"^\s*'re\s+", ["are "]),
+]
+_QISQARTIRISH = [(re.compile(q), a) for q, a in _QISQARTIRISH]
+_KENGAYTIRISH = [(re.compile(q), a) for q, a in _KENGAYTIRISH]
+
+# Bitta kalitdan yasaladigan variantlar soni chegarasi — bir nechta noaniq
+# qisqartmali uzun kalitda kombinatorika o'smasin.
+_VARIANT_CHEGARA = 32
+
+
+def _norm(s):
+    """Taqqoslash uchun normalizator (registr, tirnoq, tinish, probel).
+
+    Qisqartmaga ATAYLAB TEGMAYDI — u yo'qotishli bo'lardi ("he is" va
+    "he has" ni ajratib bo'lmay qolardi). Qisqartma `_qabul_variantlari`
+    orqali, faqat KALIT tomonda hisobga olinadi."""
+    s = str(s).lower().translate(_TIRNOQ_JADVALI).translate(_TINISH)
+    return re.sub(r"\s+", " ", s).strip()
+
+
+def _qabul_variantlari(kalit):
+    """`kalit` uchun qabul qilinadigan normallashgan shakllar to'plami:
+    kalitning o'zi + qisqartirilgan shakli + (kalitda qisqartma bo'lsa)
+    uning to'liq shakl(lar)i.
+
+    Kengaytirish FAQAT asl kalitga qo'llanadi — qisqartirish natijasida
+    yasalgan variantga qayta qo'llanmaydi (yuqoridagi izohga qara)."""
+    asl = str(kalit).lower().translate(_TIRNOQ_JADVALI)
+    natija = {asl}
+
+    # 1) To'liq shakl -> qisqartma (bitta variant, ketma-ket qo'llanadi).
+    qisqa = asl
+    for qolip, almash in _QISQARTIRISH:
+        qisqa = qolip.sub(almash, qisqa)
+    natija.add(qisqa)
+
+    # 2) Asl kalitdagi qisqartmalarni to'liq shaklga yoyish. Noaniqlari
+    #    uchun har bir variant alohida shox beradi.
+    yoyilgan = {asl}
+    for qolip, almashlar in _KENGAYTIRISH:
+        yangi = set()
+        for v in yoyilgan:
+            for a in almashlar:
+                y = qolip.sub(a, v)
+                if y != v:
+                    yangi.add(y)
+        yoyilgan |= yangi
+        if len(yoyilgan) > _VARIANT_CHEGARA:
+            break
+    natija |= yoyilgan
+
+    # Bo'sh natija ATAYLAB filtrlanmaydi: "nol artikl" mashqlarida kalit
+    # tire ("–") bo'lib, normalizatsiyadan keyin bo'sh satr qoladi — uni
+    # tashlab yuborsak, o'sha savollar (bazada 54 ta) javobsiz qolardi.
+    return {_norm(v) for v in natija}
+
+
 def _harf_va_matn_qabul(savol, qabul):
     """Variantli savolda HARF ham, VARIANT MATNI ham qabul qilinsin
     (2026-08-01).
@@ -106,7 +261,7 @@ def _harf_va_matn_qabul(savol, qabul):
     if not variantlar:
         return set(qabul)
     kengaytirilgan = set(qabul)
-    past_variantlar = [str(v).strip().lower() for v in variantlar]
+    past_variantlar = [_norm(v) for v in variantlar]
     for t in qabul:
         # Kalit to'liq matn bo'lsa — mos harfni ham qabul qilamiz.
         if t in past_variantlar:
@@ -141,20 +296,7 @@ def javoblarni_tekshir(savollar, javoblar):
     hisoblanadi.
     """
 
-    # 2026-08-26, foydalanuvchi topgan xato: telefon/planshet klaviaturasi
-    # apostrofni avtomatik "aqlli" ko'rinishga (’ ’) o'zgartiradi,
-    # lekin kontentdagi "togri" qiymatlar oddiy to'g'ri chiziqli (' ')
-    # apostrof bilan yozilgan — natijada "can't" kabi to'g'ri javob ham
-    # XATO deb belgilanardi. Solishtirishdan oldin apostrof/tirnoq
-    # variantlari bir xillashtiriladi (faqat taqqoslash uchun — talabaga
-    # ko'rsatiladigan matn o'zgarmaydi).
-    _TIRNOQ_JADVALI = str.maketrans({
-        "‘": "'", "’": "'", "ʼ": "'", "´": "'", "`": "'",
-        "“": '"', "”": '"',
-    })
-
-    def norm(s):
-        return str(s).strip().lower().translate(_TIRNOQ_JADVALI)
+    norm = _norm
 
     natijalar = [False] * len(savollar)
     for bosh, uzunlik in kop_javobli_guruhlar(savollar):
@@ -187,6 +329,9 @@ def javoblarni_tekshir(savollar, javoblar):
             # "nechta javob kerak"ni aynan shundan bilamiz (kengaytirilgan
             # to'plamda harf/matn juftliklari qo'shilib, son buzilishi mumkin).
             asl_qabul_soni = len(set(qabul))
+            # 2026-08-28: qisqartma variantlari (I'll <-> I will) SHU YERDA,
+            # kalit tomonda qo'shiladi — normalizatorda emas (izohga qara).
+            qabul = set().union(*(_qabul_variantlari(t) for t in qabul))
             qabul = _harf_va_matn_qabul(savol, qabul)
             javob = javoblar[bosh] if bosh < len(javoblar) else ""
 
@@ -222,7 +367,7 @@ def javoblarni_tekshir(savollar, javoblar):
             t = savollar[k]["togri"]
             for x in (t if isinstance(t, list) else [t]):
                 if str(x).strip():
-                    qabul.add(norm(x))
+                    qabul |= _qabul_variantlari(x)
         if not qabul:
             continue
         qabul = _harf_va_matn_qabul(savollar[bosh], qabul)

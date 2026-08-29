@@ -268,6 +268,24 @@ else:
 MEDIA_ROOT = BASE_DIR / 'media'
 MEDIA_URL = 'media/'
 
+# 2026-08-27, foydalanuvchi talabi: Kurslar bo'limida endi BUTUN DARAJA
+# (masalan Pre-Intermediate — 12 ta Unit, rasm/audio bilan) bitta ZIP
+# qilib saqlanadi va qayta yuklanadi. Amalda o'lchandi: Pre-Intermediate
+# = ~227 MB. Django standartlari bunga tor:
+#
+# `FILE_UPLOAD_MAX_MEMORY_SIZE` — fayl shu hajmdan OSHSA, RAMda emas,
+# vaqtinchalik DISK faylida saqlanadi. ATAYLAB kichik (standart 2.5 MB)
+# qoldirildi: aynan shu tufayli 227 MB ZIP xotirani to'ldirmaydi, balki
+# oqim bilan diskka tushadi (Render'da RAM cheklangan).
+#
+# `DATA_UPLOAD_MAX_MEMORY_SIZE` — so'rov tanasining fayl BO'LMAGAN
+# qismiga qo'yiladigan chegara (multipart'da fayl maydonlari bunga
+# kirmaydi). Baribir kengaytiramiz: bu chegara oshib ketsa Django
+# `RequestDataTooBig` bilan so'rovni rad etadi va foydalanuvchi sababi
+# tushunarsiz xato ko'radi.
+FILE_UPLOAD_MAX_MEMORY_SIZE = 2 * 1024 * 1024      # 2 MB — kattasi diskka
+DATA_UPLOAD_MAX_MEMORY_SIZE = 1024 * 1024 * 1024   # 1 GB
+
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Google OAuth (talaba ro'yxatdan o'tishi/kirishi -- B2.1)

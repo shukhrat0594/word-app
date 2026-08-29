@@ -1763,7 +1763,7 @@ function UnitTozalashTugmasi({ unitId, royxatniYangila }) {
  * yuklab olish va boshqa muhitga (masalan prod<->local) import qilish
  * (2026-08-16, foydalanuvchi talabi: "backup qilgandek yuklab olib,
  * boshqa bazaga yuklash"). */
-function EksportImportTugmalari({ tugunId, royxatniYangila }) {
+function EksportImportTugmalari({ tugunId, royxatniYangila, toliq = false }) {
   const { t } = useI18n();
   const [eksportBand, setEksportBand] = useState(false);
   const [importBand, setImportBand] = useState(false);
@@ -1785,12 +1785,16 @@ function EksportImportTugmalari({ tugunId, royxatniYangila }) {
     const fayl = e.target.files[0];
     e.target.value = "";
     if (!fayl) return;
-    if (!window.confirm(t("kurs_import_tasdiq"))) return;
+    // 2026-08-27: butun DARAJA yuklanganda mavjud kontent TO'LIQ
+    // o'chirib qayta yoziladi (ZIPda yo'q Unitlar ham o'chadi) —
+    // shuning uchun tasdiq matni ham boshqacha, kuchliroq.
+    if (!window.confirm(t(toliq ? "kurs_daraja_import_tasdiq" : "kurs_import_tasdiq"))) return;
     setXato("");
     setImportBand(true);
     try {
       const fd = new FormData();
       fd.append("fayl", fayl);
+      if (toliq) fd.append("toliq", "1");
       await apiForm(`/api/kurslar/${tugunId}/import/`, { method: "POST", formData: fd });
       royxatniYangila();
     } catch (e2) {
@@ -2122,6 +2126,18 @@ function Tugun({ tugun, chuqurlik, adminMi, talabaMi, oqituvchiMi, royxatniYangi
           {adminMi && tugun.unit_darsi && (
             <div style={{ paddingLeft: otstup + 18, display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
               <EksportImportTugmalari tugunId={tugun.id} royxatniYangila={royxatniYangila} />
+            </div>
+          )}
+          {/* 2026-08-27, foydalanuvchi talabi: endi BUTUN DARAJA
+              (Beginner ... Upper-Intermediate) ham bir bosishda saqlanadi
+              va qayta yuklanadi. Yuklashda `toliq` — mavjud daraja TO'LIQ
+              o'chirilib, ZIPdagi holat bilan almashtiriladi (ZIPda yo'q
+              Unitlar ham o'chadi), aks holda eski va yangi Unitlar
+              aralashib qolardi. */}
+          {adminMi && UNIT_YARATISH_MUMKIN_DARAJALAR.has(tugun.kalit) && (
+            <div style={{ paddingLeft: otstup + 18, display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
+              <span className="izoh" style={{ alignSelf: "center" }}>{t("kurs_butun_daraja")}:</span>
+              <EksportImportTugmalari tugunId={tugun.id} royxatniYangila={royxatniYangila} toliq />
             </div>
           )}
           {/* 2026-07-29: Elementary...Upper-Intermediate — Unit hali
