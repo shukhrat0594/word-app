@@ -1265,7 +1265,7 @@ function AdminMashqBoshqaruv({ tugunId, jsonKiritishKorinadi = true }) {
                       </span>
                     );
                   }
-                  return null;
+                  return <span className="izoh">{t("kurs_mashq_audio_yoq")}</span>;
                 })()}
                 <button className="tugma ikkinchi" style={{ color: "#d33" }} onClick={() => ochir(m.id)}>
                   {t("ochirish")}

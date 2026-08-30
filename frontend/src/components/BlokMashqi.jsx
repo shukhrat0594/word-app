@@ -496,14 +496,17 @@ function Blok({ blok, rasmUrllar, faolRaqam, ijro, audioTanla, javoblar, javobni
           <tbody>
             {/* 2026-08-18, foydalanuvchi talabi: kitobdagi to'ldiriladigan
                 jadval (masalan "Listen and complete the chart") — katak
-                oddiy matn (string) YOKI bo'sh joyli mashq bo'lagi
-                ({"bolaklar": [...]}) bo'lishi mumkin. */}
+                oddiy matn (string), bo'sh joyli mashq bo'lagi
+                ({"bolaklar": [...]}) YOKI namuna sifatida tayyor javob
+                ({"matn": "...", "namuna": true}) bo'lishi mumkin. */}
             {qatorlar.map((q, k) => (
               <tr key={k}>
                 {q.map((c, ci) => (
                   <td key={ci}>
                     {c && typeof c === "object" && c.bolaklar ? (
                       <Bolaklar bolaklar={c.bolaklar} javoblar={javoblar} javobniQoy={javobniQoy} natija={natija} />
+                    ) : c && typeof c === "object" && c.namuna ? (
+                      <span className="blok-dialog-namuna">{c.matn}</span>
                     ) : (
                       c
                     )}
@@ -518,7 +521,7 @@ function Blok({ blok, rasmUrllar, faolRaqam, ijro, audioTanla, javoblar, javobni
     case "soz_banki":
       return (
         <div className="blok-soz-banki">
-          {(blok.qatorlar || []).map((s, k) => {
+          {(blok.sozlar || blok.qatorlar || []).map((s, k) => {
             const matn = typeof s === "string" ? s : s.matn;
             // 2026-08-16: kitobda namuna sifatida ISHLATILGAN so'z
             // ustidan chizilgan holda ko'rsatiladi (masalan "Good
