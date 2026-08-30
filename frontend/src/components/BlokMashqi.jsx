@@ -353,7 +353,16 @@ function Blok({ blok, rasmUrllar, faolRaqam, ijro, audioTanla, javoblar, javobni
         </div>
       );
     case "dialog": {
-      const qatorlar = blok.qatorlar || [];
+      // 2026-08-30, Shuxrat talabi: suhbat qatorlari DB'da ikki xil kalit
+      // shaklida uchraydi — asosiysi {kim, gap}, lekin Elementary Unit 9
+      // SB seed'ida {kishi, matn} ishlatilgan. Render faqat birinchisini
+      // bilgani uchun o'sha 15 qator talabaga BUTUNLAY ko'rinmay qolar edi
+      // (mashq 1222 va 1224). Shu yerda bir shaklga keltiramiz.
+      const qatorlar = (blok.qatorlar || []).map((q) =>
+        q && typeof q === "object" && (q.kishi !== undefined || q.matn !== undefined)
+          ? { ...q, kim: q.kim ?? q.kishi, gap: q.gap ?? q.matn }
+          : q,
+      );
       // 2026-08-16, foydalanuvchi talabi: so'zlovchi nomi bo'lmagan qisqa
       // savol-javob namunalari (masalan "What's this in English? / It's
       // a photo.") kitobdagi kabi haqiqiy SUHBAT PUFAKCHASI (uchburchak
