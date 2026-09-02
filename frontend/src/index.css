@@ -941,7 +941,11 @@ input.imtihon-bosh-joy { font: inherit; font-size: 12.5px; text-align: center; }
 /* 2026-08-07: xuddi rasm-javobli-karta'dagi bilan bir xil bug — bu yerda
    ham 260px'lik yakka-rasm cheklovi bekor bo'lib, rasm qatordagi
    flex-katak kengligiga qarab kattalashib ketardi. */
-.blok-rasm-karta .blok-rasm { margin: 0 0 10px; max-width: 100%; width: 100%; height: 140px; object-fit: cover; }
+/* 2026-09-02: `cover` rasmni belgilangan balandlikka sig'dirish uchun
+   QIRQARDI — kitobdan olingan suratlarning ichidagi yozuv (masalan
+   "1 GARY RUDD Football manager") yarmidan kesilib qolardi. `contain`
+   rasmni to'liq ko'rsatadi, kartalar balandligi esa bir xil qoladi. */
+.blok-rasm-karta .blok-rasm { margin: 0 0 10px; max-width: 100%; width: 100%; height: 160px; object-fit: contain; }
 .blok-rasm-karta .blok-pufakcha { margin: 0; }
 .blok-korsatma {
   display: flex; align-items: center; gap: 10px; margin: 16px 0 12px; flex-wrap: wrap;

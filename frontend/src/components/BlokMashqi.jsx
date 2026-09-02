@@ -787,7 +787,7 @@ export default function BlokMashqi({ mashq, raqam, javoblarOchiq }) {
             <div className="blok-umumiy-tekshirish">
               {natija ? (
                 <div className="izoh blok-umumiy-natija">
-                  {natija.ball}/{natija.jami} {"correct"}
+                  {natija.ball}/{natija.jami} {t("natija_togri")}
                 </div>
               ) : (
                 <button
@@ -796,7 +796,7 @@ export default function BlokMashqi({ mashq, raqam, javoblarOchiq }) {
                   onClick={tekshir}
                   disabled={yuborilmoqda}
                 >
-                  {yuborilmoqda ? "Checking…" : "Check"}
+                  {yuborilmoqda ? t("tekshirilmoqda") : t("tekshirish")}
                 </button>
               )}
             </div>
