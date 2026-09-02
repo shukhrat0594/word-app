@@ -809,6 +809,7 @@ input.imtihon-bosh-joy { font: inherit; font-size: 12.5px; text-align: center; }
 .blok-raqam-sarlavha { font-weight: 700; margin-bottom: 10px; }
 .blok-sarlavha { color: var(--matn); font-size: 20px; margin: 0 0 4px; font-weight: 800; }
 .blok-bolim { color: var(--matn); font-size: 16px; margin: 18px 0 4px; font-weight: 700; }
+.blok-kichik { color: var(--matn); font-size: 14px; margin: 14px 0 4px; font-weight: 700; font-style: italic; }
 /* 2026-09-02: `white-space: pre-line` — ro'yxat ko'rinishidagi matn
    bloklari (masalan moslashtirish mashqining a-l javoblari) bitta zich
    paragrafga yopishib qolmasligi uchun. */
@@ -895,6 +896,9 @@ input.imtihon-bosh-joy { font: inherit; font-size: 12.5px; text-align: center; }
 }
 .blok-raqam-tanlash.keng .blok-raqam-tanlash-qator { margin-bottom: 14px; }
 .blok-raqam-tanlash-raqam { font-weight: 700; min-width: 16px; }
+/* 2026-09-02: tanlov qatorining gap matni — variantlar bilan bir qatorda,
+   ular sig'masa o'zi keyingi qatorga tushadi. */
+.blok-raqam-tanlash-matn { flex: 1 1 240px; min-width: 200px; }
 .blok-raqam-tanlash-band {
   font: inherit; font-weight: 700; border: 2px solid var(--chiziq);
   background: var(--sirt); border-radius: 8px; padding: 6px 14px;
@@ -1034,6 +1038,11 @@ input.imtihon-bosh-joy { font: inherit; font-size: 12.5px; text-align: center; }
 .blok-mashq-blok {
   margin: 0 0 16px; background: var(--sirt); border: 2px dashed color-mix(in srgb, var(--sariq) 55%, var(--chiziq));
   border-radius: 10px; padding: 14px 16px;
+  /* 2026-09-02: `overflow: hidden` — o'z blok-formatlash konteksti.
+     Busiz "chap"/"o'ng" suzuvchi rasm ramkaning USTIGA tushib, mashq
+     qatorlarining o'ng qismini to'sib qo'yardi (U4 SB p47, p40). Endi
+     ramka rasm yonida siqiladi — kitobdagidek. */
+  overflow: hidden;
 }
 .blok-mashq { font-weight: 600; line-height: 1.9; }
 /* 2026-08-16, foydalanuvchi talabi: ko'p so'zlovchili suhbat (masalan

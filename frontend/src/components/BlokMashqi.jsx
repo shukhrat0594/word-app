@@ -215,6 +215,11 @@ function RaqamTanlash({ qatorlar, javoblar, javobniQoy, natija, keng }) {
         return (
           <div key={qi} className="blok-raqam-tanlash-qator">
             {q.raqam && <span className="blok-raqam-tanlash-raqam">{q.raqam}</span>}
+            {/* 2026-09-02: qator matni ("Richard still hasn't arrived. Do you
+                think I should/must call him?") umuman chizilmasdi — talaba
+                faqat raqam va ikkita variantni ko'rar, gapning o'zini
+                ko'rmasdi (U5 SB p51 vizual tekshiruvida topildi). */}
+            {q.matn && <span className="blok-raqam-tanlash-matn">{q.matn}</span>}
             {(q.variantlar || []).map((v, vi) => {
               const tanlanganMi = tanlangan === v;
               return (
@@ -283,6 +288,8 @@ function Blok({ blok, rasmUrllar, faolRaqam, ijro, audioTanla, javoblar, javobni
       return <h3 className="blok-sarlavha">{blok.matn}</h3>;
     case "bolim_sarlavha":
       return <h4 className="blok-bolim">{blok.matn}</h4>;
+    case "kichik_sarlavha":
+      return <h5 className="blok-kichik">{blok.matn}</h5>;
     case "rasm": {
       const url = rasmUrllar[blok.rasm_idx];
       if (!url) return null;
