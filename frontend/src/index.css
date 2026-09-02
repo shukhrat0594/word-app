@@ -809,7 +809,10 @@ input.imtihon-bosh-joy { font: inherit; font-size: 12.5px; text-align: center; }
 .blok-raqam-sarlavha { font-weight: 700; margin-bottom: 10px; }
 .blok-sarlavha { color: var(--matn); font-size: 20px; margin: 0 0 4px; font-weight: 800; }
 .blok-bolim { color: var(--matn); font-size: 16px; margin: 18px 0 4px; font-weight: 700; }
-.blok-matn { margin: 8px 0; }
+/* 2026-09-02: `white-space: pre-line` — ro'yxat ko'rinishidagi matn
+   bloklari (masalan moslashtirish mashqining a-l javoblari) bitta zich
+   paragrafga yopishib qolmasligi uchun. */
+.blok-matn { margin: 8px 0; white-space: pre-line; }
 .blok-rasm {
   /* 2026-08-03: 320px -> 260px (foydalanuvchi talabi: "rasmlarni hajmini
      juda katta qilib yubormaslik kerak") — endi sahifa bir nechta
@@ -945,6 +948,10 @@ input.imtihon-bosh-joy { font: inherit; font-size: 12.5px; text-align: center; }
   background: color-mix(in srgb, var(--sariq) 12%, var(--sirt)); border-left: 4px solid var(--sariq);
   border-radius: 8px; padding: 9px 14px;
 }
+/* 2026-09-02: ko'rsatma matnidagi qator uzilishlari (masalan anketa
+   savollari, "What do you think?" bandlari) saqlanishi kerak — aks holda
+   kitobdagi ro'yxat bitta zich paragrafga aylanib ketardi. */
+.blok-korsatma > span { white-space: pre-line; }
 .blok-raqam {
   background: var(--sariq); color: #2B2A28; font-weight: 800; font-size: 12.5px;
   padding: 3px 10px; border-radius: 5px; line-height: 1.4;
