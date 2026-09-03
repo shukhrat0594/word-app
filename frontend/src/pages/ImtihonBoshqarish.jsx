@@ -1983,7 +1983,17 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
     const jami = man.testlar.length;
     for (let i = 0; i < jami; i++) {
       const tst = man.testlar[i];
-      setPapkaJarayon({ joriy: i + 1, jami, nomi: tst.name || tst.fayl });
+      // Qaysi papkaga yuklanayotgani ham ko'rinsin (2026-09-03,
+      // foydalanuvchi talabi: "har bir papkani va uni ichidagi
+      // mashqlarni alohida yuklasin") — testlar manifestda papka
+      // bo'yicha guruhlangan tartibda keladi, shuning uchun qoplamada
+      // papka nomi almashib borishi jarayonni aniq ko'rsatadi.
+      setPapkaJarayon({
+        joriy: i + 1,
+        jami,
+        papka: tst.ichki_papka || man.papka?.nomi || "",
+        nomi: tst.name || tst.fayl,
+      });
       const ichki = zip.file(tst.fayl);
       if (!ichki) continue;
       const blob = await ichki.async("blob");
@@ -2411,7 +2421,10 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
           <div style={{ fontWeight: 700 }}>
             {t("imtihon_papka_yuklash")} — {papkaJarayon.joriy}/{papkaJarayon.jami}
           </div>
-          <div className="izoh">{papkaJarayon.nomi}</div>
+          <div className="izoh">
+            {papkaJarayon.papka ? `📁 ${papkaJarayon.papka} — ` : ""}
+            {papkaJarayon.nomi}
+          </div>
         </div>
       </div>
     )}
