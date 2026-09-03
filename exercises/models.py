@@ -67,9 +67,35 @@ def kop_javobli_guruhlar(savollar):
     aniqlaymiz — JSON formatiga yangi maydon qo'shish shart emas, mavjud
     testlar ham avtomatik to'g'ri ishlaydi.
 
+    2026-09-03 qo'shildi (Cambridge 3 Test 1 Reading, 34-35): xuddi shu
+    "IKKITA javob" savoli `multiple_choice` emas, VARIANTSIZ `matching`
+    ko'rinishida ham keladi ("In which TWO paragraphs ... write the TWO
+    appropriate letters (A-G)") — kalit ikkalasida ham bir xil to'plam
+    (["B", "F"] va ["F", "B"]). Yuqoridagi shart bunday savolni
+    guruhlamagani uchun ular alohida baholanardi va bir xil harfni IKKI
+    MARTA yozgan talaba IKKI ball olardi. Endi tur muhim emas: savol
+    matni, variantlari VA kalit TO'PLAMI bir xil bo'lsa (kalitda birdan
+    ko'p qiymat bo'lganda) guruhlanadi — takroriy javob bir marta
+    hisoblanadi. Kalit to'plami shartga ATAYLAB kiritildi: bir xil matnli,
+    lekin BOSHQA javobli ketma-ket savollar (masalan bitta jadval
+    katagiga tegishli "___, Classroom 5, ___ test" juftligi) guruhga
+    tushib qolmasin.
+
     Qaytaradi: [(bosh_indeks, uzunlik), ...] — barcha savollarni qoplaydi,
     yolg'iz savollar uchun uzunlik 1.
     """
+
+    def shakl(x):
+        return (
+            str(x.get("savol", "")).strip(),
+            x.get("variantlar") or [],
+            x.get("tur"),
+        )
+
+    def kalit_toplami(x):
+        tg = x.get("togri")
+        return {_norm(v) for v in tg} if isinstance(tg, list) else None
+
     guruhlar = []
     i = 0
     while i < len(savollar):
@@ -83,6 +109,15 @@ def kop_javobli_guruhlar(savollar):
                 and (savollar[j].get("variantlar") or []) == (s.get("variantlar") or [])
             ):
                 j += 1
+        else:
+            kalit = kalit_toplami(s)
+            if kalit and len(kalit) > 1:
+                while (
+                    j < len(savollar)
+                    and shakl(savollar[j]) == shakl(s)
+                    and kalit_toplami(savollar[j]) == kalit
+                ):
+                    j += 1
         guruhlar.append((i, j - i))
         i = j
     return guruhlar
