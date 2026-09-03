@@ -1959,6 +1959,26 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
       throw new Error(t("imtihon_papka_arxiv_emas"));
     }
 
+    // Ichki papkalarni tiklaymiz: shu nomli ichki papka BOR bo'lsa
+    // ishlatiladi (birlashtirish), yo'q bo'lsa yaratiladi. Nomlar
+    // registrga qaramay solishtiriladi.
+    const ichkiIdlar = {};
+    const mavjudIchkilar = papkalar.filter((x) => x.parent === p.id);
+    for (const ip of man.ichki_papkalar || []) {
+      const bor = mavjudIchkilar.find(
+        (x) => x.nomi.trim().toLowerCase() === String(ip.nomi).trim().toLowerCase()
+      );
+      if (bor) {
+        ichkiIdlar[ip.nomi] = bor.id;
+        continue;
+      }
+      const yangi = await api("/api/imtihon/papkalar/", {
+        method: "POST",
+        body: { nomi: ip.nomi, manba, parent: p.id },
+      });
+      ichkiIdlar[ip.nomi] = yangi.id;
+    }
+
     let rejim = "";
     const jami = man.testlar.length;
     for (let i = 0; i < jami; i++) {
@@ -1983,12 +2003,15 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
         }
         javob = await importYubor(testFayli, rejim);
       }
-      // Test aynan BOSILGAN papkaga tushsin — backend faqat bir xil
-      // NOMLI papkani topib biriktiradi, bu esa aniq id bilan ishlaydi.
-      if (javob?.id) {
+      // Test aynan MANBA'DAGI joyiga tushsin — ichki papkada bo'lgan
+      // bo'lsa o'sha ichki papkaga, aks holda bosilgan papkaning
+      // o'ziga. Backend faqat bir xil NOMLI papkani topib biriktiradi,
+      // bu esa aniq id bilan ishlaydi.
+      const maqsadId = tst.ichki_papka ? ichkiIdlar[tst.ichki_papka] : p.id;
+      if (javob?.id && maqsadId) {
         await api(`/api/imtihon/testlar-boshqaruv/${javob.id}/`, {
           method: "PATCH",
-          body: { papka: p.id },
+          body: { papka: maqsadId },
         });
       }
     }
@@ -2004,6 +2027,7 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
     try {
       await papkaImportQil(p, fayl);
       yukla(filtrBolim);
+      setOchiqPapkalar((v) => ({ ...v, [p.id]: true }));
     } catch (e2) {
       const soniya = Math.round((Date.now() - boshlandi) / 1000);
       const tafsilot = e2.data?.detail
@@ -2733,8 +2757,12 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
       <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
         {/* Papkani BUTUNLAY saqlash/yuklash (2026-09-03, foydalanuvchi
             talabi: "qalamchani yoniga ikkita tugma qo'sh, saqlash,
-            yuklash"). Ichki papkalar ATAYLAB kirmaydi — faqat shu
-            papkaning o'z testlari (`TestPapkaEksportView` izohiga qara). */}
+            yuklash"). FAQAT ASOSIY papkada ko'rinadi (foydalanuvchi
+            qarori: "ichki papkalarni eksport qilish kerak emas") —
+            asosiy papka arxivi ichki papkalarni ham o'z ichiga oladi,
+            shuning uchun ichki papkada alohida tugma kerak emas. */}
+        {!p.parent && (
+        <>
         <button
           type="button"
           title={t("imtihon_papka_saqlash")}
@@ -2761,6 +2789,8 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
             style={{ display: "none" }}
           />
         </label>
+        </>
+        )}
         <button
           type="button"
           title={t("imtihon_papka_nomini_tahrirlash")}

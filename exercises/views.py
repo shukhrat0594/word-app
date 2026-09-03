@@ -735,10 +735,13 @@ class TestPapkaEksportView(APIView):
     bo'lakda yuborilsa so'rov Railway/gunicorn chegarasiga urilardi
     (aynan shu muammo kurslar darajasi importida bo'lgan edi).
 
-    Ichki (2-darajali) papkalar ATAYLAB kirmaydi (foydalanuvchi qarori,
-    2026-09-03) — faqat shu papkaning O'Z testlari. Ichki papkalar Mock
-    yig'ish uchun mo'ljallangan va o'z qoidalariga ega
-    (`TestPapkasi` izohiga qara).
+    Qamrov — BUTUN DARAXT (2026-09-03, foydalanuvchi qarori): shu
+    papkaning o'z testlari VA ichki (2-darajali) papkalari bilan
+    ulardagi testlar. Avval faqat o'z testlari olinardi, lekin amalda
+    testlar ko'pincha aynan ichki papkalarda turadi ("Cambridge 3" >
+    "Test 1") va asosiy papka arxivi BO'SH chiqardi. Har test manifestda
+    qaysi ichki papkada turgani bilan belgilanadi, import esa ichki
+    papkalarni qayta yaratadi.
 
     Tashqi ZIP `ZIP_STORED`: ichkilari allaqachon siqilgan, ikki marta
     siqish faqat vaqt yeydi."""
@@ -749,12 +752,17 @@ class TestPapkaEksportView(APIView):
         if not _mashq_admin_mi(request.user):
             return Response({"detail": "Faqat admin/owner uchun"}, status=403)
         papka = get_object_or_404(TestPapkasi, pk=pk)
-        testlar = list(papka.testlar.order_by("bolim", "name"))
+        # (test, ichki_papka_nomi) juftliklari — avval papkaning o'z
+        # testlari, so'ng har bir ichki papka o'z tartibida.
+        ichkilar = list(papka.ichki_papkalar.order_by("tartib", "nomi"))
+        juftlar = [(t, None) for t in papka.testlar.order_by("bolim", "name")]
+        for ichki in ichkilar:
+            juftlar += [(t, ichki.nomi) for t in ichki.testlar.order_by("bolim", "name")]
 
         bufer = tempfile.SpooledTemporaryFile(max_size=16 * 1024 * 1024)
         with zipfile.ZipFile(bufer, "w", zipfile.ZIP_STORED) as tashqi:
             yozuvlar = []
-            for i, test in enumerate(testlar, 1):
+            for i, (test, ichki_nomi) in enumerate(juftlar, 1):
                 ichki = tempfile.SpooledTemporaryFile(max_size=16 * 1024 * 1024)
                 _test_zip_yoz(test, ichki)
                 nom = f"tests/{i}.zip"
@@ -766,11 +774,15 @@ class TestPapkaEksportView(APIView):
                 ichki.close()
                 yozuvlar.append({
                     "fayl": nom, "name": test.name, "bolim": test.bolim,
+                    "ichki_papka": ichki_nomi,
                 })
             tashqi.writestr("manifest.json", json.dumps({
                 "turi": IMTIHON_PAPKA_EKSPORT_TURI,
-                "versiya": 1,
+                "versiya": 2,
                 "papka": {"nomi": papka.nomi, "manba": papka.manba},
+                "ichki_papkalar": [
+                    {"nomi": ichki.nomi, "tartib": ichki.tartib} for ichki in ichkilar
+                ],
                 "testlar": yozuvlar,
             }, ensure_ascii=False, indent=1))
         bufer.seek(0)
@@ -1076,11 +1088,25 @@ class ImtihonBoshqaruvView(APIView):
     def get(self, request):
         if not _mashq_admin_mi(request.user):
             return Response({"detail": "Faqat admin/owner uchun"}, status=403)
-        qs = ImtihonTest.objects.filter(manba=_manba_ol(request)).order_by("-created_at")
+        # 2026-09-03, HAQIQIY XATO (foydalanuvchi skrinshot bilan
+        # ko'rsatdi): ro'yxat `qs[:100]` bilan kesilardi va bo'lim
+        # tanlanmaganda ("Hammasi") eng yangi 100 testdan tashqarida
+        # qolgan testlar UMUMAN ko'rinmasdi — papka ichida 3 test
+        # bo'lsa-da faqat 1 tasi chiqardi (bo'lim tanlanganda esa
+        # filtr toraygani uchun uchalasi ham ko'rinardi, ya'ni xato
+        # "Hammasi"da paydo bo'lardi). Cheklov olib tashlandi;
+        # `prefetch_related` esa har test uchun alohida so'rov
+        # ketmasligi uchun (N+1).
+        qs = (
+            ImtihonTest.objects.filter(manba=_manba_ol(request))
+            .select_related("yaratuvchi")
+            .prefetch_related("qismlar")
+            .order_by("-created_at")
+        )
         bolim = request.query_params.get("bolim")
         if bolim:
             qs = qs.filter(bolim=bolim)
-        return Response([_test_admin_dict(t) for t in qs[:100]])
+        return Response([_test_admin_dict(t) for t in qs])
 
     def post(self, request):
         if not _mashq_admin_mi(request.user):
