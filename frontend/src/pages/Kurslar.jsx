@@ -1796,6 +1796,8 @@ function EksportImportTugmalari({ tugunId, royxatniYangila, toliq = false }) {
   const { t } = useI18n();
   const [eksportBand, setEksportBand] = useState(false);
   const [importBand, setImportBand] = useState(false);
+  // Bo'lingan daraja importida — "Unit 5/12" ko'rinishidagi holat.
+  const [jarayon, setJarayon] = useState(null);
   const [xato, setXato] = useState("");
 
   async function eksportQil() {
@@ -1822,10 +1824,31 @@ function EksportImportTugmalari({ tugunId, royxatniYangila, toliq = false }) {
     setImportBand(true);
     const boshlandi = Date.now();
     try {
-      const fd = new FormData();
-      fd.append("fayl", fayl);
-      if (toliq) fd.append("toliq", "1");
-      await apiForm(`/api/kurslar/${tugunId}/import/`, { method: "POST", formData: fd });
+      // 2026-09-03: butun daraja arxivi endi "ZIP ichida ZIP" (server
+      // tomonida `_bolingan_eksport`) — 500 MB'ni BITTA so'rovda
+      // yuborish prodda umuman ishlamasdi (Railway/gunicorn chegarasi
+      // 15 daqiqa, ustiga tarmoq uzilishi). Shuning uchun tashqi ZIPni
+      // BRAUZERNING O'ZI ochadi va serverga har bir Unit'ni ALOHIDA,
+      // ~40 MB'lik so'rov bilan yuboradi. Eski (yassi, `data.json`
+      // ildizida) arxivlar avvalgidek bitta so'rov bilan ketadi.
+      const manifest = await manifestniOqi(fayl);
+      if (manifest && !toliq) {
+        // Bo'lingan arxiv faqat DARAJA qatorida ma'noga ega. Uni
+        // masalan Unit qatorida yuklasa — Unit darajaning o'z
+        // maydonlari bilan qayta yozilib, ichi butunlay buzilardi.
+        throw new Error(
+          `Bu butun daraja arxivi ("${manifest.daraja.nomi}") — uni Unit emas, ` +
+          "darajaning o'z qatoridagi \"Yuklash\" tugmasi orqali yuklang."
+        );
+      }
+      if (manifest) {
+        await bolibYukla(fayl, manifest);
+      } else {
+        const fd = new FormData();
+        fd.append("fayl", fayl);
+        if (toliq) fd.append("toliq", "1");
+        await apiForm(`/api/kurslar/${tugunId}/import/`, { method: "POST", formData: fd });
+      }
       royxatniYangila();
     } catch (e2) {
       // 2026-09-03: avval har qanday nosozlik "Xatolik yuz berdi" bo'lib
@@ -1836,9 +1859,54 @@ function EksportImportTugmalari({ tugunId, royxatniYangila, toliq = false }) {
       const tafsilot = e2.data?.detail
         || (e2.status ? `HTTP ${e2.status}` : e2.message)
         || t("xato_yuz_berdi");
-      setXato(`${tafsilot} (${soniya}s)`);
+      setXato(`${tafsilot} (${soniya}s)${e2.bolak ? ` — ${e2.bolak}` : ""}`);
     } finally {
       setImportBand(false);
+      setJarayon(null);
+    }
+  }
+
+  /** Tashqi ZIPni ochib `manifest.json`ni qaytaradi; arxiv eski (yassi)
+   * formatda bo'lsa `null`. */
+  async function manifestniOqi(fayl) {
+    const { default: JSZip } = await import("jszip");
+    const zip = await JSZip.loadAsync(fayl);
+    const man = zip.file("manifest.json");
+    if (!man) return null;
+    const manifest = JSON.parse(await man.async("string"));
+    if (manifest.format !== "bolingan") return null;
+    return { zip, ...manifest };
+  }
+
+  /** Darajani bo'lakma-bo'lak yuboradi: avval darajaning o'zi (shu
+   * so'rovda ZIPda YO'Q eski Unit'lar ham o'chiriladi — `kalitlar`),
+   * so'ng har bir Unit alohida. Uzilsa — qaysi bo'lakda uzilgani
+   * xato xabarida ko'rinadi va qayta urinish xavfsiz (import
+   * idempotent), shunchaki boshidan qayta yuguradi. */
+  async function bolibYukla(fayl, { zip, daraja, unitlar }) {
+    const jami = unitlar.length + 1;
+    const yubor = async (nom, ichkiNomi, qoshimcha) => {
+      const blob = await zip.file(ichkiNomi).async("blob");
+      const fd = new FormData();
+      fd.append("fayl", new File([blob], ichkiNomi.split("/").pop(), { type: "application/zip" }));
+      fd.append("toliq", "1");
+      Object.entries(qoshimcha || {}).forEach(([k, v]) => fd.append(k, v));
+      try {
+        await apiForm(`/api/kurslar/${tugunId}/import/`, { method: "POST", formData: fd });
+      } catch (e) {
+        e.bolak = nom;
+        throw e;
+      }
+    };
+
+    setJarayon({ joriy: 1, jami, nomi: daraja.nomi });
+    await yubor(daraja.nomi, daraja.fayl, {
+      kalitlar: unitlar.map((u) => u.kalit).join(","),
+    });
+    for (let i = 0; i < unitlar.length; i++) {
+      const u = unitlar[i];
+      setJarayon({ joriy: i + 2, jami, nomi: u.nomi });
+      await yubor(u.nomi, u.fayl);
     }
   }
 
@@ -1848,7 +1916,13 @@ function EksportImportTugmalari({ tugunId, royxatniYangila, toliq = false }) {
           mumkin (Pre-Int eksporti ~227 MB) — shu vaqt ichida oynadagi
           hech narsa bosilmasin (2026-09-03, foydalanuvchi talabi). */}
       {(eksportBand || importBand) && (
-        <BandQoplamasi matn={t(eksportBand ? "kurs_eksport" : "kurs_import")} />
+        <BandQoplamasi
+          matn={
+            jarayon
+              ? `${t("kurs_import")} — ${jarayon.joriy}/${jarayon.jami}: ${jarayon.nomi}`
+              : t(eksportBand ? "kurs_eksport" : "kurs_import")
+          }
+        />
       )}
       <button className="tugma ikkinchi" onClick={eksportQil} disabled={eksportBand}>
         {eksportBand ? t("yuklanmoqda") : t("kurs_eksport")}

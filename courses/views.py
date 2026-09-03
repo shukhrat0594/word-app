@@ -1,5 +1,6 @@
 import io
 import json
+import shutil
 import tempfile
 import uuid
 import zipfile
@@ -641,12 +642,17 @@ class KursMashqBoshqaruvView(APIView):
         return Response([_kurs_mashq_admin_dict(m) for m in yaratilganlar], status=201)
 
 
-def _tugun_eksport_qil(tugun, zf, fayllar_indeksi):
+def _tugun_eksport_qil(tugun, zf, fayllar_indeksi, farzandlar=True):
     """`tugun` va uning BUTUN farzandlar daraxtini rekursiv JSON'ga
     o'giradi. Har bir haqiqiy fayl (rasm/audio) ZIP ichiga `files/<uuid>`
     nomi bilan qo'shiladi, JSON esa faqat shu nomga ishora qiladi —
     fayllar bir necha joyda ishlatilsa ham (masalan ulashilgan rasm
-    guruhi) ikki marta yozilmaydi (`fayllar_indeksi` shu uchun keshlaydi)."""
+    guruhi) ikki marta yozilmaydi (`fayllar_indeksi` shu uchun keshlaydi).
+
+    `farzandlar=False` (2026-09-03) — faqat tugunning O'ZI eksport
+    qilinadi, farzandlari emas. Butun daraja bo'lakma-bo'lak eksport
+    qilinganda (`_bolingan_eksport`) darajaning o'z maydonlari alohida
+    kichik ZIPga chiqadi, Unit'lar esa har biri o'z ZIPiga."""
 
     def fayl_qosh(fayl_maydoni):
         if not fayl_maydoni:
@@ -672,7 +678,7 @@ def _tugun_eksport_qil(tugun, zf, fayllar_indeksi):
         "children": [
             _tugun_eksport_qil(bola, zf, fayllar_indeksi)
             for bola in tugun.children.order_by("tartib", "id")
-        ],
+        ] if farzandlar else [],
         "mashqlar": [
             {
                 "tartib": m.tartib,
@@ -719,6 +725,71 @@ def _tugun_eksport_qil(tugun, zf, fayllar_indeksi):
     return natija
 
 
+# 2026-09-03: butun daraja eksporti bitta ulkan ZIP bo'lib qolgan edi
+# (Pre-Intermediate ~227 MB, Upper-Intermediate ~495 MB) va uni prodda
+# import qilish MUMKIN EMAS edi: bitta HTTP so'rovga sig'maydi (gunicorn
+# timeout 900 s, Railway platformasining qattiq chegarasi ham 15 daqiqa,
+# ustiga 500 MB'ni bir bo'lakda yuborish tarmoq uzilishiga juda sezgir).
+# Foydalanuvchi taklifi (2026-09-03): eksportda har bir Unit ALOHIDA
+# ZIPga saqlansin, import esa har Unit uchun ALOHIDA so'rov yuborsin.
+# Shunday qilib har bir so'rov ~40 MB bo'ladi va chegaralarga umuman
+# yetib bormaydi. Tashqi ZIPni brauzerning o'zi ochadi (`Kurslar.jsx`),
+# serverga esa har safar tayyor, mustaqil Unit ZIPi keladi — ya'ni
+# import view'i (`KursImportView`) qanday bo'lsa shundayligicha ishlaydi.
+IMPORT_BOLINGAN_FORMAT = "bolingan"
+
+
+def _tugun_zip_yoz(tugun, bufer, farzandlar=True):
+    """`tugun` uchun MUSTAQIL import qilinadigan ZIP yozadi (`data.json`
+    + `files/`) — ya'ni aynan `KursImportView` kutgan format."""
+    fayllar_indeksi = {}
+    with zipfile.ZipFile(bufer, "w", zipfile.ZIP_DEFLATED) as zf:
+        daraxt = _tugun_eksport_qil(tugun, zf, fayllar_indeksi, farzandlar=farzandlar)
+        zf.writestr("data.json", json.dumps(daraxt, ensure_ascii=False, indent=1))
+    return daraxt
+
+
+def _ichki_zip_qosh(tashqi, nom, bufer):
+    """Tayyor ichki ZIPni tashqi ZIP ichiga OQIM bilan ko'chiradi —
+    `writestr` bo'lsa 40 MB'lik bo'lakni butunlay RAMga olardi."""
+    bufer.seek(0)
+    with tashqi.open(nom, "w") as maqsad:
+        shutil.copyfileobj(bufer, maqsad, 1024 * 1024)
+    bufer.close()
+
+
+def _bolingan_eksport(tugun, unitlar):
+    """Daraja uchun "ZIP ichida ZIP" yig'adi:
+
+        manifest.json     — format belgisi + Unit'lar ro'yxati (tartibda)
+        daraja.zip        — darajaning O'Z maydonlari (farzandlarsiz)
+        units/<kalit>.zip — har bir Unit butun ichki daraxti bilan
+
+    Tashqi ZIP `ZIP_STORED` — ichkilari allaqachon siqilgan, ikki marta
+    siqish faqat vaqt yeydi."""
+    bufer = tempfile.SpooledTemporaryFile(max_size=16 * 1024 * 1024)
+    with zipfile.ZipFile(bufer, "w", zipfile.ZIP_STORED) as tashqi:
+        ichki = tempfile.SpooledTemporaryFile(max_size=16 * 1024 * 1024)
+        _tugun_zip_yoz(tugun, ichki, farzandlar=False)
+        _ichki_zip_qosh(tashqi, "daraja.zip", ichki)
+
+        yozuvlar = []
+        for unit in unitlar:
+            ichki = tempfile.SpooledTemporaryFile(max_size=16 * 1024 * 1024)
+            _tugun_zip_yoz(unit, ichki)
+            nom = f"units/{unit.kalit or unit.id}.zip"
+            _ichki_zip_qosh(tashqi, nom, ichki)
+            yozuvlar.append({"kalit": unit.kalit, "nomi": unit.nomi, "fayl": nom})
+
+        tashqi.writestr("manifest.json", json.dumps({
+            "format": IMPORT_BOLINGAN_FORMAT,
+            "daraja": {"kalit": tugun.kalit, "nomi": tugun.nomi, "fayl": "daraja.zip"},
+            "unitlar": yozuvlar,
+        }, ensure_ascii=False, indent=1))
+    bufer.seek(0)
+    return bufer
+
+
 class KursEksportView(APIView):
     """Owner/admin uchun — bitta tugun (masalan bitta Unit) va uning
     BUTUN ichidagi daraxtini (kichik tugunlar, mashqlar, so'zlar,
@@ -747,12 +818,15 @@ class KursEksportView(APIView):
         # yoziladi: kichik eksport RAMda qoladi (tez), belgilangan
         # chegaradan oshgani avtomatik DISKKA o'tadi, va `FileResponse`
         # uni bo'lak-bo'lak (stream) uzatadi — nusxa olinmaydi.
-        bufer = tempfile.SpooledTemporaryFile(max_size=16 * 1024 * 1024)
-        fayllar_indeksi = {}
-        with zipfile.ZipFile(bufer, "w", zipfile.ZIP_DEFLATED) as zf:
-            daraxt = _tugun_eksport_qil(tugun, zf, fayllar_indeksi)
-            zf.writestr("data.json", json.dumps(daraxt, ensure_ascii=False, indent=1))
-        bufer.seek(0)
+        # 2026-09-03: DARAJA (Unit'larning otasi) endi bo'lakma-bo'lak
+        # eksport qilinadi — sababini `_bolingan_eksport` izohida o'qi.
+        unitlar = list(tugun.children.filter(unit_darsi=True).order_by("tartib", "id"))
+        if unitlar and not tugun.unit_darsi:
+            bufer = _bolingan_eksport(tugun, unitlar)
+        else:
+            bufer = tempfile.SpooledTemporaryFile(max_size=16 * 1024 * 1024)
+            _tugun_zip_yoz(tugun, bufer)
+            bufer.seek(0)
 
         # 2026-08-19, foydalanuvchi talabi: "Saqlash" bosilganda barcha
         # Unitlar bir xil nom bilan (masalan "kurslar_students_book_
@@ -789,7 +863,7 @@ class KursEksportView(APIView):
         return javob
 
 
-def _tugun_import_qil(daraxt, ota, markaz, zf, toliq=False):
+def _tugun_import_qil(daraxt, ota, markaz, zf, toliq=False, ildiz_kalitlari=None):
     """`_tugun_eksport_qil`ning teskarisi — JSON tugun tavsifidan haqiqiy
     `KursTugun` (+ mashq/so'z/fayl) yaratadi. `kalit+ota` bo'yicha MAVJUD
     tugun topilsa o'shanga YOZILADI (import ikki marta bajarilsa
@@ -801,7 +875,15 @@ def _tugun_import_qil(daraxt, ota, markaz, zf, toliq=False):
     ham o'chiriladi, ya'ni maqsad tugun ZIPdagi holatning AYNAN nusxasiga
     aylanadi. Bunsiz (standart) eski farzandlar joyida qolardi: masalan
     14 Unitli darajaga 12 Unitli ZIP yuklansa, ortiqcha 2 Unit qolib
-    ketardi va daraja aralash holatga tushardi."""
+    ketardi va daraja aralash holatga tushardi.
+
+    `ildiz_kalitlari` (2026-09-03) — SHU tugunning saqlanadigan
+    farzand kalitlari ro'yxati, `daraxt["children"]` o'rniga. Daraja
+    bo'lakma-bo'lak import qilinganda (`_bolingan_eksport`ga qara)
+    birinchi so'rovda faqat darajaning O'ZI keladi, farzandlarsiz —
+    agar kesish `children` bo'yicha ketsa BARCHA Unit o'chib ketardi.
+    Shuning uchun manifestdagi Unit kalitlari shu argument bilan
+    beriladi. Faqat ILDIZ tugunga tegishli, rekursiyada uzatilmaydi."""
 
     def fayl_ol(kalit):
         if not kalit:
@@ -873,7 +955,7 @@ def _tugun_import_qil(daraxt, ota, markaz, zf, toliq=False):
     # Farzandlarni yaratishdan OLDIN bajariladi, shunda o'chirish kaskadi
     # (mashq/so'z/fayl) yangi yozilganlarga tegmaydi.
     if toliq:
-        zip_kalitlari = {b["kalit"] for b in daraxt["children"] if b.get("kalit")}
+        zip_kalitlari = set(ildiz_kalitlari) if ildiz_kalitlari is not None             else {b["kalit"] for b in daraxt["children"] if b.get("kalit")}
         ortiqcha = tugun.children.exclude(kalit__in=zip_kalitlari) if zip_kalitlari \
             else tugun.children.all()
         ortiqcha.delete()
@@ -930,9 +1012,24 @@ class KursImportView(APIView):
         # holatning AYNAN nusxasi bo'lishi kerak — ZIPda yo'q eski
         # Unit'lar qolib ketmasin (`_tugun_import_qil` izohiga qara).
         toliq = str(request.data.get("toliq", "")).lower() in ("1", "true", "ha")
+        # 2026-09-03: bo'lingan daraja importining BIRINCHI so'rovi —
+        # darajaning o'zi farzandlarsiz keladi, saqlanadigan Unit
+        # kalitlari esa shu parametrda (`_tugun_import_qil` izohiga qara).
+        kalitlar = request.data.get("kalitlar")
+        ildiz_kalitlari = [k for k in str(kalitlar).split(",") if k] if kalitlar else None
 
         try:
             with zipfile.ZipFile(fayl) as zf:
+                # Bo'lingan daraja ZIPi (tashqi qobiq) — uni brauzer
+                # Unit'larga ajratib yuborishi kerak. Serverga to'g'ridan
+                # to'g'ri kelsa (masalan qo'lda yuklansa) sababini aytamiz.
+                if "manifest.json" in zf.namelist() and "data.json" not in zf.namelist():
+                    return Response(
+                        {"detail": "Bu bo'lingan daraja arxivi — uni Kurslar sahifasidagi "
+                                   "\"Yuklash\" tugmasi orqali yuklang (u Unit'larni "
+                                   "bittalab yuboradi)."},
+                        status=400,
+                    )
                 daraxt = json.loads(zf.read("data.json").decode("utf-8"))
                 # 2026-08-17, HAQIQIY XATO: admin odatda Import tugmasini
                 # AYNAN O'SHA Unit'ning o'zida bosadi ("shu Unit'ni
@@ -984,7 +1081,8 @@ class KursImportView(APIView):
                 # uchun hammasi bitta tranzaksiyada bajariladi.
                 with transaction.atomic():
                     yangi_tugun = _tugun_import_qil(
-                        daraxt, qidiruv_ota, ota.markaz, zf, toliq=toliq
+                        daraxt, qidiruv_ota, ota.markaz, zf, toliq=toliq,
+                        ildiz_kalitlari=ildiz_kalitlari,
                     )
         except (zipfile.BadZipFile, KeyError, json.JSONDecodeError) as exc:
             return Response({"detail": f"ZIP fayl noto'g'ri: {exc}"}, status=400)
