@@ -99,6 +99,17 @@ CORS_ALLOWED_ORIGINS = config(
     cast=lambda v: [o.strip() for o in v.split(',')],
 )
 
+# 2026-09-03, HAQIQIY XATO: prodda yuklab olingan fayllar DOIM
+# "yuklab-olindi.zip" nomi bilan saqlanardi (IELTS testi, kurs eksporti —
+# hammasi). Sabab kodda emas: server `Content-Disposition`ni to'g'ri
+# yuboradi, lekin prodda frontend va backend ALOHIDA domenlarda va
+# brauzer CORS qoidasi bo'yicha bu sarlavhani JS'dan YASHIRADI (u
+# "oddiy" javob sarlavhalari ro'yxatida yo'q). Shu sababli
+# `apiFayluniYuklab` haqiqiy nomni o'qiy olmay zaxira nomga tushardi.
+# Lokalda muammo ko'rinmasdi — Vite proxy tufayli so'rov bir xil
+# domendan ketadi va CORS umuman qo'llanmaydi.
+CORS_EXPOSE_HEADERS = ['Content-Disposition']
+
 ROOT_URLCONF = 'config.urls'
 
 TEMPLATES = [
