@@ -2329,6 +2329,197 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
     </>
   );
 
+  function testKartasi(test) {
+    return (
+              <div key={test.id} style={{ padding: 8, border: "1px solid var(--chiziq)", borderRadius: 8 }}>
+                <div className="davomat-qator" style={{ borderBottom: "none", padding: 0 }}>
+                  <span>
+                    <strong
+                      style={{ cursor: "pointer", textDecoration: "underline dotted" }}
+                      title={t("imtihon_tola_ochish")}
+                      onClick={() => setTolaOchilgan(test)}
+                    >
+                      {test.name}
+                    </strong>{" "}
+                    <span className="izoh">
+                      {t(`mashq_bolim_${test.bolim}`)} · {test.qismlar.length} {t("imtihon_qism_soni")}
+                      {" · "}
+                      {test.yaratuvchi || t("imtihon_yaratuvchi_nomalum")}
+                      {" · "}
+                      {new Date(test.created_at).toLocaleString()}
+                    </span>
+                  </span>
+                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    {/* CHALA AI Listening (2026-08-08): generatsiya
+                        o'rtasida uzilgan bo'lsa (masalan TTS kunlik
+                        limiti tugasa) tayyor part'lar SAQLANADI, shu
+                        tugma esa faqat yetishmayotganini qo'shadi —
+                        boshidan qayta yaratish shart emas. */}
+                    {chalaListeningmi(test) && (
+                      <button
+                        className="tugma kichik"
+                        onClick={() => listeningDavomEttir(test)}
+                        disabled={davomEttirilayotganId === test.id}
+                        title={t("imtihon_listening_chala_izoh")}
+                      >
+                        {davomEttirilayotganId === test.id
+                          ? t("yuklanmoqda")
+                          : `⚠ ${t("imtihon_listening_davom")} (${test.qismlar.length}/4)`}
+                      </button>
+                    )}
+                    {/* Papkaga ko'chirish (2026-08-11: bo'lim cheklovi
+                        olib tashlandi) — papka endi bo'limga bog'lanmagan,
+                        istalgan papkaga istalgan bo'lim testini qo'shish
+                        mumkin ("Cambridge 17 Test 1" ichida R/L/W/S birga
+                        turadi). 2026-08-11 kech: ichki (2-darajali)
+                        papkalar "— " bilan chekingan ko'rsatiladi, agar
+                        o'sha papkada shu bo'limdan ALLAQACHON test bo'lsa
+                        (joriy testdan boshqa) — variant DISABLED, chunki
+                        backend baribir rad etadi (har bo'limdan bittadan). */}
+                    {papkalar.length > 0 && (
+                      <select
+                        value={test.papka || ""}
+                        onChange={(e) => papkagaKochir(test.id, e.target.value)}
+                        title={t("imtihon_papkaga_kochir")}
+                        style={{ maxWidth: 170 }}
+                      >
+                        <option value="">{t("imtihon_papkasiz")}</option>
+                        {papkalarTartiblangan.map((p) => {
+                          const ichkimi = !!p.parent;
+                          const toligmi =
+                            ichkimi &&
+                            royxat.some(
+                              (r) => r.papka === p.id && r.bolim === test.bolim && r.id !== test.id
+                            );
+                          return (
+                            <option key={p.id} value={p.id} disabled={toligmi}>
+                              {ichkimi ? "— 📂 " : "📁 "}{p.nomi}
+                              {toligmi ? ` (${t(`mashq_bolim_${test.bolim}`)} bor)` : ""}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    )}
+                    {/* Eksport (2026-09-03) — shu testni qismlari, savollari
+                        va media fayllari bilan bitta ZIPga yig'ib beradi;
+                        boshqa muhitga (prod<->local) ko'chirish uchun. */}
+                    <button
+                      className="tugma ikkinchi"
+                      onClick={() => eksportQil(test)}
+                      disabled={eksportBandId === test.id}
+                    >
+                      {eksportBandId === test.id ? t("yuklanmoqda") : t("imtihon_eksport")}
+                    </button>
+                    <button
+                      className="tugma ikkinchi"
+                      onClick={() => {
+                        setTahrirlanayotgan((v) => (v === test.id ? null : test.id));
+                        setNomiTahrirlash(test.name);
+                      }}
+                    >
+                      {tahrirlanayotgan === test.id ? t("yopish") : t("tahrirlash")}
+                    </button>
+                    <button className="tugma ikkinchi" style={{ color: "#d33" }} onClick={() => ochir(test.id)}>
+                      {t("ochirish")}
+                    </button>
+                  </div>
+                </div>
+                {tahrirlanayotgan === test.id && (
+                  <>
+                    <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8 }}>
+                      <input
+                        value={nomiTahrirlash}
+                        onChange={(e) => setNomiTahrirlash(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && nominiSaqla(test.id)}
+                        style={{ maxWidth: 320 }}
+                      />
+                      <button
+                        type="button"
+                        className="tugma"
+                        onClick={() => nominiSaqla(test.id)}
+                        disabled={!nomiTahrirlash.trim() || nomiTahrirlash.trim() === test.name}
+                      >
+                        {t("saqlash")}
+                      </button>
+                    </div>
+                    {test.bolim === "listening" && (
+                      <div style={{ marginTop: 8, display: "grid", gap: 6 }}>
+                        {/* 2026-08-10, foydalanuvchi talabi: audio ALLAQACHON
+                            bor bo'lsa ham qayta yuklash (almashtirish) imkoni
+                            bo'lishi kerak — avval bu qator faqat KAMIDA BITTA
+                            qism audiosiz bo'lsagina ko'rinardi, ya'ni hammasida
+                            audio bo'lsa almashtirishning yo'li yo'q edi. */}
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <span className="izoh" style={{ minWidth: 90 }}>{t("imtihon_audio_hammasiga")}</span>
+                          <input
+                            type="file"
+                            accept="audio/*"
+                            title={t("imtihon_audio_hammasiga_izoh")}
+                            style={{ maxWidth: 160 }}
+                            onChange={(e) => hammasigaAudioBiriktir(test, e.target.files[0])}
+                          />
+                        </div>
+                        {test.qismlar.map((q) => (
+                          <div key={q.id} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <span className="izoh" style={{ minWidth: 90 }}>{q.sarlavha || `#${q.tartib}`}</span>
+                            <span className="izoh">{q.audio_url ? "🎧" : t("imtihon_audio_yoq")}</span>
+                            <input
+                              type="file"
+                              accept="audio/*"
+                              title={q.audio_url ? t("imtihon_audio_qayta_yukla") : t("imtihon_audio_biriktir")}
+                              style={{ maxWidth: 160 }}
+                              onChange={(e) => audioBiriktir(q.id, e.target.files[0])}
+                            />
+                            {q.audio_url && (
+                              <button
+                                type="button"
+                                className="tugma ikkinchi kichik"
+                                style={{ color: "#d33" }}
+                                title={t("ochirish")}
+                                onClick={() => qismdanFayilniOchir(q.id, "audio_fayl")}
+                              >
+                                🗑️
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <div style={{ marginTop: 8, display: "grid", gap: 6 }}>
+                      {/* 2026-08-10: rasm ham xuddi shunday — mavjud bo'lsa
+                          qayta yuklash, bo'lmasa yangi yuklash — ikkalasi
+                          uchun ham fayl maydoni doim ko'rinadi. */}
+                      {test.qismlar.map((q) => (
+                        <div key={q.id} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <span className="izoh" style={{ minWidth: 90 }}>{q.sarlavha || `#${q.tartib}`}</span>
+                          <span className="izoh">{q.rasm_url ? "🖼️" : t("imtihon_rasm_yoq")}</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            title={q.rasm_url ? t("imtihon_rasm_qayta_yukla") : t("imtihon_rasm_biriktir")}
+                            style={{ maxWidth: 160 }}
+                            onChange={(e) => rasmBiriktir(q.id, e.target.files[0])}
+                          />
+                          {q.rasm_url && (
+                            <button
+                              type="button"
+                              className="tugma ikkinchi kichik"
+                              style={{ color: "#d33" }}
+                              title={t("ochirish")}
+                              onClick={() => qismdanFayilniOchir(q.id, "rasm")}
+                            >
+                              🗑️
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+    );
+  }
+
   /** Papka nomi — bosilganda joyida tahrirlanadi (accordion ochilib
    * ketmasligi uchun hodisa to'xtatiladi). Avval bu "papka chipi"
    * ichida edi, 2026-09-03 da chiplar olib tashlangach shu yerga
