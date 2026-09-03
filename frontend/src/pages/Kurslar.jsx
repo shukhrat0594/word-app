@@ -48,6 +48,30 @@ Natijani shu JSON massiv ko'rinishida qaytar, boshqa hech narsa yozma. Quyida ma
 
 [BU YERGA MASHQ MATNINI JOYLASHTIRING YOKI SKRINSHOTNI ILOVA QILING]`;
 
+/** Butun oynani qoplaydigan "band" indikatori (2026-09-03, foydalanuvchi
+ * talabi: "kurslar yuklanayotgan payt — SB, WB, Unit yoki butun daraja —
+ * oynadagi hech qaysi tugma va bo'limlarga o'tish bosilmasin").
+ *
+ * `.blok-yuklash-qoplama` — `position: fixed; inset: 0; z-index: 10000`,
+ * ya'ni yon paneldagi navigatsiyani ham qoplaydi (sahifadagi eng katta
+ * boshqa z-index — 300). Shu sababli alohida "bloklash" mexanizmi
+ * kerak emas: qoplama chizilgan zahoti barcha bosishlar unga tushadi.
+ *
+ * Avval bu faqat ZIP orqali mashq yuklashda bor edi (2026-07-29) — endi
+ * uzoq davom etadigan BARCHA kurs amallarida ishlatiladi. */
+function BandQoplamasi({ matn }) {
+  const { t } = useI18n();
+  return (
+    <div className="blok-yuklash-qoplama">
+      <div className="blok-yuklash-karta">
+        <div className="blok-yuklash-spinner" aria-hidden="true" />
+        <div style={{ fontWeight: 700 }}>{matn || t("yuklanmoqda")}</div>
+        <div className="izoh">{t("kurs_band_ogohlantirish")}</div>
+      </div>
+    </div>
+  );
+}
+
 /** Rasm ustiga to'g'ridan-to'g'ri joylashtiriladigan savollar (masalan
  * "nechta narsa bor?" turidagi mashqlar) — savolda "pozitsiya":
  * {"x": 0-100, "y": 0-100} bo'lsa, oddiy ro'yxatda emas, aynan shu nuqtada
@@ -1626,6 +1650,7 @@ function AdminDarajaUnitYaratish({ darajaId, royxatniYangila }) {
 
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+      {yuklanmoqda && <BandQoplamasi matn={t("kurs_unit_yaratish")} />}
       <span className="izoh">{t("kurs_unit_soni_kirit")}</span>
       <input
         type="number"
@@ -1699,6 +1724,7 @@ function AdminUnitSoniBoshqarish({ darajaId, royxatniYangila }) {
 
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+      {(yuklanmoqda || ochirilmoqda) && <BandQoplamasi />}
       <span className="izoh">{t("kurs_yana_unit_qosh")}</span>
       <input
         type="number"
@@ -1747,14 +1773,17 @@ function UnitTozalashTugmasi({ unitId, royxatniYangila }) {
   }
 
   return (
-    <button
-      className="tugma ikkinchi"
-      style={{ color: "#d33" }}
-      onClick={tozala}
-      disabled={ochirilmoqda}
-    >
-      {t("kurs_unit_tozalash")}
-    </button>
+    <>
+      {ochirilmoqda && <BandQoplamasi matn={t("kurs_unit_tozalash")} />}
+      <button
+        className="tugma ikkinchi"
+        style={{ color: "#d33" }}
+        onClick={tozala}
+        disabled={ochirilmoqda}
+      >
+        {t("kurs_unit_tozalash")}
+      </button>
+    </>
   );
 }
 
@@ -1806,6 +1835,12 @@ function EksportImportTugmalari({ tugunId, royxatniYangila, toliq = false }) {
 
   return (
     <span style={{ display: "inline-flex", gap: 8, alignItems: "center" }}>
+      {/* Saqlash/yuklash butun daraja uchun bir necha daqiqa davom etishi
+          mumkin (Pre-Int eksporti ~227 MB) — shu vaqt ichida oynadagi
+          hech narsa bosilmasin (2026-09-03, foydalanuvchi talabi). */}
+      {(eksportBand || importBand) && (
+        <BandQoplamasi matn={t(eksportBand ? "kurs_eksport" : "kurs_import")} />
+      )}
       <button className="tugma ikkinchi" onClick={eksportQil} disabled={eksportBand}>
         {eksportBand ? t("yuklanmoqda") : t("kurs_eksport")}
       </button>
@@ -2082,6 +2117,9 @@ function Tugun({ tugun, chuqurlik, adminMi, talabaMi, oqituvchiMi, royxatniYangi
           )}
           {adminMi && (
             <>
+              {/* Student's Book / Workbook fayli yuklanayotgan payt oynadagi
+                  hech narsa bosilmasin (2026-09-03, foydalanuvchi talabi). */}
+              {yuklanmoqda && <BandQoplamasi matn={tugun.nomi} />}
               <input type="file" onChange={faylYukla} disabled={yuklanmoqda} style={{ maxWidth: 200 }} />
               {faylXato && <span className="xato-xabar">{faylXato}</span>}
             </>
