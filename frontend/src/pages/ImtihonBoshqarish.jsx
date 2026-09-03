@@ -1643,6 +1643,13 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
   const [importBand, setImportBand] = useState(false);
   const [importXato, setImportXato] = useState("");
   const [toqnashuv, setToqnashuv] = useState(null);
+  // Papka eksport/import (2026-09-03) — `papkaJarayon` progress uchun
+  // ("3/12: Cambridge 3 Test 1 Reading"), `papkaRejimSorov` esa nom
+  // to'qnashuvi haqida BIR MARTA so'rash uchun: javob promise orqali
+  // qaytadi va papkadagi BARCHA testlarga qo'llanadi.
+  const [papkaEksportId, setPapkaEksportId] = useState(null);
+  const [papkaJarayon, setPapkaJarayon] = useState(null);
+  const [papkaRejimSorov, setPapkaRejimSorov] = useState(null);
   // AI generatsiya (2026-08-02, foydalanuvchi talabi) — faqat "AI
   // mashqlari" (manba="ai") sahifasida, faqat 4 haqiqiy bo'lim uchun
   // (Mock/Hammasi'da yo'q — qaysi turni yaratish noaniq bo'lardi).
@@ -1912,6 +1919,102 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
     if (rejim) fd.append("rejim", rejim);
     if (nom) fd.append("nom", nom);
     return apiForm("/api/imtihon/testlar-import/", { method: "POST", formData: fd });
+  }
+
+  /** Papkani ichidagi BARCHA testlari bilan bitta ZIPga saqlash
+   * (2026-09-03, foydalanuvchi talabi: "bitta papkani to'liq eksport
+   * qilish, proddan localga, tekshirib keyin localdan prodga"). */
+  async function papkaEksportQil(p) {
+    setImportXato("");
+    setPapkaEksportId(p.id);
+    try {
+      await apiFayluniYuklab(`/api/imtihon/papkalar/${p.id}/eksport/`);
+    } catch (e2) {
+      setImportXato(e2.data?.detail || e2.message || t("xato_yuz_berdi"));
+    } finally {
+      setPapkaEksportId(null);
+    }
+  }
+
+  /** Nom to'qnashuvi haqida BIR MARTA so'raydi; javob papkadagi barcha
+   * testlarga qo'llanadi (foydalanuvchi qarori, 2026-09-03 — 12 ta test
+   * uchun 12 marta so'ramaslik kerak). `null` — bekor qilish. */
+  function papkaRejiminiSora(nomi) {
+    return new Promise((hal) => setPapkaRejimSorov({ nomi, hal }));
+  }
+
+  /** Papka arxivini yuklaydi: tashqi ZIPni BRAUZER ochadi va serverga
+   * har bir testni ALOHIDA so'rov bilan yuboradi — bitta Cambridge
+   * testi ~100 MB, papkaning hammasi bir bo'lakda yuborilsa so'rov
+   * Railway/gunicorn chegarasiga urilardi (aynan shu muammo kurslar
+   * darajasi importida bo'lgan edi). Testlar qaysi papka tugmasi
+   * bosilgan bo'lsa — SHU papkaga biriktiriladi. */
+  async function papkaImportQil(p, fayl) {
+    const { default: JSZip } = await import("jszip");
+    const zip = await JSZip.loadAsync(fayl);
+    const manFayl = zip.file("manifest.json");
+    if (!manFayl) throw new Error(t("imtihon_papka_arxiv_emas"));
+    const man = JSON.parse(await manFayl.async("string"));
+    if (man.turi !== "ielts_papka_eksport" || !Array.isArray(man.testlar)) {
+      throw new Error(t("imtihon_papka_arxiv_emas"));
+    }
+
+    let rejim = "";
+    const jami = man.testlar.length;
+    for (let i = 0; i < jami; i++) {
+      const tst = man.testlar[i];
+      setPapkaJarayon({ joriy: i + 1, jami, nomi: tst.name || tst.fayl });
+      const ichki = zip.file(tst.fayl);
+      if (!ichki) continue;
+      const blob = await ichki.async("blob");
+      const testFayli = new File([blob], `${tst.fayl.split("/").pop()}`, {
+        type: "application/zip",
+      });
+      let javob;
+      try {
+        javob = await importYubor(testFayli, rejim);
+      } catch (e2) {
+        if (e2.status !== 409) throw e2;
+        // Birinchi to'qnashuv — qarorni SO'RAYMIZ, keyin qolganlariga
+        // ham shu qaror qo'llanadi.
+        if (!rejim) {
+          rejim = await papkaRejiminiSora(tst.name || "");
+          if (!rejim) return;
+        }
+        javob = await importYubor(testFayli, rejim);
+      }
+      // Test aynan BOSILGAN papkaga tushsin — backend faqat bir xil
+      // NOMLI papkani topib biriktiradi, bu esa aniq id bilan ishlaydi.
+      if (javob?.id) {
+        await api(`/api/imtihon/testlar-boshqaruv/${javob.id}/`, {
+          method: "PATCH",
+          body: { papka: p.id },
+        });
+      }
+    }
+  }
+
+  async function papkaImportBoshla(p, e) {
+    const fayl = e.target.files?.[0];
+    e.target.value = "";
+    if (!fayl) return;
+    setImportXato("");
+    setImportBand(true);
+    const boshlandi = Date.now();
+    try {
+      await papkaImportQil(p, fayl);
+      yukla(filtrBolim);
+    } catch (e2) {
+      const soniya = Math.round((Date.now() - boshlandi) / 1000);
+      const tafsilot = e2.data?.detail
+        || (e2.status ? `HTTP ${e2.status}` : e2.message)
+        || t("xato_yuz_berdi");
+      setImportXato(`${tafsilot} (${soniya}s)`);
+    } finally {
+      setImportBand(false);
+      setPapkaJarayon(null);
+      setPapkaRejimSorov(null);
+    }
   }
 
   async function importQil(e) {
@@ -2274,6 +2377,71 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
         </div>
       </div>
     )}
+    {/* Papka importi jarayoni — "3/12: Cambridge 3 Test 1 Reading".
+        Qoplama butun oynani bloklaydi: bu ketma-ket bir necha so'rov,
+        oradan boshqa amal bajarilmasin. */}
+    {papkaJarayon && !papkaRejimSorov && (
+      <div className="blok-yuklash-qoplama">
+        <div className="blok-yuklash-karta">
+          <div className="blok-yuklash-spinner" aria-hidden="true" />
+          <div style={{ fontWeight: 700 }}>
+            {t("imtihon_papka_yuklash")} — {papkaJarayon.joriy}/{papkaJarayon.jami}
+          </div>
+          <div className="izoh">{papkaJarayon.nomi}</div>
+        </div>
+      </div>
+    )}
+    {/* Papka importida nom to'qnashuvi — BIR MARTA so'raladi, javob
+        papkadagi barcha testlarga qo'llanadi (foydalanuvchi qarori,
+        2026-09-03). */}
+    {papkaRejimSorov && (
+      <div className="blok-yuklash-qoplama">
+        <div className="blok-tasdiq-karta" style={{ maxWidth: 460 }}>
+          <div className="blok-tasdiq-sarlavha-qator">
+            <strong>{t("imtihon_import_nom_band")}</strong>
+          </div>
+          <div className="izoh" style={{ marginBottom: 12 }}>
+            «{papkaRejimSorov.nomi}» — {t("imtihon_papka_rejim_izoh")}
+          </div>
+          <div style={{ display: "grid", gap: 10 }}>
+            <button
+              type="button"
+              className="tugma ikkinchi"
+              style={{ color: "#d33" }}
+              onClick={() => {
+                const hal = papkaRejimSorov.hal;
+                setPapkaRejimSorov(null);
+                hal("almashtir");
+              }}
+            >
+              {t("imtihon_papka_rejim_almashtir")}
+            </button>
+            <button
+              type="button"
+              className="tugma"
+              onClick={() => {
+                const hal = papkaRejimSorov.hal;
+                setPapkaRejimSorov(null);
+                hal("yangi");
+              }}
+            >
+              {t("imtihon_papka_rejim_yangi")}
+            </button>
+            <button
+              type="button"
+              className="tugma ikkinchi"
+              onClick={() => {
+                const hal = papkaRejimSorov.hal;
+                setPapkaRejimSorov(null);
+                hal(null);
+              }}
+            >
+              {t("imtihon_papka_rejim_bekor")}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
     {/* Import: nom to'qnashuvi (2026-09-03, foydalanuvchi qarori — jimgina
         almashtirmasdan ham, jimgina nusxa yaratmasdan ham emas, ALBATTA
         so'raladi). Bu nuqtada backend hech narsa o'zgartirmagan. */}
@@ -2557,8 +2725,42 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
    * tahrirlash tugmasini qo'sh"). Ikkalasi ham akkordeonni ochib
    * yubormasligi uchun hodisani to'xtatadi. */
   function papkaBoshqaruv(p) {
+    const tugmaUslubi = {
+      border: "none", background: "none", cursor: "pointer",
+      fontSize: 14, lineHeight: 1, padding: "0 4px",
+    };
     return (
       <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+        {/* Papkani BUTUNLAY saqlash/yuklash (2026-09-03, foydalanuvchi
+            talabi: "qalamchani yoniga ikkita tugma qo'sh, saqlash,
+            yuklash"). Ichki papkalar ATAYLAB kirmaydi — faqat shu
+            papkaning o'z testlari (`TestPapkaEksportView` izohiga qara). */}
+        <button
+          type="button"
+          title={t("imtihon_papka_saqlash")}
+          disabled={papkaEksportId === p.id || importBand}
+          onClick={(e) => {
+            e.stopPropagation();
+            papkaEksportQil(p);
+          }}
+          style={tugmaUslubi}
+        >
+          {papkaEksportId === p.id ? "⏳" : "💾"}
+        </button>
+        <label
+          title={t("imtihon_papka_yuklash")}
+          onClick={(e) => e.stopPropagation()}
+          style={{ ...tugmaUslubi, display: "inline-flex" }}
+        >
+          📂
+          <input
+            type="file"
+            accept=".zip"
+            disabled={importBand}
+            onChange={(e) => papkaImportBoshla(p, e)}
+            style={{ display: "none" }}
+          />
+        </label>
         <button
           type="button"
           title={t("imtihon_papka_nomini_tahrirlash")}

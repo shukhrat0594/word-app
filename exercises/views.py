@@ -1,6 +1,7 @@
 import json
 import logging
 import re
+import shutil
 import tempfile
 import uuid
 import zipfile
@@ -664,6 +665,38 @@ def _bosh_test_nomi(nom, markaz, manba, bolim):
     return f"{nom} ({n})"
 
 
+IMTIHON_PAPKA_EKSPORT_TURI = "ielts_papka_eksport"
+
+
+def _test_zip_yoz(test, bufer):
+    """Bitta test uchun MUSTAQIL import qilinadigan ZIP yozadi
+    (`data.json` + `files/`) — ya'ni `ImtihonImportView` kutgan format."""
+    with zipfile.ZipFile(bufer, "w", zipfile.ZIP_DEFLATED) as zf:
+        data = _test_eksport_qil(test, zf)
+        zf.writestr("data.json", json.dumps(data, ensure_ascii=False, indent=1))
+    return data
+
+
+def _zip_javobi(bufer, nom, zaxira):
+    """ZIP buferini `nom.zip` sifatida oqim bilan qaytaradi.
+
+    Fayl nomi — obyektning O'Z NOMI (2026-09-03, foydalanuvchi talabi).
+    Fayl tizimida taqiqlangan belgilar olib tashlanadi, qolgani aynan
+    saqlanadi. `Content-Disposition`ning oddiy `filename=` qismi faqat
+    ASCII bo'la oladi, shuning uchun o'zbekcha/kirill nomlar uchun
+    RFC 5987 shakli (`filename*=UTF-8''...`) ham qo'shiladi — brauzer va
+    frontend (`apiFayluniYuklab`) aynan shuni afzal ko'radi."""
+    toza = re.sub(r'[\\/:*?"<>|\x00-\x1f]+', " ", nom or "").strip()
+    toza = re.sub(r"\s+", " ", toza) or zaxira
+    ascii_nom = re.sub(r"[^A-Za-z0-9_.\- ]+", "_", toza).strip() or zaxira
+    javob = FileResponse(bufer, content_type="application/zip")
+    javob["Content-Disposition"] = (
+        f'attachment; filename="{ascii_nom}.zip"; '
+        f"filename*=UTF-8''{quote(toza)}.zip"
+    )
+    return javob
+
+
 class ImtihonEksportView(APIView):
     """Bitta IELTS testini (qismlari, savollari, audio va rasm fayllari
     bilan) BITTA ZIP faylga yig'ib beradi."""
@@ -679,28 +712,69 @@ class ImtihonEksportView(APIView):
         # (kichigi RAMda qoladi, kattasi diskka o'tadi) va `FileResponse`
         # uni oqim bilan uzatadi — RAMda ikki nusxa yig'ilmaydi.
         bufer = tempfile.SpooledTemporaryFile(max_size=16 * 1024 * 1024)
-        with zipfile.ZipFile(bufer, "w", zipfile.ZIP_DEFLATED) as zf:
-            data = _test_eksport_qil(test, zf)
-            zf.writestr("data.json", json.dumps(data, ensure_ascii=False, indent=1))
+        _test_zip_yoz(test, bufer)
         bufer.seek(0)
+        return _zip_javobi(bufer, test.name, f"test-{test.id}")
 
-        # Fayl nomi — TESTNING O'Z NOMI (2026-09-03, foydalanuvchi talabi;
-        # avval "ielts_<bolim>_<nom>_eksport.zip" edi). Fayl tizimida
-        # taqiqlangan belgilar olib tashlanadi, qolgani aynan saqlanadi.
-        #
-        # `Content-Disposition`ning oddiy `filename=` qismi faqat ASCII
-        # bo'la oladi, shuning uchun o'zbekcha/kirill nomlar uchun RFC 5987
-        # shakli (`filename*=UTF-8''...`) ham qo'shiladi — brauzer va
-        # frontend (`apiFayluniYuklab`) aynan shuni afzal ko'radi.
-        nom = re.sub(r'[\\/:*?"<>|\x00-\x1f]+', " ", test.name).strip()
-        nom = re.sub(r"\s+", " ", nom) or f"test-{test.id}"
-        ascii_nom = re.sub(r"[^A-Za-z0-9_.\- ]+", "_", nom).strip() or f"test-{test.id}"
-        javob = FileResponse(bufer, content_type="application/zip")
-        javob["Content-Disposition"] = (
-            f'attachment; filename="{ascii_nom}.zip"; '
-            f"filename*=UTF-8''{quote(nom)}.zip"
-        )
-        return javob
+
+class TestPapkaEksportView(APIView):
+    """Bitta PAPKANI — ichidagi BARCHA testlari bilan — bitta ZIPga
+    yig'adi (2026-09-03, foydalanuvchi talabi: "bitta papkani to'liq
+    eksport qilish, proddan localga, tekshirib keyin localdan prodga").
+
+    Format — "ZIP ichida ZIP" (kurslar darajasi eksportidagi naqsh,
+    `courses/views.py: _bolingan_eksport`):
+
+        manifest.json   — papka nomi + testlar ro'yxati (tartibda)
+        tests/<n>.zip   — har bir test, mustaqil import qilinadigan
+                          formatda (`data.json` + `files/`)
+
+    Nega bitta katta ZIP emas: import paytida tashqi ZIPni BRAUZER
+    ochadi va serverga har bir testni ALOHIDA so'rov bilan yuboradi.
+    Bitta Cambridge testi ~100 MB, papkada 4-12 test bo'ladi — bir
+    bo'lakda yuborilsa so'rov Railway/gunicorn chegarasiga urilardi
+    (aynan shu muammo kurslar darajasi importida bo'lgan edi).
+
+    Ichki (2-darajali) papkalar ATAYLAB kirmaydi (foydalanuvchi qarori,
+    2026-09-03) — faqat shu papkaning O'Z testlari. Ichki papkalar Mock
+    yig'ish uchun mo'ljallangan va o'z qoidalariga ega
+    (`TestPapkasi` izohiga qara).
+
+    Tashqi ZIP `ZIP_STORED`: ichkilari allaqachon siqilgan, ikki marta
+    siqish faqat vaqt yeydi."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        if not _mashq_admin_mi(request.user):
+            return Response({"detail": "Faqat admin/owner uchun"}, status=403)
+        papka = get_object_or_404(TestPapkasi, pk=pk)
+        testlar = list(papka.testlar.order_by("bolim", "name"))
+
+        bufer = tempfile.SpooledTemporaryFile(max_size=16 * 1024 * 1024)
+        with zipfile.ZipFile(bufer, "w", zipfile.ZIP_STORED) as tashqi:
+            yozuvlar = []
+            for i, test in enumerate(testlar, 1):
+                ichki = tempfile.SpooledTemporaryFile(max_size=16 * 1024 * 1024)
+                _test_zip_yoz(test, ichki)
+                nom = f"tests/{i}.zip"
+                # Tayyor ichki ZIP OQIM bilan ko'chiriladi — `writestr`
+                # bo'lsa 100 MB'lik testni butunlay RAMga olardi.
+                ichki.seek(0)
+                with tashqi.open(nom, "w") as maqsad:
+                    shutil.copyfileobj(ichki, maqsad, 1024 * 1024)
+                ichki.close()
+                yozuvlar.append({
+                    "fayl": nom, "name": test.name, "bolim": test.bolim,
+                })
+            tashqi.writestr("manifest.json", json.dumps({
+                "turi": IMTIHON_PAPKA_EKSPORT_TURI,
+                "versiya": 1,
+                "papka": {"nomi": papka.nomi, "manba": papka.manba},
+                "testlar": yozuvlar,
+            }, ensure_ascii=False, indent=1))
+        bufer.seek(0)
+        return _zip_javobi(bufer, papka.nomi, f"papka-{papka.id}")
 
 
 class ImtihonImportView(APIView):
