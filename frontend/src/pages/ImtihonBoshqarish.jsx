@@ -2051,22 +2051,7 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
             <button type="button" className="tugma" onClick={papkaYarat} disabled={!yangiPapka.trim()}>
               {t("imtihon_papka_qoshish")}
             </button>
-            {/* Import (2026-09-03) — eksport qilingan ZIPdan testni tiklash.
-                Eksport tugmasi har test qatorida alohida turadi. */}
-            <label className="tugma ikkinchi" style={{ cursor: "pointer", marginLeft: "auto" }}>
-              {importBand ? t("yuklanmoqda") : t("imtihon_import")}
-              <input
-                type="file"
-                accept=".zip,application/zip"
-                onChange={importQil}
-                disabled={importBand}
-                style={{ display: "none" }}
-              />
-            </label>
           </div>
-          {importXato && (
-            <div className="xato-xabar" style={{ marginTop: 8 }}>{importXato}</div>
-          )}
           {papkalar.length > 0 && (
             <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
               {/* 2026-08-11 kech: 1-darajali papkalar birinchi, har
@@ -2080,16 +2065,6 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
                   <div key={top.id} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
                       {papkaChipi(top)}
-                      <button
-                        type="button"
-                        className="tugma kichik ikkinchi"
-                        onClick={() =>
-                          setIchkiQoshishOchiq((v) => (v === top.id ? null : top.id))
-                        }
-                        title={t("imtihon_ichki_papka_qoshish")}
-                      >
-                        + {t("imtihon_ichki_papka")}
-                      </button>
                     </div>
                     {ichkiQoshishOchiq === top.id && (
                       <div style={{ display: "flex", gap: 6, marginLeft: 24 }}>
@@ -2117,18 +2092,55 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
                         (R/L/W/S) to'liq bo'lgan zahoti pastdagi "Mock"
                         tabida AVTOMATIK ko'rinadi — backend
                         (`MockPapkalarView`) buni o'zi tekshiradi. */}
-                    {ichkilar.length > 0 && (
-                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginLeft: 24 }}>
-                        {ichkilar.map((ich) => (
-                          <span key={ich.id}>{papkaChipi(ich)}</span>
-                        ))}
-                      </div>
-                    )}
+                    {/* Ichki papkalar qatori. 2026-09-03, foydalanuvchi
+                        talabi: "+ Ichki papka" tugmasi AVVAL ota papka
+                        yonida, har qatorda takrorlanib turardi — ro'yxatni
+                        chalkashtirar va ko'zni charchatardi. Endi u SHU
+                        qatorning oxirida, ichki papkalar bilan bir joyda
+                        va ancha ko'rimsizroq (chekilgan chiziqli chip). */}
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginLeft: 24, alignItems: "center" }}>
+                      {ichkilar.map((ich) => (
+                        <span key={ich.id}>{papkaChipi(ich)}</span>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setIchkiQoshishOchiq((v) => (v === top.id ? null : top.id))
+                        }
+                        title={t("imtihon_ichki_papka_qoshish")}
+                        style={{
+                          display: "inline-flex", alignItems: "center", gap: 4,
+                          padding: "4px 10px", borderRadius: 20, cursor: "pointer",
+                          border: "1px dashed var(--chiziq)", background: "transparent",
+                          color: "var(--matn-sokin)", fontSize: 13,
+                        }}
+                      >
+                        + {t("imtihon_ichki_papka")}
+                      </button>
+                    </div>
                   </div>
                 );
               })}
             </div>
           )}
+        </div>
+
+        {/* Import (2026-09-03) — eksport qilingan ZIPdan testni tiklash.
+            Papkalar paneli uzun bo'lganda bu tugma "💾 Saqlash"dan juda
+            uzoqlashib ketardi (foydalanuvchi talabi), shuning uchun endi
+            aynan test ro'yxatining USTIDA turadi. */}
+        <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
+          {importXato && <span className="xato-xabar">{importXato}</span>}
+          <label className="tugma ikkinchi" style={{ cursor: "pointer" }}>
+            {importBand ? t("yuklanmoqda") : t("imtihon_import")}
+            <input
+              type="file"
+              accept=".zip,application/zip"
+              onChange={importQil}
+              disabled={importBand}
+              style={{ display: "none" }}
+            />
+          </label>
         </div>
 
         {!royxat ? (

@@ -398,7 +398,7 @@ function VariantlarQutisi({ variantlar }) {
     return (
       <div className="imtihon-harf-tanlov">
         {variantlar.map((v) => (
-          <span key={v} className="imtihon-harf-chip">
+          <span key={v} className="imtihon-harf-chip statik">
             {v}
           </span>
         ))}
@@ -408,7 +408,7 @@ function VariantlarQutisi({ variantlar }) {
   return (
     <div className="imtihon-moslashtirish-variantlar">
       {variantlar.map((v, vi) => (
-        <div key={`${vi}-${v}`} className="imtihon-moslashtirish-variant">
+        <div key={`${vi}-${v}`} className="imtihon-moslashtirish-variant statik">
           <span className="imtihon-moslashtirish-variant-harf">{HARFLAR[vi]}</span>
           <span className="imtihon-moslashtirish-variant-matn">{v}</span>
         </div>
@@ -622,41 +622,73 @@ function SozBankiBloki({ blok, javoblar, javobniQoy, natija, t }) {
 }
 
 /** Moslashtirish (matching/matching_headings) guruhi — asl kitobdagidek:
- * bayonotlar RO'YXAT qilib chiqadi, variantlar (masalan "List of
- * companies") FAQAT BIR MARTA, pastda umumiy qutida.
+ * bayonotlar RO'YXAT qilib chiqadi, variantlar (masalan "List of headings")
+ * FAQAT BIR MARTA, pastda umumiy qutida.
  *
- * Javob YOZILADI, sudrab tashlanmaydi (2026-08-01, foydalanuvchi qarori):
- * asl kitobda talaba har doim HARF yozadi ("Write the correct letter, A-F,
- * in boxes 18-20"), pastdagi quti esa faqat MA'LUMOTNOMA — qaysi harf
- * kimga/nimaga tegishlini ko'rsatadi. Shu sababli javob katakchasi oddiy
- * input, quti esa bosilmaydigan ro'yxat. Ro'yxatsiz turlarda (masalan
- * "Which paragraph contains...") variantlar umuman bo'sh keladi va bu
- * savollar bu blokka tushmaydi — oddiy savol sifatida chiqadi. */
+ * JAVOB SUDRAB TASHLANADI (2026-09-03, foydalanuvchi talabi — 2026-08-01dagi
+ * "javob YOZILADI" qarori BEKOR QILINDI): variantni sichqoncha bilan ushlab
+ * javob katakchasiga tashlanadi. Klaviaturada yozish OLIB TASHLANDI.
+ * Sensorli ekranda sudrash ishlamagani uchun BOSIB TANLASH ham qoldirilgan:
+ * avval variant bosiladi (sariq rangga kiradi), so'ng katakcha bosiladi.
+ * To'ldirilgan katakchani bosish javobni tozalaydi.
+ *
+ * Javob HARF sifatida saqlanadi (asl kitobdagi javob varaqasi kabi) —
+ * backend `_harf_va_matn_qabul` harfni ham, variant matnini ham, rim
+ * raqamli kalitni ham qabul qiladi. */
 function MoslashtirishBloki({ blok, javoblar, javobniQoy, natija, t }) {
   // ESKI TESTLAR uchun (2026-08-01): avvalgi promt ro'yxatsiz turlarda ham
   // variantlarga harflarning O'ZINI yozdirardi (["A","B","C"...]). Bunday
-  // ro'yxat "A → A, B → B" bo'lib chiqadi va hech qanday ma'lumot bermaydi.
-  // Yangi yuklashlarda variantlar bo'sh keladi, lekin bazadagi eski testlar
-  // qayta yuklanmaydi — shuning uchun bu yerda ham tekshiramiz.
+  // ro'yxat "A → A, B → B" bo'lib chiqadi va hech qanday ma'lumot bermaydi —
+  // u holda faqat harflar qatori ko'rsatiladi (matnli ro'yxat emas).
   const variantlar = blok.savollar[0].variantlar || [];
   const foydaliRoyxat = variantlar.some((v, i) => String(v).trim() !== HARFLAR[i]);
-  // 2026-09-03, foydalanuvchi shikoyati: harflardan iborat ro'yxat (masalan
-  // "Match each name with one drawing ... letters A-H") butunlay YASHIRILAR
-  // edi — talaba javob katakchasidan boshqa hech narsa ko'rmasdi, qaysi
-  // harflar ruxsat etilganini ham bilmasdi. Endi bunday holatda harflar
-  // bosiladigan qator sifatida chiqadi: talaba katakchani tanlab (yoki
-  // shunchaki harfni bosib) javobni qo'yadi.
-  const [faolIdx, setFaolIdx] = useState(null);
+  const [tanlangan, setTanlangan] = useState(null);
+  const [ustida, setUstida] = useState(null);
 
-  function harfniQoy(harf) {
-    if (natija) return;
-    const idxlar = blok.savollar.map((_, k) => blok.boshIdx + k);
-    const nishon =
-      faolIdx != null && idxlar.includes(faolIdx)
-        ? faolIdx
-        : idxlar.find((i) => !javoblar[i]) ?? idxlar[0];
-    javobniQoy(nishon, harf);
-    setFaolIdx(nishon);
+  const idxlar = blok.savollar.map((_, k) => blok.boshIdx + k);
+  const ishlatilganlar = new Set(idxlar.map((i) => javoblar[i]).filter(Boolean));
+
+  function qoy(i, harf) {
+    if (natija || !harf) return;
+    javobniQoy(i, harf);
+    setTanlangan(null);
+  }
+
+  /** Variant (chip) uchun umumiy xossalar — matnli ro'yxatda ham,
+   * harflar qatorida ham bir xil ishlaydi. */
+  function chipXossalari(harf) {
+    return {
+      draggable: !natija,
+      onDragStart: (e) => e.dataTransfer.setData("text/plain", harf),
+      onClick: () => {
+        if (natija) return;
+        setTanlangan((oldingi) => (oldingi === harf ? null : harf));
+      },
+    };
+  }
+
+  /** Javob katakchasi — tashlash nishoni. */
+  function katakXossalari(i) {
+    return {
+      onDragOver: (e) => {
+        if (natija) return;
+        e.preventDefault();
+        setUstida(i);
+      },
+      onDragLeave: () => setUstida((v) => (v === i ? null : v)),
+      onDrop: (e) => {
+        e.preventDefault();
+        setUstida(null);
+        qoy(i, e.dataTransfer.getData("text/plain"));
+      },
+      onClick: () => {
+        if (natija) return;
+        // Variant tanlangan bo'lsa — qo'yamiz; aks holda katakchani tozalaymiz
+        // (talabaga "o'chirish" uchun alohida tugma kerak bo'lmasin).
+        if (tanlangan) qoy(i, tanlangan);
+        else if (javoblar[i]) javobniQoy(i, "");
+      },
+    };
   }
 
   return (
@@ -677,17 +709,16 @@ function MoslashtirishBloki({ blok, javoblar, javobniQoy, natija, t }) {
                 {i + 1}. {s.savol}
               </span>
               <span className="imtihon-moslashtirish-javob">
-                <input
-                  {...IMLO_OFF}
+                <span
                   id={`imtihon-savol-${i}`}
-                  type="text"
-                  className={`imtihon-bosh-joy ${holat} ${!foydaliRoyxat && faolIdx === i ? "faol" : ""}`}
-                  placeholder={t("javob_yozing")}
-                  disabled={!!natija}
-                  value={javoblar[i] || ""}
-                  onFocus={() => setFaolIdx(i)}
-                  onChange={(e) => javobniQoy(i, e.target.value)}
-                />
+                  className={`imtihon-bosh-joy ${holat} ${ustida === i ? "ustida" : ""} ${
+                    !natija && tanlangan ? "kutmoqda" : ""
+                  }`}
+                  title={javoblar[i] && !natija ? t("imtihon_javobni_tozalash") : undefined}
+                  {...katakXossalari(i)}
+                >
+                  {javoblar[i] || t("imtihon_javobni_tashlang")}
+                </span>
                 {natija && <span className={`natija-belgi ${holat}`}>{natija.natijalar[i] ? "✓" : "✗"}</span>}
               </span>
             </div>
@@ -696,26 +727,35 @@ function MoslashtirishBloki({ blok, javoblar, javobniQoy, natija, t }) {
       </div>
       {foydaliRoyxat ? (
         <div className="imtihon-moslashtirish-variantlar">
-          {variantlar.map((v, vi) => (
-            <div key={v} className="imtihon-moslashtirish-variant">
-              <span className="imtihon-moslashtirish-variant-harf">{HARFLAR[vi]}</span>
-              <span className="imtihon-moslashtirish-variant-matn">{v}</span>
-            </div>
-          ))}
+          {variantlar.map((v, vi) => {
+            const harf = HARFLAR[vi];
+            return (
+              <div
+                key={`${vi}-${v}`}
+                className={`imtihon-moslashtirish-variant sudraladigan ${
+                  tanlangan === harf ? "tanlangan" : ""
+                } ${ishlatilganlar.has(harf) ? "ishlatilgan" : ""}`}
+                {...chipXossalari(harf)}
+              >
+                <span className="imtihon-moslashtirish-variant-harf">{harf}</span>
+                <span className="imtihon-moslashtirish-variant-matn">{v}</span>
+              </div>
+            );
+          })}
         </div>
       ) : (
         variantlar.length > 0 && (
           <div className="imtihon-harf-tanlov">
             {variantlar.map((v) => (
-              <button
+              <span
                 key={v}
-                type="button"
-                className={`imtihon-harf-chip ${javoblar[faolIdx] === v ? "tanlangan" : ""}`}
-                disabled={!!natija}
-                onClick={() => harfniQoy(v)}
+                className={`imtihon-harf-chip ${tanlangan === v ? "tanlangan" : ""} ${
+                  ishlatilganlar.has(v) ? "ishlatilgan" : ""
+                }`}
+                {...chipXossalari(v)}
               >
                 {v}
-              </button>
+              </span>
             ))}
           </div>
         )

@@ -385,6 +385,11 @@ a.logo:hover .logo-nom { color: var(--sariq); }
 .imtihon-bosh-joy.toldirilgan { border-style: solid; border-color: var(--sariq); background: #FFF7DB; color: var(--komir); }
 .imtihon-bosh-joy.togri { border-color: var(--yaxshi); background: transparent; }
 .imtihon-bosh-joy.notogri { border-color: var(--xato); background: transparent; }
+/* Sudrab tashlash (2026-09-03) — "ustida": variant aynan shu katakcha
+   ustida turibdi; "kutmoqda": variant BOSIB tanlangan (sensorli ekran
+   uchun), endi qaysi katakchaga qo'yishni ko'rsatish kerak. */
+.imtihon-bosh-joy.ustida { border-style: solid; border-color: var(--sariq-toq); background: #FFF7DB; }
+.imtihon-bosh-joy.kutmoqda { border-color: var(--sariq-toq); }
 .imtihon-moslashtirish-royxat { display: grid; gap: 10px; margin: 10px 0; }
 .imtihon-moslashtirish-qator {
   display: flex; flex-direction: column; align-items: flex-start; gap: 6px;
@@ -401,12 +406,19 @@ a.logo:hover .logo-nom { color: var(--sariq); }
   display: grid; gap: 4px; margin: 14px 0; padding: 14px 18px;
   background: var(--sirt-2); border: 1px solid var(--chiziq); border-radius: 8px;
 }
-/* Variantlar qutisi — MA'LUMOTNOMA (2026-08-01): talaba harfni javob
-   katakchasiga YOZADI, bu ro'yxat bosilmaydi/sudralmaydi. */
+/* Variantlar qutisi. 2026-09-03: endi bu ro'yxat SUDRALADI — variant
+   ushlab javob katakchasiga tashlanadi (yoki bosib tanlanadi). */
 .imtihon-moslashtirish-variant {
   display: grid; grid-template-columns: 22px 1fr; gap: 10px; padding: 4px 6px;
   border-radius: 6px; font-size: 14px;
 }
+.imtihon-moslashtirish-variant.sudraladigan { cursor: grab; border: 1px solid transparent; }
+.imtihon-moslashtirish-variant.sudraladigan:active { cursor: grabbing; }
+.imtihon-moslashtirish-variant.sudraladigan:hover { border-color: var(--chiziq); background: var(--sirt); }
+.imtihon-moslashtirish-variant.tanlangan {
+  background: var(--sariq); border-color: var(--sariq); color: var(--komir);
+}
+.imtihon-moslashtirish-variant.ishlatilgan { opacity: .45; }
 .imtihon-moslashtirish-variant-harf { font-weight: 700; }
 .imtihon-moslashtirish-javob { display: inline-flex; align-items: center; gap: 6px; }
 /* Javob katakchasi endi <input> — matn markazda va o'qilarli bo'lsin. */
@@ -418,13 +430,18 @@ input.imtihon-bosh-joy.faol { border-color: var(--sariq-toq); box-shadow: 0 0 0 
    uchun to'liq ma'lumotnoma qutisi o'rniga bosiladigan harf qatori. */
 .imtihon-harf-tanlov { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
 .imtihon-harf-chip {
-  min-width: 38px; padding: 7px 12px; border-radius: 8px; cursor: pointer;
-  border: 1px solid var(--chiziq); background: var(--sirt);
-  font: inherit; font-weight: 700; font-size: 14px; color: inherit;
+  display: inline-block; min-width: 38px; padding: 7px 12px; border-radius: 8px;
+  border: 1px solid var(--chiziq); background: var(--sirt); text-align: center;
+  font-weight: 700; font-size: 14px; cursor: grab; user-select: none;
 }
-.imtihon-harf-chip:hover:not(:disabled) { border-color: var(--sariq-toq); }
+.imtihon-harf-chip:active { cursor: grabbing; }
+.imtihon-harf-chip:hover { border-color: var(--sariq-toq); }
 .imtihon-harf-chip.tanlangan { background: var(--sariq); border-color: var(--sariq); color: var(--komir); }
-.imtihon-harf-chip:disabled { opacity: .5; cursor: default; }
+.imtihon-harf-chip.ishlatilgan { opacity: .45; }
+/* "statik" — faqat MA'LUMOTNOMA (summary/jadval ostidagi ro'yxat):
+   sudralmaydi, shuning uchun kursor ham "grab" bo'lib aldamasin. */
+.imtihon-harf-chip.statik, .imtihon-moslashtirish-variant.statik { cursor: default; }
+.imtihon-harf-chip.statik:hover { border-color: var(--chiziq); }
 
 /* ==== Table/Flow-chart Completion (maxsus_format, 2026-07-24) ==== */
 .imtihon-inline-juft { display: inline-flex; align-items: center; gap: 3px; margin: 0 2px; vertical-align: middle; }
