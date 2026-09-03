@@ -325,15 +325,33 @@ const HARFLAR = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
  * import qilingan testlarda variantlar ko'pincha O'Z harfi bilan
  * saqlanadi ("A from the tenth to the thirteenth centuries.",
  * "A the Chinese"), ko'rsatish esa harfni QAYTA qo'shardi — natijada
- * ekranda "A. A from the tenth..." chiqardi. Faqat variantning O'Z
- * indeksiga mos harf olib tashlanadi, shuning uchun boshqa belgi bilan
- * boshlanuvchi variantlar (masalan "iv Explaining...") tegilmaydi. */
-function variantMatni(v, vi) {
+ * ekranda "A. A from the tenth..." chiqardi.
+ *
+ * Kesish BUTUN RO'YXAT bo'yicha hal qiladi: faqat HAR BIR variant
+ * o'z indeksiga mos KATTA harf bilan boshlansa, ro'yxat "harflangan"
+ * deb qabul qilinadi. Aks holda hech nima kesilmaydi.
+ *
+ * Nega ro'yxat bo'yicha (2026-09-03, ikkinchi urinish): avval har bir
+ * variant ALOHIDA tekshirilardi va 25-28 savollaridagi
+ * "a finding of the UCSF study" variantining ARTIKLI ("a") harf deb
+ * kesilib, ekranda "A  finding of the UCSF study" chiqardi. Ro'yxat
+ * shartida bu variant o'z harfiga (katta "A") mos kelmaydi, shuning
+ * uchun butun ro'yxat tegilmagan qoladi. */
+function harflanganRoyxatmi(variantlar) {
+  if (!Array.isArray(variantlar) || variantlar.length === 0) return false;
+  return variantlar.every((v, i) => {
+    const harf = HARFLAR[i];
+    if (!harf) return false;
+    const mos = String(v ?? "").match(/^([A-Z])[.)]?\s+\S/);
+    return !!mos && mos[1] === harf;
+  });
+}
+
+function variantMatni(v, vi, variantlar) {
   const matn = String(v ?? "");
-  const harf = HARFLAR[vi];
-  if (!harf) return matn;
-  const mos = matn.match(/^([A-Za-z])[.)]?\s+(.*)$/s);
-  return mos && mos[1].toUpperCase() === harf ? mos[2] : matn;
+  if (!harflanganRoyxatmi(variantlar)) return matn;
+  const mos = matn.match(/^[A-Z][.)]?\s+(.*)$/s);
+  return mos ? mos[1] : matn;
 }
 
 // "matn {{5}} davomi" ko'rinishidagi matnni bo'laklarga ajratadi — {{n}}
@@ -445,7 +463,7 @@ function VariantlarQutisi({ variantlar }) {
       {variantlar.map((v, vi) => (
         <div key={`${vi}-${v}`} className="imtihon-moslashtirish-variant statik">
           <span className="imtihon-moslashtirish-variant-harf">{HARFLAR[vi]}</span>
-          <span className="imtihon-moslashtirish-variant-matn">{variantMatni(v, vi)}</span>
+          <span className="imtihon-moslashtirish-variant-matn">{variantMatni(v, vi, variantlar)}</span>
         </div>
       ))}
     </div>
@@ -640,7 +658,7 @@ function SozBankiBloki({ blok, javoblar, javobniQoy, natija, t }) {
         })}
       </div>
       <div className="imtihon-bank">
-        {blok.savollar[0].variantlar.map((v, vi) => (
+        {blok.savollar[0].variantlar.map((v, vi, variantlar) => (
           <div
             key={v}
             className={`imtihon-bank-chip ${tanlangan === v ? "tanlangan" : ""}`}
@@ -648,7 +666,7 @@ function SozBankiBloki({ blok, javoblar, javobniQoy, natija, t }) {
             onDragStart={(e) => e.dataTransfer.setData("text/plain", v)}
             onClick={() => !natija && setTanlangan((prev) => (prev === v ? null : v))}
           >
-            {HARFLAR[vi]}. {variantMatni(v, vi)}
+            {HARFLAR[vi]}. {variantMatni(v, vi, variantlar)}
           </div>
         ))}
       </div>
@@ -779,7 +797,7 @@ function MoslashtirishBloki({ blok, javoblar, javobniQoy, natija, t }) {
                 {...chipXossalari(harf)}
               >
                 <span className="imtihon-moslashtirish-variant-harf">{harf}</span>
-                <span className="imtihon-moslashtirish-variant-matn">{variantMatni(v, vi)}</span>
+                <span className="imtihon-moslashtirish-variant-matn">{variantMatni(v, vi, variantlar)}</span>
               </div>
             );
           })}
@@ -879,7 +897,7 @@ function KopJavobBloki({ blok, javoblar, javobniQoy, natija, t }) {
       <div className="izoh" style={{ marginBottom: 6 }}>
         {t("kop_javob_izoh").replace("{n}", soni)}
       </div>
-      {savollar[0].variantlar.map((v, vi) => {
+      {savollar[0].variantlar.map((v, vi, variantlar) => {
         const belgilangan = tanlangan.includes(v);
         return (
           <label className="variant-qator" key={v}>
@@ -889,7 +907,7 @@ function KopJavobBloki({ blok, javoblar, javobniQoy, natija, t }) {
               checked={belgilangan}
               onChange={() => almashtir(v)}
             />
-            {HARFLAR[vi]}. {variantMatni(v, vi)}
+            {HARFLAR[vi]}. {variantMatni(v, vi, variantlar)}
           </label>
         );
       })}
@@ -912,7 +930,7 @@ function OddiySavolBloki({ blok, javoblar, javobniQoy, natija, t }) {
         )}
       </div>
       {s.variantlar && s.variantlar.length > 0 && s.tur !== "map_labelling" ? (
-        s.variantlar.map((v, vi) => (
+        s.variantlar.map((v, vi, variantlar) => (
           <label className="variant-qator" key={v}>
             <input
               type="radio"
@@ -921,7 +939,7 @@ function OddiySavolBloki({ blok, javoblar, javobniQoy, natija, t }) {
               checked={javoblar[i] === v}
               onChange={() => javobniQoy(i, v)}
             />
-            {HARFLAR[vi]}. {variantMatni(v, vi)}
+            {HARFLAR[vi]}. {variantMatni(v, vi, variantlar)}
           </label>
         ))
       ) : (
