@@ -379,6 +379,44 @@ function matnniBoslarGaAjrat(matn, javoblar, javobniQoy, natija) {
   });
 }
 
+/** Variantlar qutisi — MA'LUMOTNOMA (asl kitobdagi "list of words A-F"
+ * qutisi). Talaba harfni javob katakchasiga YOZADI, bu ro'yxat bosilmaydi.
+ *
+ * 2026-09-03, foydalanuvchi shikoyati: "Complete the summary using the list
+ * of words, A-F, below" turidagi savollarda (Reading Q10-13, Q33-36 va
+ * Listening Q17-20 kabi) ro'yxatning O'ZI hech qayerda ko'rsatilmasdi —
+ * summary/jadval `maxsus_format` orqali chizilgani uchun savollar oddiy
+ * ro'yxatdan olib tashlanardi va ular bilan birga variantlar ham
+ * yo'qolardi. Endi quti `maxsus_format` blokining ostida chiqadi. */
+function VariantlarQutisi({ variantlar }) {
+  if (!variantlar || variantlar.length === 0) return null;
+  // Variantlar faqat harflardan iborat bo'lsa ("A","B",...) — "A → A"
+  // ko'rinishidagi ro'yxat ma'nosiz, faqat ruxsat etilgan harflar
+  // qatorini ko'rsatamiz.
+  const foydaliRoyxat = variantlar.some((v, i) => String(v).trim() !== HARFLAR[i]);
+  if (!foydaliRoyxat) {
+    return (
+      <div className="imtihon-harf-tanlov">
+        {variantlar.map((v) => (
+          <span key={v} className="imtihon-harf-chip">
+            {v}
+          </span>
+        ))}
+      </div>
+    );
+  }
+  return (
+    <div className="imtihon-moslashtirish-variantlar">
+      {variantlar.map((v, vi) => (
+        <div key={`${vi}-${v}`} className="imtihon-moslashtirish-variant">
+          <span className="imtihon-moslashtirish-variant-harf">{HARFLAR[vi]}</span>
+          <span className="imtihon-moslashtirish-variant-matn">{v}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function MaxsusFormatGuruhKorsatma({ guruhBoshi, guruhKorsatma }) {
   if (!guruhBoshi && !guruhKorsatma) return null;
   return (
@@ -389,7 +427,7 @@ function MaxsusFormatGuruhKorsatma({ guruhBoshi, guruhKorsatma }) {
   );
 }
 
-function MaxsusFormatBloki({ format, guruhBoshi, guruhKorsatma, javoblar, javobniQoy, natija }) {
+function MaxsusFormatBloki({ format, guruhBoshi, guruhKorsatma, variantlar, javoblar, javobniQoy, natija }) {
   if (format.tur === "jadval") {
     return (
       <div className="imtihon-jadval-wrap">
@@ -415,6 +453,7 @@ function MaxsusFormatBloki({ format, guruhBoshi, guruhKorsatma, javoblar, javobn
             ))}
           </tbody>
         </table>
+        <VariantlarQutisi variantlar={variantlar} />
       </div>
     );
   }
@@ -432,6 +471,7 @@ function MaxsusFormatBloki({ format, guruhBoshi, guruhKorsatma, javoblar, javobn
             {i < format.qadamlar.length - 1 && <div className="imtihon-oqim-strelka">↓</div>}
           </div>
         ))}
+        <VariantlarQutisi variantlar={variantlar} />
       </div>
     );
   }
@@ -444,6 +484,7 @@ function MaxsusFormatBloki({ format, guruhBoshi, guruhKorsatma, javoblar, javobn
         <div className="imtihon-maxsus-matn">
           {matnniBoslarGaAjrat(format.matn, javoblar, javobniQoy, natija)}
         </div>
+        <VariantlarQutisi variantlar={variantlar} />
       </div>
     );
   }
@@ -1366,6 +1407,27 @@ export default function ImtihonOtish({ bolim, manba = "admin", testId, mockYechi
           const birinchiIdx = blokIdx.size ? Math.min(...blokIdx) : null;
           const birinchiSavol =
             birinchiIdx == null ? null : faol.qism.savollar[birinchiIdx - faol.boshIdx];
+          // 2026-09-03: "Complete the summary using the list of words, A-F,
+          // below" — variantlar ro'yxati shu blok ichidagi savollarda
+          // saqlanadi, lekin savollar oddiy ro'yxatdan olib tashlanganligi
+          // uchun ro'yxat hech qayerda chizilmasdi. Endi shu blok ostida
+          // ma'lumotnoma qutisi bo'lib chiqadi.
+          //
+          // Takrorlanmasligi uchun shart: SHU variantlar ro'yxatiga ega
+          // BARCHA savollar aynan shu blok ichida bo'lishi kerak. Aks holda
+          // (bir qismi tashqarida qolsa) o'sha savollar o'z blokini —
+          // bank/moslashtirish — chizadi va quti ikki marta chiqib ketardi.
+          let blokVariantlar = [];
+          const nomzod = [...blokIdx]
+            .map((i) => faol.qism.savollar[i - faol.boshIdx])
+            .find((s) => (s?.variantlar || []).length > 1);
+          if (nomzod) {
+            const jsonV = JSON.stringify(nomzod.variantlar);
+            const hammaIdx = faol.qism.savollar
+              .map((s, k) => (JSON.stringify(s.variantlar || []) === jsonV ? faol.boshIdx + k : -1))
+              .filter((x) => x >= 0);
+            if (hammaIdx.every((i) => blokIdx.has(i))) blokVariantlar = nomzod.variantlar;
+          }
           boshqaBloklar.push({
             kalit: blokJoyi(blok, faol.boshIdx),
             tugun: (
@@ -1374,6 +1436,7 @@ export default function ImtihonOtish({ bolim, manba = "admin", testId, mockYechi
                 format={blok}
                 guruhBoshi={birinchiSavol?.guruh_boshi}
                 guruhKorsatma={birinchiSavol?.guruh_korsatma}
+                variantlar={blokVariantlar}
                 javoblar={javoblar}
                 javobniQoy={javobniQoy}
                 natija={natija}
