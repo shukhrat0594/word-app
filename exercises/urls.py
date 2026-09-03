@@ -84,6 +84,16 @@ urlpatterns = [
         name="imtihon_boshqaruv_pdf",
     ),
     path(
+        "imtihon/testlar-boshqaruv/<int:pk>/eksport/",
+        views.ImtihonEksportView.as_view(),
+        name="imtihon_eksport",
+    ),
+    path(
+        "imtihon/testlar-import/",
+        views.ImtihonImportView.as_view(),
+        name="imtihon_import",
+    ),
+    path(
         "imtihon/qism-boshqaruv/<int:pk>/",
         views.TestQismiFayllarBoshqaruvView.as_view(),
         name="imtihon_qism_boshqaruv",

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { api, apiBlobUrl, apiForm } from "../api";
+import { api, apiBlobUrl, apiFayluniYuklab, apiForm } from "../api";
 import { useI18n } from "../i18n";
 import { useProfil } from "../profilContext";
 import ImtihonMock from "./ImtihonMock";
@@ -1634,6 +1634,12 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
   // (`TestPapkaDetailView.patch`) allaqachon bor edi, faqat UI yo'q edi.
   const [papkaTahrirlanayotgan, setPapkaTahrirlanayotgan] = useState(null);
   const [papkaNomiTahrir, setPapkaNomiTahrir] = useState("");
+  // Eksport/import (2026-09-03) — `toqnashuv` nom band bo'lganda ochiladigan
+  // so'rov oynasi holati: {fayl, mavjud, nom}.
+  const [eksportBandId, setEksportBandId] = useState(null);
+  const [importBand, setImportBand] = useState(false);
+  const [importXato, setImportXato] = useState("");
+  const [toqnashuv, setToqnashuv] = useState(null);
   // AI generatsiya (2026-08-02, foydalanuvchi talabi) — faqat "AI
   // mashqlari" (manba="ai") sahifasida, faqat 4 haqiqiy bo'lim uchun
   // (Mock/Hammasi'da yo'q — qaysi turni yaratish noaniq bo'lardi).
@@ -1875,6 +1881,75 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
     }
   }
 
+  // ── Eksport / import (2026-09-03, foydalanuvchi talabi: Kurslardagi
+  // "Saqlash/Yuklash" IELTS testlarida ham bo'lsin). Qamrov: BITTA test =
+  // BITTA ZIP (qismlari, savollari, audio va rasm fayllari bilan).
+  async function eksportQil(test) {
+    setEksportBandId(test.id);
+    try {
+      await apiFayluniYuklab(`/api/imtihon/testlar-boshqaruv/${test.id}/eksport/`);
+    } catch (e) {
+      setImportXato(e.message || t("xato_yuz_berdi"));
+    } finally {
+      setEksportBandId(null);
+    }
+  }
+
+  /** ZIPni backendga yuboradi. `rejim` bo'sh bo'lsa va shu nomli test
+   * allaqachon bo'lsa — backend 409 qaytaradi va biz foydalanuvchidan
+   * so'raymiz (almashtirish yoki yangi nom bilan qo'shish). */
+  async function importYubor(fayl, rejim = "", nom = "") {
+    const fd = new FormData();
+    fd.append("fayl", fayl);
+    fd.append("manba", manba);
+    if (rejim) fd.append("rejim", rejim);
+    if (nom) fd.append("nom", nom);
+    return apiForm("/api/imtihon/testlar-import/", { method: "POST", formData: fd });
+  }
+
+  async function importQil(e) {
+    const fayl = e.target.files?.[0];
+    e.target.value = "";
+    if (!fayl) return;
+    setImportXato("");
+    setImportBand(true);
+    try {
+      await importYubor(fayl);
+      yukla(filtrBolim);
+    } catch (e2) {
+      if (e2.status === 409 && e2.data?.holat === "nom_band") {
+        // Nom band — hech narsa o'zgartirilmadi, qarorni foydalanuvchi beradi.
+        setToqnashuv({
+          fayl,
+          mavjud: e2.data.mavjud,
+          nom: e2.data.taklif_nom || "",
+        });
+      } else {
+        setImportXato(e2.data?.detail || e2.message || t("xato_yuz_berdi"));
+      }
+    } finally {
+      setImportBand(false);
+    }
+  }
+
+  async function toqnashuvniHal(rejim) {
+    if (!toqnashuv) return;
+    if (rejim === "almashtir" && !window.confirm(t("imtihon_import_almashtir_tasdiq"))) return;
+    const nom = rejim === "yangi" ? toqnashuv.nom.trim() : "";
+    if (rejim === "yangi" && !nom) return;
+    setImportXato("");
+    setImportBand(true);
+    try {
+      await importYubor(toqnashuv.fayl, rejim, nom);
+      setToqnashuv(null);
+      yukla(filtrBolim);
+    } catch (e2) {
+      setImportXato(e2.data?.detail || e2.message || t("xato_yuz_berdi"));
+    } finally {
+      setImportBand(false);
+    }
+  }
+
   async function ochir(id) {
     if (!window.confirm(t("imtihon_ochirish_tasdiq"))) return;
     try {
@@ -1976,7 +2051,22 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
             <button type="button" className="tugma" onClick={papkaYarat} disabled={!yangiPapka.trim()}>
               {t("imtihon_papka_qoshish")}
             </button>
+            {/* Import (2026-09-03) — eksport qilingan ZIPdan testni tiklash.
+                Eksport tugmasi har test qatorida alohida turadi. */}
+            <label className="tugma ikkinchi" style={{ cursor: "pointer", marginLeft: "auto" }}>
+              {importBand ? t("yuklanmoqda") : t("imtihon_import")}
+              <input
+                type="file"
+                accept=".zip,application/zip"
+                onChange={importQil}
+                disabled={importBand}
+                style={{ display: "none" }}
+              />
+            </label>
           </div>
+          {importXato && (
+            <div className="xato-xabar" style={{ marginTop: 8 }}>{importXato}</div>
+          )}
           {papkalar.length > 0 && (
             <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
               {/* 2026-08-11 kech: 1-darajali papkalar birinchi, har
@@ -2137,6 +2227,62 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
         onSaqlandi={() => yukla(filtrBolim)}
       />
     )}
+    {/* Import: nom to'qnashuvi (2026-09-03, foydalanuvchi qarori — jimgina
+        almashtirmasdan ham, jimgina nusxa yaratmasdan ham emas, ALBATTA
+        so'raladi). Bu nuqtada backend hech narsa o'zgartirmagan. */}
+    {toqnashuv && (
+      <div className="blok-yuklash-qoplama">
+        <div className="blok-tasdiq-karta" style={{ maxWidth: 460 }}>
+          <div className="blok-tasdiq-sarlavha-qator">
+            <strong>{t("imtihon_import_nom_band")}</strong>
+          </div>
+          <div className="izoh" style={{ marginBottom: 12 }}>
+            «{toqnashuv.mavjud.name}» — {t(`mashq_bolim_${toqnashuv.mavjud.bolim}`)},{" "}
+            {toqnashuv.mavjud.qismlar_soni} {t("imtihon_qism_soni")}
+          </div>
+          <div style={{ display: "grid", gap: 10 }}>
+            <button
+              type="button"
+              className="tugma ikkinchi"
+              style={{ color: "#d33" }}
+              disabled={importBand}
+              onClick={() => toqnashuvniHal("almashtir")}
+            >
+              {t("imtihon_import_almashtir")}
+            </button>
+            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              <input
+                type="text"
+                value={toqnashuv.nom}
+                placeholder={t("imtihon_import_yangi_nom")}
+                onChange={(e) => setToqnashuv((v) => ({ ...v, nom: e.target.value }))}
+                style={{ flex: 1, minWidth: 180 }}
+              />
+              <button
+                type="button"
+                className="tugma"
+                disabled={importBand || !toqnashuv.nom.trim()}
+                onClick={() => toqnashuvniHal("yangi")}
+              >
+                {t("imtihon_import_yangi")}
+              </button>
+            </div>
+            {importXato && <div className="xato-xabar">{importXato}</div>}
+            <button
+              type="button"
+              className="tugma ikkinchi"
+              disabled={importBand}
+              onClick={() => {
+                setToqnashuv(null);
+                setImportXato("");
+              }}
+            >
+              {t("kurs_blok_bekor_qilish")}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
     </>
   );
 
@@ -2269,6 +2415,16 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
                         })}
                       </select>
                     )}
+                    {/* Eksport (2026-09-03) — shu testni qismlari, savollari
+                        va media fayllari bilan bitta ZIPga yig'ib beradi;
+                        boshqa muhitga (prod<->local) ko'chirish uchun. */}
+                    <button
+                      className="tugma ikkinchi"
+                      onClick={() => eksportQil(test)}
+                      disabled={eksportBandId === test.id}
+                    >
+                      {eksportBandId === test.id ? t("yuklanmoqda") : t("imtihon_eksport")}
+                    </button>
                     <button
                       className="tugma ikkinchi"
                       onClick={() => {

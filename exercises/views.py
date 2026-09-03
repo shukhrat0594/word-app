@@ -1,9 +1,14 @@
 import json
 import logging
 import re
+import tempfile
+import uuid
+import zipfile
 
 from django.core.exceptions import ValidationError
+from django.core.files.base import ContentFile
 from django.db import transaction
+from django.http import FileResponse
 from django.shortcuts import get_object_or_404
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
@@ -576,6 +581,259 @@ def _test_yarat(data, markaz, rasm_fayllar=None, audio_fayllar=None, yaratuvchi=
         _fayllarni_taqsimla(qism_obyektlari, qoldiq_rasm_fayllar, "rasm")
 
     return test, None
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# IELTS testini ZIP sifatida eksport/import qilish (2026-09-03, foydalanuvchi
+# talabi: Kurslar bo'limidagi "Saqlash/Yuklash" IELTS testlarida ham bo'lsin).
+# Kurslardagi `KursEksportView`/`KursImportView` bilan bir xil g'oya: ZIP
+# ichida `data.json` + media fayllar, ya'ni BAZA HOLATINING O'ZI ko'chiriladi
+# (kod emas) — prod<->local o'rtasida aynan bir xil holda ko'chirsa bo'ladi.
+#
+# Qamrov (foydalanuvchi qarori): BITTA test = BITTA ZIP. Papka darajasida
+# eksport qilinmaydi — papka nomi faqat MA'LUMOT uchun yoziladi va import
+# paytida maqsad bazada XUDDI SHU NOMLI papka bo'lsa, test o'shanga
+# biriktiriladi (yo'q bo'lsa papkasiz qoladi, YANGI papka yaratilmaydi).
+# ──────────────────────────────────────────────────────────────────────────
+IMTIHON_EKSPORT_TURI = "ielts_test"
+
+
+def _test_eksport_qil(test, zf):
+    """Testni JSON tavsifga o'giradi; audio/rasm fayllarini ZIPga yozadi."""
+    fayllar_indeksi = {}
+
+    def fayl_qosh(fayl_maydoni):
+        if not fayl_maydoni:
+            return None
+        nomi = fayl_maydoni.name
+        if nomi not in fayllar_indeksi:
+            kalit = f"files/{uuid.uuid4().hex}_{nomi.rsplit('/', 1)[-1]}"
+            try:
+                with fayl_maydoni.open("rb") as fh:
+                    zf.writestr(kalit, fh.read())
+            except (FileNotFoundError, OSError, ValueError):
+                # Yozuv bazada bor, lekin fayl diskda/R2'da yo'q — eksport
+                # shu sababli butunlay to'xtamasin, shu fayl tashlab
+                # ketiladi (import paytida o'sha qism mediasiz keladi).
+                return None
+            fayllar_indeksi[nomi] = kalit
+        return fayllar_indeksi[nomi]
+
+    return {
+        "versiya": 1,
+        "turi": IMTIHON_EKSPORT_TURI,
+        "name": test.name,
+        "bolim": test.bolim,
+        "manba": test.manba,
+        "korinish": test.korinish,
+        # Faqat ma'lumot uchun — import papka YARATMAYDI.
+        "papka": (
+            {"nomi": test.papka.nomi, "ota_nomi": test.papka.parent.nomi if test.papka.parent else None}
+            if test.papka
+            else None
+        ),
+        "qismlar": [
+            {
+                "tartib": q.tartib,
+                "sarlavha": q.sarlavha,
+                "yoriqnoma": q.yoriqnoma,
+                "matn": q.matn,
+                "tur": q.tur,
+                "savollar": q.savollar or [],
+                "maxsus_format": q.maxsus_format,
+                "audio_fayl": fayl_qosh(q.audio_fayl),
+                "rasm": fayl_qosh(q.rasm),
+            }
+            for q in test.qismlar.order_by("tartib", "id")
+        ],
+    }
+
+
+def _bosh_test_nomi(nom, markaz, manba, bolim):
+    """Band bo'lmagan nom topadi: "Test 1" band bo'lsa "Test 1 (2)" ..."""
+    if not ImtihonTest.objects.filter(
+        markaz=markaz, manba=manba, bolim=bolim, name__iexact=nom
+    ).exists():
+        return nom
+    n = 2
+    while ImtihonTest.objects.filter(
+        markaz=markaz, manba=manba, bolim=bolim, name__iexact=f"{nom} ({n})"
+    ).exists():
+        n += 1
+    return f"{nom} ({n})"
+
+
+class ImtihonEksportView(APIView):
+    """Bitta IELTS testini (qismlari, savollari, audio va rasm fayllari
+    bilan) BITTA ZIP faylga yig'ib beradi."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        if not _mashq_admin_mi(request.user):
+            return Response({"detail": "Faqat admin/owner uchun"}, status=403)
+        test = get_object_or_404(ImtihonTest, pk=pk)
+
+        # Kurslar eksportidagi kabi: ZIP `SpooledTemporaryFile`ga yoziladi
+        # (kichigi RAMda qoladi, kattasi diskka o'tadi) va `FileResponse`
+        # uni oqim bilan uzatadi — RAMda ikki nusxa yig'ilmaydi.
+        bufer = tempfile.SpooledTemporaryFile(max_size=16 * 1024 * 1024)
+        with zipfile.ZipFile(bufer, "w", zipfile.ZIP_DEFLATED) as zf:
+            data = _test_eksport_qil(test, zf)
+            zf.writestr("data.json", json.dumps(data, ensure_ascii=False, indent=1))
+        bufer.seek(0)
+
+        # Fayl nomi ASCII bo'lishi kerak (Content-Disposition) — nomdagi
+        # boshqa belgilar pastki chiziqqa almashtiriladi.
+        xavfsiz = re.sub(r"[^A-Za-z0-9_.-]+", "_", test.name).strip("_") or str(test.id)
+        javob = FileResponse(bufer, content_type="application/zip")
+        javob["Content-Disposition"] = (
+            f'attachment; filename="ielts_{test.bolim}_{xavfsiz}_eksport.zip"'
+        )
+        return javob
+
+
+class ImtihonImportView(APIView):
+    """`ImtihonEksportView` bergan ZIPdan testni tiklaydi.
+
+    Nom to'qnashuvi (foydalanuvchi qarori, 2026-09-03): shu nomli test
+    ALLAQACHON bo'lsa, backend hech narsa qilmasdan **409** qaytaradi va
+    frontend foydalanuvchidan so'raydi — "almashtiraymi yoki boshqa nom
+    bilan qo'shaymi?". Javob `rejim` maydoni orqali qaytadi:
+      * `rejim=almashtir` — mavjud test ustiga yoziladi (qismlari to'liq
+        almashtiriladi);
+      * `rejim=yangi` + `nom=<yangi nom>` — yangi test sifatida qo'shiladi
+        (berilgan nom ham band bo'lsa, oxiriga "(2)", "(3)" qo'shiladi).
+    """
+
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request):
+        if not _mashq_admin_mi(request.user):
+            return Response({"detail": "Faqat admin/owner uchun"}, status=403)
+        fayl = request.FILES.get("fayl")
+        if not fayl:
+            return Response({"detail": "fayl majburiy"}, status=400)
+        markaz = Markaz.objects.first()
+        if not markaz:
+            return Response({"detail": "Markaz topilmadi"}, status=400)
+
+        try:
+            zf = zipfile.ZipFile(fayl)
+        except zipfile.BadZipFile:
+            return Response({"detail": "ZIP fayl o'qib bo'lmadi"}, status=400)
+
+        with zf:
+            try:
+                data = json.loads(zf.read("data.json").decode("utf-8"))
+            except (KeyError, ValueError, UnicodeDecodeError):
+                return Response(
+                    {"detail": "ZIP ichida to'g'ri data.json topilmadi"}, status=400
+                )
+            if data.get("turi") != IMTIHON_EKSPORT_TURI:
+                return Response(
+                    {"detail": "Bu fayl IELTS test eksporti emas"}, status=400
+                )
+            bolim = data.get("bolim")
+            if bolim not in Bolim.values:
+                return Response({"detail": "ZIPdagi 'bolim' noto'g'ri"}, status=400)
+
+            rejim = (request.data.get("rejim") or "").strip()
+            manba = request.data.get("manba") or data.get("manba") or Manba.ADMIN
+            nom = (request.data.get("nom") or "").strip() or (data.get("name") or "").strip()
+            if not nom:
+                return Response({"detail": "ZIPda test nomi yo'q"}, status=400)
+
+            mavjud = ImtihonTest.objects.filter(
+                markaz=markaz, manba=manba, bolim=bolim, name__iexact=nom
+            ).first()
+
+            # Foydalanuvchidan so'rash bosqichi — hech narsa o'zgartirilmaydi.
+            if mavjud and not rejim:
+                return Response(
+                    {
+                        "holat": "nom_band",
+                        "mavjud": {
+                            "id": mavjud.id,
+                            "name": mavjud.name,
+                            "bolim": mavjud.bolim,
+                            "qismlar_soni": mavjud.qismlar.count(),
+                        },
+                        "taklif_nom": _bosh_test_nomi(nom, markaz, manba, bolim),
+                    },
+                    status=409,
+                )
+
+            with transaction.atomic():
+                if rejim == "almashtir" and mavjud:
+                    test = mavjud
+                else:
+                    # "yangi" rejimi (yoki to'qnashuv umuman yo'q) — nom
+                    # baribir band bo'lsa raqam qo'shiladi.
+                    nom = _bosh_test_nomi(nom, markaz, manba, bolim)
+                    test = ImtihonTest(markaz=markaz, yaratuvchi=request.user)
+
+                test.name = nom
+                test.bolim = bolim
+                test.manba = manba
+                test.korinish = data.get("korinish") or "private"
+                # Papka: maqsad bazada XUDDI SHU NOMLI papka bo'lsagina
+                # biriktiramiz, aks holda papkasiz qoladi (yangi papka
+                # yaratmaymiz — bu import qiluvchi uchun kutilmagan bo'lardi).
+                papka_ma = data.get("papka") or {}
+                if papka_ma.get("nomi") and not test.papka_id:
+                    test.papka = TestPapkasi.objects.filter(
+                        markaz=markaz, manba=manba, nomi__iexact=papka_ma["nomi"]
+                    ).first()
+                test.save()
+
+                # Import "zaxiradan tiklash" degani — eski qismlar qoldirilsa
+                # ZIPdagi holat bilan aralashib ketardi (savollar ikki
+                # barobar, media mos kelmay qolardi).
+                test.qismlar.all().delete()
+                for i, q in enumerate(data.get("qismlar") or [], start=1):
+                    qism = TestQismi(
+                        test=test,
+                        tartib=q.get("tartib") or i,
+                        sarlavha=q.get("sarlavha", ""),
+                        yoriqnoma=q.get("yoriqnoma", ""),
+                        matn=q.get("matn", ""),
+                        tur=q.get("tur", ""),
+                        savollar=q.get("savollar") or [],
+                        maxsus_format=q.get("maxsus_format") or None,
+                    )
+                    for maydon in ("audio_fayl", "rasm"):
+                        kalit = q.get(maydon)
+                        if not kalit:
+                            continue
+                        try:
+                            tarkib = zf.read(kalit)
+                        except KeyError:
+                            continue  # ZIPda fayl yo'q — qism mediasiz qoladi
+                        getattr(qism, maydon).save(
+                            kalit.rsplit("/", 1)[-1], ContentFile(tarkib), save=False
+                        )
+                    qism.save()
+
+        logla(
+            foydalanuvchi=request.user,
+            harakat=(
+                FaoliyatYozuvi.Harakat.OZGARTIRISH
+                if rejim == "almashtir"
+                else FaoliyatYozuvi.Harakat.YARATISH
+            ),
+            obyekt=test,
+            obyekt_turi="ImtihonTest",
+            obyekt_nomi=test.name,
+            snapshot={
+                "name": test.name,
+                "bolim": test.bolim,
+                "qismlar_soni": test.qismlar.count(),
+                "manba": "import",
+            },
+        )
+        return Response(_test_admin_dict(test), status=200)
 
 
 def _savol_javobsizmi(savol):
