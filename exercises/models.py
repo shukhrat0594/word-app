@@ -246,6 +246,19 @@ def _qabul_variantlari(kalit):
 
 _RIM_YOKI_RAQAM_PREFIKS = re.compile(r"^([ivxlcdm]+|\d+)[.\)]?\s+", re.IGNORECASE)
 
+# 2026-09-03: Listening'ning "Plan/Map Labelling" savollarida variantlar
+# asl kitobda "KOD + nom" ko'rinishida beriladi ("L Library",
+# "SCR Student Common Room"), javob kaliti esa kodning O'ZI ("L", "SCR").
+# Rim raqami qolipi bunday kodlarning faqat bir qismini ilib olardi
+# (tasodifan "L" va "CL" rim raqamiga o'xshaydi, "MH"/"SR"/"SAR" esa
+# yo'q) — natijada bir xil savol guruhida bir savol ishlab, boshqasi
+# ishlamasdi. Kod — variantning boshidagi 1-4 harfli, TO'LIQ BOSH
+# HARFLI so'z va u BARCHA variantlarda uchrashi SHART — aks holda
+# oddiy matnli ro'yxatda ("A big room", "The main hall") birinchi
+# variantning "A" so'zi kod deb qabul qilinib, kaliti "A" bo'lgan
+# savolda talabaning "B" javobi ham to'g'ri hisoblanib ketardi.
+_BOSH_HARFLI_KOD_PREFIKS = re.compile(r"^([A-Z]{1,4})[.\)]?\s+")
+
 
 def _harf_va_matn_qabul(savol, qabul):
     """Variantli savolda HARF ham, VARIANT MATNI ham qabul qilinsin
@@ -274,9 +287,13 @@ def _harf_va_matn_qabul(savol, qabul):
         return set(qabul)
     kengaytirilgan = set(qabul)
     past_variantlar = [_norm(v) for v in variantlar]
+    # Prefiks ASL (normallashtirilmagan) variantdan olinadi — bosh harfli
+    # kodni aniqlash uchun registr kerak.
+    kod_moslari = [_BOSH_HARFLI_KOD_PREFIKS.match(str(v).strip()) for v in variantlar]
+    kodli_royxat = all(kod_moslari)
     prefikslar = []
-    for v in past_variantlar:
-        mos = _RIM_YOKI_RAQAM_PREFIKS.match(v)
+    for kod_mos, v in zip(kod_moslari, past_variantlar):
+        mos = _RIM_YOKI_RAQAM_PREFIKS.match(v) or (kod_mos if kodli_royxat else None)
         prefikslar.append(mos.group(1).lower() if mos else None)
     for t in qabul:
         # Kalit to'liq matn bo'lsa — mos harfni ham qabul qilamiz.
@@ -285,13 +302,21 @@ def _harf_va_matn_qabul(savol, qabul):
             if idx < len(HARFLAR):
                 kengaytirilgan.add(HARFLAR[idx].lower())
         # Kalit harf bo'lsa — mos variant matnini ham qabul qilamiz.
-        elif len(t) == 1 and t.upper() in HARFLAR:
+        if len(t) == 1 and t.upper() in HARFLAR:
             idx = HARFLAR.index(t.upper())
             if idx < len(past_variantlar):
                 kengaytirilgan.add(past_variantlar[idx])
-        # Kalit variant matnining boshidagi rim raqami/raqami bo'lsa —
+        # Kalit variant matnining boshidagi kod/rim raqami/raqami bo'lsa —
         # mos to'liq matn VA harfni ham qabul qilamiz.
-        elif t in prefikslar:
+        #
+        # 2026-09-03, HAQIQIY XATO: bu shart `elif` edi — kalit BITTA
+        # harfli kod bo'lganda ("L" = Library) yuqoridagi "harf" shoxi
+        # ishga tushib, bu shox HECH QACHON tekshirilmasdi. Natijada
+        # talaba variant qutisidan ko'rgan to'liq matnni ("L Library")
+        # yozsa, javob RAD ETILARDI. Shoxlar bir-birini almashtirmaydi —
+        # ikkalasi ham qo'shimcha qabul shakli beradi, shuning uchun
+        # mustaqil `if`.
+        if t in prefikslar:
             idx = prefikslar.index(t)
             kengaytirilgan.add(past_variantlar[idx])
             if idx < len(HARFLAR):

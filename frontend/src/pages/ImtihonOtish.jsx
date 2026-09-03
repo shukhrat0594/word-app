@@ -281,12 +281,24 @@ function bloklarGaAjrat(savollar, boshIdx) {
       }
     }
 
-    if (s.tur === "fill_blanks" && s.variantlar && s.variantlar.length > 0) {
+    // 2026-09-03, HAQIQIY XATO (Cambridge 3 Test 2 Listening, 6-10):
+    // "Plan/Map Labelling" savollari (`map_labelling`) hech qanday
+    // guruhga tushmasdi va yakka savol sifatida FAQAT matn maydoni
+    // bilan chiqardi — asl kitobdagi XONALAR RO'YXATI ("CL Computer
+    // Laboratory", "L Library", ...) talabaga UMUMAN ko'rinmasdi,
+    // chunki u `variantlar`da turadi va xarita rasmida yo'q. Ya'ni
+    // savolni yechish imkonsiz edi. Endi ular ham "so'z banki"
+    // guruhiga tushadi: raqamlangan bo'sh joylar + pastda variantlar
+    // qutisi, javob sudrab yoki bosib qo'yiladi.
+    if (
+      (s.tur === "fill_blanks" || s.tur === "map_labelling") &&
+      s.variantlar && s.variantlar.length > 0
+    ) {
       const guruh = [s];
       let j = i + 1;
       while (
         j < savollar.length &&
-        savollar[j].tur === "fill_blanks" &&
+        savollar[j].tur === s.tur &&
         savollar[j].variantlar &&
         JSON.stringify(savollar[j].variantlar) === JSON.stringify(s.variantlar)
       ) {
@@ -393,7 +405,13 @@ function VariantlarQutisi({ variantlar }) {
   // Variantlar faqat harflardan iborat bo'lsa ("A","B",...) — "A → A"
   // ko'rinishidagi ro'yxat ma'nosiz, faqat ruxsat etilgan harflar
   // qatorini ko'rsatamiz.
-  const foydaliRoyxat = variantlar.some((v, i) => String(v).trim() !== HARFLAR[i]);
+  // 2026-09-03: solishtirish REGISTRGA SEZGIR edi — kalitda harflar
+  // kichik yozilgan bo'lsa (["a","b","c","d","e"], Cambridge 3 Test 2
+  // Listening 38-40) ro'yxat "foydali" deb hisoblanib, "A. a", "B. b"
+  // ko'rinishidagi ma'nosiz qatorlar chiqardi.
+  const foydaliRoyxat = variantlar.some(
+    (v, i) => String(v).trim().toUpperCase() !== HARFLAR[i]
+  );
   if (!foydaliRoyxat) {
     return (
       <div className="imtihon-harf-tanlov">
@@ -641,7 +659,13 @@ function MoslashtirishBloki({ blok, javoblar, javobniQoy, natija, t }) {
   // ro'yxat "A → A, B → B" bo'lib chiqadi va hech qanday ma'lumot bermaydi —
   // u holda faqat harflar qatori ko'rsatiladi (matnli ro'yxat emas).
   const variantlar = blok.savollar[0].variantlar || [];
-  const foydaliRoyxat = variantlar.some((v, i) => String(v).trim() !== HARFLAR[i]);
+  // 2026-09-03: solishtirish REGISTRGA SEZGIR edi — kalitda harflar
+  // kichik yozilgan bo'lsa (["a","b","c","d","e"], Cambridge 3 Test 2
+  // Listening 38-40) ro'yxat "foydali" deb hisoblanib, "A. a", "B. b"
+  // ko'rinishidagi ma'nosiz qatorlar chiqardi.
+  const foydaliRoyxat = variantlar.some(
+    (v, i) => String(v).trim().toUpperCase() !== HARFLAR[i]
+  );
   const [tanlangan, setTanlangan] = useState(null);
   const [ustida, setUstida] = useState(null);
 
