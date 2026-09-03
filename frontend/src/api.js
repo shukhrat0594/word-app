@@ -172,9 +172,23 @@ export async function apiFayluniYuklab(yol) {
     throw e;
   }
 
+  // Fayl nomi. 2026-09-03: avval faqat `filename=` o'qilardi — u ASCII
+  // bo'lishi shart, shuning uchun o'zbekcha/kirill nomlar pastki chiziqqa
+  // aylanib ketardi. Endi avval RFC 5987 shakli (`filename*=UTF-8''...`)
+  // tekshiriladi — server haqiqiy nomni aynan shu yerda yuboradi.
   const disposition = res.headers.get("Content-Disposition") || "";
-  const mos = disposition.match(/filename="?([^";]+)"?/);
-  const nomi = mos ? mos[1] : "yuklab-olindi";
+  const utf8Mos = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+  const oddiyMos = disposition.match(/filename="?([^";]+)"?/);
+  let nomi = "yuklab-olindi";
+  if (utf8Mos) {
+    try {
+      nomi = decodeURIComponent(utf8Mos[1]);
+    } catch {
+      nomi = oddiyMos ? oddiyMos[1] : nomi;
+    }
+  } else if (oddiyMos) {
+    nomi = oddiyMos[1];
+  }
 
   const blob = await res.blob();
   const url = URL.createObjectURL(blob);

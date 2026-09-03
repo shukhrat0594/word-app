@@ -4,6 +4,7 @@ import re
 import tempfile
 import uuid
 import zipfile
+from urllib.parse import quote
 
 from django.core.exceptions import ValidationError
 from django.core.files.base import ContentFile
@@ -683,12 +684,21 @@ class ImtihonEksportView(APIView):
             zf.writestr("data.json", json.dumps(data, ensure_ascii=False, indent=1))
         bufer.seek(0)
 
-        # Fayl nomi ASCII bo'lishi kerak (Content-Disposition) — nomdagi
-        # boshqa belgilar pastki chiziqqa almashtiriladi.
-        xavfsiz = re.sub(r"[^A-Za-z0-9_.-]+", "_", test.name).strip("_") or str(test.id)
+        # Fayl nomi — TESTNING O'Z NOMI (2026-09-03, foydalanuvchi talabi;
+        # avval "ielts_<bolim>_<nom>_eksport.zip" edi). Fayl tizimida
+        # taqiqlangan belgilar olib tashlanadi, qolgani aynan saqlanadi.
+        #
+        # `Content-Disposition`ning oddiy `filename=` qismi faqat ASCII
+        # bo'la oladi, shuning uchun o'zbekcha/kirill nomlar uchun RFC 5987
+        # shakli (`filename*=UTF-8''...`) ham qo'shiladi — brauzer va
+        # frontend (`apiFayluniYuklab`) aynan shuni afzal ko'radi.
+        nom = re.sub(r'[\\/:*?"<>|\x00-\x1f]+', " ", test.name).strip()
+        nom = re.sub(r"\s+", " ", nom) or f"test-{test.id}"
+        ascii_nom = re.sub(r"[^A-Za-z0-9_.\- ]+", "_", nom).strip() or f"test-{test.id}"
         javob = FileResponse(bufer, content_type="application/zip")
         javob["Content-Disposition"] = (
-            f'attachment; filename="ielts_{test.bolim}_{xavfsiz}_eksport.zip"'
+            f'attachment; filename="{ascii_nom}.zip"; '
+            f"filename*=UTF-8''{quote(nom)}.zip"
         )
         return javob
 
