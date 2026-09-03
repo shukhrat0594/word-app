@@ -319,6 +319,23 @@ function bloklarGaAjrat(savollar, boshIdx) {
 
 const HARFLAR = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
+/** Variant matni — boshidagi TAKRORIY harf belgisi olib tashlanadi.
+ *
+ * 2026-09-03, HAQIQIY XATO (Cambridge 3 Test 1 Reading, 6-savol):
+ * import qilingan testlarda variantlar ko'pincha O'Z harfi bilan
+ * saqlanadi ("A from the tenth to the thirteenth centuries.",
+ * "A the Chinese"), ko'rsatish esa harfni QAYTA qo'shardi — natijada
+ * ekranda "A. A from the tenth..." chiqardi. Faqat variantning O'Z
+ * indeksiga mos harf olib tashlanadi, shuning uchun boshqa belgi bilan
+ * boshlanuvchi variantlar (masalan "iv Explaining...") tegilmaydi. */
+function variantMatni(v, vi) {
+  const matn = String(v ?? "");
+  const harf = HARFLAR[vi];
+  if (!harf) return matn;
+  const mos = matn.match(/^([A-Za-z])[.)]?\s+(.*)$/s);
+  return mos && mos[1].toUpperCase() === harf ? mos[2] : matn;
+}
+
 // "matn {{5}} davomi" ko'rinishidagi matnni bo'laklarga ajratadi — {{n}}
 // o'rniga kichik input (n — testdagi UMUMIY savol raqami, 1-based; javoblar
 // massividagi indeks n-1), \n bo'lsa qatorga o'tadi. Table/Flow-chart
@@ -428,7 +445,7 @@ function VariantlarQutisi({ variantlar }) {
       {variantlar.map((v, vi) => (
         <div key={`${vi}-${v}`} className="imtihon-moslashtirish-variant statik">
           <span className="imtihon-moslashtirish-variant-harf">{HARFLAR[vi]}</span>
-          <span className="imtihon-moslashtirish-variant-matn">{v}</span>
+          <span className="imtihon-moslashtirish-variant-matn">{variantMatni(v, vi)}</span>
         </div>
       ))}
     </div>
@@ -631,7 +648,7 @@ function SozBankiBloki({ blok, javoblar, javobniQoy, natija, t }) {
             onDragStart={(e) => e.dataTransfer.setData("text/plain", v)}
             onClick={() => !natija && setTanlangan((prev) => (prev === v ? null : v))}
           >
-            {HARFLAR[vi]}. {v}
+            {HARFLAR[vi]}. {variantMatni(v, vi)}
           </div>
         ))}
       </div>
@@ -762,7 +779,7 @@ function MoslashtirishBloki({ blok, javoblar, javobniQoy, natija, t }) {
                 {...chipXossalari(harf)}
               >
                 <span className="imtihon-moslashtirish-variant-harf">{harf}</span>
-                <span className="imtihon-moslashtirish-variant-matn">{v}</span>
+                <span className="imtihon-moslashtirish-variant-matn">{variantMatni(v, vi)}</span>
               </div>
             );
           })}
@@ -872,7 +889,7 @@ function KopJavobBloki({ blok, javoblar, javobniQoy, natija, t }) {
               checked={belgilangan}
               onChange={() => almashtir(v)}
             />
-            {HARFLAR[vi]}. {v}
+            {HARFLAR[vi]}. {variantMatni(v, vi)}
           </label>
         );
       })}
@@ -904,7 +921,7 @@ function OddiySavolBloki({ blok, javoblar, javobniQoy, natija, t }) {
               checked={javoblar[i] === v}
               onChange={() => javobniQoy(i, v)}
             />
-            {HARFLAR[vi]}. {v}
+            {HARFLAR[vi]}. {variantMatni(v, vi)}
           </label>
         ))
       ) : (
