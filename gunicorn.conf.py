@@ -21,11 +21,20 @@ qoladi.
 # Bitta AI chaqiruvi odatda 2-4 sekund, lekin sinovda 45.8 sekundlik
 # javob ham kuzatilgan. Eng yomon holat: 3 qism x 2 urinish x 40s
 # (SOROV_TIMEOUT_MS) = 240 sekund. 300 shuni ham qamrab oladi.
-timeout = 300
+# 2026-09-03: butun DARAJA importi (Pre-Intermediate ZIP = 227 MB, 400 ga
+# yaqin media fayl) 300 sekundga SIG'MADI — worker o'ldirilib, admin
+# "Xatolik yuz berdi" xabarini olardi (bu handoffda oldindan
+# ogohlantirilgan edi: "daraja kattalashsa fon vazifasiga ko'chirish
+# kerak"). Railway platformasining o'z chegarasi — 15 daqiqa va fayl
+# hajmiga cheklov yo'q, shuning uchun 900 undan oshmaydi. Bu VAQTINCHA
+# yechim: to'g'ri yo'l — importni fon vazifasiga ko'chirish.
+timeout = 900
 
 # Worker to'xtatilganda (deploy/qayta ishga tushirish) tugallanmagan
-# so'rovni kutish vaqti — timeout bilan bir xil bo'lsin, aks holda
-# baholanayotgan insho yarim yo'lda uzilib qoladi.
+# so'rovni kutish vaqti. ATAYLAB `timeout`dan kichik: aks holda har bir
+# deploy 15 daqiqagacha osilib turishi mumkin edi. Import shu payt ketayotgan
+# bo'lsa uzilib qoladi — bu kamdan-kam va qayta yuklash mumkin, deploy
+# esa har kuni bo'ladi.
 graceful_timeout = 300
 
 # Worker SONI ATAYLAB belgilanmadi — u Render muhitiga bog'liq (xotira/

@@ -1820,6 +1820,7 @@ function EksportImportTugmalari({ tugunId, royxatniYangila, toliq = false }) {
     if (!window.confirm(t(toliq ? "kurs_daraja_import_tasdiq" : "kurs_import_tasdiq"))) return;
     setXato("");
     setImportBand(true);
+    const boshlandi = Date.now();
     try {
       const fd = new FormData();
       fd.append("fayl", fayl);
@@ -1827,7 +1828,15 @@ function EksportImportTugmalari({ tugunId, royxatniYangila, toliq = false }) {
       await apiForm(`/api/kurslar/${tugunId}/import/`, { method: "POST", formData: fd });
       royxatniYangila();
     } catch (e2) {
-      setXato(e2.data?.detail || t("xato_yuz_berdi"));
+      // 2026-09-03: avval har qanday nosozlik "Xatolik yuz berdi" bo'lib
+      // ko'rinardi — 227 MB daraja importi uzilganda sabab (worker
+      // timeout / 502 / tarmoq) umuman bilinmasdi. Endi server bergan
+      // izoh bo'lmasa, hech bo'lmasa HTTP holati va o'tgan vaqt ko'rsatiladi.
+      const soniya = Math.round((Date.now() - boshlandi) / 1000);
+      const tafsilot = e2.data?.detail
+        || (e2.status ? `HTTP ${e2.status}` : e2.message)
+        || t("xato_yuz_berdi");
+      setXato(`${tafsilot} (${soniya}s)`);
     } finally {
       setImportBand(false);
     }
