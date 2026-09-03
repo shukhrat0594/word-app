@@ -244,6 +244,9 @@ def _qabul_variantlari(kalit):
     return {_norm(v) for v in natija}
 
 
+_RIM_YOKI_RAQAM_PREFIKS = re.compile(r"^([ivxlcdm]+|\d+)[.\)]?\s+", re.IGNORECASE)
+
+
 def _harf_va_matn_qabul(savol, qabul):
     """Variantli savolda HARF ham, VARIANT MATNI ham qabul qilinsin
     (2026-08-01).
@@ -255,6 +258,15 @@ def _harf_va_matn_qabul(savol, qabul):
     javob bergani holda faqat shu nomuvofiqlik tufayli ball yo'qotmasligi
     uchun ikkala shakl ham qabul qilinadi.
 
+    2026-09-03 qo'shildi: "Matching Headings" savollarida variant matni
+    odatda RIM RAQAMI bilan boshlanadi ("iv Explaining the inductive
+    method"), lekin AI javob kalitini ko'pincha shu rim raqamining O'ZINI
+    ("iv") saqlagan — bu na to'liq variant matniga, na harfga teng
+    kelmagani uchun yuqoridagi ikkita shart ham ishlamay, talaba to'g'ri
+    harf yozgan holda ball yo'qotardi. Endi variantning boshidagi
+    rim raqami/raqami alohida ajratib olinadi va kalit shu prefiks bilan
+    solishtiriladi.
+
     `qabul` — normalizatsiya qilingan (kichik harf, trim) to'plam/ro'yxat.
     Qaytaradi: kengaytirilgan to'plam."""
     variantlar = savol.get("variantlar") or []
@@ -262,6 +274,10 @@ def _harf_va_matn_qabul(savol, qabul):
         return set(qabul)
     kengaytirilgan = set(qabul)
     past_variantlar = [_norm(v) for v in variantlar]
+    prefikslar = []
+    for v in past_variantlar:
+        mos = _RIM_YOKI_RAQAM_PREFIKS.match(v)
+        prefikslar.append(mos.group(1).lower() if mos else None)
     for t in qabul:
         # Kalit to'liq matn bo'lsa — mos harfni ham qabul qilamiz.
         if t in past_variantlar:
@@ -273,6 +289,13 @@ def _harf_va_matn_qabul(savol, qabul):
             idx = HARFLAR.index(t.upper())
             if idx < len(past_variantlar):
                 kengaytirilgan.add(past_variantlar[idx])
+        # Kalit variant matnining boshidagi rim raqami/raqami bo'lsa —
+        # mos to'liq matn VA harfni ham qabul qilamiz.
+        elif t in prefikslar:
+            idx = prefikslar.index(t)
+            kengaytirilgan.add(past_variantlar[idx])
+            if idx < len(HARFLAR):
+                kengaytirilgan.add(HARFLAR[idx].lower())
     return kengaytirilgan
 
 

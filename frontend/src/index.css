@@ -411,6 +411,20 @@ a.logo:hover .logo-nom { color: var(--sariq); }
 .imtihon-moslashtirish-javob { display: inline-flex; align-items: center; gap: 6px; }
 /* Javob katakchasi endi <input> — matn markazda va o'qilarli bo'lsin. */
 input.imtihon-bosh-joy { font: inherit; font-size: 12.5px; text-align: center; }
+input.imtihon-bosh-joy.faol { border-color: var(--sariq-toq); box-shadow: 0 0 0 2px var(--sariq); }
+
+/* Harflardan iborat variantlar (2026-09-03) — "Match each name with one
+   drawing ... letters A-H" kabi savollarda ro'yxat matnsiz bo'ladi, shuning
+   uchun to'liq ma'lumotnoma qutisi o'rniga bosiladigan harf qatori. */
+.imtihon-harf-tanlov { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.imtihon-harf-chip {
+  min-width: 38px; padding: 7px 12px; border-radius: 8px; cursor: pointer;
+  border: 1px solid var(--chiziq); background: var(--sirt);
+  font: inherit; font-weight: 700; font-size: 14px; color: inherit;
+}
+.imtihon-harf-chip:hover:not(:disabled) { border-color: var(--sariq-toq); }
+.imtihon-harf-chip.tanlangan { background: var(--sariq); border-color: var(--sariq); color: var(--komir); }
+.imtihon-harf-chip:disabled { opacity: .5; cursor: default; }
 
 /* ==== Table/Flow-chart Completion (maxsus_format, 2026-07-24) ==== */
 .imtihon-inline-juft { display: inline-flex; align-items: center; gap: 3px; margin: 0 2px; vertical-align: middle; }

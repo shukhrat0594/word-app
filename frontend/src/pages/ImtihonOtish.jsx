@@ -599,6 +599,24 @@ function MoslashtirishBloki({ blok, javoblar, javobniQoy, natija, t }) {
   // qayta yuklanmaydi — shuning uchun bu yerda ham tekshiramiz.
   const variantlar = blok.savollar[0].variantlar || [];
   const foydaliRoyxat = variantlar.some((v, i) => String(v).trim() !== HARFLAR[i]);
+  // 2026-09-03, foydalanuvchi shikoyati: harflardan iborat ro'yxat (masalan
+  // "Match each name with one drawing ... letters A-H") butunlay YASHIRILAR
+  // edi — talaba javob katakchasidan boshqa hech narsa ko'rmasdi, qaysi
+  // harflar ruxsat etilganini ham bilmasdi. Endi bunday holatda harflar
+  // bosiladigan qator sifatida chiqadi: talaba katakchani tanlab (yoki
+  // shunchaki harfni bosib) javobni qo'yadi.
+  const [faolIdx, setFaolIdx] = useState(null);
+
+  function harfniQoy(harf) {
+    if (natija) return;
+    const idxlar = blok.savollar.map((_, k) => blok.boshIdx + k);
+    const nishon =
+      faolIdx != null && idxlar.includes(faolIdx)
+        ? faolIdx
+        : idxlar.find((i) => !javoblar[i]) ?? idxlar[0];
+    javobniQoy(nishon, harf);
+    setFaolIdx(nishon);
+  }
 
   return (
     <div className="savol-blok">
@@ -622,10 +640,11 @@ function MoslashtirishBloki({ blok, javoblar, javobniQoy, natija, t }) {
                   {...IMLO_OFF}
                   id={`imtihon-savol-${i}`}
                   type="text"
-                  className={`imtihon-bosh-joy ${holat}`}
+                  className={`imtihon-bosh-joy ${holat} ${!foydaliRoyxat && faolIdx === i ? "faol" : ""}`}
                   placeholder={t("javob_yozing")}
                   disabled={!!natija}
                   value={javoblar[i] || ""}
+                  onFocus={() => setFaolIdx(i)}
                   onChange={(e) => javobniQoy(i, e.target.value)}
                 />
                 {natija && <span className={`natija-belgi ${holat}`}>{natija.natijalar[i] ? "✓" : "✗"}</span>}
@@ -634,7 +653,7 @@ function MoslashtirishBloki({ blok, javoblar, javobniQoy, natija, t }) {
           );
         })}
       </div>
-      {foydaliRoyxat && (
+      {foydaliRoyxat ? (
         <div className="imtihon-moslashtirish-variantlar">
           {variantlar.map((v, vi) => (
             <div key={v} className="imtihon-moslashtirish-variant">
@@ -643,6 +662,22 @@ function MoslashtirishBloki({ blok, javoblar, javobniQoy, natija, t }) {
             </div>
           ))}
         </div>
+      ) : (
+        variantlar.length > 0 && (
+          <div className="imtihon-harf-tanlov">
+            {variantlar.map((v) => (
+              <button
+                key={v}
+                type="button"
+                className={`imtihon-harf-chip ${javoblar[faolIdx] === v ? "tanlangan" : ""}`}
+                disabled={!!natija}
+                onClick={() => harfniQoy(v)}
+              >
+                {v}
+              </button>
+            ))}
+          </div>
+        )
       )}
     </div>
   );
