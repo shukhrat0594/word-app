@@ -2133,7 +2133,7 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
                           juda yaqin turgani noqulay edi). */}
                       <span style={{ display: "inline-flex", alignItems: "center", gap: 12 }}>
                         <span className="izoh">{jamiSoni}</span>
-                        {papkaOchirishTugmasi(top)}
+                        {papkaBoshqaruv(top)}
                       </span>
                     </div>
                     {ochiqPapkalar[top.id] && (
@@ -2160,7 +2160,7 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
                                 </span>
                                 <span style={{ display: "inline-flex", alignItems: "center", gap: 12 }}>
                                   <span className="izoh">{ichTestlar.length}</span>
-                                  {papkaOchirishTugmasi(ich)}
+                                  {papkaBoshqaruv(ich)}
                                 </span>
                               </div>
                               {ochiqPapkalar[ich.id] && (
@@ -2524,10 +2524,12 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
     );
   }
 
-  /** Papka nomi — bosilganda joyida tahrirlanadi (accordion ochilib
-   * ketmasligi uchun hodisa to'xtatiladi). Avval bu "papka chipi"
-   * ichida edi, 2026-09-03 da chiplar olib tashlangach shu yerga
-   * ko'chirildi — nomni o'zgartirish imkoni yo'qolmasin. */
+  /** Papka nomi — tahrirlash rejimida joyida inputga aylanadi.
+   *
+   * 2026-09-03 (2), foydalanuvchi talabi: avval nomning O'ZIGA bosish
+   * tahrirlashni ochardi, lekin sarlavhaga bosishdan kutilgani —
+   * papkani ochish/yopish. Endi tahrirlash faqat o'ng chekkadagi ✏️
+   * tugmasi orqali (`papkaBoshqaruv`), nom esa oddiy matn. */
   function papkaNomi(p) {
     if (papkaTahrirlanayotgan === p.id) {
       return (
@@ -2547,16 +2549,32 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
         />
       );
     }
+    return <span>{p.nomi}</span>;
+  }
+
+  /** Sarlavhaning o'ng chekkasidagi tugmalar — nomni tahrirlash va
+   * o'chirish (2026-09-03 (2), foydalanuvchi talabi: "× yoniga
+   * tahrirlash tugmasini qo'sh"). Ikkalasi ham akkordeonni ochib
+   * yubormasligi uchun hodisani to'xtatadi. */
+  function papkaBoshqaruv(p) {
     return (
-      <span
-        title={t("imtihon_papka_nomini_tahrirlash")}
-        onClick={(e) => {
-          e.stopPropagation();
-          setPapkaTahrirlanayotgan(p.id);
-          setPapkaNomiTahrir(p.nomi);
-        }}
-      >
-        {p.nomi}
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+        <button
+          type="button"
+          title={t("imtihon_papka_nomini_tahrirlash")}
+          onClick={(e) => {
+            e.stopPropagation();
+            setPapkaTahrirlanayotgan(p.id);
+            setPapkaNomiTahrir(p.nomi);
+          }}
+          style={{
+            border: "none", background: "none", cursor: "pointer",
+            fontSize: 14, lineHeight: 1, padding: "0 4px",
+          }}
+        >
+          ✏️
+        </button>
+        {papkaOchirishTugmasi(p)}
       </span>
     );
   }
