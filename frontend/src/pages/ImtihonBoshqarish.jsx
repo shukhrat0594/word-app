@@ -2124,15 +2124,17 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
                       style={{ padding: "8px 10px" }}
                       onClick={() => setOchiqPapkalar((v) => ({ ...v, [top.id]: !v[top.id] }))}
                     >
-                      {/* Testlar soni nom YONIDA (2026-09-03, foydalanuvchi
-                          talabi: avval o'ng chekkada edi) — o'ng chekka
-                          endi o'chirish tugmasiniki. */}
                       <span style={{ display: "inline-flex", alignItems: "center", gap: 8, minWidth: 0 }}>
                         <span>{ochiqPapkalar[top.id] ? "▾" : "▸"} 📁</span>
                         {papkaNomi(top)}
-                        <span className="izoh">{jamiSoni}</span>
                       </span>
-                      {papkaOchirishTugmasi(top)}
+                      {/* Testlar soni — o'ng chekkada, o'chirish tugmasidan
+                          sal oldin (2026-09-03, foydalanuvchi talabi: nomga
+                          juda yaqin turgani noqulay edi). */}
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 12 }}>
+                        <span className="izoh">{jamiSoni}</span>
+                        {papkaOchirishTugmasi(top)}
+                      </span>
                     </div>
                     {ochiqPapkalar[top.id] && (
                       <div style={{ display: "grid", gap: 8, padding: "0 8px 8px" }}>
@@ -2155,9 +2157,11 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
                                 <span style={{ display: "inline-flex", alignItems: "center", gap: 8, minWidth: 0 }}>
                                   <span>{ochiqPapkalar[ich.id] ? "▾" : "▸"} 📂</span>
                                   {papkaNomi(ich)}
-                                  <span className="izoh">{ichTestlar.length}</span>
                                 </span>
-                                {papkaOchirishTugmasi(ich)}
+                                <span style={{ display: "inline-flex", alignItems: "center", gap: 12 }}>
+                                  <span className="izoh">{ichTestlar.length}</span>
+                                  {papkaOchirishTugmasi(ich)}
+                                </span>
                               </div>
                               {ochiqPapkalar[ich.id] && (
                                 <div style={{ display: "grid", gap: 8, padding: "0 8px 8px" }}>
