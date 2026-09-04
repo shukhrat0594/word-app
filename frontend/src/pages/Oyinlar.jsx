@@ -4,11 +4,17 @@ import {
   FlashcardOyini,
   JuftiniTopOyini,
   SpeedQuizOyini,
+  TugunlarOyini,
   UnscrambleOyini,
 } from "../components/SozOyinlari";
 import { useI18n } from "../i18n";
 
 const DARAJALAR = ["A1", "A2", "B1", "B2", "C1", "idiom"];
+
+// 2026-09-04, foydalanuvchi qarori: "Tugunlar" o'yinida Idioms darajasi
+// ko'rsatilmaydi — idiomlar ko'p so'zli iboralar ("food for thought"), har
+// katakka bitta harf tushadigan to'rga ular umuman joylanmaydi.
+const TUGUNLARGA_YARAMAYDIGAN_DARAJA = "idiom";
 
 // Ko'rinadigan nom — "idiom" ma'lumot bazasidagi qiymat (Soz.Daraja.IDIOM),
 // talabaga esa "Idioms" deb ko'rsatiladi (2026-07-27 talabi).
@@ -131,7 +137,9 @@ export default function Oyinlar() {
       return;
     }
     setSozlar(null);
-    const SONI = { juftini_top: 6, flashcard: 12, speed_quiz: 8, unscramble: 8 };
+    // `tugunlar` uchun ko'proq so'raladi: to'rga faqat 3-9 harfli, bo'shliqsiz
+    // so'zlar tushadi, ularning bir qismi to'rga sig'masligi ham mumkin.
+    const SONI = { juftini_top: 6, flashcard: 12, speed_quiz: 8, unscramble: 8, tugunlar: 14 };
     api(`/api/oyinlar/sozlar/?daraja=${daraja}&soni=${SONI[turi] || 8}`)
       .then(setSozlar)
       .catch(() => setSozlar([]));
@@ -151,6 +159,7 @@ export default function Oyinlar() {
           ["flashcard", "flashcard_oyin"],
           ["speed_quiz", "speed_quiz_oyin"],
           ["unscramble", "unscramble_oyin"],
+          ["tugunlar", "tugunlar_oyin"],
           ["grammatika", "grammatika_oyin"],
         ].map(([kalit, nomKaliti]) => (
           <button
@@ -159,6 +168,9 @@ export default function Oyinlar() {
             onClick={() => {
               setTuri(kalit);
               setBoshlandi(false);
+              if (kalit === "tugunlar" && daraja === TUGUNLARGA_YARAMAYDIGAN_DARAJA) {
+                setDaraja(DARAJALAR[0]);
+              }
             }}
           >
             {t(nomKaliti)}
@@ -173,7 +185,9 @@ export default function Oyinlar() {
               ko'rmasdi, menyuni ochishi kerak edi. Endi hammasi ko'rinib
               turadi va bosib tanlanadi. */}
           <div className="tanlov-royxat">
-            {DARAJALAR.map((d) => (
+            {DARAJALAR.filter(
+              (d) => !(turi === "tugunlar" && d === TUGUNLARGA_YARAMAYDIGAN_DARAJA)
+            ).map((d) => (
               <button
                 key={d}
                 className={"tanlov-tugma" + (daraja === d ? " aktiv" : "")}
@@ -237,6 +251,10 @@ export default function Oyinlar() {
 
       {boshlandi && sozlar && sozlar.length > 0 && turi === "unscramble" && (
         <UnscrambleOyini sozlar={sozlar} t={t} onQaytaOynash={oyinniBoshla} onBoshqaDaraja={ortga} />
+      )}
+
+      {boshlandi && sozlar && sozlar.length > 0 && turi === "tugunlar" && (
+        <TugunlarOyini sozlar={sozlar} t={t} onQaytaOynash={oyinniBoshla} onBoshqaDaraja={ortga} />
       )}
 
       {boshlandi && savollar && savollar.length > 0 && turi === "grammatika" && (

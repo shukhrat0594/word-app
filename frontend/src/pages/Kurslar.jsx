@@ -7,6 +7,7 @@ import {
   FlashcardOyini,
   JuftiniTopOyini,
   SpeedQuizOyini,
+  TugunlarOyini,
   UnscrambleOyini,
 } from "../components/SozOyinlari";
 import { useI18n } from "../i18n";
@@ -1548,6 +1549,7 @@ function GamesKorinishi({ vocabTugunId }) {
       flashcard: FlashcardOyini,
       speed_quiz: SpeedQuizOyini,
       unscramble: UnscrambleOyini,
+      tugunlar: TugunlarOyini,
     }[oyin];
     return (
       <Komponent
@@ -1585,6 +1587,9 @@ function GamesKorinishi({ vocabTugunId }) {
           </button>
           <button className="tanlov-tugma" onClick={() => setOyin("unscramble")}>
             {t("unscramble_oyin")}
+          </button>
+          <button className="tanlov-tugma" onClick={() => setOyin("tugunlar")}>
+            {t("tugunlar_oyin")}
           </button>
         </div>
       )}

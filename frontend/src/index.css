@@ -695,6 +695,40 @@ input.imtihon-bosh-joy.faol { border-color: var(--sariq-toq); box-shadow: 0 0 0 
   box-shadow: 0 6px 18px rgba(43, 42, 40, .14);
 }
 
+/* ==== "Tugunlar" o'yini (2026-09-04) ====
+   To'r ustunlari soni komponentdan inline `grid-template-columns` bilan
+   beriladi (so'z soniga qarab moslashadi), bu yerda faqat ko'rinish.
+   `touch-action: none` — sensorli ekranda barmoq bilan sudrab tanlash
+   sahifani aylantirib yubormasligi uchun. */
+.tugunlar-tor {
+  display: grid; gap: 6px; max-width: 420px; margin: 0 auto;
+  touch-action: none; user-select: none;
+}
+.tugun-katak {
+  aspect-ratio: 1; border: 1px solid var(--chiziq); border-radius: 999px;
+  background: var(--sirt-2); color: var(--matn); font: inherit; font-size: 17px;
+  font-weight: 800; cursor: pointer; display: grid; place-items: center;
+  padding: 0; min-width: 0; text-transform: uppercase;
+  transition: transform .12s ease, background .2s ease, color .2s ease, border-color .2s ease;
+}
+.tugun-katak:hover:not(.topilgan) { transform: scale(1.06); border-color: var(--sariq-toq); }
+.tugun-katak.tanlangan {
+  background: var(--komir); color: var(--sariq); border-color: var(--komir);
+}
+.tugun-katak.topilgan {
+  background: rgba(46, 158, 91, .18); color: var(--yaxshi);
+  border-color: var(--yaxshi); cursor: default;
+  animation: oyin-porla .5s ease;
+}
+.tugun-katak.komak {
+  border-color: var(--sariq); box-shadow: 0 0 0 2px var(--sariq);
+  animation: oyin-qimirla .6s ease-in-out infinite;
+}
+@media (max-width: 480px) {
+  .tugunlar-tor { max-width: 100%; gap: 5px; }
+  .tugun-katak { font-size: 15px; }
+}
+
 /* Speed Quiz taymeri — raqam yonida ko'rinadigan chiziq */
 .oyin-taymer {
   height: 6px; border-radius: 999px; background: var(--sirt-2);
