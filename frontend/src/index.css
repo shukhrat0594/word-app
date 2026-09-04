@@ -74,6 +74,16 @@ textarea {
 }
 .parol-ogohlantirish a { color: var(--ogoh); font-weight: 700; }
 
+/* Zaxira eslatmasi (2026-09-03) — bildirishnomalardan ALOHIDA joy:
+   kontentning eng tepasida, yuklab olinmagan zaxira bo'lsa turadi. */
+.zaxira-tasma {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap; margin-bottom: 16px;
+  padding: 10px 16px; border-radius: 10px; font-size: 13.5px;
+  background: rgba(224, 135, 0, .14); border: 1px solid var(--ogoh);
+  color: var(--matn);
+}
+
 .chip { font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; }
 .chip.bor { background: rgba(46, 158, 91, .15); color: var(--yaxshi); }
 .chip.tugadi { background: rgba(214, 69, 69, .12); color: var(--xato); }

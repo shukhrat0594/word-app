@@ -352,6 +352,35 @@ export default function Layout() {
   // 2026-08-21, foydalanuvchi talabi: "Profil" endi ALOHIDA menyu
   // bandi sifatida chiqarilmaydi — chap panel yuqorisidagi ism-familiya
   // (avatar) allaqachon profilga olib boradi, ikkalasi ortiqcha edi.
+  // Zaxira eslatmasi (2026-09-03) — faqat owner uchun, faqat yuklab
+  // olinmagan zaxira bo'lsa. Yengil so'rov: bitta yozuv yoki `null`.
+  const [zaxiraTasma, setZaxiraTasma] = useState(null);
+  const [zaxiraBand, setZaxiraBand] = useState(false);
+
+  useEffect(() => {
+    if (!profil?.is_owner) {
+      setZaxiraTasma(null);
+      return;
+    }
+    api("/api/zaxiralar/holat/")
+      .then((r) => setZaxiraTasma(r.yuklab_olinmagan || null))
+      .catch(() => {});
+  }, [profil?.is_owner]);
+
+  async function zaxiraniYuklabOl() {
+    if (!zaxiraTasma) return;
+    setZaxiraBand(true);
+    try {
+      const { apiFayluniYuklab } = await import("../api");
+      await apiFayluniYuklab(`/api/zaxiralar/${zaxiraTasma.id}/yuklab-olish/`);
+      setZaxiraTasma(null);
+    } catch {
+      // Xato bo'lsa tasma joyida qoladi — owner qayta urinib ko'radi.
+    } finally {
+      setZaxiraBand(false);
+    }
+  }
+
   const navlar = menyuQur(rolPanellariOl(profil?.role, profil?.is_owner), profil?.role);
 
   // 2026-08-05, foydalanuvchi qarori: rolga QO'SHIMCHA cheklov — owner
@@ -536,6 +565,27 @@ export default function Layout() {
           </div>
         </header>
         <main className="kontent">
+          {/* Zaxira eslatmasi — ATAYLAB bildirishnomalar qo'ng'irog'ida
+              EMAS, alohida joyda (2026-09-03, foydalanuvchi talabi:
+              "bu tavsiyani odatiy xabar chiqadigan joyda emas, alohida
+              joy qilish kerak, owner hali beckupni yuklab olmagan
+              bo'lsa ovnerga ko'rsatib tursin"). Yuklab olinmagan zaxira
+              bo'lsa tasma turadi, yuklab olingach o'zi yo'qoladi. */}
+          {zaxiraTasma && (
+            <div className="zaxira-tasma">
+              <span>
+                <strong>{zaxiraTasma.sana}</strong> {t("zaxira_tasma")}
+              </span>
+              <button
+                type="button"
+                className="tugma kichik"
+                disabled={zaxiraBand}
+                onClick={zaxiraniYuklabOl}
+              >
+                {t("zaxira_tasma_tugma")}
+              </button>
+            </div>
+          )}
           {profil && !profil.parol_bormi && (
             <div className="karta parol-ogohlantirish">
               {t("parol_ogohlantirish")}{" "}

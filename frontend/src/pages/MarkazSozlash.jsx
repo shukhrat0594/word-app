@@ -46,6 +46,16 @@ export default function MarkazSozlash() {
   // 2026-08-15: Railway ko'chirish davrida eski (Render) saytga adashib
   // kirishning oldini olish uchun — yoqilsa OWNER'dan boshqa hech kim
   // kira olmaydi (backend: `accounts.views.SaytHolatiView`/`XodimLoginView`).
+  // Avtomatik kunlik zaxira (2026-09-03) — sozlamalar `/api/markaz-sozlama/`
+  // dan keladi, ro'yxat esa `/api/zaxiralar/` dan.
+  const [zaxiraAvtomatik, setZaxiraAvtomatik] = useState(false);
+  const [zaxiraVaqti, setZaxiraVaqti] = useState("03:00");
+  const [zaxiraKun, setZaxiraKun] = useState(7);
+  const [zaxiralar, setZaxiralar] = useState([]);
+  const [zaxiraBand, setZaxiraBand] = useState(false);
+  const [zaxiraXato, setZaxiraXato] = useState("");
+  const [zaxiraXabar, setZaxiraXabar] = useState("");
+
   const [kirishCheklangan, setKirishCheklangan] = useState(false);
   const [aktivFoydalanuvchilar, setAktivFoydalanuvchilar] = useState(0);
   const [cheklovBand, setCheklovBand] = useState(false);
@@ -57,8 +67,12 @@ export default function MarkazSozlash() {
       setMarkaz(m);
       setRang(m.brend_rang);
       setIjtimoiy(m.ijtimoiy || {});
+      setZaxiraAvtomatik(!!m.zaxira_avtomatik);
+      setZaxiraVaqti(m.zaxira_vaqti || "03:00");
+      setZaxiraKun(m.zaxira_saqlash_kuni ?? 7);
     }).catch(() => {});
     saytHolatiniYukla();
+    zaxiralarniYukla();
   }, []);
 
   function saytHolatiniYukla() {
@@ -97,6 +111,65 @@ export default function MarkazSozlash() {
       setCheklovXato(e.data?.detail || t("xato_yuz_berdi"));
     } finally {
       setCheklovBand(false);
+    }
+  }
+
+  function zaxiralarniYukla() {
+    return api("/api/zaxiralar/").then(setZaxiralar).catch(() => {});
+  }
+
+  /** Zaxira sozlamalarini saqlaydi. Alohida (umumiy "Saqlash" emas) —
+   * shunda logo/ijtimoiy havolalar qayta yuborilmaydi va bu bo'lim
+   * mustaqil ishlaydi. */
+  async function zaxiraSozlamaSaqla() {
+    setZaxiraXato("");
+    setZaxiraXabar("");
+    setZaxiraBand(true);
+    try {
+      const fd = new FormData();
+      fd.append("zaxira_avtomatik", zaxiraAvtomatik ? "1" : "0");
+      fd.append("zaxira_vaqti", zaxiraVaqti);
+      fd.append("zaxira_saqlash_kuni", String(zaxiraKun));
+      const m = await apiForm("/api/markaz-sozlama/", { method: "PATCH", formData: fd });
+      setZaxiraAvtomatik(!!m.zaxira_avtomatik);
+      setZaxiraVaqti(m.zaxira_vaqti || "03:00");
+      setZaxiraKun(m.zaxira_saqlash_kuni ?? 7);
+      setZaxiraXabar(t("saqlandi"));
+    } catch (e) {
+      setZaxiraXato(e.data?.detail || t("xato_yuz_berdi"));
+    } finally {
+      setZaxiraBand(false);
+    }
+  }
+
+  async function zaxiraHozirOl() {
+    setZaxiraXato("");
+    setZaxiraXabar("");
+    setZaxiraBand(true);
+    try {
+      await api("/api/zaxiralar/", { method: "POST", body: {} });
+      await zaxiralarniYukla();
+      setZaxiraXabar(t("zaxira_olindi"));
+    } catch (e) {
+      setZaxiraXato(e.data?.detail || t("xato_yuz_berdi"));
+    } finally {
+      setZaxiraBand(false);
+    }
+  }
+
+  async function zaxiraYuklabOl(id) {
+    setZaxiraXato("");
+    setZaxiraBand(true);
+    try {
+      await apiFayluniYuklab(`/api/zaxiralar/${id}/yuklab-olish/`);
+      // Yuklab olingani serverda belgilandi — ro'yxatni va tepadagi
+      // tasmani yangilash uchun qayta o'qiymiz.
+      await zaxiralarniYukla();
+      if (yangila) yangila();
+    } catch (e) {
+      setZaxiraXato(e.data?.detail || e.message || t("xato_yuz_berdi"));
+    } finally {
+      setZaxiraBand(false);
     }
   }
 
@@ -274,6 +347,99 @@ export default function MarkazSozlash() {
             </button>
           )}
           {cheklovXato && <div className="xato-xabar">{cheklovXato}</div>}
+        </div>
+      </div>
+
+      {/* Avtomatik kunlik zaxira (2026-09-03, foydalanuvchi talabi) —
+          faqat BAZA, R2'ga saqlanadi. Media uchun alohida "To'liq
+          zaxira" rejada. */}
+      <div className="karta">
+        <h3>{t("zaxira_sarlavha")}</h3>
+        <p className="izoh">{t("zaxira_izoh")}</p>
+
+        <div style={{ display: "grid", gap: 12, marginTop: 4 }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <input
+              type="checkbox"
+              checked={zaxiraAvtomatik}
+              onChange={(e) => setZaxiraAvtomatik(e.target.checked)}
+              disabled={zaxiraBand}
+            />
+            {t("zaxira_yoqish")}
+          </label>
+
+          <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "flex-end" }}>
+            <label style={{ display: "grid", gap: 4 }}>
+              <span className="izoh">{t("zaxira_vaqti")}</span>
+              <input
+                type="time"
+                value={zaxiraVaqti}
+                onChange={(e) => setZaxiraVaqti(e.target.value)}
+                disabled={zaxiraBand || !zaxiraAvtomatik}
+                style={{ maxWidth: 120 }}
+              />
+            </label>
+            <label style={{ display: "grid", gap: 4 }}>
+              <span className="izoh">{t("zaxira_saqlash_kuni")}</span>
+              <input
+                type="number"
+                min="1"
+                max="365"
+                value={zaxiraKun}
+                onChange={(e) => setZaxiraKun(e.target.value)}
+                disabled={zaxiraBand}
+                style={{ maxWidth: 100 }}
+              />
+            </label>
+            <button className="tugma" onClick={zaxiraSozlamaSaqla} disabled={zaxiraBand}>
+              {t("saqlash")}
+            </button>
+            <button className="tugma ikkinchi" onClick={zaxiraHozirOl} disabled={zaxiraBand}>
+              {t("zaxira_hozir_ol")}
+            </button>
+          </div>
+
+          <div className="izoh">{t("zaxira_muddat_izoh")}</div>
+
+          {zaxiralar.length > 0 && (
+            <div style={{ display: "grid", gap: 6 }}>
+              {zaxiralar.map((z) => (
+                <div
+                  key={z.id}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 10,
+                    flexWrap: "wrap", borderTop: "1px solid var(--chiziq)", paddingTop: 6,
+                  }}
+                >
+                  <strong style={{ minWidth: 96 }}>{z.sana}</strong>
+                  <span className="izoh">
+                    {z.turi === "qolda" ? t("zaxira_qolda") : t("zaxira_avtomatik_belgi")}
+                  </span>
+                  <span className="izoh">{(z.hajm / 1e6).toFixed(2)} MB</span>
+                  {z.xato ? (
+                    <span className="xato-xabar">{z.xato}</span>
+                  ) : (
+                    <>
+                      <span className="izoh">
+                        {z.yuklab_olindi ? `✓ ${t("zaxira_yuklab_olingan")}` : `⚠ ${t("zaxira_yuklanmagan")}`}
+                      </span>
+                      <button
+                        type="button"
+                        className="tugma ikkinchi kichik"
+                        onClick={() => zaxiraYuklabOl(z.id)}
+                        disabled={zaxiraBand || !z.fayl_bor}
+                      >
+                        {t("backup_yuklab_olish")}
+                      </button>
+                    </>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {zaxiraXato && <div className="xato-xabar">{zaxiraXato}</div>}
+          {zaxiraXabar && <div className="izoh">{zaxiraXabar}</div>}
         </div>
       </div>
 
