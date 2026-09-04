@@ -458,6 +458,219 @@ buyruq kutilmoqda. Fayllar KATTA (poppler/pdftoppm yo'q, `pypdfium2`
 orqali sahifa-sahifa rasmga aylantirib ko'rish kerak bo'ladi — avvalgi
 urinishda shu usul boshlangan edi).
 
+## 📚 Cambridge IELTS test kitoblari — ajratildi (2026-09-04)
+
+Manba: Telegram kanal `@cambridge_library` eksporti.
+**Papka:** `D:\shuk\Проекты\claude ai\LMS\Cambridge IELTS library\ChatExport_2026-09-03 (1)\files\`
+(jami 175 fayl; ulardan quyidagilar — Cambridge IELTS **test seriyasi**, qolgani
+boshqa Cambridge kitoblari, pastdagi "Tanlanmadi" ro'yxatiga qarang)
+
+**Vazifa (foydalanuvchi so'rovi, 2026-09-04):** shu kitoblarni alohida sessiyada
+lokal ravishda ochib, mazmunini test qilib chiqish (nechta test, qaysi qismlar,
+matn qatlami bor-yo'qligi, LMS'ga yuklashga yaroqliligi).
+
+### PDF kitoblar (7 ta)
+
+| # | Fayl | Bet | Hajm | Izoh |
+|---|---|---|---|---|
+| 1 | `Cambridge IELTS 1-16 only pdfs C[@cambridge_library].pdf` | 3211 | 361 MB | 1–16 birlashtirilgan; **1332 bet matn qatlami bor, 1879 bet skan** (OCR/vision kerak). Kitob chegaralari aniqlanmagan — bookmark'lar to'liq emas |
+| 2 | `Cambridge IELTS Listening 1-16 [@cambridge_library].pdf` | 839 | 124 MB | faqat Listening testlari + tapescript + javoblar |
+| 3 | `Cambridge IELTS 17 GT [@cambridge_library].pdf` | 133 | 80 MB | General Training, 2022 |
+| 4 | `Cambridge IELTS 18 L [@cambridge_library].pdf` | 143 | 50 MB | Academic, 2023 — **matn qatlami YO'Q, to'liq skan** |
+| 5 | `Cambridge IELTS 18 General Training L[@cambridge_library].pdf` | 143 | 87 MB | General Training, 2023 — matn qatlami bor |
+| 6 | `Cambridge IELTS 19 Academic l[@cambridge_library].pdf` | 139 | 24 MB | Academic, 2024 — matn qatlami bor, eng toza fayl |
+| 7 | `Cambridge IELTS 19 GeneralTL [@cambridge_library].pdf` | 146 | 90 MB | General Training, 2024 — matn qatlami bor |
+
+### Audio
+
+- **Cambridge 17 (Academic):** 16 mp3 — `IELTS17_t{1..4}_audio{1..4} [@cambridge_library].mp3`
+  (4 test × 4 qism) + `Cambridge IELTS 17 Audios [@cambridge_library].rar` (112 MB)
+- **Cambridge 18 (Academic):** 16 mp3 — `C 18 section{1..4} part{1..4}[@cambridge_library].mp3`
+  (nomlanishi chalkash: "section" = **test** raqami, "part" = qism)
+  + `Cambridge 18 pdf+audios[@cambridge_library].zip` (162 MB) — **tekshirildi:** ichida
+  aynan shu 16 mp3 + `Cambridge IELTS 18 L` PDF, ya'ni yangi narsa yo'q
+- **Cambridge 18 (General Training):** `Cambridge 18 GT test 1-4[@cambridge_library].rar` (199 MB)
+- **Cambridge 19 (Academic):** 16 mp3 — `T{1..4} P{1..4} [@cambridge_library].mp3`
+  (`T1 P3` faylining kengaytmasi ikki marta: `.mp3.mp3`)
+  + `Cambridge IELTS 19 academic [@cambridge_library].rar` (126 MB)
+- **Cambridge 19 (General Training):** `Cambridge IELTS 19 GeneralT [@cambridge_library].rar` (192 MB)
+
+### Bo'shliqlar / tekshirilmagan joylar
+
+- **17 Academic PDF alohida yo'q.** Kanalda "PDF + Audios" deb yozilgan, ya'ni
+  `Cambridge IELTS 17 Audios ....rar` ichida bo'lishi mumkin — tekshirilmagan
+- **1–16 uchun audio yo'q.** Kanalda FULL PACK arxivi bor edi, lekin yuklab olinmagan
+- **`.rar` arxivlarning ichi ochilmagan** — tizimda `unrar`/7-Zip yo'q. `.zip` (18 Academic)
+  `unzip` bilan tekshirildi. RAR'larni ochish uchun avval arxivator o'rnatish kerak
+- 1–16 birlashtirilgan PDF'da har bir kitob qayerdan boshlanishi **aniqlanmagan** —
+  matn qatlami bo'lgan joylardan topilgani: IELTS 1 → 1-bet, IELTS 3 → 244, IELTS 4 → 423,
+  IELTS 7 → 801; bookmark'lardan: IELTS 5 → ~523, IELTS 8 → ~978, IELTS 10 → ~1315,
+  IELTS 11 GT → ~1638, IELTS 15 → ~2636, IELTS 16 GT → ~3204
+
+### ✅ Cambridge IELTS 3 — Test 1 tahlil qilindi (2026-09-04)
+
+Manba: birlashtirilgan `Cambridge IELTS 1-16 only pdfs` PDF.
+**Kitob 3 chegarasi: PDF 244–422-betlar.** Ofset: `PDF bet = kitob bet + 247`.
+
+| Bo'lak | Kitob bet | PDF bet |
+|---|---|---|
+| Contents | — | 246 |
+| **Test 1** | **8–29** | **255–276** |
+| Test 2 / 3 / 4 | 30 / 54 / 76 | 277 / 301 / 323 |
+| GT Test A / B | 100 / 114 | 347 / 361 |
+| Tapescripts (Test 1: 127–133) | 127 | 374–379 |
+| Answer key (Test 1: 149–150) | 149 | **396–397** |
+| Writing model answers (Test 1) | 159–160 | 406–407 |
+| Sample answer sheets | 171 | 418 |
+
+**Fayl sifati:** Test 1 sahifalarida matn qatlami TO'LIQ bor (skan emas) —
+har bet 400–3100 belgi. Grafik elementlar alohida embedded rasm sifatida
+saqlangan va `extract_image` bilan to'g'ridan-to'g'ri chiqarib olish mumkin
+(747×872 dan 411×211 gacha). 160 DPI render — o'qish uchun yetarli.
+
+**Struktura:** Listening 4 section × 10 savol; Academic Reading 3 passage ×
+14/14/12 savol; Writing Task 1 + Task 2; Speaking Part 1/2/3. Javoblar kaliti
+va tapescript bor. **Audio YO'Q** — 1–16 uchun papkada mp3 yuklanmagan,
+faqat tapescript matni mavjud.
+
+#### Test 1 mashq turlari (savol guruhlari bo'yicha)
+
+| Guruh | Tur | LMS `Tur` | Holat |
+|---|---|---|---|
+| L S1 Q1-10 | Note/form completion | `fill_blanks` | ⚠️ forma tuzilishi (2 ustunli blank) yo'qoladi |
+| L S2 Q11-12 | Short answer | `short_answer` | ✅ |
+| L S2 Q13-17 | **Table completion** | — | ❌ jadval turi yo'q |
+| L S2 Q18, Q20 | Sentence completion | `fill_blanks` | ✅ |
+| L S2 Q19 | Choose TWO letters A-E | `multiple_choice` | ✅ (`kop_javobli_guruhlar`) |
+| L S3 Q21-30 | Form completion | `fill_blanks` | ⚠️ 2 ustunli forma yo'qoladi |
+| L S4 Q31 | MCQ **bar chart bo'yicha** | `multiple_choice` + rasm | ❌ rasm savol darajasida emas, mashq darajasida |
+| L S4 Q32-36 | MCQ (A-C) | `multiple_choice` | ✅ |
+| L S4 Q37-40 | **Classification matritsasi** (A/B/C ustunli jadval) | `matching` | ⚠️ jadval ko'rinishi yo'qoladi |
+| R P1 Q1-4, P3 Q29-33 | Matching headings | `matching_headings` | ✅ (lekin "Example" qatori yo'q) |
+| R P1 Q5-6, P2 Q15-17, Q40 | MCQ | `multiple_choice` | ✅ |
+| R P1 Q7-10 | Matching (kim birinchi, A-E) | `matching` | ❌ `matching` **Reading ro'yxatida yo'q** |
+| R P1 Q11-14 | **Chizmalarga moslashtirish (A-H)** | — | ❌ rasm + Reading'da `map_labelling`/`matching` yo'q |
+| R P2 Q18-21, P3 Q36-39 | **YES/NO/NOT GIVEN** | `tfng` | ✅ (`variantlar` erkin JSON — YES/NO/NG qo'lda kiritiladi) |
+| R P2 Q22-24 | Sentence completion from list A-J | `matching` | ❌ Reading ro'yxatida yo'q |
+| R P2 Q25-28 | Classification A-D | `matching` | ❌ Reading ro'yxatida yo'q |
+| R P3 Q34-35 | "Qaysi IKKI paragrafda..." | `short_answer` | ✅ |
+| Writing Task 1 | **Bar chart + line graph (2 ta rasm)** | `task1` + `rasm` | ❌ `rasm` — bitta ImageField |
+| Writing Task 2 | Opinion essay | `task2` | ✅ |
+| Speaking P1/P2/P3 | — | `part1/2/3` | ✅ |
+
+#### Rasm talab qiladigan mashqlar (matn bilan ko'chirib bo'lmaydi)
+
+1. **PDF 259 (kitob 12), Listening S4 Q31** — bar chart (A/B/C ustunlar,
+   "People with back pain, UK daily figures"). Embedded rasm 411×211.
+2. **PDF 265 (kitob 18), Reading P1 Q11-14** — 8 ta raketa/snaryad chizmasi
+   (A-H, metr shkalasi bilan). Ikkita embedded rasm: 542×270 va 539×262.
+3. **PDF 274 (kitob 27), Writing Task 1** — IKKI grafik: bar chart
+   (469×296) + line graph (488×310).
+4. **Yarim-holat:** PDF 255 va 258 (Listening S1 va S3 formalar) — rasm,
+   lekin mazmuni sof matn, qo'lda qayta terish mumkin.
+
+#### LMS'da yetishmayotgani (Test 1 asosida)
+
+1. **Jadval to'ldirish turi yo'q** — L S2 Q13-17 (2 ustunli jadval) va
+   S4 Q37-40 (A/B/C matritsa) to'g'ri ko'rinishda chiqmaydi. Bu Headway
+   tahlilidagi 4-band ("grammatika jadvali") bilan bir xil ehtiyoj —
+   umumiy "jadval" tuzilmasi ikkala bo'limga ham kerak.
+2. **Savol darajasidagi rasm yo'q** — `Mashq.rasm` bitta, mashqning
+   hammasiga. Q31 kabi "10 savoldan faqat bittasida grafik" holatini
+   qamramaydi. Kerak: `savollar[].rasm`.
+3. **Writing Task 1'da bir nechta rasm** — 2 ta grafikli topshiriq keng
+   tarqalgan; hozir bitta `ImageField`.
+4. **Reading'da `matching` va `map_labelling` turlari ro'yxatga
+   kiritilmagan** — `BOLIM_TURLARI[READING]` da yo'q, holbuki Test 1'ning
+   14 ta savoli (Q7-10, Q11-14, Q22-24, Q25-28 — jami 15) aynan shu turda.
+   Eng katta va eng oson to'ldiriladigan bo'shliq.
+5. ~~YES/NO/NOT GIVEN~~ — muammo emas: `variantlar` erkin JSON, kodda
+   TRUE/FALSE qotirilmagan (tekshirildi). Faqat tur nomi "True/False/Not
+   Given" — UI'da yorliq chalkashtirishi mumkin.
+6. **"Example" qatori tushunchasi yo'q** — kitobda deyarli har guruhda
+   namuna javob beriladi (baholanmaydi). Hozir uni savol qilib kiritish
+   noto'g'ri natija beradi.
+7. **Audio bog'lanishi** — Cambridge 3 uchun mp3 yo'q; Listening'ni faqat
+   tapescript bilan berish mumkin (yoki TTS).
+
+#### Talaba sifatida yechib ko'rildi (2026-09-04)
+
+Har 40 ta Reading savoli va Listening savollari uchun "ekstraksiya qilingan
+matnda javob uchun dalil bormi" tekshirildi (kalit oldindan ko'rilgani uchun
+bu ko'r-ko'rona test emas, **dalil yetarliligi auditi**):
+
+- **Reading: 36/40 sof matndan javob beriladi.** Q1-10, Q15-40 uchun
+  passage matnida aniq dalil bor (masalan Q16 → "Carbon monoxide ...
+  interferes with the blood's ability to deliver oxygen to the heart").
+- **Reading Q11-14 (4 savol) — matn bilan MUMKIN EMAS.** Passage o'lchamlarni
+  beradi (0.7 m o'q / 1.5 m dum / 3 m bambuk / 5 m tayoq), lekin ularni
+  A-H chizmalardagi metr shkalasi bilan solishtirmasdan javob topib bo'lmaydi.
+- **Listening Q31 — matn bilan MUMKIN EMAS.** Tapescript "about a quarter of
+  a million people" deydi; qaysi ustun 250 000 ekanini faqat diagrammadan
+  bilish mumkin.
+- **Listening Q1-10 va Q21-30 (20 savol) — sof matn parsing YETARLI EMAS.**
+  Savol formalari sahifada faqat RASM sifatida (PDF 255, 258); `get_text()`
+  bu 20 savolning birortasini ham qaytarmaydi, xato ham bermaydi — jimgina
+  yo'qoladi. Vision bilan qayta terish MAJBURIY.
+- **Bonus:** tapescriptda javob o'rinlari `Q28`, `Q31`, `Q34` ko'rinishidagi
+  marker bilan belgilangan (PDF 378-379) — javob anchor'i uchun qulay,
+  lekin talabaga ko'rsatishdan oldin tozalash kerak.
+
+#### Baholash mexanizmi sinovdan o'tkazildi (2026-09-04)
+
+Test 1 ning Listening 40 + Reading 40 savoli kalitdan tuzilib
+`javoblarni_tekshir()` ga berildi (DB'ga yozilmadi):
+
+- To'g'ri javoblar -> **40/40** ikkala bo'limda ham.
+- Ataylab noto'g'ri javoblar -> **0/40** ikkala bo'limda ham.
+- 22 ta chekka holat: kalit alternativalari (`city center`, `Wed`,
+  `a fortnight`, `V`, `N`/`NG`/`Y`), registr/probel, kalitda taqiqlangan
+  javoblar (`one month`, `1993`), L19 "Choose TWO letters" (teskari tartib
+  -> to'g'ri; qisman/takroriy -> noto'g'ri), R34-35 guruhi (bir harf ikki
+  marta -> 1 ball) - **21/22 o'tdi**.
+
+**Topilgan xato -> TUZATILDI (2026-09-04).** Normalizator sonli
+javoblarda uch xil holatda talabaning to'g'ri javobini jimgina XATO
+qilardi (`exercises/models.py`):
+
+| kalit | talaba | oldin | endi |
+|---|---|---|---|
+| `325` | `£325` | xato | to'g'ri |
+| `£325` | `£ 325` | xato | to'g'ri |
+| `1000` | `1,000` | xato | to'g'ri |
+| `250,000` | `250000` | xato | to'g'ri |
+| `50%` | `50` | xato | to'g'ri |
+| `co-operative` | `cooperative` | xato | to'g'ri |
+| `twenty-five` | `twenty five` | xato | to'g'ri |
+
+Yechim (Shuxrat topgan xavfni hisobga olib): belgi `_norm` da
+O'CHIRILMAYDI - aks holda `$50` va `%50` bir xil bo'lib qolardi. Belgi
+KALIT tomonida ixtiyoriy qilinadi (`_qabul_variantlari`, qisqartmalar
+uchun ishlatilgan mavjud naqsh): kalitda belgi bor -> belgisiz shakl ham
+qabul; kalitda belgi yo'q -> belgili shakllar ham. Belgilar bir-biriga
+aylanmaydi. Defis ham shu yerda (ikkala shakl yasaladi), minglik vergul
+esa `_norm` da (`(?<=\d),(?=\d{3})`) - oddiy gap vergullariga tegmaydi.
+
+Tekshirildi: yangi 28 holat ✓, Test 1 ning 80 savoli (to'g'ri 80/80,
+noto'g'ri 0/80) ✓, 22 chekka holat ✓, bazadagi **19 345 ta real savol**
+bo'yicha regressiya - tuzatishdan oldin ham, keyin ham bir xil natija ✓.
+Bazada endi adolatli baholanadigan savollar: valyuta/foiz 129 ta,
+minglik vergul 39 ta, defis 266 ta.
+
+**Yuklash usuli (tuzatilgan):** sof matn parsing YETARLI EMAS. Test 1 ning
+80 savolidan **25 tasi** (Listening 21 + Reading 4) matn qatlamidan
+olinmaydi. Kerak: matn parsing + PDF 255/258 ni vision bilan qayta terish +
+3 o'rinda `extract_image` bilan rasmni chiqarib biriktirish.
+
+### Tanlanmadi (shu papkada bor, lekin test seriyasi emas)
+
+Mindset for IELTS (Foundation/1/2/3), Complete IELTS (4-5, 5-6.5, 6.5-7.5),
+IELTS Trainer 1 va 2 (Academic/General), Advanced Trainer, Official Cambridge
+Guide to IELTS, Official IELTS Practice Materials 1–2, Top Tips for IELTS,
+New Insight into IELTS, Key to IELTS Success, Common Mistakes at IELTS,
+Grammar/Vocabulary/Idioms/Phrasal Verbs in Use seriyasi, Cambridge Empower
+(Starter–Advanced). Bular kerak bo'lsa alohida band sifatida qo'shiladi.
+
 ## Navbatdagi ishlar (2026-07-27 foydalanuvchi talablari)
 
 Quyidagilar 2026-07-26/27 suhbatida kelishildi. Birinchi uchtasi — navbatda,

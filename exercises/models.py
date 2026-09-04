@@ -147,6 +147,27 @@ _TIRNOQ_JADVALI = str.maketrans({
 # so'zning bir qismi ("don't", "twenty-five").
 _TINISH = str.maketrans({c: " " for c in ".,!?;:…–—"})
 
+# 2026-09-04, Cambridge 3 Test 1 sinovi: sonli javoblarda uchta xato
+# topildi. (1) Minglik vergul tinish belgisi sifatida PROBELGA aylanardi,
+# ya'ni "1,000" -> "1 000" va u "1000" ga teng emas edi (Listening'da
+# "250,000" kabi javoblar tez-tez uchraydi). (2) Valyuta belgisi bilan son
+# orasidagi probel ("£ 325" va "£325") ikki xil satr edi. Ikkalasi ham
+# talabaning to'g'ri javobini jimgina XATO qilardi.
+#
+# Belgining O'ZI bu yerda O'CHIRILMAYDI — aks holda "$50" va "%50" bir xil
+# bo'lib qolardi. Belgi kalit tomonida ixtiyoriy qilinadi, qarang:
+# `_qabul_variantlari`.
+_MINGLIK_VERGUL = re.compile(r"(?<=\d),(?=\d{3}\b)")
+_BELGI_PROBEL = re.compile(r"([£$€¥])\s+(?=\d)")
+_FOIZ_PROBEL = re.compile(r"(?<=\d)\s+(?=%)")
+
+# Kalit tomonida belgi/defisni ixtiyoriy qilish uchun (qarang:
+# `_qabul_variantlari`).
+_BELGI = re.compile(r"[£$€¥%]")
+_SON_BOSHI = re.compile(r"(?<!\S)(?=\d)")
+_SON_OXIRI = re.compile(r"(?<=\d)(?!\S)")
+_HARF_DEFIS = re.compile(r"(?<=[a-z])-(?=[a-z])")
+
 # 2026-08-27, Pre-Intermediate QA: javob kalitlari kitobdagidek QISQARTMA
 # shaklda yozilgan ("I'll", "don't have to", "'d travel", "mustn't"), lekin
 # to'liq shakl ham xuddi shunday to'g'ri javob ("I will", "do not have to",
@@ -238,7 +259,11 @@ def _norm(s):
     Qisqartmaga ATAYLAB TEGMAYDI — u yo'qotishli bo'lardi ("he is" va
     "he has" ni ajratib bo'lmay qolardi). Qisqartma `_qabul_variantlari`
     orqali, faqat KALIT tomonda hisobga olinadi."""
-    s = str(s).lower().translate(_TIRNOQ_JADVALI).translate(_TINISH)
+    s = str(s).lower().translate(_TIRNOQ_JADVALI)
+    s = _MINGLIK_VERGUL.sub("", s)
+    s = _BELGI_PROBEL.sub(r"\1", s)
+    s = _FOIZ_PROBEL.sub("", s)
+    s = s.translate(_TINISH)
     return re.sub(r"\s+", " ", s).strip()
 
 
@@ -272,6 +297,40 @@ def _qabul_variantlari(kalit):
         if len(yoyilgan) > _VARIANT_CHEGARA:
             break
     natija |= yoyilgan
+
+    # 3) Valyuta/foiz belgisi va defis — KALIT tomonida ixtiyoriy
+    #    (2026-09-04, Cambridge 3 Test 1 sinovi).
+    #
+    #    Cambridge kalitida belgi va so'z qavs ichida beriladi:
+    #    "(£) 325 (pounds)" — ya'ni talaba "325" ham, "£325" ham yozishi
+    #    mumkin. Belgini `_norm` da ikkala tomondan o'chirib tashlash
+    #    NOTO'G'RI bo'lardi: u holda kaliti "$50" bo'lgan savolda "%50"
+    #    ham to'g'ri hisoblanardi. Shuning uchun kengaytirish faqat shu
+    #    yerda, kalit tomonida:
+    #      - kalitda belgi BOR   -> belgisiz shakl ham qabul qilinadi
+    #      - kalitda belgi YO'Q  -> belgi qo'shilgan shakllar ham
+    #        (kalit belgisiz bo'lsa, belgi savol matnida chop etilgan —
+    #        talaba uni takrorlasa xato emas)
+    #    Belgilar bir-biriga hech qachon aylanmaydi: "$50" kaliti "%50" ni
+    #    qabul qilmaydi.
+    #
+    #    Defis ham shu yerda: "co-operative"/"cooperative" va
+    #    "twenty-five"/"twenty five" — kitob kalitida bir xil to'g'ri
+    #    javob. `_norm` da defisni o'chirish yo'qotishli bo'lardi (bitta
+    #    qoida ikkala holatni bir vaqtda qoplamaydi), shuning uchun
+    #    kalitdan IKKALA shakl ham yasaladi.
+    qoshimcha = set()
+    for v in natija:
+        if _BELGI.search(v):
+            qoshimcha.add(_BELGI.sub("", v))
+        elif any(c.isdigit() for c in v):
+            for b in "£$€¥":
+                qoshimcha.add(_SON_BOSHI.sub(b, v))
+            qoshimcha.add(_SON_OXIRI.sub("%", v))
+        if _HARF_DEFIS.search(v):
+            qoshimcha.add(_HARF_DEFIS.sub(" ", v))
+            qoshimcha.add(_HARF_DEFIS.sub("", v))
+    natija |= qoshimcha
 
     # Bo'sh natija ATAYLAB filtrlanmaydi: "nol artikl" mashqlarida kalit
     # tire ("–") bo'lib, normalizatsiyadan keyin bo'sh satr qoladi — uni
