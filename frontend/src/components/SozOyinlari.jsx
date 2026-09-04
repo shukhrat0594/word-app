@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 /** So'z-asosidagi 4 o'yin — avval `Oyinlar.jsx` ichida edi, endi bu yerga
  * chiqarilgan (2026-07-27) chunki Kurslar > Unit > Wordlist bo'limi ham
@@ -505,36 +505,64 @@ const TUGUN_YONALISHLAR = [
   [1, -1], [1, 0], [1, 1],
 ];
 
-const TUGUNLAR_USTUN = 6;
+// 2026-09-04, Shuxrat: to'r ekranga moslashadi — kompyuterda ENIGA
+// kengroq (10 ustun, past bo'yi), telefonda BO'YIGA (6 ustun, tor eni).
+// Kataklar soni ikkalasida ham bir xil, faqat to'rning shakli boshqacha.
+const TUGUNLAR_USTUN_KENG = 10;
+const TUGUNLAR_USTUN_TOR = 6;
+const TUGUNLAR_TOR_EKRAN = 700;
 const TUGUNLAR_MAX_SOZ = 7;
-// Bitta o'yindagi harflar chegarasi. To'r 6 ustun x eng ko'pi 10 qator =
-// 60 katak; harflar undan ~60% ni egallasin, aks holda uzun so'zlar to'rga
-// sig'may, jimgina tashlab ketilardi.
+// Bitta o'yindagi harflar chegarasi. To'rda ~60 katak bo'ladi, harflar
+// undan ~60% ini egallasin — aks holda uzun so'zlar to'rga sig'may,
+// jimgina tashlab ketilardi.
 const TUGUNLAR_MAX_HARF = 36;
+// Yo'l nechta marta burilishi mumkin (0 = faqat tekis chiziq).
+const TUGUNLAR_MAX_BURILISH = 2;
+// Harflar to'rning qanchasini egallaydi — qancha katta bo'lsa, tasodifiy
+// to'ldirish harflari shuncha kam va o'yin shuncha oson.
+const TUGUNLAR_ZICHLIK = 0.7;
 const TUGUNLAR_KOMAK_SONI = 3;
 // To'ldirish harflari — ingliz tilidagi chastotaga yaqin taqsimot, aks
 // holda to'r "qwxz"ga to'lib, sun'iy ko'rinadi.
 const TULDIRISH_HARFLARI = "eeeeaaaarrrriiiioootttnnnsssllccuuddppmmhhggbbffywkvxzjq";
 
-/** Bitta so'zga to'rdan yo'l izlash — tasodifiy katakdan boshlab, har
- * qadamda yo'nalish o'zgarishi mumkin (backtracking). Band katakka
- * kirmaydi, ya'ni so'zlar kesishmaydi. Yo'l topilmasa `null`. */
+/** Bitta so'zga to'rdan yo'l izlash — tasodifiy katakdan boshlab
+ * (backtracking). Band katakka kirmaydi, ya'ni so'zlar kesishmaydi.
+ * Yo'l topilmasa `null`.
+ *
+ * 2026-09-04, Shuxrat: "qiyinlashib ketgan" — yo'l cheksiz burilaverganda
+ * so'zni ko'z bilan ilg'ash deyarli imkonsiz edi. Endi yo'l eng ko'pi
+ * `TUGUNLAR_MAX_BURILISH` marta yo'nalishini o'zgartiradi: so'zlar asosan
+ * tekis chiziq bo'ylab boradi, faqat bir-ikki joyda buriladi. */
 function tugunYoliniIzla(tor, qatorlar, ustunlar, uzunlik) {
   const yol = [];
   const band = new Set();
 
-  function izla(idx, qadam) {
+  function izla(idx, qadam, yonalish, burilish) {
     if (tor[idx] !== null || band.has(idx)) return false;
     band.add(idx);
     yol.push(idx);
     if (qadam === uzunlik - 1) return true;
     const q = Math.floor(idx / ustunlar);
     const u = idx % ustunlar;
-    for (const [dq, du] of shuffle(TUGUN_YONALISHLAR)) {
+    // Avval AYNI yo'nalishda davom etishga urinamiz — shunda yo'llar
+    // ko'proq tekis chiziq bo'ladi va ko'zga osonroq tashlanadi.
+    const yonalishlar = shuffle(TUGUN_YONALISHLAR);
+    if (yonalish) {
+      yonalishlar.sort((a, b) => {
+        const aTekis = a[0] === yonalish[0] && a[1] === yonalish[1] ? 0 : 1;
+        const bTekis = b[0] === yonalish[0] && b[1] === yonalish[1] ? 0 : 1;
+        return aTekis - bTekis;
+      });
+    }
+    for (const [dq, du] of yonalishlar) {
+      const yangiBurilish =
+        yonalish && (yonalish[0] !== dq || yonalish[1] !== du) ? burilish + 1 : burilish;
+      if (yangiBurilish > TUGUNLAR_MAX_BURILISH) continue;
       const q2 = q + dq;
       const u2 = u + du;
       if (q2 < 0 || q2 >= qatorlar || u2 < 0 || u2 >= ustunlar) continue;
-      if (izla(q2 * ustunlar + u2, qadam + 1)) return true;
+      if (izla(q2 * ustunlar + u2, qadam + 1, [dq, du], yangiBurilish)) return true;
     }
     band.delete(idx);
     yol.pop();
@@ -544,7 +572,7 @@ function tugunYoliniIzla(tor, qatorlar, ustunlar, uzunlik) {
   for (const bosh of shuffle([...Array(qatorlar * ustunlar).keys()])) {
     band.clear();
     yol.length = 0;
-    if (izla(bosh, 0)) return [...yol];
+    if (izla(bosh, 0, null, 0)) return [...yol];
   }
   return null;
 }
@@ -582,14 +610,13 @@ function tugunlarToriniYasa(sozlar) {
   }
   if (tanlangan.length === 0) return null;
 
-  // To'r o'lchami so'zlarga moslashadi: harflar taxminan 60% joyni
-  // egallasin — juda zich bo'lsa yo'l topilmaydi, juda siyrak bo'lsa
-  // o'yin cho'zilib ketadi.
-  const ustunlar = TUGUNLAR_USTUN;
-  const qatorlar = Math.min(
-    10,
-    Math.max(5, Math.ceil((harflarSoni * 1.7) / ustunlar))
-  );
+  // Kerakli katak soni harflar zichligidan, ustunlar soni esa ekran
+  // kengligidan chiqadi.
+  const kataklar = Math.round(harflarSoni / TUGUNLAR_ZICHLIK);
+  const torEkran =
+    typeof window !== "undefined" && window.innerWidth < TUGUNLAR_TOR_EKRAN;
+  const ustunlar = torEkran ? TUGUNLAR_USTUN_TOR : TUGUNLAR_USTUN_KENG;
+  const qatorlar = Math.max(4, Math.ceil(kataklar / ustunlar));
 
   const tor = Array(qatorlar * ustunlar).fill(null);
   const tugunlar = [];
@@ -625,6 +652,13 @@ export function TugunlarOyini({ sozlar, t, onQaytaOynash, onBoshqaDaraja }) {
   const [komak, setKomak] = useState(TUGUNLAR_KOMAK_SONI);
   const [komakKatak, setKomakKatak] = useState(null);
   const [sudrash, setSudrash] = useState(false);
+  // 2026-09-04, Shuxrat: tanlov so'z bo'lib chiqmasa hech qanday javob
+  // qaytmasdi — o'yinchi "qabul qilmadi" deb o'ylardi. Endi tanlangan
+  // harflar to'r ostida ko'rinadi va noto'g'ri tanlov qizarib silkinadi.
+  const [xato, setXato] = useState(false);
+  // Bu bosishda barmoq/sichqoncha kataklar bo'ylab SUDRALDIMI — shunga
+  // qarab qo'yib yuborish "javobni tasdiqlash" deb qabul qilinadi.
+  const sudralganRef = useRef(false);
 
   // Sichqoncha to'r tashqarisida qo'yib yuborilsa ham sudrash tugasin.
   useEffect(() => {
@@ -662,34 +696,61 @@ export function TugunlarOyini({ sozlar, t, onQaytaOynash, onBoshqaDaraja }) {
       setTopilgan((p) => [...p, topildi.soz]);
       setTanlangan([]);
       setKomakKatak(null);
+      setXato(false);
     } else {
       setTanlangan(yangiTanlov);
     }
   }
 
+  /** Tanlov so'z bo'lib chiqmadi — qizartirib silkitamiz va tozalaymiz.
+   * (Mos so'z bo'lganda `tekshir` tanlovni allaqachon bo'shatgan bo'ladi.) */
+  function radEt() {
+    if (xato) return;
+    setXato(true);
+    setTimeout(() => {
+      setXato(false);
+      setTanlangan([]);
+    }, 450);
+  }
+
   function katakBosildi(idx) {
     setSudrash(true);
-    if (topilganKataklar.has(idx)) return;
+    sudralganRef.current = false;
+    if (xato || topilganKataklar.has(idx)) return;
     const oxirgi = tanlangan[tanlangan.length - 1];
     if (tanlangan.length > 0 && !tanlangan.includes(idx) && qoshnimi(oxirgi, idx, ustunlar)) {
       tekshir([...tanlangan, idx]);
     } else if (tanlangan.length === 1 && tanlangan[0] === idx) {
       setTanlangan([]);
+    } else if (tanlangan.length >= 2 && oxirgi === idx) {
+      // Katak-katak bosib tanlaydiganlar uchun: oxirgi katakni QAYTA
+      // bosish "javobim shu" degani (sudrash bilan qo'yib yuborishning
+      // muqobili).
+      radEt();
     } else {
       setTanlangan([idx]);
     }
   }
 
   function katakKirildi(idx) {
-    if (!sudrash || tanlangan.length === 0 || topilganKataklar.has(idx)) return;
+    if (!sudrash || xato || tanlangan.length === 0 || topilganKataklar.has(idx)) return;
     // Orqaga sudralsa oxirgi katak yechiladi — xato bosishni tuzatish uchun.
     if (tanlangan.length >= 2 && idx === tanlangan[tanlangan.length - 2]) {
+      sudralganRef.current = true;
       setTanlangan(tanlangan.slice(0, -1));
       return;
     }
     if (tanlangan.includes(idx)) return;
     if (!qoshnimi(tanlangan[tanlangan.length - 1], idx, ustunlar)) return;
+    sudralganRef.current = true;
     tekshir([...tanlangan, idx]);
+  }
+
+  /** Sudrab tanlash tugadi — tanlov qolgan bo'lsa, demak so'z topilmadi. */
+  function sudrashTugadi() {
+    if (!sudralganRef.current) return;
+    sudralganRef.current = false;
+    if (tanlangan.length >= 2) radEt();
   }
 
   function komakBer() {
@@ -731,6 +792,8 @@ export function TugunlarOyini({ sozlar, t, onQaytaOynash, onBoshqaDaraja }) {
       <div
         className="tugunlar-tor"
         style={{ gridTemplateColumns: `repeat(${ustunlar}, minmax(0, 1fr))` }}
+        onPointerUp={sudrashTugadi}
+        onPointerLeave={sudrashTugadi}
       >
         {tor.map((harf, idx) => (
           <button
@@ -739,6 +802,7 @@ export function TugunlarOyini({ sozlar, t, onQaytaOynash, onBoshqaDaraja }) {
               "tugun-katak" +
               (topilganKataklar.has(idx) ? " topilgan" : "") +
               (tanlangan.includes(idx) ? " tanlangan" : "") +
+              (xato && tanlangan.includes(idx) ? " xato" : "") +
               (komakKatak === idx ? " komak" : "")
             }
             onPointerDown={(e) => {
@@ -756,7 +820,10 @@ export function TugunlarOyini({ sozlar, t, onQaytaOynash, onBoshqaDaraja }) {
           </button>
         ))}
       </div>
-      <p className="izoh" style={{ textAlign: "center", marginTop: 10 }}>
+      <div className={"tugunlar-tanlov" + (xato ? " xato" : "")}>
+        {tanlangan.map((i) => tor[i]).join("").toUpperCase()}
+      </div>
+      <p className="izoh" style={{ textAlign: "center", marginTop: 6 }}>
         {topilgan.length} / {tugunlar.length} {t("tugunlar_hisob")}
       </p>
       <div style={{ display: "flex", gap: 10, justifyContent: "center", marginTop: 6 }}>
