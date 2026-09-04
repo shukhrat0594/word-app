@@ -319,7 +319,22 @@ class Zaxira(models.Model):
 
     class Meta:
         ordering = ["-sana", "-id"]
-        unique_together = [("markaz", "sana", "turi")]
+        # 2026-09-03 (2), foydalanuvchi talabi: "qo'lda zaxira olish
+        # avtomatikdan ALOHIDA bo'lsin, har qanday holatda qo'lda olish
+        # imkoni qolsin". Shu sababli cheklov FAQAT avtomatik zaxiraga
+        # tegishli: kunda bitta avtomatik, qo'lda esa CHEKSIZ.
+        #
+        # Avval `unique_together (markaz, sana, turi)` edi va u qo'lda
+        # zaxirani ham kunda bittaga cheklardi — R2 bir daqiqa javob
+        # bermay, zaxira xato bilan tugasa, owner ERTAGAGACHA qo'lda
+        # zaxira ola olmasdi.
+        constraints = [
+            models.UniqueConstraint(
+                fields=["markaz", "sana"],
+                condition=models.Q(turi="avtomatik"),
+                name="zaxira_kunda_bitta_avtomatik",
+            ),
+        ]
         verbose_name_plural = "Zaxiralar"
 
     def __str__(self):

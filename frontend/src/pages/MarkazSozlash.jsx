@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { api, apiFayluniYuklab, apiForm, mediaManzil, tokenOl } from "../api";
+import { api, apiFayluniYuklab, apiForm, apiManzil, mediaManzil, tokenOl } from "../api";
 import IjtimoiyIkon from "../components/IjtimoiyIkonlar";
 import { useI18n } from "../i18n";
 import { useProfil } from "../profilContext";
@@ -206,8 +206,14 @@ export default function MarkazSozlash() {
    * (R2) bo'lsa sarlavhasiz olinadi; lokal ishlab chiqishda esa havola
    * bizning endpointga ishora qiladi va token kerak bo'ladi. */
   async function faylniYoz(papka, nom, url) {
+    // Nisbiy yo'l (lokal ishlab chiqish rejimi) bo'lsa — backend
+    // domenini `apiManzil` qo'shadi va token kerak; imzolangan R2
+    // havolasi mutlaq bo'ladi va sarlavhasiz olinadi.
     const ichkimi = url.startsWith("/");
-    const res = await fetch(url, ichkimi ? { headers: { Authorization: `Bearer ${tokenOl()}` } } : {});
+    const res = await fetch(
+      ichkimi ? apiManzil(url) : url,
+      ichkimi ? { headers: { Authorization: `Bearer ${tokenOl()}` } } : {},
+    );
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const h = await papka.getFileHandle(nom, { create: true });
     const yozuvchi = await h.createWritable();
@@ -268,7 +274,15 @@ export default function MarkazSozlash() {
       });
 
       // 1) Bazaning o'zi — kichik, serverdan keladi.
-      const baza = await fetch("/api/backup/yuklab-olish/", {
+      //
+      // `apiManzil` SHART (2026-09-03 (2), kod-ревьюda topilgan haqiqiy
+      // xato): prodda frontend va backend ALOHIDA domenlarda va nisbiy
+      // "/api/..." yo'li frontend servisiga ketardi. `vite preview` esa
+      // mavjud bo'lmagan yo'lga SPA fallback bilan `index.html`ni 200
+      // qilib qaytaradi — ya'ni `baza.ok` true bo'lib, papkadagi
+      // `baza.zip` ichiga ZIP emas, HTML yozilib qolardi. Xato ham
+      // chiqmasdi: buzuqligi faqat tiklashga urinilganda bilinardi.
+      const baza = await fetch(apiManzil("/api/backup/yuklab-olish/"), {
         headers: { Authorization: `Bearer ${tokenOl()}` },
       });
       if (baza.ok) {

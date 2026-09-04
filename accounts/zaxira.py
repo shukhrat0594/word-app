@@ -71,35 +71,67 @@ def zaxira_yarat(markaz=None, turi=Zaxira.Turi.AVTOMATIK):
 
     Format `BackupYuklabOlishView` bilan AYNAN bir xil (`baza_zip_yasa`
     umumiy) — shuning uchun bu fayl `BackupdanTiklashView` orqali
-    tiklanadi."""
+    tiklanadi.
+
+    YOZUV ISHDAN KEYIN YARATILADI (2026-09-03 (2), kod-ревьюда topilgan
+    haqiqiy xato): avval yozuv OLDIN yaratilardi — "bir vaqtda ketgan
+    ikkinchi urinish og'ir dumpni takrorlamasin" degan niyatda. Lekin
+    fon oqimi `daemon` bo'lgani uchun deploy yoki OOM paytida jarayon
+    bilan DARHOL o'lardi va `except` ham bajarilmasdi. Natijada yozuv
+    `fayl=""`, `xato=""` holatida qolib ketardi va:
+      * `kerakmi()` "bugungisi bor" deb kun oxirigacha qayta urinmasdi;
+      * ro'yxatda 0.00 MB sababsiz turardi;
+      * tasma ham chiqmasdi (`exclude(fayl="")`).
+    Ya'ni zaxira olinmagani JIMGINA yashirilardi. Endi jarayon o'lsa
+    bazada hech narsa qolmaydi va keyingi so'rov qaytadan urinadi.
+    Bunga to'lov — juda kam holatda ikki oqim dumpni parallel bajarishi
+    (ortiqcha CPU), lekin natija baribir to'g'ri: biri bazada
+    to'qnashadi va o'z faylini o'chirib chiqib ketadi."""
     markaz = markaz or _markaz()
     if not markaz:
         return None
     sana = timezone.localdate()
 
-    # Yozuvni AVVAL yaratamiz — bir vaqtda ketgan ikkinchi urinish shu
-    # yerda to'qnashib, og'ir dump ishini takrorlamaydi.
-    try:
-        with transaction.atomic():
-            yozuv = Zaxira.objects.create(markaz=markaz, sana=sana, turi=turi)
-    except IntegrityError:
+    # Avtomatik zaxira kunda BITTA (qo'lda esa cheksiz — foydalanuvchi
+    # talabi). Bu faqat "ortiqcha ish qilmaslik" tekshiruvi; haqiqiy
+    # kafolat bazadagi shartli UniqueConstraint'da.
+    if turi == Zaxira.Turi.AVTOMATIK and Zaxira.objects.filter(
+        markaz=markaz, sana=sana, turi=turi
+    ).exists():
         return None
 
+    bufer = fayl_nomi = None
+    xato = ""
     try:
         bufer, fayl_nomi = baza_zip_yasa()
-        bufer.seek(0, 2)
-        yozuv.hajm = bufer.tell()
-        bufer.seek(0)
-        yozuv.fayl.save(fayl_nomi, File(bufer), save=False)
-        yozuv.save(update_fields=["fayl", "hajm"])
-        bufer.close()
     except Exception as exc:  # noqa: BLE001 — sababni yozuvda saqlaymiz
         logger.exception("Zaxira olinmadi")
-        yozuv.xato = f"{type(exc).__name__}: {exc}"[:2000]
-        yozuv.save(update_fields=["xato"])
-        return yozuv
+        xato = f"{type(exc).__name__}: {exc}"[:2000]
 
-    eskilarini_ochir(markaz)
+    yozuv = Zaxira(markaz=markaz, sana=sana, turi=turi, xato=xato)
+    try:
+        if bufer is not None:
+            bufer.seek(0, 2)
+            yozuv.hajm = bufer.tell()
+            bufer.seek(0)
+            yozuv.fayl.save(fayl_nomi, File(bufer), save=False)
+        with transaction.atomic():
+            yozuv.save()
+    except IntegrityError:
+        # Parallel avtomatik urinish g'olib bo'ldi — o'zimizning
+        # yuklangan faylni qoldirib ketmaymiz (R2'da yetim fayl).
+        if yozuv.fayl:
+            try:
+                yozuv.fayl.delete(save=False)
+            except Exception:  # noqa: BLE001
+                logger.warning("Yetim zaxira fayli o'chmadi: %s", yozuv.fayl.name)
+        return None
+    finally:
+        if bufer is not None:
+            bufer.close()
+
+    if not xato:
+        eskilarini_ochir(markaz)
     return yozuv
 
 

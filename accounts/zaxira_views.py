@@ -38,7 +38,12 @@ class ZaxiralarView(APIView):
     POST ATAYLAB sinxron: owner tugmani bosib natijani kutadi, fon
     oqimida qilinsa "bo'ldimi yoki yo'qmi" noaniq qolardi. Baza dumpi
     bir necha sekund (lokal sinovda 13 MB JSON -> 1.8 MB ZIP), ya'ni
-    so'rov chegarasiga yaqin ham emas."""
+    so'rov chegarasiga yaqin ham emas.
+
+    QO'LDA ZAXIRA AVTOMATIKDAN ALOHIDA va HECH QACHON to'silmaydi
+    (2026-09-03 (2), foydalanuvchi talabi). Avval kunda bitta qo'lda
+    zaxira cheklovi bor edi va u xato bo'lgan urinishdan keyin owner'ni
+    ertagagacha zaxirasiz qoldirardi."""
 
     permission_classes = [IsAuthenticated]
 
@@ -54,9 +59,9 @@ class ZaxiralarView(APIView):
             return Response({"detail": "Faqat owner uchun"}, status=403)
         z = zaxira_mantiq.zaxira_yarat(turi=Zaxira.Turi.QOLDA)
         if z is None:
-            return Response(
-                {"detail": "Bugun uchun qo'lda zaxira allaqachon olingan"}, status=409
-            )
+            # Qo'lda zaxira uchun bu faqat "markaz topilmadi" degani —
+            # kunlik cheklov qo'lda zaxiraga umuman qo'llanmaydi.
+            return Response({"detail": "Markaz topilmadi"}, status=400)
         if z.xato:
             return Response({"detail": z.xato}, status=500)
         return Response(_zaxira_dict(z), status=201)
