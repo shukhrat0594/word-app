@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { api, apiFayluniYuklab, apiForm, mediaManzil } from "../api";
+import { api, apiFayluniYuklab, apiForm, mediaManzil, tokenOl } from "../api";
 import IjtimoiyIkon from "../components/IjtimoiyIkonlar";
 import { useI18n } from "../i18n";
 import { useProfil } from "../profilContext";
@@ -55,6 +55,10 @@ export default function MarkazSozlash() {
   const [zaxiraBand, setZaxiraBand] = useState(false);
   const [zaxiraXato, setZaxiraXato] = useState("");
   const [zaxiraXabar, setZaxiraXabar] = useState("");
+  // To'liq zaxira (2026-09-03) — media R2'dan BEVOSITA diskka.
+  const [toliqBand, setToliqBand] = useState(false);
+  const [toliq, setToliq] = useState(null);
+  const toxtatRef = useRef(false);
 
   const [kirishCheklangan, setKirishCheklangan] = useState(false);
   const [aktivFoydalanuvchilar, setAktivFoydalanuvchilar] = useState(0);
@@ -170,6 +174,127 @@ export default function MarkazSozlash() {
       setZaxiraXato(e.data?.detail || e.message || t("xato_yuz_berdi"));
     } finally {
       setZaxiraBand(false);
+    }
+  }
+
+  // ── To'liq zaxira ────────────────────────────────────────────────
+  // Fayllar SERVERDAN O'TMAYDI: server faqat ro'yxat va imzolangan
+  // havola beradi, brauzer esa R2'dan to'g'ridan-to'g'ri diskka oqim
+  // bilan yozadi (`accounts/zaxira_media.py` izohiga qara). Shu sababli
+  // 6+ GB ham Railway chegarasiga urilmaydi.
+
+  /** `kurslar/audio` kabi yo'l uchun ichma-ich papkalarni yaratadi. */
+  async function papkaniOl(kok, qismlar) {
+    let joriy = kok;
+    for (const q of qismlar) {
+      joriy = await joriy.getDirectoryHandle(q, { create: true });
+    }
+    return joriy;
+  }
+
+  /** Papkada shu nomli fayl bor bo'lsa hajmini, aks holda `null`. */
+  async function mavjudHajm(papka, nom) {
+    try {
+      const h = await papka.getFileHandle(nom);
+      return (await h.getFile()).size;
+    } catch {
+      return null;
+    }
+  }
+
+  /** Bitta faylni oqim bilan diskka yozadi. Imzolangan havola tashqi
+   * (R2) bo'lsa sarlavhasiz olinadi; lokal ishlab chiqishda esa havola
+   * bizning endpointga ishora qiladi va token kerak bo'ladi. */
+  async function faylniYoz(papka, nom, url) {
+    const ichkimi = url.startsWith("/");
+    const res = await fetch(url, ichkimi ? { headers: { Authorization: `Bearer ${tokenOl()}` } } : {});
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const h = await papka.getFileHandle(nom, { create: true });
+    const yozuvchi = await h.createWritable();
+    await res.body.pipeTo(yozuvchi);
+  }
+
+  /** Sahifadagi fayllarni bir vaqtda 4 tadan yuklaydi (foydalanuvchi
+   * talabi: "hammasini to'liq olmasin, bir nechtadan olsin"). Papkada
+   * bor va hajmi mos fayl tashlab ketiladi — uzilgan yuklash boshidan
+   * boshlanmaydi. */
+  async function paketBilanYukla(kok, fayllar) {
+    const NAVBAT = [...fayllar];
+    const PAKET = 4;
+
+    async function ishchi() {
+      while (NAVBAT.length && !toxtatRef.current) {
+        const f = NAVBAT.shift();
+        const qismlar = f.yol.split("/");
+        const nom = qismlar.pop();
+        const papka = qismlar.length ? await papkaniOl(kok, qismlar) : kok;
+        const bor = await mavjudHajm(papka, nom);
+        if (bor !== f.hajm) {
+          await faylniYoz(papka, nom, f.url);
+        }
+        setToliq((v) => v && {
+          ...v,
+          joriy: v.joriy + 1,
+          bayt: v.bayt + f.hajm,
+          nomi: f.yol,
+          otkazilgan: v.otkazilgan + (bor === f.hajm ? 1 : 0),
+        });
+      }
+    }
+
+    await Promise.all(Array.from({ length: PAKET }, ishchi));
+  }
+
+  async function toliqZaxiraOl() {
+    if (!window.showDirectoryPicker) {
+      setZaxiraXato(t("zaxira_toliq_brauzer"));
+      return;
+    }
+    let kok;
+    try {
+      kok = await window.showDirectoryPicker({ mode: "readwrite" });
+    } catch {
+      return; // foydalanuvchi bekor qildi
+    }
+    setZaxiraXato("");
+    setZaxiraXabar("");
+    toxtatRef.current = false;
+    setToliqBand(true);
+    try {
+      const hisob = await api("/api/zaxira/media/?hisob=1");
+      setToliq({
+        joriy: 0, jami: hisob.jami_soni, bayt: 0,
+        jamiBayt: hisob.jami_hajm, nomi: "", otkazilgan: 0,
+      });
+
+      // 1) Bazaning o'zi — kichik, serverdan keladi.
+      const baza = await fetch("/api/backup/yuklab-olish/", {
+        headers: { Authorization: `Bearer ${tokenOl()}` },
+      });
+      if (baza.ok) {
+        const h = await kok.getFileHandle("baza.zip", { create: true });
+        const yozuvchi = await h.createWritable();
+        await baza.body.pipeTo(yozuvchi);
+      }
+
+      // 2) Media — sahifalab, har sahifa 4 tadan.
+      let kursor = null;
+      do {
+        const yol = kursor
+          ? `/api/zaxira/media/?kursor=${encodeURIComponent(kursor)}`
+          : "/api/zaxira/media/";
+        const sahifa = await api(yol);
+        await paketBilanYukla(kok, sahifa.fayllar);
+        kursor = sahifa.keyingi;
+      } while (kursor && !toxtatRef.current);
+
+      setZaxiraXabar(toxtatRef.current ? t("zaxira_toliq_toxtatildi") : t("zaxira_toliq_tugadi"));
+    } catch (e) {
+      setZaxiraXato(e.data?.detail || e.message || t("xato_yuz_berdi"));
+    } finally {
+      setToliqBand(false);
+      setToliq(null);
+      toxtatRef.current = false;
     }
   }
 
@@ -394,9 +519,37 @@ export default function MarkazSozlash() {
             <button className="tugma" onClick={zaxiraSozlamaSaqla} disabled={zaxiraBand}>
               {t("saqlash")}
             </button>
-            <button className="tugma ikkinchi" onClick={zaxiraHozirOl} disabled={zaxiraBand}>
+            <button className="tugma ikkinchi" onClick={zaxiraHozirOl} disabled={zaxiraBand || toliqBand}>
               {t("zaxira_hozir_ol")}
             </button>
+          </div>
+
+          {/* To'liq zaxira — baza + BARCHA media. Media serverdan
+              o'tmaydi, R2'dan bevosita diskka tushadi. */}
+          <div style={{ borderTop: "1px solid var(--chiziq)", paddingTop: 12 }}>
+            <div className="izoh" style={{ marginBottom: 8 }}>{t("zaxira_toliq_izoh")}</div>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+              <button className="tugma" onClick={toliqZaxiraOl} disabled={zaxiraBand || toliqBand}>
+                {t("zaxira_toliq")}
+              </button>
+              {toliqBand && (
+                <button
+                  type="button"
+                  className="tugma ikkinchi"
+                  onClick={() => { toxtatRef.current = true; }}
+                >
+                  {t("zaxira_toxtatish")}
+                </button>
+              )}
+            </div>
+            {toliq && (
+              <div className="izoh" style={{ marginTop: 8 }}>
+                {toliq.joriy} / {toliq.jami} {t("zaxira_fayl")} ·{" "}
+                {(toliq.bayt / 1e9).toFixed(2)} / {(toliq.jamiBayt / 1e9).toFixed(2)} GB
+                {toliq.otkazilgan > 0 && ` · ${toliq.otkazilgan} ${t("zaxira_otkazilgan")}`}
+                <div style={{ opacity: 0.7, wordBreak: "break-all" }}>{toliq.nomi}</div>
+              </div>
+            )}
           </div>
 
           <div className="izoh">{t("zaxira_muddat_izoh")}</div>

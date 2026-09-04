@@ -21,6 +21,7 @@ from django.views.static import serve as media_serve
 from rest_framework_simplejwt.views import TokenRefreshView
 
 from accounts.backup_views import BackupdanTiklashView, BackupYuklabOlishView
+from accounts.zaxira_media import ZaxiraMediaFaylView, ZaxiraMediaRoyxatView
 from accounts.zaxira_views import ZaxiraHolatView, ZaxiralarView, ZaxiraYuklabOlishView
 from accounts.views import (
     BildirishnomalarView,
@@ -92,6 +93,10 @@ urlpatterns = [
     path('api/zaxiralar/', ZaxiralarView.as_view(), name='zaxiralar'),
     path('api/zaxiralar/holat/', ZaxiraHolatView.as_view(), name='zaxira_holat'),
     path('api/zaxiralar/<int:pk>/yuklab-olish/', ZaxiraYuklabOlishView.as_view(), name='zaxira_yuklab_olish'),
+    # To'liq zaxira (2026-09-03) — media ro'yxati + imzolangan havolalar;
+    # fayllar serverdan O'TMAYDI (`accounts/zaxira_media.py` izohiga qara).
+    path('api/zaxira/media/', ZaxiraMediaRoyxatView.as_view(), name='zaxira_media_royxat'),
+    path('api/zaxira/media-fayl/', ZaxiraMediaFaylView.as_view(), name='zaxira_media_fayl'),
     # Ochiq — login talab qilinmaydi (pastki panel har sahifada, jumladan
     # kirish ekranida ham ko'rinadi).
     path('api/ijtimoiy/', IjtimoiyHavolalarView.as_view(), name='ijtimoiy_havolalar'),
