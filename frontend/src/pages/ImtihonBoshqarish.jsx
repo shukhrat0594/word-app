@@ -1936,6 +1936,32 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
     }
   }
 
+  /** Faylni ochib, PAPKA arxivimi yoki yo'qligini aniqlaydi.
+   * Papka arxivi bo'lsa {zip, man}, bo'lmasa `null` qaytaradi (ya'ni
+   * bu bitta test arxivi — u serverga o'zgarishsiz yuboriladi).
+   *
+   * Bir marta ochiladi va shu natija keyingi bosqichlarga uzatiladi —
+   * arxiv 400 MB bo'lishi mumkin, ikki marta ochish xotirani behuda
+   * ikkilantirardi. */
+  async function papkaArxiviniOq(fayl) {
+    let zip;
+    try {
+      const { default: JSZip } = await import("jszip");
+      zip = await JSZip.loadAsync(fayl);
+    } catch {
+      return null; // umuman ZIP emas — xatoni backend aniq aytadi
+    }
+    const manFayl = zip.file("manifest.json");
+    if (!manFayl) return null;
+    try {
+      const man = JSON.parse(await manFayl.async("string"));
+      if (man.turi !== "ielts_papka_eksport" || !Array.isArray(man.testlar)) return null;
+      return { zip, man };
+    } catch {
+      return null;
+    }
+  }
+
   /** Nom to'qnashuvi haqida BIR MARTA so'raydi; javob papkadagi barcha
    * testlarga qo'llanadi (foydalanuvchi qarori, 2026-09-03 — 12 ta test
    * uchun 12 marta so'ramaslik kerak). `null` — bekor qilish. */
@@ -1949,16 +1975,7 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
    * Railway/gunicorn chegarasiga urilardi (aynan shu muammo kurslar
    * darajasi importida bo'lgan edi). Testlar qaysi papka tugmasi
    * bosilgan bo'lsa — SHU papkaga biriktiriladi. */
-  async function papkaImportQil(p, fayl) {
-    const { default: JSZip } = await import("jszip");
-    const zip = await JSZip.loadAsync(fayl);
-    const manFayl = zip.file("manifest.json");
-    if (!manFayl) throw new Error(t("imtihon_papka_arxiv_emas"));
-    const man = JSON.parse(await manFayl.async("string"));
-    if (man.turi !== "ielts_papka_eksport" || !Array.isArray(man.testlar)) {
-      throw new Error(t("imtihon_papka_arxiv_emas"));
-    }
-
+  async function papkaImportQil(p, zip, man) {
     // Ichki papkalarni tiklaymiz: shu nomli ichki papka BOR bo'lsa
     // ishlatiladi (birlashtirish), yo'q bo'lsa yaratiladi. Nomlar
     // registrga qaramay solishtiriladi.
@@ -2035,7 +2052,9 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
     setImportBand(true);
     const boshlandi = Date.now();
     try {
-      await papkaImportQil(p, fayl);
+      const arxiv = await papkaArxiviniOq(fayl);
+      if (!arxiv) throw new Error(t("imtihon_papka_arxiv_emas"));
+      await papkaImportQil(p, arxiv.zip, arxiv.man);
       yukla(filtrBolim);
       setOchiqPapkalar((v) => ({ ...v, [p.id]: true }));
     } catch (e2) {
@@ -2057,7 +2076,33 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
     if (!fayl) return;
     setImportXato("");
     setImportBand(true);
+    const boshlandi = Date.now();
     try {
+      // 2026-09-04, foydalanuvchi talabi: "papka qo'shib o'tirmay, test
+      // yuklash qilganimda o'zi papkalarini ham yaratib qo'shib qo'ysin,
+      // ichki papkalarini ham". Avval bu tugma FAQAT bitta test arxivini
+      // tushunardi — papka arxivi berilsa "ZIP ichida to'g'ri data.json
+      // topilmadi" degan tushunarsiz xato chiqardi (papka arxivi uchun
+      // alohida 📂 tugmasi bor edi, lekin u papka ALLAQACHON bo'lishini
+      // talab qilardi).
+      const arxiv = await papkaArxiviniOq(fayl);
+      if (arxiv) {
+        // Manifestdagi nomli ASOSIY papka bor bo'lsa ishlatiladi, yo'q
+        // bo'lsa yaratiladi; ichki papkalarni `papkaImportQil` o'zi
+        // qayta tiklaydi.
+        const nomi = String(arxiv.man.papka?.nomi || "").trim() || fayl.name.replace(/\.zip$/i, "");
+        const bor = papkalar.find(
+          (x) => !x.parent && x.nomi.trim().toLowerCase() === nomi.toLowerCase()
+        );
+        const papka = bor || (await api("/api/imtihon/papkalar/", {
+          method: "POST",
+          body: { nomi, manba },
+        }));
+        await papkaImportQil(papka, arxiv.zip, arxiv.man);
+        yukla(filtrBolim);
+        setOchiqPapkalar((v) => ({ ...v, [papka.id]: true }));
+        return;
+      }
       await importYubor(fayl);
       yukla(filtrBolim);
     } catch (e2) {
@@ -2069,10 +2114,16 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
           nom: e2.data.taklif_nom || "",
         });
       } else {
-        setImportXato(e2.data?.detail || e2.message || t("xato_yuz_berdi"));
+        const soniya = Math.round((Date.now() - boshlandi) / 1000);
+        const tafsilot = e2.data?.detail
+          || (e2.status ? `HTTP ${e2.status}` : e2.message)
+          || t("xato_yuz_berdi");
+        setImportXato(`${tafsilot} (${soniya}s)`);
       }
     } finally {
       setImportBand(false);
+      setPapkaJarayon(null);
+      setPapkaRejimSorov(null);
     }
   }
 
