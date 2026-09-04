@@ -383,7 +383,15 @@ function AktivFoydalanuvchilar({ t }) {
     return { matn: `${Math.round(sekund / 86400)} ${t("seans_kun_oldin")}`, eski: true };
   }
 
-  if (!royxat || royxat.length === 0) return null;
+  if (!royxat) return <div className="yuklanmoqda">{t("yuklanmoqda")}</div>;
+  if (royxat.length === 0) {
+    return (
+      <div className="karta">
+        <h3>{t("seans_sarlavha")}</h3>
+        <p className="izoh">{t("seans_yoq")}</p>
+      </div>
+    );
+  }
 
   return (
     <div className="karta">
@@ -442,6 +450,10 @@ export default function Foydalanuvchilar() {
   const [yangi, setYangi] = useState({ username: "", parol: "", ism: "", rol: "student" });
   const [yangiXato, setYangiXato] = useState("");
   const [yangiBand, setYangiBand] = useState(false);
+  // 2026-09-04, Shuxrat: "Aktiv foydalanuvchilar" ro'yxat USTIDA turardi
+  // va sahifani cho'zib yuborardi. Endi ikkita vkladka: chapda ro'yxat,
+  // o'ngda aktiv seanslar. Aktiv bo'limini faqat owner ko'radi.
+  const [bolim, setBolim] = useState("royxat");
 
   function yukla(q) {
     const query = q !== undefined ? q : qidiruv;
@@ -561,9 +573,28 @@ export default function Foydalanuvchilar() {
 
   return (
     <div style={{ display: "grid", gap: 20 }}>
+    {profil?.is_owner && (
+      <div className="tab-guruh">
+        <button
+          className={bolim === "royxat" ? "aktiv" : undefined}
+          onClick={() => setBolim("royxat")}
+        >
+          {t("nav_foydalanuvchilar")}
+        </button>
+        <button
+          className={bolim === "aktiv" ? "aktiv" : undefined}
+          onClick={() => setBolim("aktiv")}
+        >
+          {t("seans_sarlavha")}
+        </button>
+      </div>
+    )}
+    {profil?.is_owner && bolim === "aktiv" ? (
     <AktivFoydalanuvchilar t={t} />
+    ) : (
     <div className="karta">
-      <h3>{t("nav_foydalanuvchilar")}</h3>
+      {/* Owner'da bo'lim nomi vkladkada turadi, takrorlamaymiz. */}
+      {!profil?.is_owner && <h3>{t("nav_foydalanuvchilar")}</h3>}
 
       <form
         onSubmit={yangiYarat}
@@ -676,6 +707,7 @@ export default function Foydalanuvchilar() {
         ))}
       </div>
     </div>
+    )}
     </div>
   );
 }
