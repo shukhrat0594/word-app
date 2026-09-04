@@ -76,3 +76,30 @@ class OwnerYozishCheklashMiddleware:
         except Exception:
             return None
         return natija[0] if natija else None
+
+
+class ZaxiraTekshiruvMiddleware:
+    """Avtomatik kunlik zaxira uchun "turtki" (2026-09-03).
+
+    Loyihada cron/Celery ATAYLAB yo'q (`accounts/zaxira.py` va
+    `relizlar.py` izohlariga qara) — shuning uchun "vaqt keldimi?"
+    savoli SO'ROV paytida beriladi. Ish o'zi fon oqimida bajariladi,
+    ya'ni foydalanuvchi so'rovi kutib turmaydi.
+
+    Juda arzon: `fonda_tekshir` jarayon ichida daqiqada bir martadan
+    ko'p bazaga qaramaydi, qolgan chaqiruvlar darhol qaytadi. Statik
+    fayllar va autentifikatsiya so'rovlari uchun ham chaqirilishi
+    muammo emas — bir xil hisoblagichga tushadi.
+    """
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        try:
+            from .zaxira import fonda_tekshir
+
+            fonda_tekshir()
+        except Exception:  # noqa: BLE001 — zaxira hech qachon saytni buzmasin
+            pass
+        return self.get_response(request)

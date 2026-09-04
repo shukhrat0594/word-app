@@ -73,6 +73,43 @@ def _tiklashda_tozalanadigan_modellar():
     return modellar
 
 
+def baza_zip_yasa():
+    """Bazani (`CHIQARIB_TASHLANADIGAN_APPLAR`dan boshqa hammasini)
+    `baza.json` sifatida ZIPga o'rab, (bufer, fayl_nomi) qaytaradi.
+
+    2026-09-03: avval bu mantiq `BackupYuklabOlishView.get` ichida edi.
+    Avtomatik kunlik zaxira (`accounts/zaxira.py`) AYNAN shu formatni
+    yasashi kerak — aks holda `BackupdanTiklashView` uni tiklay olmasdi,
+    shuning uchun umumiy yordamchiga ajratildi. Format o'zgarmadi.
+
+    `SpooledTemporaryFile` — dump katta bo'lsa (bir necha o'n MB) RAMda
+    ikki nusxa yig'ilmasin: belgilangan chegaradan oshgani diskka o'tadi
+    (`config/settings.py`dagi R2 `max_memory_size` izohiga qara — aynan
+    shu turdagi xato prodda bir marta OOM'ga olib kelgan)."""
+    matn = tempfile.SpooledTemporaryFile(max_size=8 * 1024 * 1024, mode="w+", encoding="utf-8")
+    call_command(
+        "dumpdata",
+        *[f"--exclude={a}" for a in CHIQARIB_TASHLANADIGAN_APPLAR],
+        natural_foreign=True,
+        natural_primary=True,
+        indent=2,
+        stdout=matn,
+    )
+    matn.seek(0)
+
+    bufer = tempfile.SpooledTemporaryFile(max_size=8 * 1024 * 1024)
+    with zipfile.ZipFile(bufer, "w", zipfile.ZIP_DEFLATED) as z:
+        with z.open("baza.json", "w") as maqsad:
+            while True:
+                bolak = matn.read(1024 * 1024)
+                if not bolak:
+                    break
+                maqsad.write(bolak.encode("utf-8"))
+    matn.close()
+    bufer.seek(0)
+    return bufer, f"backup_{datetime.now().strftime('%Y-%m-%d_%H%M')}.zip"
+
+
 class BackupYuklabOlishView(APIView):
     """GET — butun bazani (yuqoridagi ro'yxatdan tashqari) JSON'ga olib,
     ZIP qilib, browserga to'g'ridan-to'g'ri yuklab beradi. Faqat owner."""
@@ -82,27 +119,8 @@ class BackupYuklabOlishView(APIView):
     def get(self, request):
         if not owner_mi(request.user):
             return Response({"detail": "Faqat owner uchun"}, status=403)
-
-        buffer = io.StringIO()
-        call_command(
-            "dumpdata",
-            *[f"--exclude={a}" for a in CHIQARIB_TASHLANADIGAN_APPLAR],
-            natural_foreign=True,
-            natural_primary=True,
-            indent=2,
-            stdout=buffer,
-        )
-
-        vaqt_belgisi = datetime.now().strftime("%Y-%m-%d_%H%M")
-        fayl_nomi = f"backup_{vaqt_belgisi}.zip"
-
-        zip_buffer = io.BytesIO()
-        with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as z:
-            z.writestr("baza.json", buffer.getvalue())
-        zip_buffer.seek(0)
-
-        javob = FileResponse(zip_buffer, as_attachment=True, filename=fayl_nomi)
-        return javob
+        bufer, fayl_nomi = baza_zip_yasa()
+        return FileResponse(bufer, as_attachment=True, filename=fayl_nomi)
 
 
 class BackupdanTiklashView(APIView):

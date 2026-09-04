@@ -91,6 +91,10 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'accounts.middleware.OwnerYozishCheklashMiddleware',
+    # Avtomatik kunlik zaxira uchun turtki (2026-09-03) — cron o'rniga
+    # so'rov paytida tekshiriladi, ish fon oqimida bajariladi
+    # (`accounts/zaxira.py` izohiga qara).
+    'accounts.middleware.ZaxiraTekshiruvMiddleware',
 ]
 
 CORS_ALLOWED_ORIGINS = config(

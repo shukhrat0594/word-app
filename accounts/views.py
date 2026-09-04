@@ -1,3 +1,5 @@
+import datetime
+
 from django.conf import settings
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
@@ -303,6 +305,10 @@ def _markaz_sozlama_dict(m):
         # to'ldirilmaganini ham ko'rsatishi kerak. Pastki panelda esa faqat
         # to'ldirilganlari chiqadi (`ijtimoiy_havolalar`).
         "ijtimoiy": {k: getattr(m, k) for k, _ in Markaz.IJTIMOIY_MAYDONLAR},
+        # Avtomatik zaxira sozlamalari (2026-09-03) — `accounts/zaxira.py`
+        "zaxira_avtomatik": m.zaxira_avtomatik,
+        "zaxira_vaqti": m.zaxira_vaqti.strftime("%H:%M") if m.zaxira_vaqti else None,
+        "zaxira_saqlash_kuni": m.zaxira_saqlash_kuni,
     }
 
 
@@ -418,6 +424,36 @@ class MarkazSozlamaView(APIView):
         if logo:
             m.logo = logo
             logo_ozgardimi = True
+
+        # Avtomatik zaxira sozlamalari (2026-09-03) — FAQAT owner
+        # o'zgartiradi: bu markaz brendingi emas, server ma'muriyati.
+        eski_zaxira = {
+            "zaxira_avtomatik": "ha" if m.zaxira_avtomatik else "yo'q",
+            "zaxira_vaqti": m.zaxira_vaqti.strftime("%H:%M") if m.zaxira_vaqti else "—",
+            "zaxira_saqlash_kuni": m.zaxira_saqlash_kuni,
+        }
+        if owner_mi(request.user):
+            if "zaxira_avtomatik" in request.data:
+                m.zaxira_avtomatik = str(request.data.get("zaxira_avtomatik")).lower() in (
+                    "1", "true", "ha", "on",
+                )
+            if "zaxira_vaqti" in request.data:
+                xom = (request.data.get("zaxira_vaqti") or "").strip()
+                try:
+                    soat, daqiqa = (int(x) for x in xom.split(":")[:2])
+                    m.zaxira_vaqti = datetime.time(soat, daqiqa)
+                except (ValueError, TypeError):
+                    return Response(
+                        {"detail": "Zaxira vaqti SS:DD ko'rinishida bo'lishi kerak"}, status=400
+                    )
+            if "zaxira_saqlash_kuni" in request.data:
+                try:
+                    kun = int(request.data.get("zaxira_saqlash_kuni"))
+                except (ValueError, TypeError):
+                    return Response({"detail": "Saqlash kuni butun son bo'lishi kerak"}, status=400)
+                if not 1 <= kun <= 365:
+                    return Response({"detail": "Saqlash kuni 1 dan 365 gacha"}, status=400)
+                m.zaxira_saqlash_kuni = kun
         m.save()
         ozgarishlar = maydon_diff(
             {"name": eski_nom, "brend_rang": eski_rang},
@@ -426,6 +462,11 @@ class MarkazSozlamaView(APIView):
         if logo_ozgardimi:
             ozgarishlar["logo"] = {"eski": "—", "yangi": "yangilandi"}
         ozgarishlar.update(maydon_diff(ijtimoiy_eski, ijtimoiy_yangi))
+        ozgarishlar.update(maydon_diff(eski_zaxira, {
+            "zaxira_avtomatik": "ha" if m.zaxira_avtomatik else "yo'q",
+            "zaxira_vaqti": m.zaxira_vaqti.strftime("%H:%M") if m.zaxira_vaqti else "—",
+            "zaxira_saqlash_kuni": m.zaxira_saqlash_kuni,
+        }))
         if ozgarishlar:
             logla(
                 foydalanuvchi=request.user,

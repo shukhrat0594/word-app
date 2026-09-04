@@ -1,5 +1,7 @@
 from django.conf import settings
 from django.contrib.auth.models import AbstractUser
+import datetime
+
 from django.db import models
 
 
@@ -35,6 +37,25 @@ class Markaz(models.Model):
     # rejimida ishlagani uchun bu amalda "butun sayt" darajasidagi
     # bayroq (`accounts.backup_views.SaytHolatiView`).
     kirish_cheklangan = models.BooleanField(default=False)
+
+    # ── Avtomatik zaxira (2026-09-03, foydalanuvchi talabi: "har kuni
+    # beckup olishni qo'shamiz, vaqt belgilab qo'yamiz, R2 ga har kuni
+    # shu vaqtda beckup olib qo'yadi") ──────────────────────────────
+    # Qamrov ATAYLAB faqat BAZA — media (audio/rasm) R2'da turadi va
+    # bazada faqat YO'L saqlanadi, ya'ni baza tiklansa fayllar joyida
+    # qoladi (`backup_views.py` boshidagi izohga qara). Media uchun
+    # alohida "To'liq zaxira" rejada.
+    zaxira_avtomatik = models.BooleanField(
+        default=False, help_text="Har kuni belgilangan vaqtda baza zaxirasi olinsinmi"
+    )
+    zaxira_vaqti = models.TimeField(
+        default=datetime.time(3, 0),
+        help_text="Mahalliy vaqt (Asia/Tashkent) — shu vaqtdan keyingi birinchi so'rovda olinadi",
+    )
+    zaxira_saqlash_kuni = models.PositiveSmallIntegerField(
+        default=7,
+        help_text="Zaxira R2'da shuncha kun saqlanadi; muddati o'tgani o'chiriladi (eng oxirgisi har doim qoladi)",
+    )
 
     # Ijtimoiy tarmoqlar (2026-07-27) — saytning pastki panelida ko'rsatiladi.
     # Bo'sh qoldirilgani ko'rsatilmaydi, ya'ni markaz faqat o'zida bor
@@ -251,3 +272,45 @@ class Bildirishnoma(models.Model):
 
     def __str__(self):
         return f"{self.foydalanuvchi.username} — {self.sarlavha}"
+
+
+class Zaxira(models.Model):
+    """Avtomatik (yoki qo'lda) olingan baza zaxirasi — fayl R2'da turadi
+    (2026-09-03).
+
+    Fayl `FileField`da saqlangani uchun standart storage'ga tushadi: R2
+    sozlangan bo'lsa R2'ga, aks holda lokal diskka — ya'ni lokal ishlab
+    chiqishda ham hech qanday qo'shimcha sozlash kerak emas.
+
+    `sana` — zaxira olingan MAHALLIY kun. `unique_together` bilan bitta
+    markazda bir kunda bitta avtomatik zaxira kafolatlanadi: bir necha
+    so'rov bir vaqtda "bugungisi yo'q" deb topsa ham, ikkinchisi bazada
+    to'qnashadi va tashlab ketiladi (alohida qulf mexanizmi kerak emas).
+
+    `yuklab_olindi` — owner o'z kompyuteriga tushirdimi. Tepadagi doimiy
+    tasma AYNAN shu maydonga qaraydi: yuklab olinmagan zaxira bo'lsa
+    tasma turadi, yuklab olinsa yo'qoladi (foydalanuvchi talabi:
+    "odatiy xabar chiqadigan joyda emas, alohida joy").
+    """
+
+    class Turi(models.TextChoices):
+        AVTOMATIK = "avtomatik", "Avtomatik"
+        QOLDA = "qolda", "Qo'lda"
+
+    markaz = models.ForeignKey(Markaz, on_delete=models.CASCADE, related_name="zaxiralar")
+    sana = models.DateField()
+    turi = models.CharField(max_length=10, choices=Turi.choices, default=Turi.AVTOMATIK)
+    fayl = models.FileField(upload_to="zaxiralar/", blank=True)
+    hajm = models.PositiveBigIntegerField(default=0, help_text="Bayt")
+    xato = models.TextField(blank=True, help_text="Zaxira olinmasa — sababi")
+    yuklab_olindi = models.BooleanField(default=False)
+    yuklab_olingan_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-sana", "-id"]
+        unique_together = [("markaz", "sana", "turi")]
+        verbose_name_plural = "Zaxiralar"
+
+    def __str__(self):
+        return f"{self.markaz.name} — {self.sana} ({self.turi})"

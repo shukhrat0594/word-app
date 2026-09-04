@@ -21,6 +21,7 @@ from django.views.static import serve as media_serve
 from rest_framework_simplejwt.views import TokenRefreshView
 
 from accounts.backup_views import BackupdanTiklashView, BackupYuklabOlishView
+from accounts.zaxira_views import ZaxiraHolatView, ZaxiralarView, ZaxiraYuklabOlishView
 from accounts.views import (
     BildirishnomalarView,
     FoydalanuvchilarView,
@@ -87,6 +88,10 @@ urlpatterns = [
     path('api/sayt-holati/', SaytHolatiView.as_view(), name='sayt_holati'),
     path('api/backup/yuklab-olish/', BackupYuklabOlishView.as_view(), name='backup_yuklab_olish'),
     path('api/backup/tiklash/', BackupdanTiklashView.as_view(), name='backup_tiklash'),
+    # Avtomatik zaxiralar (2026-09-03) — R2'da saqlanadigan kunlik nusxalar.
+    path('api/zaxiralar/', ZaxiralarView.as_view(), name='zaxiralar'),
+    path('api/zaxiralar/holat/', ZaxiraHolatView.as_view(), name='zaxira_holat'),
+    path('api/zaxiralar/<int:pk>/yuklab-olish/', ZaxiraYuklabOlishView.as_view(), name='zaxira_yuklab_olish'),
     # Ochiq — login talab qilinmaydi (pastki panel har sahifada, jumladan
     # kirish ekranida ham ko'rinadi).
     path('api/ijtimoiy/', IjtimoiyHavolalarView.as_view(), name='ijtimoiy_havolalar'),
