@@ -30,10 +30,46 @@ maydon modelda emas, faqat shu so'rov uchun Python ob'ektida). Frontend
 va `KorishRejimiView` shu belgiga qaraydi — `owner_mi()`/`is_superuser`
 emas (ular simulyatsiya paytida ATAYLAB yolg'on qaytaradi)."""
 
+import time
+import threading
+
+from django.utils import timezone
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from .models import Markaz, User
+
+# ── "Oxirgi faollik" (2026-09-03) ─────────────────────────────────────
+# NEGA MIDDLEWARE EMAS: middleware'da `request.user` hali mavjud
+# emas, JWT'ni QAYTA hal qilish kerak bo'lardi — bu har so'rovda
+# qo'shimcha token dekodi VA foydalanuvchi so'rovi. Bu yer esa
+# autentifikatsiya bosqichi: foydalanuvchi allaqachon qo'lda, ya'ni
+# qo'shimcha xarajat faqat bitta kichik UPDATE.
+#
+# Va u ham har so'rovda emas: har foydalanuvchi uchun DAQIQADA BIR
+# MARTA. Jarayon qayta ishga tushsa hisoblagich nolga qaytadi — bu
+# muammo emas, shunchaki bitta qo'shimcha UPDATE.
+FAOLLIK_ORALIGI_SEK = 60
+_faollik_vaqti = {}
+_faollik_qulfi = threading.Lock()
+
+
+def faollikni_belgila(user):
+    """Foydalanuvchining `oxirgi_faollik` maydonini yangilaydi (daqiqada
+    bir martadan ko'p emas). `update` ishlatiladi — `save()` emas:
+    "Ko'rish rejimi" simulyatsiyasida `request.user` ustidagi soxta
+    rol bazaga yozilib qolmasin (shu fayl boshidagi xavfsizlik
+    qoidasiga qara)."""
+    hozir = time.monotonic()
+    with _faollik_qulfi:
+        oxirgi = _faollik_vaqti.get(user.pk, 0)
+        if hozir - oxirgi < FAOLLIK_ORALIGI_SEK:
+            return
+        _faollik_vaqti[user.pk] = hozir
+    try:
+        User.objects.filter(pk=user.pk).update(oxirgi_faollik=timezone.now())
+    except Exception:  # noqa: BLE001 — faollik yozuvi hech qachon so'rovni buzmasin
+        pass
 
 
 def asl_owner_mi(user):
@@ -55,6 +91,7 @@ class KorishRejimliJWTAuthentication(JWTAuthentication):
         if natija is None:
             return None
         user, token = natija
+        faollikni_belgila(user)
 
         if not user.is_superuser:
             # 2026-08-15: "Kirish cheklovi" — owner'dan boshqa hamma

@@ -198,6 +198,16 @@ class User(AbstractUser):
             "`XodimLoginView`/`QurilmaTiklashView`ga qarang."
         ),
     )
+    # 2026-09-03, foydalanuvchi talabi ("Aktiv foydalanuvchilar" bo'limi):
+    # kim hozir saytda va kimning seansi QOLIB KETGAN — shuni ajratish
+    # uchun. Yangilanish autentifikatsiya bosqichida bo'ladi
+    # (`accounts/authentication.py`) va DAQIQADA BIR MARTADAN ko'p emas,
+    # ya'ni har so'rovda yozuv ketmaydi.
+    oxirgi_faollik = models.DateTimeField(
+        null=True, blank=True,
+        help_text="Oxirgi API so'rovi vaqti — 'Aktiv foydalanuvchilar' ro'yxati uchun",
+    )
+
     qurilma_limiti = models.PositiveSmallIntegerField(
         default=1,
         help_text=(

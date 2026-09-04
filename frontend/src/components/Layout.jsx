@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
-import { api, mediaManzil, tokenlarniTozala } from "../api";
+import { api, mediaManzil, serverdaChiqish, tokenlarniTozala } from "../api";
 import { useI18n } from "../i18n";
 import { useProfil } from "../profilContext";
 import { useTestRejimi } from "../testRejimiContext";
@@ -446,7 +446,11 @@ export default function Layout() {
     setChiqishTasdiqOchiq(true);
   }
 
-  function chiqishniTasdiqla() {
+  async function chiqishniTasdiqla() {
+    // Avval serverga aytamiz (kalit bekor qilinadi), keyin mahalliy
+    // tozalash. Server so'rovi muvaffaqiyatsiz bo'lsa ham chiqish
+    // davom etadi — `serverdaChiqish` xatoni o'zi yutadi.
+    await serverdaChiqish();
     tokenlarniTozala();
     navigate("/login");
   }

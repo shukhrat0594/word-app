@@ -75,7 +75,13 @@ REST_FRAMEWORK = {
 
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=30),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    # 2026-09-03, foydalanuvchi qarori: 7 kun -> 1 kun. Bu IDLE
+    # muddat — kalit har yangilanishda (30 daqiqada) qaytadan
+    # 1 kunga cho'ziladi, ya'ni saytda ishlab turgan odam
+    # chiqarib yuborilmaydi. Saytga bir kun kirmasa esa qaytadan
+    # login qiladi va "qolib ketgan" seans bir kunda o'zi
+    # tozalanadi (avval bir hafta ko'rinib turardi).
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,
 }

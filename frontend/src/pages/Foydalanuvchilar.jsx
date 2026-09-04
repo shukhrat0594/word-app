@@ -331,6 +331,107 @@ export function PanelTanlovi({ user, saqlash, t }) {
   );
 }
 
+/** "Aktiv foydalanuvchilar" — hozir ochiq seansi bor odamlar
+ * (2026-09-03, foydalanuvchi talabi). Faqat owner ko'radi.
+ *
+ * SEANS = server tomonda amaldagi kalit. Muhim farq: bu "hozir saytda
+ * turgan" degani EMAS. Shuning uchun `oxirgi_faollik` ham ko'rsatiladi —
+ * seans ochiq, lekin odam uzoq ko'rinmagan bo'lsa, bu QOLIB KETGAN
+ * seans va uni yopish mumkin.
+ */
+function AktivFoydalanuvchilar({ t }) {
+  const [royxat, setRoyxat] = useState(null);
+  const [band, setBand] = useState(false);
+  const [xato, setXato] = useState("");
+
+  function yukla() {
+    return api("/api/aktiv-foydalanuvchilar/")
+      .then(setRoyxat)
+      .catch((e) => {
+        // Owner bo'lmasa 403 — bo'lim shunchaki ko'rsatilmaydi.
+        if (e.status !== 403) setXato(e.data?.detail || t("xato_yuz_berdi"));
+        setRoyxat([]);
+      });
+  }
+
+  useEffect(() => {
+    yukla();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function seansniYop(q) {
+    if (!window.confirm(t("seans_yopish_tasdiq"))) return;
+    setXato("");
+    setBand(true);
+    try {
+      await api(`/api/aktiv-foydalanuvchilar/${q.id}/seansni-yop/`, { method: "POST", body: {} });
+      await yukla();
+    } catch (e) {
+      setXato(e.data?.detail || t("xato_yuz_berdi"));
+    } finally {
+      setBand(false);
+    }
+  }
+
+  /** "2 daqiqa oldin" ko'rinishidagi matn + qolib ketganini belgilash. */
+  function faollikMatni(vaqt) {
+    if (!vaqt) return { matn: t("seans_hech_qachon"), eski: true };
+    const sekund = Math.max(0, (Date.now() - new Date(vaqt).getTime()) / 1000);
+    if (sekund < 120) return { matn: t("seans_hozir"), eski: false };
+    if (sekund < 3600) return { matn: `${Math.round(sekund / 60)} ${t("seans_daqiqa_oldin")}`, eski: false };
+    if (sekund < 86400) return { matn: `${Math.round(sekund / 3600)} ${t("seans_soat_oldin")}`, eski: false };
+    return { matn: `${Math.round(sekund / 86400)} ${t("seans_kun_oldin")}`, eski: true };
+  }
+
+  if (!royxat || royxat.length === 0) return null;
+
+  return (
+    <div className="karta">
+      <h3>{t("seans_sarlavha")}</h3>
+      <p className="izoh">{t("seans_izoh")}</p>
+      <div style={{ display: "grid", gap: 6, marginTop: 4 }}>
+        {royxat.map((q) => {
+          const f = faollikMatni(q.oxirgi_faollik);
+          return (
+            <div
+              key={q.id}
+              style={{
+                display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap",
+                borderTop: "1px solid var(--chiziq)", paddingTop: 6,
+              }}
+            >
+              <strong style={{ minWidth: 150 }}>{q.ism}</strong>
+              <span className="izoh" style={{ minWidth: 110 }}>{q.login}</span>
+              <span className="izoh" style={{ minWidth: 70 }}>{t(`rol_${q.rol}`)}</span>
+              <span className={f.eski ? "xato-xabar" : "izoh"} style={{ minWidth: 120 }}>
+                {f.eski ? "⚠ " : ""}{f.matn}
+              </span>
+              <span className="izoh">
+                {q.seans_soni} {t("seans_soni")}
+              </span>
+              {q.ozim ? (
+                <span className="izoh">{t("seans_ozim")}</span>
+              ) : (
+                <button
+                  type="button"
+                  className="tugma ikkinchi kichik"
+                  style={{ color: "#d33" }}
+                  disabled={band}
+                  onClick={() => seansniYop(q)}
+                >
+                  {t("seans_yopish")}
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      <div className="izoh" style={{ marginTop: 10 }}>{t("seans_kechikish_izoh")}</div>
+      {xato && <div className="xato-xabar">{xato}</div>}
+    </div>
+  );
+}
+
 export default function Foydalanuvchilar() {
   const { t } = useI18n();
   const { profil } = useProfil();
@@ -459,6 +560,8 @@ export default function Foydalanuvchilar() {
   if (!royxat) return <div className="yuklanmoqda">{t("yuklanmoqda")}</div>;
 
   return (
+    <div style={{ display: "grid", gap: 20 }}>
+    <AktivFoydalanuvchilar t={t} />
     <div className="karta">
       <h3>{t("nav_foydalanuvchilar")}</h3>
 
@@ -572,6 +675,7 @@ export default function Foydalanuvchilar() {
           </div>
         ))}
       </div>
+    </div>
     </div>
   );
 }

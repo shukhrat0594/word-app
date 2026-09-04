@@ -30,6 +30,31 @@ export function tokenlarniTozala() {
   localStorage.removeItem("refresh");
 }
 
+/** Serverga "chiqdim" deb aytadi — refresh kalit DARHOL bekor qilinadi.
+ *
+ * 2026-09-03, foydalanuvchi topib bergan muammo: avval "Chiqish" faqat
+ * shu brauzerdagi kalitlarni tozalardi, server esa bilmasdi va kalit
+ * o'z muddatigacha AMALDA qolardi ("qolib ketgan seans").
+ *
+ * Natija KUTILMAYDI va xato YUTILADI: chiqib ketishga hech narsa
+ * to'sqinlik qilmasligi kerak — so'rov muvaffaqiyatsiz bo'lsa ham
+ * mahalliy tozalash baribir bajariladi. Server tomonda esa kalit
+ * eng ko'p bir kunda o'zi eskiradi. */
+export async function serverdaChiqish() {
+  const refresh = localStorage.getItem("refresh");
+  const access = tokenOl();
+  if (!access) return;
+  try {
+    await fetch(apiManzil("/api/chiqish/"), {
+      method: "POST",
+      headers: { Authorization: `Bearer ${access}`, "Content-Type": "application/json" },
+      body: JSON.stringify(refresh ? { refresh } : {}),
+    });
+  } catch {
+    // sokin — chiqish baribir davom etadi
+  }
+}
+
 // 2026-08-12: hisobni boshqalar bilan bo'lishmaslik uchun — har login
 // so'roviga shu brauzerga xos tasodifiy ID qo'shib yuboriladi
 // (backend: `accounts/views.py: XodimLoginView`/`_qurilma_tekshir`).
