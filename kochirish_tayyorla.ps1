@@ -89,6 +89,57 @@ Write-Host ""
 Write-Host "  Nusxalash tugadi ($([int]$vaqt.TotalMinutes) daqiqa)." -ForegroundColor Green
 Write-Host ""
 
+# ── Bazani XAVFSIZ qayta nusxalash ───────────────────────────────────
+# db.sqlite3 WAL rejimida: so'nggi yozuvlar asosiy faylda EMAS, yonidagi
+# `-wal` faylida turadi. Robocopy ikkalasini turli lahzalarda nusxalashi
+# mumkin - natijada chala yoki buzuq baza. SQLite'ning o'z `backup()`
+# API'si esa tranzaksiyalarni hisobga oladi va server ishlab turganda
+# ham BUTUN, izchil nusxa beradi. Shuning uchun robocopy nusxasini shu
+# yerda ustidan yozamiz.
+$Py = Join-Path $Manba "venv\Scripts\python.exe"
+$dbManba = Join-Path $Manba "db.sqlite3"
+$dbManzil = Join-Path $Manzil "db.sqlite3"
+
+if ((Test-Path $Py) -and (Test-Path $dbManba)) {
+    Write-Host "  Baza xavfsiz nusxalanmoqda (SQLite backup API)..." -ForegroundColor Cyan
+    $kodPy = @"
+import sqlite3, sys
+manba, manzil = sys.argv[1], sys.argv[2]
+src = sqlite3.connect(f'file:{manba}?mode=ro', uri=True)
+dst = sqlite3.connect(manzil)
+with dst:
+    src.backup(dst)
+natija = dst.execute('PRAGMA integrity_check').fetchone()[0]
+jadval = dst.execute("SELECT count(*) FROM sqlite_master WHERE type='table'").fetchone()[0]
+src.close(); dst.close()
+print(f'{natija}|{jadval}')
+"@
+    $vaqtinchalik = Join-Path $env:TEMP "lms_db_backup.py"
+    [System.IO.File]::WriteAllText($vaqtinchalik, $kodPy, [System.Text.UTF8Encoding]::new($false))
+    $javob = & $Py $vaqtinchalik $dbManba $dbManzil 2>&1
+    Remove-Item $vaqtinchalik -ErrorAction SilentlyContinue
+
+    if ($LASTEXITCODE -eq 0 -and $javob -match "^ok\|(\d+)$") {
+        Write-Host "     [OK]   Baza butun - integrity_check ok, $($Matches[1]) ta jadval" -ForegroundColor Green
+    } else {
+        Write-Host "     [XATO] Baza nusxalanmadi: $javob" -ForegroundColor Red
+        Write-Host "            Serverlarni to'xtatib, qaytadan urinib ko'ring." -ForegroundColor Red
+        exit 1
+    }
+    # `-wal`/`-shm` ESKI mashinaning ish fayllari - yangi nusxada
+    # kerak emas va faqat chalkashtiradi (backup ularni asosiy faylga
+    # allaqachon singdirdi).
+    foreach ($q in "db.sqlite3-wal", "db.sqlite3-shm") {
+        $y = Join-Path $Manzil $q
+        if (Test-Path $y) { Remove-Item $y -Force }
+    }
+    Write-Host ""
+} elseif (Test-Path $dbManba) {
+    Write-Host "  DIQQAT: venv topilmadi, baza oddiy nusxalandi." -ForegroundColor Yellow
+    Write-Host "          Serverlar ishlab turgan bo'lsa baza chala bo'lishi mumkin." -ForegroundColor Yellow
+    Write-Host ""
+}
+
 # ── Tekshiruv: eng muhim, git'da YO'Q narsalar joyidami ──────────────
 Write-Host "  Tekshiruv:"
 $xato = $false
