@@ -6,7 +6,10 @@ import BlokTasdiqlash from "../components/BlokTasdiqlash";
 import {
   FlashcardOyini,
   JuftiniTopOyini,
+  ruchaBormi,
   SpeedQuizOyini,
+  tarjimaTiliQoyilgan,
+  TarjimaTiliTanlovi,
   TugunlarOyini,
   UnscrambleOyini,
 } from "../components/SozOyinlari";
@@ -1442,7 +1445,15 @@ function MashqPaneli({ tugunId, talabaMi, oqituvchiMi, jsonKiritishKorinadi = tr
  * Tekshirish MIJOZ tomonida (backend so'rovi shart emas) — chunki `uz`
  * tarjimasi allaqachon `/sozlar/` javobida keladi (o'yinlar ham xuddi
  * shu ma'lumotdan foydalanadi), shuning uchun bu yerda yashirishning
- * ma'nosi yo'q. */
+ * ma'nosi yo'q.
+ *
+ * 2026-09-05: ruscha tarjima qo'shildi. Talaba `uz` YOKI `ru` — qaysi
+ * tilda yozsa ham to'g'ri hisoblanadi: LMS'da o'zbek tilida ham, rus
+ * tilida ham o'ylaydigan talabalar bor, kim qaysi tilni yaxshi bilsa
+ * o'sha tilda javob beradi. Interfeys tiliga bog'lab qo'yish noto'g'ri
+ * bo'lardi — ruscha interfeysdagi o'zbek talaba bilib turib xato
+ * olardi. `ru` bo'sh bo'lsa (hali tarjima qilinmagan) faqat `uz`
+ * tekshiriladi. */
 function SozlarniYozishMashqi({ sozlar }) {
   const { t } = useI18n();
   const [javoblar, setJavoblar] = useState(() => sozlar.map(() => ""));
@@ -1453,7 +1464,17 @@ function SozlarniYozishMashqi({ sozlar }) {
   }
 
   function togriMi(i) {
-    return javoblar[i].trim().toLowerCase() === sozlar[i].uz.trim().toLowerCase();
+    const javob = javoblar[i].trim().toLowerCase();
+    const s = sozlar[i];
+    if (javob && s.ru && javob === s.ru.trim().toLowerCase()) return true;
+    return javob === s.uz.trim().toLowerCase();
+  }
+
+  /** Xato holatda ko'rsatiladigan to'g'ri javob — ikkala til ham
+   * bo'lsa "aeroport / аэропорт". */
+  function togriJavobMatni(i) {
+    const s = sozlar[i];
+    return s.ru ? `${s.uz} / ${s.ru}` : s.uz;
   }
 
   return (
@@ -1470,7 +1491,7 @@ function SozlarniYozishMashqi({ sozlar }) {
           />
           {tekshirilganmi && (
             <span style={togriMi(i) ? { color: "var(--yaxshi)" } : { color: "var(--xato)" }}>
-              {togriMi(i) ? "✓" : `✗ ${s.uz}`}
+              {togriMi(i) ? "✓" : `✗ ${togriJavobMatni(i)}`}
             </span>
           )}
         </div>
@@ -1487,21 +1508,67 @@ function SozlarniYozishMashqi({ sozlar }) {
  * tarjima yozib mashq qilish. O'yinlar 2026-08-21'dan buyon BU YERDA
  * emas, Unit'ning alohida "Games" bo'limida (`GamesKorinishi`) — shu
  * Unit'ning aynan shu so'zlaridan foydalanadi. */
-function VocabularyKorinishi({ tugunId, matn }) {
+function VocabularyKorinishi({ tugunId, matn, adminMi }) {
   const { t } = useI18n();
   const [sozlar, setSozlar] = useState(null);
+  const [tarjimaBand, setTarjimaBand] = useState(false);
+  const [tarjimaXabar, setTarjimaXabar] = useState("");
 
   useEffect(() => {
     api(`/api/kurslar/${tugunId}/sozlar/`).then(setSozlar).catch(() => setSozlar([]));
   }, [tugunId]);
 
+  /** 2026-09-05, foydalanuvchi talabi — Gemini bilan ruscha tarjima.
+   * Faqat `ru` bo'sh so'zlar tarjima qilinadi (backend shunday
+   * filtrlaydi), shuning uchun tugmani qayta bosish bekorga pul
+   * sarflamaydi. */
+  async function rusTarjimaQil() {
+    setTarjimaBand(true);
+    setTarjimaXabar("");
+    try {
+      const javob = await api(`/api/kurslar/${tugunId}/sozlar/ru-tarjima/`, { method: "POST" });
+      setTarjimaXabar(
+        javob.qolgan
+          ? `${t("kurs_ru_tarjima_tayyor")}: ${javob.tarjima_qilindi} — ${t("kurs_ru_tarjima_qolgan")}: ${javob.qolgan}`
+          : `${t("kurs_ru_tarjima_tayyor")}: ${javob.tarjima_qilindi}`,
+      );
+      setSozlar(await api(`/api/kurslar/${tugunId}/sozlar/`));
+    } catch (e) {
+      setTarjimaXabar(e?.message || t("kurs_ru_tarjima_xato"));
+    } finally {
+      setTarjimaBand(false);
+    }
+  }
+
   if (!sozlar) return <div className="izoh">{t("yuklanmoqda")}</div>;
+
+  const tarjimasizSoni = sozlar.filter((s) => !s.ru).length;
 
   return (
     <div>
       {matn && (
         <div className="mashq-passage" style={{ whiteSpace: "pre-wrap", marginBottom: 12 }}>
           {matn}
+        </div>
+      )}
+      {adminMi && sozlar.length > 0 && (
+        <div style={{ marginBottom: 10 }}>
+          <button
+            className="tugma ikkinchi"
+            onClick={rusTarjimaQil}
+            disabled={tarjimaBand || tarjimasizSoni === 0}
+          >
+            {tarjimaBand
+              ? t("kurs_ru_tarjima_band")
+              : tarjimasizSoni === 0
+                ? t("kurs_ru_tarjima_hammasi")
+                : `${t("kurs_ru_tarjima")} (${tarjimasizSoni})`}
+          </button>
+          {tarjimaXabar && (
+            <span className="izoh" style={{ marginLeft: 8 }}>
+              {tarjimaXabar}
+            </span>
+          )}
         </div>
       )}
       {sozlar.length === 0 ? (
@@ -1526,6 +1593,11 @@ function GamesKorinishi({ vocabTugunId }) {
   // 2026-08-21, foydalanuvchi talabi: "faqat shu Unit" / "barcha
   // Unitlar" (bu Unit + undan OLDINGI Unitlar) vklyuchateli.
   const [jamlanganMi, setJamlanganMi] = useState(false);
+  // 2026-09-05, foydalanuvchi talabi — o'yinlarda tarjima tilini
+  // TALABA tanlaydi (uz/ru). Tanlov `localStorage`da saqlanmaydi:
+  // Unit'lar turli darajada tarjima qilingan bo'lishi mumkin, shuning
+  // uchun har kirganda mavjud ma'lumotga qarab boshlanadi.
+  const [tarjimaTili, setTarjimaTili] = useState("uz");
 
   useEffect(() => {
     if (!vocabTugunId) {
@@ -1538,6 +1610,8 @@ function GamesKorinishi({ vocabTugunId }) {
   }, [vocabTugunId, jamlanganMi]);
 
   if (!sozlar) return <div className="izoh">{t("yuklanmoqda")}</div>;
+
+  const oyinSozlari = tarjimaTiliQoyilgan(sozlar, tarjimaTili);
 
   if (oyin) {
     // `key={oyinKey}` — "qayta o'ynash" bosilganda komponent qayta
@@ -1553,8 +1627,8 @@ function GamesKorinishi({ vocabTugunId }) {
     }[oyin];
     return (
       <Komponent
-        key={oyinKey}
-        sozlar={sozlar}
+        key={`${oyinKey}-${tarjimaTili}`}
+        sozlar={oyinSozlari}
         t={t}
         onQaytaOynash={qaytaOynash}
         onBoshqaDaraja={orqaga}
@@ -1572,6 +1646,9 @@ function GamesKorinishi({ vocabTugunId }) {
           {t("kurs_games_barcha_unit")}
         </button>
       </div>
+      {ruchaBormi(sozlar) && (
+        <TarjimaTiliTanlovi til={tarjimaTili} onTil={setTarjimaTili} />
+      )}
       {sozlar.length === 0 ? (
         <div className="izoh">{t("kurs_wordlist_yoq")}</div>
       ) : (
@@ -2061,7 +2138,7 @@ function Tugun({ tugun, chuqurlik, adminMi, talabaMi, oqituvchiMi, royxatniYangi
               ko'rsatadi, kontent esa doim kichik sobit chetdan boshlanadi. */}
           {mashqOchiq && (
             <div style={{ paddingLeft: 14 }}>
-              <VocabularyKorinishi tugunId={tugun.id} matn={tugun.matn} />
+              <VocabularyKorinishi tugunId={tugun.id} matn={tugun.matn} adminMi={adminMi} />
             </div>
           )}
         </div>

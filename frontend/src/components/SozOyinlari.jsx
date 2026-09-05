@@ -26,6 +26,37 @@ function YopishTugmasi({ onBoshqaDaraja, t }) {
   );
 }
 
+/** Tarjima tilini tanlash (2026-09-05, foydalanuvchi talabi — "o'yinlarda
+ * talaba tanlasin"). O'yinlarning O'ZIGA tegmaymiz: ular `s.uz` maydonini
+ * o'qiydi, shuning uchun tanlangan til shu maydonga KO'CHIRIB beriladi.
+ * Shu bir nuqta tufayli to'rtala o'yin ham avtomatik ruschaga o'tadi.
+ *
+ * `ru` bo'sh so'zda `uz` qoladi — yarim tarjima qilingan ro'yxatda ham
+ * o'yin buzilmaydi. */
+export function tarjimaTiliQoyilgan(sozlar, til) {
+  if (til !== "ru") return sozlar;
+  return sozlar.map((s) => (s.ru ? { ...s, uz: s.ru } : s));
+}
+
+/** Ro'yxatda ruscha tarjima bormi — tanlov tugmasi FAQAT shunda
+ * ko'rsatiladi, aks holda hech narsa qilmaydigan tugma chiqib qolardi. */
+export function ruchaBormi(sozlar) {
+  return (sozlar || []).some((s) => s.ru);
+}
+
+export function TarjimaTiliTanlovi({ til, onTil }) {
+  return (
+    <div className="tab-guruh" style={{ marginBottom: 10 }}>
+      <button className={til !== "ru" ? "aktiv" : undefined} onClick={() => onTil("uz")}>
+        UZ
+      </button>
+      <button className={til === "ru" ? "aktiv" : undefined} onClick={() => onTil("ru")}>
+        RU
+      </button>
+    </div>
+  );
+}
+
 export function shuffle(arr) {
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) {

@@ -47,6 +47,7 @@ from .models import (
     KursSoz,
     KursTugun,
 )
+from .soz_tarjima import ruscha_tarjima_qil
 from .unit_qurish import unit_ichki_tuzilmasini_yarat
 
 OTISH_FOIZ = 0.6
@@ -700,8 +701,8 @@ def _tugun_eksport_qil(tugun, zf, fayllar_indeksi, farzandlar=True):
         ],
         "sozlar": [
             {
-                "tartib": s.tartib, "en": s.en, "uz": s.uz, "turkum": s.turkum,
-                "misol": s.misol, "manba": s.manba,
+                "tartib": s.tartib, "en": s.en, "uz": s.uz, "ru": s.ru,
+                "turkum": s.turkum, "misol": s.misol, "manba": s.manba,
             }
             for s in tugun.sozlar.order_by("tartib", "id")
         ],
@@ -719,7 +720,10 @@ def _tugun_eksport_qil(tugun, zf, fayllar_indeksi, farzandlar=True):
             matn_maydoni = "matn" if tugun.kalit == "students_book" else "matn_workbook"
             natija["kitob_vocab_matn"] = getattr(vocab, matn_maydoni)
             natija["kitob_vocab_sozlar"] = [
-                {"tartib": s.tartib, "en": s.en, "uz": s.uz, "turkum": s.turkum, "misol": s.misol}
+                {
+                    "tartib": s.tartib, "en": s.en, "uz": s.uz, "ru": s.ru,
+                    "turkum": s.turkum, "misol": s.misol,
+                }
                 for s in vocab.sozlar.filter(manba=tugun.kalit).order_by("tartib", "id")
             ]
     return natija
@@ -945,7 +949,7 @@ def _tugun_import_qil(daraxt, ota, markaz, zf, toliq=False, ildiz_kalitlari=None
     KursSoz.objects.bulk_create([
         KursSoz(
             tugun=tugun, tartib=s["tartib"], en=s["en"], uz=s["uz"],
-            turkum=s["turkum"], misol=s["misol"],
+            ru=s.get("ru", ""), turkum=s["turkum"], misol=s["misol"],
             manba=s.get("manba", KursSoz.Manba.STUDENTS_BOOK),
         )
         for s in daraxt["sozlar"]
@@ -984,7 +988,8 @@ def _tugun_import_qil(daraxt, ota, markaz, zf, toliq=False, ildiz_kalitlari=None
         KursSoz.objects.bulk_create([
             KursSoz(
                 tugun=vocab, tartib=s["tartib"], en=s["en"], uz=s["uz"],
-                turkum=s.get("turkum", ""), misol=s.get("misol", ""), manba=tugun.kalit,
+                ru=s.get("ru", ""), turkum=s.get("turkum", ""),
+                misol=s.get("misol", ""), manba=tugun.kalit,
             )
             for s in daraxt.get("kitob_vocab_sozlar") or []
         ])
@@ -1429,6 +1434,7 @@ class KursUnitYuklashView(APIView):
                         tartib=boshlangich + i,
                         en=s["en"],
                         uz=s["uz"],
+                        ru=s.get("ru", ""),
                         turkum=s.get("turkum", ""),
                         misol=s.get("misol", ""),
                         manba=manba,
@@ -1589,6 +1595,7 @@ class KursZipYuklashView(APIView):
                             tartib=sozlar_boshlangich + len(yangi_sozlar) + 1,
                             en=s["en"],
                             uz=s["uz"],
+                            ru=s.get("ru", ""),
                             turkum=s.get("turkum", ""),
                             misol=s.get("misol", ""),
                             manba=manba,
@@ -1697,10 +1704,60 @@ class KursSozlarView(APIView):
 
         return Response(
             [
-                {"id": s.id, "en": s.en, "uz": s.uz, "turkum": s.turkum, "misol": s.misol}
+                {
+                    "id": s.id, "en": s.en, "uz": s.uz, "ru": s.ru,
+                    "turkum": s.turkum, "misol": s.misol,
+                }
                 for s in sozlar_qs
             ]
         )
+
+
+class KursSozlarRuTarjimaView(APIView):
+    """Admin/owner uchun — bitta Vocabulary bo'limidagi so'zlarni Gemini
+    yordamida ruscha tarjima qilish (2026-09-05, foydalanuvchi talabi:
+    "vocabulary qismiga tugma qo'sh, Rus tiliga tarjima qilish degan").
+
+    FAQAT `ru` maydoni BO'SH so'zlar tarjima qilinadi — tugma ikkinchi
+    marta bosilsa allaqachon tarjima qilinganlarga qayta pul
+    sarflanmaydi va qo'lda tuzatilgan tarjima ustidan yozilmaydi.
+    Qayta tarjima kerak bo'lsa `?hammasi=1` beriladi."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        if not _mashq_admin_mi(request.user):
+            return Response({"detail": "Faqat admin/owner uchun"}, status=403)
+        tugun = get_object_or_404(KursTugun, pk=pk)
+
+        sozlar_qs = tugun.sozlar.all()
+        if request.query_params.get("hammasi") != "1":
+            sozlar_qs = sozlar_qs.filter(ru="")
+        sozlar = list(sozlar_qs)
+        if not sozlar:
+            return Response({"tarjima_qilindi": 0, "qolgan": 0, "jami": tugun.sozlar.count()})
+
+        try:
+            tarjimalar = ruscha_tarjima_qil(sozlar)
+        except ProviderXatosi as e:
+            return Response({"detail": f"Tarjima xatosi: {e}"}, status=502)
+
+        yangilanadi = []
+        for s in sozlar:
+            ru = tarjimalar.get(s.id)
+            if ru:
+                s.ru = ru
+                yangilanadi.append(s)
+        if yangilanadi:
+            KursSoz.objects.bulk_update(yangilanadi, ["ru"])
+
+        return Response({
+            "tarjima_qilindi": len(yangilanadi),
+            # Model javob bermagan so'zlar — `ru` bo'sh qoldi, tugmani
+            # qayta bosib to'ldirish mumkin.
+            "qolgan": len(sozlar) - len(yangilanadi),
+            "jami": tugun.sozlar.count(),
+        })
 
 
 def _pozitsiyani_tozala(xom):

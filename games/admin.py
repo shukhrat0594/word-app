@@ -5,9 +5,9 @@ from .models import GrammatikaSavoli, Soz
 
 @admin.register(Soz)
 class SozAdmin(admin.ModelAdmin):
-    list_display = ("en", "uz", "daraja", "turkum")
+    list_display = ("en", "uz", "ru", "daraja", "turkum")
     list_filter = ("daraja",)
-    search_fields = ("en", "uz")
+    search_fields = ("en", "uz", "ru")
 
 
 @admin.register(GrammatikaSavoli)

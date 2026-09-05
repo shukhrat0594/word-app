@@ -388,7 +388,10 @@ def _sozlarni_saqla(mashq_tugun, sozlar):
     manba = mashq_tugun.kalit if mashq_tugun.kalit in ("students_book", "workbook") else "students_book"
     boshlangich = vocab_tugun.sozlar.count()
     yangilar = [
-        KursSoz(tugun=vocab_tugun, tartib=boshlangich + i, en=s["en"], uz=s["uz"], manba=manba)
+        KursSoz(
+            tugun=vocab_tugun, tartib=boshlangich + i,
+            en=s["en"], uz=s["uz"], ru=s.get("ru", ""), manba=manba,
+        )
         for i, s in enumerate(sozlar, start=1)
         if s.get("en") and s.get("uz")
     ]

@@ -353,6 +353,17 @@ class KursSoz(models.Model):
     tartib = models.PositiveSmallIntegerField(default=0)
     en = models.CharField(max_length=200)
     uz = models.CharField(max_length=300)
+    ru = models.CharField(
+        max_length=300, blank=True,
+        help_text=(
+            "2026-09-05, foydalanuvchi talabi: ruscha tarjima. Bo'sh "
+            "bo'lishi mumkin — bosqichma-bosqich to'ldiriladi "
+            "(Vocabulary bo'limidagi \"Rus tiliga tarjima qilish\" "
+            "tugmasi, `courses.soz_tarjima`). Bo'sh bo'lsa hamma joyda "
+            "`uz` ishlatiladi, shuning uchun yarim to'ldirilgan holat "
+            "hech narsani buzmaydi."
+        ),
+    )
     turkum = models.CharField(max_length=50, blank=True, help_text="So'z turkumi (ixtiyoriy)")
     misol = models.TextField(blank=True, help_text="Namuna gap (ixtiyoriy)")
     manba = models.CharField(

@@ -41,6 +41,7 @@ class SozlarView(APIView):
                     "id": s.id,
                     "en": s.en,
                     "uz": s.uz,
+                    "ru": s.ru,
                     "turkum": s.turkum,
                     "misol": s.misol,
                 }

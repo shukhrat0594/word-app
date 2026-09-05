@@ -18,6 +18,13 @@ class Soz(models.Model):
 
     en = models.CharField(max_length=200)
     uz = models.CharField(max_length=300)
+    ru = models.CharField(
+        max_length=300, blank=True,
+        help_text=(
+            "2026-09-05: ruscha tarjima. Bo'sh bo'lsa `uz` ishlatiladi "
+            "— qarang `courses.KursSoz.ru`."
+        ),
+    )
     daraja = models.CharField(max_length=10, choices=Daraja.choices)
     turkum = models.CharField(max_length=50, blank=True)
     misol = models.TextField(blank=True)

@@ -108,6 +108,11 @@ urlpatterns = [
         name="kurslar_sozlar",
     ),
     path(
+        "kurslar/<int:pk>/sozlar/ru-tarjima/",
+        views.KursSozlarRuTarjimaView.as_view(),
+        name="kurslar_sozlar_ru_tarjima",
+    ),
+    path(
         "kurslar/<int:pk>/mashqlar/",
         views.KursMashqRoyxatiView.as_view(),
         name="kurslar_mashqlar",
