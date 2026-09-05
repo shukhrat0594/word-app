@@ -1713,6 +1713,53 @@ class KursSozlarView(APIView):
         )
 
 
+class KursSozlarRuTarjimaHolatiView(APIView):
+    """Admin/owner uchun — BUTUN Kurslar bo'ylab qaysi Vocabulary
+    tugunlarida ruscha tarjima yetishmayotganini qaytaradi (2026-09-05,
+    foydalanuvchi talabi: "hammasini birdan tarjima qiladigan tugma").
+
+    Nega alohida endpoint va nega BITTA katta tarjima so'rovi emas:
+    ~5000 so'z bitta HTTP so'roviga sig'maydi (60 talik partiyada ~85
+    ta AI chaqiruvi, taxminan yarim soat) — brauzer ham, server ham
+    kutmaydi. Shuning uchun frontend shu ro'yxatni oladi va MAVJUD
+    bitta-tugun endpointini KETMA-KET chaqiradi: har qadam alohida
+    qisqa so'rov, jarayon ko'rinib turadi, uzilib qolsa qaytadan
+    bosish yetarli (tarjima qilinganlar qayta yuborilmaydi)."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if not _mashq_admin_mi(request.user):
+            return Response({"detail": "Faqat admin/owner uchun"}, status=403)
+
+        sanoq = dict(
+            KursSoz.objects.filter(ru="")
+            .values("tugun_id")
+            .annotate(soni=Count("id"))
+            .values_list("tugun_id", "soni")
+        )
+        if not sanoq:
+            return Response({"tugunlar": [], "jami_tarjimasiz": 0})
+
+        tugunlar = KursTugun.objects.filter(id__in=sanoq).select_related("parent", "parent__parent")
+        natija = []
+        for tg in tugunlar:
+            # Ko'rinadigan yo'l: "Beginner / Unit 3 — All about you".
+            # Vocabulary tugunining o'z nomi ("Vocabulary") foydasiz,
+            # admin qaysi Unit ekanini bilishi kerak.
+            bolaklar = [x.nomi for x in (tg.parent.parent if tg.parent else None, tg.parent) if x]
+            natija.append({
+                "id": tg.id,
+                "yol": " / ".join(bolaklar) or tg.nomi,
+                "tarjimasiz": sanoq[tg.id],
+            })
+        natija.sort(key=lambda x: x["yol"])
+        return Response({
+            "tugunlar": natija,
+            "jami_tarjimasiz": sum(sanoq.values()),
+        })
+
+
 class KursSozlarRuTarjimaView(APIView):
     """Admin/owner uchun — bitta Vocabulary bo'limidagi so'zlarni Gemini
     yordamida ruscha tarjima qilish (2026-09-05, foydalanuvchi talabi:

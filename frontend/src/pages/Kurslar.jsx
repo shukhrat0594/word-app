@@ -2395,6 +2395,77 @@ function Tugun({ tugun, chuqurlik, adminMi, talabaMi, oqituvchiMi, royxatniYangi
  * Unit'lar (masalan darslik bo'limlari) ketma-ket ochiladi — talaba uchun
  * keyingisi oldingisining BARCHA bo'limlaridagi mashqlardan jami 60%+
  * ball olmaguncha qulflangan (🔒) bo'lib ko'rsatiladi. */
+/** Admin/owner uchun — BUTUN Kurslar bo'ylab ruscha tarjimani bir
+ * harakatda to'ldirish (2026-09-05, foydalanuvchi talabi: "hammasini
+ * birdan tarjima qiladigan tugma").
+ *
+ * Bitta katta so'rov EMAS: ~5000 so'z = ~85 ta AI chaqiruvi, yarim
+ * soatlik ish — brauzer ham, server ham bunday so'rovni kutmaydi.
+ * Shuning uchun bu yerda Vocabulary tugunlari KETMA-KET, har biri
+ * alohida qisqa so'rov bilan tarjima qilinadi: jarayon ko'rinib
+ * turadi, "To'xtatish" ishlaydi, uzilib qolsa qaytadan bosish
+ * yetarli (tarjima qilinganlar qayta yuborilmaydi). */
+function HammasiniTarjimaQilish({ onTugadi }) {
+  const { t } = useI18n();
+  const [holat, setHolat] = useState(null);
+  const [band, setBand] = useState(false);
+  const [oqim, setOqim] = useState(null);
+  const toxtatildiRef = useRef(false);
+
+  useEffect(() => {
+    api("/api/kurslar/sozlar/ru-tarjima-holati/").then(setHolat).catch(() => setHolat(null));
+  }, []);
+
+  async function boshla() {
+    setBand(true);
+    toxtatildiRef.current = false;
+    const tugunlar = holat?.tugunlar || [];
+    let tarjimaQilindi = 0;
+    let xatolar = 0;
+    for (let i = 0; i < tugunlar.length; i++) {
+      if (toxtatildiRef.current) break;
+      const tg = tugunlar[i];
+      setOqim({ joriy: i + 1, jami: tugunlar.length, yol: tg.yol, tarjimaQilindi });
+      try {
+        const javob = await api(`/api/kurslar/${tg.id}/sozlar/ru-tarjima/`, { method: "POST" });
+        tarjimaQilindi += javob.tarjima_qilindi || 0;
+      } catch {
+        // Bitta tugun xato bersa (AI vaqtincha javob bermadi va h.k.)
+        // — butun jarayon to'xtamaydi, qolganlari davom etadi. Xato
+        // bergani `ru` bo'sh qoladi, tugmani qayta bosib to'ldiriladi.
+        xatolar += 1;
+      }
+    }
+    setOqim(null);
+    setBand(false);
+    setHolat(await api("/api/kurslar/sozlar/ru-tarjima-holati/").catch(() => holat));
+    onTugadi?.({ tarjimaQilindi, xatolar, toxtatildi: toxtatildiRef.current });
+  }
+
+  if (!holat || !holat.jami_tarjimasiz) return null;
+
+  return (
+    <div style={{ marginBottom: 12 }}>
+      {band ? (
+        <>
+          <button className="tugma ikkinchi" onClick={() => { toxtatildiRef.current = true; }}>
+            {t("kurs_blok_toxtatish")}
+          </button>
+          {oqim && (
+            <span className="izoh" style={{ marginLeft: 8 }}>
+              {oqim.joriy}/{oqim.jami} — {oqim.yol} ({oqim.tarjimaQilindi} {t("kurs_soz")})
+            </span>
+          )}
+        </>
+      ) : (
+        <button className="tugma ikkinchi" onClick={boshla}>
+          {t("kurs_ru_tarjima_hammasini")} ({holat.jami_tarjimasiz} {t("kurs_soz")})
+        </button>
+      )}
+    </div>
+  );
+}
+
 export default function Kurslar() {
   const { t } = useI18n();
   const { profil } = useProfil();
@@ -2409,6 +2480,10 @@ export default function Kurslar() {
   // uchun (qayta yuklashda tanlov o'chib qolmasin — `royxatniYangila`
   // ko'p marta chaqiriladi).
   const [ochiqIldizId, setOchiqIldizId] = useState(null);
+  // Tarjima tugagach panel qayta MOUNT bo'lsin — yangi holat (nechta
+  // so'z qoldi) bilan chiziladi, hammasi tarjima qilingan bo'lsa
+  // butunlay yo'qoladi.
+  const [tarjimaKey, setTarjimaKey] = useState(0);
 
   function yukla() {
     api("/api/kurslar/daraxt/").then((d) => {
@@ -2426,6 +2501,7 @@ export default function Kurslar() {
   return (
     <div className="karta">
       <h3>{t("nav_kurslar")}</h3>
+      {adminMi && <HammasiniTarjimaQilish key={tarjimaKey} onTugadi={() => setTarjimaKey((k) => k + 1)} />}
       {daraxt.children.map((tugun) => (
         <Tugun
           key={tugun.id}
