@@ -1,8 +1,9 @@
 """So'zlarni ruscha tarjima qilish (2026-09-05, foydalanuvchi talabi).
 
 Vocabulary bo'limidagi "Rus tiliga tarjima qilish" tugmasi shu modulni
-chaqiradi. Gemini ishlatiladi (`assessment.providers`), chunki loyihada
-allaqachon shu provider sozlangan va arzon.
+chaqiradi. Google provideri ishlatiladi (`assessment.providers`), chunki
+loyihada allaqachon shu kalit va SDK sozlangan. Model — `TARJIMA_MODEL`,
+tanlov sababi pastda o'lchov bilan izohlangan.
 
 MUHIM — tarjima sifati uchun modelga ingliz so'zining O'ZIGINA emas,
 mavjud O'ZBEKCHA tarjimasi ham kontekst sifatida beriladi. Sabab:
@@ -15,7 +16,37 @@ yuboriladi: `book (n)` -> `книга`, `book (v)` -> `бронировать`.
 
 import json
 
-from assessment.providers import ProviderXatosi, gemini_provider_ol
+from django.conf import settings
+
+from assessment.providers import GeminiProvider, ProviderXatosi
+
+# 2026-09-05, foydalanuvchi tanlovi: Gemma 4 26B (MoE, 4B faol parametr).
+#
+# O'lchov (60 so'zli real partiya, bir xil prompt va JSON sxema):
+#   gemini-3.1-flash-lite    5.9s   60/60 band
+#   gemma-4-26b-a4b-it      24.8s   61/60 band (bittasi ortiqcha)
+#
+# Sifat TENG chiqdi — 60 so'zdan 26 tasida farq bor, lekin har ikki
+# tomonga: Gemma o'zbekchadagi qavs-izohni yaxshiroq saqlaydi ("ago" ->
+# "назад (например, два года назад)") va gaplarni bosh harf bilan
+# boshlaydi; flash-lite esa ko'p ma'noli so'zda ko'proq variant beradi
+# ("amazing" -> "удивительный, изумительный", Gemma faqat bittasi).
+#
+# Modelni almashtirish uchun shu ikki qatorni o'zgartirish yetarli.
+# Eskisiga qaytish: `gemini_provider_ol("flash_lite")` (assessment).
+TARJIMA_MODEL = "gemma-4-26b-a4b-it"
+
+# Provider'ning standart timeout'i 40s — Gemma 60 so'zga 24.8s sarfladi,
+# ya'ni chegaraga juda yaqin. Sekinroq partiya (uzun `misol` gaplari,
+# tarmoq sekinligi) uzilib qolmasin uchun alohida, kengroq chegara.
+TARJIMA_TIMEOUT_MS = 120_000
+
+
+def _provider_ol():
+    kalit = getattr(settings, "GEMINI_API_KEY", "")
+    if not kalit:
+        raise ProviderXatosi("Platforma GEMINI_API_KEY sozlanmagan (.env)")
+    return GeminiProvider(kalit, model=TARJIMA_MODEL, timeout_ms=TARJIMA_TIMEOUT_MS)
 
 # Bitta so'rovda nechta so'z. 60 — o'lchov emas, ehtiyotkor tanlov:
 # javob JSON'i katta bo'lsa model uni yarimda uzib qo'yishi mumkin
@@ -91,7 +122,7 @@ def ruscha_tarjima_qil(sozlar, provider=None):
     if not sozlar:
         return {}
     if provider is None:
-        provider = gemini_provider_ol("flash_lite")
+        provider = _provider_ol()
 
     natija = {}
     for partiya in _partiyalar(list(sozlar), PARTIYA):
@@ -112,13 +143,20 @@ def ruscha_tarjima_qil(sozlar, provider=None):
             javob_sxemasi=JAVOB_SXEMASI,
             max_tokens=8000,
         )
+        # Model ba'zan so'ralganidan KO'PROQ band qaytaradi (sinovda
+        # Gemma 60 so'zga 61 ta band berdi) — diapazondan tashqari
+        # raqam tashlab yuboriladi, TAKRORIY raqamda esa BIRINCHI
+        # javob saqlanadi (keyingisi o'ylab topilgani ehtimoli
+        # yuqoriroq).
+        korilgan = set()
         for band in javob["natija"].get("tarjimalar") or []:
             try:
                 indeks = int(band["n"]) - 1
             except (KeyError, TypeError, ValueError):
                 continue
-            if not (0 <= indeks < len(partiya)):
+            if not (0 <= indeks < len(partiya)) or indeks in korilgan:
                 continue
+            korilgan.add(indeks)
             ru = str(band.get("ru") or "").strip()
             if ru:
                 # Model ba'zan chegaradan uzun matn qaytaradi (izoh

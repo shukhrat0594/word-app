@@ -1770,6 +1770,10 @@ class KursSozlarRuTarjimaView(APIView):
     sarflanmaydi va qo'lda tuzatilgan tarjima ustidan yozilmaydi.
     Qayta tarjima kerak bo'lsa `?hammasi=1` beriladi."""
 
+    # Model tashlab ketgan so'zlarni qayta so'rash uchun urinishlar soni
+    # (izohni `post` ichida ko'ring).
+    URINISH_SONI = 3
+
     permission_classes = [IsAuthenticated]
 
     def post(self, request, pk):
@@ -1784,17 +1788,35 @@ class KursSozlarRuTarjimaView(APIView):
         if not sozlar:
             return Response({"tarjima_qilindi": 0, "qolgan": 0, "jami": tugun.sozlar.count()})
 
-        try:
-            tarjimalar = ruscha_tarjima_qil(sozlar)
-        except ProviderXatosi as e:
-            return Response({"detail": f"Tarjima xatosi: {e}"}, status=502)
-
+        # 2026-09-05, Gemma'ga o'tgandan keyin o'lchov bilan qo'shildi:
+        # model so'ralgan so'zlarning BIR QISMINI tashlab ketadi (56 ta
+        # so'zdan 54 tasini qaytardi). Qolganini ikkinchi urinishda
+        # muammosiz beradi (sinovda 2/2, 2.9s), shuning uchun tashlab
+        # ketilganlar SHU YERDA qayta so'raladi — foydalanuvchi tugmani
+        # ikki marta bosib o'tirmasin. Urinish soni cheklangan: model
+        # biror so'zni doim rad etsa, cheksiz aylanmasin.
         yangilanadi = []
-        for s in sozlar:
-            ru = tarjimalar.get(s.id)
-            if ru:
-                s.ru = ru
-                yangilanadi.append(s)
+        qolgan = list(sozlar)
+        for _ in range(self.URINISH_SONI):
+            if not qolgan:
+                break
+            try:
+                tarjimalar = ruscha_tarjima_qil(qolgan)
+            except ProviderXatosi as e:
+                if yangilanadi:
+                    break  # qismi tarjima bo'lgan — uni saqlab qolamiz
+                return Response({"detail": f"Tarjima xatosi: {e}"}, status=502)
+            keyingi = []
+            for s in qolgan:
+                ru = tarjimalar.get(s.id)
+                if ru:
+                    s.ru = ru
+                    yangilanadi.append(s)
+                else:
+                    keyingi.append(s)
+            if len(keyingi) == len(qolgan):
+                break  # bironta ham yangi javob yo'q — qayta urinish foydasiz
+            qolgan = keyingi
         if yangilanadi:
             KursSoz.objects.bulk_update(yangilanadi, ["ru"])
 
