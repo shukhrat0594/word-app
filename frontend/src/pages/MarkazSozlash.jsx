@@ -12,6 +12,114 @@ export const TARMOQLAR = [
   { kalit: "facebook", nomi: "Facebook", namuna: "facebook.com/utmost" },
 ];
 
+/** Fayl yo'llaridan daraxt yasaydi (2026-09-07, foydalanuvchi talabi:
+ * "ierarxik qila olasanmi").
+ *
+ * `[{nom: "kurslar/blok_rasm/a.png", hajm: 1234}, ...]` dan:
+ *   kurslar > blok_rasm > a.png
+ *
+ * Har tugunda `soni` va `hajm` — o'zi va butun avlodi bo'yicha
+ * yig'indi, shunda papkani ochmasdan ham ichida nima borligi ko'rinadi. */
+function daraxtYasa(fayllar) {
+  const ildiz = { bolalar: {}, soni: 0, hajm: 0, papka: true, nom: null };
+  for (const { nom, hajm } of fayllar) {
+    const bolaklar = nom.split("/");
+    let tugun = ildiz;
+    tugun.soni += 1;
+    tugun.hajm += hajm;
+    bolaklar.forEach((bolak, i) => {
+      const oxirgimi = i === bolaklar.length - 1;
+      if (!tugun.bolalar[bolak]) {
+        tugun.bolalar[bolak] = {
+          bolalar: {}, soni: 0, hajm: 0, papka: !oxirgimi,
+          // Faqat FAYL tugunida to'ldiriladi — o'chirishga aynan shu
+          // to'liq yo'l yuboriladi.
+          nom: oxirgimi ? nom : null,
+        };
+      }
+      tugun = tugun.bolalar[bolak];
+      tugun.soni += 1;
+      tugun.hajm += hajm;
+    });
+  }
+  return ildiz;
+}
+
+/** Tugun ostidagi BARCHA fayl nomlari (rekursiv). */
+function tugunFayllari(tugun) {
+  if (tugun.nom) return [tugun.nom];
+  return Object.values(tugun.bolalar).flatMap(tugunFayllari);
+}
+
+const MB = (b) => (b / 1024 / 1024).toFixed(1);
+
+/** Daraxtning bitta qatori.
+ *
+ * Galochka papkada butun avlodni belgilaydi/olib tashlaydi; avlodning
+ * bir qismi belgilangan bo'lsa "aniqlanmagan" (indeterminate) holatda
+ * ko'rinadi — ya'ni papkani ochib ichidan tanlash mumkin. */
+function MediaTugun({ nomi, tugun, yol, tanlangan, tanlash, ochiqlar, ochish, chuqurlik }) {
+  const fayllar = tugunFayllari(tugun);
+  const belgilangan = fayllar.filter((f) => tanlangan.has(f)).length;
+  const hammasi = fayllar.length > 0 && belgilangan === fayllar.length;
+  const qisman = belgilangan > 0 && !hammasi;
+  const ochiq = !!ochiqlar[yol];
+
+  return (
+    <>
+      <tr>
+        <td style={{ paddingLeft: chuqurlik * 18 }}>
+          <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            {tugun.papka ? (
+              <button
+                type="button"
+                onClick={() => ochish(yol)}
+                style={{
+                  border: "none", background: "none", cursor: "pointer",
+                  padding: 0, width: 16, fontSize: 11, lineHeight: 1,
+                }}
+              >
+                {ochiq ? "▼" : "▶"}
+              </button>
+            ) : (
+              <span style={{ width: 16, display: "inline-block" }} />
+            )}
+            <input
+              type="checkbox"
+              checked={hammasi}
+              ref={(el) => { if (el) el.indeterminate = qisman; }}
+              onChange={(e) => tanlash(fayllar, e.target.checked)}
+            />
+            <span style={{ wordBreak: "break-all" }}>
+              {tugun.papka ? "📁" : "📄"} {nomi}
+            </span>
+          </span>
+        </td>
+        <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+          {tugun.papka ? tugun.soni : ""}
+        </td>
+        <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>{MB(tugun.hajm)} MB</td>
+      </tr>
+      {ochiq &&
+        Object.entries(tugun.bolalar)
+          .sort((a, b) => b[1].hajm - a[1].hajm)
+          .map(([bolaNomi, bola]) => (
+            <MediaTugun
+              key={bolaNomi}
+              nomi={bolaNomi}
+              tugun={bola}
+              yol={`${yol}/${bolaNomi}`}
+              tanlangan={tanlangan}
+              tanlash={tanlash}
+              ochiqlar={ochiqlar}
+              ochish={ochish}
+              chuqurlik={chuqurlik + 1}
+            />
+          ))}
+    </>
+  );
+}
+
 /** Markaz sozlamalari (2026-08-15) — avval ikkita alohida sahifa
  * ("Markaz sozlash" — logo/rang, "Ijtimoiy tarmoqlar") edi, bittaga
  * birlashtirildi + Backup bo'limi qo'shildi. Faqat OWNER ko'radi
@@ -42,23 +150,35 @@ export default function MarkazSozlash() {
   const [mediaNatija, setMediaNatija] = useState(null);
   const [mediaTasdiq, setMediaTasdiq] = useState(false);
   const [mediaSoat, setMediaSoat] = useState(720);
-  // Qaysi papkalar belgilangan. Yozuv YO'Q = belgilangan (hammasi
-  // boshida yoqiq), `false` = foydalanuvchi olib tashlagan.
-  const [mediaPapkalar, setMediaPapkalar] = useState({});
+  // 2026-09-07: tanlov endi PAPKA nomi bo'yicha emas, aniq FAYL
+  // nomlari to'plami bilan yuritiladi. Sabab: daraxtda papkani ham,
+  // uning ichidagi bitta faylni ham alohida belgilash mumkin —
+  // papka-darajasidagi bayroq buni ifodalay olmasdi.
+  const [mediaTanlangan, setMediaTanlangan] = useState(() => new Set());
+  const [mediaOchiqlar, setMediaOchiqlar] = useState({});
 
-  /** Faqat BELGILANGAN papkalardagi fayllar. Fayl qaysi papkada
-   * ekanini nomining oxirgi "/" gacha bo'lgan qismidan aniqlaymiz —
-   * backend `papkalar` kalitlarini aynan shunday yasaydi. */
-  function faylPapkasi(nom) {
-    return nom.includes("/") ? nom.slice(0, nom.lastIndexOf("/")) : "(ildiz)";
+  const mediaDaraxt = mediaNatija ? daraxtYasa(mediaNatija.fayllar) : null;
+  const tanlanganFayllar = [...mediaTanlangan];
+  const tanlanganHajm =
+    (mediaNatija?.fayllar || [])
+      .filter((f) => mediaTanlangan.has(f.nom))
+      .reduce((s, f) => s + f.hajm, 0) / 1024 / 1024;
+
+  /** Berilgan fayllarni belgilaydi yoki olib tashlaydi. */
+  function mediaTanlash(fayllar, belgilansinmi) {
+    setMediaTanlangan((eski) => {
+      const yangi = new Set(eski);
+      for (const f of fayllar) {
+        if (belgilansinmi) yangi.add(f);
+        else yangi.delete(f);
+      }
+      return yangi;
+    });
   }
 
-  const tanlanganFayllar = (mediaNatija?.fayllar || []).filter(
-    (f) => mediaPapkalar[faylPapkasi(f)] !== false,
-  );
-  const tanlanganHajm = Object.entries(mediaNatija?.papkalar || {})
-    .filter(([papka]) => mediaPapkalar[papka] !== false)
-    .reduce((s, [, x]) => s + x.hajm, 0) / 1024 / 1024;
+  function mediaOchish(yol) {
+    setMediaOchiqlar((p) => ({ ...p, [yol]: !p[yol] }));
+  }
   const [tanlanganFayl, setTanlanganFayl] = useState("");
   const tiklashFaylRef = useRef(null);
 
@@ -369,9 +489,13 @@ export default function MarkazSozlash() {
     setMediaXato("");
     setMediaXabar("");
     setMediaNatija(null);
-    setMediaPapkalar({});  // yangi skanerlashda tanlov tozalanadi (hammasi yoqiq)
+    setMediaOchiqlar({});
     try {
-      setMediaNatija(await api(`/api/media-tozalash/?soat=${mediaSoat}`));
+      const j = await api(`/api/media-tozalash/?soat=${mediaSoat}`);
+      setMediaNatija(j);
+      // Boshida HAMMASI belgilangan — keraksizini olib tashlash
+      // belgilashdan ko'ra tezroq (odatda hammasi o'chiriladi).
+      setMediaTanlangan(new Set(j.fayllar.map((f) => f.nom)));
     } catch (e) {
       setMediaXato(e.data?.detail || e.message || t("xato_yuz_berdi"));
     } finally {
@@ -758,36 +882,40 @@ export default function MarkazSozlash() {
                       {(mediaNatija.jami_hajm / 1024 / 1024).toFixed(1)} MB
                     </strong>
                   </div>
-                  {/* Papkalar galochka bilan (2026-09-07, foydalanuvchi
-                      talabi) — hammasini birdan emas, tanlab o'chirish.
-                      Boshida hammasi belgilangan: avvalgi xatti-harakat
-                      saqlanadi, kerakmasini olib tashlash mumkin. */}
-                  <table className="oddiy-jadval" style={{ marginBottom: 10 }}>
-                    <tbody>
-                      {Object.entries(mediaNatija.papkalar)
-                        .sort((a, b) => b[1].hajm - a[1].hajm)
-                        .map(([papka, x]) => (
-                          <tr key={papka}>
-                            <td>
-                              <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
-                                <input
-                                  type="checkbox"
-                                  checked={mediaPapkalar[papka] !== false}
-                                  onChange={(e) =>
-                                    setMediaPapkalar((p) => ({ ...p, [papka]: e.target.checked }))
-                                  }
-                                />
-                                <span>{papka}</span>
-                              </label>
-                            </td>
-                            <td style={{ textAlign: "right" }}>{x.soni}</td>
-                            <td style={{ textAlign: "right" }}>
-                              {(x.hajm / 1024 / 1024).toFixed(1)} MB
-                            </td>
-                          </tr>
-                        ))}
-                    </tbody>
-                  </table>
+                  {/* Ierarxik daraxt (2026-09-07, foydalanuvchi talabi:
+                      "ierarxiyani yuqori qatlamiga galochka qo'ysam
+                      ichidagi hammasi o'chsin, agar uni ochib
+                      ichidagilarga alohida galochka qo'ysam ... faqat
+                      galochkasi borlari o'chsin").
+
+                      Boshida hammasi belgilangan va papkalar YOPIQ —
+                      1600+ faylni birdan chizish sahifani og'irlashtirardi. */}
+                  <div
+                    style={{
+                      maxHeight: 380, overflowY: "auto", marginBottom: 10,
+                      border: "1px solid var(--chegara, #ddd)", borderRadius: 6,
+                    }}
+                  >
+                    <table className="oddiy-jadval" style={{ width: "100%" }}>
+                      <tbody>
+                        {Object.entries(mediaDaraxt.bolalar)
+                          .sort((a, b) => b[1].hajm - a[1].hajm)
+                          .map(([nomi, tugun]) => (
+                            <MediaTugun
+                              key={nomi}
+                              nomi={nomi}
+                              tugun={tugun}
+                              yol={nomi}
+                              tanlangan={mediaTanlangan}
+                              tanlash={mediaTanlash}
+                              ochiqlar={mediaOchiqlar}
+                              ochish={mediaOchish}
+                              chuqurlik={0}
+                            />
+                          ))}
+                      </tbody>
+                    </table>
+                  </div>
                   <div className="izoh" style={{ marginBottom: 10 }}>
                     {t("media_tozalash_himoyalangan")}: {mediaNatija.himoyalangan} ·{" "}
                     {t("media_tozalash_chetlab")}: {mediaNatija.chetlab_otilgan}

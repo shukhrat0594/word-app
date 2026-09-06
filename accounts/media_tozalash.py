@@ -148,7 +148,10 @@ def yetimlarni_top(himoya_soat=HIMOYA_SOAT):
         if vaqt is None or vaqt > chegara:
             himoyalangan += 1
             continue
-        fayllar.append(nom)
+        # 2026-09-07: nom bilan birga HAJM ham qaytariladi — frontend
+        # daraxt ko'rinishida har papka va har faylning hajmini
+        # ko'rsatadi, buning uchun qo'shimcha so'rov kerak bo'lmasin.
+        fayllar.append({"nom": nom, "hajm": hajm})
         jami_hajm += hajm
         papka = nom.rsplit("/", 1)[0] if "/" in nom else "(ildiz)"
         joriy = papkalar.setdefault(papka, {"soni": 0, "hajm": 0})
