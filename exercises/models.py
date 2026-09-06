@@ -168,6 +168,31 @@ _SON_BOSHI = re.compile(r"(?<!\S)(?=\d)")
 _SON_OXIRI = re.compile(r"(?<=\d)(?!\S)")
 _HARF_DEFIS = re.compile(r"(?<=[a-z])-(?=[a-z])")
 
+# 2026-09-07, Cambridge 3 Test 1 sinovi: valyuta BELGISI ixtiyoriy edi
+# ("250" kaliti "£250" ni qabul qilardi), lekin valyuta SO'ZI emas —
+# holbuki Cambridge kalitida ikkalasi ham qavs ichida: "(£) 250 (pounds)".
+# Section 1 da so'z chegarasi umuman berilmagani uchun "250 pounds" mutlaqo
+# qonuniy javob. Qoida belgi qoidasiga simmetrik va faqat KALIT tomonida
+# ishlaydi (qarang: `_qabul_variantlari`):
+#   - kalit yolg'iz son ("250", "£250") -> "250 pounds" kabi shakllar ham;
+#   - kalit son+so'z ("325 pounds")     -> "325" va "£325" ham.
+# Faqat YOLG'IZ songa qo'llanadi — "5 apples" kabi javoblar tegilmaydi.
+_PUL_SOZLARI = {
+    "£": ("pound", "pounds"),
+    "$": ("dollar", "dollars"),
+    "€": ("euro", "euros"),
+    "¥": ("yen",),
+    "%": ("percent", "per cent"),
+}
+_YOLGIZ_SON = re.compile(r"^([£$€¥%]?)(\d[\d.]*)$")
+_SON_VA_SOZ = re.compile(
+    r"^(\d[\d.]*)\s+(pounds?|dollars?|euros?|yen|percent|per cent)$"
+)
+_SOZ_BELGI = {
+    "pound": "£", "pounds": "£", "dollar": "$", "dollars": "$",
+    "euro": "€", "euros": "€", "yen": "¥", "percent": "%", "per cent": "%",
+}
+
 # 2026-08-27, Pre-Intermediate QA: javob kalitlari kitobdagidek QISQARTMA
 # shaklda yozilgan ("I'll", "don't have to", "'d travel", "mustn't"), lekin
 # to'liq shakl ham xuddi shunday to'g'ri javob ("I will", "do not have to",
@@ -330,6 +355,19 @@ def _qabul_variantlari(kalit):
         if _HARF_DEFIS.search(v):
             qoshimcha.add(_HARF_DEFIS.sub(" ", v))
             qoshimcha.add(_HARF_DEFIS.sub("", v))
+        # Valyuta SO'ZI — belgi bilan bir xil maqomda (yuqoridagi izohga qara).
+        mos = _YOLGIZ_SON.match(v)
+        if mos:
+            belgi, son = mos.groups()
+            belgilar = (belgi,) if belgi else tuple(_PUL_SOZLARI)
+            for b in belgilar:
+                for soz in _PUL_SOZLARI[b]:
+                    qoshimcha.add(f"{son} {soz}")
+        mos = _SON_VA_SOZ.match(v)
+        if mos:
+            son, soz = mos.groups()
+            qoshimcha.add(son)
+            qoshimcha.add(f"{_SOZ_BELGI[soz]}{son}")
     natija |= qoshimcha
 
     # Bo'sh natija ATAYLAB filtrlanmaydi: "nol artikl" mashqlarida kalit
