@@ -9,6 +9,11 @@ import ImtihonYozGap from "./ImtihonYozGap";
 // Backend `exercises/mashq_generatsiya.py`dagi BAND_GURUHLAR bilan bir xil.
 const BAND_GURUHLAR = ["5-6", "6.5-7.5", "8-9"];
 
+// Saqlash oynasidagi bo'limlar tartibi (2026-09-06). Backenddagi
+// `Bolim` bilan bir xil qiymatlar; bu yerda faqat KO'RSATISH tartibi
+// belgilanadi — talaba imtihonni shu ketma-ketlikda topshiradi.
+const BOLIM_TARTIBI = ["listening", "reading", "writing", "speaking"];
+
 const AI_PROMT = `Men senga to'liq IELTS Reading yoki Listening testi (masalan Cambridge IELTS kitobidan) matnini/transkriptini beraman. Sen shu materialni quyidagi JSON formatiga o'girib ber — natija FAQAT valid JSON obyekt bo'lsin, hech qanday izoh, sarlavha yoki markdown belgisi (masalan \`\`\`json) qo'shma, faqat sof JSON matni qaytar.
 
 Format:
@@ -1648,6 +1653,11 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
   // to'qnashuvi haqida BIR MARTA so'rash uchun: javob promise orqali
   // qaytadi va papkadagi BARCHA testlarga qo'llanadi.
   const [papkaEksportId, setPapkaEksportId] = useState(null);
+  // Saqlash tanlovi oynasi (2026-09-06): qaysi papka, har bo'limda
+  // nechta test bor, va qaysilari belgilangan.
+  const [saqlashPapka, setSaqlashPapka] = useState(null);
+  const [saqlashSanoq, setSaqlashSanoq] = useState(null);
+  const [saqlashTanlov, setSaqlashTanlov] = useState({});
   const [papkaJarayon, setPapkaJarayon] = useState(null);
   const [papkaRejimSorov, setPapkaRejimSorov] = useState(null);
   // AI generatsiya (2026-08-02, foydalanuvchi talabi) — faqat "AI
@@ -1921,14 +1931,40 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
     return apiForm("/api/imtihon/testlar-import/", { method: "POST", formData: fd });
   }
 
-  /** Papkani ichidagi BARCHA testlari bilan bitta ZIPga saqlash
-   * (2026-09-03, foydalanuvchi talabi: "bitta papkani to'liq eksport
-   * qilish, proddan localga, tekshirib keyin localdan prodga"). */
-  async function papkaEksportQil(p) {
+  /** 💾 bosilganda — darhol yuklab olmaydi, avval TANLOV oynasini
+   * ochadi (2026-09-06, foydalanuvchi talabi: "saqlash tugmasi
+   * bosilganida yangi oyna chiqsin va unda mashq turlari chiqsin,
+   * W/S/L/R qaysilarini saqlash kerak bo'lsa galochka qo'yiladi").
+   *
+   * Bo'limlar sanog'i BACKENDdan olinadi: `royxat` joriy bo'lim filtri
+   * bilan yuklangan, ya'ni unda hamma bo'lim testlari bo'lmaydi. */
+  async function papkaSaqlashOynasi(p) {
+    setImportXato("");
+    setSaqlashPapka(p);
+    setSaqlashSanoq(null);
+    setSaqlashTanlov({});
+    try {
+      const j = await api(`/api/imtihon/papkalar/${p.id}/eksport/?sanoq=1`);
+      setSaqlashSanoq(j.sanoq);
+      // Testi BOR bo'limlar boshidan belgilangan — odatda hammasi
+      // kerak bo'ladi, bo'shlarini belgilashning ma'nosi yo'q.
+      const boshlangich = {};
+      for (const [b, n] of Object.entries(j.sanoq)) boshlangich[b] = n > 0;
+      setSaqlashTanlov(boshlangich);
+    } catch (e2) {
+      setImportXato(e2.data?.detail || e2.message || t("xato_yuz_berdi"));
+      setSaqlashPapka(null);
+    }
+  }
+
+  /** Tanlangan bo'limlarni bitta ZIPga saqlash. */
+  async function papkaEksportQil(p, bolimlar) {
     setImportXato("");
     setPapkaEksportId(p.id);
     try {
-      await apiFayluniYuklab(`/api/imtihon/papkalar/${p.id}/eksport/`);
+      const qs = bolimlar && bolimlar.length ? `?bolimlar=${bolimlar.join(",")}` : "";
+      await apiFayluniYuklab(`/api/imtihon/papkalar/${p.id}/eksport/${qs}`);
+      setSaqlashPapka(null);
     } catch (e2) {
       setImportXato(e2.data?.detail || e2.message || t("xato_yuz_berdi"));
     } finally {
@@ -2431,6 +2467,80 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
         onSaqlandi={() => yukla(filtrBolim)}
       />
     )}
+    {/* Papkani saqlash — bo'lim tanlash oynasi (2026-09-06,
+        foydalanuvchi talabi). Import tomonida bunday tanlov YO'Q:
+        ZIP ichida nima bo'lsa hammasi yuklanadi. */}
+    {saqlashPapka && (
+      <div className="blok-yuklash-qoplama">
+        <div className="blok-tasdiq-karta" style={{ maxWidth: 420 }}>
+          <div className="blok-tasdiq-sarlavha-qator">
+            <strong>📁 {saqlashPapka.nomi}</strong>
+          </div>
+          {!saqlashSanoq ? (
+            <div className="izoh">{t("yuklanmoqda")}</div>
+          ) : (
+            <>
+              <div style={{ marginBottom: 10 }}>{t("imtihon_saqlash_tanlang")}</div>
+              <div style={{ display: "grid", gap: 6, marginBottom: 14 }}>
+                {BOLIM_TARTIBI.map((b) => {
+                  const soni = saqlashSanoq[b] || 0;
+                  return (
+                    <label
+                      key={b}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        opacity: soni ? 1 : 0.45,
+                        cursor: soni ? "pointer" : "default",
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        disabled={!soni}
+                        checked={!!saqlashTanlov[b]}
+                        onChange={(e) =>
+                          setSaqlashTanlov((x) => ({ ...x, [b]: e.target.checked }))
+                        }
+                      />
+                      <span style={{ flex: 1 }}>{t(`mashq_bolim_${b}`)}</span>
+                      <span className="izoh">
+                        {soni} {t("imtihon_saqlash_test")}
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+              <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+                <button
+                  type="button"
+                  className="tugma ikkinchi"
+                  onClick={() => setSaqlashPapka(null)}
+                >
+                  {t("kurs_blok_bekor_qilish")}
+                </button>
+                <button
+                  type="button"
+                  className="tugma"
+                  disabled={
+                    papkaEksportId === saqlashPapka.id ||
+                    !BOLIM_TARTIBI.some((b) => saqlashTanlov[b])
+                  }
+                  onClick={() =>
+                    papkaEksportQil(
+                      saqlashPapka,
+                      BOLIM_TARTIBI.filter((b) => saqlashTanlov[b]),
+                    )
+                  }
+                >
+                  {papkaEksportId === saqlashPapka.id ? "⏳" : t("imtihon_saqlash_tugma")}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    )}
     {/* Papkani o'chirish tasdig'i — saytning O'Z oynasi (2026-09-03,
         foydalanuvchi talabi: brauzerning `confirm` oynasi emas). */}
     {ochirilmoqchi && (
@@ -2833,7 +2943,7 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
           disabled={papkaEksportId === p.id || importBand}
           onClick={(e) => {
             e.stopPropagation();
-            papkaEksportQil(p);
+            papkaSaqlashOynasi(p);
           }}
           style={tugmaUslubi}
         >

@@ -744,7 +744,22 @@ class TestPapkaEksportView(APIView):
     papkalarni qayta yaratadi.
 
     Tashqi ZIP `ZIP_STORED`: ichkilari allaqachon siqilgan, ikki marta
-    siqish faqat vaqt yeydi."""
+    siqish faqat vaqt yeydi.
+
+    2026-09-06, foydalanuvchi talabi ("saqlash tugmasi bosilganida yangi
+    oyna chiqsin va unda mashq turlari chiqsin, W/S/L/R qaysilarini
+    saqlash kerak bo'lsa galochka qo'yiladi"):
+
+    - `?sanoq=1` — ZIP EMAS, har bo'limda nechta test borligini JSON
+      qilib qaytaradi. Frontend shu bilan tanlov oynasini chizadi.
+      Alohida endpoint yasalmadi: papkani aylanib chiqish mantig'i
+      bitta joyda qolsin, ikkinchi nusxasi bilan ajralib ketmasin.
+    - `?bolimlar=listening,reading` — FAQAT shu bo'limlarni ZIPga
+      oladi. Berilmasa — hammasi (eski xatti-harakat, eski
+      frontend/havolalar buzilmaydi).
+
+    IMPORT tomonida tanlov YO'Q: ZIP ichida nima bo'lsa, hammasi
+    yuklanadi (foydalanuvchi qarori — tanlov faqat saqlashda)."""
 
     permission_classes = [IsAuthenticated]
 
@@ -758,6 +773,22 @@ class TestPapkaEksportView(APIView):
         juftlar = [(t, None) for t in papka.testlar.order_by("bolim", "name")]
         for ichki in ichkilar:
             juftlar += [(t, ichki.nomi) for t in ichki.testlar.order_by("bolim", "name")]
+
+        if request.query_params.get("sanoq") == "1":
+            sanoq = {b.value: 0 for b in Bolim}
+            for test, _ in juftlar:
+                if test.bolim in sanoq:
+                    sanoq[test.bolim] += 1
+            return Response({"papka": papka.nomi, "sanoq": sanoq, "jami": len(juftlar)})
+
+        xom = request.query_params.get("bolimlar")
+        if xom:
+            tanlangan = {b.strip() for b in xom.split(",") if b.strip()}
+            juftlar = [(t, i) for t, i in juftlar if t.bolim in tanlangan]
+            if not juftlar:
+                return Response(
+                    {"detail": "Tanlangan bo'limlarda test yo'q"}, status=400
+                )
 
         bufer = tempfile.SpooledTemporaryFile(max_size=16 * 1024 * 1024)
         with zipfile.ZipFile(bufer, "w", zipfile.ZIP_STORED) as tashqi:
