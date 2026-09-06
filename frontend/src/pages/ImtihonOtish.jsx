@@ -366,7 +366,32 @@ function javobBormi(qiymat) {
   return !!qiymat;
 }
 
-function matnniBoslarGaAjrat(matn, javoblar, javobniQoy, natija) {
+/** Matn(lar)da har bir `{{N}}` necha marta uchrashini sanaydi.
+ *
+ * 2026-09-06 BUG: avval bu hisob HAR KATAK uchun alohida yuritilardi,
+ * holbuki jadval har katakni `matnniBoslarGaAjrat`ning ALOHIDA chaqirig'i
+ * bilan chizadi. Natijada bitta raqam UCH XIL katakda turgan holat
+ * (Cambridge 3 Test 3, 24-savol: Width / Length / Depth) har chaqiruvda
+ * "bir marta uchradi" deb ko'rinardi — uchala katak ham bitta indeksga
+ * yozib, ko'zgu effekti berardi: bittasiga 20 yozilsa, uchalasida ham 20
+ * paydo bo'lardi. Endi sanoq BUTUN BLOK (jadval/oqim/matn) bo'yicha bir
+ * marta olinadi va katakchalarga tarqatiladi. */
+function uchrashlarniSana(matnlar) {
+  const soni = {};
+  for (const matn of matnlar) {
+    if (!matn) continue;
+    for (const m of String(matn).matchAll(/\{\{(\d+)\}\}/g)) {
+      const n = parseInt(m[1], 10) - 1;
+      soni[n] = (soni[n] || 0) + 1;
+    }
+  }
+  return soni;
+}
+
+/** `uchrashSoni` va `korilgan` — blok darajasidagi UMUMIY hisob.
+ * Berilmasa (oddiy savol matni) shu matnning o'zidan hisoblanadi,
+ * ya'ni eski chaqiruvlar o'zgarishsiz ishlaydi. */
+function matnniBoslarGaAjrat(matn, javoblar, javobniQoy, natija, uchrashSoni, korilgan) {
   if (!matn) return null;
   const qismlar = matn.split(/(\{\{\d+\}\}|\n)/g);
 
@@ -378,16 +403,9 @@ function matnniBoslarGaAjrat(matn, javoblar, javobniQoy, natija) {
   // Endi har uchrash o'z o'rniga (`sub`) ega bo'ladi va javob ro'yxat
   // sifatida saqlanadi. Bitta marta uchraydigan (odatiy) savollar
   // avvalgidek satr bilan ishlaydi — eski testlar buzilmaydi.
-  const uchrashSoni = {};
-  qismlar.forEach((b) => {
-    const m = b.match(/^\{\{(\d+)\}\}$/);
-    if (m) {
-      const n = parseInt(m[1], 10) - 1;
-      uchrashSoni[n] = (uchrashSoni[n] || 0) + 1;
-    }
-  });
+  uchrashSoni = uchrashSoni || uchrashlarniSana([matn]);
+  korilgan = korilgan || {};
 
-  const korilgan = {};
   return qismlar.map((b, i) => {
     if (b === "\n") return <br key={i} />;
     const mos = b.match(/^\{\{(\d+)\}\}$/);
@@ -481,6 +499,20 @@ function MaxsusFormatGuruhKorsatma({ guruhBoshi, guruhKorsatma }) {
 }
 
 function MaxsusFormatBloki({ format, guruhBoshi, guruhKorsatma, variantlar, javoblar, javobniQoy, natija }) {
+  // Bir xil `{{N}}` blokning TURLI kataklarida turishi mumkin (jadvalda
+  // Width/Length/Depth ustunlari) — shuning uchun sanoq shu yerda, butun
+  // blok bo'yicha bir marta olinadi. `korilgan` — chizish davomida
+  // to'ldiriladigan umumiy hisoblagich, u har katakka o'z tartib
+  // raqamini (`sub`) beradi.
+  const barchaMatnlar =
+    format.tur === "jadval"
+      ? (format.qatorlar || []).flat()
+      : format.tur === "oqim"
+        ? format.qadamlar || []
+        : [format.matn];
+  const uchrashSoni = uchrashlarniSana(barchaMatnlar);
+  const korilgan = {};
+
   if (format.tur === "jadval") {
     return (
       <div className="imtihon-jadval-wrap">
@@ -500,7 +532,9 @@ function MaxsusFormatBloki({ format, guruhBoshi, guruhKorsatma, variantlar, javo
             {format.qatorlar.map((qator, ri) => (
               <tr key={ri}>
                 {qator.map((katak, ci) => (
-                  <td key={ci}>{matnniBoslarGaAjrat(katak, javoblar, javobniQoy, natija)}</td>
+                  <td key={ci}>
+                    {matnniBoslarGaAjrat(katak, javoblar, javobniQoy, natija, uchrashSoni, korilgan)}
+                  </td>
                 ))}
               </tr>
             ))}
@@ -519,7 +553,7 @@ function MaxsusFormatBloki({ format, guruhBoshi, guruhKorsatma, variantlar, javo
         {format.qadamlar.map((qadam, i) => (
           <div key={i}>
             <div className="imtihon-oqim-qadam">
-              {matnniBoslarGaAjrat(qadam, javoblar, javobniQoy, natija)}
+              {matnniBoslarGaAjrat(qadam, javoblar, javobniQoy, natija, uchrashSoni, korilgan)}
             </div>
             {i < format.qadamlar.length - 1 && <div className="imtihon-oqim-strelka">↓</div>}
           </div>
@@ -535,7 +569,7 @@ function MaxsusFormatBloki({ format, guruhBoshi, guruhKorsatma, variantlar, javo
         <MaxsusFormatGuruhKorsatma guruhBoshi={guruhBoshi} guruhKorsatma={guruhKorsatma} />
         {format.sarlavha && <div className="imtihon-jadval-sarlavha">{format.sarlavha}</div>}
         <div className="imtihon-maxsus-matn">
-          {matnniBoslarGaAjrat(format.matn, javoblar, javobniQoy, natija)}
+          {matnniBoslarGaAjrat(format.matn, javoblar, javobniQoy, natija, uchrashSoni, korilgan)}
         </div>
         <VariantlarQutisi variantlar={variantlar} />
       </div>
