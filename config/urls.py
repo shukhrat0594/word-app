@@ -20,7 +20,11 @@ from django.urls import include, path, re_path
 from django.views.static import serve as media_serve
 from rest_framework_simplejwt.views import TokenRefreshView
 
-from accounts.backup_views import BackupdanTiklashView, BackupYuklabOlishView
+from accounts.backup_views import (
+    BackupdanTiklashView,
+    BackupYuklabOlishView,
+    MediaTozalashView,
+)
 from accounts.seans_views import (
     AktivFoydalanuvchilarView,
     ChiqishView,
@@ -94,6 +98,7 @@ urlpatterns = [
     path('api/sayt-holati/', SaytHolatiView.as_view(), name='sayt_holati'),
     path('api/backup/yuklab-olish/', BackupYuklabOlishView.as_view(), name='backup_yuklab_olish'),
     path('api/backup/tiklash/', BackupdanTiklashView.as_view(), name='backup_tiklash'),
+    path('api/media-tozalash/', MediaTozalashView.as_view(), name='media_tozalash'),
     # Avtomatik zaxiralar (2026-09-03) — R2'da saqlanadigan kunlik nusxalar.
     path('api/zaxiralar/', ZaxiralarView.as_view(), name='zaxiralar'),
     path('api/zaxiralar/holat/', ZaxiraHolatView.as_view(), name='zaxira_holat'),

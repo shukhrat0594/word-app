@@ -28,6 +28,10 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from audit.models import FaoliyatYozuvi
+from audit.utils import logla
+
+from . import media_tozalash
 from .permissions import owner_mi
 
 # Bu jadvallar bazadan-bazaga ko'chirilganda MUAMMO chiqarishi mumkin —
@@ -121,6 +125,67 @@ class BackupYuklabOlishView(APIView):
             return Response({"detail": "Faqat owner uchun"}, status=403)
         bufer, fayl_nomi = baza_zip_yasa()
         return FileResponse(bufer, as_attachment=True, filename=fayl_nomi)
+
+
+class MediaTozalashView(APIView):
+    """Ishlatilmayotgan (havolasiz) media fayllarni topish va o'chirish
+    (2026-09-07, foydalanuvchi talabi). Faqat owner.
+
+    IKKI BOSQICH — ataylab:
+
+    - `GET`  — faqat SKANERLAYDI, hech narsa o'chirmaydi. Prodda ham
+      bemalol ishlatiladi: raqamlarni ko'rib, aql bilan tekshirish
+      uchun.
+    - `POST` — o'chiradi. Faylalar ro'yxati SO'ROVDA keladi (ya'ni
+      foydalanuvchi aynan ko'rgan ro'yxat), qaytadan skanerlanmaydi.
+
+    `?soat=N` — himoya chegarasi. Prodda birinchi safar katta qiymat
+    (masalan 720 = 30 kun) bilan boshlash tavsiya etiladi.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if not owner_mi(request.user):
+            return Response({"detail": "Faqat owner uchun"}, status=403)
+        try:
+            soat = int(request.query_params.get("soat") or media_tozalash.HIMOYA_SOAT)
+        except ValueError:
+            soat = media_tozalash.HIMOYA_SOAT
+        soat = max(0, min(soat, 24 * 365))
+        natija = media_tozalash.yetimlarni_top(himoya_soat=soat)
+        return Response({
+            "soat": soat,
+            "soni": len(natija["fayllar"]),
+            "jami_hajm": natija["jami_hajm"],
+            "papkalar": natija["papkalar"],
+            "himoyalangan": natija["himoyalangan"],
+            "chetlab_otilgan": natija["chetlab_otilgan"],
+            "fayllar": natija["fayllar"],
+        })
+
+    def post(self, request):
+        if not owner_mi(request.user):
+            return Response({"detail": "Faqat owner uchun"}, status=403)
+        fayllar = request.data.get("fayllar")
+        if not isinstance(fayllar, list) or not fayllar:
+            return Response({"detail": "'fayllar' ro'yxati bo'sh"}, status=400)
+        natija = media_tozalash.yetimlarni_ochir(fayllar)
+        # Qaytarib bo'lmaydigan amal — audit yozuvi MAJBURIY.
+        logla(
+            foydalanuvchi=request.user,
+            harakat=FaoliyatYozuvi.Harakat.OCHIRISH,
+            obyekt=None,
+            obyekt_turi="media_fayl",
+            obyekt_nomi=f"{natija['ochirildi']} ta ishlatilmayotgan fayl",
+            ozgarishlar={
+                "ochirildi": natija["ochirildi"],
+                "ozod_hajm": natija["ozod_hajm"],
+                "otkazildi": natija["otkazildi"],
+                "xatolar": len(natija["xatolar"]),
+            },
+        )
+        return Response(natija)
 
 
 class BackupdanTiklashView(APIView):

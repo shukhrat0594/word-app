@@ -33,6 +33,15 @@ export default function MarkazSozlash() {
   const [backupBand, setBackupBand] = useState(false);
   const [backupXato, setBackupXato] = useState("");
   const [backupXabar, setBackupXabar] = useState("");
+  // Ishlatilmayotgan media (2026-09-07). `mediaSoat` — himoya
+  // chegarasi: shu vaqtdan yangi fayllarga tegilmaydi. Standart 30
+  // kun: prodda birinchi tozalash ehtiyotkor bo'lsin.
+  const [mediaBand, setMediaBand] = useState(false);
+  const [mediaXato, setMediaXato] = useState("");
+  const [mediaXabar, setMediaXabar] = useState("");
+  const [mediaNatija, setMediaNatija] = useState(null);
+  const [mediaTasdiq, setMediaTasdiq] = useState(false);
+  const [mediaSoat, setMediaSoat] = useState(720);
   const [tanlanganFayl, setTanlanganFayl] = useState("");
   const tiklashFaylRef = useRef(null);
 
@@ -334,6 +343,46 @@ export default function MarkazSozlash() {
       setXato(e.data?.detail || t("xato_yuz_berdi"));
     } finally {
       setBand(false);
+    }
+  }
+
+  /** Skanerlash — hech narsa o'chirmaydi, faqat ro'yxat beradi. */
+  async function mediaSkanerla() {
+    setMediaBand(true);
+    setMediaXato("");
+    setMediaXabar("");
+    setMediaNatija(null);
+    try {
+      setMediaNatija(await api(`/api/media-tozalash/?soat=${mediaSoat}`));
+    } catch (e) {
+      setMediaXato(e.data?.detail || e.message || t("xato_yuz_berdi"));
+    } finally {
+      setMediaBand(false);
+    }
+  }
+
+  /** O'chirish — AYNAN skanerlashda ko'rilgan ro'yxat yuboriladi,
+   * server qaytadan skanerlamaydi. Shu orada bazaga biriktirilgan
+   * fayl bo'lsa, server uni baribir o'tkazib yuboradi. */
+  async function mediaOchir() {
+    setMediaBand(true);
+    setMediaXato("");
+    try {
+      const j = await api("/api/media-tozalash/", {
+        method: "POST",
+        body: { fayllar: mediaNatija.fayllar },
+      });
+      setMediaXabar(
+        t("media_tozalash_natija")
+          .replace("{soni}", j.ochirildi)
+          .replace("{hajm}", (j.ozod_hajm / 1024 / 1024).toFixed(1)),
+      );
+      setMediaNatija(null);
+      setMediaTasdiq(false);
+    } catch (e) {
+      setMediaXato(e.data?.detail || e.message || t("xato_yuz_berdi"));
+    } finally {
+      setMediaBand(false);
     }
   }
 
@@ -650,6 +699,101 @@ export default function MarkazSozlash() {
           {backupXabar && <div className="izoh">{backupXabar}</div>}
         </div>
       </div>
+
+      {/* Ishlatilmayotgan media (2026-09-07, foydalanuvchi talabi:
+          "R2 da turgan medialarning qaysi biriga hech qanday link
+          bo'lmasa, shu mediani o'chirib tashlash kerak").
+          IKKI BOSQICH: avval skanerlash (hech narsa o'chmaydi), keyin
+          ro'yxatni ko'rib turib o'chirish. */}
+      <div className="karta">
+        <h3>{t("media_tozalash_sarlavha")}</h3>
+        <p className="izoh">{t("media_tozalash_izoh")}</p>
+
+        <div style={{ display: "grid", gap: 14, marginTop: 4 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <button className="tugma" onClick={mediaSkanerla} disabled={mediaBand}>
+              {mediaBand && !mediaNatija ? "⏳" : t("media_tozalash_skan")}
+            </button>
+            <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span className="izoh">{t("media_tozalash_himoya")}</span>
+              <select
+                value={mediaSoat}
+                onChange={(e) => setMediaSoat(Number(e.target.value))}
+                disabled={mediaBand}
+              >
+                <option value={720}>30 {t("media_tozalash_kun")}</option>
+                <option value={168}>7 {t("media_tozalash_kun")}</option>
+                <option value={24}>1 {t("media_tozalash_kun")}</option>
+              </select>
+            </label>
+          </div>
+
+          {mediaNatija && (
+            <div>
+              {mediaNatija.soni === 0 ? (
+                <div className="izoh">{t("media_tozalash_toza")}</div>
+              ) : (
+                <>
+                  <div style={{ marginBottom: 8 }}>
+                    <strong>
+                      {mediaNatija.soni} {t("media_tozalash_fayl")} ·{" "}
+                      {(mediaNatija.jami_hajm / 1024 / 1024).toFixed(1)} MB
+                    </strong>
+                  </div>
+                  <table className="oddiy-jadval" style={{ marginBottom: 10 }}>
+                    <tbody>
+                      {Object.entries(mediaNatija.papkalar)
+                        .sort((a, b) => b[1].hajm - a[1].hajm)
+                        .map(([papka, x]) => (
+                          <tr key={papka}>
+                            <td>{papka}</td>
+                            <td style={{ textAlign: "right" }}>{x.soni}</td>
+                            <td style={{ textAlign: "right" }}>
+                              {(x.hajm / 1024 / 1024).toFixed(1)} MB
+                            </td>
+                          </tr>
+                        ))}
+                    </tbody>
+                  </table>
+                  <div className="izoh" style={{ marginBottom: 10 }}>
+                    {t("media_tozalash_himoyalangan")}: {mediaNatija.himoyalangan} ·{" "}
+                    {t("media_tozalash_chetlab")}: {mediaNatija.chetlab_otilgan}
+                  </div>
+                  <button className="tugma xavfli" onClick={() => setMediaTasdiq(true)} disabled={mediaBand}>
+                    {t("media_tozalash_ochir")}
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+
+          {mediaXato && <div className="xato-xabar">{mediaXato}</div>}
+          {mediaXabar && <div className="izoh">{mediaXabar}</div>}
+        </div>
+      </div>
+
+      {mediaTasdiq && mediaNatija && (
+        <div className="blok-yuklash-qoplama">
+          <div className="blok-tasdiq-karta" style={{ maxWidth: 440 }}>
+            <div className="blok-tasdiq-sarlavha-qator">
+              <strong>{t("media_tozalash_ochir")}</strong>
+            </div>
+            <div style={{ marginBottom: 14 }}>
+              {t("media_tozalash_tasdiq")
+                .replace("{soni}", mediaNatija.soni)
+                .replace("{hajm}", (mediaNatija.jami_hajm / 1024 / 1024).toFixed(1))}
+            </div>
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+              <button className="tugma ikkinchi" onClick={() => setMediaTasdiq(false)}>
+                {t("yoq")}
+              </button>
+              <button className="tugma xavfli" onClick={mediaOchir} disabled={mediaBand}>
+                {mediaBand ? "⏳" : t("ha")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
