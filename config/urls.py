@@ -23,6 +23,7 @@ from rest_framework_simplejwt.views import TokenRefreshView
 from accounts.backup_views import (
     BackupdanTiklashView,
     BackupYuklabOlishView,
+    MediaFaylKorishView,
     MediaTozalashView,
 )
 from accounts.seans_views import (
@@ -99,6 +100,7 @@ urlpatterns = [
     path('api/backup/yuklab-olish/', BackupYuklabOlishView.as_view(), name='backup_yuklab_olish'),
     path('api/backup/tiklash/', BackupdanTiklashView.as_view(), name='backup_tiklash'),
     path('api/media-tozalash/', MediaTozalashView.as_view(), name='media_tozalash'),
+    path('api/media-tozalash/korish/', MediaFaylKorishView.as_view(), name='media_fayl_korish'),
     # Avtomatik zaxiralar (2026-09-03) — R2'da saqlanadigan kunlik nusxalar.
     path('api/zaxiralar/', ZaxiralarView.as_view(), name='zaxiralar'),
     path('api/zaxiralar/holat/', ZaxiraHolatView.as_view(), name='zaxira_holat'),

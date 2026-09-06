@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { api, apiFayluniYuklab, apiForm, apiManzil, mediaManzil, tokenOl } from "../api";
+import { api, apiBlobUrl, apiFayluniYuklab, apiForm, apiManzil, mediaManzil, tokenOl } from "../api";
 import IjtimoiyIkon from "../components/IjtimoiyIkonlar";
 import { useI18n } from "../i18n";
 import { useProfil } from "../profilContext";
@@ -53,12 +53,19 @@ function tugunFayllari(tugun) {
 
 const MB = (b) => (b / 1024 / 1024).toFixed(1);
 
+// Ko'rish mumkin bo'lgan turlar (2026-09-07). Rasm — oynada, audio —
+// pleyer bilan. Qolganlari (PDF, ZIP) bosilmaydi: ularni ko'rsatishning
+// foydasi yo'q, nomi allaqachon ko'rinib turibdi.
+const RASM_KENGAYTMA = /\.(jpe?g|png|gif|webp|bmp|svg)$/i;
+const AUDIO_KENGAYTMA = /\.(mp3|wav|ogg|m4a|webm)$/i;
+const korsatsaBoladimi = (nom) => RASM_KENGAYTMA.test(nom) || AUDIO_KENGAYTMA.test(nom);
+
 /** Daraxtning bitta qatori.
  *
  * Galochka papkada butun avlodni belgilaydi/olib tashlaydi; avlodning
  * bir qismi belgilangan bo'lsa "aniqlanmagan" (indeterminate) holatda
  * ko'rinadi — ya'ni papkani ochib ichidan tanlash mumkin. */
-function MediaTugun({ nomi, tugun, yol, tanlangan, tanlash, ochiqlar, ochish, chuqurlik }) {
+function MediaTugun({ nomi, tugun, yol, tanlangan, tanlash, ochiqlar, ochish, chuqurlik, korish }) {
   const fayllar = tugunFayllari(tugun);
   const belgilangan = fayllar.filter((f) => tanlangan.has(f)).length;
   const hammasi = fayllar.length > 0 && belgilangan === fayllar.length;
@@ -90,9 +97,28 @@ function MediaTugun({ nomi, tugun, yol, tanlangan, tanlash, ochiqlar, ochish, ch
               ref={(el) => { if (el) el.indeterminate = qisman; }}
               onChange={(e) => tanlash(fayllar, e.target.checked)}
             />
-            <span style={{ wordBreak: "break-all" }}>
-              {tugun.papka ? "📁" : "📄"} {nomi}
-            </span>
+            {/* Rasm/audio bo'lsa nomiga bosib ko'rish mumkin
+                (2026-09-07) — o'chirishdan oldin "bu aynan nima?"
+                degan savolga javob beradi. */}
+            {!tugun.papka && korsatsaBoladimi(nomi) ? (
+              <button
+                type="button"
+                onClick={() => korish(tugun.nom)}
+                title={nomi}
+                style={{
+                  border: "none", background: "none", padding: 0,
+                  cursor: "pointer", textAlign: "left", wordBreak: "break-all",
+                  color: "var(--havola, #06c)", textDecoration: "underline",
+                  font: "inherit",
+                }}
+              >
+                {RASM_KENGAYTMA.test(nomi) ? "🖼" : "🔊"} {nomi}
+              </button>
+            ) : (
+              <span style={{ wordBreak: "break-all" }}>
+                {tugun.papka ? "📁" : "📄"} {nomi}
+              </span>
+            )}
           </span>
         </td>
         <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
@@ -114,6 +140,7 @@ function MediaTugun({ nomi, tugun, yol, tanlangan, tanlash, ochiqlar, ochish, ch
               ochiqlar={ochiqlar}
               ochish={ochish}
               chuqurlik={chuqurlik + 1}
+              korish={korish}
             />
           ))}
     </>
@@ -156,6 +183,8 @@ export default function MarkazSozlash() {
   // papka-darajasidagi bayroq buni ifodalay olmasdi.
   const [mediaTanlangan, setMediaTanlangan] = useState(() => new Set());
   const [mediaOchiqlar, setMediaOchiqlar] = useState({});
+  // Ko'rish oynasi: {nom, url, xato} yoki null.
+  const [mediaKorish, setMediaKorish] = useState(null);
 
   const mediaDaraxt = mediaNatija ? daraxtYasa(mediaNatija.fayllar) : null;
   const tanlanganFayllar = [...mediaTanlangan];
@@ -178,6 +207,25 @@ export default function MarkazSozlash() {
 
   function mediaOchish(yol) {
     setMediaOchiqlar((p) => ({ ...p, [yol]: !p[yol] }));
+  }
+
+  /** Faylni ko'rish oynasi (2026-09-07). `/media/` ochiq emas,
+   * shuning uchun fayl autentifikatsiyalangan endpointdan blob
+   * sifatida olinadi. Oyna yopilganda blob bo'shatiladi — aks holda
+   * har bosishda xotirada 26 MB lik audio to'planib borardi. */
+  async function mediaFaylKor(nom) {
+    setMediaKorish({ nom, url: null, xato: "" });
+    try {
+      const url = await apiBlobUrl(`/api/media-tozalash/korish/?nom=${encodeURIComponent(nom)}`);
+      setMediaKorish({ nom, url, xato: "" });
+    } catch (e) {
+      setMediaKorish({ nom, url: null, xato: e.message || t("xato_yuz_berdi") });
+    }
+  }
+
+  function mediaKorishYop() {
+    if (mediaKorish?.url) URL.revokeObjectURL(mediaKorish.url);
+    setMediaKorish(null);
   }
   const [tanlanganFayl, setTanlanganFayl] = useState("");
   const tiklashFaylRef = useRef(null);
@@ -911,6 +959,7 @@ export default function MarkazSozlash() {
                               ochiqlar={mediaOchiqlar}
                               ochish={mediaOchish}
                               chuqurlik={0}
+                              korish={mediaFaylKor}
                             />
                           ))}
                       </tbody>
@@ -936,6 +985,42 @@ export default function MarkazSozlash() {
           {mediaXabar && <div className="izoh">{mediaXabar}</div>}
         </div>
       </div>
+
+      {/* Faylni ko'rish oynasi (2026-09-07) — o'chirishdan oldin
+          "bu aynan qaysi media?" degan savolga javob. */}
+      {mediaKorish && (
+        <div className="blok-yuklash-qoplama" onClick={mediaKorishYop}>
+          <div
+            className="blok-tasdiq-karta"
+            style={{ maxWidth: "min(90vw, 900px)" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="blok-tasdiq-sarlavha-qator">
+              <strong style={{ wordBreak: "break-all", fontSize: 13 }}>{mediaKorish.nom}</strong>
+            </div>
+            <div style={{ margin: "10px 0", textAlign: "center", minHeight: 60 }}>
+              {mediaKorish.xato ? (
+                <div className="xato-xabar">{mediaKorish.xato}</div>
+              ) : !mediaKorish.url ? (
+                <div className="izoh">{t("yuklanmoqda")}</div>
+              ) : RASM_KENGAYTMA.test(mediaKorish.nom) ? (
+                <img
+                  src={mediaKorish.url}
+                  alt={mediaKorish.nom}
+                  style={{ maxWidth: "100%", maxHeight: "70vh" }}
+                />
+              ) : (
+                <audio src={mediaKorish.url} controls style={{ width: "100%" }} />
+              )}
+            </div>
+            <div style={{ display: "flex", justifyContent: "flex-end" }}>
+              <button type="button" className="tugma ikkinchi" onClick={mediaKorishYop}>
+                {t("yopish")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {mediaTasdiq && mediaNatija && (
         <div className="blok-yuklash-qoplama">

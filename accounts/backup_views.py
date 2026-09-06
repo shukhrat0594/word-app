@@ -188,6 +188,39 @@ class MediaTozalashView(APIView):
         return Response(natija)
 
 
+class MediaFaylKorishView(APIView):
+    """Bitta media faylni ko'rsatish (2026-09-07, foydalanuvchi talabi:
+    "rasmlarni ustiga bossa ko'rinadigan qilsa bo'ladimi") — tozalash
+    ro'yxatidagi faylni O'CHIRISHDAN OLDIN ko'rish uchun.
+
+    `/media/` ochiq emas (faqat markaz logolari, B3.2), shuning uchun
+    fayl shu yerdan autentifikatsiyalangan oqim bilan beriladi —
+    mavjud `MashqRasmView`/`TestQismRasmView` bilan bir xil naqsh.
+
+    XAVFSIZLIK: faqat owner; yo'lda `..` yoki absolyut yo'l bo'lsa rad
+    etiladi (katalogdan chiqib ketishning oldini olish)."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from django.core.files.storage import default_storage
+        from django.http import FileResponse, Http404
+
+        if not owner_mi(request.user):
+            return Response({"detail": "Faqat owner uchun"}, status=403)
+        nom = (request.query_params.get("nom") or "").strip()
+        if not nom:
+            return Response({"detail": "'nom' berilmagan"}, status=400)
+        # Katalogdan chiqib ketishga urinish — rad.
+        if ".." in nom.split("/") or nom.startswith("/") or ":" in nom[:3]:
+            return Response({"detail": "Yaroqsiz yo'l"}, status=400)
+        if not default_storage.exists(nom):
+            raise Http404
+        javob = FileResponse(default_storage.open(nom, "rb"))
+        javob["Content-Disposition"] = "inline"
+        return javob
+
+
 class BackupdanTiklashView(APIView):
     """POST — yuklangan ZIP ichidagi `baza.json`ni bazaga qayta yozadi.
     Faqat owner, VA `tasdiqlash="HA"` maydoni majburiy (frontend'dagi
