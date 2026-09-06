@@ -53,6 +53,30 @@ def _havola_qilingan_nomlar():
     return nomlar
 
 
+def saqlash_malumoti():
+    """Fayllar AYNAN QAYERDA saqlanayotgani (2026-09-07).
+
+    Nega kerak: prodda tozalash ishlatilganda "R2 da kamaymadi" degan
+    holat chiqdi — ya'ni media R2 da emas, lokal diskda ekan. Tugmani
+    bosishdan oldin nimadan o'chirilayotgani ekranda turishi kerak."""
+    from django.conf import settings
+
+    ombor = getattr(default_storage, "bucket", None)
+    if ombor is not None:
+        return {
+            "tur": "s3",
+            "nomi": "Cloudflare R2 / S3",
+            "bucket": getattr(ombor, "name", "") or getattr(settings, "R2_BUCKET_NAME", ""),
+            "manzil": getattr(settings, "R2_ENDPOINT_URL", ""),
+        }
+    return {
+        "tur": "lokal",
+        "nomi": "Server diski (lokal fayl tizimi)",
+        "bucket": "",
+        "manzil": str(getattr(settings, "MEDIA_ROOT", "")),
+    }
+
+
 def _vaqtni_moslash(vaqt):
     if vaqt is not None and timezone.is_naive(vaqt):
         return timezone.make_aware(vaqt, timezone.get_default_timezone())
@@ -178,23 +202,66 @@ def yetimlarni_ochir(fayllar):
     ro'yxat olingandan keyin fayl bazaga biriktirilgan bo'lishi mumkin
     (masalan admin shu orada import qilgan)."""
     havolalar = _havola_qilingan_nomlar()
-    ochirildi = 0
-    ozod_hajm = 0
     otkazildi = 0
-    xatolar = []
-
+    ochiriladi = []
     for nom in fayllar:
         if nom in havolalar or nom.startswith(CHETLAB_OTILADIGAN):
             otkazildi += 1
-            continue
+        else:
+            ochiriladi.append(nom)
+
+    # Hajmlar BITTA ro'yxat so'rovidan olinadi. Avval har fayl uchun
+    # alohida `size()` chaqirilardi — R2 da bu 1105 faylga 1105 ta
+    # qo'shimcha HEAD so'rovi bo'lib, o'chirish server timeout'iga
+    # urilib "Failed to fetch" berardi (2026-09-07, prodda topildi).
+    keshlangan = _s3_royxat()
+
+    def hajm_ol(nom):
+        if keshlangan is not None:
+            return keshlangan.get(nom, (0, None))[0]
         try:
-            hajm = default_storage.size(nom)
+            return default_storage.size(nom)
         except (FileNotFoundError, OSError):
-            hajm = 0
+            return 0
+
+    ozod_hajm = sum(hajm_ol(n) for n in ochiriladi)
+    ochirildi = 0
+    xatolar = []
+
+    # `qolgan` — hali o'chirilmaganlari. Paketli o'chirish yarim yo'lda
+    # uzilsa, faqat SHULAR bittalab qayta uriniladi (aks holda
+    # allaqachon o'chirilganlar ikki marta sanalardi).
+    qolgan = list(ochiriladi)
+    ombor = getattr(default_storage, "bucket", None)
+    if ombor is not None and qolgan:
+        # S3/R2 — `delete_objects` bir so'rovda 1000 tagacha kalitni
+        # o'chiradi. 1105 fayl = 2 so'rov (avval 2210 ta edi).
+        joy = (getattr(default_storage, "location", "") or "").strip("/")
+        try:
+            for i in range(0, len(ochiriladi), 1000):
+                bolak = ochiriladi[i : i + 1000]
+                javob = ombor.delete_objects(
+                    Delete={
+                        "Objects": [{"Key": f"{joy}/{n}" if joy else n} for n in bolak],
+                        "Quiet": True,
+                    }
+                )
+                xato_royxat = javob.get("Errors") or []
+                ochirildi += len(bolak) - len(xato_royxat)
+                for x in xato_royxat:
+                    xatolar.append(f"{x.get('Key')}: {x.get('Message')}")
+                qolgan = qolgan[len(bolak):]
+        except Exception as e:
+            # Paketli o'chirish ishlamasa (huquq, SDK farqi) — qolganini
+            # bittalab.
+            xatolar.append(f"paketli o'chirish ishlamadi: {e}")
+
+    # Lokal disk (paketli o'chirish yo'q) yoki S3 uzilib qolgan holat —
+    # qolganini bittalab o'chiramiz.
+    for nom in qolgan:
         try:
             default_storage.delete(nom)
             ochirildi += 1
-            ozod_hajm += hajm
         except (OSError, NotImplementedError) as e:
             xatolar.append(f"{nom}: {e}")
 

@@ -156,6 +156,10 @@ class MediaTozalashView(APIView):
         natija = media_tozalash.yetimlarni_top(himoya_soat=soat)
         return Response({
             "soat": soat,
+            # Fayllar AYNAN qayerda saqlanayotgani — o'chirishdan oldin
+            # ekranda ko'rinishi uchun (2026-09-07, prodda "R2 da
+            # kamaymadi" holati chiqqandan keyin qo'shildi).
+            "saqlash": media_tozalash.saqlash_malumoti(),
             "soni": len(natija["fayllar"]),
             "jami_hajm": natija["jami_hajm"],
             "papkalar": natija["papkalar"],

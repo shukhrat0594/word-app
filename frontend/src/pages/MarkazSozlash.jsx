@@ -554,23 +554,44 @@ export default function MarkazSozlash() {
   /** O'chirish — AYNAN skanerlashda ko'rilgan ro'yxat yuboriladi,
    * server qaytadan skanerlamaydi. Shu orada bazaga biriktirilgan
    * fayl bo'lsa, server uni baribir o'tkazib yuboradi. */
+  /** O'chirish — ro'yxat BO'LAKLAB yuboriladi.
+   *
+   * 2026-09-07, prodda topildi: 1105 faylni bitta so'rovda yuborganda
+   * server javob berishga ulgurmay "Failed to fetch" chiqardi (R2 da
+   * har fayl alohida tarmoq murojaati). Bo'laklab yuborilganda har
+   * so'rov qisqa bo'ladi va jarayon ko'rinib turadi; uzilib qolsa ham
+   * o'chirilganlari o'chgan bo'ladi, qaytadan bosish yetarli. */
   async function mediaOchir() {
     setMediaBand(true);
     setMediaXato("");
+    const BOLAK = 300;
+    let ochirildi = 0;
+    let hajm = 0;
     try {
-      const j = await api("/api/media-tozalash/", {
-        method: "POST",
-        body: { fayllar: tanlanganFayllar },
-      });
+      for (let i = 0; i < tanlanganFayllar.length; i += BOLAK) {
+        const bolak = tanlanganFayllar.slice(i, i + BOLAK);
+        setMediaXabar(
+          `${Math.min(i + BOLAK, tanlanganFayllar.length)} / ${tanlanganFayllar.length}...`,
+        );
+        const j = await api("/api/media-tozalash/", {
+          method: "POST",
+          body: { fayllar: bolak },
+        });
+        ochirildi += j.ochirildi;
+        hajm += j.ozod_hajm;
+      }
       setMediaXabar(
         t("media_tozalash_natija")
-          .replace("{soni}", j.ochirildi)
-          .replace("{hajm}", (j.ozod_hajm / 1024 / 1024).toFixed(1)),
+          .replace("{soni}", ochirildi)
+          .replace("{hajm}", (hajm / 1024 / 1024).toFixed(1)),
       );
       setMediaNatija(null);
       setMediaTasdiq(false);
     } catch (e) {
-      setMediaXato(e.data?.detail || e.message || t("xato_yuz_berdi"));
+      setMediaXato(
+        `${e.data?.detail || e.message || t("xato_yuz_berdi")} — ` +
+        `${ochirildi} ta o'chirildi, qolgani uchun qaytadan bosing`,
+      );
     } finally {
       setMediaBand(false);
     }
@@ -920,6 +941,15 @@ export default function MarkazSozlash() {
 
           {mediaNatija && (
             <div>
+              {/* Fayllar QAYERDA saqlanayotgani (2026-09-07) —
+                  o'chirish qaysi omborga tegishini bilib turish uchun. */}
+              {mediaNatija.saqlash && (
+                <div className="izoh" style={{ marginBottom: 8 }}>
+                  {mediaNatija.saqlash.tur === "s3" ? "☁" : "💽"}{" "}
+                  {mediaNatija.saqlash.nomi}
+                  {mediaNatija.saqlash.bucket ? ` — ${mediaNatija.saqlash.bucket}` : ""}
+                </div>
+              )}
               {mediaNatija.soni === 0 ? (
                 <div className="izoh">{t("media_tozalash_toza")}</div>
               ) : (
