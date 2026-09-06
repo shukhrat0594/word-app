@@ -374,6 +374,12 @@ def _qism_admin_dict(q):
         "matn": q.matn,
         "tur": q.tur,
         "audio_url": f"/api/imtihon/qism/{q.id}/audio/" if q.audio_fayl else None,
+        # 2026-09-07: qaysi qismlar AYNAN BIR XIL audio faylni
+        # ulashayotganini frontend bilishi uchun. Cambridge 3 da butun
+        # test yozuvi (28 daqiqa) to'rtala bo'limga ulangan — kalitsiz
+        # frontend uni 4 marta yuklab olardi (104 MB) va har bo'limda
+        # 0:00 dan qayta boshlardi.
+        "audio_kalit": q.audio_fayl.name if q.audio_fayl else None,
         "rasm_url": f"/api/imtihon/qism/{q.id}/rasm/" if q.rasm else None,
         "savollar": q.savollar,
         "maxsus_format": q.maxsus_format,
@@ -409,6 +415,12 @@ def _qism_talaba_dict(q):
         "matn": q.matn,
         "tur": q.tur,
         "audio_url": f"/api/imtihon/qism/{q.id}/audio/" if q.audio_fayl else None,
+        # 2026-09-07: qaysi qismlar AYNAN BIR XIL audio faylni
+        # ulashayotganini frontend bilishi uchun. Cambridge 3 da butun
+        # test yozuvi (28 daqiqa) to'rtala bo'limga ulangan — kalitsiz
+        # frontend uni 4 marta yuklab olardi (104 MB) va har bo'limda
+        # 0:00 dan qayta boshlardi.
+        "audio_kalit": q.audio_fayl.name if q.audio_fayl else None,
         "rasm_url": f"/api/imtihon/qism/{q.id}/rasm/" if q.rasm else None,
         "savollar": savollar_talaba_uchun(q.savollar),
         "maxsus_format": q.maxsus_format,

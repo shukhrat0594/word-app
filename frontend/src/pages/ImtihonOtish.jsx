@@ -1107,6 +1107,23 @@ export default function ImtihonOtish({ bolim, manba = "admin", testId, mockYechi
   const [test, setTest] = useState(null);
   const [audioUrllar, setAudioUrllar] = useState({});
   const [rasmUrllar, setRasmUrllar] = useState({});
+  // 2026-09-07: bo'lim almashganda audio xatti-harakati (izohni
+  // `<audio>` elementi yonida ko'ring). `chalinayotganRef` — oldingi
+  // bo'limda audio ijro etilayotganmidi; yangi FAYLGA o'tilganda
+  // shunga qarab avtomatik ishga tushiriladi.
+  const chalinayotganRef = useRef(false);
+  const audioRef = (el) => {
+    if (!el) return;
+    el.addEventListener("play", () => { chalinayotganRef.current = true; });
+    el.addEventListener("pause", () => { chalinayotganRef.current = false; });
+    // Yangi element yaratildi (ya'ni FAYL o'zgardi). Oldingisi
+    // chalinayotgan bo'lsa — davomini avtomatik boshlaymiz, aks holda
+    // talaba o'zi bosadi. Brauzer bloklasa (avtomatik ijro cheklovi)
+    // xato yutiladi — talaba qo'lda bosadi.
+    if (chalinayotganRef.current) {
+      el.play().catch(() => {});
+    }
+  };
   const [javoblar, setJavoblar] = useState({});
   const [natija, setNatija] = useState(null);
   const [xato, setXato] = useState("");
@@ -1252,10 +1269,32 @@ export default function ImtihonOtish({ bolim, manba = "admin", testId, mockYechi
       // olamiz, test oynasi FAQAT hammasi tayyor bo'lgandan keyin ochiladi
       // — shunda talaba "Audio yuklanmoqda..." holatini ko'rmaydi, buning
       // o'rniga bitta umumiy "tayyorlanmoqda" ko'rsatkichi chiqadi.
+      // 2026-09-07: bir NECHTA qism AYNAN BIR XIL audio faylni
+      // ulashishi mumkin (Cambridge 3 da butun test yozuvi to'rtala
+      // bo'limga ulangan). Avval har qism o'zi yuklab olardi — 26 MB
+      // lik fayl 4 marta, jami 104 MB. Endi `audio_kalit` bo'yicha
+      // BIR MARTA yuklanadi va o'sha blob URL hamma qismga beriladi.
+      const kalitUrl = {};
+      await Promise.all(
+        [...new Set(t2.qismlar.map((q) => q.audio_kalit).filter(Boolean))].map((kalit) => {
+          const qism = t2.qismlar.find((q) => q.audio_kalit === kalit);
+          return apiBlobUrl(qism.audio_url)
+            .then((u) => { kalitUrl[kalit] = u; })
+            .catch(() => {});
+        })
+      );
+      for (const qism of t2.qismlar) {
+        if (qism.audio_kalit && kalitUrl[qism.audio_kalit]) {
+          urllar[qism.id] = kalitUrl[qism.audio_kalit];
+        }
+      }
+
       await Promise.all(
         t2.qismlar.map(async (qism) => {
           await Promise.all([
-            qism.audio_url
+            // Audio yuqorida kalit bo'yicha yuklandi. `audio_kalit`
+            // bo'lmagan eski ma'lumot uchun zaxira yo'l.
+            qism.audio_url && !urllar[qism.id]
               ? apiBlobUrl(qism.audio_url)
                   .then((u) => { urllar[qism.id] = u; })
                   .catch(() => {})
@@ -1593,7 +1632,22 @@ export default function ImtihonOtish({ bolim, manba = "admin", testId, mockYechi
               <div className="imtihon-qism-sarlavha">{faol.qism.sarlavha}</div>
               {faol.qism.yoriqnoma && <div className="imtihon-yoriqnoma">{faol.qism.yoriqnoma}</div>}
               {audioUrllar[faol.qism.id] ? (
+                /* 2026-09-07, foydalanuvchi talabi: "agar audio 1 ta
+                   bo'lsa u to'xtamasligi kerak sectiondan boshqasiga
+                   o'tganda, agar audio 4 ta bo'lsa unda keyingisi
+                   ishga tushishi kerak".
+
+                   `key` — audio URL'i (qism id'si EMAS). Shu tufayli:
+                   - bir xil fayl ulashilgan bo'lsa key o'zgarmaydi,
+                     React o'sha DOM elementini SAQLAB qoladi va ijro
+                     uzilmaydi;
+                   - fayllar har xil bo'lsa key o'zgaradi, yangi
+                     element yaratiladi va `ref` orqali avtomatik
+                     ishga tushadi (agar oldingisi chalinayotgan
+                     bo'lsa). */
                 <audio
+                  key={audioUrllar[faol.qism.id]}
+                  ref={audioRef}
                   {...AUDIO_HIMOYA} onPlay={(e) => faqatBittaAudioIjro(e.target)}
                   controls
                   src={audioUrllar[faol.qism.id]}
