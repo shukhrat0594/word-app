@@ -42,6 +42,23 @@ export default function MarkazSozlash() {
   const [mediaNatija, setMediaNatija] = useState(null);
   const [mediaTasdiq, setMediaTasdiq] = useState(false);
   const [mediaSoat, setMediaSoat] = useState(720);
+  // Qaysi papkalar belgilangan. Yozuv YO'Q = belgilangan (hammasi
+  // boshida yoqiq), `false` = foydalanuvchi olib tashlagan.
+  const [mediaPapkalar, setMediaPapkalar] = useState({});
+
+  /** Faqat BELGILANGAN papkalardagi fayllar. Fayl qaysi papkada
+   * ekanini nomining oxirgi "/" gacha bo'lgan qismidan aniqlaymiz —
+   * backend `papkalar` kalitlarini aynan shunday yasaydi. */
+  function faylPapkasi(nom) {
+    return nom.includes("/") ? nom.slice(0, nom.lastIndexOf("/")) : "(ildiz)";
+  }
+
+  const tanlanganFayllar = (mediaNatija?.fayllar || []).filter(
+    (f) => mediaPapkalar[faylPapkasi(f)] !== false,
+  );
+  const tanlanganHajm = Object.entries(mediaNatija?.papkalar || {})
+    .filter(([papka]) => mediaPapkalar[papka] !== false)
+    .reduce((s, [, x]) => s + x.hajm, 0) / 1024 / 1024;
   const [tanlanganFayl, setTanlanganFayl] = useState("");
   const tiklashFaylRef = useRef(null);
 
@@ -352,6 +369,7 @@ export default function MarkazSozlash() {
     setMediaXato("");
     setMediaXabar("");
     setMediaNatija(null);
+    setMediaPapkalar({});  // yangi skanerlashda tanlov tozalanadi (hammasi yoqiq)
     try {
       setMediaNatija(await api(`/api/media-tozalash/?soat=${mediaSoat}`));
     } catch (e) {
@@ -370,7 +388,7 @@ export default function MarkazSozlash() {
     try {
       const j = await api("/api/media-tozalash/", {
         method: "POST",
-        body: { fayllar: mediaNatija.fayllar },
+        body: { fayllar: tanlanganFayllar },
       });
       setMediaXabar(
         t("media_tozalash_natija")
@@ -740,13 +758,28 @@ export default function MarkazSozlash() {
                       {(mediaNatija.jami_hajm / 1024 / 1024).toFixed(1)} MB
                     </strong>
                   </div>
+                  {/* Papkalar galochka bilan (2026-09-07, foydalanuvchi
+                      talabi) — hammasini birdan emas, tanlab o'chirish.
+                      Boshida hammasi belgilangan: avvalgi xatti-harakat
+                      saqlanadi, kerakmasini olib tashlash mumkin. */}
                   <table className="oddiy-jadval" style={{ marginBottom: 10 }}>
                     <tbody>
                       {Object.entries(mediaNatija.papkalar)
                         .sort((a, b) => b[1].hajm - a[1].hajm)
                         .map(([papka, x]) => (
                           <tr key={papka}>
-                            <td>{papka}</td>
+                            <td>
+                              <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+                                <input
+                                  type="checkbox"
+                                  checked={mediaPapkalar[papka] !== false}
+                                  onChange={(e) =>
+                                    setMediaPapkalar((p) => ({ ...p, [papka]: e.target.checked }))
+                                  }
+                                />
+                                <span>{papka}</span>
+                              </label>
+                            </td>
                             <td style={{ textAlign: "right" }}>{x.soni}</td>
                             <td style={{ textAlign: "right" }}>
                               {(x.hajm / 1024 / 1024).toFixed(1)} MB
@@ -759,8 +792,12 @@ export default function MarkazSozlash() {
                     {t("media_tozalash_himoyalangan")}: {mediaNatija.himoyalangan} ·{" "}
                     {t("media_tozalash_chetlab")}: {mediaNatija.chetlab_otilgan}
                   </div>
-                  <button className="tugma xavfli" onClick={() => setMediaTasdiq(true)} disabled={mediaBand}>
-                    {t("media_tozalash_ochir")}
+                  <button
+                    className="tugma xavfli"
+                    onClick={() => setMediaTasdiq(true)}
+                    disabled={mediaBand || tanlanganFayllar.length === 0}
+                  >
+                    {t("media_tozalash_ochir")} ({tanlanganFayllar.length} · {tanlanganHajm.toFixed(1)} MB)
                   </button>
                 </>
               )}
@@ -780,8 +817,8 @@ export default function MarkazSozlash() {
             </div>
             <div style={{ marginBottom: 14 }}>
               {t("media_tozalash_tasdiq")
-                .replace("{soni}", mediaNatija.soni)
-                .replace("{hajm}", (mediaNatija.jami_hajm / 1024 / 1024).toFixed(1))}
+                .replace("{soni}", tanlanganFayllar.length)
+                .replace("{hajm}", tanlanganHajm.toFixed(1))}
             </div>
             <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
               <button className="tugma ikkinchi" onClick={() => setMediaTasdiq(false)}>
