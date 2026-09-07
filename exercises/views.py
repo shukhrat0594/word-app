@@ -39,7 +39,6 @@ from .models import (
     korinadigan_mashqlar,
     korinadigan_moklar,
     korinadigan_testlar,
-    kunlik_limit_holati,
 )
 
 logger = logging.getLogger(__name__)
@@ -318,7 +317,13 @@ class MashqRasmView(APIView):
 
 
 class MashqYechishView(APIView):
-    """Javob yuborish — kunlik limit shu yerda tekshiriladi (B4.1)."""
+    """Javob yuborish va natijani olish.
+
+    2026-09-07: "kunlik bepul limit" (har turdan 1 ta, keyin 500 so'm)
+    OLIB TASHLANDI. To'lov qismi mahsulotdan allaqachon chiqarilgan va
+    frontendda hech qanday izi qolmagan edi, lekin BACKEND hamon
+    majburlab turardi — talaba kunda ikkinchi mashqni yechsa, endi
+    mavjud bo'lmagan to'lov haqidagi 429 xabarini olardi."""
 
     permission_classes = [IsAuthenticated]
 
@@ -328,39 +333,12 @@ class MashqYechishView(APIView):
         if not isinstance(javoblar, list):
             return Response({"detail": "javoblar ro'yxati majburiy"}, status=400)
 
-        holat = kunlik_limit_holati(request.user, mashq.bolim)
-        if holat[mashq.tur]["qolgan"] <= 0:
-            return Response(
-                {
-                    "detail": (
-                        "Bugungi limit tugadi. 500 so'm evaziga har turdan "
-                        "+1 ta ochishingiz mumkin."
-                    ),
-                    "limit": holat,
-                },
-                status=429,
-            )
-
         yechim = MashqYechim.yechish(request.user, mashq, javoblar)
         return Response(
             {
                 "ball": yechim.ball,
                 "jami": yechim.jami,
                 "natijalar": yechim.natijalar,
-            }
-        )
-
-
-class LimitHolatiView(APIView):
-    """Bugungi limit holati (ikkala bo'lim bo'yicha)."""
-
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-        return Response(
-            {
-                str(b): kunlik_limit_holati(request.user, b)
-                for b in (Bolim.LISTENING, Bolim.READING)
             }
         )
 

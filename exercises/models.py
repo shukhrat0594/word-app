@@ -28,10 +28,9 @@ class Tur(models.TextChoices):
 
 
 # Har bo'limda qaysi turlar bor (real IELTS formati, 2026-07-16).
-# Kunlik limit (B4.1) shu ro'yxat uzunligidan hisoblanadi — tur qo'shilsa
-# limit avtomatik moslashadi (qattiq kodlangan "5" yo'q). Writing/Speaking —
-# auto-baholanmaydigan kontent banki (mavzu/namuna), shuning uchun limitga
-# kirmaydi (ular MashqYechim orqali emas, faqat o'qish uchun).
+# Ikki joyda ishlatiladi: `Mashq.clean()` turni bo'limga mos tekshiradi va
+# `stats/services.py` statistikani tur bo'yicha ajratadi. Writing/Speaking —
+# auto-baholanmaydigan kontent banki (mavzu/namuna).
 BOLIM_TURLARI = {
     Bolim.LISTENING: [
         Tur.MULTIPLE_CHOICE,
@@ -696,33 +695,6 @@ class MashqYechim(models.Model):
 
     def __str__(self):
         return f"{self.talaba} — {self.mashq} — {self.ball}/{self.jami}"
-
-
-def kunlik_limit_holati(talaba, bolim):
-    """Talabaning bugungi limiti: har tur bo'yicha ruxsat/ishlatilgan/qolgan.
-
-    Qoida (B4.1): har turdan kuniga 1 ta bepul. Tur ro'yxati
-    BOLIM_TURLARI'dan olinadi — moslashuvchan.
-    """
-    import datetime
-
-    bugun = datetime.date.today()
-    ruxsat = 1
-
-    holat = {}
-    for tur in BOLIM_TURLARI[bolim]:
-        ishlatilgan = MashqYechim.objects.filter(
-            talaba=talaba,
-            mashq__bolim=bolim,
-            mashq__tur=tur,
-            created_at__date=bugun,
-        ).count()
-        holat[str(tur)] = {
-            "ruxsat": ruxsat,
-            "ishlatilgan": ishlatilgan,
-            "qolgan": max(0, ruxsat - ishlatilgan),
-        }
-    return holat
 
 
 def korinadigan_mashqlar(user):
