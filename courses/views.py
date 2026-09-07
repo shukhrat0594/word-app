@@ -899,6 +899,30 @@ class KursEksportView(APIView):
         return javob
 
 
+def _eski_ru_xaritasi(sozlar):
+    """`{(manba, en): ru}` — import so'zlarni O'CHIRIB qayta yozgani uchun
+    eski ruscha tarjimalar yo'qolmasligi kerak.
+
+    2026-09-07, Shuxrat: `ru` maydoni bosqichma-bosqich to'ldiriladi
+    ("Rus tiliga tarjima qilish" tugmasi bilan), shuning uchun lokal va
+    prod nusxalarining biri to'ldirilgan, ikkinchisi bo'sh bo'lishi
+    ODATIY hol. Bu himoyasiz: bo'sh `ru` li ZIP import qilinsa, maqsad
+    bazadagi tayyor tarjimalar jimgina o'chib ketardi (masalan prodda
+    tarjima qilingan Unit ustiga lokal nusxa yuklansa)."""
+    return {
+        (s.manba, s.en.strip().lower()): s.ru
+        for s in sozlar
+        if s.ru and s.ru.strip()
+    }
+
+
+def _ru_saqlab(kelgan_ru, manba, en, eski):
+    """Kelgan qiymat bo'sh bo'lsa — eskisini qaytaradi."""
+    if kelgan_ru and kelgan_ru.strip():
+        return kelgan_ru
+    return eski.get((manba, (en or "").strip().lower()), "")
+
+
 def _tugun_import_qil(daraxt, ota, markaz, zf, toliq=False, ildiz_kalitlari=None):
     """`_tugun_eksport_qil`ning teskarisi — JSON tugun tavsifidan haqiqiy
     `KursTugun` (+ mashq/so'z/fayl) yaratadi. `kalit+ota` bo'yicha MAVJUD
@@ -953,6 +977,7 @@ def _tugun_import_qil(daraxt, ota, markaz, zf, toliq=False, ildiz_kalitlari=None
     # Import "zaxiradan tiklash" degani — shu tugunning eski
     # mashq/so'zlarini tozalab, ZIPdagi holatga TO'LIQ almashtiramiz.
     tugun.mashqlar.all().delete()
+    eski_ru = _eski_ru_xaritasi(tugun.sozlar.all())
     tugun.sozlar.all().delete()
 
     for m in daraxt["mashqlar"]:
@@ -981,7 +1006,13 @@ def _tugun_import_qil(daraxt, ota, markaz, zf, toliq=False, ildiz_kalitlari=None
     KursSoz.objects.bulk_create([
         KursSoz(
             tugun=tugun, tartib=s["tartib"], en=s["en"], uz=s["uz"],
-            ru=s.get("ru", ""), turkum=s["turkum"], misol=s["misol"],
+            ru=_ru_saqlab(
+                s.get("ru", ""),
+                s.get("manba", KursSoz.Manba.STUDENTS_BOOK),
+                s["en"],
+                eski_ru,
+            ),
+            turkum=s["turkum"], misol=s["misol"],
             manba=s.get("manba", KursSoz.Manba.STUDENTS_BOOK),
         )
         for s in daraxt["sozlar"]
@@ -1016,11 +1047,13 @@ def _tugun_import_qil(daraxt, ota, markaz, zf, toliq=False, ildiz_kalitlari=None
         matn_maydoni = "matn" if tugun.kalit == "students_book" else "matn_workbook"
         setattr(vocab, matn_maydoni, daraxt.get("kitob_vocab_matn") or "")
         vocab.save(update_fields=[matn_maydoni])
+        kitob_eski_ru = _eski_ru_xaritasi(vocab.sozlar.filter(manba=tugun.kalit))
         vocab.sozlar.filter(manba=tugun.kalit).delete()
         KursSoz.objects.bulk_create([
             KursSoz(
                 tugun=vocab, tartib=s["tartib"], en=s["en"], uz=s["uz"],
-                ru=s.get("ru", ""), turkum=s.get("turkum", ""),
+                ru=_ru_saqlab(s.get("ru", ""), tugun.kalit, s["en"], kitob_eski_ru),
+                turkum=s.get("turkum", ""),
                 misol=s.get("misol", ""), manba=tugun.kalit,
             )
             for s in daraxt.get("kitob_vocab_sozlar") or []
