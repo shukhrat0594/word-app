@@ -3,8 +3,15 @@ import { api } from "../api";
 import XatolikHolati from "../components/XatolikHolati";
 import { useI18n } from "../i18n";
 
+// 2026-09-07, auditda topildi: bu yerda `toISOString()` ishlatilardi va u
+// HAR DOIM UTC qaytaradi, brauzerning mahalliy sanasini emas. Toshkent
+// UTC+5, ya'ni har kuni 00:00-05:00 oralig'ida sana tanlagich KECHAGI
+// kunni ko'rsatardi va o'qituvchi buni sezmasa davomat noto'g'ri kunga
+// yozilardi. "sv-SE" lokali ataylab: u sanani aynan "YYYY-MM-DD"
+// ko'rinishida beradi (<input type="date"> shu formatni kutadi), lekin
+// hisob MAHALLIY vaqt mintaqasida ketadi.
 function bugun() {
-  return new Date().toISOString().slice(0, 10);
+  return new Date().toLocaleDateString("sv-SE");
 }
 
 /** Davomat belgilash.

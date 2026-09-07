@@ -25,5 +25,12 @@ urlpatterns = [
         name="speaking_transkripsiya",
     ),
     path("speaking/tarix/", views.SpeakingTarixView.as_view(), name="speaking_tarix"),
+    # Speaking yozuvining audiosi — autentifikatsiyalangan oqim (B3.2,
+    # 2026-09-07). Avval tarix javobida xom /media/ havolasi qaytardi.
+    path(
+        "speaking/tekshiruv/<int:pk>/audio/",
+        views.SpeakingAudioFaylView.as_view(),
+        name="speaking_tekshiruv_audio",
+    ),
     path("tarix/", views.TarixView.as_view(), name="tarix"),
 ]

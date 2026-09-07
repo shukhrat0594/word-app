@@ -1,7 +1,6 @@
-import datetime
-
 from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -435,7 +434,14 @@ class DavomatView(APIView):
         if not _guruhga_ruxsat_bormi(request.user, guruh):
             return Response({"detail": "Ruxsat yo'q"}, status=403)
 
-        sana = request.query_params.get("sana") or str(datetime.date.today())
+        # `timezone.localdate()` ishlatiladi (2026-09-07, auditda topildi):
+        # standart kutubxonaning `date.today()` SERVER OS sanasini beradi,
+        # `Davomat.sana` bo'yicha taqqoslash esa TIME_ZONE (Asia/Tashkent)
+        # bo'yicha ketadi. Prod server UTC'da ishlaydi, ya'ni har kuni
+        # 00:00-05:00 oralig'ida ikkalasi bir kunga farq qilardi. Amalda bu
+        # zaxira yo'l (frontend sanani doim o'zi yuboradi), lekin noto'g'ri
+        # standart qolib ketmasin.
+        sana = request.query_params.get("sana") or str(timezone.localdate())
         mavjud = {
             d.talaba_id: d.holat
             for d in Davomat.objects.filter(guruh=guruh, sana=sana)
@@ -460,7 +466,7 @@ class DavomatView(APIView):
         if not _guruhga_ruxsat_bormi(request.user, guruh):
             return Response({"detail": "Ruxsat yo'q"}, status=403)
 
-        sana = request.data.get("sana") or str(datetime.date.today())
+        sana = request.data.get("sana") or str(timezone.localdate())
         yozuvlar = request.data.get("yozuvlar") or []
         azo_idlar = set(guruh.talabalar.values_list("id", flat=True))
 

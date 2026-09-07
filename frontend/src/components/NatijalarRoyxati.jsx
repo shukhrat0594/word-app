@@ -1,8 +1,57 @@
 import { useEffect, useState } from "react";
-import { api, mediaManzil } from "../api";
+import { api, apiBlobUrl } from "../api";
 import { AUDIO_HIMOYA, faqatBittaAudioIjro } from "../audio";
 import { useI18n } from "../i18n";
 import { xatoniAjrat } from "../xatoUtils";
+
+/** Speaking yozuvining audio pleyeri.
+ *
+ * 2026-09-07: avval `<audio src={mediaManzil(y.audio_url)}>` edi, ya'ni
+ * xom /media/ havolasi — u serverda ochiq emas (faqat markaz logolari)
+ * va pleyer JIMGINA ishlamasdi. Endi loyihaning boshqa hamma joyidagi
+ * naqsh: `apiBlobUrl` Authorization sarlavhasi bilan yuklab, vaqtinchalik
+ * object URL yasaydi (Kurslar.jsx, MashqBank.jsx, ImtihonOtish.jsx bilan
+ * bir xil).
+ *
+ * Object URL unmount'da bo'shatiladi — bu komponent har "ochish/yopish"da
+ * qaytadan mount bo'ladi, aks holda blob'lar xotirada yig'ilib qolardi.
+ */
+function TarixAudio({ yol }) {
+  const { t } = useI18n();
+  const [url, setUrl] = useState(null);
+  const [xato, setXato] = useState(false);
+
+  useEffect(() => {
+    let joriy = null;
+    let bekor = false;
+    apiBlobUrl(yol)
+      .then((u) => {
+        if (bekor) {
+          URL.revokeObjectURL(u);
+          return;
+        }
+        joriy = u;
+        setUrl(u);
+      })
+      .catch(() => !bekor && setXato(true));
+    return () => {
+      bekor = true;
+      if (joriy) URL.revokeObjectURL(joriy);
+    };
+  }, [yol]);
+
+  if (xato) return <div className="izoh" style={{ marginBottom: 14 }}>{t("xato_yuz_berdi")}</div>;
+  if (!url) return <div className="izoh" style={{ marginBottom: 14 }}>{t("yuklanmoqda")}</div>;
+  return (
+    <audio
+      {...AUDIO_HIMOYA}
+      onPlay={(e) => faqatBittaAudioIjro(e.target)}
+      controls
+      src={url}
+      style={{ width: "100%", marginBottom: 14 }}
+    />
+  );
+}
 
 // Ko'p tilli maydon ({en,uz,ru}) yoki oddiy matn bo'lishi mumkin — React
 // obyektni to'g'ridan-to'g'ri render qila olmasligi sababli (2026-08-07,
@@ -89,15 +138,7 @@ export default function NatijalarRoyxati({ talabaId }) {
               <div className="karta" style={{ margin: "8px 0 16px", background: "var(--sirt-2)" }}>
                 {yozGapMi ? (
                   <>
-                    {y.audio_url && (
-                      <audio
-                        {...AUDIO_HIMOYA}
-                        onPlay={(e) => faqatBittaAudioIjro(e.target)}
-                        controls
-                        src={mediaManzil(y.audio_url)}
-                        style={{ width: "100%", marginBottom: 14 }}
-                      />
-                    )}
+                    {y.audio_url && <TarixAudio yol={y.audio_url} />}
                     {y.matn && (
                       <p className="izoh" style={{ whiteSpace: "pre-wrap", marginTop: 0 }}>{y.matn}</p>
                     )}

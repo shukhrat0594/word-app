@@ -22,7 +22,7 @@ from .models import Bildirishnoma, Markaz, User
 # `birlamchi_owner_mi` 2026-08-09 da ishlatilmay qoldi — u FAQAT rol
 # o'zgartirishda kerak edi ("owner'ning rolini faqat asosiy owner
 # o'zgartiradi"), u esa endi yopiq. Funksiya `permissions.py`da qoldi.
-from .permissions import owner_mi
+from .permissions import natijalarni_korish_ruxsati, owner_mi
 from .relizlar import relizlarni_sinxronla
 
 
@@ -1102,18 +1102,10 @@ class FoydalanuvchiNatijalariView(APIView):
 
     def get(self, request, pk):
         talaba = get_object_or_404(User, pk=pk)
-        u = request.user
-        if u.pk == talaba.pk or owner_mi(u) or u.role == User.Role.ADMIN:
-            pass
-        elif u.role == User.Role.TEACHER:
-            from academics.models import Guruh
-
-            if not Guruh.objects.filter(oqituvchi=u, talabalar=talaba).exists():
-                return Response({"detail": "Ruxsat yo'q"}, status=403)
-        elif u.role == User.Role.PARENT:
-            if talaba.ota_ona_id != u.pk:
-                return Response({"detail": "Ruxsat yo'q"}, status=403)
-        else:
+        # 2026-09-07: qoida `accounts/permissions.py`ga ko'chirildi —
+        # Speaking audiosi endpointi ham AYNAN shu ruxsatga tayanadi
+        # (`assessment.SpeakingAudioFaylView`), ikki nusxa bo'lmasin.
+        if not natijalarni_korish_ruxsati(request.user, talaba):
             return Response({"detail": "Ruxsat yo'q"}, status=403)
 
         from assessment.models import SpeakingTekshiruv, WritingTekshiruv
@@ -1144,7 +1136,13 @@ class FoydalanuvchiNatijalariView(APIView):
             natijalar.append({
                 "turi": "speaking", "id": t.id, "nomi": t.part_type or "Speaking",
                 "band": t.overall_band, "sana": t.created_at, "natija": t.natija,
-                "matn": t.matn, "audio_url": t.audio_fayl.url if t.audio_fayl else None,
+                "matn": t.matn,
+                # 2026-09-07: avval `t.audio_fayl.url` — xom /media/ havolasi
+                # edi va u ishlamasdi (`config/urls.py` /media/ dan faqat
+                # markaz logolarini beradi). Endi B3.2 naqshi: autentifikatsiyalangan oqim.
+                "audio_url": (
+                    f"/api/speaking/tekshiruv/{t.id}/audio/" if t.audio_fayl else None
+                ),
             })
         for y in KursMashqYechim.objects.filter(talaba=talaba).select_related("mashq")[:100]:
             nomi = (y.mashq.matn or "").strip()[:60] or f"Mashq #{y.mashq.tartib}"

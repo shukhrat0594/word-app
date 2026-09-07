@@ -1,6 +1,7 @@
 import logging
 
 from django.conf import settings
+from django.shortcuts import get_object_or_404
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -323,6 +324,56 @@ class SpeakingAudioView(APIView):
         )
 
 
+def speaking_audio_yoli(tekshiruv):
+    """Speaking yozuvining audio havolasi — yoki `None`.
+
+    HAR DOIM autentifikatsiyalangan endpoint (B3.2): xom `/media/`
+    havola berilmaydi. Bitta joyda, chunki uch xil tarix endpointi
+    (SpeakingTarixView, TarixView, accounts.FoydalanuvchiNatijalariView)
+    shu havolani qaytaradi."""
+    return f"/api/speaking/tekshiruv/{tekshiruv.id}/audio/" if tekshiruv.audio_fayl else None
+
+
+class SpeakingAudioFaylView(APIView):
+    """Speaking yozuvining audiosi — autentifikatsiyalangan oqim
+    (`exercises.MashqAudioView` bilan bir xil naqsh).
+
+    2026-09-07, auditda topildi. Avval tarix endpointlari
+    `t.audio_fayl.url` qaytarardi va bu IKKI xil holatda ham noto'g'ri
+    edi:
+
+      * Lokal disk — `config/urls.py` `/media/` dan FAQAT markaz
+        logolarini beradi, ya'ni havola 404. Talaba "Tezkor tahlil"da
+        o'z ovozini yozib, bahosini olardi, lekin uni QAYTA ESHITA
+        OLMASDI.
+      * R2 — `.url` imzolangan ochiq havola beradi, ya'ni audio login
+        talab qilmasdan tarqalishi mumkin edi (B3.2 buziladi).
+
+    Kodda buning uchun ESLATMA ham bor edi ("Tezkor tahlil hali
+    qurilmagani uchun audio_fayl amalda doim bo'sh"), lekin u
+    eskirgan: `SpeakingAudioView` 2026-07-29 dan beri audioni saqlaydi.
+
+    RUXSAT: `accounts.permissions.natijalarni_korish_ruxsati` — ya'ni
+    AYNAN natija ro'yxatini ko'ra oladigan odam (o'zi, owner/admin,
+    o'z guruhidagi o'qituvchi, o'z farzandi uchun ota-ona)."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        from django.http import FileResponse, Http404
+
+        from accounts.permissions import natijalarni_korish_ruxsati
+
+        tekshiruv = get_object_or_404(SpeakingTekshiruv, pk=pk)
+        if not natijalarni_korish_ruxsati(request.user, tekshiruv.talaba):
+            raise Http404
+        if not tekshiruv.audio_fayl:
+            raise Http404
+        javob = FileResponse(tekshiruv.audio_fayl.open("rb"))
+        javob["Content-Disposition"] = "inline"
+        return javob
+
+
 class SpeakingTarixView(APIView):
     """Talabaning o'z Speaking tekshiruvlari tarixi (B3.2: har doim ochiq)."""
 
@@ -340,7 +391,7 @@ class SpeakingTarixView(APIView):
                     "created_at": t.created_at,
                     "natija": t.natija,
                     "matn": t.matn,
-                    "audio_url": t.audio_fayl.url if t.audio_fayl else None,
+                    "audio_url": speaking_audio_yoli(t),
                 }
                 for t in qs
             ]
@@ -354,12 +405,12 @@ class TarixView(APIView):
     Speaking'da audio fayl bo'lsa (Tezkor tahlil rejimi) — `audio_url` bilan
     birga qaytadi, frontend audio pleyer ko'rsatishi uchun.
 
-    ESLATMA (2026-07-18): Tezkor tahlil (audio) hali qurilmagani uchun
-    `audio_fayl` amalda doim bo'sh — shuning uchun `.url` to'g'ridan-to'g'ri
-    ishlatilgan (media serving hozircha yo'q). B8-audio bosqichi qurilganda
-    B3.2 qoidasiga ko'ra bu **authenticated stream endpoint**ga
-    (exercises.MashqAudioView kabi) almashtirilishi kerak — xom /media/ havola
-    orqali emas.
+    2026-09-07: bu yerda avval `.url` (xom /media/ havolasi) ishlatilar
+    edi. Uning yonidagi eslatma "Tezkor tahlil hali qurilmagani uchun
+    `audio_fayl` amalda doim bo'sh" deb turardi — lekin u 2026-07-29 da
+    qurilgan va eslatma yangilanmagan, ya'ni havola haqiqatan
+    qaytarilardi va ishlamasdi. Endi B3.2 qoidasiga mos:
+    `SpeakingAudioFaylView` orqali autentifikatsiyalangan oqim.
     """
 
     permission_classes = [IsAuthenticated]
@@ -388,7 +439,7 @@ class TarixView(APIView):
                     "overall_band": t.overall_band,
                     "created_at": t.created_at,
                     "natija": t.natija,
-                    "audio_url": t.audio_fayl.url if t.audio_fayl else None,
+                    "audio_url": speaking_audio_yoli(t),
                 }
             )
         yozuvlar.sort(key=lambda y: y["created_at"], reverse=True)
