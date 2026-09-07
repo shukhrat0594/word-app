@@ -560,7 +560,17 @@ def _kurs_mashq_talaba_dict(m):
 
     Blok formatida ham xavfsiz: bo'sh joylar bloklarda faqat `savol_idx`
     bilan turadi (javob emas), javoblarning o'zi `savollar` ichida va u
-    shu yerda tozalanadi. Ya'ni talaba F12 bosib javobni ko'ra olmaydi."""
+    shu yerda tozalanadi. Ya'ni talaba F12 bosib javobni ko'ra olmaydi.
+
+    2026-09-07: `oqituvchi_uchun: True` belgisi qo'yilgan bloklar ham
+    olib tashlanadi. Sabab — Pre-Intermediate kontenti quyilganda
+    Teacher's Guide'ning "Answers" bloklari mashq OSTIGA oddiy matn
+    qilib ko'chirilgan edi (88 blok), ya'ni talaba mashqni yechmasdan
+    javobni o'qirdi. Blok o'chirilmadi — o'qituvchi darsda ishlatishi
+    uchun kerak, shuning uchun faqat talaba javobidan filtrlanadi.
+    Bu bloklarda HECH QACHON `savol_idx` bo'lmaydi (migratsiya inputli
+    bloklarni chetlab o'tadi), shuning uchun ball/60% qulf qoidasiga
+    ta'sir qilmaydi."""
     return {
         "id": m.id,
         "tartib": m.tartib,
@@ -571,7 +581,7 @@ def _kurs_mashq_talaba_dict(m):
         "audio_url": f"/api/kurslar/mashq/{m.id}/audio/" if m.audio else None,
         "audiolar": _kurs_mashq_audiolar_royxati(m),
         "savollar": [{k: v for k, v in s.items() if k != "togri"} for s in m.savollar],
-        "bloklar": m.bloklar,
+        "bloklar": [b for b in m.bloklar if not b.get("oqituvchi_uchun")],
         "blok_rasmlari": _kurs_blok_rasmlari(m),
     }
 
@@ -584,6 +594,9 @@ def _kurs_mashq_oqituvchi_dict(m):
     o'qituvchi kontentni o'zgartira olmaydi, faqat ko'radi."""
     d = _kurs_mashq_talaba_dict(m)
     d["savollar"] = m.savollar
+    # Javob kaliti bloklari (`oqituvchi_uchun`) talaba dict'ida filtrlangan —
+    # o'qituvchiga ular KERAK, shuning uchun to'liq ro'yxat qaytariladi.
+    d["bloklar"] = m.bloklar
     return d
 
 

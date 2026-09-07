@@ -206,12 +206,47 @@ function RaqamKartalari({ itemlar }) {
  * har qatorda bitta sonni bosib tanlash (2026-08-17, foydalanuvchi
  * talabi). Tanlangan songa ✓ chiqadi, Tekshirish bosilganda shu
  * tanlovning to'g'ri/noto'g'riligi rangda ko'rsatiladi. */
-function RaqamTanlash({ qatorlar, javoblar, javobniQoy, natija, keng }) {
+/** Qator o'z matniga ega bo'lmasa, gapni `savollar[savol_idx].savol`dan
+ * oladi (2026-09-07). 2026-09-02 da `q.matn` chizila boshlagan edi, lekin
+ * kontentning katta qismida matn qatorga EMAS, savolning o'ziga yozilgan —
+ * natijada talaba faqat "1" va ikkita tugmani ko'rardi (Pre-Intermediate
+ * tekshiruvida 12 ta mashq shu holatda topildi, boshqa darajalarda ham
+ * bor: jami 329 qator). Zaxira faqat qator matnsiz, raqami sof raqam
+ * ("1", "2a") va variantlari QISQA bo'lganda ishlaydi — variantning o'zi
+ * to'liq gap bo'lgan mashqlarda ("Tick the correct sentence") gap
+ * ikkilanib ketmasligi uchun. */
+const FAQAT_RAQAM = /^\s*\d+\s*[a-z]?\s*$/i;
+
+function qatorMatni(q, savollar) {
+  if (q.matn) return q.matn;
+  const raqam = q.raqam == null ? "" : String(q.raqam);
+  if (raqam && !FAQAT_RAQAM.test(raqam)) return null;
+  const variantlar = (q.variantlar || []).map(String);
+  if (variantlar.some((v) => v.length > 30)) return null;
+  // Variantning O'ZI to'liq gap bo'lsa ("Karina live with her parents." /
+  // "Karina lives with her parents.") mashqning ustiga qo'shimcha gap
+  // kerak emas — u yerda savol matni ko'pincha shunchaki yorliq
+  // ("Check it 2") bo'lib, faqat shovqin qo'shadi.
+  if (variantlar.length && variantlar.every((v) => v.includes(" ") && /[.?!]$/.test(v))) return null;
+  const savol = savollar?.[q.savol_idx]?.savol;
+  // Ba'zi savollarda matn o'rniga yorliq turadi ("3-band", "9.2 — 4") —
+  // uni chizish faqat shovqin qo'shadi.
+  if (!savol || /^\d+-(band|savol|qator|rasm)$/i.test(savol.trim()) ||
+      /^[\d.]+\s*[—–-]\s*\d+$/.test(savol.trim())) return null;
+  // Savol matni ko'pincha kitobdagi raqam bilan boshlanadi ("1 James Bond
+  // felt happy …") — qator yonida raqam allaqachon chiqadi, ikkinchi marta
+  // takrorlanmasin.
+  if (!raqam) return savol;
+  return savol.replace(new RegExp("^\\s*" + raqam.trim() + "\\s+"), "");
+}
+
+function RaqamTanlash({ qatorlar, javoblar, javobniQoy, natija, keng, savollar }) {
   return (
     <div className={`blok-raqam-tanlash ${keng ? "keng" : ""}`}>
       {qatorlar.map((q, qi) => {
         const tanlangan = javoblar[q.savol_idx];
         const holat = natija ? (natija.natijalar[q.savol_idx] ? "togri" : "notogri") : "";
+        const matn = qatorMatni(q, savollar);
         return (
           <div key={qi} className="blok-raqam-tanlash-qator">
             {q.raqam && <span className="blok-raqam-tanlash-raqam">{q.raqam}</span>}
@@ -219,7 +254,7 @@ function RaqamTanlash({ qatorlar, javoblar, javobniQoy, natija, keng }) {
                 think I should/must call him?") umuman chizilmasdi — talaba
                 faqat raqam va ikkita variantni ko'rar, gapning o'zini
                 ko'rmasdi (U5 SB p51 vizual tekshiruvida topildi). */}
-            {q.matn && <span className="blok-raqam-tanlash-matn">{q.matn}</span>}
+            {matn && <span className="blok-raqam-tanlash-matn">{matn}</span>}
             {(q.variantlar || []).map((v, vi) => {
               const tanlanganMi = tanlangan === v;
               return (
@@ -278,7 +313,7 @@ function Bolaklar({ bolaklar, javoblar, javobniQoy, natija }) {
   );
 }
 
-function Blok({ blok, rasmUrllar, faolRaqam, ijro, audioTanla, javoblar, javobniQoy, natija }) {
+function Blok({ blok, rasmUrllar, faolRaqam, ijro, audioTanla, javoblar, javobniQoy, natija, savollar }) {
   const audioBelgi = blok.audio_raqam ? (
     <AudioBelgi raqam={blok.audio_raqam} faolRaqam={faolRaqam} ijro={ijro} tanla={audioTanla} />
   ) : null;
@@ -477,6 +512,7 @@ function Blok({ blok, rasmUrllar, faolRaqam, ijro, audioTanla, javoblar, javobni
           javoblar={javoblar}
           javobniQoy={javobniQoy}
           natija={natija}
+          savollar={savollar}
         />
       );
     case "tanlov":
@@ -490,6 +526,7 @@ function Blok({ blok, rasmUrllar, faolRaqam, ijro, audioTanla, javoblar, javobni
           javoblar={javoblar}
           javobniQoy={javobniQoy}
           natija={natija}
+          savollar={savollar}
           keng
         />
       );
@@ -772,19 +809,33 @@ export default function BlokMashqi({ mashq, raqam, javoblarOchiq }) {
               o'zi ham to'liq kenglikka qaytadi) va `blok-rasm-suzuvchi`
               CSS orqali oqim OXIRIGA (dialogdan keyinga) suriladi. */}
           <div className="blok-oqim">
-            {bloklar.map(([b, k]) => (
-              <Blok
-                key={k}
-                blok={b}
-                rasmUrllar={rasmUrllar}
-                faolRaqam={faolRaqam}
-                ijro={ijro}
-                audioTanla={audioTanla}
-                javoblar={javoblar}
-                javobniQoy={javobniQoy}
-                natija={natija}
-              />
-            ))}
+            {bloklar.map(([b, k]) => {
+              const blok = (
+                <Blok
+                  key={k}
+                  blok={b}
+                  rasmUrllar={rasmUrllar}
+                  faolRaqam={faolRaqam}
+                  ijro={ijro}
+                  audioTanla={audioTanla}
+                  javoblar={javoblar}
+                  javobniQoy={javobniQoy}
+                  natija={natija}
+                  savollar={mashq.savollar}
+                />
+              );
+              // 2026-09-07: javob kaliti bloklari serverda talaba javobidan
+              // filtrlanadi — bu yerga faqat o'qituvchi/admin uchun yetib
+              // keladi. Yorliq bo'lmasa o'qituvchi buni talaba ham
+              // ko'rmoqda deb o'ylaydi.
+              if (!b.oqituvchi_uchun) return blok;
+              return (
+                <div key={k} className="blok-oqituvchi">
+                  <span className="blok-oqituvchi-yorliq">{t("faqat_oqituvchiga")}</span>
+                  {blok}
+                </div>
+              );
+            })}
           </div>
           {xato && <div className="xato-xabar">{xato}</div>}
 

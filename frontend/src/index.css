@@ -1053,6 +1053,22 @@ input.imtihon-bosh-joy.faol { border-color: var(--sariq-toq); box-shadow: 0 0 0 
    savollari, "What do you think?" bandlari) saqlanishi kerak — aks holda
    kitobdagi ro'yxat bitta zich paragrafga aylanib ketardi. */
 .blok-korsatma > span { white-space: pre-line; }
+
+/* 2026-09-07: javob kaliti bloklari. Server ularni TALABA javobidan
+   filtrlaydi (`oqituvchi_uchun`), shu yerga faqat o'qituvchi/admin
+   ko'rinishida yetib keladi — yorliq bo'lmasa o'qituvchi buni talaba
+   ham ko'rmoqda deb o'ylaydi. */
+.blok-oqituvchi {
+  position: relative; margin: 16px 0 12px;
+  border: 1px dashed color-mix(in srgb, var(--matn) 35%, transparent);
+  border-radius: 10px; padding: 22px 10px 4px;
+}
+.blok-oqituvchi > * { margin-top: 0; }
+.blok-oqituvchi-yorliq {
+  position: absolute; top: 5px; left: 10px;
+  font-size: 11px; font-weight: 700; letter-spacing: .3px; text-transform: uppercase;
+  color: color-mix(in srgb, var(--matn) 60%, transparent);
+}
 .blok-raqam {
   background: var(--sariq); color: #2B2A28; font-weight: 800; font-size: 12.5px;
   padding: 3px 10px; border-radius: 5px; line-height: 1.4;
