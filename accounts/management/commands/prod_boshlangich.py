@@ -28,6 +28,8 @@ deploy'da o'chirib yuborar edi."""
 from decouple import config
 from django.core.management import call_command
 from django.core.management.base import BaseCommand
+from django.utils import timezone
+from rest_framework_simplejwt.token_blacklist.models import OutstandingToken
 
 from accounts.models import Markaz, User
 from exercises.models import ImtihonTest, Mashq
@@ -107,3 +109,17 @@ class Command(BaseCommand):
         # keyin qo'lda import qilinganda ikkalasi to'qnashib, tasodifiy
         # ichma-ich (nested) dublikat Unit yaratilishi mumkin edi.
         call_command("kunlik_mashqlarni_ishga_tushir")
+
+        # 2026-09-07, auditda topildi: `OutstandingToken`/`BlacklistedToken`
+        # jadvallari HECH QACHON tozalanmasdi — har login (chiqish/kalit
+        # yangilash ham) bittadan qator qo'shadi va ular muddati o'tgandan
+        # keyin ham abadiy qolardi. SimpleJWT buning uchun tayyor buyruq
+        # beradi, faqat uni kimdir chaqirishi kerak edi.
+        #
+        # Bu yerda — chunki loyihada cron/Celery ATAYLAB yo'q
+        # (`accounts/zaxira.py` izohiga qara) va bu buyruq allaqachon har
+        # deploy'da ishlaydi. FAQAT muddati o'tgan (endi yaroqsiz)
+        # kalitlar o'chadi, ya'ni hech kim tizimdan chiqarilmaydi.
+        eskilar = OutstandingToken.objects.filter(expires_at__lt=timezone.now()).count()
+        call_command("flushexpiredtokens")
+        self.stdout.write(f"Muddati o'tgan kalitlar tozalandi: {eskilar}")

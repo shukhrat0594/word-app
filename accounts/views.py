@@ -1854,6 +1854,7 @@ class XodimLoginView(TokenObtainPairView):
                     # himoya sifatida backend darajasida qo'shimcha.
                     markaz = Markaz.objects.first()
                     if markaz and markaz.kirish_cheklangan:
+                        _berilmagan_kalitni_ochir(javob)
                         return Response(
                             {"detail": "Saytga kirish vaqtincha cheklangan",
                              "kod": "kirish_cheklangan"},
@@ -1861,9 +1862,51 @@ class XodimLoginView(TokenObtainPairView):
                         )
                     qurilma_javobi = _qurilma_tekshir(request, user)
                     if qurilma_javobi is not None:
+                        _berilmagan_kalitni_ochir(javob)
                         return qurilma_javobi
                 LoginHistory.objects.create(foydalanuvchi=user, rol=user.role)
         return javob
+
+
+def _berilmagan_kalitni_ochir(javob):
+    """Rad etilgan login uchun yasalib qolgan refresh-kalit yozuvini
+    o'chiradi (2026-09-07, auditda topildi).
+
+    MUAMMO: parol tekshiruvi `super().post()` ichida bo'ladi va SimpleJWT
+    o'sha zahoti kalitni yasab `OutstandingToken` jadvaliga yozadi. Biz
+    esa qurilma cheklovini VA "kirish cheklangan" bayrog'ini undan
+    KEYIN tekshiramiz — ya'ni rad etilgan urinish ham bazada "ochiq
+    seans" bo'lib qolardi.
+
+    Oqibati xavfsizlik emas (kalit mijozga UMUMAN yuborilmaydi — biz
+    boshqa `Response` qaytaramiz), lekin "Aktiv foydalanuvchilar"
+    panelidagi RAQAM buzilardi: boshqa telefondan uch marta kirishga
+    urinib ko'rgan talaba o'sha bo'limda "4 seans" bo'lib turardi.
+    Panelning butun maqsadi esa "kim saytda / kimning seansi qolib
+    ketgan" ni ajratish — arvoh qatorlar aynan shu signalni buzadi.
+
+    NEGA BLACKLIST EMAS, O'CHIRISH: kalit serverdan chiqmagan, ya'ni
+    uni hech kim ushlab qololmaydi — bekor qilinishi kerak bo'lgan
+    narsa yo'q. Qora ro'yxatga qo'shish esa `OutstandingToken` qatorini
+    JOYIDA QOLDIRIB, ustiga yana bitta `BlacklistedToken` qo'shardi,
+    ya'ni tozalamoqchi bo'lgan axlatni ikkilantirardi.
+
+    Hech qachon so'rovni buzmaydi: bu yordamchi ish bermasa ham login
+    rad etilishi kerak (`except` — faqat tozalash o'tkazib yuboriladi).
+    """
+    xom = (getattr(javob, "data", None) or {}).get("refresh")
+    if not xom:
+        return
+    try:
+        from rest_framework_simplejwt.settings import api_settings
+        from rest_framework_simplejwt.token_blacklist.models import OutstandingToken
+        from rest_framework_simplejwt.tokens import RefreshToken
+
+        jti = RefreshToken(xom).payload.get(api_settings.JTI_CLAIM)
+        if jti:
+            OutstandingToken.objects.filter(jti=jti).delete()
+    except Exception:  # noqa: BLE001 — tozalash hech qachon loginni buzmasin
+        pass
 
 
 def _qurilma_tekshir(request, user):
