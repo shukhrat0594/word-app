@@ -12,6 +12,7 @@ Idempotent: qayta yugurtirish xavfsiz.
 
 from django.core.management.base import BaseCommand
 
+from courses.grammar_spot_tuzatish import tuzat as gs_tuzat
 from courses.models import KursMashq, KursTugun
 from courses.pre_intermediate_tuzatish import tuzat
 
@@ -23,3 +24,7 @@ class Command(BaseCommand):
         for izoh, bajarildi in tuzat(KursTugun, KursMashq):
             belgi = "qo'llandi" if bajarildi else "allaqachon joyida"
             self.stdout.write(f"  {izoh}: {belgi}")
+        self.stdout.write("  GRAMMAR SPOT javoblari:")
+        for izoh, bajarildi in gs_tuzat(KursTugun, KursMashq):
+            belgi = "qo'llandi" if bajarildi else "allaqachon joyida"
+            self.stdout.write(f"    {izoh}: {belgi}")

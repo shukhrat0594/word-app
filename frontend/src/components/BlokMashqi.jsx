@@ -482,8 +482,12 @@ function Blok({ blok, rasmUrllar, faolRaqam, ijro, audioTanla, javoblar, javobni
                   </div>
                 );
               }
+              // 2026-09-07: GRAMMAR SPOT javoblari qator darajasida
+              // belgilanadi (server ularni talabadan filtrlaydi) — bu
+              // yerga faqat o'qituvchi ko'rinishida yetib keladi.
+              const oqituvchiga = typeof q === "object" && q.oqituvchi_uchun;
               return (
-                <div key={k}>
+                <div key={k} className={oqituvchiga ? "blok-gs-javob" : undefined}>
                   {qAudio}
                   {typeof q === "string" ? q : q.matn}
                 </div>

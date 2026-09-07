@@ -555,6 +555,25 @@ def _kurs_mashq_admin_dict(m):
     }
 
 
+def _talabaga_blok(blok):
+    """Blok ICHIDAGI `oqituvchi_uchun` qatorlarni olib tashlaydi.
+
+    2026-09-07: GRAMMAR SPOT'da javob savolning O'Z QATORIGA yozilgan edi
+    ("… Find examples of both. (Present Simple va Present Continuous)"),
+    ya'ni butun blokni yashirib bo'lmaydi — savol talabaga kerak. Shuning
+    uchun javob qismi alohida qatorga ajratilgan va qator darajasida
+    belgilangan."""
+    qatorlar = blok.get("qatorlar")
+    if not isinstance(qatorlar, list):
+        return blok
+    tozalangan = [
+        q for q in qatorlar if not (isinstance(q, dict) and q.get("oqituvchi_uchun"))
+    ]
+    if len(tozalangan) == len(qatorlar):
+        return blok
+    return {**blok, "qatorlar": tozalangan}
+
+
 def _kurs_mashq_talaba_dict(m):
     """MUHIM: `togri` maydoni talabaga YUBORILMAYDI.
 
@@ -581,7 +600,7 @@ def _kurs_mashq_talaba_dict(m):
         "audio_url": f"/api/kurslar/mashq/{m.id}/audio/" if m.audio else None,
         "audiolar": _kurs_mashq_audiolar_royxati(m),
         "savollar": [{k: v for k, v in s.items() if k != "togri"} for s in m.savollar],
-        "bloklar": [b for b in m.bloklar if not b.get("oqituvchi_uchun")],
+        "bloklar": [_talabaga_blok(b) for b in m.bloklar if not b.get("oqituvchi_uchun")],
         "blok_rasmlari": _kurs_blok_rasmlari(m),
     }
 
