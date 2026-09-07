@@ -19,11 +19,35 @@ import dj_database_url
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = config('SECRET_KEY', default='django-insecure-8a3dv^(0vc$(-#t&*pumz=!1obq4qcl#k*ucv-c78m$f$=3kwf')
+# 2026-09-07, auditda topildi: `DEBUG` standart qiymati `True` edi.
+# Ya'ni prodda `.env` o'qilmasa yoki `DEBUG` yozilmay qolsa — sayt
+# JIMGINA debug rejimida ko'tarilardi: har xatoda to'liq traceback va
+# sozlamalar ochiladi, VA fayl oxiridagi `if not DEBUG:` blokidagi
+# BARCHA himoya (SSL redirect, HSTS, secure cookie) o'chiq qolardi.
+# Standart endi XAVFSIZ tomonga qaraydi — debug ANIQ so'ralganda yoqiladi.
+DEBUG = config('DEBUG', default=False, cast=bool)
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = config('DEBUG', default=True, cast=bool)
+# 2026-09-07, auditda topildi: bu yerda ishlaydigan SECRET_KEY qiymati
+# standart sifatida turardi va u GIT'DA OCHIQ edi. `.env`da kalit
+# unutilsa, JWT va sessiyalar ommaga ma'lum kalit bilan imzolanardi —
+# istalgan odam o'ziga owner tokeni yasab kira olardi, hech qanday
+# xato belgisisiz.
+#
+# Endi: prodda kalit MAJBURIY (yo'q bo'lsa sayt umuman ko'tarilmaydi —
+# jimgina buzilgan holatdan ko'ra ochiq ishlamaslik afzal), lokal
+# dev'da esa (`DEBUG=True`) qulaylik uchun vaqtinchalik kalit beriladi.
+SECRET_KEY = config('SECRET_KEY', default='')
+if not SECRET_KEY:
+    if not DEBUG:
+        from django.core.exceptions import ImproperlyConfigured
+
+        raise ImproperlyConfigured(
+            "SECRET_KEY sozlanmagan. Prodda uni .env (yoki muhit "
+            "o'zgaruvchisi) orqali bering — masalan: "
+            "python -c \"from django.core.management.utils import "
+            "get_random_secret_key; print(get_random_secret_key())\""
+        )
+    SECRET_KEY = 'django-insecure-faqat-lokal-dev-uchun-prodda-ishlatilmaydi'
 
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1', cast=lambda v: [h.strip() for h in v.split(',')])
 

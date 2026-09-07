@@ -1282,7 +1282,21 @@ class MarkazAdminTayinlashView(APIView):
         if xatolar:
             return Response({"detail": " ".join(xatolar)}, status=400)
 
-        user, created = User.objects.get_or_create(username=username)
+        # 2026-09-07, auditda topildi — `XodimlarView.post`dagi bilan
+        # BIR XIL naqsh: `get_or_create` mavjud hisobning rolini va
+        # PAROLINI almashtirardi. Bu endpoint owner-only, shuning uchun
+        # xavf torroq, lekin bekor emas: ikkinchi owner shu forma orqali
+        # ASOSIY owner'ning parolini o'zgartirib, uni markaz admini
+        # darajasiga tushirib qo'ya olardi. Platforma egasining hisobi
+        # markaz boshqaruvi formasi orqali o'zgarmasligi kerak.
+        mavjud = User.objects.filter(username=username).first()
+        if mavjud is not None and mavjud.is_superuser:
+            return Response(
+                {"detail": "Bu login platforma egasiga tegishli — boshqa login tanlang"},
+                status=400,
+            )
+        created = mavjud is None
+        user = mavjud or User(username=username)
         eski_rol = user.role
         user.role = User.Role.ADMIN
         user.markaz = markaz
@@ -1389,11 +1403,31 @@ class XodimlarView(APIView):
         if xatolar:
             return Response({"detail": " ".join(xatolar)}, status=400)
 
-        user, created = User.objects.get_or_create(username=username)
-        if not created and user.markaz_id not in (None, markaz_id):
-            return Response(
-                {"detail": "Bu login boshqa markazga tegishli"}, status=400
-            )
+        # 2026-09-07, auditda topildi va test bilan tasdiqlandi —
+        # HUQUQ OSHIRISH: bu yerda `get_or_create` turardi va mavjud
+        # ISTALGAN hisobning roli TEACHER'ga, paroli esa so'rovda
+        # kelgan qiymatga almashtirilardi.
+        #
+        # Owner odatda markazga biriktirilmagan (`markaz_id=None`) —
+        # ya'ni pastdagi "boshqa markazga tegishli" tekshiruvi
+        # (`not in (None, markaz_id)`) uni TO'SMASDI. Natijada har
+        # qanday markaz admini "Xodim qo'shish" formasiga OWNER
+        # loginini yozib, parolni o'zi tanlar edi. `is_superuser`
+        # o'chmagani uchun admin shu paroldan owner sifatida kirardi.
+        #
+        # Endi forma faqat ikki ishni qiladi: YANGI o'qituvchi ochish,
+        # yoki MAVJUD o'qituvchining parolini yangilash. Boshqa turdagi
+        # (owner/admin/talaba/ota-ona) hisobga umuman tegmaydi.
+        mavjud = User.objects.filter(username=username).first()
+        if mavjud is not None:
+            if mavjud.is_superuser or mavjud.role != User.Role.TEACHER:
+                return Response({"detail": "Bu login band"}, status=400)
+            if mavjud.markaz_id not in (None, markaz_id):
+                return Response(
+                    {"detail": "Bu login boshqa markazga tegishli"}, status=400
+                )
+        created = mavjud is None
+        user = mavjud or User(username=username)
         user.role = User.Role.TEACHER
         user.markaz_id = markaz_id
         if ism:
@@ -1771,8 +1805,22 @@ class ParolOzgartirishView(APIView):
         if xatolar:
             return Response({"detail": " ".join(xatolar)}, status=400)
 
+        # `update_fields` SHART (2026-09-07, auditda topildi va test bilan
+        # tasdiqlandi). Avval bu yerda oddiy `save()` turardi va u BARCHA
+        # maydonlarni yozardi. Owner "Ko'rish rejimi"da (masalan Talaba
+        # sifatida) turib parolini o'zgartirsa, `accounts/authentication.py`
+        # XOTIRADA soxtalashtirib qo'ygan `role`/`is_staff`/`is_superuser`
+        # ham BAZAGA tushardi — natijada owner o'z huquqini BUTUNLAY
+        # yo'qotardi (bazada `is_superuser=False, role=student`).
+        #
+        # Qaytarib bo'lmasdi: "Ko'rish rejimi"ni almashtirish `asl_owner_mi`
+        # talab qiladi (endi False), Django admin ham yopiq
+        # (`is_staff=False`) — faqat `manage.py shell` bilan tuzatilardi.
+        #
+        # Aynan shu xavf `accounts/authentication.py` boshidagi izohda
+        # ogohlantirilgan; bu yer o'sha qoidani buzgan yagona joy edi.
         request.user.set_password(yangi_parol)
-        request.user.save()
+        request.user.save(update_fields=["password"])
         return Response({"detail": "Parol yangilandi"})
 
 
