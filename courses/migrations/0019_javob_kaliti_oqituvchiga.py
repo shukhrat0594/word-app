@@ -31,10 +31,12 @@ BOSH = re.compile(
     r"|namunaviy javob[^:\n]*:"
     r"|noto'g'ri[^:\n]*(tuzatilgan|tuzatish)[^:\n]*:"
     r"|group [a-z][^:\n]*javoblari\s*:"
-    r"|suhbat matni\s*:"
     r"|shifokor yana nima deydi\s*:"
     r"|millati va kasbi\s*:"
     r"|eslatma\s*:"
+    # DIQQAT: "Suhbat matni:" ATAYLAB yo'q — u javob kaliti EMAS, mashqning
+    # O'Z MATNI (variantlari ochiq turgan suhbat). Uni yashirish mashqni
+    # yechib bo'lmaydigan qilib qo'yardi (Unit 4 WB REVIEW).
     r"|\d+-mashq javob(lar)?i\s*[—–-]"
     r"|boshqa mumkin bo'lgan javoblar\s*:"
     r")",

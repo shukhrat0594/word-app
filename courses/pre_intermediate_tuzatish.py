@@ -317,7 +317,37 @@ def _u10sb_chart(mashq):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# 7. Unit 4 WB REVIEW — suhbat mashqdan ajralib, oxiriga tushib qolgan
+# ─────────────────────────────────────────────────────────────────────────────
+U4WB_KORSATMA = "Underline the correct words in the conversation."
+
+
+def _u4wb_suhbat(mashq):
+    """Kitobda A/B suhbati butun holda turadi, tanlov variantlari esa gap
+    ichida raqamlangan. Bizda suhbatning birinchi qatoridan boshqasi
+    tanlov tugmalaridan KEYIN, "Suhbat matni:" degan alohida blokka
+    tushib qolgan edi — talaba nima haqida javob berayotganini bilmasdi
+    (Shuxrat, image10: "mashq dialogi to'liq berilmagan").
+
+    Endi suhbat bitta blok bo'lib, tanlovdan OLDIN turadi."""
+    bloklar = mashq.bloklar
+    suhbat_i = _blok_indeksi(bloklar, "Suhbat matni:")
+    bosh_i = _blok_indeksi(bloklar, "A Good morning! Can I help you?")
+    if suhbat_i is None or bosh_i is None or suhbat_i < bosh_i:
+        return False
+    qolgani = bloklar[suhbat_i]["matn"].split(":", 1)[1].strip()
+    bloklar[bosh_i] = {
+        "tur": "matn",
+        "matn": "A Good morning! Can I help you?\n" + qolgani,
+    }
+    del bloklar[suhbat_i]
+    _saqla(mashq)
+    return True
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 TUZATISHLAR = [
+    (U4WB_KORSATMA, _u4wb_suhbat, "Unit 4 WB — REVIEW suhbati"),
     (U5_KORSATMA, _u5_bosh_joyni_oxiriga, "Unit 5 SB — bo'sh joy qator oxiriga"),
     (U6SB_KORSATMA, _u6sb_c_ustuni, "Unit 6 SB — C ustuni"),
     (U6WB_KORSATMA, _u6wb_stress, "Unit 6 WB — word stress mashqi"),
