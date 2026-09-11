@@ -79,7 +79,13 @@ class OwnerYozishCheklashMiddleware:
 
 
 class ZaxiraTekshiruvMiddleware:
-    """Avtomatik kunlik zaxira uchun "turtki" (2026-09-03).
+    """Rejalashtirilgan fon ishlari uchun "turtki" (2026-09-03).
+
+    Ikkita ish bor: avtomatik kunlik zaxira (2026-09-03) va muddati
+    o'tgan Speaking audiolarini tozalash (2026-09-11). Ikkalasi ham bir
+    xil naqshda — so'rov paytida "vaqt keldimi?" savoli, ish esa fon
+    oqimida — shuning uchun alohida middleware yaratilmadi. Har biri o'z
+    oralig'ini o'zi hisoblaydi.
 
     Loyihada cron/Celery ATAYLAB yo'q (`accounts/zaxira.py` va
     `relizlar.py` izohlariga qara) — shuning uchun "vaqt keldimi?"
@@ -101,5 +107,15 @@ class ZaxiraTekshiruvMiddleware:
 
             fonda_tekshir()
         except Exception:  # noqa: BLE001 — zaxira hech qachon saytni buzmasin
+            pass
+        # Muddati o'tgan Speaking audiolarini tozalash (2026-09-11) — bir
+        # xil "so'rov paytida turtki, ish fon oqimida" naqshi, shuning
+        # uchun alohida middleware yaratilmadi. O'z oralig'i bor
+        # (soatiga bir marta), zaxira hisoblagichiga tegmaydi.
+        try:
+            from assessment.audio_tozalash import fonda_tekshir as audio_tekshir
+
+            audio_tekshir()
+        except Exception:  # noqa: BLE001 — tozalash hech qachon saytni buzmasin
             pass
         return self.get_response(request)

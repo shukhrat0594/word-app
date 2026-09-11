@@ -6,14 +6,19 @@ ya'ni havola 404 edi va talaba o'z ovozini qayta eshita olmasdi. R2
 yoqilganda esa `.url` imzolangan OCHIQ havola berardi (B3.2 buziladi).
 """
 
+import datetime
+
 from django.core.cache import cache
 from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
 from django.test import TestCase
+from django.utils import timezone
 from rest_framework.test import APIClient
 
 from academics.models import Guruh
 from accounts.models import Markaz, User
 
+from .audio_tozalash import eskilarni_ochir
 from .models import SpeakingTekshiruv
 
 PAROL = "Sinov!Parol2026"
@@ -139,3 +144,65 @@ class SpeakingAudioHavolasiTest(TestCase):
         self.assertEqual(javob.status_code, 200)
         yozuv = next(y for y in javob.data["natijalar"] if y["turi"] == "speaking")
         self.assertEqual(yozuv["audio_url"], self.yol)
+
+
+class SpeakingAudioTozalashTest(TestCase):
+    """Muddati o'tgan Speaking audiolari o'chishi (2026-09-11 talabi:
+    "7 kundan keyin o'chib ketadigan qil")."""
+
+    def setUp(self):
+        cache.clear()
+        self.markaz = Markaz.objects.create(name="Utmost")
+        self.talaba = User.objects.create_user(
+            username="talaba", password=PAROL, role=User.Role.STUDENT, markaz=self.markaz
+        )
+
+    def _tekshiruv_yarat(self, kun_oldin):
+        """`created_at` — `auto_now_add`, shuning uchun yaratilgandan
+        keyin `update` bilan orqaga suriladi."""
+        t = SpeakingTekshiruv.objects.create(
+            talaba=self.talaba,
+            rejim=SpeakingTekshiruv.Rejim.TEZKOR,
+            matn="salom",
+            holat=SpeakingTekshiruv.Holat.TAYYOR,
+            overall_band=6.5,
+        )
+        t.audio_fayl.save("sinov.webm", ContentFile(AUDIO), save=True)
+        SpeakingTekshiruv.objects.filter(pk=t.pk).update(
+            created_at=timezone.now() - datetime.timedelta(days=kun_oldin)
+        )
+        return SpeakingTekshiruv.objects.get(pk=t.pk)
+
+    def test_eski_audio_ochadi_yangisi_qoladi(self):
+        eski = self._tekshiruv_yarat(8)
+        yangi = self._tekshiruv_yarat(3)
+        eski_yol = eski.audio_fayl.name
+
+        self.assertEqual(eskilarni_ochir(), 1)
+
+        eski.refresh_from_db()
+        yangi.refresh_from_db()
+        self.assertFalse(eski.audio_fayl, "muddati o'tgan audio maydoni bo'shamadi")
+        self.assertFalse(default_storage.exists(eski_yol), "fayl saqlagichda qoldi")
+        self.assertTrue(yangi.audio_fayl, "muddati o'tmagan audio o'chib ketdi")
+
+    def test_yozuvning_ozi_qoladi(self):
+        """Faqat audio o'chadi — band/matn tarixi saqlanib qolishi kerak."""
+        eski = self._tekshiruv_yarat(30)
+        eskilarni_ochir()
+        eski.refresh_from_db()
+        self.assertEqual(eski.overall_band, 6.5)
+        self.assertEqual(eski.matn, "salom")
+
+    def test_takroriy_chaqiruv_bosh_ishlamaydi(self):
+        self._tekshiruv_yarat(8)
+        self.assertEqual(eskilarni_ochir(), 1)
+        self.assertEqual(eskilarni_ochir(), 0, "audiosiz yozuv qayta hisoblandi")
+
+    def test_tarix_audiosiz_yozuvda_ham_ishlaydi(self):
+        """Audio o'chgach `audio_url` `None` bo'ladi, endpoint yiqilmaydi."""
+        self._tekshiruv_yarat(8)
+        eskilarni_ochir()
+        javob = _kirish("talaba", "q1").get("/api/speaking/tarix/")
+        self.assertEqual(javob.status_code, 200)
+        self.assertIsNone(javob.data[0]["audio_url"])
