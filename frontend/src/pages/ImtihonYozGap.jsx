@@ -35,6 +35,13 @@ export default function ImtihonYozGap({ bolim, manba = "admin", testId, mockYech
   // Vaqt tugab, avtomatik tekshirilgach (Mock ichida) bloklovchi
   // "Keyingisi" oynasini ko'rsatish uchun (2026-08-15).
   const [vaqtSababliYakun, setVaqtSababliYakun] = useState(false);
+  // 2026-09-11, Shuxrat talabi: Speaking'da taymer YO'Q. Rasmiy IELTS'da
+  // ham speaking vaqtini imtihonchi boshqaradi, talaba ko'radigan jamoat
+  // sanog'i bo'lmaydi. Vaqt tugaganda MAJBURIY YAKUNLASH ham speaking'ga
+  // tegmaydi: soatni yashirib majburiy yakunni qoldirish talaba uchun
+  // tuzoq bo'lardi — test ogohlantirishsiz yopilib qolardi.
+  // Writing'da (Task1 20 daq + Task2 40 daq) hammasi avvalgidek.
+  const taymerliMi = bolim !== "speaking";
   const boshlanishVaqtiRef = useRef(null);
   const avtoYakunlashRef = useRef(false);
   const keyingigaOtildiRef = useRef(false);
@@ -63,10 +70,10 @@ export default function ImtihonYozGap({ bolim, manba = "admin", testId, mockYech
   }, [bolim, testId, manba]);
 
   useEffect(() => {
-    if (!test || natijalar) return;
+    if (!test || natijalar || !taymerliMi) return undefined;
     const idT = setInterval(() => setSoniya((s) => s + 1), 1000);
     return () => clearInterval(idT);
-  }, [test, natijalar]);
+  }, [test, natijalar, taymerliMi]);
 
   useEffect(() => {
     function chiqishdanOldin(e) {
@@ -286,7 +293,10 @@ export default function ImtihonYozGap({ bolim, manba = "admin", testId, mockYech
   // (2026-08-15). Umumiy vaqt — barcha qismlar (Task1+Task2 yoki
   // Part1/2/3) uchun standart vaqtlar YIG'INDISI, `ImtihonOtish.jsx`dagi
   // bilan bir xil ABSOLYUT boshlanish vaqti mantig'i.
-  const jamiVaqt = test ? test.qismlar.reduce((s, q) => s + standartVaqt(bolim, q.tur), 0) : null;
+  const jamiVaqt =
+    test && taymerliMi
+      ? test.qismlar.reduce((s, q) => s + standartVaqt(bolim, q.tur), 0)
+      : null;
   const barchaTekshirildi = !!(test && natijalar && natijalar.length === test.qismlar.length);
   const vaqtTugadi = !!test && !barchaTekshirildi && jamiVaqt != null && soniya >= jamiVaqt;
 
@@ -342,7 +352,8 @@ export default function ImtihonYozGap({ bolim, manba = "admin", testId, mockYech
   const NatijaKomponenti = bolim === "writing" ? WritingNatija : SpeakingNatija;
 
   if (test) {
-    const korsatilganVaqt = teskariMi ? Math.max(0, jamiVaqt - soniya) : soniya;
+    const korsatilganVaqt =
+      taymerliMi && teskariMi ? Math.max(0, jamiVaqt - soniya) : soniya;
     const qism = test.qismlar[faolQism];
     const sozSoni = (javoblar[qism.id] || "").trim()
       ? javoblar[qism.id].trim().split(/\s+/).length
@@ -361,13 +372,15 @@ export default function ImtihonYozGap({ bolim, manba = "admin", testId, mockYech
           <button className="tugma ikkinchi" onClick={ortgaQaytish}>
             {t("ortga")}
           </button>
-          <span
-            className="imtihon-taymer"
-            title={t("imtihon_taymer_almashtir")}
-            onClick={() => setTeskariMi((v) => !v)}
-          >
-            ⏱ {vaqtFormat(korsatilganVaqt)}
-          </span>
+          {taymerliMi && (
+            <span
+              className="imtihon-taymer"
+              title={t("imtihon_taymer_almashtir")}
+              onClick={() => setTeskariMi((v) => !v)}
+            >
+              ⏱ {vaqtFormat(korsatilganVaqt)}
+            </span>
+          )}
         </div>
 
         <h3 style={{ margin: "10px 0" }}>{test.name}</h3>
