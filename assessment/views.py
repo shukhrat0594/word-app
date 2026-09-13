@@ -7,6 +7,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from .band import natijani_yaxlitla
 from .models import SpeakingTekshiruv, WritingTekshiruv
 from .providers import (
     GEMINI_MODEL,
@@ -131,7 +132,9 @@ class WritingTekshirishView(APIView):
             baho = provider.writing_baholash(
                 matn, savol_matni=savol_matni, tur=tur, rasm_bytes=rasm_bytes, rasm_mime=rasm_mime
             )
-            tekshiruv.natija = baho["natija"]
+            # 2026-09-14: AI 7.3 kabi oraliq ball qaytarishi mumkin —
+            # saqlashdan oldin 0.5 qadamga keltiriladi (assessment/band.py).
+            tekshiruv.natija = natijani_yaxlitla(baho["natija"])
             tekshiruv.task_type = str(baho["natija"].get("task_type", ""))
             tekshiruv.overall_band = baho["natija"].get("overall_band")
             tekshiruv.provider = baho["provider"]
@@ -189,7 +192,8 @@ class SpeakingMatnView(APIView):
                     holat=SpeakingTekshiruv.Holat.KUTILMOQDA,
                 )
                 baho = provider.speaking_matn_baholash(matn, savol_matni=savol_matni, tur=tur)
-                tekshiruv.natija = baho["natija"]
+                # 2026-09-14: 0.5 qadamga yaxlitlash (assessment/band.py).
+                tekshiruv.natija = natijani_yaxlitla(baho["natija"])
                 tekshiruv.part_type = str(baho["natija"].get("part_type", ""))
                 tekshiruv.overall_band = baho["natija"].get("overall_band_no_pronunciation")
                 tekshiruv.provider = baho["provider"]
@@ -297,7 +301,8 @@ class SpeakingAudioView(APIView):
                 savol_matni=savol_matni, tur=tur,
             )
             tekshiruv.matn = baho["transkript"]
-            tekshiruv.natija = baho["natija"]
+            # 2026-09-14: 0.5 qadamga yaxlitlash (assessment/band.py).
+            tekshiruv.natija = natijani_yaxlitla(baho["natija"])
             tekshiruv.part_type = str(baho["natija"].get("part_type", ""))
             tekshiruv.overall_band = baho["natija"].get("overall_band_no_pronunciation")
             tekshiruv.provider = baho["provider"]
@@ -355,9 +360,14 @@ class SpeakingAudioFaylView(APIView):
 
     RUXSAT: `accounts.permissions.natijalarni_korish_ruxsati` — ya'ni
     AYNAN natija ro'yxatini ko'ra oladigan odam (o'zi, owner/admin,
-    o'z guruhidagi o'qituvchi, o'z farzandi uchun ota-ona)."""
+    o'z guruhidagi o'qituvchi, o'z farzandi uchun ota-ona).
+
+    POST (2026-09-14, Shuhrat: "Speaking testlarida yozib olingan
+    javoblarni saqlash kerak") — IELTS testlari oqimida yozilgan audioni
+    SHU yozuvga biriktiradi. Tafsilot `post` metodida."""
 
     permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
 
     def get(self, request, pk):
         from django.http import FileResponse, Http404
@@ -372,6 +382,42 @@ class SpeakingAudioFaylView(APIView):
         javob = FileResponse(tekshiruv.audio_fayl.open("rb"))
         javob["Content-Disposition"] = "inline"
         return javob
+
+    def post(self, request, pk):
+        """IELTS testlari oqimidagi Speaking javob audiosini saqlaydi
+        (2026-09-14).
+
+        NEGA ALOHIDA QADAM, baholash so'rovining ichida emas: baholash
+        (`exercises.ImtihonYozGapTekshirishView`) uchta ketma-ket AI
+        chaqiruvidan iborat va sekin — unga bir necha megabaytlik audio
+        qo'shilsa, yuklash tugamaguncha baholash BOSHLANMASDI, tarmoq
+        uzilsa esa talaba BAHOSIZ qolardi. Endi avval baho olinadi
+        (javobda har qism uchun `tekshiruv_id` qaytadi), audio esa
+        keyin, alohida yuboriladi. Audio yuklanmay qolsa — baho joyida,
+        faqat ovoz yozuvi bo'lmaydi.
+
+        RUXSAT: faqat yozuv EGASI (talabaning o'zi). O'qituvchi/admin
+        audioni TINGLAY oladi (`get`), lekin yuklay olmaydi — yozuv
+        talabaning javobi, boshqa hech kim uni almashtirmasligi kerak.
+
+        Bir marta: audio allaqachon bor bo'lsa 409 qaytadi — takroriy
+        so'rov (masalan frontend qayta urinsa) mavjud yozuvni jimgina
+        bosib ketmasin.
+
+        Bu audio umumiy tozalash qoidasiga bo'ysunadi — 24 soatdan keyin
+        o'chadi (`assessment/audio_tozalash.py`)."""
+        tekshiruv = get_object_or_404(SpeakingTekshiruv, pk=pk)
+        if tekshiruv.talaba_id != request.user.id:
+            return Response({"detail": "Ruxsat yo'q"}, status=403)
+        if tekshiruv.audio_fayl:
+            return Response({"detail": "Bu yozuvda audio allaqachon bor"}, status=409)
+
+        audio = request.FILES.get("audio")
+        if not audio:
+            return Response({"detail": "audio majburiy"}, status=400)
+
+        tekshiruv.audio_fayl.save(f"imtihon_{tekshiruv.id}.webm", audio, save=True)
+        return Response({"audio_url": speaking_audio_yoli(tekshiruv)})
 
 
 class SpeakingTarixView(APIView):

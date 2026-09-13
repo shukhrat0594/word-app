@@ -473,6 +473,16 @@ input.imtihon-bosh-joy.faol { border-color: var(--sariq-toq); box-shadow: 0 0 0 
   border: 1px solid var(--chiziq); padding: 5px 7px; text-align: left; vertical-align: top; line-height: 1.5;
 }
 .imtihon-jadval th { background: var(--sirt-2); font-weight: 700; }
+/* Kurslar tarixidagi savol-javob jadvali (2026-09-14). `.imtihon-jadval`
+   bilan bir xil ko'rinish, lekin u imtihon ichidagi maxsus formatga
+   (Table Completion) tegishli — tarix uni qayta ishlatsa, biriga
+   qilingan o'zgarish ikkinchisini kutilmaganda buzardi. */
+.tarix-jadval { border-collapse: collapse; font-size: 12.5px; width: 100%; }
+.tarix-jadval th, .tarix-jadval td {
+  border: 1px solid var(--chiziq); padding: 5px 7px; text-align: left; vertical-align: top; line-height: 1.5;
+}
+.tarix-jadval th { background: var(--sirt-2); font-weight: 700; }
+
 .imtihon-oqim-wrap { margin: 12px 0; max-width: 480px; }
 .imtihon-oqim-qadam {
   border: 1px solid var(--chiziq); border-radius: 8px; padding: 8px 12px; background: var(--sirt);

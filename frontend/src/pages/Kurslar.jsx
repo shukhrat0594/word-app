@@ -3,6 +3,7 @@ import { api, apiBlobUrl, apiFayluniYuklab, apiForm } from "../api";
 import { AUDIO_HIMOYA, faqatBittaAudioIjro } from "../audio";
 import BlokMashqi from "../components/BlokMashqi";
 import BlokTasdiqlash from "../components/BlokTasdiqlash";
+import KursTarixi from "../components/KursTarixi";
 import {
   FlashcardOyini,
   JuftiniTopOyini,
@@ -1262,11 +1263,19 @@ function AdminMashqBoshqaruv({ tugunId, jsonKiritishKorinadi = true }) {
                       );
                     });
                   }
-                  if (raqamlar.length === 1 || m.audio_kerak) {
-                    const yagonaRaqam = raqamlar[0] || "";
-                    const kalit = `${m.id}:${yagonaRaqam}`;
-                    const borMi = m.audio_url || mavjudRaqamlar.has(yagonaRaqam);
-                    return (
+                  // 2026-09-14 (Shuhrat: "Intermediate audio yuklab
+                  // bo'lmayabdi"): avval bu yerda `raqamlar.length === 1
+                  // || m.audio_kerak` sharti bor edi — ikkalasi ham
+                  // bo'lmasa tugma O'RNIGA "audio yo'q" degan yozuv
+                  // chiqardi va admin audioni biriktira olmasdi. Import
+                  // belgini ajratmay qolgan unitlarda (Intermediate
+                  // 7-10, 12) aynan shu holat edi. Endi tugma HAR DOIM
+                  // ko'rsatiladi: belgi bo'lsa — trek raqami bilan,
+                  // bo'lmasa — raqamsiz (backend `raqam=""` qabul qiladi).
+                  const yagonaRaqam = raqamlar[0] || "";
+                  const kalit = `${m.id}:${yagonaRaqam}`;
+                  const borMi = m.audio_url || mavjudRaqamlar.has(yagonaRaqam);
+                  return (
                       <span style={{ display: "inline-flex", gap: 4 }}>
                         <label className="tugma ikkinchi" style={{ cursor: "pointer" }}>
                           {audioYuklanayotganKalit === kalit ? t("yuklanmoqda") : t("kurs_mashq_audio_yuklash")}
@@ -1291,9 +1300,7 @@ function AdminMashqBoshqaruv({ tugunId, jsonKiritishKorinadi = true }) {
                           </button>
                         )}
                       </span>
-                    );
-                  }
-                  return <span className="izoh">{t("kurs_mashq_audio_yoq")}</span>;
+                  );
                 })()}
                 <button className="tugma ikkinchi" style={{ color: "#d33" }} onClick={() => ochir(m.id)}>
                   {t("ochirish")}
@@ -2484,6 +2491,11 @@ export default function Kurslar() {
   // so'z qoldi) bilan chiziladi, hammasi tarjima qilingan bo'lsa
   // butunlay yo'qoladi.
   const [tarjimaKey, setTarjimaKey] = useState(0);
+  // Yechilgan mashqlar tarixi (2026-09-14) — daraxt bilan bir sahifada,
+  // tugma orqali ochiladi. Ataylab alohida sahifa/nav bo'limi emas:
+  // Shuhrat "Kurslar bo'limida" deb aniq aytdi, tarix esa shu bo'limdagi
+  // mashqlarga tegishli.
+  const [tarixOchiq, setTarixOchiq] = useState(false);
 
   function yukla() {
     api("/api/kurslar/daraxt/").then((d) => {
@@ -2501,6 +2513,20 @@ export default function Kurslar() {
   return (
     <div className="karta">
       <h3>{t("nav_kurslar")}</h3>
+      <div style={{ marginBottom: 10 }}>
+        <button
+          type="button"
+          className="tugma ikkinchi"
+          onClick={() => setTarixOchiq((v) => !v)}
+        >
+          🕘 {t("kurs_tarix")}
+        </button>
+      </div>
+      {tarixOchiq && (
+        <div style={{ marginBottom: 14 }}>
+          <KursTarixi />
+        </div>
+      )}
       {adminMi && <HammasiniTarjimaQilish key={tarjimaKey} onTugadi={() => setTarjimaKey((k) => k + 1)} />}
       {daraxt.children.map((tugun) => (
         <Tugun

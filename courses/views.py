@@ -2177,15 +2177,23 @@ class KursMashqBlokAudioBoshqaruvView(APIView):
             raqam = request.data.get("raqam") or raqamlar[0]
             if raqam not in raqamlar:
                 return Response({"detail": "Noto'g'ri audio raqami"}, status=400)
-        elif mashq.audio_kerak:
+        else:
             # 2026-08-07, RASM-FON rejimi: u yerda `bloklar` bo'sh, ya'ni
             # trek raqami (`audio_raqam`) umuman yo'q — AI faqat sahifada
             # audio BELGISI borligini aytadi (`audio_kerak`). Shunday
             # mashqqa audio RAQAMSIZ biriktiriladi; `KursMashqAudio.raqam`
             # `blank=True`, talaba panelida raqamsiz ko'rinadi.
+            #
+            # 2026-09-14 (Shuhrat: "Intermediate audio yuklab bo'lmayabdi"):
+            # avval bu yerda `audio_kerak` SHART edi, aks holda 400 —
+            # "Bu mashqda audio belgisi yo'q". Import audio belgisini
+            # ajratmay qolgan mashqlarda (Intermediate 7-10, 12-unitlar)
+            # admin audioni HECH QANDAY yo'l bilan biriktira olmasdi.
+            # Endi shart olib tashlandi: admin ataylab fayl tanlagan bo'lsa,
+            # belgining bor-yo'qligi to'sqinlik qilmaydi. Bu XAVFSIZ —
+            # ruxsat yuqorida (`_mashq_admin_mi`) allaqachon tekshirilgan,
+            # yozuv esa (mashq, raqam="") bo'yicha yagona bo'lib qoladi.
             raqam = ""
-        else:
-            return Response({"detail": "Bu mashqda audio belgisi yo'q"}, status=400)
 
         xesh = _audio_xeshi(audio)
         yozuv, yaratildi = KursMashqAudio.objects.get_or_create(mashq=mashq, raqam=raqam)
@@ -2448,3 +2456,167 @@ class KursMashqYechishView(APIView):
             natijalar=natija["natijalar"],
         )
         return Response(natija)
+
+
+def _tugun_zanjiri(tugun):
+    """Tugundan ildizgacha bo'lgan yo'l — ildizdan boshlab ro'yxat.
+
+    Masalan: [Kurslar, Ingliz tili, Beginner, Unit 1 — Hello!,
+    Student's Book]. Tarixda "qaysi darajaning mashqi" degan savolga
+    javob shu zanjirdan olinadi."""
+    zanjir = []
+    node = tugun
+    # Halqadan himoya: ma'lumot buzilib, tugun o'ziga ota bo'lib qolsa
+    # (bo'lmasligi kerak, lekin cheksiz sikl saytni to'xtatib qo'yardi).
+    korilgan = set()
+    while node and node.id not in korilgan:
+        korilgan.add(node.id)
+        zanjir.append(node)
+        node = node.parent
+    zanjir.reverse()
+    return zanjir
+
+
+def _yechim_joylashuvi(yechim):
+    """Yechimning daraja/unit/bo'lim nomlari — tarix ro'yxati uchun.
+
+    Daraja — zanjirdagi UCHINCHI element (Kurslar > Fan > Daraja), ya'ni
+    "Beginner", "Intermediate", "IELTS" kabi. Tuzilma qisqaroq bo'lsa
+    (masalan fanning bevosita o'zida mashq bo'lsa) — mavjud bo'lgan eng
+    chuqur element olinadi, ya'ni guruhlash baribir ishlaydi."""
+    zanjir = _tugun_zanjiri(yechim.mashq.tugun)
+    daraja = zanjir[2] if len(zanjir) > 2 else zanjir[-1]
+    # Unit va bo'lim — darajadan keyingilari (bo'lmasligi ham mumkin).
+    keyingilar = zanjir[3:]
+    return {
+        "daraja_id": daraja.id,
+        "daraja": daraja.nomi,
+        "yol": " > ".join(t.nomi for t in keyingilar),
+    }
+
+
+class KursTarixView(APIView):
+    """Kurslar bo'limida yechilgan mashqlar tarixi — papka ko'rinishi
+    (2026-09-14, Shuhrat talabi: "o'tilgan testlarning tarixini matn
+    ko'rinishida saqlash, ya'ni qaysi savolga qanday javob berganini,
+    papka ko'rinishida. Masalan: Beginner 01.09.2026 - 15/30 uni ustiga
+    bossa qaysi raqamdagi savolga nima javob bergani").
+
+    MA'LUMOT ALLAQACHON BOR EDI: `KursMashqYechim` javoblarni ham, har
+    savol natijasini ham, sanani ham saqlab kelgan. Yetishmagani —
+    shuni ko'rsatadigan yo'l. Shuning uchun bu yerda yangi model ham,
+    migratsiya ham yo'q.
+
+    GET /api/kurslar/tarix/            — o'z tarixi
+    GET /api/kurslar/tarix/?talaba=N   — boshqa talabaniki
+
+    RUXSAT: `accounts.permissions.natijalarni_korish_ruxsati` — o'zi,
+    owner/admin, o'z guruhidagi o'qituvchi, o'z farzandi uchun ota-ona.
+    Shuhrat aynan talaba + o'qituvchi + ota-onani so'radi; helper ularni
+    va admin/owner'ni qamrab oladi. Ikkinchi nusxa qoida yozilmadi —
+    izohi `accounts/permissions.py` da."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from accounts.permissions import natijalarni_korish_ruxsati
+
+        talaba_id = request.query_params.get("talaba")
+        if talaba_id:
+            talaba = get_object_or_404(User, pk=talaba_id)
+        else:
+            talaba = request.user
+        if not natijalarni_korish_ruxsati(request.user, talaba):
+            return Response({"detail": "Ruxsat yo'q"}, status=403)
+
+        qs = (
+            KursMashqYechim.objects.filter(talaba=talaba)
+            .select_related("mashq__tugun__parent__parent__parent")
+            .order_by("-created_at")
+        )
+
+        # Daraja bo'yicha guruhlash. `dict` Python 3.7+ da qo'shilish
+        # tartibini saqlaydi, yechimlar esa sanasi bo'yicha kamayish
+        # tartibida keladi — ya'ni eng so'nggi faollik yuqorida turadi.
+        darajalar = {}
+        for yechim in qs:
+            joy = _yechim_joylashuvi(yechim)
+            guruh = darajalar.setdefault(
+                joy["daraja_id"],
+                {"id": joy["daraja_id"], "nomi": joy["daraja"], "yechimlar": []},
+            )
+            guruh["yechimlar"].append({
+                "id": yechim.id,
+                "sana": yechim.created_at,
+                "ball": yechim.ball,
+                "jami": yechim.jami,
+                "yol": joy["yol"],
+                "mashq_tartibi": yechim.mashq.tartib,
+            })
+
+        return Response({
+            "talaba": {"id": talaba.id, "ism": talaba.get_full_name() or talaba.username},
+            "darajalar": list(darajalar.values()),
+        })
+
+
+class KursTarixDetailView(APIView):
+    """Bitta yechimning SAVOL-JAVOB tafsiloti (2026-09-14).
+
+    Har savol uchun: raqami, savol matni, talaba javobi, to'g'ri javob
+    va to'g'ri/noto'g'ri belgisi.
+
+    `natijalar` — `[bool, ...]`, `javoblar` — `[str, ...]`, ikkalasi ham
+    mashqning `savollar` ro'yxati bilan BIR TARTIBDA (`exercises.models.
+    javoblarni_tekshir`). Mashq keyin tahrirlangan bo'lishi mumkin,
+    shuning uchun uzunliklar mos kelmasligi hisobga olinadi — indeks
+    bo'yicha xavfsiz o'qiladi."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, pk):
+        from accounts.permissions import natijalarni_korish_ruxsati
+
+        yechim = get_object_or_404(
+            KursMashqYechim.objects.select_related("mashq__tugun"), pk=pk
+        )
+        if not natijalarni_korish_ruxsati(request.user, yechim.talaba):
+            return Response({"detail": "Ruxsat yo'q"}, status=403)
+
+        savollar = yechim.mashq.savollar or []
+        javoblar = yechim.javoblar or []
+        natijalar = yechim.natijalar or []
+
+        def _matn(qiymat):
+            """Javob ro'yxat bo'lishi mumkin (ko'p javobli savol)."""
+            if isinstance(qiymat, list):
+                return ", ".join(str(x) for x in qiymat if str(x).strip())
+            return "" if qiymat is None else str(qiymat)
+
+        qatorlar = []
+        # Savollar mashqdan olinadi; mashq tahrirlanib savol soni
+        # kamaygan bo'lsa ham talabaning javoblari yo'qolmasin — shuning
+        # uchun uzunroq ro'yxat bo'yicha yuriladi.
+        uzunlik = max(len(savollar), len(javoblar), len(natijalar))
+        for i in range(uzunlik):
+            savol = savollar[i] if i < len(savollar) else {}
+            togri = savol.get("togri", "") if isinstance(savol, dict) else ""
+            qatorlar.append({
+                "raqam": i + 1,
+                "savol": (savol.get("savol", "") if isinstance(savol, dict) else ""),
+                "javob": _matn(javoblar[i] if i < len(javoblar) else ""),
+                "togri_javob": _matn(togri),
+                "togrimi": bool(natijalar[i]) if i < len(natijalar) else False,
+            })
+
+        joy = _yechim_joylashuvi(yechim)
+        return Response({
+            "id": yechim.id,
+            "sana": yechim.created_at,
+            "ball": yechim.ball,
+            "jami": yechim.jami,
+            "daraja": joy["daraja"],
+            "yol": joy["yol"],
+            "mashq_tartibi": yechim.mashq.tartib,
+            "savollar": qatorlar,
+        })

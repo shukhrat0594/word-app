@@ -30,7 +30,11 @@ export default function ImtihonYozGap({ bolim, manba = "admin", testId, mockYech
   const [xato, setXato] = useState("");
   const [yuklanmoqda, setYuklanmoqda] = useState(false);
   const [soniya, setSoniya] = useState(0);
-  const [teskariMi, setTeskariMi] = useState(false);
+  // 2026-09-14, Shuhrat talabi: "W/L/R da vaqtni avtomatik teskari sanoq
+  // qilish kerak, agar ustiga bossa to'g'ri ketsin" — ya'ni STANDART holat
+  // endi TESKARI sanoq (qolgan vaqt), bosilganda o'tgan vaqtga almashadi.
+  // Avval teskarisi edi (standart — o'tgan vaqt).
+  const [teskariMi, setTeskariMi] = useState(true);
   const [rejim, setRejim] = useState("testlar");
   // Vaqt tugab, avtomatik tekshirilgach (Mock ichida) bloklovchi
   // "Keyingisi" oynasini ko'rsatish uchun (2026-08-15).
@@ -56,6 +60,16 @@ export default function ImtihonYozGap({ bolim, manba = "admin", testId, mockYech
   const [mikrofonXato, setMikrofonXato] = useState("");
   const mediaRecorderRef = useRef(null);
   const bolaklarRef = useRef([]);
+  // 2026-09-14, Shuhrat talabi: "Speaking testlarida yozib olingan
+  // javoblarni saqlash kerak". Avval yozuv faqat transkripsiyaga
+  // yuborilib, so'ng tashlab yuborilardi. Endi {qism_id: Blob} sifatida
+  // saqlanadi va baho olingach serverga yuboriladi (`_audioniYubor`).
+  //
+  // CHEKLOV: bitta qismga bir necha marta yozilsa — OXIRGISI qoladi
+  // (matn transkripti esa hammasini qo'shib boradi). Hammasini saqlash
+  // uchun qismga BIR NECHTA audio biriktiradigan model kerak
+  // (`courses.KursMashqAudio` kabi) — bu alohida ish.
+  const yozuvlarRef = useRef({});
 
   useEffect(() => {
     setTest(null);
@@ -188,6 +202,9 @@ export default function ImtihonYozGap({ bolim, manba = "admin", testId, mockYech
       mr.onstop = async () => {
         const blob = new Blob(bolaklarRef.current, { type: mr.mimeType || "audio/webm" });
         stream.getTracks().forEach((tr) => tr.stop());
+        // Yozuvni saqlab qo'yamiz — baho olingach serverga yuboriladi.
+        // Transkripsiya muvaffaqiyatsiz bo'lsa ham audio qoladi.
+        yozuvlarRef.current[test.qismlar[faolQism].id] = blob;
         setTranskripsiyaQilinmoqda(true);
         try {
           const fd = new FormData();
@@ -237,12 +254,38 @@ export default function ImtihonYozGap({ bolim, manba = "admin", testId, mockYech
   // ajratish SHART: vaqt tugaganda oxirgi qism BO'SH bo'lishi mumkin (AI'ga
   // yuborilmaydi) — shu holatda ham yakunlash ishga tushishi kerak, lekin
   // bu funksiya orqali emas (pastga qarang).
+  /** Qismga yozilgan audioni AI bahosi olingach serverga biriktiradi
+   * (2026-09-14). Ataylab baholashdan KEYIN va alohida so'rov bilan:
+   * baholash uch AI chaqiruvidan iborat va sekin, unga bir necha
+   * megabayt audio qo'shilsa talaba bahoni ancha kech olardi, tarmoq
+   * uzilsa esa umuman olmasdi. Xato bo'lsa JIM o'tkaziladi — baho
+   * allaqachon saqlangan, audio esa ikkilamchi. */
+  async function _audioniYubor(natijalar) {
+    if (bolim !== "speaking") return;
+    for (const n of natijalar) {
+      const blob = yozuvlarRef.current[n.qism_id];
+      if (!blob || !n.tekshiruv_id) continue;
+      try {
+        const fd = new FormData();
+        fd.append("audio", blob, "yozuv.webm");
+        await apiForm(`/api/speaking/tekshiruv/${n.tekshiruv_id}/audio/`, {
+          method: "POST",
+          formData: fd,
+        });
+        delete yozuvlarRef.current[n.qism_id];
+      } catch {
+        // Audio saqlanmadi — baho baribir joyida, talabani to'xtatmaymiz.
+      }
+    }
+  }
+
   async function _apiOrqaliTekshir(qism) {
     const matn = (javoblar[qism.id] || "").trim();
     const res = await api(`/api/imtihon/testlar/${test.id}/yozgap-tekshirish/`, {
       method: "POST",
       body: { javoblar: { [qism.id]: matn } },
     });
+    await _audioniYubor(res.natijalar);
     let yangiNatijalar;
     setNatijalar((prev) => {
       yangiNatijalar = [...(prev || []), ...res.natijalar];

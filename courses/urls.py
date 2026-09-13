@@ -172,4 +172,11 @@ urlpatterns = [
         views.KursMashqYechishView.as_view(),
         name="kurslar_mashq_yechish",
     ),
+    # Yechilgan mashqlar tarixi — papka ko'rinishi (2026-09-14).
+    path("kurslar/tarix/", views.KursTarixView.as_view(), name="kurslar_tarix"),
+    path(
+        "kurslar/tarix/<int:pk>/",
+        views.KursTarixDetailView.as_view(),
+        name="kurslar_tarix_detail",
+    ),
 ]

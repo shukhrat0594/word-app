@@ -147,8 +147,8 @@ class SpeakingAudioHavolasiTest(TestCase):
 
 
 class SpeakingAudioTozalashTest(TestCase):
-    """Muddati o'tgan Speaking audiolari o'chishi (2026-09-11 talabi:
-    "7 kundan keyin o'chib ketadigan qil")."""
+    """Muddati o'tgan Speaking audiolari o'chishi. 2026-09-14 dan muddat
+    24 soat (avval 7 kun edi) va tekshiruv kuniga bir marta bo'ladi."""
 
     def setUp(self):
         cache.clear()
@@ -157,9 +157,12 @@ class SpeakingAudioTozalashTest(TestCase):
             username="talaba", password=PAROL, role=User.Role.STUDENT, markaz=self.markaz
         )
 
-    def _tekshiruv_yarat(self, kun_oldin):
+    def _tekshiruv_yarat(self, soat_oldin):
         """`created_at` — `auto_now_add`, shuning uchun yaratilgandan
-        keyin `update` bilan orqaga suriladi."""
+        keyin `update` bilan orqaga suriladi.
+
+        2026-09-14: o'lchov KUNdan SOATga o'tdi — muddat endi 24 soat
+        (`audio_tozalash.SAQLASH_SOATI`)."""
         t = SpeakingTekshiruv.objects.create(
             talaba=self.talaba,
             rejim=SpeakingTekshiruv.Rejim.TEZKOR,
@@ -169,13 +172,13 @@ class SpeakingAudioTozalashTest(TestCase):
         )
         t.audio_fayl.save("sinov.webm", ContentFile(AUDIO), save=True)
         SpeakingTekshiruv.objects.filter(pk=t.pk).update(
-            created_at=timezone.now() - datetime.timedelta(days=kun_oldin)
+            created_at=timezone.now() - datetime.timedelta(hours=soat_oldin)
         )
         return SpeakingTekshiruv.objects.get(pk=t.pk)
 
     def test_eski_audio_ochadi_yangisi_qoladi(self):
-        eski = self._tekshiruv_yarat(8)
-        yangi = self._tekshiruv_yarat(3)
+        eski = self._tekshiruv_yarat(25)
+        yangi = self._tekshiruv_yarat(2)
         eski_yol = eski.audio_fayl.name
 
         self.assertEqual(eskilarni_ochir(), 1)
@@ -188,21 +191,85 @@ class SpeakingAudioTozalashTest(TestCase):
 
     def test_yozuvning_ozi_qoladi(self):
         """Faqat audio o'chadi — band/matn tarixi saqlanib qolishi kerak."""
-        eski = self._tekshiruv_yarat(30)
+        eski = self._tekshiruv_yarat(100)
         eskilarni_ochir()
         eski.refresh_from_db()
         self.assertEqual(eski.overall_band, 6.5)
         self.assertEqual(eski.matn, "salom")
 
     def test_takroriy_chaqiruv_bosh_ishlamaydi(self):
-        self._tekshiruv_yarat(8)
+        self._tekshiruv_yarat(25)
         self.assertEqual(eskilarni_ochir(), 1)
         self.assertEqual(eskilarni_ochir(), 0, "audiosiz yozuv qayta hisoblandi")
 
     def test_tarix_audiosiz_yozuvda_ham_ishlaydi(self):
         """Audio o'chgach `audio_url` `None` bo'ladi, endpoint yiqilmaydi."""
-        self._tekshiruv_yarat(8)
+        self._tekshiruv_yarat(25)
         eskilarni_ochir()
         javob = _kirish("talaba", "q1").get("/api/speaking/tarix/")
         self.assertEqual(javob.status_code, 200)
         self.assertIsNone(javob.data[0]["audio_url"])
+
+
+class SpeakingAudioYuklashTest(TestCase):
+    """IELTS testlari oqimida yozilgan Speaking audiosini saqlash
+    (2026-09-14, Shuhrat: "Speaking testlarida yozib olingan javoblarni
+    saqlash kerak") — `SpeakingAudioFaylView.post`."""
+
+    def setUp(self):
+        cache.clear()
+        self.markaz = Markaz.objects.create(name="Utmost")
+        self.talaba = User.objects.create_user(
+            username="talaba", password=PAROL, role=User.Role.STUDENT, markaz=self.markaz
+        )
+        self.ozga = User.objects.create_user(
+            username="ozga", password=PAROL, role=User.Role.STUDENT, markaz=self.markaz
+        )
+        self.tekshiruv = SpeakingTekshiruv.objects.create(
+            talaba=self.talaba,
+            rejim=SpeakingTekshiruv.Rejim.MATN,
+            matn="salom",
+            holat=SpeakingTekshiruv.Holat.TAYYOR,
+            overall_band=6.5,
+        )
+
+    def _yubor(self, mijoz, pk=None):
+        return mijoz.post(
+            f"/api/speaking/tekshiruv/{pk or self.tekshiruv.id}/audio/",
+            {"audio": ContentFile(AUDIO, name="yozuv.webm")},
+            format="multipart",
+        )
+
+    def test_egasi_saqlaydi(self):
+        javob = self._yubor(_kirish("talaba", "q1"))
+        self.assertEqual(javob.status_code, 200, javob.data)
+        self.tekshiruv.refresh_from_db()
+        self.assertTrue(self.tekshiruv.audio_fayl, "audio saqlanmadi")
+        self.assertEqual(
+            javob.data["audio_url"],
+            f"/api/speaking/tekshiruv/{self.tekshiruv.id}/audio/",
+        )
+
+    def test_boshqa_talaba_saqlay_olmaydi(self):
+        javob = self._yubor(_kirish("ozga", "q2"))
+        self.assertEqual(javob.status_code, 403)
+        self.tekshiruv.refresh_from_db()
+        self.assertFalse(self.tekshiruv.audio_fayl)
+
+    def test_ikki_marta_yuborilmaydi(self):
+        self.assertEqual(self._yubor(_kirish("talaba", "q1")).status_code, 200)
+        javob = self._yubor(_kirish("talaba", "q1"))
+        self.assertEqual(javob.status_code, 409, "mavjud audio bosib ketildi")
+
+    def test_audiosiz_sorov_rad_etiladi(self):
+        javob = _kirish("talaba", "q1").post(
+            f"/api/speaking/tekshiruv/{self.tekshiruv.id}/audio/", {}, format="multipart"
+        )
+        self.assertEqual(javob.status_code, 400)
+
+    def test_saqlangan_audio_qayta_eshitiladi(self):
+        mijoz = _kirish("talaba", "q1")
+        self._yubor(mijoz)
+        javob = mijoz.get(f"/api/speaking/tekshiruv/{self.tekshiruv.id}/audio/")
+        self.assertEqual(javob.status_code, 200)
+        self.assertEqual(b"".join(javob.streaming_content), AUDIO)

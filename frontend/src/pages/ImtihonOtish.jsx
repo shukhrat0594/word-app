@@ -1099,6 +1099,53 @@ export function holatKaliti(bolim, testId, mockYechimId) {
   return `imtihon_holat_v1_${bolim}_${testId}_${mockYechimId || "yakka"}`;
 }
 
+/** Bitta audio faylning davomiyligi (soniya) — metama'lumot yuklangach.
+ * O'qib bo'lmasa (fayl buzuq, brauzer formatni tanimadi) `0` qaytadi,
+ * ya'ni chaqiruvchi tomonda zaxira vaqtga tushiladi. 10 soniyalik
+ * chegara: `loadedmetadata` hech qachon kelmasa test ochilmay qotib
+ * qolmasligi uchun. */
+function audioDavomiyligi(url) {
+  return new Promise((bajar) => {
+    const el = new Audio();
+    let tugadi = false;
+    const yakunla = (qiymat) => {
+      if (tugadi) return;
+      tugadi = true;
+      clearTimeout(soat);
+      el.src = "";
+      bajar(qiymat);
+    };
+    const soat = setTimeout(() => yakunla(0), 10000);
+    el.addEventListener("loadedmetadata", () =>
+      yakunla(Number.isFinite(el.duration) ? el.duration : 0)
+    );
+    el.addEventListener("error", () => yakunla(0));
+    el.preload = "metadata";
+    el.src = url;
+  });
+}
+
+/** Listening testining JAMI audio vaqti (soniya, yuqoriga butunlangan).
+ *
+ * 2026-09-14, Shuhrat talabi: "Listening vaqtini audio vaqti bilan bir
+ * xil qilish kerak" — qat'iy 30 daqiqa o'rniga haqiqiy audio uzunligi.
+ *
+ * MUHIM: bir NECHTA qism AYNAN BIR XIL faylni ulashishi mumkin
+ * (`audio_kalit` — Cambridge 3 da butun test yozuvi to'rtala bo'limga
+ * ulangan, yuqoridagi yuklash izohiga qara). Shuning uchun davomiylik
+ * QISM bo'yicha emas, NOYOB blob URL bo'yicha qo'shiladi — aks holda
+ * bitta 30 daqiqalik yozuv 4 marta sanalib, 2 soat chiqib ketardi.
+ *
+ * Hech bir audio o'lchanmasa `0` qaytadi — chaqiruvchi standart vaqtga
+ * qaytadi, ya'ni audio o'qilmagani testni buzmaydi. */
+async function listeningAudioVaqti(urllar) {
+  const noyob = [...new Set(Object.values(urllar).filter(Boolean))];
+  if (noyob.length === 0) return 0;
+  const davomiyliklar = await Promise.all(noyob.map(audioDavomiyligi));
+  const jami = davomiyliklar.reduce((a, b) => a + b, 0);
+  return jami > 0 ? Math.ceil(jami) : 0;
+}
+
 /** Cambridge-uslubidagi to'liq IELTS testi — ro'yxat, split-screen yechish
  * rejimi (chapda matn/audio, o'ngda savollar), pastki Part-navigatsiya. */
 export default function ImtihonOtish({ bolim, manba = "admin", testId, mockYechimId, onYakunlandi, ochirilganId }) {
@@ -1135,7 +1182,13 @@ export default function ImtihonOtish({ bolim, manba = "admin", testId, mockYechi
   const [fokus, setFokus] = useState(false);
   const [masshtab, setMasshtab] = useState(100);
   const [soniya, setSoniya] = useState(0);
-  const [teskariMi, setTeskariMi] = useState(false);
+  // 2026-09-14, Shuhrat talabi: "W/L/R da vaqtni avtomatik teskari sanoq
+  // qilish kerak, agar ustiga bossa to'g'ri ketsin" — STANDART holat endi
+  // teskari sanoq (qolgan vaqt), bosilganda o'tgan vaqtga almashadi.
+  const [teskariMi, setTeskariMi] = useState(true);
+  // Listening uchun — jami audio davomiyligi (soniya). 0 bo'lsa (audio
+  // o'lchanmadi yoki bo'lim listening emas) standart me'yor ishlatiladi.
+  const [audioVaqti, setAudioVaqti] = useState(0);
   const [faolQism, setFaolQism] = useState(0);
   const [chapKenglik, setChapKenglik] = useState(45);
   // Vaqt tugab, avtomatik yuborilgach (Mock ichida) bloklovchi "Keyingisi"
@@ -1227,7 +1280,8 @@ export default function ImtihonOtish({ bolim, manba = "admin", testId, mockYechi
     setNatija(null);
     setJavoblar({});
     setSoniya(0);
-    setTeskariMi(false);
+    setTeskariMi(true);
+    setAudioVaqti(0);
     setFokus(false);
     setMasshtab(100);
     setFaolQism(0);
@@ -1309,6 +1363,14 @@ export default function ImtihonOtish({ bolim, manba = "admin", testId, mockYechi
       );
       setAudioUrllar(urllar);
       setRasmUrllar(rasmlar);
+      // Taymer audio uzunligiga tenglashtiriladi (2026-09-14). Audio
+      // allaqachon blob sifatida yuklab olingan, ya'ni metama'lumot
+      // darhol keladi — bu yerda kutish test ochilishini sezilarli
+      // kechiktirmaydi. `setTest`dan OLDIN o'lchanadi: aks holda taymer
+      // avval 30 daqiqadan boshlab, keyin sakrab qolardi.
+      if (bolim === "listening") {
+        setAudioVaqti(await listeningAudioVaqti(urllar));
+      }
       setTest(t2);
     } catch (e) {
       // Avval catch YO'Q edi — ro'yxatdagi test oradan o'chirilgan bo'lsa
@@ -1392,7 +1454,11 @@ export default function ImtihonOtish({ bolim, manba = "admin", testId, mockYechi
   // `disabled={!!natija}` orqali allaqachon bloklanadi. Mock ichida
   // (`onYakunlandi` mavjud) — avtomatik yuborilgach, alohida
   // "Keyingisi" (30s) oynasi ko'rsatiladi (pastda, `vaqtSababliYakun`).
-  const qolganVaqt = test ? standartVaqt(bolim) - soniya : null;
+  // Listening'da jami vaqt = audioning haqiqiy uzunligi (2026-09-14).
+  // Audio o'lchanmagan bo'lsa (`audioVaqti === 0`) — eski me'yor (30 daq),
+  // ya'ni o'lchash ishlamay qolsa ham test normal yakunlanadi.
+  const jamiVaqt = audioVaqti || standartVaqt(bolim);
+  const qolganVaqt = test ? jamiVaqt - soniya : null;
   const vaqtTugadi = !!test && !natija && qolganVaqt <= 0;
   useEffect(() => {
     if (vaqtTugadi && !avtoYuborildiRef.current && !yuklanmoqda) {
@@ -1479,7 +1545,7 @@ export default function ImtihonOtish({ bolim, manba = "admin", testId, mockYechi
           title={t("imtihon_taymer_almashtir")}
           onClick={() => setTeskariMi((v) => !v)}
         >
-          ⏱ {vaqtFormat(teskariMi ? Math.max(0, standartVaqt(bolim) - soniya) : soniya)}
+          ⏱ {vaqtFormat(teskariMi ? Math.max(0, jamiVaqt - soniya) : soniya)}
         </span>
         <button className="tugma ikkinchi" onClick={() => setFokus((v) => !v)}>
           {fokus ? t("fokusdan_chiqish") : t("fokus_rejimi")}

@@ -2184,8 +2184,13 @@ def _mock_yechimni_yangila(user, mock_yechim_id, bolim, malumot):
     if yechim.hammasi_tugadimi(yechim.mock):
         from django.utils import timezone
 
+        # 2026-09-14: avval `round(... * 2) / 2` edi — Python'ning bankir
+        # yaxlitlashi tufayli 6.25 -> 6.0 berardi (IELTS'da 6.5 bo'lishi
+        # kerak). Endi bitta manba: `assessment/band.py`.
+        from assessment.band import yaxlitla
+
         bandlar = yechim.band_royxati()
-        yechim.overall_band = round(sum(bandlar) / len(bandlar) * 2) / 2 if bandlar else None
+        yechim.overall_band = yaxlitla(sum(bandlar) / len(bandlar)) if bandlar else None
         yechim.tugallandi_at = timezone.now()
 
     yechim.save()
@@ -2314,6 +2319,7 @@ class ImtihonYozGapTekshirishView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, pk):
+        from assessment.band import natijani_yaxlitla, yaxlitla
         from assessment.models import SpeakingTekshiruv, WritingTekshiruv
         from assessment.providers import ProviderXatosi, provider_tanla
         from assessment.views import ai_xatosi_javobi
@@ -2335,7 +2341,7 @@ class ImtihonYozGapTekshirishView(APIView):
             if not isinstance(yakunlovchi_bandlar, list):
                 return Response({"detail": "Noto'g'ri so'rov"}, status=400)
             bandlar = [b for b in yakunlovchi_bandlar if b is not None]
-            umumiy_band = round(sum(bandlar) / len(bandlar) * 2) / 2 if bandlar else None
+            umumiy_band = yaxlitla(sum(bandlar) / len(bandlar)) if bandlar else None
             mock_natija = _mock_yechimni_yangila(
                 request.user, request.data.get("mock_yechim_id"), test.bolim, {"band": umumiy_band}
             )
@@ -2423,9 +2429,13 @@ class ImtihonYozGapTekshirishView(APIView):
         natijalar = []
         bandlar = []
         for (qism, matn, _, _), baho in zip(ishlar, baholar):
-            natija = baho["natija"]
+            # 2026-09-14: AI 7.3 kabi oraliq ball qaytarishi mumkin —
+            # saqlashdan oldin 0.5 qadamga keltiriladi (assessment/band.py).
+            # `natija` JOYIDA o'zgaradi, ya'ni pastdagi `natijalar` javobiga
+            # ham, `bandlar` o'rtachasiga ham allaqachon yaxlitlangani tushadi.
+            natija = natijani_yaxlitla(baho["natija"])
             if test.bolim == Bolim.WRITING:
-                WritingTekshiruv.objects.create(
+                tekshiruv = WritingTekshiruv.objects.create(
                     talaba=request.user,
                     matn=matn,
                     natija=natija,
@@ -2438,7 +2448,7 @@ class ImtihonYozGapTekshirishView(APIView):
                 )
                 bandlar.append(natija.get("overall_band"))
             else:
-                SpeakingTekshiruv.objects.create(
+                tekshiruv = SpeakingTekshiruv.objects.create(
                     talaba=request.user,
                     rejim=SpeakingTekshiruv.Rejim.MATN,
                     matn=matn,
@@ -2451,10 +2461,16 @@ class ImtihonYozGapTekshirishView(APIView):
                     output_tokens=baho["output_tokens"],
                 )
                 bandlar.append(natija.get("overall_band_no_pronunciation"))
-            natijalar.append({"qism_id": qism.id, "tur": qism.tur, "sarlavha": qism.sarlavha, "natija": natija})
+            # `tekshiruv_id` (2026-09-14) — Speaking'da frontend shu id
+            # bo'yicha yozib olingan audioni alohida so'rov bilan
+            # biriktiradi (`assessment.SpeakingAudioFaylView.post`).
+            natijalar.append({
+                "qism_id": qism.id, "tur": qism.tur, "sarlavha": qism.sarlavha,
+                "natija": natija, "tekshiruv_id": tekshiruv.id,
+            })
 
         bandlar = [b for b in bandlar if b is not None]
-        umumiy_band = round(sum(bandlar) / len(bandlar) * 2) / 2 if bandlar else None
+        umumiy_band = yaxlitla(sum(bandlar) / len(bandlar)) if bandlar else None
 
         # Speaking endi part-part topshirilishi mumkin — bu yerdagi
         # `umumiy_band` faqat SHU so'rovda kelgan part(lar)niki, butun
