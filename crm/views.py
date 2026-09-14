@@ -7,6 +7,7 @@ Har bir pul harakati `audit.utils.logla()` orqali yozib boriladi —
 mavjud audit ilovasi qayta ishlatiladi, unga tegilmaydi.
 """
 
+from datetime import timedelta
 from decimal import Decimal, InvalidOperation
 
 from django.db.models import Count, Q, Sum
@@ -819,6 +820,137 @@ class TolovDetailView(CrmView):
 
 
 # ── Talaba kartasi ───────────────────────────────────────────────────
+
+
+class TalabalarView(CrmView):
+    """CRM'dagi barcha talabalar — hisobi BO'LMAGANLARI ham.
+
+    Ro'yxat ATAYLAB `Hisob`dan emas, `AzolikMoliya`dan yig'iladi: sinov
+    yoki muzlatilgan talabaga hisob ochilmaydi, lekin ular ham CRM'da
+    ko'rinishi kerak — aks holda admin ularni umuman topa olmaydi va
+    holatini o'zgartira olmaydi.
+    """
+
+    def get(self, request):
+        qs = (
+            AzolikMoliya.objects.select_related(
+                "azolik__talaba", "azolik__guruh", "azolik__guruh__moliya"
+            )
+            .filter(azolik__guruh__faol=True)
+        )
+        if request.query_params.get("filial"):
+            qs = qs.filter(azolik__guruh__moliya__filial_id=request.query_params["filial"])
+        qidiruv = (request.query_params.get("q") or "").strip()
+        if qidiruv:
+            qs = qs.filter(
+                Q(azolik__talaba__first_name__icontains=qidiruv)
+                | Q(azolik__talaba__last_name__icontains=qidiruv)
+                | Q(azolik__talaba__username__icontains=qidiruv)
+            )
+        if request.query_params.get("holat"):
+            qs = qs.filter(holat=request.query_params["holat"])
+
+        azoliklar = list(qs[:2000])
+        balanslar = mantiq.balanslarni_ol({a.azolik.talaba_id for a in azoliklar})
+
+        talabalar = {}
+        for am in azoliklar:
+            talaba = am.azolik.talaba
+            yozuv = talabalar.setdefault(
+                talaba.id,
+                {
+                    "id": talaba.id,
+                    "ism": talaba.get_full_name() or talaba.username,
+                    "telefon": talaba.telefon,
+                    "balans": balanslar.get(talaba.id, NOL),
+                    "guruhlar": [],
+                },
+            )
+            yozuv["guruhlar"].append(
+                {
+                    "azolik_moliya_id": am.id,
+                    "guruh_id": am.azolik.guruh_id,
+                    "guruh": am.azolik.guruh.name,
+                    "holat": am.holat,
+                }
+            )
+
+        return Response(sorted(talabalar.values(), key=lambda x: x["ism"]))
+
+
+class HisobotDinamikaView(CrmView):
+    """Oylar kesimida dinamika — "Hisobotlar" bo'limi uchun.
+
+    `HisobotView` BITTA oyni guruhlar kesimida ko'rsatadi; bu esa bir
+    necha oyni yonma-yon. Ikkalasi boshqa savolga javob beradi: birinchisi
+    "shu oyda kim qarzdor", ikkinchisi "yig'ilish yaxshilanyaptimi".
+    """
+
+    ENG_KOP_OY = 24
+
+    def get(self, request):
+        try:
+            oylar_soni = min(int(request.query_params.get("oylar") or 12), self.ENG_KOP_OY)
+        except ValueError:
+            return _xato("oylar: son bo'lishi kerak")
+        filial_id = request.query_params.get("filial")
+
+        oxirgi = mantiq.oy_boshi(timezone.localdate())
+        # Tizim yoqilgan oydan OLDINGI oylar ko'rsatilmaydi: u yerda
+        # ma'lumot bo'lishi mumkin emas, nol qatorlar esa "o'sha oyda
+        # hech kim to'lamagan" degan yolg'on taassurot beradi.
+        boshlangich = mantiq.sozlama_ol().boshlangich_oy
+        oylar = []
+        oy = oxirgi
+        for _ in range(max(oylar_soni, 1)):
+            if oy < boshlangich:
+                break
+            oylar.append(oy)
+            oy = mantiq.oy_boshi(oy - timedelta(days=1))
+        oylar.reverse()
+        if not oylar:
+            oylar = [oxirgi]
+
+        hisoblar = Hisob.objects.filter(oy__gte=oylar[0])
+        tolovlar = Tolov.objects.filter(hisob__oy__gte=oylar[0])
+        if filial_id:
+            hisoblar = hisoblar.filter(filial_id=filial_id)
+            tolovlar = tolovlar.filter(hisob__filial_id=filial_id)
+
+        hisoblangan = {
+            q["oy"]: q for q in hisoblar.values("oy").annotate(
+                jami=Sum("summa", default=NOL), talabalar=Count("talaba", distinct=True)
+            )
+        }
+        pul = {
+            q["hisob__oy"]: q for q in tolovlar.values("hisob__oy").annotate(
+                olingan=Sum("summa", filter=Q(turi=Tolov.Turi.TOLOV), default=NOL),
+                chegirma=Sum("summa", filter=Q(turi=Tolov.Turi.CHEGIRMA), default=NOL),
+                bonus=Sum("summa", filter=Q(turi=Tolov.Turi.BONUS), default=NOL),
+            )
+        }
+
+        qatorlar = []
+        for oy in oylar:
+            h = hisoblangan.get(oy, {})
+            p = pul.get(oy, {})
+            jami = h.get("jami", NOL)
+            olingan = p.get("olingan", NOL)
+            chegirma = p.get("chegirma", NOL)
+            bonus = p.get("bonus", NOL)
+            qatorlar.append(
+                {
+                    "oy": oy,
+                    "talabalar": h.get("talabalar", 0),
+                    "hisoblangan": jami,
+                    "olingan": olingan,
+                    "chegirma": chegirma,
+                    "bonus": bonus,
+                    "qarz": jami - olingan - chegirma - bonus,
+                    "yigilish_foizi": round(float(olingan / jami * 100), 1) if jami else 0.0,
+                }
+            )
+        return Response(qatorlar)
 
 
 class TalabaView(CrmView):

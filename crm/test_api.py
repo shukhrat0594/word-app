@@ -14,8 +14,8 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 from accounts.models import User
 from crm import mantiq
-from crm.models import AzolikMoliya, Hisob, KursNarxi, Tolov
-from crm.tests import NARX, SENTABR, CrmAsos, bugun_qilib
+from crm.models import AzolikMoliya, Filial, Hisob, KursNarxi, Sozlama, Tolov
+from crm.tests import AVGUST, NARX, SENTABR, CrmAsos, bugun_qilib
 
 
 class ApiAsos(CrmAsos):
@@ -344,3 +344,85 @@ class OqimTest(ApiAsos):
         self.assertEqual(javob.status_code, 200)
         self.assertEqual(AzolikMoliya.objects.count(), 1)
         self.assertEqual(javob.data[0]["holat"], "faol")
+
+
+class YangiRoyxatlarTest(ApiAsos):
+    """`/talabalar/` va `/hisobot/dinamika/` — 2026-09-14 da qo'shilgan."""
+
+    def test_talabalar_royxati_hisobsizlarni_ham_korsatadi(self):
+        """Sinov va muzlatilgan talabaga hisob ochilmaydi, lekin ular
+        ro'yxatda ko'rinishi SHART — aks holda admin ularni topa olmaydi
+        va holatini o'zgartira olmaydi."""
+        sinovchi = User.objects.create_user(
+            username="sinovchi2", password="x", role=User.Role.STUDENT, markaz=self.markaz
+        )
+        self.azolik_qosh(boshlanish=date(2026, 9, 1))
+        self.azolik_qosh(talaba=sinovchi, holat=AzolikMoliya.Holat.SINOV)
+
+        mijoz = self.mijoz(self.admin)
+        with bugun_qilib(date(2026, 9, 30)):
+            hisoblar = mijoz.get("/api/crm/hisoblar/").data
+            talabalar = mijoz.get("/api/crm/talabalar/").data
+
+        # Hisob faqat faol talabaga ochiladi...
+        self.assertEqual(len(hisoblar), 1)
+        # ...lekin ro'yxatda ikkalasi ham bor.
+        self.assertEqual(len(talabalar), 2)
+        ismlar = {x["ism"] for x in talabalar}
+        self.assertIn("sinovchi2", ismlar)
+
+    def test_talabalar_holat_boyicha_filtrlanadi(self):
+        muzlatilgan = User.objects.create_user(
+            username="muz2", password="x", role=User.Role.STUDENT, markaz=self.markaz
+        )
+        self.azolik_qosh()
+        self.azolik_qosh(talaba=muzlatilgan, holat=AzolikMoliya.Holat.MUZLATILGAN)
+
+        javob = self.mijoz(self.admin).get("/api/crm/talabalar/?holat=muzlatilgan")
+        self.assertEqual(len(javob.data), 1)
+        self.assertEqual(javob.data[0]["ism"], "muz2")
+
+    def test_dinamika_oylar_boyicha(self):
+        Sozlama.objects.update(boshlangich_oy=date(2026, 7, 1))
+        self.azolik_qosh(boshlanish=date(2026, 7, 1))
+        mijoz = self.mijoz(self.admin)
+        with bugun_qilib(date(2026, 9, 15)):
+            mijoz.get("/api/crm/hisoblar/")
+            javob = mijoz.get("/api/crm/hisobot/dinamika/?oylar=3")
+
+        self.assertEqual(javob.status_code, 200)
+        self.assertEqual(len(javob.data), 3)
+        self.assertEqual([q["oy"] for q in javob.data],
+                         [date(2026, 7, 1), AVGUST, SENTABR])
+        # Uchala oyda ham to'liq narx hisoblangan, to'lov yo'q.
+        self.assertTrue(all(q["hisoblangan"] == NARX for q in javob.data))
+        self.assertTrue(all(q["yigilish_foizi"] == 0.0 for q in javob.data))
+
+    def test_dinamika_eng_kop_24_oy(self):
+        """Cheksiz oraliq so'ralsa ham so'rov cheklanadi."""
+        Sozlama.objects.update(boshlangich_oy=date(2020, 1, 1))
+        javob = self.mijoz(self.admin).get("/api/crm/hisobot/dinamika/?oylar=999")
+        self.assertEqual(javob.status_code, 200)
+        self.assertEqual(len(javob.data), 24)
+
+    def test_dinamika_tizim_yoqilishidan_oldingi_oylarni_korsatmaydi(self):
+        """Nol qatorlar "o'sha oyda hech kim to'lamagan" degan yolg'on
+        taassurot beradi — tizim yoqilgan oygacha bo'lgani kesiladi."""
+        Sozlama.objects.update(boshlangich_oy=SENTABR)
+        with bugun_qilib(date(2026, 9, 15)):
+            javob = self.mijoz(self.admin).get("/api/crm/hisobot/dinamika/?oylar=12")
+        self.assertEqual(len(javob.data), 1)
+        self.assertEqual(javob.data[0]["oy"], SENTABR)
+
+    def test_filial_qoshiladi_va_arxivlanadi(self):
+        mijoz = self.mijoz(self.admin)
+        javob = mijoz.post("/api/crm/filiallar/", {"nomi": "Yangi filial"}, format="json")
+        self.assertEqual(javob.status_code, 201)
+        yangi_id = javob.data["id"]
+
+        # Filial O'CHIRILMAYDI, arxivlanadi — hisoblarda u snapshot
+        # sifatida turibdi va o'tgan oylar hisoboti buzilmasligi kerak.
+        javob = mijoz.patch(f"/api/crm/filiallar/{yangi_id}/", {"faol": False}, format="json")
+        self.assertEqual(javob.status_code, 200)
+        self.assertFalse(javob.data["faol"])
+        self.assertTrue(Filial.objects.filter(pk=yangi_id).exists())

@@ -2,83 +2,14 @@
 
 import { useState } from "react";
 
-import { api } from "../api.js";
 import { useFilial } from "../filialContext.jsx";
 import { balansMatn, balansSinfi, pul, sana } from "../format.js";
 import { useI18n } from "../i18n.jsx";
 import { sorovSatri, useSorov } from "../soragich.js";
+import QaytarishOynasi from "../QaytarishOynasi.jsx";
 import TolovOynasi from "../TolovOynasi.jsx";
 
 const HAFTA = ["Du", "Se", "Chor", "Pay", "Ju", "Sha", "Yak"];
-
-// ── Pul qaytarish oynasi ────────────────────────────────────────────
-
-function QaytarishOynasi({ talaba, guruh, onYopish, onSaqlandi }) {
-  const { t } = useI18n();
-  const [summa, setSumma] = useState("");
-  const [sanaQiymat, setSana] = useState(new Date().toISOString().slice(0, 10));
-  const [izoh, setIzoh] = useState("");
-  const [xato, setXato] = useState("");
-  const [band, setBand] = useState(false);
-
-  async function yubor() {
-    if (!(Number(summa) > 0)) {
-      setXato(t("summa_kerak"));
-      return;
-    }
-    setBand(true);
-    try {
-      // `qaytarish` ATAYLAB oyga bog'lanmaydi — u umumiy hisob-kitob,
-      // oy holatini o'zgartirmaydi, faqat balansdan chiqadi.
-      await api("/api/crm/tolov/", {
-        method: "POST",
-        body: {
-          talaba_id: talaba.id,
-          guruh_id: guruh.guruh_id,
-          summa: String(summa),
-          turi: "qaytarish",
-          sana: sanaQiymat,
-          izoh,
-        },
-      });
-      onSaqlandi();
-      onYopish();
-    } catch (e) {
-      setXato(e.message || "Xato");
-    } finally {
-      setBand(false);
-    }
-  }
-
-  return (
-    <div className="oyna-fon" role="dialog" aria-modal="true">
-      <div className="karta oyna">
-        <h2>{t("pul_qaytarish")}</h2>
-        <p className="kichik">{talaba.ism} · {guruh.guruh}</p>
-
-        <label>
-          {t("summa")}
-          <input type="number" min="0" step="1000" value={summa}
-                 onChange={(e) => setSumma(e.target.value)} autoFocus />
-        </label>
-        <label>
-          {t("sana")}
-          <input type="date" value={sanaQiymat} onChange={(e) => setSana(e.target.value)} />
-        </label>
-        <label>
-          {t("izoh")}
-          <input value={izoh} onChange={(e) => setIzoh(e.target.value)} maxLength={300} />
-        </label>
-
-        {xato && <div className="xato">{xato}</div>}
-        <div className="oyna-tugmalar">
-          <button className="tugma tugma-sokin" type="button" onClick={onYopish}>{t("bekor")}</button>
-          <button className="tugma" type="button" onClick={yubor} disabled={band}>{t("saqlash")}</button>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 // ── Darslar taqvimi ─────────────────────────────────────────────────
 
@@ -245,8 +176,11 @@ function Karta({ talabaId, onOrqaga }) {
       )}
       {qaytarishGuruhi && (
         <QaytarishOynasi
-          talaba={talaba}
-          guruh={qaytarishGuruhi}
+          talabaId={talaba.id}
+          talabaIsmi={talaba.ism}
+          guruhId={qaytarishGuruhi.guruh_id}
+          guruhNomi={qaytarishGuruhi.guruh}
+          balans={qaytarishGuruhi.balans}
           onYopish={() => setQaytarishGuruhi(null)}
           onSaqlandi={yangila}
         />
@@ -261,29 +195,20 @@ export default function Talabalar() {
   const { t } = useI18n();
   const { tanlangan } = useFilial();
   const [qidiruv, setQidiruv] = useState("");
+  const [holat, setHolat] = useState("");
   const [ochilgan, setOchilgan] = useState(null);
 
-  // Talabalar ro'yxati hisoblar jadvalidan yig'iladi: CRM'da talaba
-  // MOLIYAVIY tomondan qiziq, ya'ni hisobi bo'lganlar. Hisobsiz
-  // talabalar Guruhlar sahifasidagi a'zolar ro'yxatida ko'rinadi.
+  // Ro'yxat `Hisob`dan EMAS, a'zoliklardan yig'iladi: sinov va
+  // muzlatilgan talabaga hisob ochilmaydi, lekin ular ham ko'rinishi
+  // kerak — aks holda admin ularni topa olmaydi va holatini
+  // o'zgartira olmaydi.
   const { malumot, yuklanmoqda, xato } = useSorov(
-    "/api/crm/hisoblar/" + sorovSatri({ filial: tanlangan, q: qidiruv })
+    "/api/crm/talabalar/" + sorovSatri({ filial: tanlangan, q: qidiruv, holat })
   );
 
   if (ochilgan) return <Karta talabaId={ochilgan} onOrqaga={() => setOchilgan(null)} />;
 
-  const qatorlar = malumot || [];
-  const talabalar = new Map();
-  for (const q of qatorlar) {
-    if (!q.talaba_id) continue;
-    if (!talabalar.has(q.talaba_id)) {
-      talabalar.set(q.talaba_id, {
-        id: q.talaba_id, ism: q.talaba, balans: q.balans, guruhlar: new Set(),
-      });
-    }
-    talabalar.get(q.talaba_id).guruhlar.add(q.guruh);
-  }
-  const royxat = [...talabalar.values()].sort((a, b) => a.ism.localeCompare(b.ism));
+  const royxat = malumot || [];
 
   return (
     <section>
@@ -291,6 +216,13 @@ export default function Talabalar() {
 
       <div className="filtrlar">
         <input placeholder={t("qidiruv")} value={qidiruv} onChange={(e) => setQidiruv(e.target.value)} />
+        <select value={holat} onChange={(e) => setHolat(e.target.value)}>
+          <option value="">{t("barcha_holatlar")}</option>
+          {["sinov", "faol", "muzlatilgan", "arxiv"].map((h) => (
+            <option key={h} value={h}>{t(`holat_${h}`)}</option>
+          ))}
+        </select>
+        <span className="kichik">{royxat.length}</span>
       </div>
 
       {xato && <div className="xato">{xato}</div>}
@@ -301,6 +233,7 @@ export default function Talabalar() {
           <thead>
             <tr>
               <th>{t("talaba")}</th>
+              <th>{t("telefon")}</th>
               <th>{t("guruhlar")}</th>
               <th className="ongga">{t("balans")}</th>
             </tr>
@@ -313,12 +246,20 @@ export default function Talabalar() {
                     {x.ism}
                   </button>
                 </td>
-                <td>{[...x.guruhlar].join(", ")}</td>
+                <td>{x.telefon || "—"}</td>
+                <td>
+                  {x.guruhlar.map((g) => (
+                    <span key={g.azolik_moliya_id} className="guruh-belgi">
+                      {g.guruh}
+                      {g.holat !== "faol" && <i> ({t(`holat_${g.holat}`)})</i>}
+                    </span>
+                  ))}
+                </td>
                 <td className={`ongga ${balansSinfi(x.balans)}`}>{balansMatn(x.balans)}</td>
               </tr>
             ))}
             {!yuklanmoqda && royxat.length === 0 && (
-              <tr><td colSpan={3} className="bosh">{t("yozuv_yoq")}</td></tr>
+              <tr><td colSpan={4} className="bosh">{t("yozuv_yoq")}</td></tr>
             )}
           </tbody>
         </table>

@@ -7,6 +7,8 @@ import { useFilial } from "../filialContext.jsx";
 import { balansMatn, balansSinfi, joriyOy, oyNomi, pul, sana, siljit } from "../format.js";
 import { useI18n } from "../i18n.jsx";
 import { sorovSatri, useSorov } from "../soragich.js";
+import HisobQoshishOynasi from "../HisobQoshishOynasi.jsx";
+import QaytarishOynasi from "../QaytarishOynasi.jsx";
 import TolovOynasi from "../TolovOynasi.jsx";
 
 const TABLAR = ["qarzdorlar", "tolovlar", "hisobot"];
@@ -39,6 +41,8 @@ function Qarzdorlar({ oy, setOy }) {
   const [holat, setHolat] = useState("");
   const [qidiruv, setQidiruv] = useState("");
   const [tolovHisobi, setTolovHisobi] = useState(null);
+  const [qaytarishHisobi, setQaytarishHisobi] = useState(null);
+  const [qolda, setQolda] = useState(false);
 
   const yol =
     "/api/crm/hisoblar/" + sorovSatri({ oy, filial: tanlangan, holat, q: qidiruv });
@@ -60,6 +64,9 @@ function Qarzdorlar({ oy, setOy }) {
           value={qidiruv}
           onChange={(e) => setQidiruv(e.target.value)}
         />
+        <button className="tugma tugma-sokin" type="button" onClick={() => setQolda(true)}>
+          + {t("qolda_hisob")}
+        </button>
         <button
           className="tugma tugma-sokin"
           type="button"
@@ -101,12 +108,20 @@ function Qarzdorlar({ oy, setOy }) {
                 <td className="ongga">{pul(q.qoldiq)}</td>
                 <td className={`ongga ${balansSinfi(q.balans)}`}>{balansMatn(q.balans)}</td>
                 <td><Holat qiymat={q.holat} /></td>
-                <td>
+                <td className="amallar">
                   {q.holat !== "tolandi" && (
                     <button className="tugma kichik-tugma" type="button" onClick={() => setTolovHisobi(q)}>
                       {t("tolov_qilish")}
                     </button>
                   )}
+                  <button
+                    className="tugma tugma-sokin kichik-tugma"
+                    type="button"
+                    onClick={() => setQaytarishHisobi(q)}
+                    title={t("pul_qaytarish")}
+                  >
+                    ↩
+                  </button>
                 </td>
               </tr>
             ))}
@@ -128,6 +143,20 @@ function Qarzdorlar({ oy, setOy }) {
             if (!yopmasdan) setTolovHisobi(null);
           }}
         />
+      )}
+      {qaytarishHisobi && (
+        <QaytarishOynasi
+          talabaId={qaytarishHisobi.talaba_id}
+          talabaIsmi={qaytarishHisobi.talaba}
+          guruhId={qaytarishHisobi.guruh_id}
+          guruhNomi={qaytarishHisobi.guruh}
+          balans={qaytarishHisobi.balans}
+          onYopish={() => setQaytarishHisobi(null)}
+          onSaqlandi={yangila}
+        />
+      )}
+      {qolda && (
+        <HisobQoshishOynasi onYopish={() => setQolda(false)} onSaqlandi={yangila} />
       )}
     </>
   );

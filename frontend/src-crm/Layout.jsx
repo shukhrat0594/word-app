@@ -12,7 +12,12 @@ const MENYU = [
   { yol: "guruhlar", kalit: "guruhlar", ikon: "📚" },
   { yol: "talabalar", kalit: "talabalar", ikon: "👤" },
   { yol: "moliya", kalit: "moliya", ikon: "💰" },
+  // Narxlar ATAYLAB alohida band (Shuhrat talabi 2026-09-14): u
+  // hisobot emas, SOZLAMA — bir marta kiritiladi va butun tizimga
+  // ta'sir qiladi, shuning uchun ko'rinadigan joyda turishi kerak.
+  { yol: "narxlar", kalit: "narxlar", ikon: "🏷️" },
   { yol: "hisobotlar", kalit: "hisobotlar", ikon: "📊" },
+  { yol: "sozlamalar", kalit: "sozlamalar", ikon: "⚙️" },
   // Lidlar va Jadval — keyingi bosqichlarda qo'shiladi.
 ];
 

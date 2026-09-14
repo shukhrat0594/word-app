@@ -7,6 +7,7 @@ import { useCallback, useEffect, useState } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
 import { api, tokenOl, tokenlarniTozala } from "./api.js";
+import { FilialProvider } from "./filialContext.jsx";
 import { useI18n } from "./i18n.jsx";
 import Kirish from "./Kirish.jsx";
 import Layout from "./Layout.jsx";
@@ -14,6 +15,8 @@ import BoshSahifa from "./sahifalar/BoshSahifa.jsx";
 import Guruhlar from "./sahifalar/Guruhlar.jsx";
 import Hisobotlar from "./sahifalar/Hisobotlar.jsx";
 import Moliya from "./sahifalar/Moliya.jsx";
+import Narxlar from "./sahifalar/Narxlar.jsx";
+import Sozlamalar from "./sahifalar/Sozlamalar.jsx";
 import Talabalar from "./sahifalar/Talabalar.jsx";
 
 /** CRM'ga kira oladigan rollar. Bu — faqat KO'RINISH nazorati;
@@ -90,17 +93,24 @@ export default function App() {
     // yashaydi. `/crm/moliya` kabi ichki manzillar sahifa yangilanganda
     // ham ishlashi uchun `vite.config.js` dagi `crmMarshrut` plagini
     // so'rovni `crm.html`ga qayta yozadi.
-    <BrowserRouter basename="/crm">
+    // `FilialProvider` faqat SHU YERDA — ruxsat tekshiruvidan keyin:
+    // u `/api/crm/filiallar/` ni so'raydi va tokensiz chaqirilsa
+    // cheksiz qayta yuklanish hosil qilardi.
+    <FilialProvider>
+      <BrowserRouter basename="/crm">
       <Routes>
         <Route element={<Layout profil={profil} />}>
           <Route index element={<BoshSahifa />} />
           <Route path="guruhlar" element={<Guruhlar />} />
           <Route path="talabalar" element={<Talabalar />} />
           <Route path="moliya" element={<Moliya />} />
+          <Route path="narxlar" element={<Narxlar />} />
           <Route path="hisobotlar" element={<Hisobotlar />} />
+          <Route path="sozlamalar" element={<Sozlamalar />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>
-    </BrowserRouter>
+      </BrowserRouter>
+    </FilialProvider>
   );
 }

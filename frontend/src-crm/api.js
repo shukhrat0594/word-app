@@ -93,11 +93,25 @@ async function refreshQil() {
   return refreshVadasi;
 }
 
+// 2026-09-14, Shuhrat topgan xato: tokensiz `/crm/moliya` ochilganda
+// sahifa CHEKSIZ qayta yuklanardi. Sabab — 401 kelganda bu funksiya
+// `/crm` ga yo'naltirardi, u yerda esa o'sha so'rov qaytadan ketib yana
+// 401 olardi. Endi ikkita to'siq bor:
+//   1) bir sahifa yuklanishida FAQAT BIR MARTA yo'naltiradi (parallel
+//      so'rovlar navbatma-navbat yo'naltirmasin);
+//   2) allaqachon `/crm` da bo'lsak, umuman yo'naltirmaydi — `App.jsx`
+//      token yo'qligini ko'rib kirish oynasini o'zi chizadi.
+let qaytarildi = false;
+
 function kirishGaQaytar() {
   tokenlarniTozala();
+  if (qaytarildi) return;
+  qaytarildi = true;
   // LMS'ning `/login` sahifasiga EMAS — CRM o'z kirish oynasini
   // ko'rsatadi (`App.jsx`).
-  window.location.href = "/crm";
+  if (window.location.pathname.replace(/\/+$/, "") !== "/crm") {
+    window.location.href = "/crm";
+  }
 }
 
 export async function api(yol, options = {}) {

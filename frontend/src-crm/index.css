@@ -429,3 +429,54 @@ tfoot td {
 .rang-qarzdor { color: var(--qarzdor); }
 .rang-tolandi { color: var(--tolandi); }
 .rang-oldindan { color: var(--asosiy); }
+
+/* ── Sozlamalar / dinamika ──────────────────────────────────────── */
+
+.uch-ustun {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.qator-sokin { opacity: 0.55; }
+
+.amallar { display: flex; gap: 6px; align-items: center; }
+
+.guruh-belgi {
+  display: inline-block;
+  margin-inline-end: 6px;
+}
+
+.guruh-belgi i {
+  color: var(--sokin);
+  font-style: normal;
+  font-size: 12px;
+}
+
+/* Oddiy ustuncha — kutubxonasiz. Bitta grafik uchun CRM bundle'iga
+   recharts qo'shish arzimaydi. */
+.ustuncha-katak { width: 180px; min-width: 180px; }
+
+.ustuncha-fon {
+  display: block;
+  width: 100%;
+  height: 14px;
+  background: var(--fon);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.ustuncha-hisoblangan {
+  display: block;
+  height: 100%;
+  background: var(--kutilayotgan);
+}
+
+.ustuncha-olingan {
+  display: block;
+  height: 100%;
+  background: var(--tolandi);
+}
+
+.rang-qisman { color: var(--qisman); }

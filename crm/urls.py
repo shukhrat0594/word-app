@@ -30,9 +30,11 @@ urlpatterns = [
     path("tolov/", views.TolovlarView.as_view(), name="tolovlar"),
     path("tolov/<int:pk>/", views.TolovDetailView.as_view(), name="tolov_detail"),
 
+    path("talabalar/", views.TalabalarView.as_view(), name="talabalar"),
     path("talaba/<int:pk>/", views.TalabaView.as_view(), name="talaba"),
 
     path("hisobot/", views.HisobotView.as_view(), name="hisobot"),
+    path("hisobot/dinamika/", views.HisobotDinamikaView.as_view(), name="hisobot_dinamika"),
     path("eksport/", views.EksportView.as_view(), name="eksport"),
     path("ogohlantirishlar/", views.OgohlantirishlarView.as_view(), name="ogohlantirishlar"),
 ]

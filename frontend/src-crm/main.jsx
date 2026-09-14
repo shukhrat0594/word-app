@@ -3,7 +3,6 @@ import { createRoot } from "react-dom/client";
 
 import "./index.css";
 import App from "./App.jsx";
-import { FilialProvider } from "./filialContext.jsx";
 import { I18nProvider } from "./i18n.jsx";
 
 // Saqlangan tema (yorug'/qorong'u) — kalit LMS bilan bir xil, ya'ni
@@ -14,9 +13,11 @@ if (tema) document.documentElement.dataset.theme = tema;
 createRoot(document.getElementById("root")).render(
   <StrictMode>
     <I18nProvider>
-      <FilialProvider>
-        <App />
-      </FilialProvider>
+      {/* `FilialProvider` ATAYLAB bu yerda emas, `App.jsx` ichida —
+          ruxsat tekshiruvidan KEYIN. U CRM ma'lumotini so'raydi, ya'ni
+          tokensiz chaqirilsa 401 oladi va cheksiz qayta yuklanishga
+          olib kelardi (2026-09-14). */}
+      <App />
     </I18nProvider>
   </StrictMode>,
 );
