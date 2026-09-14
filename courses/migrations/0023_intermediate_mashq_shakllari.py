@@ -14,7 +14,15 @@ from courses.intermediate_tuzatish import tuzat
 
 
 def qolla(apps, schema_editor):
-    tuzat(apps.get_model("courses", "KursTugun"), apps.get_model("courses", "KursMashq"))
+    hisobot = tuzat(
+        apps.get_model("courses", "KursTugun"), apps.get_model("courses", "KursMashq")
+    )
+    # Prodda (Railway) migratsiya deploy logida ko'rinadi — qaysi tuzatish
+    # qo'llanganini, qaysi biri mashqni TOPMAGANINI shu yerdan bilamiz.
+    # Matn ataylab ASCII: konsol kodlashi UTF-8 bo'lmasa `print` yiqilib,
+    # butun deploy'ni to'xtatib qo'yishi mumkin edi.
+    for izoh, bajarildi in hisobot:
+        print(f"  Intermediate: {'QOLLANDI' if bajarildi else 'topilmadi'} {izoh}")
 
 
 class Migration(migrations.Migration):

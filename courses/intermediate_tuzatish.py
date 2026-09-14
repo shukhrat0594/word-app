@@ -11,11 +11,40 @@ qilmaydi, shuning uchun migratsiyani qayta yugurtirish xavfsiz.
 
 Naqsh `courses/pre_intermediate_tuzatish.py` dan olingan — sabab o'sha
 fayldagi izohda.
+
+DIQQAT: prodda mashq ID'lari HAM, `savollar` indekslari ham boshqacha
+bo'lishi mumkin (kontent u yerga alohida yuklangan). Shuning uchun hech
+qayerda `savol_idx` raqami qattiq yozilmaydi — katakchalar JAVOB MATNI
+bo'yicha topiladi. Kutilgan javoblar to'plami mos kelmasa, tuzatish
+hech narsa qilmay chekinadi (kontentni buzgandan ko'ra tegmagan afzal).
 """
+
+import re
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Yordamchilar
 # ─────────────────────────────────────────────────────────────────────────────
+
+
+def _kalit(matn):
+    """Solishtirish uchun kalit — tire (— va –), tirnoq va bo'shliq
+    farqlariga sezgir emas ("Thanks — but …" va "Thanks – but …" bir xil
+    hisoblanadi, chunki AI va kitob turli tire ishlatgan)."""
+    return re.sub(r"[^a-z0-9]", "", str(matn).lower())
+
+
+def _katakcha_indekslari(jadval, savollar):
+    """Jadvaldagi bo'sh joylar: {javob kaliti: savol_idx}."""
+    natija = {}
+    for qator in jadval.get("qatorlar") or []:
+        for katak in qator[1:]:
+            if not isinstance(katak, dict):
+                continue
+            for bolak in katak.get("bolaklar") or []:
+                idx = bolak.get("savol_idx")
+                if idx is not None and idx < len(savollar):
+                    natija[_kalit(savollar[idx].get("togri", ""))] = idx
+    return natija
 
 
 def _matnlar(obj):
@@ -63,6 +92,11 @@ def _bosh_joy(savol_idx):
 # ─────────────────────────────────────────────────────────────────────────────
 U8SB_KORSATMA = "Listen to two friends, Jeff and Kevin, arranging to meet over the weekend"
 
+# Teacher's Guide (5th ed., 8.12 kaliti, s.113) bo'yicha JEFF kundaligi.
+# "Meet Kevin 10.30" va "Train 11.55" — BITTA katakda (24 Sun, ertalab).
+U8SB_JEFF_ERTALAB = ["Meet Kevin 10.30", "Train 11.55"]
+U8SB_JEFF_TUSHDAN_KEYIN = ["Conference", "Meet contact"]  # 22 Fri, 23 Sat
+
 
 def _u8sb_kundaliklar(mashq):
     """Umida: "Mashq jadvali to'liq berilmagan".
@@ -103,19 +137,31 @@ def _u8sb_kundaliklar(mashq):
     if jeff is None or kevin is None or jeff.get("katakli"):
         return False
 
+    # Katakchalarni javob MATNI bo'yicha topamiz (izohga qara). Kutilgan
+    # 4 ta javob to'liq chiqmasa — jadval boshqacha qurilgan, tegmaymiz.
+    idx = _katakcha_indekslari(jeff, savollar)
+    kerak = U8SB_JEFF_ERTALAB + U8SB_JEFF_TUSHDAN_KEYIN
+    if set(idx) != {_kalit(j) for j in kerak}:
+        return False
+    ertalab, tushdan_keyin = (
+        [idx[_kalit(j)] for j in U8SB_JEFF_ERTALAB],
+        [idx[_kalit(j)] for j in U8SB_JEFF_TUSHDAN_KEYIN],
+    )
+
     jeff["katakli"] = True
     kevin["katakli"] = True
     jeff["qatorlar"] = [
         ["Morning", "", "", {"bolaklar": [
-            {"bosh_joy": True, "savol_idx": 0},
-            {"bosh_joy": True, "savol_idx": 1},
+            {"bosh_joy": True, "savol_idx": ertalab[0]},
+            {"bosh_joy": True, "savol_idx": ertalab[1]},
         ]}],
-        ["Afternoon", _bosh_joy(2), _bosh_joy(3), ""],
+        ["Afternoon", _bosh_joy(tushdan_keyin[0]), _bosh_joy(tushdan_keyin[1]), ""],
         ["Evening", "", "", ""],
     ]
-    savollar[0]["savol"] = "JEFF — 24 Sun morning"
-    savollar[1]["savol"] = "JEFF — 24 Sun morning"
-    savollar[3]["savol"] = "JEFF — 23 Sat afternoon"
+    for i in ertalab:
+        savollar[i]["savol"] = "JEFF — 24 Sun morning"
+    savollar[tushdan_keyin[0]]["savol"] = "JEFF — 22 Fri afternoon"
+    savollar[tushdan_keyin[1]]["savol"] = "JEFF — 23 Sat afternoon"
     _saqla(mashq)
     return True
 
@@ -233,10 +279,28 @@ def _u12sb_abc_jadvali(mashq):
 # ─────────────────────────────────────────────────────────────────────────────
 U12SB_KLISHE_KORSATMA = "Match a line in A with a cliché in B."
 
-# Kitobdagi B ustuni TARTIBI (5th ed. s.119) — `savollar` indekslari orqali,
-# chunki chiziq chizilishi uchun `ong` dagi matn kalitdagi matn bilan
-# AYNAN bir xil bo'lishi shart (`Moslashtirish`: `ong.indexOf(javob)`).
-U12SB_KLISHE_TARTIBI = [2, 1, 3, 4, 6, 5, 7, 8, 9, 10, 12, 11, 13, 14, 16, 15]
+# Kitobdagi B ustuni TARTIBI (5th ed. s.119) — faqat TARTIB uchun.
+# `ong` ga bu matnlar EMAS, `savollar` dagi javoblarning O'ZI yoziladi:
+# chiziq chizilishi uchun `ong` dagi matn kalit bilan AYNAN bir xil
+# bo'lishi shart (`Moslashtirish`: `ong.indexOf(javob)`).
+U12SB_B_USTUNI = [
+    "I know. It's all talk and no action.",
+    "Come on! It's not the end of the world.",
+    "Yes, it's like banging your head against a brick wall.",
+    "Great minds think alike.",
+    "Yes, she certainly has both feet on the ground.",
+    "Well, it takes all sorts to make a world.",
+    "Rather you than me.",
+    "It's all right for some.",
+    "What! And I just bust a gut to get it done.",
+    "Thanks - but it's all in a day's work.",
+    "Never mind. It could have been worse.",
+    "You can say that again. I fell asleep.",
+    "Only time will tell.",
+    "Ah, he's a man after my own heart.",
+    "That's awful, but you live and learn.",
+    "Oh, well. Live and let live. That's what I say.",
+]
 
 
 def _u12sb_klishelar(mashq):
@@ -274,10 +338,18 @@ def _u12sb_klishelar(mashq):
             "matn": qator[0].strip(),
             "savol_idx": katak["bolaklar"][0]["savol_idx"],
         })
+
+    # O'ng ustun — kalitdagi javoblarning O'ZI, kitobdagi tartibda.
+    # Kutilgan 16 ta javob to'liq chiqmasa — tegmaymiz (izohga qara).
+    tartib = {_kalit(t): k for k, t in enumerate(U12SB_B_USTUNI)}
+    javoblar = [savollar[band["savol_idx"]].get("togri", "") for band in chap]
+    if {_kalit(j) for j in javoblar} != set(tartib):
+        return False
+
     bloklar[jadval_i] = {
         "tur": "moslashtir",
         "chap": chap,
-        "ong": [savollar[k]["togri"] for k in U12SB_KLISHE_TARTIBI],
+        "ong": sorted(javoblar, key=lambda j: tartib[_kalit(j)]),
     }
     _saqla(mashq)
     return True
@@ -285,10 +357,10 @@ def _u12sb_klishelar(mashq):
 
 # ─────────────────────────────────────────────────────────────────────────────
 TUZATISHLAR = [
-    (U8SB_KORSATMA, _u8sb_kundaliklar, "Unit 8 SB — Jeff/Kevin kundaliklari"),
-    (U11_KORSATMA, _u11_iboralar_banki, "Unit 11 — noun phrases banki"),
-    (U12SB_ABC_KORSATMA, _u12sb_abc_jadvali, "Unit 12 SB — A/B/C jadvali"),
-    (U12SB_KLISHE_KORSATMA, _u12sb_klishelar, "Unit 12 SB — klishe moslashtirish"),
+    (U8SB_KORSATMA, _u8sb_kundaliklar, "Unit 8 SB - Jeff/Kevin kundaliklari"),
+    (U11_KORSATMA, _u11_iboralar_banki, "Unit 11 - noun phrases banki"),
+    (U12SB_ABC_KORSATMA, _u12sb_abc_jadvali, "Unit 12 SB - A/B/C jadvali"),
+    (U12SB_KLISHE_KORSATMA, _u12sb_klishelar, "Unit 12 SB - klishe moslashtirish"),
 ]
 
 
