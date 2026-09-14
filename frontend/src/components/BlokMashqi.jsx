@@ -543,8 +543,13 @@ function Blok({ blok, rasmUrllar, faolRaqam, ijro, audioTanla, javoblar, javobni
       // (bo'sh katak uchun "" yoziladi).
       const sarlavhalar = blok.sarlavhalar || [];
       const qatorlar = blok.qatorlar || [];
+      // 2026-09-14, Umida: kitobdagi to'ldiriladigan kundalik/chart —
+      // u yerda BO'SH kataklar ham to'r chizig'i bilan ko'rinadi, bizda
+      // esa chegarasiz `<td>` bo'lgani uchun butun qator yo'q bo'lib
+      // ketardi ("jadval to'liq berilmagan"). `katakli` — shunday
+      // jadvallar uchun.
       return (
-        <table className="blok-jadval">
+        <table className={`blok-jadval${blok.katakli ? " katakli" : ""}`}>
           {sarlavhalar.length > 0 && (
             <thead>
               <tr>{sarlavhalar.map((s, k) => <th key={k}>{s}</th>)}</tr>

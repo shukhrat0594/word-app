@@ -1964,16 +1964,39 @@ class KursMashqDetailBoshqaruvView(APIView):
         return Response({"yangilandi": len(savollar), "xatolar": [],
                          "mashq": _kurs_mashq_admin_dict(mashq)})
 
+    def _audio_kerakni_belgila(self, mashq, qiymat):
+        """2026-09-14, Umida talabi: "audiolarni qo'shib bo'lmayapti".
+
+        "Audio yuklash" tugmasi faqat AI sahifada 🔊 belgisini ko'rgan
+        bo'lsa chiqardi (`bloklar[].audio_raqam`), yoki blok tasdiqlashda
+        "Audio kerak" belgilangan bo'lsa. AI belgini o'tkazib yuborsa —
+        admin uchun chiqish yo'li YO'Q edi: mashqni butunlay qayta
+        yuklashdan boshqa chora qolmasdi. Endi belgini keyin ham qo'lda
+        yoqish mumkin.
+
+        O'chirish ham mumkin (noto'g'ri bosilgan bo'lsa), lekin audio
+        fayllarga tegilmaydi — ular `KursMashqAudio` da o'z holicha
+        qoladi va belgi qayta yoqilsa yana ko'rinadi."""
+        mashq.audio_kerak = bool(qiymat)
+        mashq.save(update_fields=["audio_kerak"])
+        return Response({"yangilandi": 1, "xatolar": [],
+                         "mashq": _kurs_mashq_admin_dict(mashq)})
+
     def patch(self, request, pk):
         """So'rov tanasi: {"javoblar": [{"raqam": 1, "togri": "..."}, ...]}
         — "raqam" shu mashq ICHIDAGI savol tartib raqami (1 dan boshlab,
         `savollar` ro'yxatidagi pozitsiyaga mos).
 
         Yoki {"savollar": [...]} — butun ro'yxatni almashtirish
-        (`_savollarni_almashtir`ga qarang)."""
+        (`_savollarni_almashtir`ga qarang).
+
+        Yoki {"audio_kerak": true/false} — "Audio kerak" belgisini qo'lda
+        yoqish/o'chirish (`_audio_kerakni_belgila`ga qarang)."""
         if not _mashq_admin_mi(request.user):
             return Response({"detail": "Faqat admin/owner uchun"}, status=403)
         mashq = get_object_or_404(KursMashq, pk=pk)
+        if "audio_kerak" in request.data:
+            return self._audio_kerakni_belgila(mashq, request.data["audio_kerak"])
         if "savollar" in request.data:
             return self._savollarni_almashtir(mashq, request.data["savollar"])
         yangilash = request.data.get("javoblar")

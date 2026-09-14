@@ -1008,6 +1008,17 @@ function AdminMashqBoshqaruv({ tugunId, jsonKiritishKorinadi = true }) {
     }
   }
 
+  // 2026-09-14, Umida talabi: "audiolarni qo'shib bo'lmayapti". AI
+  // sahifadagi 🔊 belgisini o'tkazib yuborsa, "Audio yuklash" tugmasi
+  // umuman chiqmasdi va admin faylni biriktira olmasdi (backend ham
+  // rad etardi). Endi belgini qo'lda yoqib, tugmani chiqarish mumkin.
+  async function audioKerakniBelgila(id, qiymat) {
+    await api(`/api/kurslar/mashq/${id}/`, {
+      method: "PATCH", body: { audio_kerak: qiymat },
+    }).catch(() => {});
+    yukla();
+  }
+
   function mashqAudioRaqamlari(m) {
     const raqamlar = [];
     for (const b of m.bloklar || []) {
@@ -1290,10 +1301,35 @@ function AdminMashqBoshqaruv({ tugunId, jsonKiritishKorinadi = true }) {
                             🗑️
                           </button>
                         )}
+                        {/* Belgi QO'LDA qo'yilgan (sahifada 🔊 yo'q) va
+                            hali audio biriktirilmagan — xato bosilgan
+                            bo'lsa qaytarib olish uchun. */}
+                        {m.audio_kerak && !raqamlar.length && !borMi && (
+                          <button
+                            type="button"
+                            className="tugma ikkinchi"
+                            title={t("kurs_mashq_audio_kerak_bekor")}
+                            onClick={() => audioKerakniBelgila(m.id, false)}
+                          >
+                            ↩️
+                          </button>
+                        )}
                       </span>
                     );
                   }
-                  return <span className="izoh">{t("kurs_mashq_audio_yoq")}</span>;
+                  // Sahifada audio belgisi topilmagan — lekin AI uni
+                  // o'tkazib yuborgan bo'lishi mumkin, shuning uchun
+                  // admin belgini o'zi qo'ya oladi.
+                  return (
+                    <button
+                      type="button"
+                      className="tugma ikkinchi"
+                      title={t("kurs_mashq_audio_yoq")}
+                      onClick={() => audioKerakniBelgila(m.id, true)}
+                    >
+                      {t("kurs_mashq_audio_kerak_qil")}
+                    </button>
+                  );
                 })()}
                 <button className="tugma ikkinchi" style={{ color: "#d33" }} onClick={() => ochir(m.id)}>
                   {t("ochirish")}

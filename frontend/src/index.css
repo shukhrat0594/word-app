@@ -945,6 +945,13 @@ input.imtihon-bosh-joy.faol { border-color: var(--sariq-toq); box-shadow: 0 0 0 
   border-bottom: 1px solid var(--chiziq);
 }
 .blok-jadval td { padding: 3px 16px 3px 0; }
+/* 2026-09-14, Umida: to'ldiriladigan kundalik/chart — kitobdagidek to'r
+   chiziqlari bilan, shunda BO'SH kataklar ham ko'rinib turadi. */
+.blok-jadval.katakli { max-width: 560px; }
+.blok-jadval.katakli th,
+.blok-jadval.katakli td {
+  border: 1px solid var(--chiziq); padding: 6px 10px; vertical-align: top;
+}
 /* 2026-08-17, foydalanuvchi talabi: kitobdagi "chiziq tortib
    moslashtirish" mashqi — chapdan bandni, o'ngdan mos javobni bosish
    orqali ular orasiga SVG chiziq chiziladi. */
