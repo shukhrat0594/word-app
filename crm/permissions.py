@@ -1,0 +1,70 @@
+"""CRM ruxsatlari va bazaviy view.
+
+MUHIM: himoya BACKENDDA. Frontendda menyuni yashirish himoya emas —
+CRM manzilini bilib olgan talaba `/api/crm/...` ga to'g'ridan-to'g'ri
+so'rov yubora oladi, shuning uchun har bir endpoint shu yerdan
+tekshiriladi.
+"""
+
+from rest_framework.permissions import BasePermission, IsAuthenticated
+from rest_framework.views import APIView
+
+from accounts.models import User
+from accounts.permissions import owner_mi
+
+from .mantiq import hisoblarni_generatsiya_qil
+
+
+class CrmRuxsati(BasePermission):
+    """CRM'ga faqat admin va owner kiradi. Qolganlar — 403.
+
+    `owner_mi()` "Ko'rish rejimi" simulyatsiyasiga BO'YSUNADI: owner
+    rejimni Talabaga qo'ygan bo'lsa, u ham 403 oladi. Bu ATAYLAB
+    shunday — butun loyiha shu qoidaga bo'ysunadi
+    (`accounts/authentication.py`), va rejim aynan shuni sinash uchun.
+    Frontend bu holatni alohida xabar bilan tushuntiradi
+    (`src-crm/App.jsx`), aks holda owner tizimni buzuq deb o'ylardi.
+    """
+
+    message = "Bu bo'lim faqat administratorlar uchun"
+
+    def has_permission(self, request, view):
+        user = request.user
+        if not user or not user.is_authenticated:
+            return False
+        return owner_mi(user) or user.role == User.Role.ADMIN
+
+
+class FaqatOwner(BasePermission):
+    """Qaytarib bo'lmaydigan yoki pulni o'zgartiradigan amallar uchun —
+    hisob summasini tuzatish, to'lov yozuvini o'chirish."""
+
+    message = "Bu amalni faqat owner bajara oladi"
+
+    def has_permission(self, request, view):
+        return owner_mi(request.user)
+
+
+class CrmView(APIView):
+    """Barcha CRM view'lari uchun asos.
+
+    Ruxsatdan tashqari — HAR BIR GET so'rovida hisob generatsiyasini
+    ishga tushiradi ("dangasa" usul, TZ 4.1). Cron yo'q: loyihadagi
+    mavjud konvensiya (`Markaz.zaxira_avtomatik` — "shu vaqtdan keyingi
+    birinchi so'rovda olinadi").
+
+    NEGA MIDDLEWARE EMAS (TZ 3.0, 3-qoida): middleware LMS so'rovlarida
+    ham ishlab ketardi va `settings.MIDDLEWARE`ga qator qo'shish kerak
+    bo'lardi — ya'ni CRM o'chirilganda uni olib tashlash esdan chiqishi
+    mumkin edi. Bu yerda esa u CRM bilan birga o'chadi.
+
+    Generatsiya faqat ORQADA QOLGAN a'zoliklarni tanlaydi: hech nima
+    qolmagan bo'lsa bitta indeksli so'rov 0 qator qaytaradi.
+    """
+
+    permission_classes = [IsAuthenticated, CrmRuxsati]
+
+    def initial(self, request, *args, **kwargs):
+        super().initial(request, *args, **kwargs)  # avval autentifikatsiya va ruxsat
+        if request.method == "GET":
+            hisoblarni_generatsiya_qil()

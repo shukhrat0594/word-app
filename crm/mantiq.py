@@ -6,6 +6,7 @@ va farqni hech kim sezmaydi — pulda esa bu qimmatga tushadi.
 """
 
 import calendar
+import logging
 from datetime import date
 from decimal import ROUND_HALF_UP, Decimal
 
@@ -13,6 +14,8 @@ from django.db import models, transaction
 from django.utils import timezone
 
 from .models import AzolikMoliya, Hisob, Sozlama, Tolov
+
+_logger = logging.getLogger(__name__)
 
 # Proporsional summa shuncha so'mgacha yaxlitlanadi. 660 000 / 12 * 7 =
 # 385 000 kabi "chiroyli" son chiqishi uchun — kassada tiyin sanalmaydi.
@@ -58,8 +61,27 @@ def sozlama_ol() -> Sozlama:
 # ── Narx: uch qavat ──────────────────────────────────────────────────
 
 
-def amaldagi_narx(azolik_moliya: AzolikMoliya) -> Decimal | None:
-    """Shu a'zolik uchun amaldagi oylik narx.
+def guruh_narxi(guruh) -> tuple[Decimal | None, str | None]:
+    """Guruh darajasidagi narx va uning MANBASI.
+
+    Manba interfeysda ko'rsatiladi ("IELTS kursidan 660 000" yoki "bu
+    guruhga alohida 600 000") — admin narx qayerdan kelayotganini
+    ko'rmasa, nega o'zgartirgani ishlamaganini tushunmaydi.
+    """
+    guruh_moliya = getattr(guruh, "moliya", None)
+    if guruh_moliya is not None and guruh_moliya.narx is not None:
+        return guruh_moliya.narx, "guruh"
+
+    if guruh.daraja_id:
+        kurs_narxi = getattr(guruh.daraja, "crm_narxi", None)
+        if kurs_narxi is not None:
+            return kurs_narxi.narx, "kurs"
+
+    return None, None
+
+
+def narx_va_manba(azolik_moliya: AzolikMoliya) -> tuple[Decimal | None, str | None]:
+    """Shu a'zolik uchun amaldagi oylik narx va uning manbasi.
 
     Uch qavat, pastdan yuqoriga — birinchi to'ldirilgani olinadi:
 
@@ -69,27 +91,22 @@ def amaldagi_narx(azolik_moliya: AzolikMoliya) -> Decimal | None:
               v bo'sh bo'lsa
         KursNarxi.narx      (daraja — IELTS 660 000, Beginner 400 000)
 
-    `None` qaytsa — narx hech qayerda belgilanmagan, hisob OCHILMAYDI va
-    guruh ogohlantirishlar ro'yxatiga tushadi.
-
-    Narx FAQAT shu funksiya orqali olinadi. Boshqa joyda `kurs_narxi`
-    qidirilsa, uch qavatning biri unutiladi va admin kiritgan chegirma
-    ishlamay qoladi.
+    `(None, None)` qaytsa — narx hech qayerda belgilanmagan, hisob
+    OCHILMAYDI va guruh ogohlantirishlar ro'yxatiga tushadi.
     """
     if azolik_moliya.narx is not None:
-        return azolik_moliya.narx
+        return azolik_moliya.narx, "talaba"
+    return guruh_narxi(azolik_moliya.azolik.guruh)
 
-    guruh = azolik_moliya.azolik.guruh
-    guruh_moliya = getattr(guruh, "moliya", None)
-    if guruh_moliya is not None and guruh_moliya.narx is not None:
-        return guruh_moliya.narx
 
-    if guruh.daraja_id:
-        kurs_narxi = getattr(guruh.daraja, "crm_narxi", None)
-        if kurs_narxi is not None:
-            return kurs_narxi.narx
+def amaldagi_narx(azolik_moliya: AzolikMoliya) -> Decimal | None:
+    """Amaldagi oylik narx.
 
-    return None
+    Narx FAQAT shu funksiya (yoki `narx_va_manba`) orqali olinadi. Boshqa
+    joyda qo'lda qidirilsa, uch qavatning biri unutiladi va admin
+    kiritgan chegirma ishlamay qoladi.
+    """
+    return narx_va_manba(azolik_moliya)[0]
 
 
 # ── Dars kunlari ─────────────────────────────────────────────────────
@@ -262,31 +279,44 @@ def hisoblarni_generatsiya_qil() -> dict:
         )
     )
 
-    natija = {"yaratildi": 0, "sozlanmagan": 0, "azoliklar": 0}
+    natija = {"yaratildi": 0, "sozlanmagan": 0, "azoliklar": 0, "xatolar": []}
 
     for azolik_moliya in azoliklar:
         natija["azoliklar"] += 1
-        with transaction.atomic():
-            oy = _boshlash_oyi(azolik_moliya, boshlangich_oy)
-            oxirgi_bajarilgan = None
+        try:
+            with transaction.atomic():
+                oy = _boshlash_oyi(azolik_moliya, boshlangich_oy)
+                oxirgi_bajarilgan = None
 
-            while oy <= joriy_oy:
-                holat = hisob_yarat(azolik_moliya, oy)
-                if holat == SOZLANMAGAN:
-                    # Watermark ATAYLAB SURILMAYDI: admin narxni yoki
-                    # jadvalni keyin kiritsa, shu oy qaytadan urinib
-                    # ko'riladi. Aks holda o'sha oy abadiy o'tkazib
-                    # yuborilardi — aynan yuqorida tasvirlangan xato.
-                    natija["sozlanmagan"] += 1
-                    break
-                if holat == YARATILDI:
-                    natija["yaratildi"] += 1
-                oxirgi_bajarilgan = oy
-                oy = keyingi_oy(oy)
+                while oy <= joriy_oy:
+                    holat = hisob_yarat(azolik_moliya, oy)
+                    if holat == SOZLANMAGAN:
+                        # Watermark ATAYLAB SURILMAYDI: admin narxni yoki
+                        # jadvalni keyin kiritsa, shu oy qaytadan urinib
+                        # ko'riladi. Aks holda o'sha oy abadiy o'tkazib
+                        # yuborilardi — aynan yuqorida tasvirlangan xato.
+                        natija["sozlanmagan"] += 1
+                        break
+                    if holat == YARATILDI:
+                        natija["yaratildi"] += 1
+                    oxirgi_bajarilgan = oy
+                    oy = keyingi_oy(oy)
 
-            if oxirgi_bajarilgan is not None:
-                azolik_moliya.oxirgi_hisob_oy = oxirgi_bajarilgan
-                azolik_moliya.save(update_fields=["oxirgi_hisob_oy"])
+                if oxirgi_bajarilgan is not None:
+                    azolik_moliya.oxirgi_hisob_oy = oxirgi_bajarilgan
+                    azolik_moliya.save(update_fields=["oxirgi_hisob_oy"])
+        except Exception as xato:  # noqa: BLE001
+            # NEGA YUTAMIZ: generatsiya CRM'ning HAR BIR GET so'rovida
+            # ishlaydi. Bitta buzuq a'zolik xato bersa va biz uni
+            # o'tkazib yuborsak, butun CRM ochilmay qolardi — ya'ni
+            # admin muammoni ko'rish va tuzatish uchun ham kira olmasdi.
+            #
+            # Xato JIMGINA yo'qolmaydi: u `/api/crm/ogohlantirishlar/`
+            # da ko'rinadi va logga yoziladi. Qolgan a'zoliklar esa
+            # odatdagidek ishlanadi. `atomic()` blokida bo'lgani uchun
+            # yarim yozilgan hisob qolmaydi.
+            _logger.exception("CRM hisob generatsiyasi xatosi: a'zolik %s", azolik_moliya.pk)
+            natija["xatolar"].append({"azolik_moliya_id": azolik_moliya.pk, "xato": str(xato)})
 
     return natija
 
@@ -374,6 +404,44 @@ def balans(talaba, guruh=None) -> Decimal:
     hisoblangan = hisoblar.aggregate(jami=models.Sum("summa"))["jami"] or Decimal("0")
 
     return kirim - chiqim - hisoblangan
+
+
+def balanslarni_ol(talaba_idlar) -> dict:
+    """Ko'p talabaning balansi — BITTA so'rovda (N+1'dan qochish uchun).
+
+    Qarzdorlar ro'yxatida har qatorda balans ko'rsatiladi; `balans()`ni
+    har qator uchun chaqirish 200 talabada 600 ta so'rov degani bo'lardi.
+    """
+    talaba_idlar = list(talaba_idlar)
+    if not talaba_idlar:
+        return {}
+
+    natija = {pk: Decimal("0") for pk in talaba_idlar}
+
+    tolovlar = (
+        Tolov.objects.filter(talaba_id__in=talaba_idlar)
+        .values("talaba_id")
+        .annotate(
+            kirim=models.Sum(
+                "summa", filter=models.Q(turi__in=Tolov.YOPUVCHI_TURLAR), default=Decimal("0")
+            ),
+            chiqim=models.Sum(
+                "summa", filter=models.Q(turi=Tolov.Turi.QAYTARISH), default=Decimal("0")
+            ),
+        )
+    )
+    for qator in tolovlar:
+        natija[qator["talaba_id"]] += qator["kirim"] - qator["chiqim"]
+
+    hisoblar = (
+        Hisob.objects.filter(talaba_id__in=talaba_idlar)
+        .values("talaba_id")
+        .annotate(jami=models.Sum("summa", default=Decimal("0")))
+    )
+    for qator in hisoblar:
+        natija[qator["talaba_id"]] -= qator["jami"]
+
+    return natija
 
 
 # ── A'zolikni yakunlash / muzlatish ──────────────────────────────────

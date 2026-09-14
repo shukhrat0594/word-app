@@ -1,0 +1,346 @@
+"""CRM API testlari — ruxsatlar va asosiy oqimlar.
+
+Ruxsat tekshiruvi HAQIQIY JWT bilan o'tkaziladi (`force_authenticate`
+emas): aks holda `accounts.authentication.KorishRejimliJWTAuthentication`
+qatlami chetlab o'tilardi va owner "Ko'rish rejimi"dagi holat umuman
+sinovdan o'tmasdi.
+"""
+
+from datetime import date
+from decimal import Decimal
+
+from rest_framework.test import APIClient
+from rest_framework_simplejwt.tokens import RefreshToken
+
+from accounts.models import User
+from crm import mantiq
+from crm.models import AzolikMoliya, Hisob, KursNarxi, Tolov
+from crm.tests import NARX, SENTABR, CrmAsos, bugun_qilib
+
+
+class ApiAsos(CrmAsos):
+    def setUp(self):
+        super().setUp()
+        self.admin = User.objects.create_user(
+            username="crm_admin", password="x", role=User.Role.ADMIN, markaz=self.markaz
+        )
+        self.owner = User.objects.create_user(
+            username="crm_owner", password="x", role=User.Role.ADMIN,
+            markaz=self.markaz, is_superuser=True, is_staff=True,
+        )
+        self.oqituvchi = User.objects.create_user(
+            username="crm_oqituvchi", password="x", role=User.Role.TEACHER, markaz=self.markaz
+        )
+        self.ota_ona = User.objects.create_user(
+            username="crm_otaona", password="x", role=User.Role.PARENT, markaz=self.markaz
+        )
+
+    def mijoz(self, user=None):
+        client = APIClient()
+        if user is not None:
+            token = str(RefreshToken.for_user(user).access_token)
+            client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
+        return client
+
+
+class RuxsatTest(ApiAsos):
+    YOLLAR = [
+        "/api/crm/hisoblar/",
+        "/api/crm/guruhlar/",
+        "/api/crm/filiallar/",
+        "/api/crm/hisobot/",
+        "/api/crm/kurs-narxlari/",
+    ]
+
+    def test_autentifikatsiyasiz_401(self):
+        for yol in self.YOLLAR:
+            self.assertEqual(self.mijoz().get(yol).status_code, 401, yol)
+
+    def test_talaba_403(self):
+        """CRM manzilini bilib olgan talaba API'ga to'g'ridan-to'g'ri
+        kira olmasligi kerak — frontendda yashirish himoya emas."""
+        mijoz = self.mijoz(self.talaba)
+        for yol in self.YOLLAR:
+            self.assertEqual(mijoz.get(yol).status_code, 403, yol)
+
+    def test_oqituvchi_403(self):
+        mijoz = self.mijoz(self.oqituvchi)
+        for yol in self.YOLLAR:
+            self.assertEqual(mijoz.get(yol).status_code, 403, yol)
+
+    def test_ota_ona_403(self):
+        self.assertEqual(self.mijoz(self.ota_ona).get("/api/crm/hisoblar/").status_code, 403)
+
+    def test_admin_kiradi(self):
+        self.assertEqual(self.mijoz(self.admin).get("/api/crm/hisoblar/").status_code, 200)
+
+    def test_owner_kiradi(self):
+        self.assertEqual(self.mijoz(self.owner).get("/api/crm/hisoblar/").status_code, 200)
+
+    def test_korish_rejimidagi_owner_403(self):
+        """Owner "Ko'rish rejimi"ni Talabaga qo'ysa — CRM yopiladi.
+
+        Bu ATAYLAB shunday (rejim aynan shuni sinash uchun). Frontend
+        buni alohida xabar bilan tushuntiradi — `src-crm/App.jsx`."""
+        User.objects.filter(pk=self.owner.pk).update(
+            korish_rejimi=User.KorishRejimi.STUDENT
+        )
+        self.assertEqual(self.mijoz(self.owner).get("/api/crm/hisoblar/").status_code, 403)
+
+        User.objects.filter(pk=self.owner.pk).update(
+            korish_rejimi=User.KorishRejimi.OWNER
+        )
+        self.assertEqual(self.mijoz(self.owner).get("/api/crm/hisoblar/").status_code, 200)
+
+    def test_hisob_summasini_admin_tuzata_olmaydi(self):
+        self.azolik_qosh(boshlanish=date(2026, 9, 1))
+        with bugun_qilib(date(2026, 9, 30)):
+            mantiq.hisoblarni_generatsiya_qil()
+        hisob = Hisob.objects.get()
+
+        javob = self.mijoz(self.admin).patch(
+            f"/api/crm/hisoblar/{hisob.id}/", {"summa": "100000"}, format="json"
+        )
+        self.assertEqual(javob.status_code, 403)
+
+        javob = self.mijoz(self.owner).patch(
+            f"/api/crm/hisoblar/{hisob.id}/", {"summa": "100000"}, format="json"
+        )
+        self.assertEqual(javob.status_code, 200)
+        hisob.refresh_from_db()
+        self.assertEqual(hisob.summa, Decimal("100000"))
+
+    def test_tolovni_faqat_owner_ochiradi(self):
+        tolov = Tolov.objects.create(
+            talaba=self.talaba, talaba_ism="x", guruh=self.guruh, guruh_nomi="y",
+            sana=date(2026, 9, 5), summa=NARX, turi=Tolov.Turi.TOLOV,
+        )
+        self.assertEqual(
+            self.mijoz(self.admin).delete(f"/api/crm/tolov/{tolov.id}/").status_code, 403
+        )
+        self.assertEqual(
+            self.mijoz(self.owner).delete(f"/api/crm/tolov/{tolov.id}/").status_code, 200
+        )
+        self.assertFalse(Tolov.objects.exists())
+
+
+class OqimTest(ApiAsos):
+    def test_get_sorovi_hisobni_generatsiya_qiladi(self):
+        """"Dangasa" generatsiya: cron yo'q, birinchi GET so'rovida
+        ochiladi (TZ 4.1)."""
+        self.azolik_qosh(boshlanish=date(2026, 9, 1))
+        self.assertEqual(Hisob.objects.count(), 0)
+
+        with bugun_qilib(date(2026, 9, 30)):
+            javob = self.mijoz(self.admin).get("/api/crm/hisoblar/")
+
+        self.assertEqual(javob.status_code, 200)
+        self.assertEqual(Hisob.objects.count(), 1)
+        self.assertEqual(len(javob.data), 1)
+        self.assertEqual(javob.data[0]["holat"], "qarzdor")
+        self.assertEqual(javob.data[0]["qoldiq"], NARX)
+
+    def test_qisman_tolov_keyin_chegirma(self):
+        self.azolik_qosh(boshlanish=date(2026, 9, 1))
+        mijoz = self.mijoz(self.admin)
+        with bugun_qilib(date(2026, 9, 30)):
+            mijoz.get("/api/crm/hisoblar/")
+        hisob = Hisob.objects.get()
+
+        javob = mijoz.post(
+            "/api/crm/tolov/",
+            {"talaba_id": self.talaba.id, "guruh_id": self.guruh.id,
+             "oy": "2026-09", "summa": "400000", "sana": "2026-09-11"},
+            format="json",
+        )
+        self.assertEqual(javob.status_code, 201)
+        hisob.refresh_from_db()
+        self.assertEqual(hisob.holat, Hisob.Holat.QISMAN)
+
+        mijoz.post(
+            "/api/crm/tolov/",
+            {"talaba_id": self.talaba.id, "guruh_id": self.guruh.id,
+             "oy": "2026-09", "summa": "260000", "turi": "chegirma"},
+            format="json",
+        )
+        hisob.refresh_from_db()
+        self.assertEqual(hisob.holat, Hisob.Holat.TOLANDI)
+
+        # Hisobotda "olingan pul" 400 000, chegirma 260 000 — aralashmaydi.
+        with bugun_qilib(date(2026, 9, 30)):
+            hisobot = mijoz.get("/api/crm/hisobot/?oy=2026-09").data
+        self.assertEqual(hisobot["jami"]["olingan"], Decimal("400000"))
+        self.assertEqual(hisobot["jami"]["chegirma"], Decimal("260000"))
+        self.assertEqual(hisobot["jami"]["qarz"], Decimal("0"))
+        self.assertAlmostEqual(hisobot["jami"]["yigilish_foizi"], 60.6, places=1)
+
+    def test_qaytarish_oyga_boglanmaydi(self):
+        self.azolik_qosh(boshlanish=date(2026, 9, 1))
+        mijoz = self.mijoz(self.admin)
+        with bugun_qilib(date(2026, 9, 30)):
+            mijoz.get("/api/crm/hisoblar/")
+        hisob = Hisob.objects.get()
+
+        mijoz.post(
+            "/api/crm/tolov/",
+            {"talaba_id": self.talaba.id, "guruh_id": self.guruh.id,
+             "oy": "2026-09", "summa": "660000"},
+            format="json",
+        )
+        mijoz.post(
+            "/api/crm/tolov/",
+            {"talaba_id": self.talaba.id, "guruh_id": self.guruh.id,
+             "oy": "2026-09", "summa": "300000", "turi": "qaytarish"},
+            format="json",
+        )
+
+        hisob.refresh_from_db()
+        self.assertEqual(hisob.holat, Hisob.Holat.TOLANDI)
+        self.assertIsNone(Tolov.objects.get(turi="qaytarish").hisob_id)
+        self.assertEqual(mantiq.balans(self.talaba), Decimal("-300000"))
+
+    def test_qolda_boshlangich_qarz(self):
+        """Tizim yoqilgunga qadar bo'lgan qarz qo'lda kiritiladi (TZ 4.7)."""
+        self.azolik_qosh(boshlanish=date(2026, 9, 1))
+        mijoz = self.mijoz(self.admin)
+
+        javob = mijoz.post(
+            "/api/crm/hisoblar/",
+            {"talaba_id": self.talaba.id, "guruh_id": self.guruh.id,
+             "oy": "2026-08", "summa": "600000"},
+            format="json",
+        )
+        self.assertEqual(javob.status_code, 201)
+        self.assertTrue(javob.data["qolda"])
+
+        with bugun_qilib(date(2026, 9, 30)):
+            qatorlar = mijoz.get("/api/crm/hisoblar/").data
+        self.assertEqual(len(qatorlar), 2)  # avgust (qo'lda) + sentabr (avtomatik)
+
+        # Takror kiritishga yo'l qo'yilmaydi
+        javob = mijoz.post(
+            "/api/crm/hisoblar/",
+            {"talaba_id": self.talaba.id, "guruh_id": self.guruh.id,
+             "oy": "2026-08", "summa": "600000"},
+            format="json",
+        )
+        self.assertEqual(javob.status_code, 400)
+
+    def test_kurs_narxi_saqlanadi(self):
+        KursNarxi.objects.all().delete()
+        mijoz = self.mijoz(self.admin)
+
+        javob = mijoz.put(
+            "/api/crm/kurs-narxlari/",
+            {"daraja_id": self.daraja.id, "narx": "450000"},
+            format="json",
+        )
+        self.assertEqual(javob.status_code, 200)
+        self.assertEqual(KursNarxi.objects.get().narx, Decimal("450000"))
+
+        guruhlar = mijoz.get("/api/crm/guruhlar/").data
+        self.assertEqual(guruhlar[0]["narx"], Decimal("450000"))
+        self.assertEqual(guruhlar[0]["narx_manbasi"], "kurs")
+
+    def test_guruh_narxi_kurs_narxini_bekor_qiladi(self):
+        mijoz = self.mijoz(self.admin)
+        mijoz.patch(
+            f"/api/crm/guruhlar/{self.guruh.id}/moliya/", {"narx": "600000"}, format="json"
+        )
+        guruhlar = mijoz.get("/api/crm/guruhlar/").data
+        self.assertEqual(guruhlar[0]["narx"], Decimal("600000"))
+        self.assertEqual(guruhlar[0]["narx_manbasi"], "guruh")
+
+    def test_jadval_almashtiriladi(self):
+        mijoz = self.mijoz(self.admin)
+        javob = mijoz.put(
+            f"/api/crm/guruhlar/{self.guruh.id}/jadval/",
+            {"jadval": [
+                {"hafta_kuni": 0, "boshlanish_vaqti": "09:00", "tugash_vaqti": "10:30"},
+                {"hafta_kuni": 2, "boshlanish_vaqti": "09:00", "tugash_vaqti": "10:30"},
+            ]},
+            format="json",
+        )
+        self.assertEqual(javob.status_code, 200)
+        self.assertEqual(len(javob.data["jadval"]), 2)
+        self.assertEqual(self.guruh.crm_jadval.count(), 2)
+
+    def test_jadval_notogri_vaqt_rad_etiladi(self):
+        javob = self.mijoz(self.admin).put(
+            f"/api/crm/guruhlar/{self.guruh.id}/jadval/",
+            {"jadval": [{"hafta_kuni": 0, "boshlanish_vaqti": "12:00", "tugash_vaqti": "10:00"}]},
+            format="json",
+        )
+        self.assertEqual(javob.status_code, 400)
+        self.assertEqual(self.guruh.crm_jadval.count(), 3)  # eskisi saqlanib qoldi
+
+    def test_azolik_chiqarilsa_qayta_hisoblanadi(self):
+        am = self.azolik_qosh(boshlanish=date(2026, 9, 1))
+        mijoz = self.mijoz(self.admin)
+        with bugun_qilib(date(2026, 9, 30)):
+            mijoz.get("/api/crm/hisoblar/")
+        self.assertEqual(Hisob.objects.get().summa, NARX)
+
+        javob = mijoz.patch(
+            f"/api/crm/azoliklar/{am.id}/",
+            {"holat": "arxiv", "tugash_sana": "2026-09-12"},
+            format="json",
+        )
+        self.assertEqual(javob.status_code, 200)
+        # Joriy sana sentabr emas, shuning uchun qayta hisob joriy oyga
+        # tegishli — testda sentabrni to'g'ridan-to'g'ri chaqiramiz.
+        am.refresh_from_db()
+        mantiq.azolikni_qayta_hisobla(am, SENTABR)
+        self.assertEqual(Hisob.objects.get().summa, Decimal("330000"))
+
+    def test_ogohlantirishlar_sozlanmagan_guruhni_korsatadi(self):
+        KursNarxi.objects.all().delete()
+        self.azolik_qosh()
+        javob = self.mijoz(self.admin).get("/api/crm/ogohlantirishlar/")
+        self.assertEqual(javob.status_code, 200)
+        self.assertEqual(len(javob.data), 1)
+        self.assertIn("narx yo'q", javob.data[0]["sabablar"])
+
+    def test_talaba_kartasi(self):
+        self.azolik_qosh(boshlanish=date(2026, 9, 1))
+        mijoz = self.mijoz(self.admin)
+        with bugun_qilib(date(2026, 9, 30)):
+            mijoz.get("/api/crm/hisoblar/")
+        javob = mijoz.get(f"/api/crm/talaba/{self.talaba.id}/")
+
+        self.assertEqual(javob.status_code, 200)
+        self.assertEqual(javob.data["balans_jami"], -NARX)
+        self.assertEqual(len(javob.data["guruhlar"]), 1)
+        self.assertEqual(len(javob.data["hisoblar"]), 1)
+
+    def test_eksport_xlsx(self):
+        self.azolik_qosh(boshlanish=date(2026, 9, 1))
+        mijoz = self.mijoz(self.admin)
+        with bugun_qilib(date(2026, 9, 30)):
+            mijoz.get("/api/crm/hisoblar/")
+            javob = mijoz.get("/api/crm/eksport/?oy=2026-09")
+
+        self.assertEqual(javob.status_code, 200)
+        self.assertIn("spreadsheetml", javob["Content-Type"])
+        self.assertIn("filename*=UTF-8", javob["Content-Disposition"])
+        # Haqiqiy xlsx ekanini tekshiramiz (ZIP imzosi) va varaqlarni o'qiymiz
+        from io import BytesIO
+
+        from openpyxl import load_workbook
+
+        kitob = load_workbook(BytesIO(javob.content))
+        self.assertEqual(kitob.sheetnames, ["Qarzdorlar", "To'lovlar", "Hisobot"])
+        self.assertEqual(kitob["Qarzdorlar"]["E2"].value, float(NARX))
+
+    def test_azoliklar_royxati_moliya_yozuvini_yaratadi(self):
+        """`AzolikMoliya` signal bilan emas, birinchi murojaatda paydo
+        bo'ladi (TZ 3.0, 3-qoida)."""
+        from academics.models import GuruhAzoligi
+
+        GuruhAzoligi.objects.create(guruh=self.guruh, talaba=self.talaba)
+        self.assertEqual(AzolikMoliya.objects.count(), 0)
+
+        javob = self.mijoz(self.admin).get(f"/api/crm/guruhlar/{self.guruh.id}/azoliklar/")
+        self.assertEqual(javob.status_code, 200)
+        self.assertEqual(AzolikMoliya.objects.count(), 1)
+        self.assertEqual(javob.data[0]["holat"], "faol")
