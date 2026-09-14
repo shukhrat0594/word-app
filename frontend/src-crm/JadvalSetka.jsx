@@ -117,7 +117,13 @@ export default function JadvalSetka() {
         <div className="setka-suruv">
           <div
             className="setka"
-            style={{ gridTemplateColumns: `130px repeat(${ustunlar}, 68px)` }}
+            /* O'lchamlar CSS o'zgaruvchilarida (`index.css`) —
+               setkani kattalashtirish uchun bitta joyni o'zgartirish
+               yetarli bo'lsin. */
+            style={{
+              gridTemplateColumns:
+                `var(--setka-xona-eni) repeat(${ustunlar}, minmax(var(--setka-ustun), 1fr))`,
+            }}
           >
             {/* Sarlavha qatori */}
             <div className="setka-burchak">{t("xona_soat")}</div>
