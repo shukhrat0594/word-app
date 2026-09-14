@@ -7,6 +7,7 @@
 import { Fragment, useState } from "react";
 
 import { api } from "../api.js";
+import GuruhTablari from "../GuruhTablari.jsx";
 import { useFilial } from "../filialContext.jsx";
 import { balansMatn, balansSinfi, pul, sana } from "../format.js";
 import { useI18n } from "../i18n.jsx";
@@ -319,8 +320,10 @@ export default function Guruhlar() {
                 {ochilgan === g.id && (
                   <tr>
                     <td colSpan={8} className="ichki">
-                      <h3>{t("azolar")}</h3>
-                      <Azolar guruhId={g.id} onOzgardi={yangila} />
+                      <GuruhTablari
+                        guruhId={g.id}
+                        Azolar={() => <Azolar guruhId={g.id} onOzgardi={yangila} />}
+                      />
                     </td>
                   </tr>
                 )}

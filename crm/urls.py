@@ -25,6 +25,10 @@ urlpatterns = [
     path("guruhlar/<int:pk>/moliya/", views.GuruhMoliyaView.as_view(), name="guruh_moliya"),
     path("guruhlar/<int:pk>/jadval/", views.GuruhJadvalView.as_view(), name="guruh_jadval"),
     path("guruhlar/<int:pk>/azoliklar/", views.GuruhAzoliklariView.as_view(), name="guruh_azoliklari"),
+    # Davomat va natijalar — FAQAT O'QISH. Ular LMS'da hosil bo'ladi,
+    # CRM faqat ko'rsatadi (ikki joyda belgilash ikki xil raqam degani).
+    path("guruhlar/<int:pk>/davomat/", views.GuruhDavomatView.as_view(), name="guruh_davomat"),
+    path("guruhlar/<int:pk>/natijalar/", views.GuruhNatijalarView.as_view(), name="guruh_natijalar"),
 
     path("azoliklar/<int:pk>/", views.AzolikView.as_view(), name="azolik"),
 

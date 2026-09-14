@@ -173,6 +173,17 @@ const SATRLAR = {
     kun_shanba: "Shanba",
     kun_yakshanba: "Yakshanba",
 
+    tab_azolar: "A'zolar",
+    tab_davomat: "Davomat",
+    tab_natijalar: "Natijalar",
+    faqat_oqish: "faqat o'qish",
+    davomat: "Davomat",
+    keldi: "Keldi",
+    kelmadi: "Kelmadi",
+    mashqlar: "Mashqlar",
+    davomat_yoq: "Bu oyda davomat belgilanmagan.",
+    natija_izoh: "Natijalar LMS'da hosil bo'ladi — bu yerda faqat ko'rsatiladi.",
+
     sahifa_topilmadi: "Sahifa topilmadi",
   },
 
@@ -334,6 +345,17 @@ const SATRLAR = {
     kun_shanba: "Суббота",
     kun_yakshanba: "Воскресенье",
 
+    tab_azolar: "Участники",
+    tab_davomat: "Посещаемость",
+    tab_natijalar: "Результаты",
+    faqat_oqish: "только просмотр",
+    davomat: "Посещаемость",
+    keldi: "Был",
+    kelmadi: "Не был",
+    mashqlar: "Задания",
+    davomat_yoq: "В этом месяце посещаемость не отмечалась.",
+    natija_izoh: "Результаты формируются в LMS — здесь они только показываются.",
+
     sahifa_topilmadi: "Страница не найдена",
   },
 
@@ -494,6 +516,17 @@ const SATRLAR = {
     kun_juma: "Friday",
     kun_shanba: "Saturday",
     kun_yakshanba: "Sunday",
+
+    tab_azolar: "Members",
+    tab_davomat: "Attendance",
+    tab_natijalar: "Results",
+    faqat_oqish: "read-only",
+    davomat: "Attendance",
+    keldi: "Present",
+    kelmadi: "Absent",
+    mashqlar: "Exercises",
+    davomat_yoq: "No attendance recorded for this month.",
+    natija_izoh: "Results are produced in the LMS — shown here for reference only.",
 
     sahifa_topilmadi: "Page not found",
   },

@@ -13,8 +13,9 @@ from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from accounts.models import User
+from assessment.models import WritingTekshiruv
 from crm import mantiq
-from academics.models import Guruh
+from academics.models import Davomat, Guruh
 from crm.models import (
     AzolikMoliya, Filial, GuruhMoliya, Hisob, KursNarxi, Sozlama, Tolov, Xona,
 )
@@ -338,7 +339,7 @@ class OqimTest(ApiAsos):
     def test_azoliklar_royxati_moliya_yozuvini_yaratadi(self):
         """`AzolikMoliya` signal bilan emas, birinchi murojaatda paydo
         bo'ladi (TZ 3.0, 3-qoida)."""
-        from academics.models import GuruhAzoligi
+        from academics.models import Davomat, GuruhAzoligi
 
         GuruhAzoligi.objects.create(guruh=self.guruh, talaba=self.talaba)
         self.assertEqual(AzolikMoliya.objects.count(), 0)
@@ -534,3 +535,100 @@ class XonaVaSetkaTest(ApiAsos):
         dars = self.guruh.crm_jadval.get()
         self.assertIsNone(dars.xona_id)
         self.assertEqual(dars.boshlanish_vaqti.strftime("%H:%M"), "14:00")
+
+
+class DavomatVaNatijaTest(ApiAsos):
+    """Davomat va natijalar — FAQAT O'QISH (2026-09-14).
+
+    Ular LMS'da hosil bo'ladi; CRM faqat ko'rsatadi. Shuning uchun
+    testlar ham LMS modellariga yozib, CRM API'sidan o'qiydi.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.azolik_qosh(boshlanish=date(2026, 9, 1))
+        self.ikkinchi = User.objects.create_user(
+            username="talaba2", password="x", role=User.Role.STUDENT, markaz=self.markaz
+        )
+        self.azolik_qosh(talaba=self.ikkinchi, boshlanish=date(2026, 9, 1))
+
+    def davomat_yoz(self, talaba, kun, holat):
+        return Davomat.objects.create(
+            sana=date(2026, 9, kun), guruh=self.guruh, talaba=talaba, holat=holat
+        )
+
+    def test_davomat_matritsasi(self):
+        self.davomat_yoz(self.talaba, 3, Davomat.Holat.KELDI)
+        self.davomat_yoz(self.talaba, 4, Davomat.Holat.KELMADI)
+        self.davomat_yoz(self.ikkinchi, 3, Davomat.Holat.KELDI)
+        # 4-sentabrda ikkinchi talabaga yozuv YO'Q — katak bo'sh qolishi kerak
+
+        javob = self.mijoz(self.admin).get(
+            f"/api/crm/guruhlar/{self.guruh.id}/davomat/?oy=2026-09"
+        )
+        self.assertEqual(javob.status_code, 200)
+        # Ustunlar — faqat dars bo'lgan sanalar
+        self.assertEqual(javob.data["sanalar"], [date(2026, 9, 3), date(2026, 9, 4)])
+
+        qatorlar = {x["ism"]: x for x in javob.data["talabalar"]}
+        self.assertEqual(qatorlar["talaba1"]["kunlar"], ["keldi", "kelmadi"])
+        self.assertEqual(qatorlar["talaba1"]["keldi"], 1)
+        self.assertEqual(qatorlar["talaba1"]["kelmadi"], 1)
+        self.assertEqual(qatorlar["talaba2"]["kunlar"], ["keldi", None])
+
+    def test_davomat_boshqa_oy_aralashmaydi(self):
+        self.davomat_yoz(self.talaba, 3, Davomat.Holat.KELDI)
+        Davomat.objects.create(
+            sana=date(2026, 8, 20), guruh=self.guruh, talaba=self.talaba,
+            holat=Davomat.Holat.KELDI,
+        )
+        javob = self.mijoz(self.admin).get(
+            f"/api/crm/guruhlar/{self.guruh.id}/davomat/?oy=2026-09"
+        )
+        self.assertEqual(javob.data["sanalar"], [date(2026, 9, 3)])
+
+    def test_davomat_talaba_uchun_403(self):
+        self.assertEqual(
+            self.mijoz(self.talaba).get(
+                f"/api/crm/guruhlar/{self.guruh.id}/davomat/"
+            ).status_code,
+            403,
+        )
+
+    def test_natijalar_davomat_foizi(self):
+        self.davomat_yoz(self.talaba, 3, Davomat.Holat.KELDI)
+        self.davomat_yoz(self.talaba, 4, Davomat.Holat.KELDI)
+        self.davomat_yoz(self.talaba, 5, Davomat.Holat.KELMADI)
+
+        javob = self.mijoz(self.admin).get(
+            f"/api/crm/guruhlar/{self.guruh.id}/natijalar/"
+        )
+        self.assertEqual(javob.status_code, 200)
+        qator = next(x for x in javob.data["talabalar"] if x["ism"] == "talaba1")
+        self.assertEqual(qator["keldi"], 2)
+        self.assertEqual(qator["kelmadi"], 1)
+        self.assertEqual(qator["davomat_foizi"], 67)
+
+    def test_natijalar_writing_ortachasi(self):
+        for band in (6.0, 7.0):
+            WritingTekshiruv.objects.create(
+                talaba=self.talaba, matn="sinov", overall_band=band
+            )
+        javob = self.mijoz(self.admin).get(
+            f"/api/crm/guruhlar/{self.guruh.id}/natijalar/"
+        )
+        qator = next(x for x in javob.data["talabalar"] if x["ism"] == "talaba1")
+        self.assertEqual(qator["writing_band"], 6.5)
+        self.assertEqual(qator["writing_soni"], 2)
+
+    def test_natijalar_malumotsiz_talaba(self):
+        """Hech narsa yechmagan talaba ham ro'yxatda bo'lishi kerak —
+        aks holda admin uni topa olmaydi."""
+        javob = self.mijoz(self.admin).get(
+            f"/api/crm/guruhlar/{self.guruh.id}/natijalar/"
+        )
+        self.assertEqual(len(javob.data["talabalar"]), 2)
+        qator = javob.data["talabalar"][0]
+        self.assertIsNone(qator["writing_band"])
+        self.assertIsNone(qator["davomat_foizi"])
+        self.assertEqual(qator["mashq_soni"], 0)

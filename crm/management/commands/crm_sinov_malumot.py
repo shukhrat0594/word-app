@@ -18,7 +18,7 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.utils import timezone
 
-from academics.models import Guruh, GuruhAzoligi
+from academics.models import Davomat, Guruh, GuruhAzoligi
 from accounts.models import Markaz, User
 from courses.models import KursTugun
 from crm import mantiq
@@ -90,6 +90,9 @@ class Command(BaseCommand):
         # aniq o'chiramiz, aks holda "yetim" qatorlar to'planib qolardi.
         Tolov.objects.filter(guruh__in=guruhlar).delete()
         Hisob.objects.filter(guruh__in=guruhlar).delete()
+        # Davomat LMS modeli, lekin sinov guruhlari bilan birga
+        # o'chiriladi — aks holda yetim yozuvlar qolardi.
+        Davomat.objects.filter(guruh__in=guruhlar).delete()
 
         guruh_soni = guruhlar.count()
         talaba_soni = talabalar.count()
@@ -143,10 +146,13 @@ class Command(BaseCommand):
 
         natija = mantiq.hisoblarni_generatsiya_qil()
         self._tolovlar()
+        davomat_soni = self._davomat(guruhlar, bugun)
 
         self.stdout.write(self.style.SUCCESS(
-            f"Yaratildi: {len(filiallar)} filial, {len(guruhlar)} guruh, "
-            f"{len(talabalar)} talaba, {natija['yaratildi']} hisob.\n"
+            f"Yaratildi: {len(filiallar)} filial, "
+            f"{sum(len(v) for v in xonalar.values())} xona, "
+            f"{len(guruhlar)} guruh, {len(talabalar)} talaba, "
+            f"{natija['yaratildi']} hisob, {davomat_soni} davomat yozuvi.\n"
             f"Ogohlantirish kutilgan guruhlar: 1 (narxi yo'q — ataylab).\n"
             f"Tozalash: python manage.py crm_sinov_malumot --tozala"
         ))
@@ -258,6 +264,34 @@ class Command(BaseCommand):
                     "oxirgi_hisob_oy": None,
                 },
             )
+
+    def _davomat(self, guruhlar, bugun):
+        """Joriy oyning O'TGAN dars kunlariga davomat yozuvi.
+
+        Davomat CRM'ning ma'lumoti EMAS — u LMS'da o'qituvchi tomonidan
+        belgilanadi. Bu yerda faqat sinov uchun to'ldiriladi, CRM'dagi
+        "Davomat" tabi bo'sh ko'rinmasligi uchun.
+        """
+        oy = mantiq.oy_boshi(bugun)
+        soni = 0
+        for guruh in guruhlar:
+            kunlar = [k for k in mantiq.oylik_dars_kunlari(guruh, oy) if k <= bugun]
+            azolar = list(guruh.talabalar.all())
+            for i, talaba in enumerate(azolar):
+                for j, kun in enumerate(kunlar):
+                    # Har 7-si kelmagan — jadval bir xil yashil bo'lib
+                    # qolmasin, ranglar ko'rinsin.
+                    holat = (
+                        Davomat.Holat.KELMADI
+                        if (i + j) % 7 == 0
+                        else Davomat.Holat.KELDI
+                    )
+                    _, yangi = Davomat.objects.get_or_create(
+                        sana=kun, guruh=guruh, talaba=talaba,
+                        defaults={"holat": holat},
+                    )
+                    soni += int(yangi)
+        return soni
 
     def _tolovlar(self):
         """Uch xil holat ko'rinsin: to'liq to'langan, qisman, umuman yo'q."""

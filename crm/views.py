@@ -10,17 +10,19 @@ mavjud audit ilovasi qayta ishlatiladi, unga tegilmaydi.
 from datetime import timedelta
 from decimal import Decimal, InvalidOperation
 
-from django.db.models import Count, Q, Sum
+from django.db.models import Avg, Count, Q, Sum
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework.response import Response
 
-from academics.models import Guruh, GuruhAzoligi
+from academics.models import Davomat, Guruh, GuruhAzoligi
 from accounts.models import User
 from accounts.permissions import owner_mi
 from audit.models import FaoliyatYozuvi
+from assessment.models import SpeakingTekshiruv, WritingTekshiruv
 from audit.utils import logla
 from courses.models import KursTugun
+from exercises.models import Bolim, MashqYechim
 
 from . import eksport, mantiq
 from .models import (
@@ -671,6 +673,136 @@ class GuruhAzoliklariView(CrmView):
         return Response(
             [_azolik_dict(am, balans=balanslar.get(am.azolik.talaba_id)) for am in natija]
         )
+
+
+class GuruhDavomatView(CrmView):
+    """Guruh davomati — FAQAT O'QISH uchun (SoffCRM'dagi DAVOMAT tabi).
+
+    MUHIM: davomat CRM'da BELGILANMAYDI — uni o'qituvchi LMS'da
+    belgilaydi (`academics.Davomat`). Bu yerda admin CRM'dan chiqmasdan
+    ko'ra oladi, xolos. Ikki joyda belgilash ikki xil raqam degani
+    bo'lardi — aynan biz qochayotgan muammo.
+    """
+
+    def get(self, request, pk):
+        guruh = get_object_or_404(Guruh, pk=pk)
+        try:
+            oy = _oy(request.query_params.get("oy") or timezone.localdate().strftime("%Y-%m"))
+        except ValueError as e:
+            return _xato(str(e))
+
+        yozuvlar = list(
+            Davomat.objects.filter(
+                guruh=guruh, sana__gte=oy, sana__lte=mantiq.oy_oxiri(oy)
+            ).values("talaba_id", "sana", "holat")
+        )
+        # Ustunlar — AYNAN dars bo'lgan sanalar (SoffCRM ham shunday:
+        # 01, 03, 05, 08...). Jadvaldagi hamma kunni ko'rsatsak, dars
+        # o'tmagan kunlar ham bo'sh ustun bo'lib turardi.
+        sanalar = sorted({y["sana"] for y in yozuvlar})
+        katak = {(y["talaba_id"], y["sana"]): y["holat"] for y in yozuvlar}
+
+        talabalar = guruh.talabalar.all().order_by("first_name", "username")
+        return Response(
+            {
+                "oy": oy,
+                "sanalar": sanalar,
+                "talabalar": [
+                    {
+                        "id": t.id,
+                        "ism": t.get_full_name() or t.username,
+                        "kunlar": [katak.get((t.id, s)) for s in sanalar],
+                        "keldi": sum(
+                            1 for s in sanalar if katak.get((t.id, s)) == Davomat.Holat.KELDI
+                        ),
+                        "kelmadi": sum(
+                            1 for s in sanalar if katak.get((t.id, s)) == Davomat.Holat.KELMADI
+                        ),
+                    }
+                    for t in talabalar
+                ],
+            }
+        )
+
+
+class GuruhNatijalarView(CrmView):
+    """Guruh natijalari — FAQAT O'QISH (SoffCRM'dagi BAHO/TEST tablari).
+
+    Natija LMS'da hosil bo'ladi (mashqlar, Writing/Speaking tekshiruvi).
+    Bu yerda faqat yig'ma ko'rsatkich.
+
+    Har talaba uchun `stats.services.talaba_statistikasi` chaqirilmaydi:
+    u talabaga ~6 ta so'rov qiladi, ya'ni 20 kishilik guruhda 120 so'rov
+    bo'lardi. Bu yerda hammasi guruh bo'yicha TO'PLAM so'rovlar bilan —
+    guruh kattaligidan qat'i nazar 5 ta so'rov.
+    """
+
+    def get(self, request, pk):
+        guruh = get_object_or_404(Guruh, pk=pk)
+        talabalar = list(guruh.talabalar.all().order_by("first_name", "username"))
+        idlar = [t.id for t in talabalar]
+        if not idlar:
+            return Response({"talabalar": []})
+
+        writing = {
+            q["talaba_id"]: q
+            for q in WritingTekshiruv.objects.filter(talaba_id__in=idlar)
+            .values("talaba_id")
+            .annotate(soni=Count("id"), ortacha=Avg("overall_band"))
+        }
+        speaking = {
+            q["talaba_id"]: q
+            for q in SpeakingTekshiruv.objects.filter(talaba_id__in=idlar)
+            .values("talaba_id")
+            .annotate(soni=Count("id"), ortacha=Avg("overall_band"))
+        }
+        mashqlar = {}
+        for q in (
+            MashqYechim.objects.filter(talaba_id__in=idlar)
+            .values("talaba_id", "mashq__bolim")
+            .annotate(ball=Sum("ball"), jami=Sum("jami"), soni=Count("id"))
+        ):
+            mashqlar.setdefault(q["talaba_id"], {})[q["mashq__bolim"]] = q
+        davomat = {
+            q["talaba_id"]: q
+            for q in Davomat.objects.filter(guruh=guruh, talaba_id__in=idlar)
+            .values("talaba_id")
+            .annotate(
+                keldi=Count("id", filter=Q(holat=Davomat.Holat.KELDI)),
+                kelmadi=Count("id", filter=Q(holat=Davomat.Holat.KELMADI)),
+            )
+        }
+
+        def foiz(yozuv):
+            if not yozuv or not yozuv["jami"]:
+                return None
+            return round(yozuv["ball"] / yozuv["jami"] * 100)
+
+        def band(yozuv):
+            return round(yozuv["ortacha"], 1) if yozuv and yozuv["ortacha"] else None
+
+        natija = []
+        for t in talabalar:
+            bolimlar = mashqlar.get(t.id, {})
+            d = davomat.get(t.id, {"keldi": 0, "kelmadi": 0})
+            jami_dars = d["keldi"] + d["kelmadi"]
+            natija.append(
+                {
+                    "id": t.id,
+                    "ism": t.get_full_name() or t.username,
+                    "writing_band": band(writing.get(t.id)),
+                    "writing_soni": (writing.get(t.id) or {}).get("soni", 0),
+                    "speaking_band": band(speaking.get(t.id)),
+                    "speaking_soni": (speaking.get(t.id) or {}).get("soni", 0),
+                    "listening_foiz": foiz(bolimlar.get(Bolim.LISTENING)),
+                    "reading_foiz": foiz(bolimlar.get(Bolim.READING)),
+                    "mashq_soni": sum(b["soni"] for b in bolimlar.values()),
+                    "keldi": d["keldi"],
+                    "kelmadi": d["kelmadi"],
+                    "davomat_foizi": round(d["keldi"] / jami_dars * 100) if jami_dars else None,
+                }
+            )
+        return Response({"talabalar": natija})
 
 
 class AzolikView(CrmView):

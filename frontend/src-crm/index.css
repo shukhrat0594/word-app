@@ -601,3 +601,21 @@ tfoot td {
 .setka-dars b { font-size: 12px; opacity: 0.85; }
 .setka-dars span { font-weight: 600; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
 .setka-dars i { font-style: normal; opacity: 0.75; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
+
+/* ── Guruh ichidagi tablar: davomat / natijalar ─────────────────── */
+
+.guruh-tablari .tablar { margin-top: 0; }
+
+.markazga { text-align: center; }
+
+.davomat-keldi { color: var(--tolandi); font-weight: 700; }
+.davomat-kelmadi { color: var(--qarzdor); font-weight: 700; }
+.davomat-yoq { color: var(--kutilayotgan); }
+
+/* Yordamchi son (urinishlar soni, keldi/jami) — asosiy raqamdan
+   ajralib turishi uchun kichikroq va sokinroq. */
+.soni {
+  font-style: normal;
+  font-size: 11px;
+  color: var(--sokin);
+}
