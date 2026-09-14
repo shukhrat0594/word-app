@@ -14,7 +14,10 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 from accounts.models import User
 from crm import mantiq
-from crm.models import AzolikMoliya, Filial, Hisob, KursNarxi, Sozlama, Tolov
+from academics.models import Guruh
+from crm.models import (
+    AzolikMoliya, Filial, GuruhMoliya, Hisob, KursNarxi, Sozlama, Tolov, Xona,
+)
 from crm.tests import AVGUST, NARX, SENTABR, CrmAsos, bugun_qilib
 
 
@@ -426,3 +429,108 @@ class YangiRoyxatlarTest(ApiAsos):
         self.assertEqual(javob.status_code, 200)
         self.assertFalse(javob.data["faol"])
         self.assertTrue(Filial.objects.filter(pk=yangi_id).exists())
+
+
+class XonaVaSetkaTest(ApiAsos):
+    """Xonalar va haftalik setka (2026-09-14, foydalanuvchi talabi bilan
+    2-bosqichdan oldinga ko'chirildi)."""
+
+    def setUp(self):
+        super().setUp()
+        self.xona = Xona.objects.create(filial=self.filial, nomi="2-xona", tartib=2)
+        self.ikkinchi_guruh = Guruh.objects.create(
+            name="Ikkinchi guruh", markaz=self.markaz, daraja=self.daraja
+        )
+        GuruhMoliya.objects.create(guruh=self.ikkinchi_guruh, filial=self.filial)
+
+    def jadval_yubor(self, guruh, kun, dan, gacha, xona_id):
+        return self.mijoz(self.admin).put(
+            f"/api/crm/guruhlar/{guruh.id}/jadval/",
+            {"jadval": [{"hafta_kuni": kun, "boshlanish_vaqti": dan,
+                         "tugash_vaqti": gacha, "xona_id": xona_id}]},
+            format="json",
+        )
+
+    def test_xona_qoshiladi(self):
+        javob = self.mijoz(self.admin).post(
+            "/api/crm/xonalar/",
+            {"filial_id": self.filial.id, "nomi": "5-xona", "sigimi": 12},
+            format="json",
+        )
+        self.assertEqual(javob.status_code, 201)
+        self.assertEqual(javob.data["nomi"], "5-xona")
+
+    def test_bir_filialda_takror_nom_rad_etiladi(self):
+        javob = self.mijoz(self.admin).post(
+            "/api/crm/xonalar/", {"filial_id": self.filial.id, "nomi": "2-xona"}, format="json"
+        )
+        self.assertEqual(javob.status_code, 400)
+
+    def test_bir_xonada_ikki_guruh_toqnashadi(self):
+        """Asosiy qoida: bitta xonada bir vaqtda ikkita guruh dars
+        qila olmaydi."""
+        self.assertEqual(
+            self.jadval_yubor(self.guruh, 0, "14:00", "15:30", self.xona.id).status_code, 200
+        )
+        javob = self.jadval_yubor(self.ikkinchi_guruh, 0, "15:00", "16:30", self.xona.id)
+        self.assertEqual(javob.status_code, 400)
+        self.assertIn("2-xona", javob.data["detail"])
+        # Rad etilgach, ikkinchi guruhda jadval YARATILMAYDI
+        self.assertEqual(self.ikkinchi_guruh.crm_jadval.count(), 0)
+
+    def test_chegara_teginishi_toqnashuv_emas(self):
+        """10:30 da tugadi — 10:30 da boshlandi: bu to'qnashuv EMAS."""
+        self.jadval_yubor(self.guruh, 0, "09:00", "10:30", self.xona.id)
+        javob = self.jadval_yubor(self.ikkinchi_guruh, 0, "10:30", "12:00", self.xona.id)
+        self.assertEqual(javob.status_code, 200)
+
+    def test_boshqa_kunda_toqnashuv_yoq(self):
+        self.jadval_yubor(self.guruh, 0, "14:00", "15:30", self.xona.id)
+        javob = self.jadval_yubor(self.ikkinchi_guruh, 1, "14:00", "15:30", self.xona.id)
+        self.assertEqual(javob.status_code, 200)
+
+    def test_xonasiz_darslar_toqnashmaydi(self):
+        """Xonasi belgilanmagan darslar joyi noma'lum — to'qnashuv
+        tekshirilmaydi."""
+        self.jadval_yubor(self.guruh, 0, "14:00", "15:30", None)
+        javob = self.jadval_yubor(self.ikkinchi_guruh, 0, "14:00", "15:30", None)
+        self.assertEqual(javob.status_code, 200)
+
+    def test_oz_jadvalini_qayta_saqlash_toqnashmaydi(self):
+        """Guruh o'z jadvalini qayta saqlasa, o'zi bilan to'qnashmasligi
+        kerak — eski yozuvlar baribir almashtiriladi."""
+        self.jadval_yubor(self.guruh, 0, "14:00", "15:30", self.xona.id)
+        javob = self.jadval_yubor(self.guruh, 0, "14:00", "16:00", self.xona.id)
+        self.assertEqual(javob.status_code, 200)
+
+    def test_bitta_sorov_ichida_toqnashuv(self):
+        javob = self.mijoz(self.admin).put(
+            f"/api/crm/guruhlar/{self.guruh.id}/jadval/",
+            {"jadval": [
+                {"hafta_kuni": 0, "boshlanish_vaqti": "14:00",
+                 "tugash_vaqti": "15:30", "xona_id": self.xona.id},
+                {"hafta_kuni": 0, "boshlanish_vaqti": "15:00",
+                 "tugash_vaqti": "16:30", "xona_id": self.xona.id},
+            ]},
+            format="json",
+        )
+        self.assertEqual(javob.status_code, 400)
+
+    def test_setka_malumoti(self):
+        self.jadval_yubor(self.guruh, 3, "14:00", "15:30", self.xona.id)
+        javob = self.mijoz(self.admin).get("/api/crm/jadval/")
+        self.assertEqual(javob.status_code, 200)
+        self.assertEqual(len(javob.data["xonalar"]), 1)
+        dars = next(d for d in javob.data["darslar"] if d["guruh_id"] == self.guruh.id)
+        self.assertEqual(dars["hafta_kuni"], 3)
+        self.assertEqual(dars["boshlanish_vaqti"], "14:00")
+        self.assertEqual(dars["xona_id"], self.xona.id)
+
+    def test_xona_ochirilsa_dars_qoladi(self):
+        """Xona `SET_NULL` bilan bog'langan: o'chsa dars yozuvi
+        yo'qolmaydi, faqat "xonasiz" bo'lib qoladi."""
+        self.jadval_yubor(self.guruh, 0, "14:00", "15:30", self.xona.id)
+        self.xona.delete()
+        dars = self.guruh.crm_jadval.get()
+        self.assertIsNone(dars.xona_id)
+        self.assertEqual(dars.boshlanish_vaqti.strftime("%H:%M"), "14:00")

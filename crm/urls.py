@@ -17,6 +17,10 @@ urlpatterns = [
 
     path("kurs-narxlari/", views.KursNarxlariView.as_view(), name="kurs_narxlari"),
 
+    path("xonalar/", views.XonalarView.as_view(), name="xonalar"),
+    path("xonalar/<int:pk>/", views.XonaDetailView.as_view(), name="xona_detail"),
+    path("jadval/", views.JadvalSetkaView.as_view(), name="jadval"),
+
     path("guruhlar/", views.GuruhlarView.as_view(), name="guruhlar"),
     path("guruhlar/<int:pk>/moliya/", views.GuruhMoliyaView.as_view(), name="guruh_moliya"),
     path("guruhlar/<int:pk>/jadval/", views.GuruhJadvalView.as_view(), name="guruh_jadval"),

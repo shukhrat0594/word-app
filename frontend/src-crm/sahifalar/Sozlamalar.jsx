@@ -77,6 +77,111 @@ function FilialQatori({ filial, onSaqlandi }) {
   );
 }
 
+function Xonalar({ filiallar }) {
+  const { t } = useI18n();
+  const { malumot, yuklanmoqda, yangila } = useSorov("/api/crm/xonalar/");
+  const [filialId, setFilialId] = useState("");
+  const [nomi, setNomi] = useState("");
+  const [sigimi, setSigimi] = useState("");
+  const [xato, setXato] = useState("");
+
+  async function qosh() {
+    if (!filialId || !nomi.trim()) {
+      setXato(t("xona_nomi_kerak"));
+      return;
+    }
+    setXato("");
+    try {
+      await api("/api/crm/xonalar/", {
+        method: "POST",
+        body: { filial_id: filialId, nomi, sigimi: sigimi || null },
+      });
+      setNomi("");
+      setSigimi("");
+      yangila();
+    } catch (e) {
+      setXato(e.message || "Xato");
+    }
+  }
+
+  async function faollikOzgartir(xona) {
+    // Xona O'CHIRILMAYDI, arxivlanadi: dars yozuvlarida u `SET_NULL`
+    // bilan bog'langan va o'chirilsa jadval jimgina "xonasiz" bo'lib
+    // qolardi.
+    await api(`/api/crm/xonalar/${xona.id}/`, {
+      method: "PATCH",
+      body: { faol: !xona.faol },
+    });
+    yangila();
+  }
+
+  const xonalar = malumot || [];
+
+  return (
+    <div className="karta">
+      <h2>{t("xonalar")}</h2>
+      {yuklanmoqda && <p className="kichik">{t("yuklanmoqda")}</p>}
+
+      <div className="jadval-oram">
+        <table>
+          <thead>
+            <tr>
+              <th>{t("filial")}</th>
+              <th>{t("xona")}</th>
+              <th className="ongga">{t("sigimi")}</th>
+              <th>{t("holat")}</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            {xonalar.map((x) => (
+              <tr key={x.id} className={x.faol ? "" : "qator-sokin"}>
+                <td>{x.filial}</td>
+                <td>{x.nomi}</td>
+                <td className="ongga">{x.sigimi ?? "—"}</td>
+                <td>{x.faol ? t("faol") : t("arxivlangan")}</td>
+                <td>
+                  <button className="tugma tugma-sokin kichik-tugma" type="button"
+                          onClick={() => faollikOzgartir(x)}>
+                    {x.faol ? t("arxivlash") : t("tiklash")}
+                  </button>
+                </td>
+              </tr>
+            ))}
+            {!yuklanmoqda && xonalar.length === 0 && (
+              <tr><td colSpan={5} className="bosh">{t("yozuv_yoq")}</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="uch-ustun" style={{ marginTop: 14 }}>
+        <label>
+          {t("filial")}
+          <select value={filialId} onChange={(e) => setFilialId(e.target.value)}>
+            <option value="">—</option>
+            {filiallar.filter((f) => f.faol).map((f) => (
+              <option key={f.id} value={f.id}>{f.nomi}</option>
+            ))}
+          </select>
+        </label>
+        <label>
+          {t("xona")}
+          <input value={nomi} onChange={(e) => setNomi(e.target.value)} placeholder="2-xona" />
+        </label>
+        <label>
+          {t("sigimi")}
+          <input type="number" min="0" value={sigimi} onChange={(e) => setSigimi(e.target.value)} />
+        </label>
+      </div>
+      {xato && <div className="xato">{xato}</div>}
+      <div className="oyna-tugmalar">
+        <button className="tugma" type="button" onClick={qosh}>{t("qoshish")}</button>
+      </div>
+    </div>
+  );
+}
+
 export default function Sozlamalar() {
   const { t } = useI18n();
   const { malumot, yuklanmoqda, xato, yangila } = useSorov("/api/crm/filiallar/");
@@ -138,6 +243,8 @@ export default function Sozlamalar() {
           </table>
         </div>
       </div>
+
+      <Xonalar filiallar={filiallar} />
 
       <div className="karta">
         <h2>{t("yangi_filial")}</h2>

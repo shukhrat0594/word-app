@@ -1,0 +1,182 @@
+// Haftalik dars jadvali setkasi — SoffCRM'ning bosh sahifasidagi
+// ko'rinish: kun tablari, soatlar ustunda, XONALAR qatorda.
+//
+// Kutubxonasiz, sof CSS grid: bitta setka uchun tashqi bog'liqlik
+// qo'shish arzimaydi va u CRM bundle'ini kattalashtirardi.
+
+import { useMemo, useState } from "react";
+
+import { useFilial } from "./filialContext.jsx";
+import { useI18n } from "./i18n.jsx";
+import { sorovSatri, useSorov } from "./soragich.js";
+
+const KUNLAR = [
+  "kun_dushanba", "kun_seshanba", "kun_chorshanba",
+  "kun_payshanba", "kun_juma", "kun_shanba", "kun_yakshanba",
+];
+
+// Setka qadami — SoffCRM'da ham 30 daqiqa.
+const QADAM = 30;
+
+/** "14:30" -> 870 (yarim tundan beri daqiqa) */
+function daqiqa(vaqt) {
+  const [s, d] = String(vaqt).split(":").map(Number);
+  return s * 60 + d;
+}
+
+function vaqtMatni(daqiqalar) {
+  const s = Math.floor(daqiqalar / 60);
+  const d = daqiqalar % 60;
+  return `${String(s).padStart(2, "0")}:${String(d).padStart(2, "0")}`;
+}
+
+/** Guruh nomidan barqaror rang — har safar bir xil bo'lishi uchun.
+ *  Tasodifiy rang bo'lsa, sahifa yangilanganda setka butunlay boshqacha
+ *  ko'rinar va admin guruhni rangi bo'yicha eslab qola olmasdi. */
+function guruhRangi(guruhId) {
+  const burchak = (Number(guruhId) * 47) % 360;
+  return {
+    background: `hsl(${burchak} 70% 88%)`,
+    borderInlineStart: `3px solid hsl(${burchak} 55% 45%)`,
+    color: `hsl(${burchak} 60% 22%)`,
+  };
+}
+
+export default function JadvalSetka() {
+  const { t } = useI18n();
+  const { tanlangan } = useFilial();
+  const [kun, setKun] = useState(() => {
+    // Dushanba = 0 (bizda), JS'da yakshanba = 0 — moslaymiz.
+    const js = new Date().getDay();
+    return js === 0 ? 6 : js - 1;
+  });
+
+  const { malumot, yuklanmoqda, xato } = useSorov(
+    "/api/crm/jadval/" + sorovSatri({ filial: tanlangan })
+  );
+
+  const xonalar = malumot?.xonalar || [];
+  // Bog'liqlik ATAYLAB `malumot` — `malumot?.darslar || []` har renderda
+  // YANGI massiv yasab, useMemo'ni befoyda qilardi.
+  const darslar = useMemo(
+    () => (malumot?.darslar || []).filter((d) => d.hafta_kuni === kun),
+    [malumot, kun]
+  );
+
+  // Vaqt oralig'i HAQIQIY darslardan olinadi: qat'iy 08:00-20:00
+  // qo'ysak, ertalabki 07:30 darsi setkaga umuman tushmay qolardi.
+  const [boshi, oxiri] = useMemo(() => {
+    if (darslar.length === 0) return [8 * 60, 20 * 60];
+    const b = Math.min(...darslar.map((d) => daqiqa(d.boshlanish_vaqti)));
+    const o = Math.max(...darslar.map((d) => daqiqa(d.tugash_vaqti)));
+    return [Math.floor(b / QADAM) * QADAM, Math.ceil(o / QADAM) * QADAM];
+  }, [darslar]);
+
+  const ustunlar = Math.max(1, (oxiri - boshi) / QADAM);
+  const vaqtlar = Array.from({ length: ustunlar }, (_, i) => boshi + i * QADAM);
+
+  // Qatorlar: faol xonalar + (kerak bo'lsa) "Xonasiz" qatori.
+  //
+  // "Barcha filiallar" tanlangan bo'lsa, xona nomiga FILIAL qo'shiladi:
+  // har filialda "1-xona" bor va ularsiz setkada bir xil nomli to'rtta
+  // qator turib, qaysi bino ekani bilinmay qolardi.
+  const kopFilial = new Set(xonalar.map((x) => x.filial_id)).size > 1;
+  const xonasizBor = darslar.some((d) => !d.xona_id);
+  const qatorlar = [
+    ...xonalar.map((x) => ({
+      id: x.id,
+      nomi: x.nomi,
+      izoh: kopFilial ? x.filial : null,
+    })),
+    ...(xonasizBor ? [{ id: null, nomi: t("xonasiz"), izoh: null }] : []),
+  ];
+
+  return (
+    <div className="setka-oram">
+      <div className="kun-tablar">
+        {KUNLAR.map((kalit, i) => (
+          <button
+            key={kalit}
+            type="button"
+            className={kun === i ? "kun-tab faol" : "kun-tab"}
+            onClick={() => setKun(i)}
+          >
+            {t(kalit)}
+          </button>
+        ))}
+      </div>
+
+      {xato && <div className="xato">{xato}</div>}
+      {yuklanmoqda && <p className="kichik">{t("yuklanmoqda")}</p>}
+
+      {!yuklanmoqda && qatorlar.length === 0 && (
+        <p className="kichik">{t("xona_yoq")}</p>
+      )}
+
+      {qatorlar.length > 0 && (
+        <div className="setka-suruv">
+          <div
+            className="setka"
+            style={{ gridTemplateColumns: `130px repeat(${ustunlar}, 68px)` }}
+          >
+            {/* Sarlavha qatori */}
+            <div className="setka-burchak">{t("xona_soat")}</div>
+            {vaqtlar.map((v) => (
+              <div key={v} className="setka-vaqt">{vaqtMatni(v)}</div>
+            ))}
+
+            {/* Xona qatorlari. `raqam` — CSS grid qatori: 1-qator
+                sarlavha, shuning uchun xonalar 2-dan boshlanadi. U
+                ANIQ berilishi shart, aks holda dars bloklari bo'sh
+                kataklar ustiga emas, keyingi qatorga tushib ketadi. */}
+            {qatorlar.map((qator, i) => (
+              <Qator
+                key={qator.id ?? "xonasiz"}
+                qator={qator}
+                raqam={i + 2}
+                darslar={darslar.filter((d) => (d.xona_id ?? null) === qator.id)}
+                boshi={boshi}
+                ustunlar={ustunlar}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Qator({ qator, raqam, darslar, boshi, ustunlar }) {
+  return (
+    <>
+      <div className="setka-xona" style={{ gridRow: raqam, gridColumn: 1 }}>
+        <span>{qator.nomi}</span>
+        {qator.izoh && <i>{qator.izoh}</i>}
+      </div>
+      {Array.from({ length: ustunlar }, (_, i) => (
+        <div key={i} className="setka-katak" style={{ gridRow: raqam, gridColumn: i + 2 }} />
+      ))}
+      {darslar.map((d) => {
+        // 1-ustun xona nomi uchun, shuning uchun +2.
+        const dan = Math.floor((daqiqa(d.boshlanish_vaqti) - boshi) / QADAM) + 2;
+        const gacha = Math.ceil((daqiqa(d.tugash_vaqti) - boshi) / QADAM) + 2;
+        return (
+          <div
+            key={d.id}
+            className="setka-dars"
+            style={{
+              gridRow: raqam,
+              gridColumn: `${dan} / ${Math.max(gacha, dan + 1)}`,
+              ...guruhRangi(d.guruh_id),
+            }}
+            title={`${d.guruh}\n${d.boshlanish_vaqti} - ${d.tugash_vaqti}\n${d.oqituvchi || ""}`}
+          >
+            <b>{d.boshlanish_vaqti} - {d.tugash_vaqti}</b>
+            <span>{d.guruh}</span>
+            {d.oqituvchi && <i>{d.oqituvchi}</i>}
+          </div>
+        );
+      })}
+    </>
+  );
+}

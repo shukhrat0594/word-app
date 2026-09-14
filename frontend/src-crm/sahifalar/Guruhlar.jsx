@@ -36,6 +36,9 @@ function SozlashOynasi({ guruh, filiallar, onYopish, onSaqlandi }) {
   );
   const [xato, setXato] = useState("");
   const [band, setBand] = useState(false);
+  // Xonalar TANLANGAN filialga qarab filtrlanadi: boshqa filialning
+  // xonasini tanlash mantiqsiz bo'lardi.
+  const xonalar = useSorov(filialId ? `/api/crm/xonalar/${"?faqat_faol=1&filial="}${filialId}` : null);
 
   function bandOzgartir(i, maydon, qiymat) {
     setJadval((eski) => eski.map((b, j) => (i === j ? { ...b, [maydon]: qiymat } : b)));
@@ -136,6 +139,15 @@ function SozlashOynasi({ guruh, filiallar, onYopish, onSaqlandi }) {
               value={band_.tugash_vaqti}
               onChange={(e) => bandOzgartir(i, "tugash_vaqti", e.target.value)}
             />
+            <select
+              value={band_.xona_id ?? ""}
+              onChange={(e) => bandOzgartir(i, "xona_id", e.target.value || null)}
+            >
+              <option value="">{t("xonasiz")}</option>
+              {(xonalar.malumot || []).map((x) => (
+                <option key={x.id} value={x.id}>{x.nomi}</option>
+              ))}
+            </select>
             <button
               className="tugma tugma-sokin kichik-tugma"
               type="button"
@@ -151,7 +163,7 @@ function SozlashOynasi({ guruh, filiallar, onYopish, onSaqlandi }) {
           onClick={() =>
             setJadval((eski) => [
               ...eski,
-              { hafta_kuni: 0, boshlanish_vaqti: "14:00", tugash_vaqti: "15:30" },
+              { hafta_kuni: 0, boshlanish_vaqti: "14:00", tugash_vaqti: "15:30", xona_id: null },
             ])
           }
         >
@@ -294,7 +306,7 @@ export default function Guruhlar() {
                   </td>
                   <td>
                     {g.jadval.length
-                      ? g.jadval.map((j) => `${HAFTA[j.hafta_kuni]} ${j.boshlanish_vaqti}`).join(", ")
+                      ? g.jadval.map((j) => `${HAFTA[j.hafta_kuni]} ${j.boshlanish_vaqti}${j.xona ? ` · ${j.xona}` : ""}`).join(", ")
                       : <span className="belgi rang-qarzdor">{t("sozlanmagan")}</span>}
                   </td>
                   <td>{sana(g.boshlanish_sana)}</td>

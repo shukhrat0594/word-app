@@ -31,6 +31,7 @@ from .models import (
     Hisob,
     KursNarxi,
     Tolov,
+    Xona,
 )
 from .permissions import CrmView, FaqatOwner
 
@@ -102,12 +103,26 @@ def _filial_dict(f):
     }
 
 
+def _xona_dict(x):
+    return {
+        "id": x.id,
+        "nomi": x.nomi,
+        "filial_id": x.filial_id,
+        "filial": x.filial.nomi,
+        "sigimi": x.sigimi,
+        "tartib": x.tartib,
+        "faol": x.faol,
+    }
+
+
 def _jadval_dict(j):
     return {
         "hafta_kuni": j.hafta_kuni,
         "hafta_kuni_nomi": j.get_hafta_kuni_display(),
         "boshlanish_vaqti": j.boshlanish_vaqti.strftime("%H:%M"),
         "tugash_vaqti": j.tugash_vaqti.strftime("%H:%M"),
+        "xona_id": j.xona_id,
+        "xona": j.xona.nomi if j.xona_id else None,
     }
 
 
@@ -410,6 +425,139 @@ class GuruhMoliyaView(CrmView):
         return Response(yangi)
 
 
+def _toqnashuv_bormi(guruh, hafta_kuni, boshlanish, tugash, xona_id):
+    """Shu xonada, shu kunda, shu vaqtda BOSHQA guruh darsi bormi.
+
+    Ikki dars kesishadi, agar biri ikkinchisi tugashidan OLDIN boshlansa
+    va aksincha: `a.boshlanish < b.tugash AND b.boshlanish < a.tugash`.
+    Chegara teginishi (10:30 tugadi — 10:30 boshlandi) to'qnashuv EMAS.
+    """
+    if not xona_id:
+        return None  # xonasiz darslar to'qnashmaydi — joyi belgilanmagan
+
+    raqib = (
+        DarsJadvali.objects.filter(
+            xona_id=xona_id,
+            hafta_kuni=hafta_kuni,
+            boshlanish_vaqti__lt=tugash,
+            tugash_vaqti__gt=boshlanish,
+        )
+        .exclude(guruh=guruh)
+        .select_related("guruh", "xona")
+        .first()
+    )
+    return raqib
+
+
+class XonalarView(CrmView):
+    def get(self, request):
+        qs = Xona.objects.select_related("filial").all()
+        if request.query_params.get("filial"):
+            qs = qs.filter(filial_id=request.query_params["filial"])
+        if request.query_params.get("faqat_faol") == "1":
+            qs = qs.filter(faol=True)
+        return Response([_xona_dict(x) for x in qs])
+
+    def post(self, request):
+        nomi = (request.data.get("nomi") or "").strip()
+        if not nomi:
+            return _xato("Xona nomi kerak")
+        filial = get_object_or_404(Filial, pk=request.data.get("filial_id"))
+        if Xona.objects.filter(filial=filial, nomi=nomi).exists():
+            return _xato("Bu filialda shunday nomli xona allaqachon bor")
+
+        xona = Xona.objects.create(
+            filial=filial,
+            nomi=nomi,
+            sigimi=request.data.get("sigimi") or None,
+            tartib=request.data.get("tartib") or 0,
+        )
+        logla(
+            foydalanuvchi=request.user,
+            harakat=FaoliyatYozuvi.Harakat.YARATISH,
+            obyekt=xona,
+            obyekt_turi="CRM Xona",
+            snapshot=_xona_dict(xona),
+        )
+        return Response(_xona_dict(xona), status=201)
+
+
+class XonaDetailView(CrmView):
+    def patch(self, request, pk):
+        xona = get_object_or_404(Xona, pk=pk)
+        eski = _xona_dict(xona)
+        if "nomi" in request.data:
+            nomi = (request.data.get("nomi") or "").strip()
+            if not nomi:
+                return _xato("Xona nomi kerak")
+            if Xona.objects.filter(filial=xona.filial, nomi=nomi).exclude(pk=pk).exists():
+                return _xato("Bu filialda shunday nomli xona allaqachon bor")
+            xona.nomi = nomi
+        if "sigimi" in request.data:
+            xona.sigimi = request.data["sigimi"] or None
+        if "tartib" in request.data:
+            xona.tartib = request.data["tartib"] or 0
+        if "faol" in request.data:
+            xona.faol = bool(request.data["faol"])
+        xona.save()
+        logla(
+            foydalanuvchi=request.user,
+            harakat=FaoliyatYozuvi.Harakat.OZGARTIRISH,
+            obyekt=xona,
+            obyekt_turi="CRM Xona",
+            eski_qiymatlar={k: str(v) for k, v in eski.items()},
+            yangi_qiymatlar={k: str(v) for k, v in _xona_dict(xona).items()},
+        )
+        return Response(_xona_dict(xona))
+
+
+class JadvalSetkaView(CrmView):
+    """Haftalik setka — barcha guruhlarning darslari xona kesimida.
+
+    SoffCRM'ning bosh sahifasidagi ko'rinish: kun tablari, soatlar
+    ustunda, xonalar qatorda.
+    """
+
+    def get(self, request):
+        filial_id = request.query_params.get("filial")
+
+        xonalar = Xona.objects.filter(faol=True).select_related("filial")
+        darslar = DarsJadvali.objects.select_related(
+            "guruh", "guruh__oqituvchi", "guruh__moliya", "guruh__moliya__filial", "xona"
+        ).filter(guruh__faol=True)
+        if filial_id:
+            xonalar = xonalar.filter(filial_id=filial_id)
+            # Filial bo'yicha filtr GURUHNING filiali bo'yicha: xonasiz
+            # darslar ham shu filialda ko'rinishi kerak.
+            darslar = darslar.filter(guruh__moliya__filial_id=filial_id)
+
+        return Response(
+            {
+                "xonalar": [_xona_dict(x) for x in xonalar],
+                "darslar": [
+                    {
+                        "id": d.id,
+                        "guruh_id": d.guruh_id,
+                        "guruh": d.guruh.name,
+                        "oqituvchi": (
+                            d.guruh.oqituvchi.get_full_name() or d.guruh.oqituvchi.username
+                        ) if d.guruh.oqituvchi_id else None,
+                        "hafta_kuni": d.hafta_kuni,
+                        "boshlanish_vaqti": d.boshlanish_vaqti.strftime("%H:%M"),
+                        "tugash_vaqti": d.tugash_vaqti.strftime("%H:%M"),
+                        "xona_id": d.xona_id,
+                        "filial": (
+                            d.guruh.moliya.filial.nomi
+                            if getattr(d.guruh, "moliya", None) and d.guruh.moliya.filial_id
+                            else None
+                        ),
+                    }
+                    for d in darslar
+                ],
+            }
+        )
+
+
 class GuruhJadvalView(CrmView):
     """Guruhning haftalik dars kunlari — to'liq almashtiriladi (PUT)."""
 
@@ -439,14 +587,43 @@ class GuruhJadvalView(CrmView):
             if kalit in korilgan:
                 return _xato("Bir kunda bir xil vaqt ikki marta kiritilgan")
             korilgan.add(kalit)
+
+            xona_id = band.get("xona_id") or None
+            if xona_id:
+                xona = Xona.objects.filter(pk=xona_id).first()
+                if xona is None:
+                    return _xato("Xona topilmadi")
+                # BOSHQA guruh bilan to'qnashuv — shu guruhning o'z eski
+                # yozuvlari hisobga olinmaydi (ular pastda o'chiriladi).
+                raqib = _toqnashuv_bormi(guruh, hafta_kuni, boshlanish, tugash, xona_id)
+                if raqib is not None:
+                    return _xato(
+                        f"{xona.nomi}: {raqib.get_hafta_kuni_display()} "
+                        f"{raqib.boshlanish_vaqti:%H:%M}-{raqib.tugash_vaqti:%H:%M} da "
+                        f"«{raqib.guruh.name}» guruhi dars qilyapti"
+                    )
+
             yangilar.append(
                 DarsJadvali(
                     guruh=guruh,
                     hafta_kuni=hafta_kuni,
                     boshlanish_vaqti=boshlanish,
                     tugash_vaqti=tugash,
+                    xona_id=xona_id,
                 )
             )
+
+        # Bitta so'rov ichida ikki dars bir xonada kesishmasin.
+        for i, a in enumerate(yangilar):
+            for b in yangilar[i + 1:]:
+                if (
+                    a.xona_id
+                    and a.xona_id == b.xona_id
+                    and a.hafta_kuni == b.hafta_kuni
+                    and a.boshlanish_vaqti < b.tugash_vaqti
+                    and b.boshlanish_vaqti < a.tugash_vaqti
+                ):
+                    return _xato("Bir xonada ikkita dars bir vaqtda kiritilgan")
 
         DarsJadvali.objects.filter(guruh=guruh).delete()
         DarsJadvali.objects.bulk_create(yangilar)

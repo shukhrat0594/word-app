@@ -31,6 +31,7 @@ from crm.models import (
     KursNarxi,
     Sozlama,
     Tolov,
+    Xona,
 )
 
 BELGI_USER = "crm_sinov_"
@@ -135,8 +136,9 @@ class Command(BaseCommand):
                 daraja=daraja, defaults={"narx": narxlar[i % len(narxlar)]}
             )
 
+        xonalar = self._xonalar(filiallar)
         talabalar = self._talabalar(markaz)
-        guruhlar = self._guruhlar(markaz, darajalar, filiallar, bugun)
+        guruhlar = self._guruhlar(markaz, darajalar, filiallar, xonalar, bugun)
         self._azoliklar(guruhlar, talabalar, bugun)
 
         natija = mantiq.hisoblarni_generatsiya_qil()
@@ -158,6 +160,18 @@ class Command(BaseCommand):
             KursTugun.objects.filter(parent__in=fanlar).order_by("parent__tartib", "tartib", "id")
         )
 
+    def _xonalar(self, filiallar):
+        """Har filialda 4 ta xona — setka bo'sh ko'rinmasligi uchun."""
+        natija = {}
+        for filial in filiallar:
+            natija[filial.id] = [
+                Xona.objects.get_or_create(
+                    filial=filial, nomi=f"{i}-xona", defaults={"tartib": i, "sigimi": 10 + i}
+                )[0]
+                for i in range(1, 5)
+            ]
+        return natija
+
     def _talabalar(self, markaz):
         talabalar = []
         for i, ism in enumerate(ISMLAR):
@@ -175,7 +189,7 @@ class Command(BaseCommand):
             talabalar.append(user)
         return talabalar
 
-    def _guruhlar(self, markaz, darajalar, filiallar, bugun):
+    def _guruhlar(self, markaz, darajalar, filiallar, xonalar, bugun):
         guruhlar = []
         for i, (nomi, filial_i, kunlar, vaqt, narx) in enumerate(GURUHLAR):
             daraja = darajalar[i % len(darajalar)]
@@ -200,9 +214,13 @@ class Command(BaseCommand):
                 },
             )
             DarsJadvali.objects.filter(guruh=guruh).delete()
+            # Har guruh o'z xonasida — to'qnashuv bo'lmasligi uchun
+            # filial ichidagi xonalar guruhlar bo'yicha taqsimlanadi.
+            filial_xonalari = xonalar[filiallar[filial_i].id]
+            xona = filial_xonalari[i % len(filial_xonalari)]
             for kun in kunlar:
                 DarsJadvali.objects.create(
-                    guruh=guruh, hafta_kuni=kun,
+                    guruh=guruh, hafta_kuni=kun, xona=xona,
                     boshlanish_vaqti=vaqt[0], tugash_vaqti=vaqt[1],
                 )
             guruhlar.append(guruh)

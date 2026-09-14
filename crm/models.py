@@ -115,13 +115,45 @@ class GuruhMoliya(models.Model):
         return f"{self.guruh.name} — moliya"
 
 
+class Xona(models.Model):
+    """Filialdagi o'quv xonasi (2026-09-14, 2-bosqichdan oldinga
+    ko'chirildi — foydalanuvchi haftalik setkani darhol so'radi).
+
+    Xona FILIALGA tegishli: "2-xona" har filialda boshqa xona, shuning
+    uchun nomi global unikal emas, faqat filial ichida.
+    """
+
+    filial = models.ForeignKey(Filial, on_delete=models.CASCADE, related_name="xonalar")
+    nomi = models.CharField(max_length=100, help_text="Masalan '2-xona'")
+    sigimi = models.PositiveSmallIntegerField(
+        null=True, blank=True, help_text="Nechta o'quvchi sig'adi (ixtiyoriy)"
+    )
+    tartib = models.PositiveSmallIntegerField(
+        default=0, help_text="Setkada qaysi tartibda turishi"
+    )
+    faol = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["filial__nomi", "tartib", "nomi"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["filial", "nomi"], name="crm_xona_filialda_unikal"
+            )
+        ]
+        verbose_name_plural = "Xonalar"
+
+    def __str__(self):
+        return f"{self.nomi} ({self.filial.nomi})"
+
+
 class DarsJadvali(models.Model):
     """Guruhning haftalik dars kunlari.
 
     1-bosqichda AYNAN moliya uchun kerak: proporsional hisob oyda nechta
     dars borligini bilishi shart (`crm.mantiq.oylik_dars_kunlari`).
-    Haftalik setka UI, xona va konflikt tekshiruvi — 2-bosqichda; o'shanda
-    shu modelga `xona` FK qo'shiladi.
+    2026-09-14: haftalik setka UI, `xona` va to'qnashuv tekshiruvi ham
+    shu yerga qo'shildi (avval 2-bosqichga rejalashtirilgan edi).
     """
 
     class HaftaKuni(models.IntegerChoices):
@@ -139,6 +171,12 @@ class DarsJadvali(models.Model):
     hafta_kuni = models.PositiveSmallIntegerField(choices=HaftaKuni.choices)
     boshlanish_vaqti = models.TimeField()
     tugash_vaqti = models.TimeField()
+    # Xona O'CHIRILSA dars yozuvi qolishi kerak (jadval buzilmasin) —
+    # shuning uchun SET_NULL. Xonasiz darslar setkada alohida
+    # "Xonasiz" qatorida ko'rsatiladi.
+    xona = models.ForeignKey(
+        Xona, on_delete=models.SET_NULL, null=True, blank=True, related_name="darslar"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

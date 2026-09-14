@@ -5,6 +5,7 @@
 // sezmasligi kerak — tizim aytib turishi kerak.
 
 import { useFilial } from "../filialContext.jsx";
+import JadvalSetka from "../JadvalSetka.jsx";
 import { joriyOy, oyNomi, pul } from "../format.js";
 import { useI18n } from "../i18n.jsx";
 import { sorovSatri, useSorov } from "../soragich.js";
@@ -41,6 +42,14 @@ export default function BoshSahifa() {
         <Katak sarlavha={t("chegirma")} qiymat={pul(jami?.chegirma)} />
         <Katak sarlavha={t("qarz")} qiymat={pul(jami?.qarz)} sinf="rang-qarzdor" />
         <Katak sarlavha={t("yigilish")} qiymat={`${jami?.yigilish_foizi ?? 0}%`} />
+      </div>
+
+      {/* Haftalik setka — SoffCRM'ning bosh sahifasidagi ko'rinish.
+          Moliya kataklari tepada qoladi: 1-bosqich MOLIYA haqida va
+          admin birinchi qaraydigan raqam aynan qarz. */}
+      <div className="karta">
+        <h2>{t("dars_jadvali")}</h2>
+        <JadvalSetka />
       </div>
 
       <div className="karta">

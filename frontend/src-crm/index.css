@@ -354,10 +354,15 @@ tfoot td {
 }
 
 .jadval-qator {
+  /* kun · boshlanish · tugash · xona · o'chirish */
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr auto;
+  grid-template-columns: 1fr 1fr 1fr 1.2fr auto;
   gap: 8px;
   align-items: center;
+}
+
+@media (max-width: 560px) {
+  .jadval-qator { grid-template-columns: 1fr 1fr; }
 }
 
 .ogohlantirish {
@@ -480,3 +485,101 @@ tfoot td {
 }
 
 .rang-qisman { color: var(--qisman); }
+
+/* ── Haftalik dars setkasi ──────────────────────────────────────── */
+
+.kun-tablar {
+  display: flex;
+  gap: 2px;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--chegara);
+  margin-bottom: 12px;
+}
+
+.kun-tab {
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--sokin);
+  font: inherit;
+  font-size: 13px;
+  padding: 8px 14px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.kun-tab.faol {
+  color: var(--asosiy);
+  border-bottom-color: var(--asosiy);
+  font-weight: 600;
+}
+
+/* Setka SAHIFANI emas, o'zini suradi — aks holda kun bo'yicha 26 ta
+   ustun butun sahifani yon tomonga cho'zib yuborardi. */
+.setka-suruv { overflow-x: auto; }
+
+.setka {
+  display: grid;
+  min-width: max-content;
+  border: 1px solid var(--chegara);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.setka-burchak,
+.setka-vaqt,
+.setka-xona {
+  background: var(--fon);
+  font-size: 12px;
+  color: var(--sokin);
+  padding: 7px 8px;
+  border-inline-end: 1px solid var(--chegara);
+  border-bottom: 1px solid var(--chegara);
+  white-space: nowrap;
+}
+
+.setka-burchak { font-weight: 600; position: sticky; inset-inline-start: 0; z-index: 3; }
+.setka-vaqt { text-align: center; }
+
+.setka-xona {
+  /* Xona nomi gorizontal surilganda ham ko'rinib tursin. */
+  position: sticky;
+  inset-inline-start: 0;
+  z-index: 2;
+  font-weight: 600;
+  color: var(--matn);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 1px;
+}
+
+.setka-xona i {
+  font-style: normal;
+  font-weight: 400;
+  font-size: 10px;
+  color: var(--sokin);
+}
+
+.setka-katak {
+  border-inline-end: 1px solid var(--chegara);
+  border-bottom: 1px solid var(--chegara);
+  min-height: 52px;
+}
+
+.setka-dars {
+  margin: 3px;
+  padding: 4px 7px;
+  border-radius: 6px;
+  font-size: 11px;
+  line-height: 1.25;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  z-index: 1;
+}
+
+.setka-dars b { font-size: 11px; }
+.setka-dars span { font-weight: 600; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
+.setka-dars i { font-style: normal; opacity: 0.75; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
