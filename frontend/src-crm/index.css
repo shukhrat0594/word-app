@@ -195,3 +195,237 @@ select {
 .holat-qisman { background: var(--qisman); }
 .holat-tolandi { background: var(--tolandi); }
 .holat-kutilayotgan { background: var(--kutilayotgan); }
+
+/* ── Jadval ─────────────────────────────────────────────────────── */
+
+.jadval-oram {
+  /* Keng jadval SAHIFANI emas, o'zini suradi — aks holda mobil
+     ekranda butun sahifa yon tomonga siljib ketadi. */
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+th,
+td {
+  padding: 8px 10px;
+  text-align: start;
+  border-bottom: 1px solid var(--chegara);
+  white-space: nowrap;
+}
+
+th {
+  color: var(--sokin);
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+tfoot td {
+  border-top: 2px solid var(--chegara);
+  border-bottom: 0;
+}
+
+.ongga { text-align: end; }
+.bosh { text-align: center; color: var(--sokin); padding: 28px; }
+.ichki { background: var(--fon); white-space: normal; }
+.qator-ogoh { background: color-mix(in srgb, var(--qarzdor) 7%, transparent); }
+.qator-hisob { color: var(--sokin); }
+
+/* ── Filtrlar va tablar ─────────────────────────────────────────── */
+
+.filtrlar {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.yonma {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+}
+
+.oy-tanlash {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 210px;
+}
+
+.oy-tanlash b { flex: 1; text-align: center; }
+
+.tablar {
+  display: flex;
+  gap: 4px;
+  margin: 12px 0;
+  flex-wrap: wrap;
+}
+
+.tab {
+  border: 1px solid var(--chegara);
+  background: var(--karta);
+  color: var(--sokin);
+  border-radius: 8px;
+  padding: 8px 16px;
+  font: inherit;
+  cursor: pointer;
+}
+
+.tab.faol {
+  background: var(--asosiy);
+  color: var(--asosiy-matn);
+  border-color: var(--asosiy);
+}
+
+/* ── Tugma va havolalar ─────────────────────────────────────────── */
+
+.kichik-tugma { padding: 5px 10px; font-size: 13px; }
+
+.havola {
+  border: 0;
+  background: none;
+  color: var(--asosiy);
+  font: inherit;
+  padding: 0;
+  cursor: pointer;
+  text-align: start;
+}
+
+.belgi {
+  display: inline-block;
+  font-size: 11px;
+  color: var(--sokin);
+  padding: 1px 6px;
+  border: 1px solid var(--chegara);
+  border-radius: 999px;
+}
+
+/* ── Modal oyna ─────────────────────────────────────────────────── */
+
+.oyna-fon {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 18, 25, 0.55);
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  z-index: 50;
+  overflow-y: auto;
+}
+
+.oyna {
+  width: 100%;
+  max-width: 420px;
+  display: grid;
+  gap: 12px;
+}
+
+.oyna-keng { max-width: 620px; }
+.oyna h2 { margin: 0; font-size: 19px; }
+.oyna h3 { margin: 6px 0 0; font-size: 14px; color: var(--sokin); }
+
+.oyna-tugmalar {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.qator {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--chegara);
+}
+
+.ikki-ustun {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.jadval-qator {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.ogohlantirish {
+  background: color-mix(in srgb, var(--qisman) 14%, transparent);
+  border: 1px solid var(--qisman);
+  color: var(--matn);
+  border-radius: 8px;
+  padding: 9px 11px;
+  font-size: 13px;
+}
+
+/* ── Bosh sahifa ────────────────────────────────────────────────── */
+
+.kataklar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.katak {
+  background: var(--karta);
+  border: 1px solid var(--chegara);
+  border-radius: 12px;
+  padding: 14px 16px;
+  display: grid;
+  gap: 4px;
+}
+
+.katak b { font-size: 22px; }
+
+.ogoh-royxat { margin: 8px 0 0; padding-inline-start: 20px; }
+.ogoh-royxat li { margin-bottom: 6px; }
+
+.karta-sarlavha {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.karta-sarlavha h2 { margin: 0; font-size: 17px; }
+.karta + .karta { margin-top: 14px; }
+
+/* ── Darslar taqvimi ────────────────────────────────────────────── */
+
+.taqvim {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0 14px;
+}
+
+.taqvim-kun {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 34px;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 13px;
+}
+
+.narx-maydon { width: 130px; text-align: end; }
+
+/* ── Matn ranglari ──────────────────────────────────────────────── */
+
+.rang-qarzdor { color: var(--qarzdor); }
+.rang-tolandi { color: var(--tolandi); }
+.rang-oldindan { color: var(--asosiy); }
