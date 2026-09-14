@@ -1,0 +1,197 @@
+/* CRM uslublari — LMS'ning `src/index.css` dan MUSTAQIL.
+   Ikkala ilova hech qachon bir vaqtda yuklanmaydi, shuning uchun
+   sinf nomlari to'qnashmaydi. */
+
+:root {
+  --fon: #f4f5f7;
+  --karta: #ffffff;
+  --matn: #1f2430;
+  --sokin: #6b7280;
+  --chegara: #e3e6ec;
+  --asosiy: #4f46e5;
+  --asosiy-matn: #ffffff;
+
+  /* Moliya ranglari — TZ 6.6. Uch emas, TO'RT holat: kelajakdagi
+     darslar "kutilayotgan" (kulrang), aks holda ular qizil chiqib
+     hamma qarzdorga o'xshab ketardi. */
+  --qarzdor: #dc2626;
+  --qisman: #d97706;
+  --tolandi: #16a34a;
+  --kutilayotgan: #9ca3af;
+}
+
+[data-theme="dark"] {
+  --fon: #15171c;
+  --karta: #1e2128;
+  --matn: #e7e9ee;
+  --sokin: #9aa1ae;
+  --chegara: #2c313b;
+  --asosiy: #6366f1;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--fon);
+  color: var(--matn);
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+.kichik {
+  color: var(--sokin);
+  font-size: 13px;
+}
+
+.karta {
+  background: var(--karta);
+  border: 1px solid var(--chegara);
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.markaz-ekran {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.xabar-karta,
+.kirish-karta {
+  max-width: 420px;
+  text-align: center;
+}
+
+.kirish-karta {
+  display: grid;
+  gap: 14px;
+  text-align: start;
+}
+
+.kirish-karta h1,
+.xabar-karta h1 {
+  margin: 0;
+  font-size: 22px;
+}
+
+label {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--sokin);
+}
+
+input,
+select {
+  font: inherit;
+  color: var(--matn);
+  background: var(--karta);
+  border: 1px solid var(--chegara);
+  border-radius: 8px;
+  padding: 9px 11px;
+}
+
+.tugma {
+  display: inline-block;
+  border: 0;
+  border-radius: 8px;
+  padding: 10px 16px;
+  background: var(--asosiy);
+  color: var(--asosiy-matn);
+  font: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.tugma[disabled] {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.tugma-sokin {
+  background: transparent;
+  color: var(--sokin);
+  border: 1px solid var(--chegara);
+}
+
+.xato {
+  color: var(--qarzdor);
+  font-size: 13px;
+}
+
+/* ── Layout ─────────────────────────────────────────────────────── */
+
+.crm-sarlavha {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 12px 20px;
+  background: var(--karta);
+  border-bottom: 1px solid var(--chegara);
+}
+
+.crm-logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.crm-belgi {
+  font-size: 20px;
+}
+
+.crm-onng {
+  margin-inline-start: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.crm-menyu {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  padding: 8px 20px;
+  background: var(--karta);
+  border-bottom: 1px solid var(--chegara);
+}
+
+.menyu-band {
+  padding: 8px 14px;
+  border-radius: 8px;
+  color: var(--sokin);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.menyu-band.faol {
+  background: var(--asosiy);
+  color: var(--asosiy-matn);
+}
+
+.crm-asosiy {
+  padding: 20px;
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+/* ── Moliya holat ranglari ──────────────────────────────────────── */
+
+.holat {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  color: #fff;
+}
+
+.holat-qarzdor { background: var(--qarzdor); }
+.holat-qisman { background: var(--qisman); }
+.holat-tolandi { background: var(--tolandi); }
+.holat-kutilayotgan { background: var(--kutilayotgan); }

@@ -75,6 +75,10 @@ INSTALLED_APPS = [
     'games',
     'audit',
     'courses',
+    # CRM / Moliya (2026-09-14) — LMS'dan ATAYLAB ajratilgan ilova.
+    # Bog'lanish faqat bir tomonga: crm -> LMS. Olib tashlash tartibi
+    # tmp/plans/moliya-tz.md, 8-bandda.
+    'crm',
 ]
 
 AUTH_USER_MODEL = 'accounts.User'

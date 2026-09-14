@@ -192,6 +192,10 @@ urlpatterns = [
     path('api/', include('games.urls')),
     path('api/', include('audit.urls')),
     path('api/', include('courses.urls')),
+    # CRM / Moliya (2026-09-14) — ATAYLAB o'z prefiksi ostida, boshqa
+    # `api/` yo'llari bilan aralashmaydi. CRM olib tashlansa shu bitta
+    # qatorni o'chirish yetarli.
+    path('api/crm/', include('crm.urls')),
     # B3.2: media'dan FAQAT markaz logolari ochiq (brending — maxfiy emas).
     # Audio fayllar bu yo'l orqali BERILMAYDI — ular faqat autentifikatsiyalangan
     # stream endpointlar orqali (exercises.MashqAudioView).
