@@ -43,6 +43,31 @@ function Taqvim({ kunlar }) {
   );
 }
 
+/** Bitta ko'rsatkich kartasi. Ma'lumot yo'q bo'lsa "—" chiqadi va
+ *  rang berilmaydi — 0% deb ko'rsatish "yomon natija" degan yolg'on
+ *  taassurot berardi. */
+function Natija({ sarlavha, qiymat, foiz = false, sof = false, izoh = null }) {
+  const bor = qiymat !== null && qiymat !== undefined;
+  const sinf = !bor || sof ? "" : foizSinfi(foiz ? qiymat : qiymat * 10);
+  return (
+    <div className="katak">
+      <span className="kichik">{sarlavha}</span>
+      <b className={sinf}>
+        {bor ? `${qiymat}${foiz ? "%" : ""}` : "—"}
+      </b>
+      {izoh && <span className="kichik">{izoh}</span>}
+    </div>
+  );
+}
+
+/** 80%+ yaxshi, 60%+ o'rtacha, pastda yomon. */
+function foizSinfi(foiz) {
+  if (foiz === null || foiz === undefined) return "";
+  if (foiz >= 80) return "rang-tolandi";
+  if (foiz >= 60) return "rang-qisman";
+  return "rang-qarzdor";
+}
+
 // ── Talaba kartasi ──────────────────────────────────────────────────
 
 function Karta({ talabaId, onOrqaga }) {
@@ -81,6 +106,33 @@ function Karta({ talabaId, onOrqaga }) {
         <div className="qator">
           <span className="kichik">{t("umumiy_balans")}</span>
           <b className={balansSinfi(talaba.balans_jami)}>{balansMatn(talaba.balans_jami)}</b>
+        </div>
+      </div>
+
+      {/* Umumiy o'quv natijasi — LMS'da hosil bo'ladi, bu yerda faqat
+          ko'rsatiladi (SoffCRM kartasidagi "Baho" o'rnida, lekin bitta
+          son emas, to'rt ko'nikma bo'yicha). */}
+      <div className="karta">
+        <div className="karta-sarlavha">
+          <h2>{t("tab_natijalar")}</h2>
+          <span className="belgi">{t("faqat_oqish")}</span>
+        </div>
+        <div className="kataklar">
+          <Natija sarlavha="Writing" qiymat={talaba.natijalar?.writing_band} />
+          <Natija sarlavha="Speaking" qiymat={talaba.natijalar?.speaking_band} />
+          <Natija sarlavha="Listening" qiymat={talaba.natijalar?.listening_foiz} foiz />
+          <Natija sarlavha="Reading" qiymat={talaba.natijalar?.reading_foiz} foiz />
+          <Natija sarlavha={t("mashqlar")} qiymat={talaba.natijalar?.mashq_soni} sof />
+          <Natija
+            sarlavha={t("davomat")}
+            qiymat={talaba.natijalar?.davomat_foizi}
+            foiz
+            izoh={
+              talaba.natijalar && talaba.natijalar.keldi + talaba.natijalar.kelmadi > 0
+                ? `${talaba.natijalar.keldi}/${talaba.natijalar.keldi + talaba.natijalar.kelmadi}`
+                : null
+            }
+          />
         </div>
       </div>
 

@@ -23,6 +23,7 @@ from assessment.models import SpeakingTekshiruv, WritingTekshiruv
 from audit.utils import logla
 from courses.models import KursTugun
 from exercises.models import Bolim, MashqYechim
+from stats.services import talaba_statistikasi
 
 from . import eksport, mantiq
 from .models import (
@@ -116,6 +117,11 @@ def _xona_dict(x):
         "tartib": x.tartib,
         "faol": x.faol,
     }
+
+
+def _yaxlit(qiymat, xona=1):
+    """Band ballari 6.333333 emas, 6.3 bo'lib ko'rinsin."""
+    return round(qiymat, xona) if qiymat is not None else None
 
 
 def _eslatma_dict(e):
@@ -1351,6 +1357,26 @@ class TalabaView(CrmView):
                 }
             )
 
+        # Talabaning UMUMIY o'quv natijasi (SoffCRM kartasidagi "Baho").
+        # Bu yerda `stats.services.talaba_statistikasi` QAYTA
+        # ISHLATILADI — u BITTA talaba uchun yozilgan va aynan shu
+        # holatda o'rinli (guruh ro'yxatida esa u N+1 bo'lardi, shuning
+        # uchun `GuruhNatijalarView`da to'plam so'rovlar ishlatilgan).
+        stat = talaba_statistikasi(talaba)
+        natijalar = {
+            "writing_band": _yaxlit(stat["writing"]["ortacha_band"]),
+            "speaking_band": _yaxlit(stat["speaking"]["ortacha_band"]),
+            "listening_foiz": stat["listening"]["ortacha_foiz"],
+            "reading_foiz": stat["reading"]["ortacha_foiz"],
+            "mashq_soni": stat["listening"]["jami_yechildi"] + stat["reading"]["jami_yechildi"],
+            "keldi": stat["davomat"]["keldi"],
+            "kelmadi": stat["davomat"]["kelmadi"],
+        }
+        jami_dars = natijalar["keldi"] + natijalar["kelmadi"]
+        natijalar["davomat_foizi"] = (
+            round(natijalar["keldi"] / jami_dars * 100) if jami_dars else None
+        )
+
         return Response(
             {
                 "id": talaba.id,
@@ -1358,6 +1384,7 @@ class TalabaView(CrmView):
                 "telefon": talaba.telefon,
                 "ota_ona_telefon": talaba.ota_ona_telefon,
                 "balans_jami": mantiq.balans(talaba),
+                "natijalar": natijalar,
                 "guruhlar": guruhlar,
                 "hisoblar": [_hisob_dict(h, tolangan=h.tolangan) for h in hisoblar],
                 "tolovlar": [_tolov_dict(t) for t in tolovlar],

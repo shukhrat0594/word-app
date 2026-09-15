@@ -767,3 +767,35 @@ class KeyingiTolovTest(ApiAsos):
             )
             javob = mijoz.get(f"/api/crm/talaba/{self.talaba.id}/")
         self.assertEqual(javob.data["guruhlar"][0]["keyingi_tolov"], date(2026, 10, 1))
+
+
+class TalabaNatijalariTest(ApiAsos):
+    """Talaba kartasidagi umumiy o'quv natijasi (SoffCRM: "Baho")."""
+
+    def test_natijalar_kartada_chiqadi(self):
+        self.azolik_qosh(boshlanish=date(2026, 9, 1))
+        WritingTekshiruv.objects.create(talaba=self.talaba, matn="x", overall_band=6.5)
+        Davomat.objects.create(
+            sana=date(2026, 9, 3), guruh=self.guruh, talaba=self.talaba,
+            holat=Davomat.Holat.KELDI,
+        )
+        Davomat.objects.create(
+            sana=date(2026, 9, 4), guruh=self.guruh, talaba=self.talaba,
+            holat=Davomat.Holat.KELMADI,
+        )
+
+        javob = self.mijoz(self.admin).get(f"/api/crm/talaba/{self.talaba.id}/")
+        natijalar = javob.data["natijalar"]
+        self.assertEqual(natijalar["writing_band"], 6.5)
+        self.assertEqual(natijalar["davomat_foizi"], 50)
+        self.assertEqual(natijalar["keldi"], 1)
+
+    def test_malumotsiz_talabada_none(self):
+        """0% deb ko'rsatish "yomon natija" degan yolg'on taassurot
+        berardi — ma'lumot yo'q bo'lsa `None`."""
+        self.azolik_qosh()
+        javob = self.mijoz(self.admin).get(f"/api/crm/talaba/{self.talaba.id}/")
+        natijalar = javob.data["natijalar"]
+        self.assertIsNone(natijalar["writing_band"])
+        self.assertIsNone(natijalar["davomat_foizi"])
+        self.assertEqual(natijalar["mashq_soni"], 0)
