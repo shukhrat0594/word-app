@@ -184,6 +184,14 @@ const SATRLAR = {
     davomat_yoq: "Bu oyda davomat belgilanmagan.",
     natija_izoh: "Natijalar LMS'da hosil bo'ladi — bu yerda faqat ko'rsatiladi.",
 
+    tab_eslatmalar: "Eslatmalar",
+    eslatma_yoq: "Eslatma yo'q.",
+    eslatma_placeholder: "Eslatma yozing... (Ctrl+Enter — saqlash)",
+    ochirish: "O'chirish",
+    keyingi_tolov_sanasi: "Keyingi to'lov",
+
+    tolov_ochirish_tasdiq: "Bu pul yozuvini o'chirasizmi? Chegirma bo'lsa qarz tiklanadi.",
+
     sahifa_topilmadi: "Sahifa topilmadi",
   },
 
@@ -356,6 +364,14 @@ const SATRLAR = {
     davomat_yoq: "В этом месяце посещаемость не отмечалась.",
     natija_izoh: "Результаты формируются в LMS — здесь они только показываются.",
 
+    tab_eslatmalar: "Заметки",
+    eslatma_yoq: "Заметок нет.",
+    eslatma_placeholder: "Напишите заметку... (Ctrl+Enter — сохранить)",
+    ochirish: "Удалить",
+    keyingi_tolov_sanasi: "Следующий платёж",
+
+    tolov_ochirish_tasdiq: "Удалить эту денежную запись? Если это скидка, долг восстановится.",
+
     sahifa_topilmadi: "Страница не найдена",
   },
 
@@ -527,6 +543,14 @@ const SATRLAR = {
     mashqlar: "Exercises",
     davomat_yoq: "No attendance recorded for this month.",
     natija_izoh: "Results are produced in the LMS — shown here for reference only.",
+
+    tab_eslatmalar: "Notes",
+    eslatma_yoq: "No notes yet.",
+    eslatma_placeholder: "Write a note... (Ctrl+Enter to save)",
+    ochirish: "Delete",
+    keyingi_tolov_sanasi: "Next payment",
+
+    tolov_ochirish_tasdiq: "Delete this money record? If it is a discount, the debt comes back.",
 
     sahifa_topilmadi: "Page not found",
   },

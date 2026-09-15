@@ -28,6 +28,7 @@ from . import eksport, mantiq
 from .models import (
     AzolikMoliya,
     DarsJadvali,
+    Eslatma,
     Filial,
     GuruhMoliya,
     Hisob,
@@ -114,6 +115,18 @@ def _xona_dict(x):
         "sigimi": x.sigimi,
         "tartib": x.tartib,
         "faol": x.faol,
+    }
+
+
+def _eslatma_dict(e):
+    return {
+        "id": e.id,
+        "matn": e.matn,
+        "guruh_id": e.guruh_id,
+        "talaba_id": e.talaba_id,
+        "kim_id": e.kim_id,
+        "kim": (e.kim.get_full_name() or e.kim.username) if e.kim_id else None,
+        "vaqt": e.created_at,
     }
 
 
@@ -673,6 +686,56 @@ class GuruhAzoliklariView(CrmView):
         return Response(
             [_azolik_dict(am, balans=balanslar.get(am.azolik.talaba_id)) for am in natija]
         )
+
+
+class EslatmalarView(CrmView):
+    """Guruh yoki talaba haqidagi erkin izohlar.
+
+    SoffCRM'dagi "ESLATMALAR" tabi. Bu — LMS'da ham, CRM'da ham
+    bo'lmagan yagona narsa edi.
+    """
+
+    def get(self, request):
+        qs = Eslatma.objects.select_related("kim", "guruh", "talaba")
+        guruh_id = request.query_params.get("guruh")
+        talaba_id = request.query_params.get("talaba")
+        if not guruh_id and not talaba_id:
+            return _xato("guruh yoki talaba ko'rsatilishi kerak")
+        if guruh_id:
+            qs = qs.filter(guruh_id=guruh_id)
+        if talaba_id:
+            qs = qs.filter(talaba_id=talaba_id)
+        return Response([_eslatma_dict(e) for e in qs[:200]])
+
+    def post(self, request):
+        matn = (request.data.get("matn") or "").strip()
+        if not matn:
+            return _xato("Eslatma matni bo'sh bo'lmasin")
+
+        guruh = talaba = None
+        if request.data.get("guruh_id"):
+            guruh = get_object_or_404(Guruh, pk=request.data["guruh_id"])
+        if request.data.get("talaba_id"):
+            talaba = get_object_or_404(User, pk=request.data["talaba_id"])
+        if guruh is None and talaba is None:
+            return _xato("Eslatma guruhga yoki talabaga bog'lanishi kerak")
+
+        eslatma = Eslatma.objects.create(
+            guruh=guruh, talaba=talaba, matn=matn[:2000], kim=request.user
+        )
+        return Response(_eslatma_dict(eslatma), status=201)
+
+
+class EslatmaDetailView(CrmView):
+    def delete(self, request, pk):
+        eslatma = get_object_or_404(Eslatma, pk=pk)
+        # O'z eslatmasini har kim o'chira oladi, boshqanikini — faqat
+        # owner. Admin hamkasbining izohini jimgina yo'q qila olmasligi
+        # kerak.
+        if eslatma.kim_id != request.user.pk and not owner_mi(request.user):
+            return _xato("Faqat o'z eslatmangizni o'chira olasiz", kod=403)
+        eslatma.delete()
+        return Response({"detail": "O'chirildi"})
 
 
 class GuruhDavomatView(CrmView):
@@ -1284,6 +1347,7 @@ class TalabaView(CrmView):
                     **_azolik_dict(am, balans=mantiq.balans(talaba, guruh=guruh)),
                     "jadval": [_jadval_dict(j) for j in guruh.crm_jadval.all()],
                     "darslar_taqvimi": _darslar_taqvimi(am, hisoblar),
+                    "keyingi_tolov": mantiq.keyingi_tolov_sanasi(talaba, guruh),
                 }
             )
 

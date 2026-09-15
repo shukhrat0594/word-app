@@ -662,3 +662,108 @@ class BayroqTest(ApiAsos):
     def test_bayroq_yoqiq_bolsa_ishlaydi(self):
         # `CrmAsos` da @override_settings(CRM_YOQILGAN=True) turibdi
         self.assertEqual(self.mijoz(self.owner).get("/api/crm/hisoblar/").status_code, 200)
+
+
+class EslatmaTest(ApiAsos):
+    """Eslatmalar — LMS'da ham, CRM'da ham bo'lmagan yagona narsa edi
+    (2026-09-15, SoffCRM'dagi "ESLATMALAR" tabi)."""
+
+    def test_guruhga_eslatma_qoshiladi(self):
+        javob = self.mijoz(self.admin).post(
+            "/api/crm/eslatmalar/",
+            {"guruh_id": self.guruh.id, "matn": "Dars vaqtini ko'chirishni so'radi"},
+            format="json",
+        )
+        self.assertEqual(javob.status_code, 201)
+        self.assertEqual(javob.data["kim"], "crm_admin")
+
+        royxat = self.mijoz(self.admin).get(f"/api/crm/eslatmalar/?guruh={self.guruh.id}")
+        self.assertEqual(len(royxat.data), 1)
+
+    def test_talabaga_eslatma_qoshiladi(self):
+        javob = self.mijoz(self.admin).post(
+            "/api/crm/eslatmalar/",
+            {"talaba_id": self.talaba.id, "matn": "Onasi 15-sentabrda to'layman dedi"},
+            format="json",
+        )
+        self.assertEqual(javob.status_code, 201)
+        royxat = self.mijoz(self.admin).get(f"/api/crm/eslatmalar/?talaba={self.talaba.id}")
+        self.assertEqual(len(royxat.data), 1)
+
+    def test_egasiz_eslatma_rad_etiladi(self):
+        """Eslatma nimagadir tegishli bo'lmasa, uni hech kim qayta topa
+        olmaydi — shuning uchun kamida bittasi majburiy."""
+        javob = self.mijoz(self.admin).post(
+            "/api/crm/eslatmalar/", {"matn": "shunchaki"}, format="json"
+        )
+        self.assertEqual(javob.status_code, 400)
+
+    def test_bosh_matn_rad_etiladi(self):
+        javob = self.mijoz(self.admin).post(
+            "/api/crm/eslatmalar/",
+            {"guruh_id": self.guruh.id, "matn": "   "},
+            format="json",
+        )
+        self.assertEqual(javob.status_code, 400)
+
+    def test_filtrsiz_royxat_rad_etiladi(self):
+        """Barcha eslatmalarni birdaniga berish ma'nosiz — ular doim
+        aniq guruh yoki talaba kontekstida o'qiladi."""
+        self.assertEqual(
+            self.mijoz(self.admin).get("/api/crm/eslatmalar/").status_code, 400
+        )
+
+    def test_boshqaning_eslatmasini_admin_ochira_olmaydi(self):
+        yaratildi = self.mijoz(self.owner).post(
+            "/api/crm/eslatmalar/",
+            {"guruh_id": self.guruh.id, "matn": "owner yozgan"},
+            format="json",
+        ).data
+
+        javob = self.mijoz(self.admin).delete(f"/api/crm/eslatmalar/{yaratildi['id']}/")
+        self.assertEqual(javob.status_code, 403)
+
+        # Owner — o'zinikini o'chira oladi
+        javob = self.mijoz(self.owner).delete(f"/api/crm/eslatmalar/{yaratildi['id']}/")
+        self.assertEqual(javob.status_code, 200)
+
+    def test_owner_boshqaning_eslatmasini_ochira_oladi(self):
+        yaratildi = self.mijoz(self.admin).post(
+            "/api/crm/eslatmalar/",
+            {"guruh_id": self.guruh.id, "matn": "admin yozgan"},
+            format="json",
+        ).data
+        javob = self.mijoz(self.owner).delete(f"/api/crm/eslatmalar/{yaratildi['id']}/")
+        self.assertEqual(javob.status_code, 200)
+
+    def test_talabaga_403(self):
+        self.assertEqual(
+            self.mijoz(self.talaba).get(
+                f"/api/crm/eslatmalar/?guruh={self.guruh.id}"
+            ).status_code,
+            403,
+        )
+
+
+class KeyingiTolovTest(ApiAsos):
+    def test_tolanmagan_oy_korsatiladi(self):
+        self.azolik_qosh(boshlanish=date(2026, 9, 1))
+        mijoz = self.mijoz(self.admin)
+        with bugun_qilib(date(2026, 9, 30)):
+            mijoz.get("/api/crm/hisoblar/")
+            javob = mijoz.get(f"/api/crm/talaba/{self.talaba.id}/")
+        self.assertEqual(javob.data["guruhlar"][0]["keyingi_tolov"], SENTABR)
+
+    def test_hammasi_tolangan_bolsa_keyingi_oy(self):
+        self.azolik_qosh(boshlanish=date(2026, 9, 1))
+        mijoz = self.mijoz(self.admin)
+        with bugun_qilib(date(2026, 9, 30)):
+            mijoz.get("/api/crm/hisoblar/")
+            mijoz.post(
+                "/api/crm/tolov/",
+                {"talaba_id": self.talaba.id, "guruh_id": self.guruh.id,
+                 "oy": "2026-09", "summa": "660000"},
+                format="json",
+            )
+            javob = mijoz.get(f"/api/crm/talaba/{self.talaba.id}/")
+        self.assertEqual(javob.data["guruhlar"][0]["keyingi_tolov"], date(2026, 10, 1))

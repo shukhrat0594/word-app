@@ -444,6 +444,37 @@ def balanslarni_ol(talaba_idlar) -> dict:
     return natija
 
 
+def keyingi_tolov_sanasi(talaba, guruh) -> date | None:
+    """Talaba shu guruhda qachon to'lashi kerak (SoffCRM'dagi
+    "Keyingi to'lov").
+
+    Mantiq:
+      * to'lanmagan eng ESKI oy bor bo'lsa -> o'sha oy (muddati o'tgan);
+      * hammasi to'langan bo'lsa -> oxirgi hisobdan KEYINGI oy, ya'ni
+        keyingi hisob qachon ochilishi.
+
+    Hisob umuman yo'q bo'lsa `None` — hali hech narsa hisoblanmagan
+    (guruh sozlanmagan yoki talaba hali boshlamagan).
+    """
+    tolanmagan = (
+        Hisob.objects.filter(talaba=talaba, guruh=guruh)
+        .exclude(holat=Hisob.Holat.TOLANDI)
+        .order_by("oy")
+        .values_list("oy", flat=True)
+        .first()
+    )
+    if tolanmagan:
+        return tolanmagan
+
+    oxirgi = (
+        Hisob.objects.filter(talaba=talaba, guruh=guruh)
+        .order_by("-oy")
+        .values_list("oy", flat=True)
+        .first()
+    )
+    return keyingi_oy(oxirgi) if oxirgi else None
+
+
 # ── A'zolikni yakunlash / muzlatish ──────────────────────────────────
 
 

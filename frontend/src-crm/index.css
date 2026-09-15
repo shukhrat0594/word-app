@@ -619,3 +619,58 @@ tfoot td {
   font-size: 11px;
   color: var(--sokin);
 }
+
+/* ── Eslatmalar ─────────────────────────────────────────────────── */
+
+.eslatma-yozish {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: start;
+  margin-bottom: 12px;
+}
+
+.eslatma-yozish textarea {
+  font: inherit;
+  color: var(--matn);
+  background: var(--karta);
+  border: 1px solid var(--chegara);
+  border-radius: 8px;
+  padding: 9px 11px;
+  resize: vertical;
+}
+
+.eslatma-royxat { list-style: none; margin: 0; padding: 0; }
+
+.eslatma-royxat li {
+  border-top: 1px solid var(--chegara);
+  padding: 10px 0;
+}
+
+.eslatma-matn { white-space: pre-wrap; margin-bottom: 4px; }
+
+.eslatma-past {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+}
+
+/* ── Taqvim legendasi ───────────────────────────────────────────── */
+
+.taqvim-legenda {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  font-size: 12px;
+  color: var(--sokin);
+  margin-bottom: 12px;
+}
+
+.legenda-nuqta {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  margin-inline-end: 4px;
+}

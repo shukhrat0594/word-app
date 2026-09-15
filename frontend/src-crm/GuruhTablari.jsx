@@ -7,7 +7,9 @@
 
 import { useState } from "react";
 
+import Eslatmalar from "./Eslatmalar.jsx";
 import { joriyOy, oyNomi, sana, siljit } from "./format.js";
+import { useProfil } from "./profilContext.jsx";
 import { useI18n } from "./i18n.jsx";
 import { sorovSatri, useSorov } from "./soragich.js";
 
@@ -158,10 +160,11 @@ function Natijalar({ guruhId }) {
 
 // ── Tablar ──────────────────────────────────────────────────────────
 
-const TABLAR = ["azolar", "davomat", "natijalar"];
+const TABLAR = ["azolar", "davomat", "natijalar", "eslatmalar"];
 
 export default function GuruhTablari({ guruhId, Azolar }) {
   const { t } = useI18n();
+  const profil = useProfil();
   const [tab, setTab] = useState("azolar");
 
   return (
@@ -184,6 +187,7 @@ export default function GuruhTablari({ guruhId, Azolar }) {
       {tab === "azolar" && <Azolar />}
       {tab === "davomat" && <Davomat guruhId={guruhId} />}
       {tab === "natijalar" && <Natijalar guruhId={guruhId} />}
+      {tab === "eslatmalar" && <Eslatmalar guruhId={guruhId} profilId={profil?.id} />}
     </div>
   );
 }

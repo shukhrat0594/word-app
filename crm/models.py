@@ -433,6 +433,52 @@ class Tolov(models.Model):
         return f"{self.sana} — {self.talaba_ism} — {self.get_turi_display()} {self.summa}"
 
 
+class Eslatma(models.Model):
+    """Guruh yoki talaba haqidagi erkin izoh (2026-09-15).
+
+    SoffCRM'da guruh kartasida "ESLATMALAR" tabi bor va bu — LMS'da ham,
+    CRM'da ham BO'LMAGAN yagona narsa edi. Adminning kundalik ishida
+    kerak: "onasi 15-sentabrda to'layman dedi", "dars vaqtini
+    ko'chirishni so'radi".
+
+    `guruh` va `talaba` ikkalasi ham ixtiyoriy, lekin KAMIDA BITTASI
+    bo'lishi shart — eslatma nimagadir tegishli bo'lmasa, uni hech kim
+    qayta topa olmaydi.
+
+    `CASCADE` (pul yozuvlaridagi `SET_NULL` emas): eslatma pul emas,
+    obyekt o'chirilgach uning izohi ma'nosini yo'qotadi.
+    """
+
+    guruh = models.ForeignKey(
+        "academics.Guruh", on_delete=models.CASCADE, null=True, blank=True,
+        related_name="crm_eslatmalari",
+    )
+    talaba = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True,
+        related_name="crm_eslatmalari",
+    )
+    matn = models.TextField(max_length=2000)
+    kim = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="crm_yozgan_eslatmalari",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(guruh__isnull=False) | models.Q(talaba__isnull=False),
+                name="crm_eslatma_egasi_bolsin",
+            )
+        ]
+        verbose_name_plural = "Eslatmalar"
+
+    def __str__(self):
+        egasi = self.talaba or self.guruh
+        return f"{egasi} — {self.matn[:40]}"
+
+
 class Sozlama(models.Model):
     """Bitta qatorli xizmat jadvali.
 

@@ -2,8 +2,11 @@
 
 import { useState } from "react";
 
+import Eslatmalar from "../Eslatmalar.jsx";
 import { useFilial } from "../filialContext.jsx";
+import { useProfil } from "../profilContext.jsx";
 import { balansMatn, balansSinfi, pul, sana } from "../format.js";
+import { api } from "../api.js";
 import { useI18n } from "../i18n.jsx";
 import { sorovSatri, useSorov } from "../soragich.js";
 import QaytarishOynasi from "../QaytarishOynasi.jsx";
@@ -16,14 +19,27 @@ const HAFTA = ["Du", "Se", "Chor", "Pay", "Ju", "Sha", "Yak"];
 function Taqvim({ kunlar }) {
   const { t } = useI18n();
   if (!kunlar?.length) return <p className="kichik">{t("yozuv_yoq")}</p>;
+  // Legenda ATAYLAB bor: rangli kataklar o'z-o'zidan tushunarli emas,
+  // ayniqsa kulrang "kutilayotgan" — u qarz emas, hali kelmagan oy.
+  const legenda = ["tolandi", "qisman", "qarzdor", "kutilayotgan"];
+
   return (
-    <div className="taqvim">
-      {kunlar.map((k) => (
-        <span key={k.sana} className={`taqvim-kun holat-${k.holat}`} title={sana(k.sana)}>
-          {String(k.sana).slice(8, 10)}
-        </span>
-      ))}
-    </div>
+    <>
+      <div className="taqvim">
+        {kunlar.map((k) => (
+          <span key={k.sana} className={`taqvim-kun holat-${k.holat}`} title={sana(k.sana)}>
+            {String(k.sana).slice(8, 10)}
+          </span>
+        ))}
+      </div>
+      <div className="taqvim-legenda">
+        {legenda.map((h) => (
+          <span key={h}>
+            <i className={`legenda-nuqta holat-${h}`} /> {t(`holat_${h}`)}
+          </span>
+        ))}
+      </div>
+    </>
   );
 }
 
@@ -31,9 +47,16 @@ function Taqvim({ kunlar }) {
 
 function Karta({ talabaId, onOrqaga }) {
   const { t } = useI18n();
+  const profil = useProfil();
   const { malumot, yuklanmoqda, xato, yangila } = useSorov(`/api/crm/talaba/${talabaId}/`);
   const [tolovHisobi, setTolovHisobi] = useState(null);
   const [qaytarishGuruhi, setQaytarishGuruhi] = useState(null);
+
+  async function tolovniOchir(id) {
+    if (!window.confirm(t("tolov_ochirish_tasdiq"))) return;
+    await api(`/api/crm/tolov/${id}/`, { method: "DELETE" });
+    yangila();
+  }
 
   if (yuklanmoqda) return <p className="kichik">{t("yuklanmoqda")}</p>;
   if (xato) return <div className="xato">{xato}</div>;
@@ -72,7 +95,14 @@ function Karta({ talabaId, onOrqaga }) {
                 {" · "}{g.narx ? pul(g.narx) : "—"}
               </p>
             </div>
-            <b className={balansSinfi(g.balans)}>{balansMatn(g.balans)}</b>
+            <div className="ongga">
+              <b className={balansSinfi(g.balans)}>{balansMatn(g.balans)}</b>
+              {g.keyingi_tolov && (
+                <div className="kichik">
+                  {t("keyingi_tolov_sanasi")}: <b>{sana(g.keyingi_tolov)}</b>
+                </div>
+              )}
+            </div>
           </div>
 
           <h3>{t("darslar_taqvimi")}</h3>
@@ -88,6 +118,11 @@ function Karta({ talabaId, onOrqaga }) {
       ))}
 
       <div className="karta">
+        <h2>{t("tab_eslatmalar")}</h2>
+        <Eslatmalar talabaId={talaba.id} profilId={profil?.id} />
+      </div>
+
+      <div className="karta">
         <h2>{t("tolov_tarixi")}</h2>
         <div className="jadval-oram">
           <table>
@@ -99,6 +134,8 @@ function Karta({ talabaId, onOrqaga }) {
                 <th className="ongga">{t("summa")}</th>
                 <th>{t("guruh")}</th>
                 <th>{t("izoh")}</th>
+                <th>{t("kim")}</th>
+                <th />
               </tr>
             </thead>
             <tbody>
@@ -112,10 +149,22 @@ function Karta({ talabaId, onOrqaga }) {
                   </td>
                   <td>{x.guruh}</td>
                   <td>{x.izoh}</td>
+                  <td>{x.kim || "—"}</td>
+                  <td>
+                    {/* Pul yozuvini o'chirish — FAQAT owner (backend ham
+                        shunday tekshiradi). Chegirmani bekor qilish ham
+                        shu yo'l bilan: yozuv o'chgach qarz tiklanadi. */}
+                    {profil?.is_owner && (
+                      <button className="havola" type="button"
+                              onClick={() => tolovniOchir(x.id)}>
+                        {t("ochirish")}
+                      </button>
+                    )}
+                  </td>
                 </tr>
               ))}
               {talaba.tolovlar.length === 0 && (
-                <tr><td colSpan={6} className="bosh">{t("yozuv_yoq")}</td></tr>
+                <tr><td colSpan={8} className="bosh">{t("yozuv_yoq")}</td></tr>
               )}
             </tbody>
           </table>

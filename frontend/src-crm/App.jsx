@@ -8,6 +8,7 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
 import { api, tokenOl, tokenlarniTozala } from "./api.js";
 import { FilialProvider } from "./filialContext.jsx";
+import { ProfilProvider } from "./profilContext.jsx";
 import { useI18n } from "./i18n.jsx";
 import Kirish from "./Kirish.jsx";
 import Layout from "./Layout.jsx";
@@ -96,6 +97,7 @@ export default function App() {
     // `FilialProvider` faqat SHU YERDA — ruxsat tekshiruvidan keyin:
     // u `/api/crm/filiallar/` ni so'raydi va tokensiz chaqirilsa
     // cheksiz qayta yuklanish hosil qilardi.
+    <ProfilProvider profil={profil}>
     <FilialProvider>
       <BrowserRouter basename="/crm">
       <Routes>
@@ -112,5 +114,6 @@ export default function App() {
       </Routes>
       </BrowserRouter>
     </FilialProvider>
+    </ProfilProvider>
   );
 }

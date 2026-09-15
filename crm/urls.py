@@ -32,6 +32,9 @@ urlpatterns = [
 
     path("azoliklar/<int:pk>/", views.AzolikView.as_view(), name="azolik"),
 
+    path("eslatmalar/", views.EslatmalarView.as_view(), name="eslatmalar"),
+    path("eslatmalar/<int:pk>/", views.EslatmaDetailView.as_view(), name="eslatma_detail"),
+
     path("hisoblar/", views.HisoblarView.as_view(), name="hisoblar"),
     path("hisoblar/<int:pk>/", views.HisobDetailView.as_view(), name="hisob_detail"),
 
