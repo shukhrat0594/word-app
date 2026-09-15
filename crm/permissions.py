@@ -6,6 +6,8 @@ so'rov yubora oladi, shuning uchun har bir endpoint shu yerdan
 tekshiriladi.
 """
 
+from django.conf import settings
+from django.http import Http404
 from rest_framework.permissions import BasePermission, IsAuthenticated
 from rest_framework.views import APIView
 
@@ -65,6 +67,16 @@ class CrmView(APIView):
     permission_classes = [IsAuthenticated, CrmRuxsati]
 
     def initial(self, request, *args, **kwargs):
+        # CRM o'chirilgan bo'lsa (prod) — 404. ATAYLAB 403 emas: 403
+        # "bu yerda nimadir bor, lekin senga ruxsat yo'q" degani, 404
+        # esa bo'limning borligini ham oshkor qilmaydi.
+        #
+        # Tekshiruv URL darajasida emas, shu yerda: `config/urls.py`da
+        # shartli `include` qilsak, testlar URL'larni import paytida
+        # yo'qotardi va `override_settings` ish bermasdi.
+        if not getattr(settings, "CRM_YOQILGAN", False):
+            raise Http404("CRM yoqilmagan")
+
         super().initial(request, *args, **kwargs)  # avval autentifikatsiya va ruxsat
         if request.method == "GET":
             hisoblarni_generatsiya_qil()

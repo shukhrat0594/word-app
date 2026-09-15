@@ -9,6 +9,7 @@ sinovdan o'tmasdi.
 from datetime import date
 from decimal import Decimal
 
+from django.test import override_settings
 from rest_framework.test import APIClient
 from rest_framework_simplejwt.tokens import RefreshToken
 
@@ -632,3 +633,32 @@ class DavomatVaNatijaTest(ApiAsos):
         self.assertIsNone(qator["writing_band"])
         self.assertIsNone(qator["davomat_foizi"])
         self.assertEqual(qator["mashq_soni"], 0)
+
+
+class BayroqTest(ApiAsos):
+    """`settings.CRM_YOQILGAN` — CRM prodga chiqmasligi uchun qulf
+    (2026-09-15, Shuhrat: "to'liq ulaymiz, lekin prodga chiqmaydigan
+    qilib").
+
+    Prodda `DEBUG=False`, ya'ni bayroq standart bo'yicha o'chiq va
+    `/api/crm/...` umuman yo'q bo'lib ko'rinadi.
+    """
+
+    @override_settings(CRM_YOQILGAN=False)
+    def test_bayroq_ochiq_bolsa_404(self):
+        """404, ATAYLAB 403 emas: 403 "bu yerda nimadir bor" degani,
+        404 esa bo'limning borligini ham oshkor qilmaydi."""
+        mijoz = self.mijoz(self.owner)
+        for yol in ("/api/crm/hisoblar/", "/api/crm/guruhlar/", "/api/crm/hisobot/"):
+            self.assertEqual(mijoz.get(yol).status_code, 404, yol)
+
+    @override_settings(CRM_YOQILGAN=False)
+    def test_bayroq_ochiq_bolsa_yozish_ham_404(self):
+        javob = self.mijoz(self.owner).post(
+            "/api/crm/filiallar/", {"nomi": "Yangi"}, format="json"
+        )
+        self.assertEqual(javob.status_code, 404)
+
+    def test_bayroq_yoqiq_bolsa_ishlaydi(self):
+        # `CrmAsos` da @override_settings(CRM_YOQILGAN=True) turibdi
+        self.assertEqual(self.mijoz(self.owner).get("/api/crm/hisoblar/").status_code, 200)

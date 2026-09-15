@@ -81,6 +81,16 @@ INSTALLED_APPS = [
     'crm',
 ]
 
+# CRM hali sinovda (2026-09-15, Shuhrat qarori: "to'liq ulaymiz, lekin
+# prodga chiqmaydigan qilib"). Standart qiymat ATAYLAB `DEBUG`ga
+# bog'langan: lokalda (DEBUG=True) CRM yoqiq, prodda (DEBUG=False)
+# o'chiq. Ya'ni kod `main`ga qo'shilib ketsa ham prodda ishlamaydi —
+# bu git'dan ishonchliroq, chunki kim nimani merge qilgani muhim emas.
+#
+# Prodda yoqish kerak bo'lganda: Railway'da CRM_YOQILGAN=1 qo'yiladi,
+# kodga tegilmaydi.
+CRM_YOQILGAN = config('CRM_YOQILGAN', default=DEBUG, cast=bool)
+
 AUTH_USER_MODEL = 'accounts.User'
 
 REST_FRAMEWORK = {

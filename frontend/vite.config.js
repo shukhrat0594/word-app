@@ -1,5 +1,5 @@
 import { fileURLToPath } from 'node:url'
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 
 const yol = (nisbiy) => fileURLToPath(new URL(nisbiy, import.meta.url))
@@ -46,13 +46,24 @@ function crmMarshrut() {
 
 // Dev rejimda /api so'rovlari Django'ga (8000) yo'naltiriladi —
 // CORS shart emas, frontend faqat 3000-portda ishlaydi.
-export default defineConfig({
-  plugins: [react(), crmMarshrut()],
+export default defineConfig(({ mode }) => {
+  // CRM bayrog'i (2026-09-15, Shuhrat: "to'liq ulaymiz, lekin prodga
+  // chiqmaydigan qilib"). `.env.development` da VITE_CRM=1 turadi, ya'ni
+  // `npm run dev` da CRM yoqiq. Prod build'da (`mode=production`) bu
+  // fayl O'QILMAYDI va Railway'da ham o'zgaruvchi yo'q — demak:
+  //   * `crm.html` build'ga UMUMAN kirmaydi -> sayt.uz/crm LMS'ni ochadi
+  //   * `import.meta.env.VITE_CRM` "1" emas -> LMS menyusidagi CRM
+  //     tugmasi bundle'ga kirmaydi (yashirilmaydi, MAVJUD BO'LMAYDI)
+  const env = loadEnv(mode, yol('.').replace('file://', ''), '')
+  const crmYoqilgan = env.VITE_CRM === '1'
+
+  return {
+  plugins: [react(), ...(crmYoqilgan ? [crmMarshrut()] : [])],
   build: {
     rollupOptions: {
       input: {
         lms: yol('./index.html'),
-        crm: yol('./crm.html'),
+        ...(crmYoqilgan ? { crm: yol('./crm.html') } : {}),
       },
     },
   },
@@ -72,4 +83,5 @@ export default defineConfig({
   preview: {
     allowedHosts: true,
   },
+  }
 })

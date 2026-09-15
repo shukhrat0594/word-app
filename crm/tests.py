@@ -18,7 +18,7 @@ from unittest import mock
 
 from django.conf import settings
 from django.db.models import Sum
-from django.test import TestCase
+from django.test import TestCase, override_settings
 
 from academics.models import Guruh, GuruhAzoligi
 from accounts.models import Markaz, User
@@ -49,6 +49,11 @@ def bugun_qilib(sana):
     return mock.patch("crm.mantiq.timezone.localdate", return_value=sana)
 
 
+# CRM bayrog'i testlarda MAJBURAN yoqiladi: `settings.CRM_YOQILGAN`
+# standart qiymati `DEBUG`ga bog'langan, test ishga tushganda esa
+# `DEBUG=False` — ya'ni bayroqsiz barcha API testlari 404 olardi.
+# Bayroqning O'ZI alohida sinaladi (`BayroqTest`).
+@override_settings(CRM_YOQILGAN=True)
 class CrmAsos(TestCase):
     """Umumiy sozlama: bitta guruh, bitta talaba, payshanba/juma/shanba."""
 

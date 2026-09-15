@@ -520,6 +520,24 @@ export default function Layout() {
           return <NavBandi key={n.yol} n={n} />;
         })}
         <div style={{ flex: 1 }} />
+        {/* CRM / Moliya (2026-09-15) — ALOHIDA ilova (frontend/src-crm).
+            `NavLink` EMAS, oddiy <a>: boshqa bundle, to'liq sahifa
+            yuklanishi kerak.
+
+            `import.meta.env.VITE_CRM` build PAYTIDA almashtiriladi,
+            shuning uchun prod build'da bu blok bundle'ga UMUMAN
+            kirmaydi (CSS bilan yashirilmaydi — mavjud bo'lmaydi).
+            Bayroq `frontend/.env.development` da, prodda esa yo'q.
+
+            CRM butunlay olib tashlansa — shu blokni va i18n'dagi
+            `nav_crm` satrini o'chirish yetarli. */}
+        {import.meta.env.VITE_CRM === "1" &&
+          (profil?.is_owner || profil?.role === "admin") && (
+            <a className="nav-tugma" href="/crm">
+              <span className="nav-ikon">💰</span>
+              {t("nav_crm")}
+            </a>
+          )}
         <button className="nav-tugma" onClick={chiqish}>
           <span className="nav-ikon">⇥</span>
           {t("nav_chiqish")}
