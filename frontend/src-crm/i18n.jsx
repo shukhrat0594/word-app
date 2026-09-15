@@ -192,6 +192,8 @@ const SATRLAR = {
 
     tolov_ochirish_tasdiq: "Bu pul yozuvini o'chirasizmi? Chegirma bo'lsa qarz tiklanadi.",
 
+    oqituvchi: "O'qituvchi",
+
     sahifa_topilmadi: "Sahifa topilmadi",
   },
 
@@ -372,6 +374,8 @@ const SATRLAR = {
 
     tolov_ochirish_tasdiq: "Удалить эту денежную запись? Если это скидка, долг восстановится.",
 
+    oqituvchi: "Преподаватель",
+
     sahifa_topilmadi: "Страница не найдена",
   },
 
@@ -551,6 +555,8 @@ const SATRLAR = {
     keyingi_tolov_sanasi: "Next payment",
 
     tolov_ochirish_tasdiq: "Delete this money record? If it is a discount, the debt comes back.",
+
+    oqituvchi: "Teacher",
 
     sahifa_topilmadi: "Page not found",
   },

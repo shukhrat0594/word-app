@@ -281,6 +281,9 @@ export default function Guruhlar() {
             <tr>
               <th>{t("guruh")}</th>
               <th>{t("daraja")}</th>
+              {/* O'qituvchi — SAYT ma'lumoti (`academics.Guruh.oqituvchi`).
+                  CRM uni faqat ko'rsatadi, tahrirlamaydi. */}
+              <th>{t("oqituvchi")}</th>
               <th>{t("filial")}</th>
               <th className="ongga">{t("talabalar_soni")}</th>
               <th className="ongga">{t("narx")}</th>
@@ -300,6 +303,7 @@ export default function Guruhlar() {
                     </button>
                   </td>
                   <td>{g.daraja?.nomi || "—"}</td>
+                  <td>{g.oqituvchi || "—"}</td>
                   <td>{g.filial?.nomi || "—"}</td>
                   <td className="ongga">{g.talaba_soni}</td>
                   <td className="ongga">
@@ -319,7 +323,7 @@ export default function Guruhlar() {
                 </tr>
                 {ochilgan === g.id && (
                   <tr>
-                    <td colSpan={8} className="ichki">
+                    <td colSpan={9} className="ichki">
                       <GuruhTablari
                         guruhId={g.id}
                         Azolar={() => <Azolar guruhId={g.id} onOzgardi={yangila} />}
@@ -330,7 +334,7 @@ export default function Guruhlar() {
               </Fragment>
             ))}
             {!yuklanmoqda && guruhlar.length === 0 && (
-              <tr><td colSpan={8} className="bosh">{t("yozuv_yoq")}</td></tr>
+              <tr><td colSpan={9} className="bosh">{t("yozuv_yoq")}</td></tr>
             )}
           </tbody>
         </table>

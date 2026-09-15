@@ -119,6 +119,30 @@ def _xona_dict(x):
     }
 
 
+def _tirik_talaba(yozuv):
+    """Talaba ismi — LMS'dagi HOZIRGI qiymat.
+
+    2026-09-16, Shuhrat topdi: `Hisob`/`Tolov` da `talaba_ism` snapshot
+    saqlanadi (talaba LMS'da o'chirilsa yozuv o'qiladigan bo'lib
+    qolishi uchun). Lekin ro'yxatlarda AYNAN SHU snapshot
+    ko'rsatilardi — ya'ni admin LMS'da ismni tuzatsa, CRM eskisini
+    ko'rsatib turardi va ikki joyda ikki xil ism chiqardi.
+
+    Endi: FK tirik bo'lsa LMS'dan olinadi, snapshot FAQAT zaxira —
+    talaba o'chirilgan holat uchun.
+    """
+    if yozuv.talaba_id and yozuv.talaba:
+        return yozuv.talaba.get_full_name() or yozuv.talaba.username
+    return yozuv.talaba_ism
+
+
+def _tirik_guruh(yozuv):
+    """Guruh nomi — LMS'dagi HOZIRGI qiymat (`_tirik_talaba` bilan bir xil sabab)."""
+    if yozuv.guruh_id and yozuv.guruh:
+        return yozuv.guruh.name
+    return yozuv.guruh_nomi
+
+
 def _yaxlit(qiymat, xona=1):
     """Band ballari 6.333333 emas, 6.3 bo'lib ko'rinsin."""
     return round(qiymat, xona) if qiymat is not None else None
@@ -198,9 +222,9 @@ def _hisob_dict(h, tolangan=None, balans=None):
     return {
         "id": h.id,
         "talaba_id": h.talaba_id,
-        "talaba": h.talaba_ism,
+        "talaba": _tirik_talaba(h),
         "guruh_id": h.guruh_id,
-        "guruh": h.guruh_nomi,
+        "guruh": _tirik_guruh(h),
         "filial": h.filial.nomi if h.filial_id else None,
         "oy": h.oy,
         "summa": h.summa,
@@ -219,9 +243,9 @@ def _tolov_dict(t):
     return {
         "id": t.id,
         "talaba_id": t.talaba_id,
-        "talaba": t.talaba_ism,
+        "talaba": _tirik_talaba(t),
         "guruh_id": t.guruh_id,
-        "guruh": t.guruh_nomi,
+        "guruh": _tirik_guruh(t),
         "hisob_id": t.hisob_id,
         "oy": t.hisob.oy if t.hisob_id else None,
         "sana": t.sana,
@@ -939,7 +963,7 @@ class AzolikView(CrmView):
 class HisoblarView(CrmView):
     def get(self, request):
         qs = _tolangan_bilan(
-            Hisob.objects.select_related("filial").all()
+            Hisob.objects.select_related("filial", "talaba", "guruh").all()
         )
 
         oy = request.query_params.get("oy")
@@ -956,7 +980,18 @@ class HisoblarView(CrmView):
             qs = qs.filter(holat=request.query_params["holat"])
         qidiruv = (request.query_params.get("q") or "").strip()
         if qidiruv:
-            qs = qs.filter(Q(talaba_ism__icontains=qidiruv) | Q(guruh_nomi__icontains=qidiruv))
+            # Qidiruv AVVALO LMS'dagi tirik maydonlar bo'yicha: admin
+            # ismni saytda tuzatsa, CRM'da ham yangi nom bilan topilishi
+            # kerak. Snapshot (`talaba_ism`) ham qo'shiladi — o'chirilgan
+            # talabaning yozuvi faqat shu orqali topiladi.
+            qs = qs.filter(
+                Q(talaba__first_name__icontains=qidiruv)
+                | Q(talaba__last_name__icontains=qidiruv)
+                | Q(talaba__username__icontains=qidiruv)
+                | Q(guruh__name__icontains=qidiruv)
+                | Q(talaba_ism__icontains=qidiruv)
+                | Q(guruh_nomi__icontains=qidiruv)
+            )
 
         hisoblar = list(qs[:1000])
         balanslar = mantiq.balanslarni_ol({h.talaba_id for h in hisoblar if h.talaba_id})
@@ -1060,7 +1095,7 @@ class TolovlarView(CrmView):
         `hisoblar=1` bo'lsa — hisob-fakturalar ham qo'shiladi
         (SoffCRM'dagidek bitta ro'yxatda), admin ko'nikkan ko'rinish.
         """
-        qs = Tolov.objects.select_related("hisob", "kim_kiritdi").all()
+        qs = Tolov.objects.select_related("hisob", "kim_kiritdi", "talaba", "guruh").all()
         try:
             dan = _sana(request.query_params.get("dan"), "dan", majburiy=False)
             gacha = _sana(request.query_params.get("gacha"), "gacha", majburiy=False)
@@ -1080,7 +1115,7 @@ class TolovlarView(CrmView):
         qatorlar = [_tolov_dict(t) for t in qs[:2000]]
 
         if request.query_params.get("hisoblar") == "1":
-            hisoblar = Hisob.objects.all()
+            hisoblar = Hisob.objects.select_related("talaba", "guruh").all()
             if dan:
                 hisoblar = hisoblar.filter(oy__gte=mantiq.oy_boshi(dan))
             if gacha:
@@ -1093,9 +1128,9 @@ class TolovlarView(CrmView):
                 {
                     "id": f"h{h.id}",
                     "talaba_id": h.talaba_id,
-                    "talaba": h.talaba_ism,
+                    "talaba": _tirik_talaba(h),
                     "guruh_id": h.guruh_id,
-                    "guruh": h.guruh_nomi,
+                    "guruh": _tirik_guruh(h),
                     "hisob_id": h.id,
                     "oy": h.oy,
                     "sana": h.oy,
@@ -1335,9 +1370,15 @@ class TalabaView(CrmView):
     def get(self, request, pk):
         talaba = get_object_or_404(User, pk=pk)
         hisoblar = list(
-            _tolangan_bilan(Hisob.objects.filter(talaba=talaba).select_related("filial"))
+            _tolangan_bilan(
+                Hisob.objects.filter(talaba=talaba).select_related(
+                    "filial", "talaba", "guruh"
+                )
+            )
         )
-        tolovlar = Tolov.objects.filter(talaba=talaba).select_related("hisob", "kim_kiritdi")
+        tolovlar = Tolov.objects.filter(talaba=talaba).select_related(
+            "hisob", "kim_kiritdi", "talaba", "guruh"
+        )
 
         azoliklar = (
             AzolikMoliya.objects.filter(azolik__talaba=talaba)
@@ -1520,8 +1561,8 @@ class EksportView(CrmView):
                 return _xato(str(e))
         filial_id = request.query_params.get("filial")
 
-        hisoblar_qs = _tolangan_bilan(Hisob.objects.select_related("filial").all())
-        tolovlar_qs = Tolov.objects.select_related("hisob", "kim_kiritdi").all()
+        hisoblar_qs = _tolangan_bilan(Hisob.objects.select_related("filial", "talaba", "guruh").all())
+        tolovlar_qs = Tolov.objects.select_related("hisob", "kim_kiritdi", "talaba", "guruh").all()
         if oy:
             hisoblar_qs = hisoblar_qs.filter(oy=oy)
             tolovlar_qs = tolovlar_qs.filter(hisob__oy=oy)

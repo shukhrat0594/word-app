@@ -799,3 +799,56 @@ class TalabaNatijalariTest(ApiAsos):
         self.assertIsNone(natijalar["writing_band"])
         self.assertIsNone(natijalar["davomat_foizi"])
         self.assertEqual(natijalar["mashq_soni"], 0)
+
+
+class TirikNomTest(ApiAsos):
+    """Nom SNAPSHOT'dan emas, LMS'dan olinishi kerak.
+
+    2026-09-16, Shuhrat topdi: "ma'lumotlarni asosiy saytdan olmayabdi".
+    `Hisob`/`Tolov` da `talaba_ism` snapshot saqlanadi (talaba
+    o'chirilsa yozuv o'qiladigan bo'lib qolishi uchun), lekin
+    ro'yxatlarda AYNAN SHU snapshot ko'rsatilardi — admin saytda ismni
+    tuzatsa, CRM eskisini ko'rsatib turardi.
+    """
+
+    def setUp(self):
+        super().setUp()
+        self.talaba.first_name = "Aziz"
+        self.talaba.last_name = "Qodirov"
+        self.talaba.save()
+        self.azolik_qosh(boshlanish=date(2026, 9, 1))
+        with bugun_qilib(date(2026, 9, 30)):
+            mantiq.hisoblarni_generatsiya_qil()
+
+    def test_lmsda_ism_ozgarsa_crm_yangisini_korsatadi(self):
+        mijoz = self.mijoz(self.admin)
+        with bugun_qilib(date(2026, 9, 30)):
+            self.assertEqual(mijoz.get("/api/crm/hisoblar/").data[0]["talaba"], "Aziz Qodirov")
+
+        User.objects.filter(pk=self.talaba.pk).update(last_name="Yangi")
+        with bugun_qilib(date(2026, 9, 30)):
+            javob = mijoz.get("/api/crm/hisoblar/")
+
+        self.assertEqual(javob.data[0]["talaba"], "Aziz Yangi")
+        # Snapshot ataylab ESKILIGICHA qoladi — u o'chirilgan talaba uchun
+        self.assertEqual(Hisob.objects.get().talaba_ism, "Aziz Qodirov")
+
+    def test_lmsda_guruh_nomi_ozgarsa_crm_yangisini_korsatadi(self):
+        Guruh.objects.filter(pk=self.guruh.pk).update(name="Yangi guruh nomi")
+        with bugun_qilib(date(2026, 9, 30)):
+            javob = self.mijoz(self.admin).get("/api/crm/hisoblar/")
+        self.assertEqual(javob.data[0]["guruh"], "Yangi guruh nomi")
+
+    def test_qidiruv_yangi_ism_boyicha_ishlaydi(self):
+        User.objects.filter(pk=self.talaba.pk).update(last_name="Yangi")
+        with bugun_qilib(date(2026, 9, 30)):
+            javob = self.mijoz(self.admin).get("/api/crm/hisoblar/?q=Yangi")
+        self.assertEqual(len(javob.data), 1)
+
+    def test_talaba_ochirilsa_snapshot_ishlatiladi(self):
+        """FK NULL bo'lgach yagona manba — snapshot."""
+        self.talaba.delete()
+        with bugun_qilib(date(2026, 9, 30)):
+            javob = self.mijoz(self.admin).get("/api/crm/hisoblar/")
+        self.assertEqual(javob.data[0]["talaba"], "Aziz Qodirov")
+        self.assertIsNone(javob.data[0]["talaba_id"])
