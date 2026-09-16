@@ -1,5 +1,6 @@
 from django.contrib.auth import get_user_model
-from django.db.models import Sum
+from django.db.models import Sum, Value
+from django.db.models.functions import Coalesce
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -13,7 +14,12 @@ def _leaderboard(talabalar_qs, joriy_user, top=10):
     """Berilgan talabalar to'plami uchun XP reytingi + joriy foydalanuvchi o'rni."""
     reyting = list(
         talabalar_qs.filter(role="student")
-        .annotate(xp=Sum("xp_yozuvlar__miqdor"))
+        # Coalesce SHART: XP yozuvi yo'q talabada Sum() NULL qaytaradi,
+        # PostgreSQL'da esa `DESC` tartibida NULL BIRINCHI turadi — ya'ni
+        # prodda 0 XP'lilar reyting tepasiga chiqib ketardi (2026-09-16
+        # da topildi). SQLite'da NULL oxirida, shuning uchun lokalda
+        # ko'rinmasdi.
+        .annotate(xp=Coalesce(Sum("xp_yozuvlar__miqdor"), Value(0)))
         .order_by("-xp", "id")
         .values("id", "username", "first_name", "last_name", "xp", "rasm")
     )
