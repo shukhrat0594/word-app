@@ -62,3 +62,14 @@ export function oyNomi(oy, til = "uz") {
   const nomlar = OY_NOMLARI[til] || OY_NOMLARI.uz;
   return `${nomlar[o - 1]} ${y}`;
 }
+
+/** ISO vaqt -> "16.09.2026 14:05" (SoffCRM'dagi "Yaratilgan vaqt" ustuni) */
+export function vaqt(qiymat) {
+  if (!qiymat) return "—";
+  const d = new Date(qiymat);
+  if (Number.isNaN(d.getTime())) return "—";
+  // Mahalliy vaqt — `toISOString` UTC berib, yarim tundan keyingi
+  // yozuvni oldingi kunga surib yuborardi.
+  const ik = (n) => String(n).padStart(2, "0");
+  return `${ik(d.getDate())}.${ik(d.getMonth() + 1)}.${d.getFullYear()} ${ik(d.getHours())}:${ik(d.getMinutes())}`;
+}

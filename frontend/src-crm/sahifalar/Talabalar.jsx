@@ -5,14 +5,17 @@ import { useState } from "react";
 import Eslatmalar from "../Eslatmalar.jsx";
 import { useFilial } from "../filialContext.jsx";
 import { useProfil } from "../profilContext.jsx";
-import { balansMatn, balansSinfi, pul, sana } from "../format.js";
-import { api } from "../api.js";
+import { balansMatn, balansSinfi, pul, sana, vaqt } from "../format.js";
+import { api, apiFayluniYuklab } from "../api.js";
 import { useI18n } from "../i18n.jsx";
 import { sorovSatri, useSorov } from "../soragich.js";
 import QaytarishOynasi from "../QaytarishOynasi.jsx";
 import TolovOynasi from "../TolovOynasi.jsx";
 
-const HAFTA = ["Du", "Se", "Chor", "Pay", "Ju", "Sha", "Yak"];
+const KUN_KALITLARI = [
+  "kun_dushanba", "kun_seshanba", "kun_chorshanba",
+  "kun_payshanba", "kun_juma", "kun_shanba", "kun_yakshanba",
+];
 
 // ── Darslar taqvimi ─────────────────────────────────────────────────
 
@@ -68,6 +71,60 @@ function foizSinfi(foiz) {
   return "rang-qarzdor";
 }
 
+// ── To'lovni tahrirlash oynasi (SoffCRM'dagi qalam) ────────────────
+
+function TolovTahrirOynasi({ tolov, onYopish, onSaqlandi }) {
+  const { t } = useI18n();
+  const [summa, setSumma] = useState(String(Number(tolov.summa)));
+  const [sanaQ, setSanaQ] = useState(String(tolov.sana).slice(0, 10));
+  const [izoh, setIzoh] = useState(tolov.izoh || "");
+  const [xato, setXato] = useState("");
+  const [band, setBand] = useState(false);
+
+  async function saqla() {
+    setXato("");
+    setBand(true);
+    try {
+      await api(`/api/crm/tolov/${tolov.id}/`, {
+        method: "PATCH",
+        body: { summa, sana: sanaQ, izoh },
+      });
+      onSaqlandi();
+      onYopish();
+    } catch (e) {
+      setXato(e.message || "Xato");
+    } finally {
+      setBand(false);
+    }
+  }
+
+  return (
+    <div className="oyna-fon" role="dialog" aria-modal="true">
+      <div className="karta oyna">
+        <h2>{t("tolov_tahrirlash")}</h2>
+        <p className="kichik">{tolov.turi_nomi} · {tolov.guruh} · {tolov.oy ? String(tolov.oy).slice(0, 7) : "—"}</p>
+        <label>
+          {t("summa")}
+          <input type="number" min="0" step="1000" value={summa} onChange={(e) => setSumma(e.target.value)} />
+        </label>
+        <label>
+          {t("sana")}
+          <input type="date" value={sanaQ} onChange={(e) => setSanaQ(e.target.value)} />
+        </label>
+        <label>
+          {t("izoh")}
+          <input type="text" value={izoh} onChange={(e) => setIzoh(e.target.value)} />
+        </label>
+        {xato && <div className="xato">{xato}</div>}
+        <div className="oyna-tugmalar">
+          <button className="tugma tugma-sokin" type="button" onClick={onYopish}>{t("bekor")}</button>
+          <button className="tugma" type="button" onClick={saqla} disabled={band}>{t("saqlash")}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Talaba kartasi ──────────────────────────────────────────────────
 
 function Karta({ talabaId, onOrqaga }) {
@@ -76,11 +133,27 @@ function Karta({ talabaId, onOrqaga }) {
   const { malumot, yuklanmoqda, xato, yangila } = useSorov(`/api/crm/talaba/${talabaId}/`);
   const [tolovHisobi, setTolovHisobi] = useState(null);
   const [qaytarishGuruhi, setQaytarishGuruhi] = useState(null);
+  const [tahrirTolovi, setTahrirTolovi] = useState(null);
+
+  // To'lov tarixi — SoffCRM'dagidek BITTA ro'yxat: to'lovlar va
+  // hisob-fakturalar ("Qarzdorlik") birga, guruh va sana filtri bilan.
+  const [tarixGuruh, setTarixGuruh] = useState("");
+  const [tarixSana, setTarixSana] = useState("");
+  const tarix = useSorov(
+    "/api/crm/tolov/" +
+      sorovSatri({ talaba: talabaId, hisoblar: 1, guruh: tarixGuruh, dan: tarixSana, gacha: tarixSana })
+  );
+  const tarixQatorlari = tarix.malumot || [];
+
+  function yangilaHammasi() {
+    yangila();
+    tarix.yangila();
+  }
 
   async function tolovniOchir(id) {
     if (!window.confirm(t("tolov_ochirish_tasdiq"))) return;
     await api(`/api/crm/tolov/${id}/`, { method: "DELETE" });
-    yangila();
+    yangilaHammasi();
   }
 
   if (yuklanmoqda) return <p className="kichik">{t("yuklanmoqda")}</p>;
@@ -136,24 +209,54 @@ function Karta({ talabaId, onOrqaga }) {
         </div>
       </div>
 
-      {talaba.guruhlar.map((g) => (
+      {talaba.guruhlar.map((g) => {
+        // Dars vaqti — barcha kunlarda bir xil bo'lsa bitta, bo'lmasa ro'yxat.
+        const vaqtlar = [...new Set(g.jadval.map((j) => `${j.boshlanish_vaqti}-${j.tugash_vaqti}`))];
+        return (
         <div className="karta" key={g.id}>
+          {/* SoffCRM guruh kartasi: balans + holat tepada, keyin
+              o'qituvchi, dars vaqti, kunlar, sanalar, keyingi to'lov/narx. */}
           <div className="karta-sarlavha">
             <div>
               <h2>{g.guruh}</h2>
-              <p className="kichik">
-                {g.jadval.map((j) => `${HAFTA[j.hafta_kuni]} ${j.boshlanish_vaqti}`).join(", ") || "—"}
-                {" · "}{t(`holat_${g.holat}`)}
-                {" · "}{g.narx ? pul(g.narx) : "—"}
-              </p>
+              {g.oqituvchi && <p className="kichik">🎓 {g.oqituvchi}</p>}
             </div>
             <div className="ongga">
               <b className={balansSinfi(g.balans)}>{balansMatn(g.balans)}</b>
-              {g.keyingi_tolov && (
-                <div className="kichik">
-                  {t("keyingi_tolov_sanasi")}: <b>{sana(g.keyingi_tolov)}</b>
-                </div>
-              )}
+              <div><span className={`holat holat-${g.holat === "faol" ? "tolandi" : "kutilayotgan"}`}>{t(`holat_${g.holat}`)}</span></div>
+            </div>
+          </div>
+
+          <div className="guruh-blok-maydonlar">
+            <div>
+              <span className="kichik">{t("dars_vaqti")}</span>
+              {vaqtlar.length ? vaqtlar.join(", ") : "—"}
+            </div>
+            <div>
+              <span className="kichik">{t("dars_kunlari")}</span>
+              <div className="kun-chiplar">
+                {g.jadval.length
+                  ? [...new Set(g.jadval.map((j) => j.hafta_kuni))].map((k) => (
+                      <span key={k} className="kun-chip">{t(KUN_KALITLARI[k])}</span>
+                    ))
+                  : "—"}
+              </div>
+            </div>
+            <div>
+              <span className="kichik">{t("boshlangan_sana")}</span>
+              <span className="rang-tolandi">📅</span> {sana(g.boshlanish_sana)}
+            </div>
+            <div>
+              <span className="kichik">{t("ochiriladigan_sana")}</span>
+              <span className="rang-qarzdor">📅</span> {sana(g.tugash_sana)}
+            </div>
+            <div>
+              <span className="kichik">{t("keyingi_tolov_sanasi")}</span>
+              🕒 {sana(g.keyingi_tolov)}
+            </div>
+            <div>
+              <span className="kichik">{t("tolov_narxi")}</span>
+              <b className="rang-tolandi">{g.narx ? `${pul(g.narx)} so'm` : "—"}</b>
             </div>
           </div>
 
@@ -167,19 +270,45 @@ function Karta({ talabaId, onOrqaga }) {
             </button>
           </div>
         </div>
-      ))}
+        );
+      })}
 
       <div className="karta">
         <h2>{t("tab_eslatmalar")}</h2>
         <Eslatmalar talabaId={talaba.id} profilId={profil?.id} />
       </div>
 
+      {/* To'lov tarixi — SoffCRM'dagidek BITTA jadval: to'lovlar va
+          hisob-fakturalar ("Qarzdorlik") birga, ID / yaratilgan vaqt /
+          amallar ustunlari, Excel, guruh va sana filtri bilan.
+          Qarzdorlik qatorida "To'lov qilish", to'lov qatorida
+          tahrirlash/o'chirish (faqat owner — backend ham tekshiradi). */}
       <div className="karta">
-        <h2>{t("tolov_tarixi")}</h2>
+        <div className="karta-sarlavha">
+          <h2>{t("tolov_tarixi")}</h2>
+          <div className="filtrlar">
+            <button className="tugma tugma-sokin kichik-tugma" type="button"
+                    onClick={() => apiFayluniYuklab("/api/crm/eksport/" + sorovSatri({ talaba: talaba.id }))}>
+              ⬇ Excel
+            </button>
+            <select value={tarixGuruh} onChange={(e) => setTarixGuruh(e.target.value)}>
+              <option value="">{t("barcha_guruhlar")}</option>
+              {talaba.guruhlar.map((g) => (
+                <option key={g.guruh_id} value={g.guruh_id}>{g.guruh}</option>
+              ))}
+            </select>
+            <label className="yonma">
+              {t("tolov_sanasi")}
+              <input type="date" value={tarixSana} onChange={(e) => setTarixSana(e.target.value)} />
+            </label>
+          </div>
+        </div>
+        {tarix.xato && <div className="xato">{tarix.xato}</div>}
         <div className="jadval-oram">
           <table>
             <thead>
               <tr>
+                <th>ID</th>
                 <th>{t("sana")}</th>
                 <th>{t("qaysi_oy")}</th>
                 <th>{t("turi")}</th>
@@ -187,78 +316,52 @@ function Karta({ talabaId, onOrqaga }) {
                 <th>{t("guruh")}</th>
                 <th>{t("izoh")}</th>
                 <th>{t("kim")}</th>
-                <th />
+                <th>{t("yaratilgan_vaqt")}</th>
+                <th>{t("amallar")}</th>
               </tr>
             </thead>
             <tbody>
-              {talaba.tolovlar.map((x) => (
-                <tr key={x.id}>
-                  <td>{sana(x.sana)}</td>
-                  <td>{x.oy ? String(x.oy).slice(0, 7) : "—"}</td>
-                  <td>{x.turi_nomi}</td>
-                  <td className={`ongga ${x.turi === "qaytarish" ? "rang-qarzdor" : ""}`}>
-                    {x.turi === "qaytarish" ? "−" : ""}{pul(x.summa)}
-                  </td>
-                  <td>{x.guruh}</td>
-                  <td>{x.izoh}</td>
-                  <td>{x.kim || "—"}</td>
-                  <td>
-                    {/* Pul yozuvini o'chirish — FAQAT owner (backend ham
-                        shunday tekshiradi). Chegirmani bekor qilish ham
-                        shu yo'l bilan: yozuv o'chgach qarz tiklanadi. */}
-                    {profil?.is_owner && (
-                      <button className="havola" type="button"
-                              onClick={() => tolovniOchir(x.id)}>
-                        {t("ochirish")}
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-              {talaba.tolovlar.length === 0 && (
-                <tr><td colSpan={8} className="bosh">{t("yozuv_yoq")}</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div className="karta">
-        <h2>{t("hisoblangan")}</h2>
-        <div className="jadval-oram">
-          <table>
-            <thead>
-              <tr>
-                <th>{t("qaysi_oy")}</th>
-                <th>{t("guruh")}</th>
-                <th className="ongga">{t("summa")}</th>
-                <th className="ongga">{t("tolangan")}</th>
-                <th className="ongga">{t("qoldiq")}</th>
-                <th>{t("holat")}</th>
-                <th />
-              </tr>
-            </thead>
-            <tbody>
-              {talaba.hisoblar.map((h) => (
-                <tr key={h.id}>
-                  <td>{String(h.oy).slice(0, 7)}</td>
-                  <td>{h.guruh}</td>
-                  <td className="ongga">{pul(h.summa)}</td>
-                  <td className="ongga">{pul(h.tolangan)}</td>
-                  <td className="ongga">{pul(h.qoldiq)}</td>
-                  <td><span className={`holat holat-${h.holat}`}>{t(`holat_${h.holat}`)}</span></td>
-                  <td>
-                    {h.holat !== "tolandi" && (
-                      <button className="tugma kichik-tugma" type="button"
-                              onClick={() => setTolovHisobi({ ...h, talaba: talaba.ism })}>
-                        {t("tolov_qilish")}
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-              {talaba.hisoblar.length === 0 && (
-                <tr><td colSpan={7} className="bosh">{t("yozuv_yoq")}</td></tr>
+              {tarixQatorlari.map((x) => {
+                const hisobQatori = x.turi === "hisob";
+                const hisob = hisobQatori ? talaba.hisoblar.find((h) => h.id === x.hisob_id) : null;
+                return (
+                  <tr key={x.id} className={hisobQatori ? "qator-hisob" : ""}>
+                    <td>{x.id}</td>
+                    <td className="nowrap">{sana(x.sana)}</td>
+                    <td>{x.oy ? String(x.oy).slice(0, 7) : "—"}</td>
+                    <td>
+                      {hisobQatori
+                        ? <span className={`holat holat-${x.holat}`}>{t(`holat_${x.holat}`)}</span>
+                        : <span className={`holat ${x.turi === "tolov" ? "holat-tolandi" : "holat-kutilayotgan"}`}>{x.turi_nomi}</span>}
+                    </td>
+                    <td className={`ongga ${x.turi === "qaytarish" ? "rang-qarzdor" : ""}`}>
+                      {x.turi === "qaytarish" ? "−" : ""}{pul(x.summa)}
+                    </td>
+                    <td>{x.guruh}</td>
+                    <td>{x.izoh || "—"}</td>
+                    <td>{x.kim || "—"}</td>
+                    <td className="nowrap">{vaqt(x.vaqt)}</td>
+                    <td className="amallar">
+                      {hisobQatori && hisob && hisob.holat !== "tolandi" && (
+                        <button className="tugma kichik-tugma" type="button"
+                                onClick={() => setTolovHisobi({ ...hisob, talaba: talaba.ism })}>
+                          {t("tolov_qilish")}
+                        </button>
+                      )}
+                      {!hisobQatori && profil?.is_owner && (
+                        <>
+                          <button className="havola" type="button" title={t("tahrirlash")}
+                                  onClick={() => setTahrirTolovi(x)}>✎</button>
+                          <button className="havola rang-qarzdor" type="button" title={t("ochirish")}
+                                  onClick={() => tolovniOchir(x.id)}>🗑</button>
+                        </>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+              {!tarix.yuklanmoqda && tarixQatorlari.length === 0 && (
+                <tr><td colSpan={10} className="bosh">{t("yozuv_yoq")}</td></tr>
               )}
             </tbody>
           </table>
@@ -270,9 +373,16 @@ function Karta({ talabaId, onOrqaga }) {
           hisob={tolovHisobi}
           onYopish={() => setTolovHisobi(null)}
           onSaqlandi={({ yopmasdan }) => {
-            yangila();
+            yangilaHammasi();
             if (!yopmasdan) setTolovHisobi(null);
           }}
+        />
+      )}
+      {tahrirTolovi && (
+        <TolovTahrirOynasi
+          tolov={tahrirTolovi}
+          onYopish={() => setTahrirTolovi(null)}
+          onSaqlandi={yangilaHammasi}
         />
       )}
       {qaytarishGuruhi && (
@@ -283,7 +393,7 @@ function Karta({ talabaId, onOrqaga }) {
           guruhNomi={qaytarishGuruhi.guruh}
           balans={qaytarishGuruhi.balans}
           onYopish={() => setQaytarishGuruhi(null)}
-          onSaqlandi={yangila}
+          onSaqlandi={yangilaHammasi}
         />
       )}
     </section>

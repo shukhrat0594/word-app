@@ -1137,6 +1137,9 @@ class TolovlarView(CrmView):
                     "summa": h.summa,
                     "turi": "hisob",
                     "turi_nomi": "Qarzdorlik",
+                    # Holat — talaba kartasidagi birlashgan ro'yxatda
+                    # "To'lov qilish" tugmasi faqat to'lanmagan oyga chiqishi uchun.
+                    "holat": h.holat,
                     "izoh": "Qo'lda kiritilgan" if h.qolda else "",
                     "kim": None,
                     "vaqt": h.created_at,
@@ -1211,6 +1214,39 @@ class TolovDetailView(CrmView):
     """
 
     permission_classes = CrmView.permission_classes + [FaqatOwner]
+
+    def patch(self, request, pk):
+        """Summa / sana / izohni tuzatish (SoffCRM'dagi qalam). Turi va
+        talaba O'ZGARMAYDI — ular o'zgarsa bu boshqa yozuv, eskisini
+        o'chirib yangisini kiritish kerak."""
+        tolov = get_object_or_404(Tolov, pk=pk)
+        eski = {"summa": str(tolov.summa), "sana": str(tolov.sana), "izoh": tolov.izoh}
+        try:
+            if "summa" in request.data:
+                summa = _son(request.data.get("summa"), "summa")
+                if summa <= 0:
+                    return _xato("summa: musbat bo'lsin")
+                tolov.summa = summa
+            if "sana" in request.data:
+                tolov.sana = _sana(request.data.get("sana"), "sana")
+        except ValueError as e:
+            return _xato(str(e))
+        if "izoh" in request.data:
+            tolov.izoh = (request.data.get("izoh") or "").strip()[:300]
+        tolov.save(update_fields=["summa", "sana", "izoh"])
+        if tolov.hisob_id:
+            mantiq.hisobni_yangila(tolov.hisob)
+
+        logla(
+            foydalanuvchi=request.user,
+            harakat=FaoliyatYozuvi.Harakat.OZGARTIRISH,
+            obyekt=tolov.hisob or request.user,
+            obyekt_turi="CRM To'lov",
+            obyekt_nomi=f"{tolov.talaba_ism} — {tolov.turi} {tolov.summa}",
+            eski_qiymatlar=eski,
+            yangi_qiymatlar={"summa": str(tolov.summa), "sana": str(tolov.sana), "izoh": tolov.izoh},
+        )
+        return Response(_tolov_dict(tolov))
 
     def delete(self, request, pk):
         tolov = get_object_or_404(Tolov, pk=pk)
@@ -1392,6 +1428,10 @@ class TalabaView(CrmView):
             guruhlar.append(
                 {
                     **_azolik_dict(am, balans=mantiq.balans(talaba, guruh=guruh)),
+                    # O'qituvchi — SoffCRM'dagi guruh kartasida ko'rsatiladi,
+                    # sayt ma'lumoti, CRM faqat o'qiydi.
+                    "oqituvchi": (guruh.oqituvchi.get_full_name() or guruh.oqituvchi.username)
+                    if guruh.oqituvchi_id else None,
                     "jadval": [_jadval_dict(j) for j in guruh.crm_jadval.all()],
                     "darslar_taqvimi": _darslar_taqvimi(am, hisoblar),
                     "keyingi_tolov": mantiq.keyingi_tolov_sanasi(talaba, guruh),
@@ -1571,6 +1611,10 @@ class EksportView(CrmView):
             tolovlar_qs = tolovlar_qs.filter(hisob__filial_id=filial_id)
         if request.query_params.get("holat"):
             hisoblar_qs = hisoblar_qs.filter(holat=request.query_params["holat"])
+        # Talaba kartasidagi "Excel" — faqat shu talabaning yozuvlari.
+        if request.query_params.get("talaba"):
+            hisoblar_qs = hisoblar_qs.filter(talaba_id=request.query_params["talaba"])
+            tolovlar_qs = tolovlar_qs.filter(talaba_id=request.query_params["talaba"])
 
         kitob = eksport.qarzdorlar_kitobi(
             hisoblar=[_hisob_dict(h, tolangan=h.tolangan) for h in hisoblar_qs[:5000]],

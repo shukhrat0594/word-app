@@ -128,6 +128,39 @@ class RuxsatTest(ApiAsos):
         )
         self.assertFalse(Tolov.objects.exists())
 
+    def test_tolovni_faqat_owner_tahrirlaydi(self):
+        """SoffCRM'dagi qalam: summa/sana/izoh tuzatiladi, oy holati
+        qayta hisoblanadi. Admin — 403."""
+        hisob = Hisob.objects.create(
+            talaba=self.talaba, talaba_ism="x", guruh=self.guruh, guruh_nomi="y",
+            oy=date(2026, 9, 1), summa=NARX,
+        )
+        tolov = Tolov.objects.create(
+            talaba=self.talaba, talaba_ism="x", guruh=self.guruh, guruh_nomi="y",
+            hisob=hisob, sana=date(2026, 9, 5), summa=NARX, turi=Tolov.Turi.TOLOV,
+        )
+        mantiq.hisobni_yangila(hisob)
+        self.assertEqual(hisob.holat, Hisob.Holat.TOLANDI)
+
+        self.assertEqual(
+            self.mijoz(self.admin).patch(
+                f"/api/crm/tolov/{tolov.id}/", {"summa": "100000"}, format="json"
+            ).status_code, 403,
+        )
+        javob = self.mijoz(self.owner).patch(
+            f"/api/crm/tolov/{tolov.id}/",
+            {"summa": "100000", "sana": "2026-09-07", "izoh": "tuzatildi"},
+            format="json",
+        )
+        self.assertEqual(javob.status_code, 200, javob.content)
+        tolov.refresh_from_db()
+        hisob.refresh_from_db()
+        self.assertEqual(tolov.summa, Decimal("100000"))
+        self.assertEqual(tolov.sana, date(2026, 9, 7))
+        self.assertEqual(tolov.izoh, "tuzatildi")
+        # Summa kamaygach oy qayta "qisman" bo'ladi — holat yagona joyda hisoblanadi.
+        self.assertEqual(hisob.holat, Hisob.Holat.QISMAN)
+
 
 class OqimTest(ApiAsos):
     def test_get_sorovi_hisobni_generatsiya_qiladi(self):

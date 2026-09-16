@@ -674,3 +674,33 @@ tfoot td {
   border-radius: 3px;
   margin-inline-end: 4px;
 }
+
+/* "Vaqt oralig'i" tanlovi — kun tablarining o'ng chekkasida (SoffCRM). */
+.setka-qadam {
+  margin-inline-start: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  white-space: nowrap;
+}
+.setka-qadam select { width: auto; }
+
+/* Talaba kartasidagi guruh bloki — SoffCRM ko'rinishi: ikki ustunli
+   sana/to'lov maydonlari va dars kunlari chiplari. */
+.guruh-blok-maydonlar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 10px 18px;
+  margin: 10px 0 14px;
+}
+.guruh-blok-maydonlar .kichik { display: block; }
+.kun-chiplar { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+.kun-chip {
+  background: var(--fon);
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 12px;
+}
+
+.nowrap { white-space: nowrap; }

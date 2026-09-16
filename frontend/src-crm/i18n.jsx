@@ -196,6 +196,20 @@ const SATRLAR = {
 
     bonus_berish: "Bonus qilish",
 
+    vaqt_oraligi: "Vaqt oralig'i",
+    daqiqa: "daqiqa",
+    kurs_davomiyligi: "Kurs davomiyligi",
+    arxivdagilarni_korish: "Arxivdagi o'quvchilarni ko'rish",
+    arxivdagilarni_yashirish: "Arxivdagilarni yashirish",
+    dars_vaqti: "Dars vaqti",
+    boshlangan_sana: "Boshlangan sana",
+    ochiriladigan_sana: "O'chiriladigan sana",
+    tolov_narxi: "To'lov narxi",
+    yaratilgan_vaqt: "Yaratilgan vaqt",
+    amallar: "Amallar",
+    tolov_sanasi: "To'lov sanasi",
+    barcha_guruhlar: "Barcha guruhlar",
+    tolov_tahrirlash: "To'lovni tahrirlash",
     sahifa_topilmadi: "Sahifa topilmadi",
   },
 
@@ -380,6 +394,20 @@ const SATRLAR = {
 
     bonus_berish: "Оформить бонусом",
 
+    vaqt_oraligi: "Интервал",
+    daqiqa: "минут",
+    kurs_davomiyligi: "Длительность курса",
+    arxivdagilarni_korish: "Показать архивных учеников",
+    arxivdagilarni_yashirish: "Скрыть архивных",
+    dars_vaqti: "Время урока",
+    boshlangan_sana: "Дата начала",
+    ochiriladigan_sana: "Дата исключения",
+    tolov_narxi: "Стоимость",
+    yaratilgan_vaqt: "Создано",
+    amallar: "Действия",
+    tolov_sanasi: "Дата платежа",
+    barcha_guruhlar: "Все группы",
+    tolov_tahrirlash: "Изменить платёж",
     sahifa_topilmadi: "Страница не найдена",
   },
 
@@ -564,6 +592,20 @@ const SATRLAR = {
 
     bonus_berish: "Mark as bonus",
 
+    vaqt_oraligi: "Interval",
+    daqiqa: "min",
+    kurs_davomiyligi: "Course duration",
+    arxivdagilarni_korish: "Show archived students",
+    arxivdagilarni_yashirish: "Hide archived",
+    dars_vaqti: "Lesson time",
+    boshlangan_sana: "Start date",
+    ochiriladigan_sana: "Removal date",
+    tolov_narxi: "Price",
+    yaratilgan_vaqt: "Created",
+    amallar: "Actions",
+    tolov_sanasi: "Payment date",
+    barcha_guruhlar: "All groups",
+    tolov_tahrirlash: "Edit payment",
     sahifa_topilmadi: "Page not found",
   },
 };

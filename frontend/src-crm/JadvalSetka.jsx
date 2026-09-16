@@ -15,8 +15,15 @@ const KUNLAR = [
   "kun_payshanba", "kun_juma", "kun_shanba", "kun_yakshanba",
 ];
 
-// Setka qadami — SoffCRM'da ham 30 daqiqa.
-const QADAM = 30;
+// Setka qadami — SoffCRM'dagi "Vaqt oralig'i" tanlovi, standart 30 daqiqa.
+const QADAMLAR = [15, 30, 60];
+
+// SoffCRM'dagi doimiy ish kuni oralig'i. Darslar bu oraliqdan tashqarida
+// bo'lsa setka KENGAYADI (ertalabki 07:30 darsi tushib qolmasin), lekin
+// dars kam bo'lganda ham to'liq kun ko'rinib turadi — admin bo'sh
+// vaqtni ham ko'rishi kerak (xona qachon bo'sh?).
+const KUN_BOSHI = 8 * 60 + 30;
+const KUN_OXIRI = 20 * 60;
 
 /** "14:30" -> 870 (yarim tundan beri daqiqa) */
 function daqiqa(vaqt) {
@@ -63,14 +70,13 @@ export default function JadvalSetka() {
     [malumot, kun]
   );
 
-  // Vaqt oralig'i HAQIQIY darslardan olinadi: qat'iy 08:00-20:00
-  // qo'ysak, ertalabki 07:30 darsi setkaga umuman tushmay qolardi.
+  const [QADAM, setQadam] = useState(30);
+
   const [boshi, oxiri] = useMemo(() => {
-    if (darslar.length === 0) return [8 * 60, 20 * 60];
-    const b = Math.min(...darslar.map((d) => daqiqa(d.boshlanish_vaqti)));
-    const o = Math.max(...darslar.map((d) => daqiqa(d.tugash_vaqti)));
+    const b = Math.min(KUN_BOSHI, ...darslar.map((d) => daqiqa(d.boshlanish_vaqti)));
+    const o = Math.max(KUN_OXIRI, ...darslar.map((d) => daqiqa(d.tugash_vaqti)));
     return [Math.floor(b / QADAM) * QADAM, Math.ceil(o / QADAM) * QADAM];
-  }, [darslar]);
+  }, [darslar, QADAM]);
 
   const ustunlar = Math.max(1, (oxiri - boshi) / QADAM);
   const vaqtlar = Array.from({ length: ustunlar }, (_, i) => boshi + i * QADAM);
@@ -104,6 +110,14 @@ export default function JadvalSetka() {
             {t(kalit)}
           </button>
         ))}
+        <label className="yonma setka-qadam">
+          <span className="kichik">{t("vaqt_oraligi")}</span>
+          <select value={QADAM} onChange={(e) => setQadam(Number(e.target.value))}>
+            {QADAMLAR.map((q) => (
+              <option key={q} value={q}>{q} {t("daqiqa")}</option>
+            ))}
+          </select>
+        </label>
       </div>
 
       {xato && <div className="xato">{xato}</div>}
@@ -143,6 +157,7 @@ export default function JadvalSetka() {
                 darslar={darslar.filter((d) => (d.xona_id ?? null) === qator.id)}
                 boshi={boshi}
                 ustunlar={ustunlar}
+                qadam={QADAM}
               />
             ))}
           </div>
@@ -152,7 +167,7 @@ export default function JadvalSetka() {
   );
 }
 
-function Qator({ qator, raqam, darslar, boshi, ustunlar }) {
+function Qator({ qator, raqam, darslar, boshi, ustunlar, qadam: QADAM }) {
   return (
     <>
       <div className="setka-xona" style={{ gridRow: raqam, gridColumn: 1 }}>

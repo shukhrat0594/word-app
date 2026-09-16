@@ -190,7 +190,12 @@ function SozlashOynasi({ guruh, filiallar, onYopish, onSaqlandi }) {
 function Azolar({ guruhId, onOzgardi }) {
   const { t } = useI18n();
   const { malumot, yuklanmoqda, yangila } = useSorov(`/api/crm/guruhlar/${guruhId}/azoliklar/`);
-  const azolar = malumot || [];
+  // Arxivdagilar standart bo'yicha YASHIRIN (SoffCRM'dagidek): ular
+  // guruhda o'qimaydi, ro'yxatni to'ldirib admin chalg'itardi.
+  const [arxivKorsat, setArxivKorsat] = useState(false);
+  const hammasi = malumot || [];
+  const arxivSoni = hammasi.filter((a) => a.holat === "arxiv").length;
+  const azolar = arxivKorsat ? hammasi : hammasi.filter((a) => a.holat !== "arxiv");
 
   async function ozgartir(id, maydon, qiymat) {
     await api(`/api/crm/azoliklar/${id}/`, { method: "PATCH", body: { [maydon]: qiymat } });
@@ -246,6 +251,14 @@ function Azolar({ guruhId, onOzgardi }) {
           )}
         </tbody>
       </table>
+      {arxivSoni > 0 && (
+        <p className="ongga">
+          <button className="havola rang-qarzdor" type="button"
+                  onClick={() => setArxivKorsat((x) => !x)}>
+            {arxivKorsat ? t("arxivdagilarni_yashirish") : `${t("arxivdagilarni_korish")} (${arxivSoni})`}
+          </button>
+        </p>
+      )}
     </div>
   );
 }
@@ -288,7 +301,8 @@ export default function Guruhlar() {
               <th className="ongga">{t("talabalar_soni")}</th>
               <th className="ongga">{t("narx")}</th>
               <th>{t("dars_kunlari")}</th>
-              <th>{t("boshlanish_sana")}</th>
+              {/* SoffCRM'dagi "Kurs davomiyligi: 01.12.2025 – 01.01.2027" */}
+              <th>{t("kurs_davomiyligi")}</th>
               <th />
             </tr>
           </thead>
@@ -314,7 +328,11 @@ export default function Guruhlar() {
                       ? g.jadval.map((j) => `${HAFTA[j.hafta_kuni]} ${j.boshlanish_vaqti}${j.xona ? ` · ${j.xona}` : ""}`).join(", ")
                       : <span className="belgi rang-qarzdor">{t("sozlanmagan")}</span>}
                   </td>
-                  <td>{sana(g.boshlanish_sana)}</td>
+                  <td className="nowrap">
+                    {g.boshlanish_sana || g.tugash_sana
+                      ? `${sana(g.boshlanish_sana)} – ${sana(g.tugash_sana)}`
+                      : "—"}
+                  </td>
                   <td>
                     <button className="tugma kichik-tugma" type="button" onClick={() => setSozlanayotgan(g)}>
                       {t("sozlash")}
