@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import { api, mediaManzil, serverdaChiqish, tokenlarniTozala } from "../api";
 import { useI18n } from "../i18n";
@@ -401,6 +401,26 @@ export default function Layout() {
 
   /** Bitta menyu bandi (NavLink) — owner'ning yig'iladigan qolgan
    * qismida ham, oddiy ro'yxatda ham bir xil ishlatiladi. */
+  // CRM / Moliya (2026-09-15) — ALOHIDA ilova (frontend/src-crm).
+  // `NavLink` EMAS, oddiy <a>: boshqa bundle, to'liq sahifa yuklanishi
+  // kerak. Menyuda Bosh sahifadan keyin turadi (2026-09-16).
+  //
+  // `import.meta.env.VITE_CRM` build PAYTIDA almashtiriladi, shuning
+  // uchun prod build'da bu blok bundle'ga UMUMAN kirmaydi (CSS bilan
+  // yashirilmaydi — mavjud bo'lmaydi). Bayroq `frontend/.env.development`
+  // da, prodda esa yo'q.
+  //
+  // CRM butunlay olib tashlansa — shu blokni, `{crmHavola}` joyini va
+  // i18n'dagi `nav_crm` satrini o'chirish yetarli.
+  const crmHavola =
+    import.meta.env.VITE_CRM === "1" &&
+    (profil?.is_owner || profil?.role === "admin") ? (
+      <a className="nav-tugma" href="/crm">
+        <span className="nav-ikon">💰</span>
+        {t("nav_crm")}
+      </a>
+    ) : null;
+
   function NavBandi({ n }) {
     return (
       <NavLink
@@ -517,27 +537,18 @@ export default function Layout() {
           if (profil?.is_owner && i > OWNER_ASOSIY_SONI && !qolganPanellarOchiq) {
             return null;
           }
+          // CRM / Moliya — Bosh sahifadan KEYIN (2026-09-16, Shuhrat).
+          if (i === 0) {
+            return (
+              <Fragment key={n.yol}>
+                <NavBandi n={n} />
+                {crmHavola}
+              </Fragment>
+            );
+          }
           return <NavBandi key={n.yol} n={n} />;
         })}
         <div style={{ flex: 1 }} />
-        {/* CRM / Moliya (2026-09-15) — ALOHIDA ilova (frontend/src-crm).
-            `NavLink` EMAS, oddiy <a>: boshqa bundle, to'liq sahifa
-            yuklanishi kerak.
-
-            `import.meta.env.VITE_CRM` build PAYTIDA almashtiriladi,
-            shuning uchun prod build'da bu blok bundle'ga UMUMAN
-            kirmaydi (CSS bilan yashirilmaydi — mavjud bo'lmaydi).
-            Bayroq `frontend/.env.development` da, prodda esa yo'q.
-
-            CRM butunlay olib tashlansa — shu blokni va i18n'dagi
-            `nav_crm` satrini o'chirish yetarli. */}
-        {import.meta.env.VITE_CRM === "1" &&
-          (profil?.is_owner || profil?.role === "admin") && (
-            <a className="nav-tugma" href="/crm">
-              <span className="nav-ikon">💰</span>
-              {t("nav_crm")}
-            </a>
-          )}
         <button className="nav-tugma" onClick={chiqish}>
           <span className="nav-ikon">⇥</span>
           {t("nav_chiqish")}
