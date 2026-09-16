@@ -47,10 +47,10 @@ function crmMarshrut() {
 // Dev rejimda /api so'rovlari Django'ga (8000) yo'naltiriladi —
 // CORS shart emas, frontend faqat 3000-portda ishlaydi.
 export default defineConfig(({ mode }) => {
-  // CRM bayrog'i (2026-09-15, Shuhrat: "to'liq ulaymiz, lekin prodga
-  // chiqmaydigan qilib"). `.env.development` da VITE_CRM=1 turadi, ya'ni
-  // `npm run dev` da CRM yoqiq. Prod build'da (`mode=production`) bu
-  // fayl O'QILMAYDI va Railway'da ham o'zgaruvchi yo'q — demak:
+  // CRM bayrog'i. `.env.development` va `.env.production` da VITE_CRM=1
+  // turadi, ya'ni dev'da ham, prod build'da ham CRM yoqiq (2026-09-16,
+  // Shuhrat: "prodda chiqadigan qil"). O'chirish uchun Railway'da
+  // VITE_CRM=0 (u .env faylidan ustun). O'chiq bo'lsa:
   //   * `crm.html` build'ga UMUMAN kirmaydi -> sayt.uz/crm LMS'ni ochadi
   //   * `import.meta.env.VITE_CRM` "1" emas -> LMS menyusidagi CRM
   //     tugmasi bundle'ga kirmaydi (yashirilmaydi, MAVJUD BO'LMAYDI)

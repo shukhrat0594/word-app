@@ -405,10 +405,10 @@ export default function Layout() {
   // `NavLink` EMAS, oddiy <a>: boshqa bundle, to'liq sahifa yuklanishi
   // kerak. Menyuda Bosh sahifadan keyin turadi (2026-09-16).
   //
-  // `import.meta.env.VITE_CRM` build PAYTIDA almashtiriladi, shuning
-  // uchun prod build'da bu blok bundle'ga UMUMAN kirmaydi (CSS bilan
-  // yashirilmaydi — mavjud bo'lmaydi). Bayroq `frontend/.env.development`
-  // da, prodda esa yo'q.
+  // `import.meta.env.VITE_CRM` build PAYTIDA almashtiriladi: bayroq
+  // `.env.development` va `.env.production` da 1 (2026-09-16 dan prodda
+  // ham yoqiq). Railway'da VITE_CRM=0 qo'yilsa bu blok bundle'ga UMUMAN
+  // kirmaydi (CSS bilan yashirilmaydi — mavjud bo'lmaydi).
   //
   // CRM butunlay olib tashlansa — shu blokni, `{crmHavola}` joyini va
   // i18n'dagi `nav_crm` satrini o'chirish yetarli.
