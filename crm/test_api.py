@@ -319,9 +319,16 @@ class OqimTest(ApiAsos):
             mijoz.get("/api/crm/hisoblar/")
         self.assertEqual(Hisob.objects.get().summa, NARX)
 
+        # Arxivlash CRM'dan EMAS (2026-09-16) — talaba saytda guruhdan
+        # chiqariladi. CRM'da faqat muzlatish qoladi.
+        javob = mijoz.patch(
+            f"/api/crm/azoliklar/{am.id}/", {"holat": "arxiv"}, format="json"
+        )
+        self.assertEqual(javob.status_code, 400)
+
         javob = mijoz.patch(
             f"/api/crm/azoliklar/{am.id}/",
-            {"holat": "arxiv", "tugash_sana": "2026-09-12"},
+            {"holat": "muzlatilgan", "tugash_sana": "2026-09-12"},
             format="json",
         )
         self.assertEqual(javob.status_code, 200)
@@ -330,6 +337,26 @@ class OqimTest(ApiAsos):
         am.refresh_from_db()
         mantiq.azolikni_qayta_hisobla(am, SENTABR)
         self.assertEqual(Hisob.objects.get().summa, Decimal("330000"))
+
+    def test_saytdan_chiqarilgan_talaba_ogohlantirishda(self):
+        """Talaba saytda guruhdan chiqarilsa a'zolik (va AzolikMoliya)
+        o'chadi, joriy oy hisobi esa to'liq summada qoladi — bu
+        ogohlantirishda ko'rinishi shart, aks holda jimgina ortiqcha
+        qarz turadi."""
+        am = self.azolik_qosh(boshlanish=date(2026, 9, 1))
+        mijoz = self.mijoz(self.admin)
+        with bugun_qilib(date(2026, 9, 20)):
+            mijoz.get("/api/crm/hisoblar/")
+            self.assertEqual(Hisob.objects.count(), 1)
+
+            am.azolik.delete()  # saytdagi "guruhdan chiqarish"
+            self.assertEqual(Hisob.objects.count(), 1)  # pul tarixi qoladi
+
+            javob = mijoz.get("/api/crm/ogohlantirishlar/")
+        self.assertEqual(javob.status_code, 200)
+        chiqqan = [x for x in javob.data if x.get("hisob_id")]
+        self.assertEqual(len(chiqqan), 1)
+        self.assertIn("guruhdan chiqarilgan", chiqqan[0]["sabablar"][0])
 
     def test_ogohlantirishlar_sozlanmagan_guruhni_korsatadi(self):
         KursNarxi.objects.all().delete()

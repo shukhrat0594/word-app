@@ -10,7 +10,7 @@ mavjud audit ilovasi qayta ishlatiladi, unga tegilmaydi.
 from datetime import timedelta
 from decimal import Decimal, InvalidOperation
 
-from django.db.models import Avg, Count, Q, Sum
+from django.db.models import Avg, Count, Exists, OuterRef, Q, Sum
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework.response import Response
@@ -916,6 +916,13 @@ class AzolikView(CrmView):
                 holat = request.data["holat"]
                 if holat not in dict(AzolikMoliya.Holat.choices):
                     return _xato("Noma'lum holat")
+                # Arxivlash CRM'dan EMAS (Shuhrat, 2026-09-16): talaba
+                # guruhdan SAYTDA chiqariladi — a'zolik o'chadi, CRM
+                # yozuvi u bilan ketadi, pul tarixi (Hisob/Tolov) qoladi.
+                # CRM'da alohida "arxiv" bo'lsa, sayt bilan CRM ikki xil
+                # ro'yxat ko'rsatardi.
+                if holat == AzolikMoliya.Holat.ARXIV:
+                    return _xato("Arxivlash CRM'da emas — talabani saytda guruhdan chiqaring")
                 am.holat = holat
             if "boshlanish_sana" in request.data:
                 am.boshlanish_sana = _sana(request.data["boshlanish_sana"], "boshlanish_sana")
@@ -1659,4 +1666,33 @@ class OgohlantirishlarView(CrmView):
                     {"guruh_id": g.id, "guruh": g.name,
                      "talaba_soni": g._talaba_soni, "sabablar": sabablar}
                 )
+
+        # Saytda guruhdan chiqarilgan talabaning JORIY OY to'lanmagan
+        # hisobi. Arxivlash CRM'da emas (2026-09-16): a'zolik saytda
+        # o'chadi, `AzolikMoliya` u bilan ketadi, ya'ni chiqish
+        # sanasigacha proporsional qayta hisob (TZ 4.6) O'ZI ishlamaydi.
+        # Signal ulanmaydi (TZ 3.0, 3-qoida) — shuning uchun bu yerda
+        # ko'rsatiladi, owner summani qo'lda tuzatadi yoki chegirma qiladi.
+        joriy_oy = mantiq.oy_boshi(timezone.localdate())
+        chiqqanlar = (
+            Hisob.objects.filter(oy=joriy_oy, talaba__isnull=False, guruh__isnull=False)
+            .exclude(holat=Hisob.Holat.TOLANDI)
+            .annotate(
+                azo=Exists(
+                    GuruhAzoligi.objects.filter(
+                        guruh_id=OuterRef("guruh_id"), talaba_id=OuterRef("talaba_id")
+                    )
+                )
+            )
+            .filter(azo=False)
+            .select_related("talaba", "guruh")
+        )
+        for h in chiqqanlar:
+            natija.append(
+                {"guruh_id": h.guruh_id, "guruh": _tirik_guruh(h), "hisob_id": h.id,
+                 "talaba_soni": 1,
+                 "sabablar": [f"{_tirik_talaba(h)} saytda guruhdan chiqarilgan, "
+                              f"{h.oy:%Y-%m} hisobi ({h.summa:,.0f}) to'lanmagan — "
+                              f"summani tuzating yoki chegirma qiling"]}
+            )
         return Response(natija)

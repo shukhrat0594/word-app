@@ -190,17 +190,16 @@ function SozlashOynasi({ guruh, filiallar, onYopish, onSaqlandi }) {
 function Azolar({ guruhId, onOzgardi }) {
   const { t } = useI18n();
   const { malumot, yuklanmoqda, yangila } = useSorov(`/api/crm/guruhlar/${guruhId}/azoliklar/`);
-  // Arxivdagilar standart bo'yicha YASHIRIN (SoffCRM'dagidek): ular
-  // guruhda o'qimaydi, ro'yxatni to'ldirib admin chalg'itardi.
-  const [arxivKorsat, setArxivKorsat] = useState(false);
+  // Arxiv CRM'da YO'Q (2026-09-16): talaba saytda guruhdan chiqariladi
+  // va a'zolik bilan birga bu ro'yxatdan ham yo'qoladi. Shuning uchun
+  // bu yerda "arxivdagilarni ko'rish" tugmasi yo'q.
+  //
   // Qidiruv va tartiblash — mijoz tomonida: guruhda 4-8 kishi, server
   // so'rovi shart emas. SoffCRM'da ham shu ikkisi ro'yxat tepasida.
   const [qidiruv, setQidiruv] = useState("");
   const [tartib, setTartib] = useState("ism");
-  const hammasi = malumot || [];
-  const arxivSoni = hammasi.filter((a) => a.holat === "arxiv").length;
   const HOLAT_TARTIBI = { faol: 0, sinov: 1, muzlatilgan: 2, arxiv: 3 };
-  const azolar = (arxivKorsat ? hammasi : hammasi.filter((a) => a.holat !== "arxiv"))
+  const azolar = (malumot || [])
     .filter((a) => !qidiruv || `${a.talaba} ${a.telefon || ""}`.toLowerCase().includes(qidiruv.toLowerCase()))
     .sort((a, b) => {
       if (tartib === "balans") return Number(a.balans ?? 0) - Number(b.balans ?? 0);
@@ -248,7 +247,7 @@ function Azolar({ guruhId, onOzgardi }) {
                 {/* Sinov va muzlatilgan talabaga hisob OCHILMAYDI —
                     shuning uchun holat aynan shu yerdan boshqariladi. */}
                 <select value={a.holat} onChange={(e) => ozgartir(a.id, "holat", e.target.value)}>
-                  {["sinov", "faol", "muzlatilgan", "arxiv"].map((h) => (
+                  {["sinov", "faol", "muzlatilgan"].map((h) => (
                     <option key={h} value={h}>{t(`holat_${h}`)}</option>
                   ))}
                 </select>
@@ -272,14 +271,6 @@ function Azolar({ guruhId, onOzgardi }) {
           )}
         </tbody>
       </table>
-      {arxivSoni > 0 && (
-        <p className="ongga">
-          <button className="havola rang-qarzdor" type="button"
-                  onClick={() => setArxivKorsat((x) => !x)}>
-            {arxivKorsat ? t("arxivdagilarni_yashirish") : `${t("arxivdagilarni_korish")} (${arxivSoni})`}
-          </button>
-        </p>
-      )}
     </div>
   );
 }

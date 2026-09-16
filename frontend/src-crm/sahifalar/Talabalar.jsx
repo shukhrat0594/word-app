@@ -439,7 +439,7 @@ export default function Talabalar() {
         <input placeholder={t("qidiruv")} value={qidiruv} onChange={(e) => setQidiruv(e.target.value)} />
         <select value={holat} onChange={(e) => setHolat(e.target.value)}>
           <option value="">{t("barcha_holatlar")}</option>
-          {["sinov", "faol", "muzlatilgan", "arxiv"].map((h) => (
+          {["sinov", "faol", "muzlatilgan"].map((h) => (
             <option key={h} value={h}>{t(`holat_${h}`)}</option>
           ))}
         </select>
@@ -478,7 +478,7 @@ export default function Talabalar() {
                         className={g.holat === "faol" ? "rang-tolandi" : "rang-qarzdor"}
                         onChange={(e) => holatOzgartir(g.azolik_moliya_id, e.target.value)}
                       >
-                        {["sinov", "faol", "muzlatilgan", "arxiv"].map((h) => (
+                        {["sinov", "faol", "muzlatilgan"].map((h) => (
                           <option key={h} value={h}>{t(`holat_${h}`)}</option>
                         ))}
                       </select>
