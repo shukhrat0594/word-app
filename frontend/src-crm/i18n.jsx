@@ -101,7 +101,7 @@ const SATRLAR = {
     kop_summa_ogoh: "Hisoblangandan ko'p. Ortiqchasi balansda qoladi:",
     qarz_qoldi: "Qarz qoldi",
     chegirma_izoh:
-      "Qoldiqni chegirma bilan yopish mumkin. Chegirma — pul emas: hisobotda alohida ustunda ko'rinadi va kassaga qo'shilmaydi.",
+      "Qoldiqni chegirma yoki bonus bilan yopish mumkin. Ikkalasi ham pul EMAS: hisobotda alohida ustunlarda ko'rinadi va kassaga qo'shilmaydi.",
     qarz_qoldirish: "Qarz bo'lib qolsin",
     chegirma_qilish: "Chegirma qilish",
 
@@ -193,6 +193,8 @@ const SATRLAR = {
     tolov_ochirish_tasdiq: "Bu pul yozuvini o'chirasizmi? Chegirma bo'lsa qarz tiklanadi.",
 
     oqituvchi: "O'qituvchi",
+
+    bonus_berish: "Bonus qilish",
 
     sahifa_topilmadi: "Sahifa topilmadi",
   },
@@ -376,6 +378,8 @@ const SATRLAR = {
 
     oqituvchi: "Преподаватель",
 
+    bonus_berish: "Оформить бонусом",
+
     sahifa_topilmadi: "Страница не найдена",
   },
 
@@ -557,6 +561,8 @@ const SATRLAR = {
     tolov_ochirish_tasdiq: "Delete this money record? If it is a discount, the debt comes back.",
 
     oqituvchi: "Teacher",
+
+    bonus_berish: "Mark as bonus",
 
     sahifa_topilmadi: "Page not found",
   },

@@ -852,3 +852,41 @@ class TirikNomTest(ApiAsos):
             javob = self.mijoz(self.admin).get("/api/crm/hisoblar/")
         self.assertEqual(javob.data[0]["talaba"], "Aziz Qodirov")
         self.assertIsNone(javob.data[0]["talaba_id"])
+
+
+class BonusTest(ApiAsos):
+    """`bonus` TZ qamrovida (§2) — chegirma bilan bir xil ishlaydi,
+    lekin hisobotda ALOHIDA ustunda (2026-09-16)."""
+
+    def setUp(self):
+        super().setUp()
+        self.azolik_qosh(boshlanish=date(2026, 9, 1))
+        with bugun_qilib(date(2026, 9, 30)):
+            mantiq.hisoblarni_generatsiya_qil()
+
+    def test_bonus_qarzni_yopadi(self):
+        mijoz = self.mijoz(self.admin)
+        mijoz.post(
+            "/api/crm/tolov/",
+            {"talaba_id": self.talaba.id, "guruh_id": self.guruh.id,
+             "oy": "2026-09", "summa": "660000", "turi": "bonus"},
+            format="json",
+        )
+        self.assertEqual(Hisob.objects.get().holat, Hisob.Holat.TOLANDI)
+        self.assertEqual(mantiq.balans(self.talaba), Decimal("0"))
+
+    def test_bonus_kassaga_pul_qoshmaydi(self):
+        """Hisobotda "olingan pul" 0 bo'lishi kerak — bonus pul emas."""
+        mijoz = self.mijoz(self.admin)
+        mijoz.post(
+            "/api/crm/tolov/",
+            {"talaba_id": self.talaba.id, "guruh_id": self.guruh.id,
+             "oy": "2026-09", "summa": "660000", "turi": "bonus"},
+            format="json",
+        )
+        with bugun_qilib(date(2026, 9, 30)):
+            hisobot = mijoz.get("/api/crm/hisobot/?oy=2026-09").data
+        self.assertEqual(hisobot["jami"]["olingan"], Decimal("0"))
+        self.assertEqual(hisobot["jami"]["bonus"], Decimal("660000"))
+        self.assertEqual(hisobot["jami"]["chegirma"], Decimal("0"))
+        self.assertEqual(hisobot["jami"]["qarz"], Decimal("0"))

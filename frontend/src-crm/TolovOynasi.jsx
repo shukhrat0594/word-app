@@ -69,8 +69,15 @@ export default function TolovOynasi({ hisob, onYopish, onSaqlandi }) {
     }
   }
 
-  async function chegirmaQil() {
-    if (!(await yubor("chegirma", qolgan))) return;
+  /** Qoldiqni chegirma yoki bonus bilan yopish.
+   *
+   *  Ikkalasi ham qarzni yopadi va ikkalasi ham KASSAGA PUL
+   *  QO'SHMAYDI — farqi faqat hisobotda: alohida ustunlarda ko'rinadi.
+   *  Chegirma — narx pasaytirildi, bonus — mukofot berildi (masalan
+   *  do'stini olib kelgani uchun). Ikkisini aralashtirsak, hisobotda
+   *  nima uchun pul olinmagani bilinmay qolardi. */
+  async function yopib_qoy(turi) {
+    if (!(await yubor(turi, qolgan))) return;
     onSaqlandi({});
     onYopish();
   }
@@ -142,7 +149,20 @@ export default function TolovOynasi({ hisob, onYopish, onSaqlandi }) {
               <button className="tugma tugma-sokin" type="button" onClick={onYopish}>
                 {t("qarz_qoldirish")}
               </button>
-              <button className="tugma" type="button" onClick={chegirmaQil} disabled={band}>
+              <button
+                className="tugma tugma-sokin"
+                type="button"
+                onClick={() => yopib_qoy("bonus")}
+                disabled={band}
+              >
+                {t("bonus_berish")}
+              </button>
+              <button
+                className="tugma"
+                type="button"
+                onClick={() => yopib_qoy("chegirma")}
+                disabled={band}
+              >
                 {t("chegirma_qilish")} ({pul(qolgan)})
               </button>
             </div>
