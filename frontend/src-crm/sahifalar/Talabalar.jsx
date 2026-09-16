@@ -408,14 +408,24 @@ export default function Talabalar() {
   const [qidiruv, setQidiruv] = useState("");
   const [holat, setHolat] = useState("");
   const [ochilgan, setOchilgan] = useState(null);
+  const [menyu, setMenyu] = useState(null);
+  const [qaytarish, setQaytarish] = useState(null);
 
   // Ro'yxat `Hisob`dan EMAS, a'zoliklardan yig'iladi: sinov va
   // muzlatilgan talabaga hisob ochilmaydi, lekin ular ham ko'rinishi
   // kerak — aks holda admin ularni topa olmaydi va holatini
   // o'zgartira olmaydi.
-  const { malumot, yuklanmoqda, xato } = useSorov(
+  const { malumot, yuklanmoqda, xato, yangila } = useSorov(
     "/api/crm/talabalar/" + sorovSatri({ filial: tanlangan, q: qidiruv, holat })
   );
+
+  // Holat SoffCRM'dagidek ro'yxatdan ham o'zgaradi (guruh kartasiga
+  // kirmasdan). Backend `AzolikView` chiqish/muzlatishda joriy oyni
+  // qayta hisoblaydi — bu yerda faqat chaqiriladi.
+  async function holatOzgartir(azolikMoliyaId, yangiHolat) {
+    await api(`/api/crm/azoliklar/${azolikMoliyaId}/`, { method: "PATCH", body: { holat: yangiHolat } });
+    yangila();
+  }
 
   if (ochilgan) return <Karta talabaId={ochilgan} onOrqaga={() => setOchilgan(null)} />;
 
@@ -445,8 +455,9 @@ export default function Talabalar() {
             <tr>
               <th>{t("talaba")}</th>
               <th>{t("telefon")}</th>
-              <th>{t("guruhlar")}</th>
+              <th>{t("guruhlar")} / {t("holat")}</th>
               <th className="ongga">{t("balans")}</th>
+              <th className="ongga">{t("harakatlar")}</th>
             </tr>
           </thead>
           <tbody>
@@ -462,19 +473,65 @@ export default function Talabalar() {
                   {x.guruhlar.map((g) => (
                     <span key={g.azolik_moliya_id} className="guruh-belgi">
                       {g.guruh}
-                      {g.holat !== "faol" && <i> ({t(`holat_${g.holat}`)})</i>}
+                      <select
+                        value={g.holat}
+                        className={g.holat === "faol" ? "rang-tolandi" : "rang-qarzdor"}
+                        onChange={(e) => holatOzgartir(g.azolik_moliya_id, e.target.value)}
+                      >
+                        {["sinov", "faol", "muzlatilgan", "arxiv"].map((h) => (
+                          <option key={h} value={h}>{t(`holat_${h}`)}</option>
+                        ))}
+                      </select>
                     </span>
                   ))}
                 </td>
                 <td className={`ongga ${balansSinfi(x.balans)}`}>{balansMatn(x.balans)}</td>
+                <td className="ongga">
+                  {/* ⋮ menyu — SoffCRM'dagi "Harakatlar" ustuni. */}
+                  <span className="harakat-oram">
+                    <button className="tugma tugma-sokin kichik-tugma" type="button"
+                            aria-label={t("harakatlar")}
+                            onClick={() => setMenyu(menyu === x.id ? null : x.id)}>
+                      ⋮
+                    </button>
+                    {menyu === x.id && (
+                      <div className="harakat-menyu" onMouseLeave={() => setMenyu(null)}>
+                        <button type="button" onClick={() => { setMenyu(null); setOchilgan(x.id); }}>
+                          📄 {t("kartani_ochish")}
+                        </button>
+                        <button type="button" onClick={() => { setMenyu(null); setOchilgan(x.id); }}>
+                          💵 {t("tolov_qilish")}
+                        </button>
+                        {x.guruhlar.map((g) => (
+                          <button key={g.azolik_moliya_id} type="button"
+                                  onClick={() => { setMenyu(null); setQaytarish({ talaba: x, guruh: g }); }}>
+                            ↩ {t("pul_qaytarish")} — {g.guruh}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </span>
+                </td>
               </tr>
             ))}
             {!yuklanmoqda && royxat.length === 0 && (
-              <tr><td colSpan={4} className="bosh">{t("yozuv_yoq")}</td></tr>
+              <tr><td colSpan={5} className="bosh">{t("yozuv_yoq")}</td></tr>
             )}
           </tbody>
         </table>
       </div>
+
+      {qaytarish && (
+        <QaytarishOynasi
+          talabaId={qaytarish.talaba.id}
+          talabaIsmi={qaytarish.talaba.ism}
+          guruhId={qaytarish.guruh.guruh_id}
+          guruhNomi={qaytarish.guruh.guruh}
+          balans={qaytarish.talaba.balans}
+          onYopish={() => setQaytarish(null)}
+          onSaqlandi={yangila}
+        />
+      )}
     </section>
   );
 }

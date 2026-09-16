@@ -193,9 +193,21 @@ function Azolar({ guruhId, onOzgardi }) {
   // Arxivdagilar standart bo'yicha YASHIRIN (SoffCRM'dagidek): ular
   // guruhda o'qimaydi, ro'yxatni to'ldirib admin chalg'itardi.
   const [arxivKorsat, setArxivKorsat] = useState(false);
+  // Qidiruv va tartiblash — mijoz tomonida: guruhda 4-8 kishi, server
+  // so'rovi shart emas. SoffCRM'da ham shu ikkisi ro'yxat tepasida.
+  const [qidiruv, setQidiruv] = useState("");
+  const [tartib, setTartib] = useState("ism");
   const hammasi = malumot || [];
   const arxivSoni = hammasi.filter((a) => a.holat === "arxiv").length;
-  const azolar = arxivKorsat ? hammasi : hammasi.filter((a) => a.holat !== "arxiv");
+  const HOLAT_TARTIBI = { faol: 0, sinov: 1, muzlatilgan: 2, arxiv: 3 };
+  const azolar = (arxivKorsat ? hammasi : hammasi.filter((a) => a.holat !== "arxiv"))
+    .filter((a) => !qidiruv || `${a.talaba} ${a.telefon || ""}`.toLowerCase().includes(qidiruv.toLowerCase()))
+    .sort((a, b) => {
+      if (tartib === "balans") return Number(a.balans ?? 0) - Number(b.balans ?? 0);
+      if (tartib === "sana") return String(a.boshlanish_sana || "").localeCompare(String(b.boshlanish_sana || ""));
+      if (tartib === "holat") return HOLAT_TARTIBI[a.holat] - HOLAT_TARTIBI[b.holat];
+      return String(a.talaba).localeCompare(String(b.talaba));
+    });
 
   async function ozgartir(id, maydon, qiymat) {
     await api(`/api/crm/azoliklar/${id}/`, { method: "PATCH", body: { [maydon]: qiymat } });
@@ -207,6 +219,15 @@ function Azolar({ guruhId, onOzgardi }) {
 
   return (
     <div className="jadval-oram">
+      <div className="filtrlar">
+        <input placeholder={t("qidiruv")} value={qidiruv} onChange={(e) => setQidiruv(e.target.value)} />
+        <select value={tartib} onChange={(e) => setTartib(e.target.value)} aria-label={t("tartiblash")}>
+          <option value="ism">{t("tartib_ism")}</option>
+          <option value="balans">{t("tartib_balans")}</option>
+          <option value="sana">{t("tartib_sana")}</option>
+          <option value="holat">{t("tartib_holat")}</option>
+        </select>
+      </div>
       <table>
         <thead>
           <tr>
@@ -271,6 +292,10 @@ export default function Guruhlar() {
   const [qidiruv, setQidiruv] = useState("");
   const [sozlanayotgan, setSozlanayotgan] = useState(null);
   const [ochilgan, setOchilgan] = useState(null);
+  // Tezkor amal tugmasi qaysi tabni ochishini aytadi; `n` — bir xil tab
+  // qayta bosilganda ham ishlashi uchun o'sib boruvchi raqam.
+  const [tabBuyrugi, setTabBuyrugiAsl] = useState(null);
+  const setTabBuyrugi = (b) => setTabBuyrugiAsl((eski) => ({ ...b, n: (eski?.n || 0) + 1 }));
 
   const { malumot, yuklanmoqda, xato, yangila } = useSorov(
     "/api/crm/guruhlar/" + sorovSatri({ filial: tanlangan, q: qidiruv })
@@ -342,8 +367,29 @@ export default function Guruhlar() {
                 {ochilgan === g.id && (
                   <tr>
                     <td colSpan={9} className="ichki">
+                      {/* Tezkor amallar — SoffCRM kartasidagi ikonkalar qatori.
+                          "Talaba qo'shish" SAYTGA olib boradi: guruh tarkibi
+                          LMS ishi, ikki joyda tahrirlash chalkashlik. */}
+                      <div className="tezkor-amallar">
+                        <button className="tugma kichik-tugma" type="button" onClick={() => setSozlanayotgan(g)}>
+                          ⚙ {t("sozlash")}
+                        </button>
+                        <a className="tugma tugma-sokin kichik-tugma" href="/guruhlar">
+                          ➕ {t("talaba_qoshish_lms")}
+                        </a>
+                        <button className="tugma tugma-sokin kichik-tugma" type="button"
+                                onClick={() => setTabBuyrugi({ id: g.id, tab: "eslatmalar" })}>
+                          📝 {t("eslatma_yozish")}
+                        </button>
+                        <button className="tugma tugma-sokin kichik-tugma" type="button"
+                                onClick={() => setTabBuyrugi({ id: g.id, tab: "davomat" })}>
+                          📅 {t("tab_davomat")}
+                        </button>
+                      </div>
                       <GuruhTablari
                         guruhId={g.id}
+                        boshlangichTab={tabBuyrugi?.id === g.id ? tabBuyrugi.tab : undefined}
+                        tabKaliti={tabBuyrugi?.id === g.id ? tabBuyrugi.n : 0}
                         Azolar={() => <Azolar guruhId={g.id} onOzgardi={yangila} />}
                       />
                     </td>

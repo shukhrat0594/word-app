@@ -5,7 +5,7 @@
 // faqat ko'rsatadi. Ikki joyda belgilash ikki xil raqam degani bo'lardi,
 // va farq chiqqanda qaysi biri to'g'ri ekani bilinmay qolardi.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import Eslatmalar from "./Eslatmalar.jsx";
 import { joriyOy, oyNomi, sana, siljit } from "./format.js";
@@ -162,10 +162,14 @@ function Natijalar({ guruhId }) {
 
 const TABLAR = ["azolar", "davomat", "natijalar", "eslatmalar"];
 
-export default function GuruhTablari({ guruhId, Azolar }) {
+export default function GuruhTablari({ guruhId, Azolar, boshlangichTab, tabKaliti = 0 }) {
   const { t } = useI18n();
   const profil = useProfil();
-  const [tab, setTab] = useState("azolar");
+  const [tab, setTab] = useState(boshlangichTab || "azolar");
+  // Tashqaridan (tezkor amallar) tab o'zgartirilsa — shunga o'tamiz.
+  useEffect(() => {
+    if (boshlangichTab) setTab(boshlangichTab);
+  }, [boshlangichTab, tabKaliti]);
 
   return (
     <div className="guruh-tablari">

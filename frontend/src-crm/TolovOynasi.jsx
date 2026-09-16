@@ -10,9 +10,20 @@ import { useState } from "react";
 import { api } from "./api.js";
 import { pul } from "./format.js";
 import { useI18n } from "./i18n.jsx";
+import { sorovSatri, useSorov } from "./soragich.js";
 
-export default function TolovOynasi({ hisob, onYopish, onSaqlandi }) {
+export default function TolovOynasi({ hisob: boshlangichHisob, onYopish, onSaqlandi }) {
   const { t } = useI18n();
+  // "Qaysi oy uchun" (TZ 4.5) — shu talaba, shu guruh bo'yicha barcha
+  // oylar; admin boshqa oyga to'lov yozishi mumkin (masalan, oldingi
+  // oyning qarzini yopish).
+  const oylar = useSorov(
+    "/api/crm/hisoblar/" +
+      sorovSatri({ talaba: boshlangichHisob.talaba_id, guruh: boshlangichHisob.guruh_id })
+  );
+  const [hisobId, setHisobId] = useState(boshlangichHisob.id);
+  const hisob =
+    (oylar.malumot || []).find((h) => h.id === hisobId) || boshlangichHisob;
   const [summa, setSumma] = useState(String(hisob.qoldiq ?? hisob.summa ?? ""));
   const [sana, setSana] = useState(new Date().toISOString().slice(0, 10));
   const [izoh, setIzoh] = useState("");
@@ -82,13 +93,49 @@ export default function TolovOynasi({ hisob, onYopish, onSaqlandi }) {
     onYopish();
   }
 
+  /** Bir bosishda: to'lovni saqlash VA qoldiqni chegirma/bonus bilan
+   *  yopish. Admin oldindan biladigan holat uchun (kelishilgan
+   *  chegirma) — ikki qadam o'rniga bitta. Oddiy "Saqlash" esa
+   *  avvalgidek qoldiqni qarz qilib qoldiradi. */
+  async function saqlaVaYop(turi) {
+    if (!(kiritilgan > 0)) {
+      setXato(t("summa_kerak"));
+      return;
+    }
+    if (!(await yubor("tolov", kiritilgan))) return;
+    if (!(await yubor(turi, qoldiq - kiritilgan))) return;
+    onSaqlandi({});
+    onYopish();
+  }
+
+  function oyniAlmashtir(id) {
+    const yangi = (oylar.malumot || []).find((h) => h.id === Number(id));
+    if (!yangi) return;
+    setHisobId(yangi.id);
+    setSumma(String(yangi.qoldiq ?? yangi.summa ?? ""));
+    setXato("");
+  }
+
   return (
     <div className="oyna-fon" role="dialog" aria-modal="true">
       <div className="karta oyna">
         <h2>{t("tolov_qilish")}</h2>
         <p className="kichik">
-          {hisob.talaba} · {hisob.guruh} · {String(hisob.oy).slice(0, 7)}
+          {hisob.talaba} · {hisob.guruh}
         </p>
+
+        {qolgan === null && (
+          <label>
+            {t("qaysi_oy")}
+            <select value={hisobId} onChange={(e) => oyniAlmashtir(e.target.value)}>
+              {((oylar.malumot && oylar.malumot.length) ? oylar.malumot : [boshlangichHisob]).map((h) => (
+                <option key={h.id} value={h.id}>
+                  {String(h.oy).slice(0, 7)} — {pul(h.qoldiq)} ({t(`holat_${h.holat}`)})
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
 
         <div className="qator">
           <span className="kichik">{t("hisoblangan")}</span>
@@ -121,7 +168,23 @@ export default function TolovOynasi({ hisob, onYopish, onSaqlandi }) {
               <input value={izoh} onChange={(e) => setIzoh(e.target.value)} maxLength={300} />
             </label>
 
-            {kam && <div className="ogohlantirish">{t("kam_summa_ogoh")}</div>}
+            {kam && (
+              <>
+                <div className="ogohlantirish">{t("kam_summa_ogoh")}</div>
+                {/* Qoldiqni DARHOL yopish tugmalari — admin oldindan
+                    bilsa, "Saqlash"dan keyingi qadamni kutmaydi. */}
+                <div className="oyna-tugmalar">
+                  <button className="tugma tugma-sokin kichik-tugma" type="button"
+                          onClick={() => saqlaVaYop("chegirma")} disabled={band}>
+                    {t("saqla_va_chegirma")} ({pul(qoldiq - kiritilgan)})
+                  </button>
+                  <button className="tugma tugma-sokin kichik-tugma" type="button"
+                          onClick={() => saqlaVaYop("bonus")} disabled={band}>
+                    {t("saqla_va_bonus")}
+                  </button>
+                </div>
+              </>
+            )}
             {kop && (
               <div className="ogohlantirish">
                 {t("kop_summa_ogoh")} {pul(kiritilgan - qoldiq)}

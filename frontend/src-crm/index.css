@@ -704,3 +704,36 @@ tfoot td {
 }
 
 .nowrap { white-space: nowrap; }
+
+/* ⋮ harakatlar menyusi (talabalar ro'yxati) */
+.harakat-oram { position: relative; display: inline-block; }
+.harakat-menyu {
+  position: absolute;
+  inset-inline-end: 0;
+  top: 100%;
+  z-index: 20;
+  min-width: 220px;
+  background: var(--karta);
+  border: 1px solid var(--chegara);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+}
+.harakat-menyu button {
+  text-align: start;
+  background: none;
+  border: 0;
+  font: inherit;
+  color: var(--matn);
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.harakat-menyu button:hover { background: var(--fon); }
+.harakat-menyu .kichik { padding: 6px 10px 2px; }
+
+/* Guruh kartasidagi tezkor amallar qatori (SoffCRM ikonkalari) */
+.tezkor-amallar { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 12px; }
+.guruh-belgi select { font-size: 12px; padding: 1px 4px; margin-inline-start: 4px; width: auto; }

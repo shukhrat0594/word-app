@@ -974,6 +974,10 @@ class HisoblarView(CrmView):
                 return _xato(str(e))
         if request.query_params.get("guruh"):
             qs = qs.filter(guruh_id=request.query_params["guruh"])
+        # To'lov oynasidagi "Qaysi oy uchun" tanlovi — shu talaba, shu
+        # guruh bo'yicha barcha oylar.
+        if request.query_params.get("talaba"):
+            qs = qs.filter(talaba_id=request.query_params["talaba"])
         if request.query_params.get("filial"):
             qs = qs.filter(filial_id=request.query_params["filial"])
         if request.query_params.get("holat"):
