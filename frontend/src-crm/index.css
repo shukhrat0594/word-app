@@ -22,9 +22,11 @@
   /* Dars setkasi o'lchamlari — bitta joyda (2026-09-14, Shuhrat
      "sal kattaroq bo'lsin" dedi). Ustun kengligi 30 daqiqaga
      to'g'ri keladi. */
-  --setka-ustun: 88px;
-  --setka-xona-eni: 165px;
-  --setka-qator: 68px;
+  /* 2026-09-17 (admin talabi, SoffCRM'dagidek): butun kun 08:30-20:00
+     gorizontal scroll'siz sig'sin — ustunlar tor, qatorlar past. */
+  --setka-ustun: 40px;
+  --setka-xona-eni: 110px;
+  --setka-qator: 54px;
 }
 
 [data-theme="dark"] {
@@ -533,8 +535,10 @@ tfoot td {
          qolmaydi;
        - ustun ko'p bo'lsa setka o'z o'lchamida qolib, o'rovchi
          (`.setka-suruv`) ichida suriladi. */
-  width: max-content;
-  min-width: 100%;
+  /* 2026-09-17: butun kun sig'ishi uchun setka KARTA ENIGA moslashadi
+     (ustunlar `minmax(--setka-ustun, 1fr)` bilan siqiladi); juda tor
+     ekranda `.setka-suruv` suradi. */
+  width: 100%;
   border: 1px solid var(--chegara);
   border-radius: 8px;
   overflow: hidden;
@@ -553,7 +557,7 @@ tfoot td {
 }
 
 .setka-burchak { font-weight: 600; position: sticky; inset-inline-start: 0; z-index: 3; }
-.setka-vaqt { text-align: center; }
+.setka-vaqt { text-align: center; font-size: 11px; padding-inline: 2px; }
 
 .setka-xona {
   /* Xona nomi gorizontal surilganda ham ko'rinib tursin. */
@@ -569,7 +573,7 @@ tfoot td {
 }
 
 .setka-xona {
-  font-size: 15px;
+  font-size: 13px;
 }
 
 .setka-xona i {
@@ -586,10 +590,12 @@ tfoot td {
 }
 
 .setka-dars {
-  margin: 4px;
-  padding: 6px 10px;
-  border-radius: 7px;
-  font-size: 13px;
+  margin: 3px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  text-decoration: none;
   line-height: 1.35;
   overflow: hidden;
   display: flex;
@@ -598,7 +604,8 @@ tfoot td {
   z-index: 1;
 }
 
-.setka-dars b { font-size: 12px; opacity: 0.85; }
+.setka-dars b { font-size: 11px; opacity: 0.85; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
+.setka-dars:hover { filter: brightness(0.95); }
 .setka-dars span { font-weight: 600; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
 .setka-dars i { font-style: normal; opacity: 0.75; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
 
@@ -737,3 +744,23 @@ tfoot td {
 /* Guruh kartasidagi tezkor amallar qatori (SoffCRM ikonkalari) */
 .tezkor-amallar { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 12px; }
 .guruh-belgi select { font-size: 12px; padding: 1px 4px; margin-inline-start: 4px; width: auto; }
+
+/* Bosh sahifa: qarzdorlar bloki */
+.qarzdor-royxat { margin: 0; padding: 0; list-style: none; }
+.qarzdor-royxat li {
+  display: flex; justify-content: space-between; gap: 12px;
+  padding: 8px 0; border-bottom: 1px solid var(--chegara);
+}
+.qarzdor-royxat li:last-child { border-bottom: 0; }
+.qarzdor-royxat .kichik { display: block; }
+
+/* To'lov qo'shish: qidiruv natijalari */
+.qidiruv-natija {
+  border: 1px solid var(--chegara); border-radius: 8px;
+  max-height: 200px; overflow: auto; margin-top: 4px;
+}
+.qidiruv-natija button {
+  display: block; width: 100%; text-align: start; background: none; border: 0;
+  font: inherit; color: var(--matn); padding: 8px 10px; cursor: pointer;
+}
+.qidiruv-natija button:hover { background: var(--fon); }

@@ -1,6 +1,7 @@
 // Talabalar (TZ 6.5) — ro'yxat va talaba kartasi.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
 import Eslatmalar from "../Eslatmalar.jsx";
 import { useFilial } from "../filialContext.jsx";
@@ -125,6 +126,70 @@ function TolovTahrirOynasi({ tolov, onYopish, onSaqlandi }) {
   );
 }
 
+// ── Talaba ma'lumotini tahrirlash (LMS API orqali) ──────────────────
+//
+// CRM saytga o'zi YOZMAYDI — LMS'ning `PATCH /api/talabalar/<id>/`
+// endpointini chaqiradi (LMS Talabalar kartasi bilan aynan bir xil).
+// Ma'lumot bitta joyda, admin kiritgani talabaga qulflanadi (LMS qoidasi).
+
+const TAHRIR_MAYDONLARI = [
+  ["ism", "talaba", "text"],
+  ["telefon", "telefon", "text"],
+  ["ota_ona_telefon", "ota_ona_telefon", "text"],
+  ["tugilgan_sana", "tugilgan_sana", "date"],
+  ["manba", "manba", "text"],
+  ["izoh", "izoh_talaba", "text"],
+];
+
+function TalabaTahrirOynasi({ talaba, onYopish, onSaqlandi }) {
+  const { t } = useI18n();
+  const [forma, setForma] = useState(() => ({
+    ism: talaba.ism || "",
+    telefon: talaba.telefon || "",
+    ota_ona_telefon: talaba.ota_ona_telefon || "",
+    tugilgan_sana: talaba.tugilgan_sana || "",
+    manba: talaba.manba || "",
+    izoh: talaba.izoh || "",
+  }));
+  const [xato, setXato] = useState("");
+  const [band, setBand] = useState(false);
+
+  async function saqla() {
+    setXato("");
+    setBand(true);
+    try {
+      await api(`/api/talabalar/${talaba.id}/`, { method: "PATCH", body: forma });
+      onSaqlandi();
+      onYopish();
+    } catch (e) {
+      setXato(e.message || "Xato");
+    } finally {
+      setBand(false);
+    }
+  }
+
+  return (
+    <div className="oyna-fon" role="dialog" aria-modal="true">
+      <div className="karta oyna">
+        <h2>{t("talaba_tahrirlash")}</h2>
+        <p className="kichik">{t("saytga_yoziladi")}</p>
+        {TAHRIR_MAYDONLARI.map(([kalit, tarjima, turi]) => (
+          <label key={kalit}>
+            {t(tarjima)}
+            <input type={turi} value={forma[kalit]}
+                   onChange={(e) => setForma((f) => ({ ...f, [kalit]: e.target.value }))} />
+          </label>
+        ))}
+        {xato && <div className="xato">{xato}</div>}
+        <div className="oyna-tugmalar">
+          <button className="tugma tugma-sokin" type="button" onClick={onYopish}>{t("bekor")}</button>
+          <button className="tugma" type="button" onClick={saqla} disabled={band}>{t("saqlash")}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Talaba kartasi ──────────────────────────────────────────────────
 
 function Karta({ talabaId, onOrqaga }) {
@@ -134,6 +199,7 @@ function Karta({ talabaId, onOrqaga }) {
   const [tolovHisobi, setTolovHisobi] = useState(null);
   const [qaytarishGuruhi, setQaytarishGuruhi] = useState(null);
   const [tahrirTolovi, setTahrirTolovi] = useState(null);
+  const [tahrir, setTahrir] = useState(false);
 
   // To'lov tarixi — SoffCRM'dagidek BITTA ro'yxat: to'lovlar va
   // hisob-fakturalar ("Qarzdorlik") birga, guruh va sana filtri bilan.
@@ -165,9 +231,21 @@ function Karta({ talabaId, onOrqaga }) {
   return (
     <section>
       <button className="havola" type="button" onClick={onOrqaga}>← {t("talabalar")}</button>
-      <h1>{talaba.ism}</h1>
+      <div className="karta-sarlavha">
+        <h1>{talaba.ism}</h1>
+        {/* Tahrirlash — LMS'ning `PATCH /api/talabalar/<id>/` orqali
+            (2026-09-17, Shuhrat: "CRM'da tahrirlansa LMS'ga yozilsin"). */}
+        <button className="tugma tugma-sokin" type="button" onClick={() => setTahrir(true)}>
+          ✎ {t("talaba_tahrirlash")}
+        </button>
+      </div>
 
+      {/* Sayt ma'lumoti — LMS Talabalar kartasi bilan bir xil maydonlar. */}
       <div className="karta">
+        <div className="qator">
+          <span className="kichik">{t("login")}</span>
+          <span>{talaba.username}</span>
+        </div>
         <div className="qator">
           <span className="kichik">{t("telefon")}</span>
           <span>{talaba.telefon || "—"}</span>
@@ -177,10 +255,26 @@ function Karta({ talabaId, onOrqaga }) {
           <span>{talaba.ota_ona_telefon || "—"}</span>
         </div>
         <div className="qator">
+          <span className="kichik">{t("tugilgan_sana")}</span>
+          <span>{sana(talaba.tugilgan_sana)}</span>
+        </div>
+        <div className="qator">
+          <span className="kichik">{t("manba")}</span>
+          <span>{talaba.manba || "—"}</span>
+        </div>
+        <div className="qator">
+          <span className="kichik">{t("izoh_talaba")}</span>
+          <span>{talaba.izoh || "—"}</span>
+        </div>
+        <div className="qator">
           <span className="kichik">{t("umumiy_balans")}</span>
           <b className={balansSinfi(talaba.balans_jami)}>{balansMatn(talaba.balans_jami)}</b>
         </div>
       </div>
+
+      {tahrir && (
+        <TalabaTahrirOynasi talaba={talaba} onYopish={() => setTahrir(false)} onSaqlandi={yangila} />
+      )}
 
       {/* Umumiy o'quv natijasi — LMS'da hosil bo'ladi, bu yerda faqat
           ko'rsatiladi (SoffCRM kartasidagi "Baho" o'rnida, lekin bitta
@@ -407,7 +501,18 @@ export default function Talabalar() {
   const { tanlangan } = useFilial();
   const [qidiruv, setQidiruv] = useState("");
   const [holat, setHolat] = useState("");
-  const [ochilgan, setOchilgan] = useState(null);
+  // `?talaba=ID` — LMS Talabalar kartasidagi "CRM'da ochish" va bosh
+  // sahifadagi qarzdorlar ro'yxatidan kelganda karta darhol ochiladi.
+  const [params, setParams] = useSearchParams();
+  const [ochilgan, setOchilganAsl] = useState(() => Number(params.get("talaba")) || null);
+  useEffect(() => {
+    const id = Number(params.get("talaba"));
+    if (id) setOchilganAsl(id);
+  }, [params]);
+  const setOchilgan = (id) => {
+    setOchilganAsl(id);
+    if (!id && params.get("talaba")) setParams({});
+  };
   const [menyu, setMenyu] = useState(null);
   const [qaytarish, setQaytarish] = useState(null);
 

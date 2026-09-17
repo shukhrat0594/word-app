@@ -4,7 +4,8 @@
 // TAHRIRLANMAYDI: u LMS'ning ishi. Ikki joyda tahrirlash chalkashlik
 // keltiradi va qaysi biri to'g'ri ekani bilinmay qoladi.
 
-import { Fragment, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
 import { api } from "../api.js";
 import GuruhTablari from "../GuruhTablari.jsx";
@@ -282,7 +283,14 @@ export default function Guruhlar() {
   const { tanlangan, filiallar } = useFilial();
   const [qidiruv, setQidiruv] = useState("");
   const [sozlanayotgan, setSozlanayotgan] = useState(null);
-  const [ochilgan, setOchilgan] = useState(null);
+  // `?guruh=ID` — dars jadvalidagi blokdan kelganda shu guruh ochiq
+  // turadi (2026-09-17).
+  const [params] = useSearchParams();
+  const [ochilgan, setOchilgan] = useState(() => Number(params.get("guruh")) || null);
+  useEffect(() => {
+    const id = Number(params.get("guruh"));
+    if (id) setOchilgan(id);
+  }, [params]);
   // Tezkor amal tugmasi qaysi tabni ochishini aytadi; `n` — bir xil tab
   // qayta bosilganda ham ishlashi uchun o'sib boruvchi raqam.
   const [tabBuyrugi, setTabBuyrugiAsl] = useState(null);

@@ -1,8 +1,10 @@
 // Moliya — uchta tab: Qarzdorlar, To'lovlar, Hisobot (TZ 6.3).
 
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
 import { apiFayluniYuklab } from "../api.js";
+import TolovQoshishOynasi from "../TolovQoshishOynasi.jsx";
 import { useFilial } from "../filialContext.jsx";
 import { balansMatn, balansSinfi, joriyOy, oyNomi, pul, sana, siljit } from "../format.js";
 import { useI18n } from "../i18n.jsx";
@@ -169,9 +171,9 @@ function Tolovlar() {
   const [dan, setDan] = useState(`${joriyOy()}-01`);
   const [gacha, setGacha] = useState(new Date().toISOString().slice(0, 10));
   const [turi, setTuri] = useState("");
-  // SoffCRM'da hisob-fakturalar ham shu ro'yxatda ko'rinadi — admin
-  // ko'nikkan ko'rinish, shuning uchun standart bo'yicha yoqilgan.
-  const [hisoblarBilan, setHisoblarBilan] = useState(true);
+  // Standart — FAQAT to'lovlar (2026-09-17, admin talabi: "faqat to'lov
+  // qilgan o'quvchilar ro'yxati"). Hisob-fakturalar belgi bilan qo'shiladi.
+  const [hisoblarBilan, setHisoblarBilan] = useState(false);
 
   const yol = "/api/crm/tolov/" + sorovSatri({ dan, gacha, turi, hisoblar: hisoblarBilan ? 1 : "" });
   const { malumot, yuklanmoqda, xato } = useSorov(yol);
@@ -219,6 +221,7 @@ function Tolovlar() {
               <th className="ongga">{t("summa")}</th>
               <th>{t("talaba")}</th>
               <th>{t("guruh")}</th>
+              <th className="ongga">{t("balans")}</th>
               <th>{t("izoh")}</th>
               <th>{t("kim")}</th>
             </tr>
@@ -235,12 +238,15 @@ function Tolovlar() {
                 </td>
                 <td>{q.talaba}</td>
                 <td>{q.guruh}</td>
+                <td className={`ongga ${q.balans != null ? balansSinfi(q.balans) : ""}`}>
+                  {q.balans != null ? balansMatn(q.balans) : "—"}
+                </td>
                 <td>{q.izoh}</td>
                 <td>{q.kim || "—"}</td>
               </tr>
             ))}
             {!yuklanmoqda && qatorlar.length === 0 && (
-              <tr><td colSpan={9} className="bosh">{t("yozuv_yoq")}</td></tr>
+              <tr><td colSpan={10} className="bosh">{t("yozuv_yoq")}</td></tr>
             )}
           </tbody>
         </table>
@@ -331,15 +337,29 @@ function Hisobot({ oy, setOy }) {
 
 export default function Moliya() {
   const { t } = useI18n();
-  const [tab, setTab] = useState("qarzdorlar");
+  // Standart tab — TO'LOVLAR (2026-09-17, admin talabi: "moliya
+  // bo'limida to'lov qilganlar ro'yxati"). Qarzdorlar bosh sahifada ham
+  // bor; `?tab=qarzdorlar` bilan to'g'ridan-to'g'ri ochiladi.
+  const [params] = useSearchParams();
+  const [tab, setTab] = useState(() =>
+    TABLAR.includes(params.get("tab")) ? params.get("tab") : "tolovlar"
+  );
   // Oy tanlovi Qarzdorlar va Hisobot tablari orasida UMUMIY: admin
   // odatda bitta oy ustida ishlaydi va tab almashtirganda qaytadan
   // tanlashi zerikarli bo'lardi.
   const [oy, setOy] = useState(joriyOy());
+  const [tolovQoshish, setTolovQoshish] = useState(false);
+  // To'lov saqlangach ochiq tab qayta yuklansin — `key` orqali.
+  const [yangilash, setYangilash] = useState(0);
 
   return (
     <section>
-      <h1>{t("moliya")}</h1>
+      <div className="karta-sarlavha">
+        <h1>{t("moliya")}</h1>
+        <button className="tugma" type="button" onClick={() => setTolovQoshish(true)}>
+          + {t("tolov_qoshish")}
+        </button>
+      </div>
       <div className="tablar">
         {TABLAR.map((x) => (
           <button
@@ -353,11 +373,18 @@ export default function Moliya() {
         ))}
       </div>
 
-      <div className="karta">
+      <div className="karta" key={yangilash}>
         {tab === "qarzdorlar" && <Qarzdorlar oy={oy} setOy={setOy} />}
         {tab === "tolovlar" && <Tolovlar />}
         {tab === "hisobot" && <Hisobot oy={oy} setOy={setOy} />}
       </div>
+
+      {tolovQoshish && (
+        <TolovQoshishOynasi
+          onYopish={() => setTolovQoshish(false)}
+          onSaqlandi={() => setYangilash((n) => n + 1)}
+        />
+      )}
     </section>
   );
 }

@@ -1123,7 +1123,14 @@ class TolovlarView(CrmView):
         if request.query_params.get("turi"):
             qs = qs.filter(turi=request.query_params["turi"])
 
-        qatorlar = [_tolov_dict(t) for t in qs[:2000]]
+        tolovlar = list(qs[:2000])
+        # Balans — Moliya > To'lovlar ro'yxatida ustun (admin talabi,
+        # 2026-09-17). Bitta so'rovda, N+1 emas.
+        balanslar = mantiq.balanslarni_ol({t.talaba_id for t in tolovlar if t.talaba_id})
+        qatorlar = [
+            {**_tolov_dict(t), "balans": balanslar.get(t.talaba_id) if t.talaba_id else None}
+            for t in tolovlar
+        ]
 
         if request.query_params.get("hisoblar") == "1":
             hisoblar = Hisob.objects.select_related("talaba", "guruh").all()
@@ -1332,6 +1339,8 @@ class TalabalarView(CrmView):
                     "guruh_id": am.azolik.guruh_id,
                     "guruh": am.azolik.guruh.name,
                     "holat": am.holat,
+                    # Filial — "To'lov qo'shish" oynasida guruh yonida ko'rsatiladi.
+                    "filial_id": getattr(getattr(am.azolik.guruh, "moliya", None), "filial_id", None),
                 }
             )
 
@@ -1473,8 +1482,15 @@ class TalabaView(CrmView):
             {
                 "id": talaba.id,
                 "ism": talaba.get_full_name() or talaba.username,
+                "username": talaba.username,
                 "telefon": talaba.telefon,
                 "ota_ona_telefon": talaba.ota_ona_telefon,
+                # 2026-09-17: SAYT ma'lumoti (LMS Talabalar kartasi bilan
+                # bir xil). CRM faqat o'qiydi; tahrirlash LMS'ning
+                # `PATCH /api/talabalar/<id>/` orqali — bitta manba.
+                "tugilgan_sana": talaba.tugilgan_sana,
+                "manba": talaba.manba,
+                "izoh": talaba.izoh,
                 "balans_jami": mantiq.balans(talaba),
                 "natijalar": natijalar,
                 "guruhlar": guruhlar,

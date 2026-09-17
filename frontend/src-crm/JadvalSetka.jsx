@@ -42,10 +42,11 @@ function vaqtMatni(daqiqalar) {
  *  ko'rinar va admin guruhni rangi bo'yicha eslab qola olmasdi. */
 function guruhRangi(guruhId) {
   const burchak = (Number(guruhId) * 47) % 360;
+  // SoffCRM'dagidek yorqin ranglar (2026-09-17, admin talabi).
   return {
-    background: `hsl(${burchak} 70% 88%)`,
-    borderInlineStart: `3px solid hsl(${burchak} 55% 45%)`,
-    color: `hsl(${burchak} 60% 22%)`,
+    background: `hsl(${burchak} 85% 78%)`,
+    borderInlineStart: `3px solid hsl(${burchak} 60% 40%)`,
+    color: `hsl(${burchak} 60% 18%)`,
   };
 }
 
@@ -168,6 +169,7 @@ export default function JadvalSetka() {
 }
 
 function Qator({ qator, raqam, darslar, boshi, ustunlar, qadam: QADAM }) {
+  const { t } = useI18n();
   return (
     <>
       <div className="setka-xona" style={{ gridRow: raqam, gridColumn: 1 }}>
@@ -181,10 +183,14 @@ function Qator({ qator, raqam, darslar, boshi, ustunlar, qadam: QADAM }) {
         // 1-ustun xona nomi uchun, shuning uchun +2.
         const dan = Math.floor((daqiqa(d.boshlanish_vaqti) - boshi) / QADAM) + 2;
         const gacha = Math.ceil((daqiqa(d.tugash_vaqti) - boshi) / QADAM) + 2;
+        // Blokka bosilsa guruh kartasi ochiladi (2026-09-17, admin
+        // talabi: "jadval orqali guruhga kirish"). Oddiy <a> — Guruhlar
+        // sahifasi `?guruh=` parametrini o'qib guruhni ochiq ko'rsatadi.
         return (
-          <div
+          <a
             key={d.id}
             className="setka-dars"
+            href={`/crm/guruhlar?guruh=${d.guruh_id}`}
             style={{
               gridRow: raqam,
               gridColumn: `${dan} / ${Math.max(gacha, dan + 1)}`,
@@ -192,10 +198,9 @@ function Qator({ qator, raqam, darslar, boshi, ustunlar, qadam: QADAM }) {
             }}
             title={`${d.guruh}\n${d.boshlanish_vaqti} - ${d.tugash_vaqti}\n${d.oqituvchi || ""}`}
           >
-            <b>{d.boshlanish_vaqti} - {d.tugash_vaqti}</b>
-            <span>{d.guruh}</span>
-            {d.oqituvchi && <i>{d.oqituvchi}</i>}
-          </div>
+            <b>{d.boshlanish_vaqti} - {d.tugash_vaqti} / {d.guruh}</b>
+            {d.oqituvchi && <i>{t("oqituvchi")}: {d.oqituvchi}</i>}
+          </a>
         );
       })}
     </>

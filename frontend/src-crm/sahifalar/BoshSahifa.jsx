@@ -4,6 +4,8 @@
 // hisob OCHILMAYDI, ya'ni u jimgina pul yo'qotadi. Admin buni o'zi
 // sezmasligi kerak — tizim aytib turishi kerak.
 
+import { Link } from "react-router-dom";
+
 import { useFilial } from "../filialContext.jsx";
 import JadvalSetka from "../JadvalSetka.jsx";
 import { joriyOy, oyNomi, pul } from "../format.js";
@@ -26,9 +28,15 @@ export default function BoshSahifa() {
 
   const hisobot = useSorov("/api/crm/hisobot/" + sorovSatri({ oy, filial: tanlangan }));
   const ogohlar = useSorov("/api/crm/ogohlantirishlar/");
+  // Qarzdorlar — bosh sahifada (2026-09-17, admin talabi). Joriy oyning
+  // to'lanmagan hisoblari, eng katta qoldiq tepada.
+  const qarzdorlar = useSorov("/api/crm/hisoblar/" + sorovSatri({ oy, filial: tanlangan }));
 
   const jami = hisobot.malumot?.jami;
   const ogohRoyxati = ogohlar.malumot || [];
+  const qarzdorRoyxati = (qarzdorlar.malumot || [])
+    .filter((h) => h.holat !== "tolandi")
+    .sort((a, b) => Number(b.qoldiq) - Number(a.qoldiq));
 
   return (
     <section>
@@ -50,6 +58,33 @@ export default function BoshSahifa() {
       <div className="karta">
         <h2>{t("dars_jadvali")}</h2>
         <JadvalSetka />
+      </div>
+
+      <div className="karta">
+        <div className="karta-sarlavha">
+          <h2>{t("qarzdorlar_royxati")} <span className="kichik">({qarzdorRoyxati.length})</span></h2>
+          <Link className="havola" to="/moliya?tab=qarzdorlar">{t("hammasini_korish")} →</Link>
+        </div>
+        {qarzdorlar.yuklanmoqda ? (
+          <p className="kichik">{t("yuklanmoqda")}</p>
+        ) : qarzdorRoyxati.length === 0 ? (
+          <p className="kichik">✅ {t("yozuv_yoq")}</p>
+        ) : (
+          <ul className="qarzdor-royxat">
+            {qarzdorRoyxati.slice(0, 10).map((h) => (
+              <li key={h.id}>
+                <span>
+                  <Link className="havola" to={`/talabalar?talaba=${h.talaba_id}`}>{h.talaba}</Link>
+                  <span className="kichik">{h.guruh}{h.filial ? ` · ${h.filial}` : ""}</span>
+                </span>
+                <span className="ongga">
+                  <b className="rang-qarzdor">{pul(h.qoldiq)}</b>
+                  <span className={`holat holat-${h.holat}`} style={{ marginInlineStart: 8 }}>{t(`holat_${h.holat}`)}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
 
       <div className="karta">
