@@ -1569,6 +1569,24 @@ class TalabalarView(APIView):
         # massiv qaytadi. `prefetch_related` N+1 so'rovning oldini oladi.
         qs = qs.prefetch_related("talaba_guruhlari")
 
+        # SHAXSIY maydonlar (telefon, ota-ona, tug'ilgan sana, manba, izoh)
+        # FAQAT admin/owner'ga (`accounts/models.py` izohi). O'qituvchi
+        # ro'yxatida ular bo'lmaydi — 2026-09-17 tekshiruvda topildi:
+        # avval telefon o'qituvchiga ham ketardi.
+        boshqaruv = owner_mi(u) or u.role == User.Role.ADMIN
+
+        def shaxsiy(t):
+            if not boshqaruv:
+                return {}
+            return {
+                "telefon": t.telefon,
+                "ota_ona_telefon": t.ota_ona_telefon,
+                "tugilgan_sana": t.tugilgan_sana,
+                "manba": t.manba,
+                "izoh": t.izoh,
+                "admin_maydonlari": t.admin_maydonlari,
+            }
+
         return Response(
             [
                 {
@@ -1592,12 +1610,7 @@ class TalabalarView(APIView):
                     "qurilma_limiti": t.qurilma_limiti,
                     "qurilmalar_soni": len(t.qurilmalar),
                     "bio": t.bio,
-                    "telefon": t.telefon,
-                    "ota_ona_telefon": t.ota_ona_telefon,
-                    "tugilgan_sana": t.tugilgan_sana,
-                    "manba": t.manba,
-                    "izoh": t.izoh,
-                    "admin_maydonlari": t.admin_maydonlari,
+                    **shaxsiy(t),
                 }
                 for t in qs.order_by("first_name", "username")
             ]
@@ -1628,21 +1641,25 @@ class TalabalarView(APIView):
             "login": (request.data.get("login") or "").strip(),
             "parol": (request.data.get("parol") or "").strip(),
         }
-        # markaz_id=None (2026-08-02) — talaba markazga bog'lanmaydi.
-        yaratilganlar, xatolar = excel_import.foydalanuvchilarni_yarat(
-            [qator], role=User.Role.STUDENT, markaz_id=None, User=User
-        )
-        if xatolar:
-            return Response({"detail": xatolar[0]["xato"]}, status=400)
+        # Qo'shimcha maydonlar (2026-09-17) hisob yaratilgandan KEYIN
+        # yoziladi — ular xato bersa (masalan telefon uzun) yarim yaratilgan
+        # talaba qolmasligi uchun ikkalasi bitta tranzaksiyada.
+        with transaction.atomic():
+            # markaz_id=None (2026-08-02) — talaba markazga bog'lanmaydi.
+            yaratilganlar, xatolar = excel_import.foydalanuvchilarni_yarat(
+                [qator], role=User.Role.STUDENT, markaz_id=None, User=User
+            )
+            if xatolar:
+                return Response({"detail": xatolar[0]["xato"]}, status=400)
 
-        y = yaratilganlar[0]
-        # 2026-09-17: qo'shimcha ma'lumot (telefon, ota-ona, tug'ilgan
-        # sana, manba, izoh) shu formada kiritiladi — `_talaba_maydonlarini_yoz`
-        # PATCH bilan bir xil qoidada, kiritilganlari talabaga qulflanadi.
-        talaba = User.objects.get(pk=y["id"])
-        xato = _talaba_maydonlarini_yoz(talaba, {k: v for k, v in request.data.items() if k != "ism"})
-        if xato:
-            return Response({"detail": xato}, status=400)
+            y = yaratilganlar[0]
+            # `_talaba_maydonlarini_yoz` PATCH bilan bir xil qoidada,
+            # kiritilganlari talabaga qulflanadi.
+            talaba = User.objects.get(pk=y["id"])
+            xato = _talaba_maydonlarini_yoz(talaba, {k: v for k, v in request.data.items() if k != "ism"})
+            if xato:
+                transaction.set_rollback(True)
+                return Response({"detail": xato}, status=400)
         FaoliyatYozuvi.objects.create(
             foydalanuvchi=request.user,
             harakat=FaoliyatYozuvi.Harakat.YARATISH,
@@ -1680,6 +1697,9 @@ def _talaba_maydonlarini_yoz(talaba, data):
         if kalit not in data:
             continue
         qiymat = data.get(kalit)
+        eski_qiymat = getattr(talaba, maydon)
+        if maydon == "first_name":
+            eski_qiymat = talaba.get_full_name()
         if maydon == "tugilgan_sana":
             qiymat = qiymat or None
         else:
@@ -1694,10 +1714,21 @@ def _talaba_maydonlarini_yoz(talaba, data):
                 return "Izoh 500 belgigacha bo'lsin"
         setattr(talaba, maydon, qiymat)
         ozgardi.append(maydon)
-        if qiymat:
-            qulf.add(maydon)
-        else:
+        if maydon == "first_name":
+            # Loyiha konvensiyasi (`ProfilTahrirlashView`): BUTUN ism
+            # `first_name`da, `last_name` ishlatilmaydi. Eski yozuvlarda
+            # `last_name` to'lgan bo'lsa tozalanadi — aks holda
+            # `get_full_name()` "Nigora Alimova Alimova" qaytarardi
+            # (2026-09-17 tekshiruvda topildi).
+            talaba.last_name = ""
+            ozgardi.append("last_name")
+        # Qulf faqat admin HAQIQATAN o'zgartirgan maydonga: forma to'liq
+        # yuboriladi, talaba o'zi kiritgan telefonni admin shunchaki
+        # qayta saqlasa, u talabaga yopilib qolmasin.
+        if not qiymat:
             qulf.discard(maydon)
+        elif str(qiymat) != str(eski_qiymat or ""):
+            qulf.add(maydon)
     if ozgardi:
         talaba.admin_maydonlari = sorted(qulf)
         try:

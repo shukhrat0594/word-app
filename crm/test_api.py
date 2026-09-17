@@ -212,6 +212,25 @@ class OqimTest(ApiAsos):
         self.assertEqual(hisobot["jami"]["qarz"], Decimal("0"))
         self.assertAlmostEqual(hisobot["jami"]["yigilish_foizi"], 60.6, places=1)
 
+    def test_boshqa_talabaning_hisobiga_tolov_rad_etiladi(self):
+        """hisob_id boshqa talabaniki bo'lsa — 400. Aks holda to'lov bir
+        talabaga yozilib, boshqasining oyi to'langan bo'lib qolardi."""
+        self.azolik_qosh(boshlanish=date(2026, 9, 1))
+        with bugun_qilib(date(2026, 9, 30)):
+            mantiq.hisoblarni_generatsiya_qil()
+        hisob = Hisob.objects.get()
+        boshqa = User.objects.create_user(username="boshqa_t", password="x", role=User.Role.STUDENT)
+        javob = self.mijoz(self.admin).post(
+            "/api/crm/tolov/",
+            {"talaba_id": boshqa.id, "guruh_id": self.guruh.id, "hisob_id": hisob.id,
+             "summa": "1000", "turi": "tolov", "sana": "2026-09-11"},
+            format="json",
+        )
+        self.assertEqual(javob.status_code, 400)
+        self.assertFalse(Tolov.objects.exists())
+        hisob.refresh_from_db()
+        self.assertEqual(hisob.holat, Hisob.Holat.QARZDOR)
+
     def test_qaytarish_oyga_boglanmaydi(self):
         self.azolik_qosh(boshlanish=date(2026, 9, 1))
         mijoz = self.mijoz(self.admin)

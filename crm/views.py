@@ -1187,6 +1187,11 @@ class TolovlarView(CrmView):
         hisob = None
         if request.data.get("hisob_id"):
             hisob = get_object_or_404(Hisob, pk=request.data["hisob_id"])
+            # Hisob AYNAN shu talaba va guruhniki bo'lishi shart (2026-09-17
+            # tekshiruvda topildi): aks holda to'lov bir talabaga yozilib,
+            # BOSHQA talabaning oyi "to'landi" bo'lib qolardi.
+            if hisob.talaba_id != talaba.id or hisob.guruh_id != guruh.id:
+                return _xato("Hisob boshqa talaba yoki guruhga tegishli")
         elif request.data.get("oy") and turi != Tolov.Turi.QAYTARISH:
             # `qaytarish` ATAYLAB oyga bog'lanmaydi — u umumiy hisob-kitob
             # (TZ 3.8), oy holatini o'zgartirmaydi.
