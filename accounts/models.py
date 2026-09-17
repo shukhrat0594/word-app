@@ -229,6 +229,17 @@ class User(AbstractUser):
     telefon = models.CharField(max_length=20, blank=True)
     ota_ona_telefon = models.CharField(max_length=20, blank=True, help_text="Ota-ona/vasiy telefon raqami")
     tugilgan_sana = models.DateField(null=True, blank=True)
+    # 2026-09-17, admin (Umida) talabi: talaba kartasida qo'shimcha
+    # ma'lumot. `manba` — talaba qayerdan kelgani (erkin matn, ro'yxat
+    # kelishilmagan). `izoh` — admin uchun qisqa eslatma ("aka-uka
+    # chegirmasi"); sanali tarix CRM'dagi Eslatmalar'da.
+    manba = models.CharField(max_length=100, blank=True, help_text="Talaba qayerdan kelgan")
+    izoh = models.CharField(max_length=500, blank=True, help_text="Admin izohi")
+    # Admin/owner talaba o'rniga kiritgan maydonlar ro'yxati (masalan
+    # ["telefon", "tugilgan_sana"]). Shuhrat qarori (2026-09-17): admin
+    # kiritgan narsani talaba O'Z profilida o'zgartira olmasin —
+    # ro'yxatdagi maydonlar talabaga faqat o'qish uchun ko'rinadi.
+    admin_maydonlari = models.JSONField(default=list, blank=True)
 
     def __str__(self):
         return f"{self.username} ({self.get_role_display()})"

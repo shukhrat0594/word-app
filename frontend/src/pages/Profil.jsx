@@ -94,6 +94,10 @@ export default function Profil() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profil]);
 
+  // 2026-09-17: admin kiritgan maydonlar talabaga faqat o'qish uchun.
+  const qulf = new Set(profil?.admin_maydonlari || []);
+  const qulflangan = (maydon) => qulf.has(maydon);
+
   async function formaniSaqla() {
     setFormaXato("");
     setFormaXabar("");
@@ -230,7 +234,9 @@ export default function Profil() {
                 value={forma.ism}
                 onChange={(e) => setForma((f) => ({ ...f, ism: e.target.value }))}
                 placeholder={t("ism")}
+                disabled={qulflangan("first_name")}
               />
+              {qulflangan("first_name") && <span className="izoh">{t("admin_kiritgan_maydon")}</span>}
             </label>
             <label>
               <span className="izoh">{t("profil_bio")}</span>
@@ -249,7 +255,9 @@ export default function Profil() {
                 value={forma.telefon}
                 onChange={(e) => setForma((f) => ({ ...f, telefon: e.target.value }))}
                 placeholder="+998 90 123 45 67"
+                disabled={qulflangan("telefon")}
               />
+              {qulflangan("telefon") && <span className="izoh">{t("admin_kiritgan_maydon")}</span>}
             </label>
             <label>
               <span className="izoh">{t("profil_ota_ona_telefon")}</span>
@@ -257,7 +265,9 @@ export default function Profil() {
                 value={forma.ota_ona_telefon}
                 onChange={(e) => setForma((f) => ({ ...f, ota_ona_telefon: e.target.value }))}
                 placeholder="+998 90 123 45 67"
+                disabled={qulflangan("ota_ona_telefon")}
               />
+              {qulflangan("ota_ona_telefon") && <span className="izoh">{t("admin_kiritgan_maydon")}</span>}
             </label>
             <label>
               <span className="izoh">{t("profil_tugilgan_sana")}</span>
@@ -265,7 +275,9 @@ export default function Profil() {
                 type="date"
                 value={forma.tugilgan_sana}
                 onChange={(e) => setForma((f) => ({ ...f, tugilgan_sana: e.target.value }))}
+                disabled={qulflangan("tugilgan_sana")}
               />
+              {qulflangan("tugilgan_sana") && <span className="izoh">{t("admin_kiritgan_maydon")}</span>}
             </label>
             {formaXato && <div className="xato-xabar">{formaXato}</div>}
             {formaXabar && <div className="izoh">{formaXabar}</div>}

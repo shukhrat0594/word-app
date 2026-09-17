@@ -5,7 +5,99 @@ import { useProfil } from "../profilContext";
 import NatijalarRoyxati from "../components/NatijalarRoyxati";
 import { PanelTanlovi, ProfilRasmi, QurilmaTiklashTugmasi, QurilmaLimitiBoshqaruv } from "./Foydalanuvchilar";
 
-const BOSH_FORMA = { ism: "", login: "", parol: "" };
+// 2026-09-17 (admin talabi): yaratishda qo'shimcha ma'lumot ham kiritiladi.
+// Kiritilgan maydonlar talabaga qulflanadi (`admin_maydonlari`).
+const BOSH_FORMA = {
+  ism: "", login: "", parol: "",
+  telefon: "", ota_ona_telefon: "", tugilgan_sana: "", manba: "", izoh: "",
+};
+
+// Admin/owner tahrirlaydigan maydonlar — TalabaKartasi formasi.
+const TAHRIR_MAYDONLARI = ["ism", "telefon", "ota_ona_telefon", "tugilgan_sana", "manba", "izoh"];
+
+/** Talaba kartasi (2026-09-17, admin talabi): ismga bosilganda natijalar
+ *  emas, to'liq ma'lumot — telefon, ota-ona, tug'ilgan sana, manba, izoh,
+ *  guruhi. Admin/owner shu yerda tahrirlaydi (`PATCH /api/talabalar/<id>/`).
+ *  To'lov tarixi CRM'da — havola bilan (LMS CRM kodini import qilmaydi). */
+function TalabaKartasi({ talaba, boshqaruvMi, t, onYopish, onSaqlandi, onNatijalar }) {
+  const [forma, setForma] = useState(() =>
+    Object.fromEntries(TAHRIR_MAYDONLARI.map((m) => [m, talaba[m] || ""]))
+  );
+  const [band, setBand] = useState(false);
+  const [xato, setXato] = useState("");
+  const [xabar, setXabar] = useState("");
+
+  async function saqla() {
+    setXato("");
+    setXabar("");
+    setBand(true);
+    try {
+      const yangi = await api(`/api/talabalar/${talaba.id}/`, { method: "PATCH", body: forma });
+      setXabar(t("talaba_saqlandi"));
+      onSaqlandi(yangi);
+    } catch (e) {
+      setXato(e.data?.detail || t("xato_yuz_berdi"));
+    } finally {
+      setBand(false);
+    }
+  }
+
+  const maydon = (kalit, tarjima, turi = "text") => (
+    <label key={kalit}>
+      <span className="izoh">{tarjima}</span>
+      {boshqaruvMi ? (
+        <input
+          type={turi}
+          value={forma[kalit]}
+          onChange={(e) => setForma((f) => ({ ...f, [kalit]: e.target.value }))}
+        />
+      ) : (
+        <div>{talaba[kalit] || "—"}</div>
+      )}
+    </label>
+  );
+
+  return (
+    <div className="blok-yuklash-qoplama" onClick={onYopish}>
+      <div className="blok-tasdiq-karta" style={{ maxWidth: 560 }} onClick={(e) => e.stopPropagation()}>
+        <div className="blok-tasdiq-sarlavha-qator">
+          <strong>{talaba.ism}</strong>
+          <span style={{ display: "flex", gap: 8 }}>
+            <button className="tugma ikkinchi kichik" onClick={onNatijalar}>{t("natijalar_tugma")}</button>
+            {import.meta.env.VITE_CRM === "1" && boshqaruvMi && (
+              <a className="tugma ikkinchi kichik" href={`/crm/talabalar?talaba=${talaba.id}`}>
+                💰 {t("crmda_ochish")}
+              </a>
+            )}
+            <button className="tugma ikkinchi kichik" onClick={onYopish}>{t("yopish")}</button>
+          </span>
+        </div>
+        <div style={{ display: "grid", gap: 12, marginTop: 12 }}>
+          <div>
+            <span className="izoh">{t("login")}: </span>{talaba.username}
+          </div>
+          <div>
+            <span className="izoh">{t("talaba_guruhi")}: </span>
+            {talaba.guruhlar?.length ? talaba.guruhlar.map((g) => g.nomi).join(", ") : "—"}
+          </div>
+          {maydon("ism", t("ism"))}
+          {maydon("telefon", t("profil_telefon"))}
+          {maydon("ota_ona_telefon", t("profil_ota_ona_telefon"))}
+          {maydon("tugilgan_sana", t("profil_tugilgan_sana"), "date")}
+          {maydon("manba", t("talaba_manba"))}
+          {maydon("izoh", t("talaba_izoh"))}
+          {xato && <div className="xato-xabar">{xato}</div>}
+          {xabar && <div className="izoh">{xabar}</div>}
+          {boshqaruvMi && (
+            <button className="tugma" onClick={saqla} disabled={band}>
+              {band ? t("yuklanmoqda") : t("saqlash")}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 /** Talabalar ro'yxati. Owner/admin — o'z markazidagi barcha talabalar,
  * bittalab qo'shish (2026-07-27) va Excel orqali ommaviy kiritish.
@@ -27,6 +119,9 @@ export default function Talabalar() {
   // 2026-08-05, foydalanuvchi talabi: talaba ustiga bosilganda uning
   // barcha mashq/test natijalari (turi bo'yicha) ko'rsatiladigan oyna.
   const [natijaTalaba, setNatijaTalaba] = useState(null);
+  // 2026-09-17: ismga bosilganda endi talaba KARTASI ochiladi (ma'lumot +
+  // tahrirlash), natijalar undagi alohida tugma orqali.
+  const [kartaTalaba, setKartaTalaba] = useState(null);
 
   function yukla(arxiv = arxivKorish) {
     api(`/api/talabalar/${arxiv ? "?arxiv=1" : ""}`).then(setTalabalar).catch(() => {});
@@ -183,6 +278,37 @@ export default function Talabalar() {
               value={forma.parol}
               onChange={(e) => setForma({ ...forma, parol: e.target.value })}
             />
+            <input
+              style={{ maxWidth: 160 }}
+              placeholder={t("profil_telefon")}
+              value={forma.telefon}
+              onChange={(e) => setForma({ ...forma, telefon: e.target.value })}
+            />
+            <input
+              style={{ maxWidth: 160 }}
+              placeholder={t("profil_ota_ona_telefon")}
+              value={forma.ota_ona_telefon}
+              onChange={(e) => setForma({ ...forma, ota_ona_telefon: e.target.value })}
+            />
+            <input
+              style={{ maxWidth: 160 }}
+              type="date"
+              title={t("profil_tugilgan_sana")}
+              value={forma.tugilgan_sana}
+              onChange={(e) => setForma({ ...forma, tugilgan_sana: e.target.value })}
+            />
+            <input
+              style={{ maxWidth: 160 }}
+              placeholder={t("talaba_manba")}
+              value={forma.manba}
+              onChange={(e) => setForma({ ...forma, manba: e.target.value })}
+            />
+            <input
+              style={{ maxWidth: 220 }}
+              placeholder={t("talaba_izoh")}
+              value={forma.izoh}
+              onChange={(e) => setForma({ ...forma, izoh: e.target.value })}
+            />
             <button className="tugma" onClick={talabaQosh} disabled={band}>
               {t("yaratish")}
             </button>
@@ -251,8 +377,8 @@ export default function Talabalar() {
                   <ProfilRasmi user={tl} ochir={boshqaruvMi ? rasmOchir : undefined} t={t} />
                   <span
                     style={{ display: "flex", gap: 8, cursor: "pointer", alignItems: "center" }}
-                    onClick={() => setNatijaTalaba(tl)}
-                    title={t("talaba_natijalarini_kor")}
+                    onClick={() => setKartaTalaba(tl)}
+                    title={t("talaba_malumoti")}
                   >
                     <span>{tl.ism}</span>
                     <span className="izoh">{tl.username}</span>
@@ -278,6 +404,20 @@ export default function Talabalar() {
           </details>
         ))}
       </div>
+
+      {kartaTalaba && (
+        <TalabaKartasi
+          talaba={kartaTalaba}
+          boshqaruvMi={boshqaruvMi}
+          t={t}
+          onYopish={() => setKartaTalaba(null)}
+          onNatijalar={() => { setNatijaTalaba(kartaTalaba); setKartaTalaba(null); }}
+          onSaqlandi={(yangi) => {
+            setKartaTalaba((k) => ({ ...k, ...yangi }));
+            setTalabalar((r) => r.map((x) => (x.id === yangi.id ? { ...x, ...yangi } : x)));
+          }}
+        />
+      )}
 
       {natijaTalaba && (
         <div className="blok-yuklash-qoplama" onClick={() => setNatijaTalaba(null)}>

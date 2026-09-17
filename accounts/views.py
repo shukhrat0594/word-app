@@ -100,6 +100,9 @@ class ProfilView(APIView):
                 "telefon": u.telefon,
                 "ota_ona_telefon": u.ota_ona_telefon,
                 "tugilgan_sana": u.tugilgan_sana,
+                # 2026-09-17: admin kiritgan maydonlar — Profil sahifasi
+                # ularni faqat o'qish uchun ko'rsatadi.
+                "admin_maydonlari": u.admin_maydonlari,
             }
         )
 
@@ -1592,6 +1595,9 @@ class TalabalarView(APIView):
                     "telefon": t.telefon,
                     "ota_ona_telefon": t.ota_ona_telefon,
                     "tugilgan_sana": t.tugilgan_sana,
+                    "manba": t.manba,
+                    "izoh": t.izoh,
+                    "admin_maydonlari": t.admin_maydonlari,
                 }
                 for t in qs.order_by("first_name", "username")
             ]
@@ -1630,6 +1636,13 @@ class TalabalarView(APIView):
             return Response({"detail": xatolar[0]["xato"]}, status=400)
 
         y = yaratilganlar[0]
+        # 2026-09-17: qo'shimcha ma'lumot (telefon, ota-ona, tug'ilgan
+        # sana, manba, izoh) shu formada kiritiladi — `_talaba_maydonlarini_yoz`
+        # PATCH bilan bir xil qoidada, kiritilganlari talabaga qulflanadi.
+        talaba = User.objects.get(pk=y["id"])
+        xato = _talaba_maydonlarini_yoz(talaba, {k: v for k, v in request.data.items() if k != "ism"})
+        if xato:
+            return Response({"detail": xato}, status=400)
         FaoliyatYozuvi.objects.create(
             foydalanuvchi=request.user,
             harakat=FaoliyatYozuvi.Harakat.YARATISH,
@@ -1639,6 +1652,62 @@ class TalabalarView(APIView):
             ozgarishlar={"username": y["login"], "role": "student", "manba": "qolda"},
         )
         return Response({"id": y["id"], "ism": y["ism"], "username": y["login"]}, status=201)
+
+
+# Admin tahrirlaydigan talaba maydonlari: so'rov kaliti -> model maydoni.
+TALABA_MAYDONLARI = {
+    "ism": "first_name",
+    "telefon": "telefon",
+    "ota_ona_telefon": "ota_ona_telefon",
+    "tugilgan_sana": "tugilgan_sana",
+    "manba": "manba",
+    "izoh": "izoh",
+}
+
+
+def _talaba_maydonlarini_yoz(talaba, data):
+    """Admin/owner talaba ma'lumotini yozadi (yaratishda ham, PATCH'da ham).
+
+    Yozilgan har maydon `admin_maydonlari`ga qo'shiladi — talaba o'z
+    profilida uni o'zgartira olmaydi (`ProfilTahrirlashView`). Bo'sh
+    qiymat yuborilsa maydon tozalanadi VA qulfdan chiqadi — admin
+    "bilmayman, o'zi kiritsin" desa shu yo'l.
+
+    Xato bo'lsa matn qaytaradi, aks holda None."""
+    ozgardi = []
+    qulf = set(talaba.admin_maydonlari or [])
+    for kalit, maydon in TALABA_MAYDONLARI.items():
+        if kalit not in data:
+            continue
+        qiymat = data.get(kalit)
+        if maydon == "tugilgan_sana":
+            qiymat = qiymat or None
+        else:
+            qiymat = str(qiymat or "").strip()
+            if maydon == "first_name" and not qiymat:
+                return "Ism bo'sh bo'lmasin"
+            if maydon in ("telefon", "ota_ona_telefon") and len(qiymat) > 20:
+                return "Telefon raqami juda uzun"
+            if maydon == "manba" and len(qiymat) > 100:
+                return "Manba 100 belgigacha bo'lsin"
+            if maydon == "izoh" and len(qiymat) > 500:
+                return "Izoh 500 belgigacha bo'lsin"
+        setattr(talaba, maydon, qiymat)
+        ozgardi.append(maydon)
+        if qiymat:
+            qulf.add(maydon)
+        else:
+            qulf.discard(maydon)
+    if ozgardi:
+        talaba.admin_maydonlari = sorted(qulf)
+        try:
+            # `password` chetlab o'tiladi: parolsiz (masalan Google orqali
+            # kirgan yoki sinov) talabada full_clean shu maydonda yiqilardi.
+            talaba.full_clean(validate_unique=False, exclude=["password"])
+        except DjangoValidationError as e:
+            return " ".join(e.messages)
+        talaba.save(update_fields=ozgardi + ["admin_maydonlari"])
+    return None
 
 
 class TalabaDetailView(APIView):
@@ -1661,7 +1730,32 @@ class TalabaDetailView(APIView):
         if "faol" in request.data:
             talaba.is_active = bool(request.data.get("faol"))
             talaba.save(update_fields=["is_active"])
-        return Response({"id": talaba.id, "faol": talaba.is_active})
+
+        # 2026-09-17: admin/owner talaba ma'lumotini tahrirlaydi (ism,
+        # telefon, ota-ona, tug'ilgan sana, manba, izoh). CRM kartasi ham
+        # AYNAN shu endpointni chaqiradi — ma'lumot bitta joyda, saytda.
+        eski = {m: str(getattr(talaba, m) or "") for m in TALABA_MAYDONLARI.values()}
+        xato = _talaba_maydonlarini_yoz(talaba, request.data)
+        if xato:
+            return Response({"detail": xato}, status=400)
+        yangi = {m: str(getattr(talaba, m) or "") for m in TALABA_MAYDONLARI.values()}
+        if eski != yangi:
+            logla(
+                foydalanuvchi=request.user,
+                harakat=FaoliyatYozuvi.Harakat.OZGARTIRISH,
+                obyekt=talaba,
+                obyekt_turi="Talaba",
+                obyekt_nomi=talaba.get_full_name() or talaba.username,
+                eski_qiymatlar=eski,
+                yangi_qiymatlar=yangi,
+            )
+        return Response({
+            "id": talaba.id, "faol": talaba.is_active,
+            "ism": talaba.get_full_name() or talaba.username,
+            "telefon": talaba.telefon, "ota_ona_telefon": talaba.ota_ona_telefon,
+            "tugilgan_sana": talaba.tugilgan_sana, "manba": talaba.manba,
+            "izoh": talaba.izoh, "admin_maydonlari": talaba.admin_maydonlari,
+        })
 
 
 class TalabalarExcelImportView(APIView):
@@ -1722,9 +1816,29 @@ class ProfilTahrirlashView(APIView):
 
     permission_classes = [IsAuthenticated]
 
+    # Profil maydoni -> model maydoni. Admin kiritgan (`admin_maydonlari`)
+    # maydonni talaba o'zgartira olmaydi (2026-09-17, Shuhrat qarori).
+    QULFLANADIGAN = {
+        "ism": "first_name", "telefon": "telefon",
+        "ota_ona_telefon": "ota_ona_telefon", "tugilgan_sana": "tugilgan_sana",
+    }
+
     def post(self, request):
         u = request.user
         yangilanadigan = []
+
+        qulflangan = set(u.admin_maydonlari or [])
+        for kalit, maydon in self.QULFLANADIGAN.items():
+            if maydon in qulflangan and kalit in request.data:
+                eski = getattr(u, maydon)
+                yangi = request.data.get(kalit)
+                # Bir xil qiymat qayta yuborilsa (forma to'liq yuboriladi) —
+                # xato emas; faqat O'ZGARTIRISHGA urinish rad etiladi.
+                if str(yangi or "") != str(eski or ""):
+                    return Response(
+                        {"detail": "Bu maydonni administrator kiritgan, uni o'zgartirish uchun adminga murojaat qiling"},
+                        status=400,
+                    )
 
         if "ism" in request.data:
             ism = str(request.data.get("ism") or "").strip()
