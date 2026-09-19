@@ -4,9 +4,19 @@ Format — birinchi qator sarlavha (o'tkazib yuboriladi), keyingi har bir
 qatorda: A=ism, B=login, C=parol. Boshqa ustunlar e'tiborga olinmaydi.
 """
 
+import re
+
 import openpyxl
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
+
+# Login formati — Django'ning standart `UnicodeUsernameValidator`i bilan
+# bir xil (probel va boshqa belgilar bilan yaratilgan login keyinchalik
+# kirishda muammo qilishi mumkin). Bu yerda oldindan tekshiriladi —
+# 2026-09-19, prodda topildi: probelli login (masalan admin ismni login
+# maydoniga ham yozib qo'yganda) `full_clean()` orqali chalkash inglizcha
+# xato bilan qaytardi, endi shu yerda tushunarli o'zbekcha xabar beriladi.
+LOGIN_QOIDASI = re.compile(r"^[\w.@+-]+$")
 
 
 def qatorlarni_oqi(fayl):
@@ -37,6 +47,12 @@ def foydalanuvchilarni_yarat(qatorlar, *, role, markaz_id, User):
     for q in qatorlar:
         if not q["ism"] or not q["login"] or not q["parol"]:
             xatolar.append({"qator": q["qator"], "xato": "ism/login/parol to'ldirilmagan"})
+            continue
+        if not LOGIN_QOIDASI.match(q["login"]):
+            xatolar.append({
+                "qator": q["qator"],
+                "xato": f"login \"{q['login']}\" noto'g'ri — probelsiz, faqat harf/raqam/./@/+/-/_ bo'lsin",
+            })
             continue
         if User.objects.filter(username=q["login"]).exists():
             xatolar.append({"qator": q["qator"], "xato": f"login \"{q['login']}\" allaqachon band"})

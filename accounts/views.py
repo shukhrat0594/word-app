@@ -1734,7 +1734,12 @@ def _talaba_maydonlarini_yoz(talaba, data):
         try:
             # `password` chetlab o'tiladi: parolsiz (masalan Google orqali
             # kirgan yoki sinov) talabada full_clean shu maydonda yiqilardi.
-            talaba.full_clean(validate_unique=False, exclude=["password"])
+            # `username` ham chetlab o'tiladi (2026-09-19, prodda topildi):
+            # bu funksiya username'ga TEGMAYDI, lekin ba'zi eski talabalarda
+            # login probel bilan yozilgan (joriy validatordan oldingi
+            # yozuvlar) — ularni tahrirlashning O'ZI xato berib qolardi,
+            # garchi login o'zgarmasa ham.
+            talaba.full_clean(validate_unique=False, exclude=["password", "username"])
         except DjangoValidationError as e:
             return " ".join(e.messages)
         talaba.save(update_fields=ozgardi + ["admin_maydonlari"])
