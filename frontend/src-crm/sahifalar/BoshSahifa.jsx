@@ -23,7 +23,7 @@ function Katak({ sarlavha, qiymat, sinf }) {
 
 export default function BoshSahifa() {
   const { t, til } = useI18n();
-  const { tanlangan } = useFilial();
+  const { tanlangan, filiallar } = useFilial();
   const oy = joriyOy();
 
   const hisobot = useSorov("/api/crm/hisobot/" + sorovSatri({ oy, filial: tanlangan }));
@@ -31,6 +31,12 @@ export default function BoshSahifa() {
   // Qarzdorlar — bosh sahifada (2026-09-17, admin talabi). Joriy oyning
   // to'lanmagan hisoblari, eng katta qoldiq tepada.
   const qarzdorlar = useSorov("/api/crm/hisoblar/" + sorovSatri({ oy, filial: tanlangan }));
+  // Umumiy holat kataklari (2026-09-20, admin talabi: "alohida bo'limlar
+  // sifatida tartibga solish" — SoffCRM'ning bosh sahifasidagi umumiy
+  // sonlar bo'limiga o'xshash). Faqat SONLAR — ro'yxatlar allaqachon
+  // mavjud sahifalarda (Guruhlar, Talabalar).
+  const guruhlarSorov = useSorov("/api/crm/guruhlar/" + sorovSatri({ filial: tanlangan }));
+  const talabalarSorov = useSorov("/api/crm/talabalar/" + sorovSatri({ filial: tanlangan }));
 
   const jami = hisobot.malumot?.jami;
   const ogohRoyxati = ogohlar.malumot || [];
@@ -42,14 +48,27 @@ export default function BoshSahifa() {
     <section>
       <h1>{oyNomi(oy, til)}</h1>
 
-      {hisobot.xato && <div className="xato">{hisobot.xato}</div>}
+      {/* Umumiy holat — alohida bo'lim, moliyadan MUSTAQIL. */}
+      <div className="karta">
+        <h2>{t("umumiy_holat")}</h2>
+        <div className="kataklar">
+          <Katak sarlavha={t("faol_talabalar_soni")} qiymat={talabalarSorov.malumot?.length ?? "—"} />
+          <Katak sarlavha={t("guruhlar_soni")} qiymat={guruhlarSorov.malumot?.length ?? "—"} />
+          <Katak sarlavha={t("filiallar_soni")} qiymat={filiallar.length} />
+        </div>
+      </div>
 
-      <div className="kataklar">
-        <Katak sarlavha={t("hisoblangan")} qiymat={pul(jami?.hisoblangan)} />
-        <Katak sarlavha={t("olingan_pul")} qiymat={pul(jami?.olingan)} sinf="rang-tolandi" />
-        <Katak sarlavha={t("chegirma")} qiymat={pul(jami?.chegirma)} />
-        <Katak sarlavha={t("qarz")} qiymat={pul(jami?.qarz)} sinf="rang-qarzdor" />
-        <Katak sarlavha={t("yigilish")} qiymat={`${jami?.yigilish_foizi ?? 0}%`} />
+      {/* Moliya — alohida bo'lim (2026-09-20, admin talabi). */}
+      <div className="karta">
+        <h2>{t("moliya_xulosasi")}</h2>
+        {hisobot.xato && <div className="xato">{hisobot.xato}</div>}
+        <div className="kataklar">
+          <Katak sarlavha={t("hisoblangan")} qiymat={pul(jami?.hisoblangan)} />
+          <Katak sarlavha={t("olingan_pul")} qiymat={pul(jami?.olingan)} sinf="rang-tolandi" />
+          <Katak sarlavha={t("chegirma")} qiymat={pul(jami?.chegirma)} />
+          <Katak sarlavha={t("qarz")} qiymat={pul(jami?.qarz)} sinf="rang-qarzdor" />
+          <Katak sarlavha={t("yigilish")} qiymat={`${jami?.yigilish_foizi ?? 0}%`} />
+        </div>
       </div>
 
       {/* Haftalik setka — SoffCRM'ning bosh sahifasidagi ko'rinish.

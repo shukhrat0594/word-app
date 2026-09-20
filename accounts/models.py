@@ -228,6 +228,10 @@ class User(AbstractUser):
     # boshqa (masalan o'qituvchi/guruh) endpoint'larga QO'SHILMAYDI.
     telefon = models.CharField(max_length=20, blank=True)
     ota_ona_telefon = models.CharField(max_length=20, blank=True, help_text="Ota-ona/vasiy telefon raqami")
+    # 2026-09-20, admin (Umida) talabi: telefon raqami yonida KIM ekani
+    # ko'rinishi kerak (masalan "onasi Nilufar", "buvisi Shahlo opa") —
+    # SoffCRM'da shu tarzda ko'rsatiladi.
+    ota_ona_ismi = models.CharField(max_length=100, blank=True, help_text="Ota-ona/vasiy ismi (masalan: onasi Nilufar)")
     tugilgan_sana = models.DateField(null=True, blank=True)
     # 2026-09-17, admin (Umida) talabi: talaba kartasida qo'shimcha
     # ma'lumot. `manba` — talaba qayerdan kelgani (erkin matn, ro'yxat

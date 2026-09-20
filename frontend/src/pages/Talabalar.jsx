@@ -9,11 +9,22 @@ import { PanelTanlovi, ProfilRasmi, QurilmaTiklashTugmasi, QurilmaLimitiBoshqaru
 // Kiritilgan maydonlar talabaga qulflanadi (`admin_maydonlari`).
 const BOSH_FORMA = {
   ism: "", login: "", parol: "",
-  telefon: "", ota_ona_telefon: "", tugilgan_sana: "", manba: "", izoh: "",
+  telefon: "", ota_ona_telefon: "", ota_ona_ismi: "", tugilgan_sana: "", manba: "", izoh: "",
+  // 2026-09-20 (admin talabi): yaratishda darhol guruhga qo'shish mumkin —
+  // "Talaba guruhga biriktirilmaydi" degan alohida qadamga hojat qolmaydi.
+  guruh_id: "",
 };
 
+// SoffCRM'dagi "Manba" variantlari (2026-09-20, admin skrinshoti). Erkin
+// matn ham qoladi (<datalist>) — ro'yxatda yo'q manba kiritilsa ham
+// ishlaydi, keyingi safar taklif etiladi (mavjud talabalar manbasidan).
+const MANBA_KALITLARI = [
+  "manba_instagram", "manba_telegram", "manba_tavsiya", "manba_oldin_oqigan",
+  "manba_banner", "manba_flayer", "manba_chatgpt", "manba_google",
+];
+
 // Admin/owner tahrirlaydigan maydonlar — TalabaKartasi formasi.
-const TAHRIR_MAYDONLARI = ["ism", "telefon", "ota_ona_telefon", "tugilgan_sana", "manba", "izoh"];
+const TAHRIR_MAYDONLARI = ["ism", "telefon", "ota_ona_telefon", "ota_ona_ismi", "tugilgan_sana", "manba", "izoh"];
 
 /** Talaba kartasi (2026-09-17, admin talabi): ismga bosilganda natijalar
  *  emas, to'liq ma'lumot — telefon, ota-ona, tug'ilgan sana, manba, izoh,
@@ -42,7 +53,7 @@ function TalabaKartasi({ talaba, boshqaruvMi, t, onYopish, onSaqlandi, onNatijal
     }
   }
 
-  const maydon = (kalit, tarjima, turi = "text") => (
+  const maydon = (kalit, tarjima, turi = "text", royxatId = null) => (
     <label key={kalit}>
       <span className="izoh">{tarjima}</span>
       {boshqaruvMi ? (
@@ -50,6 +61,7 @@ function TalabaKartasi({ talaba, boshqaruvMi, t, onYopish, onSaqlandi, onNatijal
           type={turi}
           value={forma[kalit]}
           onChange={(e) => setForma((f) => ({ ...f, [kalit]: e.target.value }))}
+          list={royxatId || undefined}
         />
       ) : (
         <div>{talaba[kalit] || "—"}</div>
@@ -83,8 +95,14 @@ function TalabaKartasi({ talaba, boshqaruvMi, t, onYopish, onSaqlandi, onNatijal
           {maydon("ism", t("ism"))}
           {maydon("telefon", t("profil_telefon"))}
           {maydon("ota_ona_telefon", t("profil_ota_ona_telefon"))}
+          {maydon("ota_ona_ismi", t("profil_ota_ona_ismi"))}
           {maydon("tugilgan_sana", t("profil_tugilgan_sana"), "date")}
-          {maydon("manba", t("talaba_manba"))}
+          {maydon("manba", t("talaba_manba"), "text", "manba-variantlari-karta")}
+          <datalist id="manba-variantlari-karta">
+            {MANBA_KALITLARI.map((k) => (
+              <option key={k} value={t(k)} />
+            ))}
+          </datalist>
           {maydon("izoh", t("talaba_izoh"))}
           {xato && <div className="xato-xabar">{xato}</div>}
           {xabar && <div className="izoh">{xabar}</div>}
@@ -122,6 +140,9 @@ export default function Talabalar() {
   // 2026-09-17: ismga bosilganda endi talaba KARTASI ochiladi (ma'lumot +
   // tahrirlash), natijalar undagi alohida tugma orqali.
   const [kartaTalaba, setKartaTalaba] = useState(null);
+  // 2026-09-20 (admin talabi): "Yangi talaba" formasida darhol guruhga
+  // qo'shish uchun guruhlar ro'yxati kerak.
+  const [guruhlar, setGuruhlar] = useState([]);
 
   function yukla(arxiv = arxivKorish) {
     api(`/api/talabalar/${arxiv ? "?arxiv=1" : ""}`).then(setTalabalar).catch(() => {});
@@ -130,6 +151,13 @@ export default function Talabalar() {
   useEffect(() => {
     yukla(arxivKorish);
   }, [arxivKorish]);
+
+  useEffect(() => {
+    if (boshqaruvMi) {
+      api("/api/guruhlar/").then(setGuruhlar).catch(() => setGuruhlar([]));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [boshqaruvMi]);
 
   async function arxivHolatiniOzgartir(id, yangiFaol) {
     setXato("");
@@ -199,6 +227,28 @@ export default function Talabalar() {
     setBand(true);
     try {
       const yangi = await api("/api/talabalar/", { method: "POST", body: forma });
+      // 2026-09-20 (admin talabi): guruh tanlangan bo'lsa DARHOL qo'shiladi
+      // — talaba yaratish bilan bitta qadam. `talaba_idlar` guruhning
+      // BUTUN a'zolik ro'yxatini almashtiradi (`_azolarni_saqla`), shuning
+      // uchun mavjudlarni o'qib, ustiga yangi talabani qo'shamiz.
+      if (forma.guruh_id) {
+        try {
+          const guruh = await api(`/api/guruhlar/${forma.guruh_id}/`);
+          const idlar = [...guruh.talabalar.map((tl) => tl.id), yangi.id];
+          await api(`/api/guruhlar/${forma.guruh_id}/`, {
+            method: "PATCH",
+            body: { talaba_idlar: idlar },
+          });
+        } catch {
+          // Talaba baribir yaratildi — guruhga qo'shish muvaffaqiyatsiz
+          // bo'lsa ham xabar shuni aytadi, admin "Guruhlar" bo'limidan
+          // qo'lda qo'sha oladi (eski yo'l hamon ishlaydi).
+          setXabar(`${t("talaba_qoshildi")}: ${yangi.ism} — ${yangi.username} (${t("guruhga_qoshish_xato")})`);
+          setForma(BOSH_FORMA);
+          yukla();
+          return;
+        }
+      }
       setForma(BOSH_FORMA);
       setXabar(`${t("talaba_qoshildi")}: ${yangi.ism} — ${yangi.username}`);
       yukla();
@@ -292,6 +342,12 @@ export default function Talabalar() {
             />
             <input
               style={{ maxWidth: 160 }}
+              placeholder={t("profil_ota_ona_ismi")}
+              value={forma.ota_ona_ismi}
+              onChange={(e) => setForma({ ...forma, ota_ona_ismi: e.target.value })}
+            />
+            <input
+              style={{ maxWidth: 160 }}
               type="date"
               title={t("profil_tugilgan_sana")}
               value={forma.tugilgan_sana}
@@ -302,7 +358,24 @@ export default function Talabalar() {
               placeholder={t("talaba_manba")}
               value={forma.manba}
               onChange={(e) => setForma({ ...forma, manba: e.target.value })}
+              list="manba-variantlari-yangi"
             />
+            <datalist id="manba-variantlari-yangi">
+              {MANBA_KALITLARI.map((k) => (
+                <option key={k} value={t(k)} />
+              ))}
+            </datalist>
+            <select
+              style={{ maxWidth: 220 }}
+              value={forma.guruh_id}
+              onChange={(e) => setForma({ ...forma, guruh_id: e.target.value })}
+              title={t("yangi_talaba_guruhi")}
+            >
+              <option value="">{t("guruh_tanlanmagan")}</option>
+              {guruhlar.map((g) => (
+                <option key={g.id} value={g.id}>{g.name}</option>
+              ))}
+            </select>
             <input
               style={{ maxWidth: 220 }}
               placeholder={t("talaba_izoh")}

@@ -1490,6 +1490,7 @@ class TalabaView(CrmView):
                 "username": talaba.username,
                 "telefon": talaba.telefon,
                 "ota_ona_telefon": talaba.ota_ona_telefon,
+                "ota_ona_ismi": talaba.ota_ona_ismi,
                 # 2026-09-17: SAYT ma'lumoti (LMS Talabalar kartasi bilan
                 # bir xil). CRM faqat o'qiydi; tahrirlash LMS'ning
                 # `PATCH /api/talabalar/<id>/` orqali — bitta manba.

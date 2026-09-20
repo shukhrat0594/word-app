@@ -132,12 +132,20 @@ function TolovTahrirOynasi({ tolov, onYopish, onSaqlandi }) {
 // endpointini chaqiradi (LMS Talabalar kartasi bilan aynan bir xil).
 // Ma'lumot bitta joyda, admin kiritgani talabaga qulflanadi (LMS qoidasi).
 
+// SoffCRM'dagi "Manba" variantlari (2026-09-20, admin skrinshoti).
+const MANBA_KALITLARI = [
+  "manba_instagram", "manba_telegram", "manba_tavsiya", "manba_oldin_oqigan",
+  "manba_banner", "manba_flayer", "manba_chatgpt", "manba_google",
+];
+
+// To'rtinchi element (bo'lsa) — <input list> uchun datalist id.
 const TAHRIR_MAYDONLARI = [
   ["ism", "talaba", "text"],
   ["telefon", "telefon", "text"],
   ["ota_ona_telefon", "ota_ona_telefon", "text"],
+  ["ota_ona_ismi", "ota_ona_ismi", "text"],
   ["tugilgan_sana", "tugilgan_sana", "date"],
-  ["manba", "manba", "text"],
+  ["manba", "manba", "text", "manba-variantlari-crm"],
   ["izoh", "izoh_talaba", "text"],
 ];
 
@@ -147,6 +155,7 @@ function TalabaTahrirOynasi({ talaba, onYopish, onSaqlandi }) {
     ism: talaba.ism || "",
     telefon: talaba.telefon || "",
     ota_ona_telefon: talaba.ota_ona_telefon || "",
+    ota_ona_ismi: talaba.ota_ona_ismi || "",
     tugilgan_sana: talaba.tugilgan_sana || "",
     manba: talaba.manba || "",
     izoh: talaba.izoh || "",
@@ -173,13 +182,18 @@ function TalabaTahrirOynasi({ talaba, onYopish, onSaqlandi }) {
       <div className="karta oyna">
         <h2>{t("talaba_tahrirlash")}</h2>
         <p className="kichik">{t("saytga_yoziladi")}</p>
-        {TAHRIR_MAYDONLARI.map(([kalit, tarjima, turi]) => (
+        {TAHRIR_MAYDONLARI.map(([kalit, tarjima, turi, royxatId]) => (
           <label key={kalit}>
             {t(tarjima)}
-            <input type={turi} value={forma[kalit]}
+            <input type={turi} value={forma[kalit]} list={royxatId || undefined}
                    onChange={(e) => setForma((f) => ({ ...f, [kalit]: e.target.value }))} />
           </label>
         ))}
+        <datalist id="manba-variantlari-crm">
+          {MANBA_KALITLARI.map((k) => (
+            <option key={k} value={t(k)} />
+          ))}
+        </datalist>
         {xato && <div className="xato">{xato}</div>}
         <div className="oyna-tugmalar">
           <button className="tugma tugma-sokin" type="button" onClick={onYopish}>{t("bekor")}</button>
@@ -253,6 +267,10 @@ function Karta({ talabaId, onOrqaga }) {
         <div className="qator">
           <span className="kichik">{t("ota_ona_telefon")}</span>
           <span>{talaba.ota_ona_telefon || "—"}</span>
+        </div>
+        <div className="qator">
+          <span className="kichik">{t("ota_ona_ismi")}</span>
+          <span>{talaba.ota_ona_ismi || "—"}</span>
         </div>
         <div className="qator">
           <span className="kichik">{t("tugilgan_sana")}</span>

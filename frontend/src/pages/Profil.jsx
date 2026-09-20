@@ -88,6 +88,7 @@ export default function Profil() {
         bio: profil.bio || "",
         telefon: profil.telefon || "",
         ota_ona_telefon: profil.ota_ona_telefon || "",
+        ota_ona_ismi: profil.ota_ona_ismi || "",
         tugilgan_sana: profil.tugilgan_sana || "",
       });
     }
@@ -268,6 +269,16 @@ export default function Profil() {
                 disabled={qulflangan("ota_ona_telefon")}
               />
               {qulflangan("ota_ona_telefon") && <span className="izoh">{t("admin_kiritgan_maydon")}</span>}
+            </label>
+            <label>
+              <span className="izoh">{t("profil_ota_ona_ismi")}</span>
+              <input
+                value={forma.ota_ona_ismi}
+                onChange={(e) => setForma((f) => ({ ...f, ota_ona_ismi: e.target.value }))}
+                placeholder="Masalan: onasi Nilufar"
+                disabled={qulflangan("ota_ona_ismi")}
+              />
+              {qulflangan("ota_ona_ismi") && <span className="izoh">{t("admin_kiritgan_maydon")}</span>}
             </label>
             <label>
               <span className="izoh">{t("profil_tugilgan_sana")}</span>

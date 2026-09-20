@@ -43,6 +43,9 @@ export default function Guruhlar() {
   // boshlanish Unit'ini tanlash ham chiqadi, standart — Unit 1.
   const [qoshishOchiq, setQoshishOchiq] = useState(false);
   const [yangiUnitId, setYangiUnitId] = useState("");
+  // 2026-09-20 (admin talabi): 97+ talabada oddiy <select> noqulay —
+  // ism bo'yicha qidiruv bilan almashtirildi.
+  const [talabaQidiruv, setTalabaQidiruv] = useState("");
   // Guruh ochilganda (yoki yangi guruh boshlanganda) MAVJUD (serverda
   // haqiqatan saqlangan) a'zolar to'plami — yangi qo'shilgan (hali
   // saqlanmagan) a'zodan farqlash uchun: mavjudlarning Unit'i darhol
@@ -194,6 +197,7 @@ export default function Guruhlar() {
   function yangiTalabaQosh(id) {
     talabaBelgila(id);
     if (yangiUnitId) setBoshlanishMap((m) => ({ ...m, [id]: yangiUnitId }));
+    setTalabaQidiruv("");
   }
 
   /** Guruhdan o'chirish — o'ziga xos tasdiqlash oynasi orqali (2026-08-25,
@@ -383,41 +387,61 @@ export default function Guruhlar() {
                   bir nechtasini qo'shish uchun). Yonida — daraja Unit'larga
                   ega bo'lsa — boshlanish Unit'i (standart Unit 1). */}
               {qoshishOchiq && (
-                <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
-                  <select
-                    value=""
-                    onChange={(e) => e.target.value && yangiTalabaQosh(Number(e.target.value))}
-                    style={{ flex: 1, minWidth: 180 }}
-                  >
-                    <option value="">— {t("talaba_tanlang")} —</option>
-                    {azolar.talabalar
-                      .filter((tl) => !forma.talaba_idlar.includes(tl.id))
-                      .map((tl) => (
-                        <option key={tl.id} value={tl.id}>
-                          {tl.ism}
-                        </option>
-                      ))}
-                  </select>
-                  {darajaUnitlari.length > 0 && (
-                    <select
-                      value={yangiUnitId}
-                      onChange={(e) => setYangiUnitId(e.target.value)}
-                      title={t("boshlanish_uniti")}
-                    >
-                      <option value="">— {t("boshlanish_uniti_standart")} —</option>
-                      {darajaUnitlari.map((u) => (
-                        <option key={u.id} value={u.id}>
-                          {u.nomi}
-                        </option>
-                      ))}
-                    </select>
-                  )}
+                <div style={{ marginTop: 10 }}>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    <input
+                      style={{ flex: 1, minWidth: 180 }}
+                      placeholder={t("talaba_qidiruv_placeholder")}
+                      value={talabaQidiruv}
+                      onChange={(e) => setTalabaQidiruv(e.target.value)}
+                      autoFocus
+                    />
+                    {darajaUnitlari.length > 0 && (
+                      <select
+                        value={yangiUnitId}
+                        onChange={(e) => setYangiUnitId(e.target.value)}
+                        title={t("boshlanish_uniti")}
+                      >
+                        <option value="">— {t("boshlanish_uniti_standart")} —</option>
+                        {darajaUnitlari.map((u) => (
+                          <option key={u.id} value={u.id}>
+                            {u.nomi}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+                  {talabaQidiruv.trim() && (() => {
+                    const natijalar = azolar.talabalar.filter(
+                      (tl) =>
+                        !forma.talaba_idlar.includes(tl.id) &&
+                        tl.ism.toLowerCase().includes(talabaQidiruv.trim().toLowerCase())
+                    );
+                    return (
+                      <div style={{ marginTop: 6, maxHeight: 220, overflowY: "auto", border: "1px solid var(--chegara, #ddd)", borderRadius: 8 }}>
+                        {natijalar.length === 0 && (
+                          <div className="izoh" style={{ padding: 8 }}>{t("hech_narsa_topilmadi")}</div>
+                        )}
+                        {natijalar.slice(0, 30).map((tl) => (
+                          <button
+                            key={tl.id}
+                            type="button"
+                            onClick={() => yangiTalabaQosh(tl.id)}
+                            style={{
+                              display: "flex", alignItems: "center", gap: 8, width: "100%",
+                              textAlign: "start", padding: "8px 10px", background: "none",
+                              border: "none", borderBottom: "1px solid var(--chegara, #eee)", cursor: "pointer",
+                            }}
+                          >
+                            <ProfilRasmi user={tl} t={t} />
+                            {tl.ism}
+                          </button>
+                        ))}
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
-              {qoshishOchiq &&
-                azolar.talabalar.filter((tl) => !forma.talaba_idlar.includes(tl.id)).length === 0 && (
-                  <div className="izoh" style={{ marginTop: 6 }}>{t("hech_narsa_topilmadi")}</div>
-                )}
             </div>
             {xato && <div className="xato-xabar">{xato}</div>}
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>

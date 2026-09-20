@@ -99,6 +99,7 @@ class ProfilView(APIView):
                 "bio": u.bio,
                 "telefon": u.telefon,
                 "ota_ona_telefon": u.ota_ona_telefon,
+                "ota_ona_ismi": u.ota_ona_ismi,
                 "tugilgan_sana": u.tugilgan_sana,
                 # 2026-09-17: admin kiritgan maydonlar — Profil sahifasi
                 # ularni faqat o'qish uchun ko'rsatadi.
@@ -587,6 +588,7 @@ class FoydalanuvchilarView(APIView):
                     "bio": u.bio,
                     "telefon": u.telefon,
                     "ota_ona_telefon": u.ota_ona_telefon,
+                    "ota_ona_ismi": u.ota_ona_ismi,
                     "tugilgan_sana": u.tugilgan_sana,
                     # Ota-ona uchun — biriktirilgan farzandlar (2026-08-09).
                     "farzandlar": [
@@ -1581,6 +1583,7 @@ class TalabalarView(APIView):
             return {
                 "telefon": t.telefon,
                 "ota_ona_telefon": t.ota_ona_telefon,
+                "ota_ona_ismi": t.ota_ona_ismi,
                 "tugilgan_sana": t.tugilgan_sana,
                 "manba": t.manba,
                 "izoh": t.izoh,
@@ -1676,6 +1679,7 @@ TALABA_MAYDONLARI = {
     "ism": "first_name",
     "telefon": "telefon",
     "ota_ona_telefon": "ota_ona_telefon",
+    "ota_ona_ismi": "ota_ona_ismi",
     "tugilgan_sana": "tugilgan_sana",
     "manba": "manba",
     "izoh": "izoh",
@@ -1708,6 +1712,8 @@ def _talaba_maydonlarini_yoz(talaba, data):
                 return "Ism bo'sh bo'lmasin"
             if maydon in ("telefon", "ota_ona_telefon") and len(qiymat) > 20:
                 return "Telefon raqami juda uzun"
+            if maydon == "ota_ona_ismi" and len(qiymat) > 100:
+                return "Ism juda uzun (100 belgigacha)"
             if maydon == "manba" and len(qiymat) > 100:
                 return "Manba 100 belgigacha bo'lsin"
             if maydon == "izoh" and len(qiymat) > 500:
@@ -1789,6 +1795,7 @@ class TalabaDetailView(APIView):
             "id": talaba.id, "faol": talaba.is_active,
             "ism": talaba.get_full_name() or talaba.username,
             "telefon": talaba.telefon, "ota_ona_telefon": talaba.ota_ona_telefon,
+            "ota_ona_ismi": talaba.ota_ona_ismi,
             "tugilgan_sana": talaba.tugilgan_sana, "manba": talaba.manba,
             "izoh": talaba.izoh, "admin_maydonlari": talaba.admin_maydonlari,
         })
@@ -1856,7 +1863,8 @@ class ProfilTahrirlashView(APIView):
     # maydonni talaba o'zgartira olmaydi (2026-09-17, Shuhrat qarori).
     QULFLANADIGAN = {
         "ism": "first_name", "telefon": "telefon",
-        "ota_ona_telefon": "ota_ona_telefon", "tugilgan_sana": "tugilgan_sana",
+        "ota_ona_telefon": "ota_ona_telefon", "ota_ona_ismi": "ota_ona_ismi",
+        "tugilgan_sana": "tugilgan_sana",
     }
 
     def post(self, request):
@@ -1906,6 +1914,13 @@ class ProfilTahrirlashView(APIView):
             u.ota_ona_telefon = ota_ona_telefon
             yangilanadigan.append("ota_ona_telefon")
 
+        if "ota_ona_ismi" in request.data:
+            ota_ona_ismi = str(request.data.get("ota_ona_ismi") or "").strip()
+            if len(ota_ona_ismi) > 100:
+                return Response({"detail": "Ism juda uzun (100 belgigacha)"}, status=400)
+            u.ota_ona_ismi = ota_ona_ismi
+            yangilanadigan.append("ota_ona_ismi")
+
         if "tugilgan_sana" in request.data:
             sana = request.data.get("tugilgan_sana") or None
             u.tugilgan_sana = sana
@@ -1925,6 +1940,7 @@ class ProfilTahrirlashView(APIView):
             "bio": u.bio,
             "telefon": u.telefon,
             "ota_ona_telefon": u.ota_ona_telefon,
+            "ota_ona_ismi": u.ota_ona_ismi,
             "tugilgan_sana": u.tugilgan_sana,
         })
 
