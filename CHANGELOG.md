@@ -94,6 +94,11 @@ Format (qat'iy, parser shunga tayanadi):
 - Talabalar ro'yxatida "Arxivdagilar" filtri — arxivlangan o'quvchini
   shu yerdan qaytarish mumkin. Marketolog lidni guruhga qo'sha oladi.
   Saytda admin menyusiga "Talabalar" qaytdi (qurilma tiklash, panellar).
+- Guruh a'zolari jadvalida **"Boshlanish uniti"** — o'quvchi saytdagi
+  Kurslar bo'limida qaysi Unit'dan boshlashini CRM'dan tanlaysiz.
+- **Faqat CRM xodimlari** (kassir, marketolog, kuzatuvchi va h.k.) saytga
+  kirsa, menyuda faqat Bosh sahifa va Profil ko'rinadi — mashqlar,
+  o'yinlar va reyting ko'rinmaydi.
 
 ## 2026-08-09 — Rollar va panel ruxsatlari
 

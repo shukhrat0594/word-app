@@ -58,7 +58,7 @@ from .models import (
     XodimProfil,
 )
 from .permissions import CrmView
-from .ruxsatlar import BARCHA_KALITLAR, RUXSAT_DARAXTI, lms_roli, ruxsatlar
+from .ruxsatlar import BARCHA_KALITLAR, RUXSAT_DARAXTI, lms_roli, ruxsatlar, sayt_menyusini_toraytir
 from .views import _guruh_dict, _oy, _ruxsatsiz, _sana, _son, _vaqt, _xato, jadvalni_tekshir
 
 NOL = Decimal("0")
@@ -412,6 +412,7 @@ class XodimlarView(CrmView):
 
         with transaction.atomic():
             user = User(username=login, role=lms_roli(lavozim), markaz_id=_markaz_id())
+            sayt_menyusini_toraytir(user)
             user.set_password(parol)
             profil = XodimProfil(user=user, lavozim=lavozim)
             try:
@@ -470,6 +471,7 @@ class XodimDetailView(CrmView):
             return _xato(str(e))
         if "lavozim" in data:
             user.role = lms_roli(profil.lavozim)
+            sayt_menyusini_toraytir(user)
         if "faol" in data:
             user.is_active = bool(data["faol"])
         yangi_parol = None

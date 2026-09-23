@@ -314,3 +314,36 @@ class BoshlanishUnitiTest(Yordamchi):
         self.assertEqual(javob.status_code, 403)
         self.am.azolik.refresh_from_db()
         self.assertIsNone(self.am.azolik.boshlanish_unit_id)
+
+
+class CrmXodimSaytMenyusiTest(ApiAsos):
+    """CRM xodimi (kassir, marketolog...) saytga kirsa — mehmon menyusi emas,
+    faqat Bosh sahifa va Profil (`korinadigan_panellar`)."""
+
+    def yarat(self, lavozim, telefon):
+        javob = self.mijoz(self.owner).post("/api/crm/xodimlar/", {
+            "ism": "X", "telefon": telefon, "lavozim": lavozim}, format="json")
+        self.assertEqual(javob.status_code, 201, javob.data)
+        return User.objects.get(pk=javob.data["id"])
+
+    def test_kassir_menyusi_toraytiriladi(self):
+        u = self.yarat("kassir", "901110001")
+        self.assertEqual(u.role, User.Role.ODDIY)
+        self.assertEqual(u.korinadigan_panellar, ["/"])
+        # Sayt profili ham shuni qaytaradi (LMS Layout shunga qarab menyuni toraytiradi).
+        self.assertEqual(self.mijoz(u).get("/api/profil/").data["korinadigan_panellar"], ["/"])
+
+    def test_oqituvchi_cheklanmaydi_va_otganda_olinadi(self):
+        self.assertIsNone(self.yarat("oqituvchi", "901110002").korinadigan_panellar)
+        u = self.yarat("marketolog", "901110003")
+        self.mijoz(self.owner).patch(f"/api/crm/xodimlar/{u.id}/", {"lavozim": "oqituvchi"}, format="json")
+        u.refresh_from_db()
+        self.assertEqual(u.role, User.Role.TEACHER)
+        self.assertIsNone(u.korinadigan_panellar)
+
+    def test_owner_qoygan_panellarga_tegilmaydi(self):
+        u = self.yarat("kassir", "901110004")
+        User.objects.filter(pk=u.pk).update(korinadigan_panellar=["/", "/reyting"])
+        self.mijoz(self.owner).patch(f"/api/crm/xodimlar/{u.id}/", {"lavozim": "marketolog"}, format="json")
+        u.refresh_from_db()
+        self.assertEqual(u.korinadigan_panellar, ["/", "/reyting"])

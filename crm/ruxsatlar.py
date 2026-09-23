@@ -157,6 +157,25 @@ def ruxsatlar(user):
     return _kengaytir(_STANDART.get(lavozim, []))
 
 
+# Saytda (LMS) faqat CRM xodimiga ko'rinadigan menyu: `korinadigan_panellar`
+# ga shu yoziladi — LMS Layout'i `MAJBURIY_PANELLAR` ("/", "/profil")dan
+# boshqasini yashiradi. Bo'sh ro'yxat EMAS: LMS API bo'sh ro'yxatni
+# "cheklovsiz" deb saqlaydi. Bu faqat MENYU cheklovi (LMS qarori,
+# 2026-08-05) — sahifa manzili yoki API'ni yopmaydi.
+CRM_XODIM_PANELLARI = ["/"]
+
+
+def sayt_menyusini_toraytir(user):
+    """CRM xodimi (LMS roli "oddiy") saytga kirsa — mehmon menyusi (AI
+    mashqlari, o'yinlar, reyting) ko'rinmasin (2026-09-23, Shuhrat).
+    O'qituvchi/administratorga o'tsa — biz qo'ygan cheklov olinadi."""
+    if user.role == User.Role.ODDIY:
+        if not user.korinadigan_panellar:
+            user.korinadigan_panellar = list(CRM_XODIM_PANELLARI)
+    elif user.korinadigan_panellar == CRM_XODIM_PANELLARI:
+        user.korinadigan_panellar = None
+
+
 def lms_roli(lavozim):
     """Xodim lavozimidan LMS roli. Faqat o'qituvchi va administrator
     saytda maxsus huquq oladi; kassir/marketolog va h.k. — "oddiy",
