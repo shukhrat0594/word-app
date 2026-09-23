@@ -39,6 +39,7 @@ from .models import (
     CrmRol,
     DarsBahosi,
     DarsJadvali,
+    DarsMavzusi,
     DarsOzgarish,
     DavomatIzoh,
     Eslatma,
@@ -58,7 +59,7 @@ from .models import (
 )
 from .permissions import CrmView
 from .ruxsatlar import BARCHA_KALITLAR, RUXSAT_DARAXTI, lms_roli, ruxsatlar
-from .views import _guruh_dict, _oy, _sana, _son, _vaqt, _xato, jadvalni_tekshir
+from .views import _guruh_dict, _oy, _ruxsatsiz, _sana, _son, _vaqt, _xato, jadvalni_tekshir
 
 NOL = Decimal("0")
 
@@ -137,6 +138,9 @@ class MenView(CrmView):
 def _rol_dict(r):
     return {
         "id": r.id, "nomi": r.nomi, "faol": r.faol, "ruxsatlar": r.ruxsatlar,
+        # Tizim roli (lavozim) — o'chirilmaydi, nomi o'zgarmaydi, xodimga
+        # "maxsus rol" sifatida berilmaydi (lavozimning o'zi yetadi).
+        "lavozim": r.lavozim,
         "xodimlar_soni": getattr(r, "_soni", None),
     }
 
@@ -147,16 +151,40 @@ def _ruxsat_royxati(xom):
     return sorted({str(k) for k in xom if str(k) in BARCHA_KALITLAR})
 
 
+def _rollarni_boshqaradi(user):
+    """Rol yaratish/tahrirlash — faqat `sozlamalar.rollar` (yoki owner).
+    Bo'lim darajasidagi `sozlamalar` YETMAYDI: aks holda "Kurs narxlari"
+    ruxsati bor xodim o'z rolini tahrirlab hamma ruxsatni olardi."""
+    return owner_mi(user) or "sozlamalar.rollar" in ruxsatlar(user)
+
+
 class RollarView(CrmView):
     bolim = "xodimlar"
     oqish_ochiq = True
 
     def get(self, request):
-        qs = CrmRol.objects.annotate(_soni=Count("xodimlar"))
+        from .ruxsatlar import TIZIM_ROLLARI
+
+        qs = list(CrmRol.objects.annotate(_soni=Count("xodimlar")))
+        # Tizim rolida "xodimlar soni" — maxsus rolsiz shu lavozimdagilar.
+        lavozim_soni = dict(
+            XodimProfil.objects.filter(Q(rol__isnull=True) | Q(rol__lavozim__isnull=False), user__is_active=True)
+            .values_list("lavozim").annotate(n=Count("id"))
+        )
+        # Saytda yaratilgan, CRM profili yo'q o'qituvchi va administratorlar
+        # ham o'z lavozimi bo'yicha sanaladi (`ruxsatlar._lavozim` bilan bir xil).
+        profilsiz = _xodimlar_qs().filter(is_active=True, crm_xodim__isnull=True)
+        lavozim_soni["oqituvchi"] = lavozim_soni.get("oqituvchi", 0) + profilsiz.filter(role=User.Role.TEACHER).count()
+        lavozim_soni["admin"] = lavozim_soni.get("admin", 0) + profilsiz.filter(role=User.Role.ADMIN).count()
+        tartib = {k: i for i, (k, _) in enumerate(TIZIM_ROLLARI)}
+        for r in qs:
+            if r.lavozim:
+                r._soni = lavozim_soni.get(r.lavozim, 0)
+        qs.sort(key=lambda r: (0, tartib.get(r.lavozim, 99), "") if r.lavozim else (1, 0, r.nomi.lower()))
         return Response([_rol_dict(r) for r in qs])
 
     def post(self, request):
-        if "sozlamalar.rollar" not in ruxsatlar(request.user):
+        if not _rollarni_boshqaradi(request.user):
             return _xato("Rol yaratishga ruxsat yo'q", kod=403)
         nomi = (request.data.get("nomi") or "").strip()
         if not nomi:
@@ -177,8 +205,13 @@ class RolDetailView(CrmView):
     bolim = "sozlamalar"
 
     def patch(self, request, pk):
+        if not _rollarni_boshqaradi(request.user):
+            return _xato("Rollarni tahrirlashga ruxsat yo'q", kod=403)
         rol = get_object_or_404(CrmRol, pk=pk)
         eski = _rol_dict(rol)
+        if rol.lavozim and ("nomi" in request.data and request.data.get("nomi") != rol.nomi
+                            or "faol" in request.data and not request.data["faol"]):
+            return _xato("Lavozim rolining nomi o'zgarmaydi va u o'chirilmaydi — faqat ruxsatlari")
         if "nomi" in request.data:
             nomi = (request.data.get("nomi") or "").strip()
             if not nomi:
@@ -201,7 +234,11 @@ class RolDetailView(CrmView):
         return Response(_rol_dict(rol))
 
     def delete(self, request, pk):
+        if not _rollarni_boshqaradi(request.user):
+            return _xato("Rollarni o'chirishga ruxsat yo'q", kod=403)
         rol = get_object_or_404(CrmRol, pk=pk)
+        if rol.lavozim:
+            return _xato("Lavozim roli o'chirilmaydi")
         if rol.xodimlar.exists():
             return _xato("Bu rol xodimlarga berilgan — avval ularning rolini almashtiring")
         nomi = rol.nomi
@@ -253,9 +290,23 @@ def _xodimlar_qs():
     )
 
 
-def _xodim_maydonlari(user, profil, data):
+class _Taqiq(Exception):
+    """Ruxsat yetmaydi — 403 bo'lib qaytadi (ValueError — 400)."""
+
+
+def _xodim_maydonlari(user, profil, data, kim):
     """Xodim formasi maydonlarini yozadi (yaratish va tahrir uchun
-    umumiy). Xato bo'lsa ValueError."""
+    umumiy). Xato bo'lsa ValueError, ruxsat yetmasa `_Taqiq`.
+
+    `kim` — so'rov egasi:
+      * maxsus rolni faqat rollarni boshqaradigan (owner yoki
+        `sozlamalar.rollar`) beradi — aks holda `xodimlar` ruxsati bor
+        odam o'ziga yoki sherigiga to'liq huquqli rolni biriktirardi;
+      * oylik va foiz ulushi `xodimlar.oylik` ruxsatisiz E'TIBORSIZ
+        qoldiriladi: bunday foydalanuvchida ular yashirin (`null`) keladi
+        va forma ularni bo'sh qaytarib, oylikni 0 ga tushirib yuborardi.
+    """
+    kim_ruxsatlari = ruxsatlar(kim)
     if "ism" in data:
         ism = (data.get("ism") or "").strip()
         if not ism:
@@ -272,8 +323,14 @@ def _xodim_maydonlari(user, profil, data):
             raise ValueError("Noma'lum lavozim")
         profil.lavozim = lavozim
     if "rol_id" in data:
-        rol_id = data.get("rol_id")
-        profil.rol = get_object_or_404(CrmRol, pk=rol_id) if rol_id else None
+        rol_id = data.get("rol_id") or None
+        if str(rol_id or "") != str(profil.rol_id or ""):
+            if not _rollarni_boshqaradi(kim):
+                raise _Taqiq("Xodimga rol berishga ruxsat yo'q")
+            rol = get_object_or_404(CrmRol, pk=rol_id) if rol_id else None
+            if rol is not None and rol.lavozim:
+                raise ValueError("Lavozim roli maxsus rol sifatida berilmaydi — lavozimni tanlang")
+            profil.rol = rol
     if "filial_id" in data:
         filial_id = data.get("filial_id")
         profil.filial = get_object_or_404(Filial, pk=filial_id) if filial_id else None
@@ -284,12 +341,13 @@ def _xodim_maydonlari(user, profil, data):
         profil.jins = jins
     if "ishga_olingan_sana" in data:
         profil.ishga_olingan_sana = _sana(data.get("ishga_olingan_sana"), "ishga_olingan_sana", majburiy=False)
-    if "oylik" in data:
+    oylik_ruxsati = "xodimlar.oylik" in kim_ruxsatlari
+    if "oylik" in data and oylik_ruxsati:
         oylik = _son(data.get("oylik") or 0, "oylik")
         if oylik < 0:
             raise ValueError("Oylik manfiy bo'lmasin")
         profil.oylik = oylik
-    if "foiz_ulushi" in data:
+    if "foiz_ulushi" in data and oylik_ruxsati:
         foiz = _son(data.get("foiz_ulushi") or 0, "foiz_ulushi")
         if not 0 <= foiz <= 100:
             raise ValueError("Foiz ulushi 0..100 oralig'ida bo'lsin")
@@ -322,6 +380,8 @@ class XodimlarView(CrmView):
         return Response({"xodimlar": royxat, "soni": soni, "jami": sum(soni.values())})
 
     def post(self, request):
+        if "xodimlar.qoshish" not in ruxsatlar(request.user):
+            return _xato("Xodim qo'shishga ruxsat yo'q", kod=403)
         data = request.data
         lavozim = data.get("lavozim") or XodimProfil.Lavozim.OQITUVCHI
         if lavozim not in dict(XodimProfil.Lavozim.choices):
@@ -355,7 +415,10 @@ class XodimlarView(CrmView):
             user.set_password(parol)
             profil = XodimProfil(user=user, lavozim=lavozim)
             try:
-                _xodim_maydonlari(user, profil, {**data, "lavozim": lavozim, "ism": ism, "telefon": telefon})
+                _xodim_maydonlari(user, profil, {**data, "lavozim": lavozim, "ism": ism, "telefon": telefon},
+                                  request.user)
+            except _Taqiq as e:
+                return _xato(str(e), kod=403)
             except ValueError as e:
                 return _xato(str(e))
             user.save()
@@ -374,6 +437,8 @@ class XodimDetailView(CrmView):
     bolim = "xodimlar"
 
     def patch(self, request, pk):
+        if "xodimlar.tahrirlash" not in ruxsatlar(request.user):
+            return _xato("Xodimni tahrirlashga ruxsat yo'q", kod=403)
         user = get_object_or_404(_xodimlar_qs(), pk=pk)
         profil, _ = XodimProfil.objects.get_or_create(
             user=user,
@@ -381,12 +446,26 @@ class XodimDetailView(CrmView):
         )
         eski = _xodim_dict(user)
         data = request.data
+        owner = owner_mi(request.user)
         yangi_lavozim = data.get("lavozim", profil.lavozim)
-        if (yangi_lavozim in ("admin", "ceo") or user.role == User.Role.ADMIN) and not owner_mi(request.user):
+        if (yangi_lavozim in ("admin", "ceo") or user.role == User.Role.ADMIN) and not owner:
             if yangi_lavozim != profil.lavozim or user.role == User.Role.ADMIN:
                 return _xato("Administratorni faqat owner tahrirlay oladi", kod=403)
+        # O'z lavozimi, roli va faolligini o'zi o'zgartira olmaydi (owner'dan boshqa).
+        if user.pk == request.user.pk and not owner:
+            if (yangi_lavozim != profil.lavozim
+                    or ("rol_id" in data and str(data.get("rol_id") or "") != str(profil.rol_id or ""))
+                    or ("faol" in data and not data["faol"])):
+                return _xato("O'z lavozimingiz, rolingiz va holatingizni o'zgartira olmaysiz", kod=403)
+        parol_sorandi = bool(data.get("parol_tiklash") or data.get("parol"))
+        # Boshqa xodimning parolini faqat owner yoki administrator tiklaydi —
+        # aks holda `xodimlar` ruxsati bor kassir o'qituvchi nomidan saytga kira olardi.
+        if parol_sorandi and user.pk != request.user.pk and not (owner or request.user.role == User.Role.ADMIN):
+            return _xato("Boshqa xodimning parolini faqat administrator tiklaydi", kod=403)
         try:
-            _xodim_maydonlari(user, profil, data)
+            _xodim_maydonlari(user, profil, data, request.user)
+        except _Taqiq as e:
+            return _xato(str(e), kod=403)
         except ValueError as e:
             return _xato(str(e))
         if "lavozim" in data:
@@ -394,7 +473,7 @@ class XodimDetailView(CrmView):
         if "faol" in data:
             user.is_active = bool(data["faol"])
         yangi_parol = None
-        if data.get("parol_tiklash") or data.get("parol"):
+        if parol_sorandi:
             from accounts.views import _parolni_tekshir
 
             yangi_parol = (data.get("parol") or "").strip() or parol_yarat()
@@ -550,6 +629,8 @@ class LidBolimlarView(CrmView):
         return Response([_bolim_dict(b, b._soni) for b in qs])
 
     def post(self, request):
+        if xato := _ruxsatsiz(request, "lidlar.bolim"):
+            return xato
         nomi = (request.data.get("nomi") or "").strip()
         if not nomi:
             return _xato("Bo'lim nomi bo'sh bo'lmasin")
@@ -571,6 +652,8 @@ class LidBolimDetailView(CrmView):
     bolim = "lidlar"
 
     def patch(self, request, pk):
+        if xato := _ruxsatsiz(request, "lidlar.bolim"):
+            return xato
         bolim = get_object_or_404(LidBolim, pk=pk)
         if "nomi" in request.data:
             nomi = (request.data.get("nomi") or "").strip()
@@ -586,6 +669,8 @@ class LidBolimDetailView(CrmView):
         return Response(_bolim_dict(bolim))
 
     def delete(self, request, pk):
+        if xato := _ruxsatsiz(request, "lidlar.bolim"):
+            return xato
         bolim = get_object_or_404(LidBolim, pk=pk)
         # Ichidagi lidlar YO'QOLMAYDI — bo'limsiz qoladi ("Yangi lidlar").
         bolim.delete()
@@ -635,6 +720,8 @@ class LidlarView(CrmView):
         return Response([_lid_dict(lid, eslatmalar.get(lid.id)) for lid in lidlar])
 
     def post(self, request):
+        if xato := _ruxsatsiz(request, "lidlar.qoshish", "Lid qo'shishga ruxsat yo'q"):
+            return xato
         lid = Lid(kim_qoshdi=request.user)
         data = dict(request.data)
         data.setdefault("ism", "")
@@ -653,6 +740,9 @@ class LidlarView(CrmView):
                 return _xato("Bu raqam qora ro'yxatda", kod=409)
         lid.save()
         LidTarix.objects.create(lid=lid, matn="Lid yaratildi", kim=request.user)
+        # "Harakatlar tarixi"da o'chirish bor edi, yaratish yo'q edi.
+        logla(foydalanuvchi=request.user, harakat=FaoliyatYozuvi.Harakat.YARATISH, obyekt=lid,
+              obyekt_turi="CRM Lid", obyekt_nomi=str(lid), snapshot={"manba": lid.manba, "bolim": lid.bolim_id})
         if request.data.get("eslatma"):
             Eslatma.objects.create(lid=lid, matn=str(request.data["eslatma"])[:2000], kim=request.user)
         return Response(_lid_dict(lid), status=201)
@@ -713,7 +803,17 @@ class LidDetailView(CrmView):
             "takrorlar": list(takrorlar),
         })
 
+    # Maydon -> kerakli amal ruxsati. Qolgan maydonlar — `lidlar.tahrirlash`.
+    _MAYDON_RUXSATI = {
+        "arxiv": "lidlar.arxiv", "qora_royxat": "lidlar.qora_royxat", "yigilayotgan_guruh_id": "lidlar.guruhga",
+    }
+
     def patch(self, request, pk):
+        berilgan = ruxsatlar(request.user)
+        for maydon in request.data:
+            kerak = self._MAYDON_RUXSATI.get(maydon, "lidlar.tahrirlash")
+            if kerak not in berilgan:
+                return _xato("Bu o'zgarishga ruxsat yo'q", kod=403)
         lid = get_object_or_404(Lid, pk=pk)
         eski_bolim = lid.bolim.nomi if lid.bolim_id else "—"
         try:
@@ -821,6 +921,8 @@ class TalabaYaratishView(CrmView):
     bolim = "talabalar"
 
     def post(self, request):
+        if xato := _ruxsatsiz(request, "talabalar.qoshish", "O'quvchi qo'shishga ruxsat yo'q"):
+            return xato
         data = request.data
         guruh = None
         if data.get("guruh_id"):
@@ -855,9 +957,13 @@ class TalabaCrmView(CrmView):
     bolim = "talabalar"
 
     def patch(self, request, pk):
+        data = request.data
+        # Qora ro'yxatdan boshqa hamma narsa (jins, maktab, arxiv, parol) — tahrirlash.
+        if set(data) - {"qora_royxat", "sabab"}:
+            if xato := _ruxsatsiz(request, "talabalar.tahrirlash"):
+                return xato
         talaba = get_object_or_404(User, pk=pk, role=User.Role.STUDENT)
         profil, _ = TalabaProfil.objects.get_or_create(user=talaba)
-        data = request.data
         if "qora_royxat" in data:
             if "talabalar.qora_royxat" not in ruxsatlar(request.user):
                 return _xato("Qora ro'yxatga ruxsat yo'q", kod=403)
@@ -900,6 +1006,8 @@ class LidGuruhgaView(CrmView):
     bolim = "lidlar"
 
     def post(self, request):
+        if xato := _ruxsatsiz(request, "lidlar.guruhga"):
+            return xato
         idlar = request.data.get("lid_idlar") or []
         if request.data.get("lid_id"):
             idlar = [request.data["lid_id"]]
@@ -1033,6 +1141,8 @@ class GuruhYaratishView(CrmView):
     bolim = "guruhlar"
 
     def post(self, request):
+        if xato := _ruxsatsiz(request, "guruhlar.qoshish", "Guruh qo'shishga ruxsat yo'q"):
+            return xato
         data = request.data
         nomi = (data.get("nomi") or "").strip()
         if not nomi:
@@ -1081,6 +1191,8 @@ class GuruhBoshqaruvView(CrmView):
         return Response(_guruh_toliq(get_object_or_404(Guruh, pk=pk)))
 
     def patch(self, request, pk):
+        if xato := _ruxsatsiz(request, "guruhlar.tahrirlash", "Guruhni tahrirlashga ruxsat yo'q"):
+            return xato
         guruh = get_object_or_404(Guruh, pk=pk)
         data = request.data
         eski = {"nomi": guruh.name, "faol": guruh.faol, "oqituvchi": _ism(guruh.oqituvchi)}
@@ -1114,6 +1226,8 @@ class GuruhTalabalariView(CrmView):
     parser_classes = [JSONParser, MultiPartParser, FormParser]
 
     def post(self, request, pk):
+        if xato := _ruxsatsiz(request, "guruhlar.talaba_qoshish"):
+            return xato
         guruh = get_object_or_404(Guruh, pk=pk)
         try:
             sana = _sana(request.data.get("sana"), "sana", majburiy=False) or timezone.localdate()
@@ -1191,6 +1305,8 @@ class GuruhTalabalariView(CrmView):
         hisoblanadi, keyin LMS a'zoligi o'chadi (LMS'dagi kabi). Pul
         tarixi (`Hisob`/`Tolov`) qoladi — ular a'zolikka emas, talaba va
         guruhga bog'langan."""
+        if xato := _ruxsatsiz(request, "guruhlar.talaba_qoshish"):
+            return xato
         guruh = get_object_or_404(Guruh, pk=pk)
         talaba = get_object_or_404(User, pk=request.query_params.get("talaba"))
         azolik = get_object_or_404(GuruhAzoligi, guruh=guruh, talaba=talaba)
@@ -1360,6 +1476,19 @@ def _ozgarish_dict(o):
     }
 
 
+def _dars_yozuvlarini_kochir(guruh, dan, ga):
+    """Ko'chirilgan dars bilan birga uning davomati (izohi bilan), mavzusi
+    va baholari ham yangi sanaga o'tadi (SoffCRM: "davomat belgilari,
+    mavzu ... dars bilan birga ko'chadi"). Yangi sanada o'z yozuvi bo'lsa —
+    ustidan yozilmaydi, xato."""
+    modellar = (Davomat, DarsMavzusi, DarsBahosi)
+    for model in modellar:
+        if model.objects.filter(guruh=guruh, sana=ga).exists():
+            raise ValueError(f"{ga:%d.%m.%Y} kuni bu guruhda davomat/mavzu/baho allaqachon bor")
+    for model in modellar:
+        model.objects.filter(guruh=guruh, sana=dan).update(sana=ga)
+
+
 class DarsOzgarishlariView(CrmView):
     bolim = "guruhlar"
 
@@ -1385,14 +1514,33 @@ class DarsOzgarishlariView(CrmView):
             return _xato("Tanlangan kunda bu guruhning darsi yo'q")
         if boshlanish and tugash and tugash <= boshlanish:
             return _xato("Tugash vaqti boshlanishdan keyin bo'lsin")
+        if yangi:
+            # Video (25:15): o'tgan kunlar, darsi bor kunlar va guruh
+            # tugaganidan keyingi kunlar tanlanmaydi. Qo'shimcha dars
+            # o'tgan kunga yozilishi mumkin (bo'lib o'tgan darsni kiritish).
+            if turi == "kochirish" and yangi < timezone.localdate():
+                return _xato("Darsni o'tgan kunga ko'chirib bo'lmaydi")
+            if yangi in guruh_dars_sanalari(guruh, mantiq.oy_boshi(yangi)):
+                return _xato(f"{yangi:%d.%m.%Y} kuni bu guruhning darsi allaqachon bor")
+            moliya = getattr(guruh, "moliya", None)
+            if moliya and moliya.tugash_sana and yangi > moliya.tugash_sana:
+                return _xato("Yangi sana guruh tugash sanasidan keyin")
+            if moliya and moliya.boshlanish_sana and yangi < moliya.boshlanish_sana:
+                return _xato("Yangi sana guruh boshlanishidan oldin")
         xona_id = request.data.get("xona_id") or None
         if xona_id and not Xona.objects.filter(pk=xona_id).exists():
             return _xato("Xona topilmadi")
-        oz = DarsOzgarish.objects.create(
-            guruh=guruh, turi=turi, asl_sana=asl, yangi_sana=yangi, boshlanish_vaqti=boshlanish,
-            tugash_vaqti=tugash, xona_id=xona_id, mavzu=(request.data.get("mavzu") or "").strip()[:200],
-            izoh=(request.data.get("izoh") or "").strip()[:300], kim=request.user,
-        )
+        try:
+            with transaction.atomic():
+                if turi == "kochirish":
+                    _dars_yozuvlarini_kochir(guruh, asl, yangi)
+                oz = DarsOzgarish.objects.create(
+                    guruh=guruh, turi=turi, asl_sana=asl, yangi_sana=yangi, boshlanish_vaqti=boshlanish,
+                    tugash_vaqti=tugash, xona_id=xona_id, mavzu=(request.data.get("mavzu") or "").strip()[:200],
+                    izoh=(request.data.get("izoh") or "").strip()[:300], kim=request.user,
+                )
+        except ValueError as e:
+            return _xato(str(e))
         logla(foydalanuvchi=request.user, harakat=FaoliyatYozuvi.Harakat.YARATISH, obyekt=guruh,
               obyekt_turi="CRM Dars o'zgarishi", obyekt_nomi=guruh.name,
               snapshot={k: str(v) for k, v in _ozgarish_dict(oz).items()})
@@ -1403,8 +1551,20 @@ class DarsOzgarishDetailView(CrmView):
     bolim = "guruhlar"
 
     def delete(self, request, pk):
+        if xato := _ruxsatsiz(request, "guruhlar.dars_kochirish"):
+            return xato
         oz = get_object_or_404(DarsOzgarish, pk=pk)
-        oz.delete()
+        try:
+            with transaction.atomic():
+                # Ko'chirish bekor qilinsa — yozuvlar asl sanaga qaytadi.
+                if oz.turi == DarsOzgarish.Turi.KOCHIRISH and oz.asl_sana and oz.yangi_sana:
+                    _dars_yozuvlarini_kochir(oz.guruh, oz.yangi_sana, oz.asl_sana)
+                oz.delete()
+        except ValueError as e:
+            return _xato(str(e))
+        logla(foydalanuvchi=request.user, harakat=FaoliyatYozuvi.Harakat.OCHIRISH, obyekt=oz.guruh,
+              obyekt_turi="CRM Dars o'zgarishi", obyekt_nomi=oz.guruh.name,
+              snapshot={"turi": oz.turi, "asl_sana": str(oz.asl_sana), "yangi_sana": str(oz.yangi_sana)})
         return Response(status=204)
 
 
@@ -1426,16 +1586,19 @@ def _chegirma_dict(c):
     }
 
 
-def _chegirma_oylarini_qayta_hisobla(am, boshlanish_oy, oylar_soni):
+def _chegirma_oylarini_qayta_hisobla(am, boshlanish_oy, oylar_soni, dan=None):
     """Chegirma oynasidagi ALLAQACHON OCHILGAN, to'lanmagan hisoblar
     yangi narx bilan qayta hisoblanadi (kelgusilari generatsiyada o'zi
-    oladi). To'langan oyga tegilmaydi — `azolikni_qayta_hisobla` qoidasi."""
+    oladi). To'langan va `qolda` oyga tegilmaydi — `azolikni_qayta_hisobla`
+    qoidasi. `dan` — shu oydan oldingilari o'tkazib yuboriladi (owner
+    bo'lmaganda o'tgan oylar qarzi o'zgarmasin)."""
     oy = boshlanish_oy
     # Doimiy chegirma (0 oy) — joriy oygacha ochilgan hamma oylar.
     oxirgi = mantiq.oy_boshi(timezone.localdate())
     soni = oylar_soni or max(1, (oxirgi.year - oy.year) * 12 + oxirgi.month - oy.month + 1)
     for _ in range(soni):
-        mantiq.azolikni_qayta_hisobla(am, oy)
+        if dan is None or oy >= dan:
+            mantiq.azolikni_qayta_hisobla(am, oy)
         oy = mantiq.keyingi_oy(oy)
 
 
@@ -1495,6 +1658,11 @@ class GuruhChegirmalariView(CrmView):
             return _xato("Chegirma narxdan katta bo'lmasin")
         if not 0 <= oylar <= 24:
             return _xato("Oylar soni 0..24 (0 — doimiy)")
+        # O'tgan oydan boshlangan chegirma o'sha oylarning qarzini kamaytiradi —
+        # bu qarzdorlikni tuzatish bilan bir xil, u esa FAQAT owner'da
+        # (`HisobDetailView`). Admin chegirmani joriy oydan beradi.
+        if oy < mantiq.oy_boshi(timezone.localdate()) and not owner_mi(request.user):
+            return _xato("O'tgan oy uchun chegirmani faqat owner beradi — joriy yoki keyingi oyni tanlang", kod=403)
         with transaction.atomic():
             c = Chegirma.objects.create(azolik=am, narx=narx, boshlanish_oy=oy, oylar_soni=oylar,
                                         izoh=(request.data.get("izoh") or "").strip()[:300], kim=request.user)
@@ -1516,7 +1684,9 @@ class ChegirmaDetailView(CrmView):
         snapshot = {k: str(v) for k, v in _chegirma_dict(c).items()}
         with transaction.atomic():
             c.delete()
-            _chegirma_oylarini_qayta_hisobla(am, oy, oylar)
+            _chegirma_oylarini_qayta_hisobla(
+                am, oy, oylar, dan=None if owner_mi(request.user) else mantiq.oy_boshi(timezone.localdate()),
+            )
         logla(foydalanuvchi=request.user, harakat=FaoliyatYozuvi.Harakat.OCHIRISH, obyekt=am,
               obyekt_turi="CRM Chegirma", obyekt_nomi=_ism(am.azolik.talaba), snapshot=snapshot)
         return Response(status=204)
@@ -1558,9 +1728,24 @@ class KorsatkichlarView(CrmView):
         if "moliya" in r:
             # "To'lovi yaqin" — keyingi 3 kunda to'lov sanasi keladigan
             # faol talabalar (joriy oy hisobi hali to'lanmagan).
+            # `mantiq.keyingi_tolov_sanasi` mantig'i, lekin har a'zolikka
+            # alohida so'rov emas (N+1) — hamma hisoblar bitta so'rovda.
             chegara = bugun + timedelta(days=3)
-            for am in azoliklar.filter(holat=AzolikMoliya.Holat.FAOL).select_related("azolik"):
-                sana = mantiq.keyingi_tolov_sanasi(am.azolik.talaba, am.azolik.guruh)
+            juftlar = set(
+                azoliklar.filter(holat=AzolikMoliya.Holat.FAOL).values_list("azolik__talaba_id", "azolik__guruh_id")
+            )
+            tolanmagan, oxirgi = {}, {}
+            for tid, gid, h_oy, h_holat in Hisob.objects.filter(
+                talaba_id__in={t for t, _ in juftlar}, guruh_id__in={g for _, g in juftlar}
+            ).values_list("talaba_id", "guruh_id", "oy", "holat"):
+                k = (tid, gid)
+                if k not in juftlar:
+                    continue
+                if h_holat != Hisob.Holat.TOLANDI:
+                    tolanmagan[k] = min(tolanmagan.get(k, h_oy), h_oy)
+                oxirgi[k] = max(oxirgi.get(k, h_oy), h_oy)
+            for k in juftlar:
+                sana = tolanmagan.get(k) or (mantiq.keyingi_oy(oxirgi[k]) if k in oxirgi else None)
                 if sana and bugun <= sana <= chegara:
                     tolov_yaqin += 1
 
@@ -1687,6 +1872,8 @@ class TalabaSaytHisobiView(CrmView):
     def post(self, request, pk):
         from accounts.views import _parolni_tekshir
 
+        if xato := _ruxsatsiz(request, "talabalar.tahrirlash"):
+            return xato
         talaba = get_object_or_404(User, pk=pk, role=User.Role.STUDENT)
         username = (request.data.get("username") or "").strip()
         parol = request.data.get("parol") or ""

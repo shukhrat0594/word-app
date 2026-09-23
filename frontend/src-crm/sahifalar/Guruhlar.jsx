@@ -22,7 +22,7 @@ const bugun = () => new Date().toISOString().slice(0, 10);
 function NarxManbasi({ manba }) {
   const { t } = useI18n();
   if (!manba) return <span className="belgi rang-qarzdor">{t("narx_yoq")}</span>;
-  const nomlar = { kurs: "narx_kursdan", guruh: "narx_guruhdan", talaba: "narx_talabadan" };
+  const nomlar = { kurs: "narx_kursdan", guruh: "narx_guruhdan", talaba: "narx_talabadan", chegirma: "narx_chegirmadan" };
   return <span className="belgi">{t(nomlar[manba])}</span>;
 }
 
@@ -49,24 +49,40 @@ function Azolar({ guruhId, onOzgardi }) {
       return String(a.talaba).localeCompare(String(b.talaba));
     });
 
-  async function ozgartir(id, maydon, qiymat) {
-    await api(`/api/crm/azoliklar/${id}/`, { method: "PATCH", body: { [maydon]: qiymat } });
-    yangila();
-    onOzgardi?.();
+  const [amalXato, setAmalXato] = useState("");
+
+  // Amal xatosi (403/400) jim yutilmasin — foydalanuvchi sababini ko'rsin.
+  async function amal(fn) {
+    setAmalXato("");
+    try {
+      await fn();
+    } catch (e) {
+      setAmalXato(e.message);
+    }
   }
 
-  async function chiqar(a) {
+  function ozgartir(id, maydon, qiymat) {
+    return amal(async () => {
+      await api(`/api/crm/azoliklar/${id}/`, { method: "PATCH", body: { [maydon]: qiymat } });
+      yangila();
+      onOzgardi?.();
+    });
+  }
+
+  function chiqar(a) {
     const sanaQ = window.prompt(`${a.talaba}: ${t("chiqarish_sanasi")}`, bugun());
     if (!sanaQ) return;
     // Sabab "Ketgan o'quvchilar hisoboti"ga tushadi.
     const sabab = window.prompt(t("chiqish_sababi")) || "";
-    await api(
-      `/api/crm/guruhlar/${guruhId}/talabalar/?talaba=${a.talaba_id}&sana=${sanaQ}&sabab=${encodeURIComponent(sabab)}`,
-      { method: "DELETE" },
-    );
-    yangila();
-    sobiqlar.yangila();
-    onOzgardi?.();
+    return amal(async () => {
+      await api(
+        `/api/crm/guruhlar/${guruhId}/talabalar/?talaba=${a.talaba_id}&sana=${sanaQ}&sabab=${encodeURIComponent(sabab)}`,
+        { method: "DELETE" },
+      );
+      yangila();
+      sobiqlar.yangila();
+      onOzgardi?.();
+    });
   }
 
   // SoffCRM guruh sahifasidagi tugmalar: "O'qishgan sanani ko'rsatish",
@@ -78,11 +94,13 @@ function Azolar({ guruhId, onOzgardi }) {
   const sobiqlar = useSorov(sobiqKorsin ? `/api/crm/guruhlar/${guruhId}/sobiqlar/` : null);
   const sinovdagilar = (malumot || []).filter((a) => a.holat === "sinov").length;
 
-  async function faollashtir() {
+  function faollashtir() {
     if (!window.confirm(t("faollashtirish_tasdiq"))) return;
-    await api(`/api/crm/guruhlar/${guruhId}/faollashtirish/`, { method: "POST", body: {} });
-    yangila();
-    onOzgardi?.();
+    return amal(async () => {
+      await api(`/api/crm/guruhlar/${guruhId}/faollashtirish/`, { method: "POST", body: {} });
+      yangila();
+      onOzgardi?.();
+    });
   }
 
   if (yuklanmoqda) return <p className="kichik">{t("yuklanmoqda")}</p>;
@@ -109,6 +127,7 @@ function Azolar({ guruhId, onOzgardi }) {
           </button>
         )}
       </div>
+      {amalXato && <div className="xato">{amalXato}</div>}
       <table>
         <thead>
           <tr>
@@ -244,10 +263,17 @@ export default function Guruhlar() {
     setSozlanayotgan(await api(`/api/crm/guruhlar/${g.id}/boshqaruv/`));
   }
 
+  const [amalXato, setAmalXato] = useState("");
+
   async function arxivla(g) {
     if (!window.confirm(g.faol ? t("guruh_arxivlash_tasdiq") : t("guruh_tiklash_tasdiq"))) return;
-    await api(`/api/crm/guruhlar/${g.id}/boshqaruv/`, { method: "PATCH", body: { faol: !g.faol } });
-    yangila();
+    setAmalXato("");
+    try {
+      await api(`/api/crm/guruhlar/${g.id}/boshqaruv/`, { method: "PATCH", body: { faol: !g.faol } });
+      yangila();
+    } catch (e) {
+      setAmalXato(e.message);
+    }
   }
 
   return (
@@ -284,7 +310,7 @@ export default function Guruhlar() {
         </label>
       </div>
 
-      {xato && <div className="xato">{xato}</div>}
+      {(xato || amalXato) && <div className="xato">{xato || amalXato}</div>}
       {yuklanmoqda && <p className="kichik">{t("yuklanmoqda")}</p>}
 
       <div className="karta jadval-oram">
@@ -376,7 +402,10 @@ export default function Guruhlar() {
                         boshlangichTab={tabBuyrugi?.id === g.id ? tabBuyrugi.tab : undefined}
                         tabKaliti={tabBuyrugi?.id === g.id ? tabBuyrugi.n : 0}
                         onOzgardi={yangila}
-                        Azolar={() => <Azolar guruhId={g.id} onOzgardi={yangila} />}
+                        // ELEMENT uzatiladi, komponent emas: `() => <Azolar/>` har
+                        // renderda yangi tur bo'lib, A'zolar holatini (qidiruv,
+                        // yashirilgan ustunlar) tiklab, qayta yuklab yuborardi.
+                        azolar={<Azolar guruhId={g.id} onOzgardi={yangila} />}
                       />
                     </td>
                   </tr>

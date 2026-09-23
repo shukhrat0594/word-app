@@ -566,8 +566,14 @@ export function DavomatJadvali({ guruhId }) {
               {o.izoh ? ` — ${o.izoh}` : ""}
               {ruxsat("guruhlar.dars_kochirish") && (
                 <button className="havola rang-qarzdor" type="button" onClick={async () => {
-                  await api(`/api/crm/dars-ozgarishlari/${o.id}/`, { method: "DELETE" });
-                  yangila();
+                  setXatoQ("");
+                  try {
+                    await api(`/api/crm/dars-ozgarishlari/${o.id}/`, { method: "DELETE" });
+                    yangila();
+                    mavzular.yangila();
+                  } catch (e) {
+                    setXatoQ(e.message);
+                  }
                 }}> ✕</button>
               )}
             </li>
@@ -576,7 +582,8 @@ export function DavomatJadvali({ guruhId }) {
       )}
       {kochirish && (
         <DarsKochirishOynasi guruhId={guruhId} boshlangich={kochirish}
-                             onYopish={() => setKochirish(null)} onSaqlandi={yangila} />
+                             onYopish={() => setKochirish(null)}
+                             onSaqlandi={() => { yangila(); mavzular.yangila(); }} />
       )}
     </>
   );
@@ -620,7 +627,11 @@ function DarsKochirishOynasi({ guruhId, boshlangich, onYopish, onSaqlandi }) {
         {f.turi !== "qoshimcha" && <label>{t("asl_sana")}<input type="date" {...qiymat("asl_sana")} /></label>}
         {f.turi !== "bekor" && (
           <>
-            <label>{t("yangi_sana")}<input type="date" {...qiymat("yangi_sana")} /></label>
+            {/* Ko'chirishda o'tgan kun tanlanmaydi (backend ham tekshiradi). */}
+            <label>{t("yangi_sana")}
+              <input type="date" {...qiymat("yangi_sana")} min={f.turi === "kochirish" ? bugun() : undefined} />
+            </label>
+            <p className="kichik">{t("kochirish_sana_izoh")}</p>
             <div className="ikki-ustun">
               <label>{t("boshlanish_vaqti")}<input type="time" {...qiymat("boshlanish_vaqti")} /></label>
               <label>{t("tugash_vaqti")}<input type="time" {...qiymat("tugash_vaqti")} /></label>
@@ -671,15 +682,20 @@ export function Chegirmalar({ guruhId, onOzgardi }) {
 
   async function ochir(id) {
     if (!window.confirm(t("chegirma_ochirish_tasdiq"))) return;
-    await api(`/api/crm/chegirmalar/${id}/`, { method: "DELETE" });
-    yangila();
-    onOzgardi?.();
+    setXatoQ("");
+    try {
+      await api(`/api/crm/chegirmalar/${id}/`, { method: "DELETE" });
+      yangila();
+      onOzgardi?.();
+    } catch (e) {
+      setXatoQ(e.message);
+    }
   }
 
   if (yuklanmoqda && !malumot) return <p className="kichik">{t("yuklanmoqda")}</p>;
   return (
     <div className="jadval-oram">
-      {xato && <div className="xato">{xato}</div>}
+      {(xato || (!oyna && xatoQ)) && <div className="xato">{xato || xatoQ}</div>}
       <table>
         <thead>
           <tr>

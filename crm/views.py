@@ -41,6 +41,7 @@ from .models import (
     Xona,
 )
 from .permissions import CrmView, FaqatOwner
+from .ruxsatlar import ruxsatlar
 
 NOL = Decimal("0")
 
@@ -98,6 +99,13 @@ def _oy(qiymat, nom="oy"):
 
 def _xato(matn, kod=400):
     return Response({"detail": matn}, status=kod)
+
+
+def _ruxsatsiz(request, kalit, matn="Bu amalga ruxsat yo'q"):
+    """Amal darajasidagi ruxsat (`guruhlar.tahrirlash` kabi). Bo'lim
+    darajasini `CrmRuxsati` tekshiradi; bu — undan keyingi qadam.
+    Ruxsat yo'q bo'lsa 403 javob, bor bo'lsa `None`."""
+    return None if kalit in ruxsatlar(request.user) else _xato(matn, kod=403)
 
 
 def _filial_dict(f):
@@ -298,6 +306,8 @@ class FiliallarView(CrmView):
         return Response([_filial_dict(f) for f in qs])
 
     def post(self, request):
+        if xato := _ruxsatsiz(request, "sozlamalar.filiallar"):
+            return xato
         nomi = (request.data.get("nomi") or "").strip()
         if not nomi:
             return _xato("Filial nomi kerak")
@@ -330,6 +340,8 @@ class FilialDetailView(CrmView):
     bolim = "sozlamalar"
 
     def patch(self, request, pk):
+        if xato := _ruxsatsiz(request, "sozlamalar.filiallar"):
+            return xato
         filial = get_object_or_404(Filial, pk=pk)
         eski = _filial_dict(filial)
         for maydon in ("nomi", "manzil", "telefon"):
@@ -392,6 +404,8 @@ class KursNarxlariView(CrmView):
         )
 
     def put(self, request):
+        if xato := _ruxsatsiz(request, "sozlamalar.narxlar"):
+            return xato
         daraja = get_object_or_404(KursTugun, pk=request.data.get("daraja_id"))
         xom = request.data.get("narx")
 
@@ -425,6 +439,9 @@ class KursNarxlariView(CrmView):
 
 class GuruhlarView(CrmView):
     bolim = "guruhlar"
+    # Ro'yxatni o'qish hamma CRM xodimiga: marketolog lidni guruhga
+    # qo'shadi, kassir talaba kartasida guruhni tanlaydi (2026-09-23).
+    oqish_ochiq = True
 
     def get(self, request):
         # `?arxiv=1` — arxivlangan guruhlar (video-TZ: arxivlash endi CRM'da).
@@ -456,6 +473,8 @@ class GuruhMoliyaView(CrmView):
     bolim = "guruhlar"
 
     def patch(self, request, pk):
+        if xato := _ruxsatsiz(request, "guruhlar.tahrirlash", "Guruhni tahrirlashga ruxsat yo'q"):
+            return xato
         guruh = get_object_or_404(Guruh, pk=pk)
         # Yozuv guruh yaratilganda emas, AYNAN shu yerda paydo bo'ladi —
         # signal ishlatilmaydi (TZ 3.0, 3-qoida).
@@ -540,6 +559,8 @@ class XonalarView(CrmView):
         return Response([_xona_dict(x) for x in qs])
 
     def post(self, request):
+        if xato := _ruxsatsiz(request, "sozlamalar.filiallar"):
+            return xato
         nomi = (request.data.get("nomi") or "").strip()
         if not nomi:
             return _xato("Xona nomi kerak")
@@ -567,6 +588,8 @@ class XonaDetailView(CrmView):
     bolim = "sozlamalar"
 
     def patch(self, request, pk):
+        if xato := _ruxsatsiz(request, "sozlamalar.filiallar"):
+            return xato
         xona = get_object_or_404(Xona, pk=pk)
         eski = _xona_dict(xona)
         if "nomi" in request.data:
@@ -729,6 +752,8 @@ class GuruhJadvalView(CrmView):
     bolim = "guruhlar"
 
     def put(self, request, pk):
+        if javob := _ruxsatsiz(request, "guruhlar.tahrirlash", "Guruhni tahrirlashga ruxsat yo'q"):
+            return javob
         guruh = get_object_or_404(Guruh, pk=pk)
         yangilar, xato = jadvalni_tekshir(guruh, request.data.get("jadval") or [])
         if xato:
@@ -980,7 +1005,7 @@ class AzolikView(CrmView):
                 # CRM'da alohida "arxiv" bo'lsa, sayt bilan CRM ikki xil
                 # ro'yxat ko'rsatardi.
                 if holat == AzolikMoliya.Holat.ARXIV:
-                    return _xato("Arxivlash CRM'da emas — talabani saytda guruhdan chiqaring")
+                    return _xato("Arxivlash bu yerda emas — guruh sahifasidagi «Guruhdan chiqarish» tugmasidan foydalaning")
                 am.holat = holat
             if "boshlanish_sana" in request.data:
                 am.boshlanish_sana = _sana(request.data["boshlanish_sana"], "boshlanish_sana")
@@ -1082,6 +1107,8 @@ class HisoblarView(CrmView):
         Yaratilgach u oddiy hisobdek ishlaydi — to'lash ham, chegirma
         bilan yopish ham mumkin.
         """
+        if xato := _ruxsatsiz(request, "moliya.hisob"):
+            return xato
         try:
             oy = _oy(request.data.get("oy"))
             summa = _son(request.data.get("summa"), "summa")
@@ -1142,9 +1169,13 @@ class HisobDetailView(CrmView):
 
         eski = hisob.summa
         hisob.summa = summa
+        # `qolda` — endi avtomatik qayta hisoblash (chegirma, muzlatish,
+        # guruhdan chiqish) bu summaga TEGMAYDI: owner nima yozgan bo'lsa
+        # shu qoladi (`mantiq.azolikni_qayta_hisobla`).
+        hisob.qolda = True
         if "izoh" in request.data:
             hisob.izoh = (request.data.get("izoh") or "").strip()[:300]
-        hisob.save(update_fields=["summa", "izoh"])
+        hisob.save(update_fields=["summa", "izoh", "qolda"])
         mantiq.hisobni_yangila(hisob)
 
         logla(
@@ -1249,6 +1280,8 @@ class TolovlarView(CrmView):
         usul = request.data.get("usul") or Tolov.Usul.NAQD
         if usul not in dict(Tolov.Usul.choices):
             return _xato("Noma'lum to'lov usuli")
+        if xato := _ruxsatsiz(request, "moliya.qaytarish" if turi == Tolov.Turi.QAYTARISH else "moliya.tolov"):
+            return xato
 
         talaba = get_object_or_404(User, pk=request.data.get("talaba_id"))
         guruh = get_object_or_404(Guruh, pk=request.data.get("guruh_id"))
@@ -1388,6 +1421,11 @@ class TalabalarView(CrmView):
             )
             .filter(azolik__guruh__faol=True)
         )
+        # `?arxiv=1` — arxivlangan (CRM'da "Arxivlash" bosilgan, saytga kira
+        # olmaydigan) talabalar. Busiz ular hech qayerda chiqmasdi va
+        # "Arxivdan chiqarish"ga yetib bo'lmasdi (2026-09-23).
+        arxiv = bool(request.query_params.get("arxiv"))
+        qs = qs.filter(azolik__talaba__is_active=not arxiv)
         if request.query_params.get("filial"):
             qs = qs.filter(azolik__guruh__moliya__filial_id=request.query_params["filial"])
         qidiruv = (request.query_params.get("q") or "").strip()
@@ -1449,7 +1487,7 @@ class TalabalarView(CrmView):
         guruhsiz = request.query_params.get("guruhsiz")
         if guruhsiz or not (request.query_params.get("holat") or request.query_params.get("filial")
                             or qo_shimcha_filtr):
-            qolganlar = User.objects.filter(role=User.Role.STUDENT, is_active=True).exclude(pk__in=talabalar.keys())
+            qolganlar = User.objects.filter(role=User.Role.STUDENT, is_active=not arxiv).exclude(pk__in=talabalar.keys())
             if qidiruv:
                 qolganlar = qolganlar.filter(
                     Q(first_name__icontains=qidiruv) | Q(username__icontains=qidiruv) | Q(telefon__icontains=qidiruv)
@@ -1903,7 +1941,8 @@ class OgohlantirishlarView(CrmView):
             if g._talaba_soni == 0:
                 continue  # a'zosi yo'q guruh — muammo emas
             sabablar = []
-            if mantiq.guruh_narxi(g)[0] is None:
+            narx = mantiq.guruh_narxi(g)[0]
+            if narx is None or narx <= 0:
                 sabablar.append("narx yo'q")
             if not g.crm_jadval.all():
                 sabablar.append("dars jadvali yo'q")

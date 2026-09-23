@@ -321,9 +321,14 @@ function LidKartasi({ lidId, bolimlar, onYopish, onOzgardi, rejim = null }) {
 
   async function ochir() {
     if (!window.confirm(t("lid_ochirish_tasdiq"))) return;
-    await api(`/api/crm/lidlar/${lidId}/`, { method: "DELETE" });
-    onOzgardi();
-    onYopish();
+    setXato("");
+    try {
+      await api(`/api/crm/lidlar/${lidId}/`, { method: "DELETE" });
+      onOzgardi();
+      onYopish();
+    } catch (e) {
+      setXato(e.message);
+    }
   }
 
   return (
@@ -480,7 +485,8 @@ function Ustun({ bolim, lidlar, tanlangan, setTanlangan, onOch, onTashla, onYang
           <div
             key={l.id}
             className="lid-kartochka"
-            draggable
+            // Ustunga sudrash — bu lidni tahrirlash (backend ham tekshiradi).
+            draggable={ruxsat("lidlar.tahrirlash")}
             onDragStart={(e) => e.dataTransfer.setData("text/lid", String(l.id))}
             // Oxirgi eslatma — SoffCRM'dagi sichqoncha ustidagi izoh.
             title={l.oxirgi_eslatma ? `${l.oxirgi_eslatma.matn}` : l.izoh || ""}
@@ -680,8 +686,13 @@ export default function Lidlar() {
   async function tashla(lidId, bolimId) {
     const lid = lidRoyxati.find((x) => x.id === lidId);
     if (!lid || lid.bolim_id === bolimId) return;
-    await api(`/api/crm/lidlar/${lidId}/`, { method: "PATCH", body: { bolim_id: bolimId } });
-    yangilaHammasi();
+    setEksportXato("");
+    try {
+      await api(`/api/crm/lidlar/${lidId}/`, { method: "PATCH", body: { bolim_id: bolimId } });
+      yangilaHammasi();
+    } catch (e) {
+      setEksportXato(e.message);
+    }
   }
 
   // "Bo'lim yaratish" — yangi DOSKA ("NEW LEADS" ustuni bilan ochiladi).
@@ -848,8 +859,13 @@ export default function Lidlar() {
               const lid = menyu.lid;
               setMenyu(null);
               if (!window.confirm(t("lid_ochirish_tasdiq"))) return;
-              await api(`/api/crm/lidlar/${lid.id}/`, { method: "DELETE" });
-              yangilaHammasi();
+              setEksportXato("");
+              try {
+                await api(`/api/crm/lidlar/${lid.id}/`, { method: "DELETE" });
+                yangilaHammasi();
+              } catch (e) {
+                setEksportXato(e.message);
+              }
             }}>
               🗑 {t("ochirish")}
             </button>

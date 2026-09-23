@@ -46,7 +46,7 @@ from .models import (
 )
 from .permissions import CrmView
 from .ruxsatlar import ruxsatlar
-from .views import _oy, _sana, _xato
+from .views import _oy, _ruxsatsiz, _sana, _xato
 
 NOL = 0
 
@@ -113,6 +113,8 @@ class LidDoskaDetailView(CrmView):
     bolim = "lidlar"
 
     def patch(self, request, pk):
+        if xato := _ruxsatsiz(request, "lidlar.bolim"):
+            return xato
         doska = get_object_or_404(LidDoska, pk=pk)
         nomi = (request.data.get("nomi") or "").strip()
         if not nomi:
@@ -377,6 +379,8 @@ class GuruhFaollashtirishView(CrmView):
     bolim = "guruhlar"
 
     def post(self, request, pk):
+        if xato := _ruxsatsiz(request, "guruhlar.talaba_qoshish"):
+            return xato
         guruh = get_object_or_404(Guruh, pk=pk)
         idlar = request.data.get("talaba_idlar")
         qs = AzolikMoliya.objects.filter(azolik__guruh=guruh, holat=AzolikMoliya.Holat.SINOV)
@@ -473,6 +477,8 @@ class XodimDavomatView(CrmView):
         return Response({"oy": oy, "kunlar": kunlar, "xodimlar": xodimlar})
 
     def post(self, request):
+        if xato := _ruxsatsiz(request, "xodimlar.tahrirlash"):
+            return xato
         xodim = get_object_or_404(_xodimlar_qs(), pk=request.data.get("xodim_id"))
         try:
             sana = _sana(request.data.get("sana"), "sana")

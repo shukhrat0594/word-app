@@ -76,6 +76,24 @@ Format (qat'iy, parser shunga tayanadi):
   bo'yicha o'tish mumkin. O'quvchilar ro'yxatida "Baho" va "Keyingi
   to'lov" ustunlari. Dars jadvalida kurs, o'quvchilar soni va xona
   sig'imi ko'rinadi; bosh sahifada moliya oyini tanlash mumkin.
+- **Lavozim rollarini ham tahrirlash mumkin.** Xodimlar sahifasidagi
+  "Rollar" jadvalida endi Administrator, Kassir, Marketolog, Kuzatuvchi,
+  O'qituvchi va boshqa lavozimlar ham turadi — ✎ bosib, ular qaysi
+  bo'lim va amallarni ko'rishini belgilaysiz.
+- **Ruxsatlar qat'iylashdi.** Rolni faqat "Rollar" ruxsati borlar
+  tahrirlaydi va xodimga beradi; hech kim o'z rolini o'zi o'zgartira
+  olmaydi; boshqa xodimning parolini faqat administrator tiklaydi.
+  Administratorga cheklangan rol berilsa, cheklov endi ishlaydi.
+- **Pul himoyasi**: o'tgan oylar uchun chegirmani faqat owner beradi;
+  owner qo'lda tuzatgan qarz summasi chegirma yoki muzlatishda qayta
+  hisoblanib ketmaydi. Oyligini ko'rmaydigan xodim tahrirlaganda oylik
+  endi 0 ga tushib qolmaydi.
+- **Darsni ko'chirganda** davomat, mavzu va baholar ham yangi kunga
+  ko'chadi; o'tgan kunga, darsi bor kunga yoki guruh tugaganidan keyinga
+  ko'chirib bo'lmaydi.
+- Talabalar ro'yxatida "Arxivdagilar" filtri — arxivlangan o'quvchini
+  shu yerdan qaytarish mumkin. Marketolog lidni guruhga qo'sha oladi.
+  Saytda admin menyusiga "Talabalar" qaytdi (qurilma tiklash, panellar).
 
 ## 2026-08-09 — Rollar va panel ruxsatlari
 

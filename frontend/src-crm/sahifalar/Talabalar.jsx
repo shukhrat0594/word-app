@@ -574,10 +574,16 @@ function Karta({ talabaId, onOrqaga }) {
   }
 
   // CRM amallari (video-TZ): qora ro'yxat, arxiv, parol tiklash, jins/maktab.
+  const [amalXato, setAmalXato] = useState("");
   async function crmOzgartir(body) {
-    const javob = await api(`/api/crm/talaba/${talabaId}/crm/`, { method: "PATCH", body });
-    if (javob.parol) setParol(javob.parol);
-    yangila();
+    setAmalXato("");
+    try {
+      const javob = await api(`/api/crm/talaba/${talabaId}/crm/`, { method: "PATCH", body });
+      if (javob.parol) setParol(javob.parol);
+      yangila();
+    } catch (e) {
+      setAmalXato(e.message);
+    }
   }
 
   if (yuklanmoqda) return <p className="kichik">{t("yuklanmoqda")}</p>;
@@ -634,6 +640,7 @@ function Karta({ talabaId, onOrqaga }) {
           )}
         </div>
       </div>
+      {amalXato && <div className="xato">{amalXato}</div>}
       {parol && (
         <p className="ogohlantirish">🔑 {t("yangi_parol")}: <code>{parol}</code> — {t("login_parol_eslatma")}</p>
       )}
@@ -999,18 +1006,23 @@ export default function Talabalar() {
   const filtrSatri = sorovSatri({
     filial: tanlangan, q: qidiruv, holat,
     qarzdor: filtr === "qarzdor" ? 1 : "", qora_royxat: filtr === "qora_royxat" ? 1 : "",
-    guruhsiz: filtr === "guruhsiz" ? 1 : "",
+    guruhsiz: filtr === "guruhsiz" ? 1 : "", arxiv: filtr === "arxiv" ? 1 : "",
     guruh: guruhF, oqituvchi: ustozF, kurs: kursF, maktab: maktabF,
   });
   const { malumot, yuklanmoqda, xato, yangila } = useSorov("/api/crm/talabalar/" + filtrSatri);
-  const [eksportXato, setEksportXato] = useState("");
+  const [amalXato, setAmalXato] = useState("");
 
   // Holat SoffCRM'dagidek ro'yxatdan ham o'zgaradi (guruh kartasiga
   // kirmasdan). Backend `AzolikView` chiqish/muzlatishda joriy oyni
   // qayta hisoblaydi — bu yerda faqat chaqiriladi.
   async function holatOzgartir(azolikMoliyaId, yangiHolat) {
-    await api(`/api/crm/azoliklar/${azolikMoliyaId}/`, { method: "PATCH", body: { holat: yangiHolat } });
-    yangila();
+    setAmalXato("");
+    try {
+      await api(`/api/crm/azoliklar/${azolikMoliyaId}/`, { method: "PATCH", body: { holat: yangiHolat } });
+      yangila();
+    } catch (e) {
+      setAmalXato(e.message);
+    }
   }
 
   if (ochilgan) return <Karta talabaId={ochilgan} onOrqaga={() => setOchilgan(null)} />;
@@ -1030,7 +1042,7 @@ export default function Talabalar() {
         <div className="tezkor-amallar">
           {ruxsat("talabalar.excel") && (
             <button className="tugma tugma-sokin" type="button"
-                    onClick={() => apiFayluniYuklab("/api/crm/talabalar/eksport/" + filtrSatri).catch((e) => setEksportXato(e.message))}>
+                    onClick={() => apiFayluniYuklab("/api/crm/talabalar/eksport/" + filtrSatri).catch((e) => setAmalXato(e.message))}>
               ⬇ Excel
             </button>
           )}
@@ -1056,6 +1068,8 @@ export default function Talabalar() {
           <option value="qarzdor">{t("qarzdorlar")}</option>
           <option value="guruhsiz">{t("guruhsizlar")}</option>
           <option value="qora_royxat">{t("qora_royxat")}</option>
+          {/* Arxivlangan (saytga kira olmaydigan) o'quvchilar — shu yerdan qaytariladi. */}
+          <option value="arxiv">{t("arxivdagilar")}</option>
         </select>
         <select value={guruhF} onChange={(e) => setGuruhF(e.target.value)} aria-label={t("guruh")}>
           <option value="">{t("guruh")}: {t("hammasi")}</option>
@@ -1077,7 +1091,7 @@ export default function Talabalar() {
         <input placeholder={t("maktab")} value={maktabF} onChange={(e) => setMaktabF(e.target.value)} style={{ maxWidth: 140 }} />
       </div>
 
-      {(xato || eksportXato) && <div className="xato">{xato || eksportXato}</div>}
+      {(xato || amalXato) && <div className="xato">{xato || amalXato}</div>}
       {yuklanmoqda && <p className="kichik">{t("yuklanmoqda")}</p>}
 
       <div className="karta jadval-oram">

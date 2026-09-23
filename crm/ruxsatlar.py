@@ -69,14 +69,31 @@ RUXSAT_DARAXTI = [
 BOLIMLAR = [b[0] for b in RUXSAT_DARAXTI]
 BARCHA_KALITLAR = set(BOLIMLAR) | {k for _, _, bolalar in RUXSAT_DARAXTI for k, _ in bolalar}
 
-# Maxsus rol berilmagan xodimning standart ruxsatlari (lavozim bo'yicha).
+# Maxsus rol berilmagan xodimning BOSHLANG'ICH ruxsatlari (lavozim
+# bo'yicha). 2026-09-23 dan ular bazada — tizim rollari (`CrmRol.lavozim`),
+# migratsiya 0007 shu ro'yxatdan to'ldiradi va owner keyin tahrirlaydi.
+# Bu yerdagi qiymat faqat tizim roli bazada YO'Q bo'lsa ishlaydi.
 # Administrator va CEO — hammasi. O'qituvchi CRM'ga KIRMAYDI: u LMS'da
 # ishlaydi (davomat, mashqlar), CRM pul va boshqaruv uchun.
 _STANDART = {
+    "admin": BOLIMLAR,
+    "ceo": BOLIMLAR,
     "kassir": ["bosh_sahifa", "talabalar", "moliya"],
     "marketolog": ["bosh_sahifa", "lidlar"],
     "watcher": ["bosh_sahifa", "hisobotlar"],
 }
+
+# Tizim rollari: (lavozim, nomi) — interfeysdagi tartib.
+TIZIM_ROLLARI = [
+    ("admin", "Administrator"),
+    ("ceo", "CEO"),
+    ("kassir", "Kassir"),
+    ("marketolog", "Marketolog"),
+    ("watcher", "Kuzatuvchi"),
+    ("oqituvchi", "O'qituvchi"),
+    ("support", "Support teacher"),
+    ("boshqa", "Boshqa"),
+]
 
 
 def _kengaytir(kalitlar):
@@ -96,20 +113,48 @@ def _kengaytir(kalitlar):
     return natija
 
 
+def standart_ruxsatlar(lavozim):
+    """Tizim roli uchun boshlang'ich (kengaytirilgan) ruxsatlar."""
+    return sorted(_kengaytir(_STANDART.get(lavozim, [])))
+
+
+def _lavozim(user, profil):
+    if profil is not None:
+        return profil.lavozim
+    # LMS'da yaratilgan, CRM profili yo'q xodimlar.
+    if user.role == User.Role.ADMIN:
+        return "admin"
+    if user.role == User.Role.TEACHER:
+        return "oqituvchi"
+    return None
+
+
 def ruxsatlar(user):
-    """Foydalanuvchining CRM ruxsatlari to'plami (bo'sh = CRM yopiq)."""
+    """Foydalanuvchining CRM ruxsatlari to'plami (bo'sh = CRM yopiq).
+
+    Tartib: owner — doim hammasi; maxsus rol berilgan bo'lsa — o'sha rol
+    (administratorda ham: "Administrator 1" kabi cheklangan rol
+    ishlasin); aks holda lavozimning tizim roli (bazada, owner
+    tahrirlaydi); u ham bo'lmasa — `_STANDART`.
+    """
     if not user or not user.is_authenticated:
         return set()
-    if owner_mi(user) or user.role == User.Role.ADMIN:
+    if owner_mi(user):
         return set(BARCHA_KALITLAR)
-    profil = getattr(user, "crm_xodim", None)
-    if profil is None or not user.is_active:
+    if not user.is_active:
         return set()
-    if profil.rol_id and profil.rol.faol:
+    profil = getattr(user, "crm_xodim", None)
+    if profil is not None and profil.rol_id and profil.rol.faol and not profil.rol.lavozim:
         return _kengaytir(profil.rol.ruxsatlar)
-    if profil.lavozim in ("admin", "ceo"):
-        return set(BARCHA_KALITLAR)
-    return _kengaytir(_STANDART.get(profil.lavozim, []))
+    lavozim = _lavozim(user, profil)
+    if lavozim is None:
+        return set()
+    from .models import CrmRol
+
+    tizim = CrmRol.objects.filter(lavozim=lavozim).values_list("ruxsatlar", flat=True).first()
+    if tizim is not None:
+        return _kengaytir(tizim)
+    return _kengaytir(_STANDART.get(lavozim, []))
 
 
 def lms_roli(lavozim):

@@ -37,6 +37,12 @@ function ParolXabari({ malumot, onYopish }) {
 function XodimOynasi({ xodim, rollar, onYopish, onSaqlandi, onYangiRol }) {
   const { t } = useI18n();
   const profil = useProfil();
+  const ruxsat = useRuxsat();
+  // Oylik/ulush yashirin bo'lsa (`null`) — ular formada ko'rinmaydi va
+  // YUBORILMAYDI: aks holda bo'sh qiymat oylikni 0 ga tushirardi.
+  const oylikKorinadi = ruxsat("xodimlar.oylik");
+  // Maxsus rolni faqat rollarni boshqaradigan beradi (backend ham tekshiradi).
+  const rolBeradi = ruxsat("sozlamalar.rollar");
   const { filiallar } = useFilial();
   const [f, setF] = useState(() => ({
     ism: xodim?.ism || "",
@@ -63,6 +69,11 @@ function XodimOynasi({ xodim, rollar, onYopish, onSaqlandi, onYangiRol }) {
     setBand(true);
     try {
       const body = { ...f, rol_id: f.rol_id || null, filial_id: f.filial_id || null };
+      if (!oylikKorinadi) {
+        delete body.oylik;
+        delete body.foiz_ulushi;
+      }
+      if (!rolBeradi) delete body.rol_id;
       if (xodim) {
         delete body.login;
         if (!body.parol) delete body.parol;
@@ -104,20 +115,23 @@ function XodimOynasi({ xodim, rollar, onYopish, onSaqlandi, onYangiRol }) {
             </select>
           </label>
           <label>{t("rol")}
-            <select value={f.rol_id ?? ""} onChange={(e) => {
+            <select value={f.rol_id ?? ""} disabled={!rolBeradi} onChange={(e) => {
               if (e.target.value === "__yangi") { onYangiRol(); return; }
               setF((x) => ({ ...x, rol_id: e.target.value }));
             }}>
               <option value="">{t("lavozim_boyicha")}</option>
-              {rollar.filter((r) => r.faol).map((r) => <option key={r.id} value={r.id}>{r.nomi}</option>)}
-              <option value="__yangi">+ {t("yangi_rol_yaratish")}</option>
+              {/* Lavozim rollari bu ro'yxatda yo'q — ular lavozimning o'zi bilan keladi. */}
+              {rollar.filter((r) => r.faol && !r.lavozim).map((r) => <option key={r.id} value={r.id}>{r.nomi}</option>)}
+              {rolBeradi && <option value="__yangi">+ {t("yangi_rol_yaratish")}</option>}
             </select>
           </label>
         </div>
-        <div className="ikki-ustun">
-          <label>{t("foiz_ulushi")} (%)<input type="number" min="0" max="100" {...qiymat("foiz_ulushi")} /></label>
-          <label>{t("oylik_ish_haqi")}<input type="number" min="0" step="100000" {...qiymat("oylik")} /></label>
-        </div>
+        {oylikKorinadi && (
+          <div className="ikki-ustun">
+            <label>{t("foiz_ulushi")} (%)<input type="number" min="0" max="100" {...qiymat("foiz_ulushi")} /></label>
+            <label>{t("oylik_ish_haqi")}<input type="number" min="0" step="100000" {...qiymat("oylik")} /></label>
+          </div>
+        )}
         <fieldset className="radio-qator">
           <legend className="kichik">{t("jinsi")}</legend>
           {["erkak", "ayol"].map((j) => (
@@ -152,6 +166,8 @@ function RolOynasi({ rol, onYopish, onSaqlandi }) {
   const { t } = useI18n();
   const profil = useProfil();
   const daraxt = profil?.ruxsat_daraxti || [];
+  // Tizim roli (lavozim: kassir, marketolog...) — faqat ruxsatlari tahrirlanadi.
+  const tizim = Boolean(rol?.lavozim);
   const [nomi, setNomi] = useState(rol?.nomi || "");
   const [faol, setFaol] = useState(rol?.faol ?? true);
   const [tanlangan, setTanlangan] = useState(() => new Set(rol?.ruxsatlar || []));
@@ -171,7 +187,7 @@ function RolOynasi({ rol, onYopish, onSaqlandi }) {
     try {
       await api(rol ? `/api/crm/rollar/${rol.id}/` : "/api/crm/rollar/", {
         method: rol ? "PATCH" : "POST",
-        body: { nomi, faol, ruxsatlar: [...tanlangan] },
+        body: tizim ? { ruxsatlar: [...tanlangan] } : { nomi, faol, ruxsatlar: [...tanlangan] },
       });
       onSaqlandi();
       onYopish();
@@ -189,10 +205,11 @@ function RolOynasi({ rol, onYopish, onSaqlandi }) {
     <div className="oyna-fon" role="dialog" aria-modal="true">
       <div className="karta oyna oyna-keng">
         <h2>{rol ? t("rolni_tahrirlash") : t("yangi_rol_yaratish")}</h2>
+        {tizim && <p className="kichik">{t("lavozim_roli_izoh")}</p>}
         <div className="ikki-ustun">
-          <label>{t("rol_nomi")}<input value={nomi} onChange={(e) => setNomi(e.target.value)} autoFocus /></label>
+          <label>{t("rol_nomi")}<input value={nomi} onChange={(e) => setNomi(e.target.value)} autoFocus disabled={tizim} /></label>
           <label className="yonma">
-            <input type="checkbox" checked={faol} onChange={(e) => setFaol(e.target.checked)} /> {t("faol")}
+            <input type="checkbox" checked={faol} onChange={(e) => setFaol(e.target.checked)} disabled={tizim} /> {t("faol")}
           </label>
         </div>
         <h3>{t("joriy_ruxsatlar")}</h3>
@@ -330,6 +347,10 @@ export default function Xodimlar() {
   const [rolOyna, setRolOyna] = useState(undefined);
   const [parol, setParol] = useState(null);
   const [davomatKorsin, setDavomatKorsin] = useState(false);
+  const [amalXato, setAmalXato] = useState("");
+  const profil = useProfil();
+  // Boshqa xodimning parolini faqat owner yoki administrator tiklaydi (backend ham).
+  const parolTiklaydi = profil?.is_owner || profil?.role === "admin";
 
   const sorov = useSorov("/api/crm/xodimlar/" + sorovSatri({ lavozim, arxiv: arxiv ? 1 : "", q: qidiruv }));
   const rollar = useSorov("/api/crm/rollar/");
@@ -337,14 +358,24 @@ export default function Xodimlar() {
   const soni = sorov.malumot?.soni || {};
 
   async function faolAlmashtir(x) {
-    await api(`/api/crm/xodimlar/${x.id}/`, { method: "PATCH", body: { faol: !x.faol } });
-    sorov.yangila();
+    setAmalXato("");
+    try {
+      await api(`/api/crm/xodimlar/${x.id}/`, { method: "PATCH", body: { faol: !x.faol } });
+      sorov.yangila();
+    } catch (e) {
+      setAmalXato(e.message);
+    }
   }
 
   async function parolTiklash(x) {
     if (!window.confirm(t("parol_tiklash_tasdiq"))) return;
-    const javob = await api(`/api/crm/xodimlar/${x.id}/`, { method: "PATCH", body: { parol_tiklash: 1 } });
-    setParol(javob);
+    setAmalXato("");
+    try {
+      const javob = await api(`/api/crm/xodimlar/${x.id}/`, { method: "PATCH", body: { parol_tiklash: 1 } });
+      setParol(javob);
+    } catch (e) {
+      setAmalXato(e.message);
+    }
   }
 
   return (
@@ -386,7 +417,7 @@ export default function Xodimlar() {
         </label>
       </div>
 
-      {sorov.xato && <div className="xato">{sorov.xato}</div>}
+      {(sorov.xato || amalXato) && <div className="xato">{sorov.xato || amalXato}</div>}
       <div className="karta jadval-oram">
         <table>
           <thead>
@@ -417,7 +448,9 @@ export default function Xodimlar() {
                   {ruxsat("xodimlar.tahrirlash") && (
                     <>
                       <button className="havola" type="button" title={t("tahrirlash")} onClick={() => setTahrir(x)}>✎</button>
-                      <button className="havola" type="button" title={t("parol_tiklash")} onClick={() => parolTiklash(x)}>🔑</button>
+                      {parolTiklaydi && (
+                        <button className="havola" type="button" title={t("parol_tiklash")} onClick={() => parolTiklash(x)}>🔑</button>
+                      )}
                       <button className="havola" type="button" onClick={() => faolAlmashtir(x)}>
                         {x.faol ? t("arxivlash") : t("faollashtirish")}
                       </button>
@@ -444,7 +477,7 @@ export default function Xodimlar() {
           <tbody>
             {(rollar.malumot || []).map((r) => (
               <tr key={r.id}>
-                <td>{r.nomi}</td>
+                <td>{r.nomi}{r.lavozim && <span className="belgi"> {t("lavozim_roli")}</span>}</td>
                 <td>{r.faol ? t("faol") : t("nofaol")}</td>
                 <td className="ongga">{r.xodimlar_soni ?? 0}</td>
                 <td className="ongga">{r.ruxsatlar.length}</td>

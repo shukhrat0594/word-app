@@ -700,6 +700,11 @@ class CrmRol(models.Model):
     nomi = models.CharField(max_length=100, unique=True)
     faol = models.BooleanField(default=True)
     ruxsatlar = models.JSONField(default=list, blank=True)
+    # Tizim roli (2026-09-23, Shuhrat: "mavjud rollarga qaysi panellarga
+    # ruxsat borligini tahrirlash"): lavozimning standart ruxsatlari endi
+    # kodda emas, shu yerda — owner ularni ham maxsus rol kabi tahrirlaydi.
+    # Bo'sh — oddiy maxsus rol. Tizim roli o'chirilmaydi va nomi o'zgarmaydi.
+    lavozim = models.CharField(max_length=12, unique=True, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

@@ -211,13 +211,14 @@ def hisob_yarat(azolik_moliya: AzolikMoliya, oy: date) -> str:
     guruh = azolik.guruh
     guruh_moliya = getattr(guruh, "moliya", None)
 
-    narx = amaldagi_narx(azolik_moliya, oy)
+    narx, manba = narx_va_manba(azolik_moliya, oy)
     if guruh_moliya is None or narx is None:
         return SOZLANMAGAN
     if narx <= 0:
         # Tekin oy (100% chegirma) — hisob ochilmaydi, lekin bu XATO
-        # emas: watermark surilsin.
-        return DARS_YOQ
+        # emas: watermark surilsin. Guruh/kurs narxi 0 bo'lsa esa bu
+        # sozlash xatosi — ogohlantirishga tushsin (jimgina tekin emas).
+        return DARS_YOQ if manba == "chegirma" else SOZLANMAGAN
 
     oylik_kunlar = oylik_dars_kunlari(guruh, oy)
     if not oylik_kunlar:
@@ -517,6 +518,12 @@ def azolikni_qayta_hisobla(azolik_moliya: AzolikMoliya, oy: date | None = None) 
         talaba=azolik_moliya.azolik.talaba, guruh=azolik_moliya.azolik.guruh, oy=oy
     ).first()
     if hisob is None or hisob.holat == Hisob.Holat.TOLANDI:
+        return hisob
+    # Qo'lda kiritilgan yoki owner tuzatgan summa (`qolda`) — avtomatik
+    # qayta hisoblash uni USTIDAN YOZMAYDI (2026-09-23). Aks holda chegirma
+    # yoki muzlatish owner'ning "Sentabrda 4 ta darsga keladi" tuzatishini
+    # jimgina bekor qilardi.
+    if hisob.qolda:
         return hisob
 
     narx = amaldagi_narx(azolik_moliya, oy)

@@ -94,7 +94,7 @@ function Natijalar({ guruhId }) {
 
 const TABLAR = ["azolar", "davomat", "baholar", "natijalar", "chegirmalar", "eslatmalar"];
 
-export default function GuruhTablari({ guruhId, Azolar, boshlangichTab, tabKaliti = 0, onOzgardi }) {
+export default function GuruhTablari({ guruhId, azolar, boshlangichTab, tabKaliti = 0, onOzgardi }) {
   const { t } = useI18n();
   const profil = useProfil();
   const [tab, setTab] = useState(boshlangichTab || "azolar");
@@ -118,7 +118,7 @@ export default function GuruhTablari({ guruhId, Azolar, boshlangichTab, tabKalit
         ))}
       </div>
 
-      {tab === "azolar" && <Azolar />}
+      {tab === "azolar" && azolar}
       {tab === "davomat" && <DavomatJadvali guruhId={guruhId} />}
       {tab === "baholar" && <Baholar guruhId={guruhId} />}
       {tab === "chegirmalar" && <Chegirmalar guruhId={guruhId} onOzgardi={onOzgardi} />}

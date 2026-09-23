@@ -37,7 +37,8 @@ class RollarRuxsatTest(ApiAsos):
         m = self.mijoz(self.xodim("boshqa", rol))
         self.assertEqual(m.get("/api/crm/hisobot/").status_code, 200)
         self.assertEqual(m.get("/api/crm/lidlar/").status_code, 200)
-        self.assertEqual(m.get("/api/crm/guruhlar/").status_code, 403)
+        # Guruhlar ro'yxatini O'QISH hammaga ochiq (lidni guruhga qo'shish uchun), yaratish — yo'q.
+        self.assertEqual(m.post("/api/crm/guruh-yaratish/", {"nomi": "X"}, format="json").status_code, 403)
         men = m.get("/api/crm/men/").data["ruxsatlar"]
         self.assertIn("lidlar.excel", men)  # bo'lim berilsa — amallari ham
         self.assertNotIn("hisobotlar.excel", men)  # faqat bitta amal berilgan
@@ -168,21 +169,24 @@ class GuruhTest(ApiAsos):
         with bugun_qilib(date(2026, 9, 5)):
             mantiq.hisoblarni_generatsiya_qil()
         self.assertEqual(Hisob.objects.get(talaba=self.talaba, oy=SENTABR).summa, NARX)
-        javob = self.mijoz(self.admin).post(f"/api/crm/guruhlar/{self.guruh.id}/chegirmalar/", {
-            "azolik_moliya_id": am.id, "narx": "400000", "boshlanish_oy": "2026-09", "oylar_soni": 2,
-        }, format="json")
+        with bugun_qilib(date(2026, 9, 10)):
+            javob = self.mijoz(self.admin).post(f"/api/crm/guruhlar/{self.guruh.id}/chegirmalar/", {
+                "azolik_moliya_id": am.id, "narx": "400000", "boshlanish_oy": "2026-09", "oylar_soni": 2,
+            }, format="json")
         self.assertEqual(javob.status_code, 201, javob.data)
         self.assertEqual(Hisob.objects.get(talaba=self.talaba, oy=SENTABR).summa, Decimal("400000"))
         self.assertEqual(mantiq.amaldagi_narx(am, date(2026, 10, 1)), Decimal("400000"))
         self.assertEqual(mantiq.amaldagi_narx(am, date(2026, 11, 1)), NARX)  # muddati tugadi
         # O'chirilsa — qaytadi
-        self.mijoz(self.admin).delete(f"/api/crm/chegirmalar/{javob.data['id']}/")
+        with bugun_qilib(date(2026, 9, 10)):
+            self.mijoz(self.admin).delete(f"/api/crm/chegirmalar/{javob.data['id']}/")
         self.assertEqual(Hisob.objects.get(talaba=self.talaba, oy=SENTABR).summa, NARX)
 
     def test_dars_kochirish_davomat_ustunlarini_ozgartiradi(self):
         m = self.mijoz(self.admin)
-        javob = m.post(f"/api/crm/guruhlar/{self.guruh.id}/dars-ozgarishlari/", {
-            "turi": "kochirish", "asl_sana": "2026-09-10", "yangi_sana": "2026-09-14"}, format="json")
+        with bugun_qilib(date(2026, 9, 9)):
+            javob = m.post(f"/api/crm/guruhlar/{self.guruh.id}/dars-ozgarishlari/", {
+                "turi": "kochirish", "asl_sana": "2026-09-10", "yangi_sana": "2026-09-14"}, format="json")
         self.assertEqual(javob.status_code, 201, javob.data)
         sanalar = m.get(f"/api/crm/guruhlar/{self.guruh.id}/davomat/?oy=2026-09").data["sanalar"]
         self.assertNotIn(date(2026, 9, 10), sanalar)

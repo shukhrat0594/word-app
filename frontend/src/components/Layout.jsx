@@ -130,7 +130,11 @@ export const ROL_PANELLARI = {
 // ishlaydi). O'qituvchida QOLADI: u o'z guruhlari davomatini saytda
 // belgilaydi. Sahifalar va backend joyida — CRM o'chirilsa menyu avtomatik
 // avvalgi holiga qaytadi.
-const CRM_GA_KOCHGAN = ["/guruhlar", "/talabalar", "/xodimlar"];
+//
+// "Talabalar" QAYTARILDI (2026-09-23, Shuhrat): unda CRM'da yo'q sayt
+// amallari bor — qurilma tiklash/limiti, panel ruxsatlari, nomaqbul rasmni
+// o'chirish. Talabani qo'shish va guruhga yozish baribir CRM'da.
+const CRM_GA_KOCHGAN = ["/guruhlar", "/xodimlar"];
 
 export function rolPanellariOl(role, ownerMi) {
   const kalit = ownerMi ? "owner" : role;
