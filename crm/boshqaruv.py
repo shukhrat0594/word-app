@@ -1583,10 +1583,64 @@ class TalabaQidiruvView(CrmView):
         qs = User.objects.filter(role=User.Role.STUDENT, is_active=True)
         if q:
             qs = qs.filter(Q(first_name__icontains=q) | Q(username__icontains=q) | Q(telefon__icontains=q))
+        # `?faqat_crm=1` — CRM'da yaratilgan yoki guruhga CRM orqali
+        # yozilgan talabalar (saytdagi "biriktirish" tanlovi uchun).
+        if request.query_params.get("faqat_crm"):
+            qs = qs.filter(Q(crm_talaba__isnull=False) | Q(guruhazoligi__moliya__isnull=False)).distinct()
         return Response([
-            {"id": u.id, "ism": _ism(u), "telefon": u.telefon, "username": u.username}
-            for u in qs.order_by("first_name", "username")[:30]
+            {
+                "id": u.id, "ism": _ism(u), "telefon": u.telefon, "username": u.username,
+                # Saytga hech kirmagan — CRM avtomatik bergan login hali
+                # ishlatilmagan, uni almashtirish xavfsiz.
+                "saytga_kirgan": u.last_login is not None,
+                "guruhlar": [g.name for g in u.talaba_guruhlari.all() if g.faol],
+            }
+            for u in qs.prefetch_related("talaba_guruhlari").order_by("first_name", "username")[:30]
         ])
+
+
+class TalabaSaytHisobiView(CrmView):
+    """Saytdagi "Yangi foydalanuvchi" formasi (rol = talaba) uchun: yangi
+    hisob OCHILMAYDI — kiritilgan login/parol/ism CRM'dagi mavjud
+    talabaga yoziladi (biriktiriladi). Aks holda bitta o'quvchining
+    ikkita hisobi bo'lib qolardi: CRM'dagisi (guruh, to'lov) va saytdagisi
+    (mashqlar) — va ular hech qachon uchrashmasdi.
+
+    Talabaning pul tarixi, guruhlari va natijalari o'zgarmaydi — faqat
+    kirish ma'lumoti."""
+
+    bolim = "talabalar"
+
+    def post(self, request, pk):
+        from accounts.views import _parolni_tekshir
+
+        talaba = get_object_or_404(User, pk=pk, role=User.Role.STUDENT)
+        username = (request.data.get("username") or "").strip()
+        parol = request.data.get("parol") or ""
+        ism = (request.data.get("ism") or "").strip()
+        if not username or not parol:
+            return _xato("Login va parol majburiy")
+        if not LOGIN_QOIDASI.match(username):
+            return _xato("Login faqat harf/raqam/./@/+/-/_ dan iborat bo'lsin")
+        if User.objects.filter(username=username).exclude(pk=talaba.pk).exists():
+            return _xato("Bu login band")
+        xatolar = _parolni_tekshir(parol, user=talaba)
+        if xatolar:
+            return _xato(" ".join(xatolar))
+        eski_login = talaba.username
+        talaba.username = username
+        talaba.set_password(parol)
+        maydonlar = ["username", "password"]
+        if ism:
+            talaba.first_name = ism[:150]
+            talaba.last_name = ""
+            maydonlar += ["first_name", "last_name"]
+        talaba.save(update_fields=maydonlar)
+        logla(foydalanuvchi=request.user, harakat=FaoliyatYozuvi.Harakat.OZGARTIRISH, obyekt=talaba,
+              obyekt_turi="Talaba", obyekt_nomi=_ism(talaba),
+              ozgarishlar={"username": {"eski": eski_login, "yangi": username},
+                           "parol": {"eski": "***", "yangi": "yangilandi"}})
+        return Response({"id": talaba.id, "username": talaba.username, "ism": _ism(talaba), "role": talaba.role})
 
 
 # ── Baholar (SoffCRM "BAHO" tabi) ────────────────────────────────────

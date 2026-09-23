@@ -258,3 +258,26 @@ class LidEksportTest(ApiAsos):
         u = User.objects.create_user(username="m", password="x", role=User.Role.ODDIY)
         XodimProfil.objects.create(user=u, lavozim="boshqa", rol=rol)
         self.assertEqual(self.mijoz(u).get("/api/crm/lidlar/eksport/").status_code, 403)
+
+
+class SaytHisobiBiriktirishTest(ApiAsos):
+    def test_crm_talabasiga_login_yoziladi(self):
+        javob = self.mijoz(self.owner).post("/api/crm/talaba-yaratish/", {
+            "ism": "Ali", "telefon": "901234570", "guruh_id": self.guruh.id}, format="json").data
+        soni = User.objects.count()
+        topildi = self.mijoz(self.owner).get("/api/crm/talaba-qidiruv/?faqat_crm=1&q=Ali").data
+        self.assertEqual([x["id"] for x in topildi], [javob["id"]])
+        self.assertFalse(topildi[0]["saytga_kirgan"])
+        r = self.mijoz(self.owner).post(f"/api/crm/talaba/{javob['id']}/sayt-hisobi/", {
+            "username": "ali_valiyev", "parol": "Kuchli-parol-77", "ism": "Ali Valiyev"}, format="json")
+        self.assertEqual(r.status_code, 200, r.data)
+        self.assertEqual(User.objects.count(), soni)  # yangi hisob OCHILMADI
+        u = User.objects.get(pk=javob["id"])
+        self.assertEqual(u.username, "ali_valiyev")
+        self.assertTrue(u.check_password("Kuchli-parol-77"))
+        self.assertTrue(GuruhAzoligi.objects.filter(talaba=u, guruh=self.guruh).exists())
+
+    def test_band_login_rad(self):
+        r = self.mijoz(self.owner).post(f"/api/crm/talaba/{self.talaba.id}/sayt-hisobi/", {
+            "username": "crm_admin", "parol": "Kuchli-parol-77"}, format="json")
+        self.assertEqual(r.status_code, 400)

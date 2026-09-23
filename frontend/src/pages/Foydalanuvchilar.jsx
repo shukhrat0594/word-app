@@ -440,6 +440,67 @@ function AktivFoydalanuvchilar({ t }) {
   );
 }
 
+// CRM yoqiq bo'lsa (build paytidagi bayroq — `Layout.jsx`dagi CRM havolasi
+// bilan bir xil) talaba yaratish formasida CRM'dagi talabani tanlash.
+const CRM_YOQIQ = import.meta.env.VITE_CRM === "1";
+
+/** CRM'dagi talabani qidirib tanlash (2026-09-23). Talabalar CRM'da
+ * kiritiladi va u yerda sayt hisobi ham avtomatik ochiladi — bu tanlov
+ * o'sha hisobga saytdagi login/parolni biriktiradi, dublikat ochilmaydi. */
+function CrmTalabaTanlash({ t, tanlangan, setTanlangan, qidiruv, setQidiruv }) {
+  const [natija, setNatija] = useState([]);
+  useEffect(() => {
+    if (tanlangan || qidiruv.trim().length < 2) {
+      setNatija([]);
+      return undefined;
+    }
+    let bekor = false;
+    const vaqt = setTimeout(async () => {
+      try {
+        const javob = await api(`/api/crm/talaba-qidiruv/?faqat_crm=1&q=${encodeURIComponent(qidiruv.trim())}`);
+        if (!bekor) setNatija(javob || []);
+      } catch {
+        if (!bekor) setNatija([]);
+      }
+    }, 300);
+    return () => {
+      bekor = true;
+      clearTimeout(vaqt);
+    };
+  }, [qidiruv, tanlangan]);
+
+  return (
+    <div style={{ flexBasis: "100%", display: "grid", gap: 6 }}>
+      {tanlangan ? (
+        <div>
+          🔗 {t("crm_talaba_tanlandi")}: <b>{tanlangan.ism}</b>{" "}
+          <span style={{ opacity: 0.7 }}>({tanlangan.username}{tanlangan.guruhlar?.length ? ` · ${tanlangan.guruhlar.join(", ")}` : ""})</span>{" "}
+          <button type="button" className="tugma" onClick={() => setTanlangan(null)}>✕</button>
+          {tanlangan.saytga_kirgan && (
+            <div className="xato-xabar">{t("crm_talaba_kirgan_ogoh")}</div>
+          )}
+        </div>
+      ) : (
+        <>
+          <input
+            style={{ maxWidth: 340 }}
+            placeholder={t("crm_talaba_qidirish")}
+            value={qidiruv}
+            onChange={(e) => setQidiruv(e.target.value)}
+          />
+          {natija.map((x) => (
+            <button key={x.id} type="button" className="tugma" style={{ justifySelf: "start" }}
+                    onClick={() => setTanlangan(x)}>
+              {x.ism} · {x.telefon || x.username}{x.guruhlar.length ? ` · ${x.guruhlar.join(", ")}` : ""}
+            </button>
+          ))}
+          <span style={{ opacity: 0.7, fontSize: 13 }}>{t("crm_talaba_izoh")}</span>
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function Foydalanuvchilar() {
   const { t } = useI18n();
   const { profil } = useProfil();
@@ -449,6 +510,8 @@ export default function Foydalanuvchilar() {
   const [xabar, setXabar] = useState({});
   const [yangi, setYangi] = useState({ username: "", parol: "", ism: "", rol: "student" });
   const [yangiXato, setYangiXato] = useState("");
+  const [crmTalaba, setCrmTalaba] = useState(null);
+  const [crmQidiruv, setCrmQidiruv] = useState("");
   const [yangiBand, setYangiBand] = useState(false);
   // 2026-09-04, Shuxrat: "Aktiv foydalanuvchilar" ro'yxat USTIDA turardi
   // va sahifani cho'zib yuborardi. Endi ikkita vkladka: chapda ro'yxat,
@@ -559,7 +622,19 @@ export default function Foydalanuvchilar() {
     if (!yangi.username.trim() || !yangi.parol.trim()) return;
     setYangiBand(true);
     try {
-      await api("/api/foydalanuvchilar/yaratish/", { method: "POST", body: yangi });
+      // 2026-09-23: talabalar CRM'da kiritiladi. Rol "talaba" bo'lsa va
+      // CRM'dagi talaba tanlangan bo'lsa — yangi hisob OCHILMAYDI, login/
+      // parol o'sha talabaga yoziladi (bitta o'quvchi = bitta hisob).
+      if (yangi.rol === "student" && crmTalaba) {
+        await api(`/api/crm/talaba/${crmTalaba.id}/sayt-hisobi/`, {
+          method: "POST",
+          body: { username: yangi.username, parol: yangi.parol, ism: yangi.ism },
+        });
+        setCrmTalaba(null);
+        setCrmQidiruv("");
+      } else {
+        await api("/api/foydalanuvchilar/yaratish/", { method: "POST", body: yangi });
+      }
       setYangi({ username: "", parol: "", ism: "", rol: "student" });
       yukla();
     } catch (e2) {
@@ -630,9 +705,22 @@ export default function Foydalanuvchilar() {
           ))}
         </select>
         <button className="tugma" disabled={yangiBand}>
-          {t("yangi_foydalanuvchi_yaratish")}
+          {yangi.rol === "student" && crmTalaba ? t("crm_talabaga_biriktirish") : t("yangi_foydalanuvchi_yaratish")}
         </button>
         {yangiXato && <span className="xato-xabar">{yangiXato}</span>}
+        {CRM_YOQIQ && yangi.rol === "student" && (
+          <CrmTalabaTanlash
+            t={t}
+            tanlangan={crmTalaba}
+            setTanlangan={(x) => {
+              setCrmTalaba(x);
+              // Ism bo'sh bo'lsa — CRM'dagi ism olinadi.
+              if (x) setYangi((y) => ({ ...y, ism: y.ism || x.ism }));
+            }}
+            qidiruv={crmQidiruv}
+            setQidiruv={setCrmQidiruv}
+          />
+        )}
       </form>
 
       <form onSubmit={qidir} style={{ marginBottom: 14 }}>
