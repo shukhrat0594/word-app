@@ -22,7 +22,8 @@ Format (qat'iy, parser shunga tayanadi):
 ## 2026-09-23 — CRM endi o'quv markazining asosiy boshqaruv joyi
 
 - **O'quvchilar, guruhlar va xodimlar endi CRM'da qo'shiladi.** Saytda
-  (admin va owner menyusida) bu bo'limlar yo'q — ular CRM'ga ko'chdi.
+  (admin va owner menyusida) "Guruhlar" va "Xodimlar" yo'q — ular CRM'ga
+  ko'chdi; "Talabalar" saytga xos amallar (qurilma, panellar) uchun qoldi.
   Saytda mashqlar qoladi, o'qituvchi esa o'z guruhlarini va davomatni
   avvalgidek saytda ko'radi.
 - **Lidlar bo'limi qo'shildi.** Kelgan so'rovlar kanban ustunlarida
