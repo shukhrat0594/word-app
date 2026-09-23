@@ -42,7 +42,8 @@ from .models import (
 )
 from .filial import (
     cheklanganmi, filial_korinadimi, filial_q, filial_tekshir, guruh_q, guruh_tekshir, lid_tekshir,
-    ruxsat_filiallari, talaba_boshqa_filialda, talaba_guruhga_bogliqmi, talaba_tekshir, tolov_filiali_q, tolov_q,
+    ruxsat_filiallari, talaba_boshqa_filialda, talaba_guruhga_bogliqmi, talaba_korinadimi, talaba_tekshir,
+    tolov_filiali_q, tolov_q,
 )
 from .permissions import CrmView, FaqatOwner
 from .ruxsatlar import ruxsatlar
@@ -889,7 +890,7 @@ class EslatmalarView(CrmView):
         if guruh_id:
             guruh_tekshir(request.user, get_object_or_404(Guruh.objects.select_related("moliya"), pk=guruh_id))
         if talaba_id:
-            talaba_tekshir(request.user, talaba_id)
+            talaba_tekshir(request.user, talaba_id, oqish=True)
         if lid_id:
             lid_tekshir(request.user, get_object_or_404(Lid, pk=lid_id), oqish=True)
         if guruh_id:
@@ -1546,7 +1547,14 @@ class TalabalarView(CrmView):
         # olmaydigan) talabalar. Busiz ular hech qayerda chiqmasdi va
         # "Arxivdan chiqarish"ga yetib bo'lmasdi (2026-09-23).
         arxiv = bool(request.query_params.get("arxiv"))
-        qs = qs.filter(azolik__talaba__is_active=not arxiv).filter(guruh_q(request.user, "azolik__guruh__"))
+        # Qora ro'yxat — filial cheklovidan ISTISNO: hamma filialga ko'rinadi
+        # (Shuhrat, 2026-09-23), boshqa filialda qayta yozilmasin.
+        qora = bool(request.query_params.get("qora_royxat"))
+        qs = qs.filter(azolik__talaba__is_active=not arxiv)
+        if qora:
+            qs = qs.filter(azolik__talaba__crm_talaba__qora_royxat=True)
+        else:
+            qs = qs.filter(guruh_q(request.user, "azolik__guruh__"))
         if request.query_params.get("filial"):
             qs = qs.filter(azolik__guruh__moliya__filial_id=request.query_params["filial"])
         qidiruv = (request.query_params.get("q") or "").strip()
@@ -1609,7 +1617,9 @@ class TalabalarView(CrmView):
         if guruhsiz or not (request.query_params.get("holat") or request.query_params.get("filial")
                             or qo_shimcha_filtr):
             qolganlar = User.objects.filter(role=User.Role.STUDENT, is_active=not arxiv).exclude(pk__in=talabalar.keys())
-            if cheklanganmi(request.user):
+            if qora:
+                qolganlar = qolganlar.filter(crm_talaba__qora_royxat=True)
+            elif cheklanganmi(request.user):
                 # Filial xodimiga "guruhsiz" — faqat HAQIQATAN guruhsizlar:
                 # boshqa filial guruhidagi talaba bu yerga tushib qolmasin.
                 # Istisno — o'z filiali guruhida ham a'zoligi bor (CRM yozuvi
@@ -1835,6 +1845,8 @@ class TalabaView(CrmView):
                 # hisoblar yig'indisi balansga mos kelmay, sababi noaniq qolardi.
                 "balans_jami": mantiq.balans(talaba),
                 "boshqa_filialda": talaba_boshqa_filialda(request.user, talaba.id),
+                # Boshqa filialning qora ro'yxatdagi o'quvchisi — faqat ko'rish.
+                "faqat_korish": not talaba_korinadimi(request.user, talaba.id),
                 # CRM profili (video-TZ): jins, maktab, qora ro'yxat, arxiv.
                 "faol": talaba.is_active,
                 "crm": _talaba_profil_dict(talaba),

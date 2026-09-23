@@ -106,9 +106,10 @@ Format (qat'iy, parser shunga tayanadi):
   o'quvchilari, lidlari, to'lovlari va hisobotlarini ko'radi. Filial
   biriktirilmagan xodim hozircha hamma filialni ko'radi. Guruhsiz
   o'quvchi va filiali belgilanmagan lid hammaga ko'rinadi.
-- **Lidlarning qora ro'yxati hamma filialga ko'rinadi** — bir filialda
-  qora ro'yxatga olingan mijoz boshqasida qayta yozilmasin. Boshqa
-  filialning lidini faqat ko'rish mumkin, o'zgartirish o'sha filialda.
+- **Qora ro'yxat (lidlar va o'quvchilar) hamma filialga ko'rinadi** —
+  bir filialda qora ro'yxatga olingan mijoz boshqasida qayta yozilmasin.
+  Boshqa filialning lidi yoki o'quvchisini faqat ko'rish mumkin,
+  o'zgartirish o'sha filialda.
 - **Lid doskalari filialga bog'lanadi**: filial xodimi o'z filiali
   doskalarini va umumiy doskalarni ko'radi. Umumiy doska va ustunni
   faqat filialga bog'lanmagan xodim o'zgartiradi yoki o'chiradi.

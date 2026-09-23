@@ -494,6 +494,30 @@ class DoskaVaQoraRoyxatTest(FilialAsos):
         self.assertEqual([x["id"] for x in takror], [self.lid_b.id])
 
 
+class TalabaQoraRoyxatiTest(FilialAsos):
+    def test_qora_royxatdagi_talaba_hamma_filialga_korinadi(self):
+        """Shuhrat, 2026-09-23: o'quvchilar qora ro'yxati ham hamma filialga (faqat ko'rish)."""
+        from crm.models import TalabaProfil
+
+        TalabaProfil.objects.create(user=self.tb, qora_royxat=True, qora_royxat_sabab="x")
+        m = self.mijoz(self.admin_a)
+        self.assertIn(self.tb.id, [x["id"] for x in m.get("/api/crm/talabalar/?qora_royxat=1").data])
+        # Oddiy ro'yxatda — yo'q (u boshqa filial o'quvchisi).
+        self.assertNotIn(self.tb.id, [x["id"] for x in m.get("/api/crm/talabalar/").data])
+        karta = m.get(f"/api/crm/talaba/{self.tb.id}/")
+        self.assertEqual(karta.status_code, 200)
+        self.assertTrue(karta.data["faqat_korish"])
+        self.assertEqual(karta.data["tolovlar"], [])  # boshqa filial puli baribir yopiq
+        self.assertEqual(m.get(f"/api/crm/eslatmalar/?talaba={self.tb.id}").status_code, 200)
+        # O'zgartirish — yo'q.
+        self.assertEqual(m.patch(f"/api/crm/talaba/{self.tb.id}/crm/", {"qora_royxat": False},
+                                 format="json").status_code, 404)
+        self.assertFalse(self.mijoz(self.admin_b).get(f"/api/crm/talaba/{self.tb.id}/").data["faqat_korish"])
+        # Qora ro'yxatdan chiqsa — yana yopiq.
+        TalabaProfil.objects.filter(user=self.tb).update(qora_royxat=False)
+        self.assertEqual(m.get(f"/api/crm/talaba/{self.tb.id}/").status_code, 404)
+
+
 class MaydaTuzatishlarTest(FilialAsos):
     def test_notogri_id_500_emas(self):
         m = self.mijoz(self.admin_a)

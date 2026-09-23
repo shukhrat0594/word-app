@@ -602,8 +602,9 @@ function Karta({ talabaId, onOrqaga }) {
           {!talaba.faol && <span className="holat holat-kutilayotgan">{t("arxiv")}</span>}
         </h1>
         {/* Tahrirlash — LMS'ning `PATCH /api/talabalar/<id>/` orqali
-            (2026-09-17, Shuhrat: "CRM'da tahrirlansa LMS'ga yozilsin"). */}
-        <div className="tezkor-amallar">
+            (2026-09-17, Shuhrat: "CRM'da tahrirlansa LMS'ga yozilsin").
+            Boshqa filialning qora ro'yxatdagi o'quvchisi — faqat ko'rish. */}
+        {!talaba.faqat_korish && <div className="tezkor-amallar">
           {ruxsat("talabalar.tahrirlash") && (
             <button className="tugma tugma-sokin" type="button" onClick={() => setTahrir(true)}>
               ✎ {t("talaba_tahrirlash")}
@@ -638,8 +639,9 @@ function Karta({ talabaId, onOrqaga }) {
               </button>
             </>
           )}
-        </div>
+        </div>}
       </div>
+      {talaba.faqat_korish && <p className="kichik">{t("begona_filial_talabasi")}</p>}
       {amalXato && <div className="xato">{amalXato}</div>}
       {parol && (
         <p className="ogohlantirish">🔑 {t("yangi_parol")}: <code>{parol}</code> — {t("login_parol_eslatma")}</p>
@@ -1006,6 +1008,10 @@ export default function Talabalar() {
   // muzlatilgan talabaga hisob ochilmaydi, lekin ular ham ko'rinishi
   // kerak — aks holda admin ularni topa olmaydi va holatini
   // o'zgartira olmaydi.
+  // Qora ro'yxatda boshqa filial o'quvchisi ham chiqadi — uning guruhini o'zgartirib bo'lmaydi.
+  const profil = useProfil();
+  const begonaFilial = (filialId) => Boolean(filialId && Array.isArray(profil?.filiallar)
+                                             && !profil.filiallar.includes(filialId));
   const filtrSatri = sorovSatri({
     filial: tanlangan, q: qidiruv, holat,
     qarzdor: filtr === "qarzdor" ? 1 : "", qora_royxat: filtr === "qora_royxat" ? 1 : "",
@@ -1131,7 +1137,8 @@ export default function Talabalar() {
                       <select
                         value={g.holat}
                         className={g.holat === "faol" ? "rang-tolandi" : "rang-qarzdor"}
-                        disabled={!ruxsat("guruhlar.tahrirlash") && !ruxsat("guruhlar.talaba_qoshish")}
+                        disabled={(!ruxsat("guruhlar.tahrirlash") && !ruxsat("guruhlar.talaba_qoshish"))
+                                  || begonaFilial(g.filial_id)}
                         onChange={(e) => holatOzgartir(g.azolik_moliya_id, e.target.value)}
                       >
                         {["sinov", "faol", "muzlatilgan"].map((h) => (

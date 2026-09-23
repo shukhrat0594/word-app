@@ -111,9 +111,12 @@ def guruh_tekshir(user, guruh):
         raise Http404
 
 
-def talaba_korinadimi(user, talaba_id):
+def talaba_korinadimi(user, talaba_id, oqish=False):
     """Talabaning filiali — uning guruhlaridan (yoki hisoblaridan).
-    Hech qaysi guruhda yo'q talaba hammaga ko'rinadi."""
+    Hech qaysi guruhda yo'q talaba hammaga ko'rinadi.
+
+    `oqish=True` — qora ro'yxatdagi o'quvchi HAMMA filialga ko'rinadi
+    (Shuhrat, 2026-09-23, lidlardagi kabi); o'zgartirish — o'z filialida."""
     s = ruxsat_filiallari(user)
     if s is None:
         return True
@@ -123,7 +126,10 @@ def talaba_korinadimi(user, talaba_id):
         return False
     from academics.models import GuruhAzoligi
 
-    from .models import Hisob
+    from .models import Hisob, TalabaProfil
+
+    if oqish and TalabaProfil.objects.filter(user_id=talaba_id, qora_royxat=True).exists():
+        return True
 
     azoliklar = GuruhAzoligi.objects.filter(talaba_id=talaba_id)
     if not azoliklar.exists():
@@ -134,8 +140,8 @@ def talaba_korinadimi(user, talaba_id):
     )
 
 
-def talaba_tekshir(user, talaba_id):
-    if not talaba_korinadimi(user, talaba_id):
+def talaba_tekshir(user, talaba_id, oqish=False):
+    if not talaba_korinadimi(user, talaba_id, oqish=oqish):
         raise Http404
 
 
@@ -237,7 +243,7 @@ def obyekt_tekshir(user, turi, pk, oqish=False):
         if guruh is not None:
             guruh_tekshir(user, guruh)
     elif turi == "talaba":
-        talaba_tekshir(user, pk)
+        talaba_tekshir(user, pk, oqish=oqish)
     elif turi == "lid":
         lid = m.Lid.objects.filter(pk=pk).first()
         if lid is not None:
