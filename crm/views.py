@@ -185,6 +185,12 @@ def _guruh_dict(g, talaba_soni=None):
         "nomi": g.name,
         "faol": g.faol,
         "oqituvchi": (g.oqituvchi.get_full_name() or g.oqituvchi.username) if g.oqituvchi_id else None,
+        "oqituvchi_id": g.oqituvchi_id,
+        # "Support ustoz" ustuni (video 13:40) — yordamchi o'qituvchilar.
+        "yordamchilar": [
+            o.oqituvchi.get_full_name() or o.oqituvchi.username
+            for o in g.crm_oqituvchilar.all() if o.turi == "yordamchi"
+        ],
         "daraja": {"id": g.daraja_id, "nomi": g.daraja.nomi} if g.daraja_id else None,
         "talaba_soni": talaba_soni if talaba_soni is not None else g.talabalar.count(),
         "filial": _filial_dict(moliya.filial) if moliya and moliya.filial_id else None,
@@ -241,6 +247,7 @@ def _hisob_dict(h, tolangan=None, balans=None):
         "darslar_jami": h.darslar_jami,
         "darslar_talaba": h.darslar_talaba,
         "qolda": h.qolda,
+        "izoh": h.izoh,
         "balans": balans,
     }
 
@@ -424,7 +431,7 @@ class GuruhlarView(CrmView):
         qs = (
             Guruh.objects.filter(faol=not request.query_params.get("arxiv"))
             .select_related("daraja", "oqituvchi", "moliya", "moliya__filial", "daraja__crm_narxi")
-            .prefetch_related("crm_jadval")
+            .prefetch_related("crm_jadval", "crm_oqituvchilar__oqituvchi")
             .annotate(_talaba_soni=Count("talabalar", distinct=True))
             .order_by("name")
         )
@@ -818,6 +825,30 @@ class EslatmalarView(CrmView):
 
 
 class EslatmaDetailView(CrmView):
+    def patch(self, request, pk):
+        """Eslatmani tahrirlash (video 09:05: "Eslatmani tahrirlash" —
+        matn va eslatish vaqti). Faqat O'Z eslatmasini."""
+        eslatma = get_object_or_404(Eslatma, pk=pk)
+        if eslatma.kim_id != request.user.pk:
+            return _xato("Faqat o'z eslatmangizni tahrirlay olasiz", kod=403)
+        if "matn" in request.data:
+            matn = (request.data.get("matn") or "").strip()
+            if not matn:
+                return _xato("Eslatma matni bo'sh bo'lmasin")
+            eslatma.matn = matn[:2000]
+        if "eslatish_vaqti" in request.data:
+            xom = request.data.get("eslatish_vaqti")
+            vaqt = None
+            if xom:
+                vaqt = parse_datetime(str(xom))
+                if vaqt is None:
+                    return _xato("eslatish_vaqti: noto'g'ri format")
+                if timezone.is_naive(vaqt):
+                    vaqt = timezone.make_aware(vaqt)
+            eslatma.eslatish_vaqti = vaqt
+        eslatma.save(update_fields=["matn", "eslatish_vaqti"])
+        return Response(_eslatma_dict(eslatma))
+
     def delete(self, request, pk):
         eslatma = get_object_or_404(Eslatma, pk=pk)
         # O'z eslatmasini har kim o'chira oladi, boshqanikini — faqat
@@ -1099,7 +1130,9 @@ class HisobDetailView(CrmView):
 
         eski = hisob.summa
         hisob.summa = summa
-        hisob.save(update_fields=["summa"])
+        if "izoh" in request.data:
+            hisob.izoh = (request.data.get("izoh") or "").strip()[:300]
+        hisob.save(update_fields=["summa", "izoh"])
         mantiq.hisobni_yangila(hisob)
 
         logla(
@@ -1339,7 +1372,7 @@ class TalabalarView(CrmView):
     def get(self, request):
         qs = (
             AzolikMoliya.objects.select_related(
-                "azolik__talaba", "azolik__guruh", "azolik__guruh__moliya"
+                "azolik__talaba", "azolik__guruh", "azolik__guruh__moliya", "azolik__guruh__oqituvchi"
             )
             .filter(azolik__guruh__faol=True)
         )
@@ -1355,6 +1388,17 @@ class TalabalarView(CrmView):
             )
         if request.query_params.get("holat"):
             qs = qs.filter(holat=request.query_params["holat"])
+        # Video-TZ (17:15): guruh, ustoz, kurs va maktab bo'yicha filtr.
+        p = request.query_params
+        qo_shimcha_filtr = bool(p.get("guruh") or p.get("oqituvchi") or p.get("kurs") or p.get("maktab"))
+        if p.get("guruh"):
+            qs = qs.filter(azolik__guruh_id=p["guruh"])
+        if p.get("oqituvchi"):
+            qs = qs.filter(azolik__guruh__oqituvchi_id=p["oqituvchi"])
+        if p.get("kurs"):
+            qs = qs.filter(azolik__guruh__daraja_id=p["kurs"])
+        if p.get("maktab"):
+            qs = qs.filter(azolik__talaba__crm_talaba__maktab__icontains=p["maktab"])
 
         azoliklar = list(qs[:2000])
         balanslar = mantiq.balanslarni_ol({a.azolik.talaba_id for a in azoliklar})
@@ -1368,6 +1412,7 @@ class TalabalarView(CrmView):
                     "id": talaba.id,
                     "ism": talaba.get_full_name() or talaba.username,
                     "telefon": talaba.telefon,
+                    "izoh": talaba.izoh,
                     "balans": balanslar.get(talaba.id, NOL),
                     "guruhlar": [],
                 },
@@ -1377,6 +1422,8 @@ class TalabalarView(CrmView):
                     "azolik_moliya_id": am.id,
                     "guruh_id": am.azolik.guruh_id,
                     "guruh": am.azolik.guruh.name,
+                    "oqituvchi": (am.azolik.guruh.oqituvchi.get_full_name() or am.azolik.guruh.oqituvchi.username)
+                    if am.azolik.guruh.oqituvchi_id else None,
                     "holat": am.holat,
                     # Filial — "To'lov qo'shish" oynasida guruh yonida ko'rsatiladi.
                     "filial_id": getattr(getattr(am.azolik.guruh, "moliya", None), "filial_id", None),
@@ -1388,7 +1435,8 @@ class TalabalarView(CrmView):
         # chiqqan) ham ko'rinishi kerak. Holat/filial filtri berilganda
         # ular chiqmaydi: guruhsizning holati ham, filiali ham yo'q.
         guruhsiz = request.query_params.get("guruhsiz")
-        if guruhsiz or not (request.query_params.get("holat") or request.query_params.get("filial")):
+        if guruhsiz or not (request.query_params.get("holat") or request.query_params.get("filial")
+                            or qo_shimcha_filtr):
             qolganlar = User.objects.filter(role=User.Role.STUDENT, is_active=True).exclude(pk__in=talabalar.keys())
             if qidiruv:
                 qolganlar = qolganlar.filter(
@@ -1399,7 +1447,7 @@ class TalabalarView(CrmView):
             for t in qolganlar:
                 talabalar[t.id] = {
                     "id": t.id, "ism": t.get_full_name() or t.username, "telefon": t.telefon,
-                    "balans": qb.get(t.id, NOL), "guruhlar": [],
+                    "izoh": t.izoh, "balans": qb.get(t.id, NOL), "guruhlar": [],
                 }
             if guruhsiz:
                 talabalar = {k: v for k, v in talabalar.items() if not v["guruhlar"]}
@@ -1571,6 +1619,17 @@ class TalabaView(CrmView):
                 # CRM profili (video-TZ): jins, maktab, qora ro'yxat, arxiv.
                 "faol": talaba.is_active,
                 "crm": _talaba_profil_dict(talaba),
+                # SoffCRM "Ilova holati" o'rnida — saytdan foydalanadimi.
+                "sayt": {
+                    "oxirgi_kirish": talaba.last_login,
+                    "oxirgi_faollik": talaba.oxirgi_faollik,
+                },
+                "ota_ona": {
+                    "id": talaba.ota_ona_id,
+                    "ism": (talaba.ota_ona.get_full_name() or talaba.ota_ona.username) if talaba.ota_ona_id else None,
+                    "username": talaba.ota_ona.username if talaba.ota_ona_id else None,
+                },
+                "ortacha_baho": _yaxlit(talaba.crm_baholar.aggregate(o=Avg("ball"))["o"]),
                 "natijalar": natijalar,
                 "guruhlar": guruhlar,
                 "hisoblar": [_hisob_dict(h, tolangan=h.tolangan) for h in hisoblar],

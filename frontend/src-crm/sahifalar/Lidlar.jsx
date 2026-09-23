@@ -15,8 +15,24 @@ import { useI18n } from "../i18n.jsx";
 import { useProfil, useRuxsat } from "../profilContext.jsx";
 import { sorovSatri, useSorov } from "../soragich.js";
 
-const MANBALAR = ["Instagram", "Telegram", "Tavsiya", "Oldin o'qigan", "Banner", "Flayer", "Google", "Boshqa"];
-const HOLATLAR = ["yangi", "boglanildi", "sinov", "kelmadi", "oylayapti", "yoqotilgan"];
+// SoffCRM "Manba" ro'yxati (video 06:15). Ro'yxatda yo'q manba ham
+// yozilishi mumkin (datalist) — SoffCRM'dagi "Yangi yaratish +".
+const MANBALAR = [
+  "Instagram", "Telegram", "Tavsiya", "Oldin o'zimizda o'qigan", "Banner", "Flayer", "ChatGPT",
+  "Google", "Yandex karta", "Boshqa",
+];
+const HOLATLAR = ["yangi", "boglanildi", "boglana_olmadi", "sinov", "kelmadi", "oylayapti", "yoqotilgan"];
+const HARORATLAR = ["issiq", "iliq", "sovuq"];
+
+/** Tug'ilgan sanadan yosh ("28 yosh") — SoffCRM formasidagi "Yoshi". */
+function yosh(tugilgan) {
+  if (!tugilgan) return "";
+  const b = new Date();
+  const d = new Date(tugilgan);
+  let y = b.getFullYear() - d.getFullYear();
+  if (b.getMonth() < d.getMonth() || (b.getMonth() === d.getMonth() && b.getDate() < d.getDate())) y -= 1;
+  return y >= 0 ? y : "";
+}
 const KUNLAR = ["toq", "juft", "har_kuni", "boshqa"];
 
 // ── Lid formasi (yaratish va tahrir) ────────────────────────────────
@@ -26,6 +42,9 @@ function LidForma({ lid, bolimlar, onSaqla, onBekor, band, xato }) {
   const { filiallar, tanlangan } = useFilial();
   const oqituvchilar = useSorov("/api/crm/xodimlar/?lavozim=oqituvchi");
   const kurslar = useSorov("/api/crm/kurs-narxlari/");
+  // "Dars vaqtini tanlang" — mavjud guruhlar boshlanish vaqtlari (video 07:20).
+  const guruhlar = useSorov("/api/crm/guruhlar/");
+  const vaqtlar = [...new Set((guruhlar.malumot || []).flatMap((g) => g.jadval.map((j) => j.boshlanish_vaqti)))].sort();
   const [f, setF] = useState(() => ({
     ism: lid?.ism || "",
     telefon: lid?.telefon || "+998",
@@ -35,6 +54,7 @@ function LidForma({ lid, bolimlar, onSaqla, onBekor, band, xato }) {
     manba: lid?.manba || "",
     bolim_id: lid?.bolim_id ?? "",
     holat: lid?.holat || "yangi",
+    harorat: lid?.harorat || "",
     filial_id: lid?.filial_id ?? tanlangan ?? "",
     kurs_id: lid?.kurs_id ?? "",
     oqituvchi_id: lid?.oqituvchi_id ?? "",
@@ -49,7 +69,10 @@ function LidForma({ lid, bolimlar, onSaqla, onBekor, band, xato }) {
       <label>{t("ism_familiya")}<input {...qiymat("ism")} autoFocus /></label>
       <div className="ikki-ustun">
         <label>{t("telefon")}<input {...qiymat("telefon")} /></label>
-        <label>{t("tugilgan_sana")}<input type="date" {...qiymat("tugilgan_sana")} /></label>
+        <label>
+          {t("tugilgan_sana")}{f.tugilgan_sana && ` · ${yosh(f.tugilgan_sana)} ${t("yosh")}`}
+          <input type="date" {...qiymat("tugilgan_sana")} />
+        </label>
       </div>
       <div className="ikki-ustun">
         <label>{t("qoshimcha_telefon")}<input {...qiymat("qoshimcha_telefon")} /></label>
@@ -68,6 +91,12 @@ function LidForma({ lid, bolimlar, onSaqla, onBekor, band, xato }) {
           </select>
         </label>
       </div>
+      <label>{t("harorat")}
+        <select {...qiymat("harorat")}>
+          <option value="">—</option>
+          {HARORATLAR.map((h) => <option key={h} value={h}>{t(`harorat_${h}`)}</option>)}
+        </select>
+      </label>
       <div className="ikki-ustun">
         <label>{t("manba")}
           <input list="lid-manbalar" {...qiymat("manba")} />
@@ -97,7 +126,10 @@ function LidForma({ lid, bolimlar, onSaqla, onBekor, band, xato }) {
         </label>
       </div>
       <div className="ikki-ustun">
-        <label>{t("qulay_vaqt")}<input type="time" {...qiymat("qulay_vaqt")} /></label>
+        <label>{t("qulay_vaqt")}
+          <input list="lid-vaqtlar" {...qiymat("qulay_vaqt")} placeholder="18:30" />
+          <datalist id="lid-vaqtlar">{vaqtlar.map((v) => <option key={v} value={v} />)}</datalist>
+        </label>
         <label>{t("kunlar")}
           <select {...qiymat("kunlar")}>
             <option value="">—</option>
@@ -151,11 +183,19 @@ function YangiLidOynasi({ bolimlar, bolimId, onYopish, onSaqlandi }) {
 
 // ── Guruhga qo'shish oynasi (bitta yoki bir nechta lid) ─────────────
 
-export function GuruhgaQoshishOynasi({ lidIdlar, onYopish, onSaqlandi }) {
+export function GuruhgaQoshishOynasi({ lidIdlar, standartGuruh = "", onYopish, onSaqlandi }) {
   const { t } = useI18n();
-  const { tanlangan } = useFilial();
-  const guruhlar = useSorov("/api/crm/guruhlar/" + sorovSatri({ filial: tanlangan }));
-  const [guruhId, setGuruhId] = useState("");
+  const { tanlangan, filiallar } = useFilial();
+  // "Guruhni tezroq topish uchun filtrlar" (video 17:30): filial, ustoz, kurs.
+  const [filialF, setFilialF] = useState(tanlangan || "");
+  const [ustozF, setUstozF] = useState("");
+  const [kursF, setKursF] = useState("");
+  const guruhlar = useSorov("/api/crm/guruhlar/" + sorovSatri({ filial: filialF }));
+  const hammasi = guruhlar.malumot || [];
+  const royxat = hammasi.filter(
+    (g) => (!ustozF || g.oqituvchi === ustozF) && (!kursF || String(g.daraja?.id) === kursF)
+  );
+  const [guruhId, setGuruhId] = useState(standartGuruh ? String(standartGuruh) : "");
   const [holat, setHolat] = useState("sinov");
   const [sanaQ, setSanaQ] = useState(new Date().toISOString().slice(0, 10));
   const [natija, setNatija] = useState(null);
@@ -202,10 +242,26 @@ export function GuruhgaQoshishOynasi({ lidIdlar, onYopish, onSaqlandi }) {
           </>
         ) : (
           <>
+            <div className="uch-ustun">
+              <select value={filialF} onChange={(e) => setFilialF(e.target.value)} aria-label={t("filial")}>
+                <option value="">{t("filial")}: {t("hammasi")}</option>
+                {filiallar.map((x) => <option key={x.id} value={x.id}>{x.nomi}</option>)}
+              </select>
+              <select value={ustozF} onChange={(e) => setUstozF(e.target.value)} aria-label={t("oqituvchi")}>
+                <option value="">{t("oqituvchi")}: {t("hammasi")}</option>
+                {[...new Set(hammasi.map((g) => g.oqituvchi).filter(Boolean))].map((o) => <option key={o} value={o}>{o}</option>)}
+              </select>
+              <select value={kursF} onChange={(e) => setKursF(e.target.value)} aria-label={t("kurs")}>
+                <option value="">{t("kurs")}: {t("hammasi")}</option>
+                {[...new Map(hammasi.filter((g) => g.daraja).map((g) => [g.daraja.id, g.daraja.nomi])).entries()].map(([id, nomi]) => (
+                  <option key={id} value={id}>{nomi}</option>
+                ))}
+              </select>
+            </div>
             <label>{t("guruh")}
               <select value={guruhId} onChange={(e) => setGuruhId(e.target.value)}>
                 <option value="">{t("tanlang")}</option>
-                {(guruhlar.malumot || []).map((g) => (
+                {royxat.map((g) => (
                   <option key={g.id} value={g.id}>{g.nomi}{g.oqituvchi ? ` · ${g.oqituvchi}` : ""}</option>
                 ))}
               </select>
@@ -236,6 +292,7 @@ export function GuruhgaQoshishOynasi({ lidIdlar, onYopish, onSaqlandi }) {
 // ── Lid kartasi ─────────────────────────────────────────────────────
 
 function LidKartasi({ lidId, bolimlar, onYopish, onOzgardi }) {
+  // Ustun guruhga bog'langan bo'lsa — "Guruhga qo'shish" o'sha guruhni taklif qiladi.
   const { t } = useI18n();
   const profil = useProfil();
   const ruxsat = useRuxsat();
@@ -320,7 +377,13 @@ function LidKartasi({ lidId, bolimlar, onYopish, onOzgardi }) {
                     <span>{lid.qoshimcha_telefon}{lid.qoshimcha_ism ? ` (${lid.qoshimcha_ism})` : ""}</span>
                   </div>
                 )}
-                <div className="qator"><span className="kichik">{t("tugilgan_sana")}</span><span>{sana(lid.tugilgan_sana)}</span></div>
+                <div className="qator">
+                  <span className="kichik">{t("tugilgan_sana")}</span>
+                  <span>{sana(lid.tugilgan_sana)}{lid.tugilgan_sana ? ` · ${yosh(lid.tugilgan_sana)} ${t("yosh")}` : ""}</span>
+                </div>
+                {lid.harorat && (
+                  <div className="qator"><span className="kichik">{t("harorat")}</span><span>{t(`harorat_${lid.harorat}`)}</span></div>
+                )}
                 <div className="qator"><span className="kichik">{t("manba")}</span><span>{lid.manba || "—"}</span></div>
                 <div className="qator"><span className="kichik">{t("kurs")}</span><span>{lid.kurs || "—"}</span></div>
                 <div className="qator"><span className="kichik">{t("oqituvchi")}</span><span>{lid.oqituvchi || "—"}</span></div>
@@ -371,7 +434,8 @@ function LidKartasi({ lidId, bolimlar, onYopish, onOzgardi }) {
         )}
       </div>
       {guruhga && lid && (
-        <GuruhgaQoshishOynasi lidIdlar={[lid.id]} onYopish={() => { setGuruhga(false); onYopish(); }}
+        <GuruhgaQoshishOynasi lidIdlar={[lid.id]} standartGuruh={bolimlar.find((b) => b.id === lid.bolim_id)?.guruh_id || ""}
+                              onYopish={() => { setGuruhga(false); onYopish(); }}
                               onSaqlandi={onOzgardi} />
       )}
     </div>
@@ -452,6 +516,47 @@ function Ustun({ bolim, lidlar, tanlangan, setTanlangan, onOch, onTashla, onYang
   );
 }
 
+// ── Ustun qo'shish (SoffCRM "Yangi bo'lim qo'shish" — nomi guruhlardan) ─
+
+function UstunOynasi({ guruhlar, onYopish, onSaqla }) {
+  const { t } = useI18n();
+  const [nomi, setNomi] = useState("");
+  const [guruhId, setGuruhId] = useState("");
+  const [xato, setXato] = useState("");
+  return (
+    <div className="oyna-fon" role="dialog" aria-modal="true">
+      <div className="karta oyna">
+        <h2>{t("qoshimcha_ustun")}</h2>
+        <label>{t("bolim_nomi")}
+          <input list="ustun-nomlari" value={nomi} autoFocus onChange={(e) => {
+            setNomi(e.target.value);
+            const g = guruhlar.find((x) => x.nomi === e.target.value);
+            if (g) setGuruhId(String(g.id));
+          }} />
+          <datalist id="ustun-nomlari">{guruhlar.map((g) => <option key={g.id} value={g.nomi} />)}</datalist>
+        </label>
+        <label>{t("guruhga_boglash")} ({t("ixtiyoriy")})
+          <select value={guruhId} onChange={(e) => setGuruhId(e.target.value)}>
+            <option value="">—</option>
+            {guruhlar.map((g) => <option key={g.id} value={g.id}>{g.nomi}</option>)}
+          </select>
+        </label>
+        {xato && <div className="xato">{xato}</div>}
+        <div className="oyna-tugmalar">
+          <button className="tugma tugma-sokin" type="button" onClick={onYopish}>{t("bekor")}</button>
+          <button className="tugma" type="button" disabled={!nomi.trim()} onClick={async () => {
+            try {
+              await onSaqla(nomi.trim(), guruhId);
+            } catch (e) {
+              setXato(e.message);
+            }
+          }}>{t("saqlash")}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Sahifa ──────────────────────────────────────────────────────────
 
 export default function Lidlar() {
@@ -465,10 +570,18 @@ export default function Lidlar() {
   const [ochiq, setOchiq] = useState(null);
   const [tanlanganLar, setTanlanganLar] = useState(new Set());
   const [guruhga, setGuruhga] = useState(false);
+  // Doska (SoffCRM "Bo'lim": LEADS, LEADS uzb...). "0" — Umumiy (doskasiz
+  // ustunlar va ustunsiz lidlar). Arxiv/qora ro'yxat rejimida doska
+  // filtrlanmaydi — ular hamma doskalardan yig'iladi.
+  const [doska, setDoska] = useState("0");
+  const doskalar = useSorov("/api/crm/lid-doskalar/");
+  const [ustunOyna, setUstunOyna] = useState(false);
+  const guruhRoyxati = useSorov(ustunOyna ? "/api/crm/guruhlar/" : null);
 
-  const bolimlar = useSorov("/api/crm/lid-bolimlar/" + sorovSatri({ filial }));
+  const bolimlar = useSorov("/api/crm/lid-bolimlar/" + sorovSatri({ filial, doska }));
   const filtrSatri = sorovSatri({
     filial, q: qidiruv, manba, arxiv: rejim === "arxiv" ? 1 : "", qora_royxat: rejim === "qora_royxat" ? 1 : "",
+    doska: rejim ? "" : doska,
   });
   const lidlar = useSorov("/api/crm/lidlar/" + filtrSatri);
   const [eksportXato, setEksportXato] = useState("");
@@ -488,6 +601,7 @@ export default function Lidlar() {
   function yangilaHammasi() {
     lidlar.yangila();
     bolimlar.yangila();
+    doskalar.yangila();
   }
 
   async function tashla(lidId, bolimId) {
@@ -497,10 +611,29 @@ export default function Lidlar() {
     yangilaHammasi();
   }
 
-  async function bolimYarat() {
-    const nomi = window.prompt(t("bolim_nomi"));
+  // "Bo'lim yaratish" — yangi DOSKA ("NEW LEADS" ustuni bilan ochiladi).
+  async function doskaYarat() {
+    const nomi = window.prompt(t("doska_nomi"));
     if (!nomi) return;
-    await api("/api/crm/lid-bolimlar/", { method: "POST", body: { nomi, filial_id: null } });
+    const d = await api("/api/crm/lid-doskalar/", { method: "POST", body: { nomi } });
+    doskalar.yangila();
+    setDoska(String(d.id));
+  }
+
+  async function doskaOchir() {
+    if (doska === "0" || !window.confirm(t("doska_ochirish_tasdiq"))) return;
+    await api(`/api/crm/lid-doskalar/${doska}/`, { method: "DELETE" });
+    setDoska("0");
+    yangilaHammasi();
+  }
+
+  // "Qo'shimcha ustun qo'shish" — joriy doskada ustun; guruhga bog'lash ixtiyoriy.
+  async function ustunYarat(nomi, guruhId) {
+    await api("/api/crm/lid-bolimlar/", {
+      method: "POST",
+      body: { nomi, filial_id: null, doska_id: doska === "0" ? null : doska, guruh_id: guruhId || null },
+    });
+    setUstunOyna(false);
     bolimlar.yangila();
   }
 
@@ -517,7 +650,9 @@ export default function Lidlar() {
     yangilaHammasi();
   }
 
-  const ustunlar = [null, ...bolimRoyxati];
+  // Umumiy doskada ustunsiz lidlar uchun "Yangi lidlar" ustuni ham bor.
+  const ustunlar = doska === "0" || rejim ? [null, ...bolimRoyxati] : bolimRoyxati;
+  const doskaMalumot = doskalar.malumot;
 
   return (
     <section>
@@ -533,7 +668,12 @@ export default function Lidlar() {
             <button className="tugma tugma-sokin" type="button" onClick={eksport}>⬇ Excel</button>
           )}
           {ruxsat("lidlar.bolim") && (
-            <button className="tugma tugma-sokin" type="button" onClick={bolimYarat}>+ {t("bolim_yaratish")}</button>
+            <>
+              <button className="tugma tugma-sokin" type="button" onClick={doskaYarat}>+ {t("bolim_yaratish")}</button>
+              <button className="tugma tugma-sokin" type="button" onClick={() => setUstunOyna(true)}>
+                + {t("qoshimcha_ustun")}
+              </button>
+            </>
           )}
           {ruxsat("lidlar.qoshish") && (
             <button className="tugma" type="button" onClick={() => setYangi(null)}>+ {t("yangi_lid")}</button>
@@ -542,6 +682,15 @@ export default function Lidlar() {
       </div>
 
       <div className="filtrlar">
+        <select value={doska} onChange={(e) => setDoska(e.target.value)} aria-label={t("doska")} disabled={Boolean(rejim)}>
+          <option value="0">{t("umumiy_doska")} ({doskaMalumot?.umumiy ?? 0})</option>
+          {(doskaMalumot?.doskalar || []).map((d) => (
+            <option key={d.id} value={d.id}>{d.nomi} ({d.soni ?? 0})</option>
+          ))}
+        </select>
+        {doska !== "0" && ruxsat("lidlar.bolim") && !rejim && (
+          <button className="tugma tugma-sokin kichik-tugma" type="button" onClick={doskaOchir} title={t("ochirish")}>🗑</button>
+        )}
         <input placeholder={t("qidiruv")} value={qidiruv} onChange={(e) => setQidiruv(e.target.value)} />
         <select value={manba} onChange={(e) => setManba(e.target.value)} aria-label={t("manba")}>
           <option value="">{t("manba")}: {t("hammasi")}</option>
@@ -550,7 +699,7 @@ export default function Lidlar() {
         <select value={rejim} onChange={(e) => setRejim(e.target.value)} aria-label={t("holat")}>
           <option value="">{t("faol_lidlar")}</option>
           <option value="arxiv">{t("arxiv")}</option>
-          <option value="qora_royxat">{t("qora_royxat")}</option>
+          <option value="qora_royxat">{t("qora_royxat")} ({doskaMalumot?.qora_royxat ?? 0})</option>
         </select>
         <span className="kichik">{t("jami")}: {lidRoyxati.length}</span>
       </div>
@@ -577,8 +726,11 @@ export default function Lidlar() {
         ))}
       </div>
 
+      {ustunOyna && (
+        <UstunOynasi guruhlar={guruhRoyxati.malumot || []} onYopish={() => setUstunOyna(false)} onSaqla={ustunYarat} />
+      )}
       {yangi !== undefined && (
-        <YangiLidOynasi bolimlar={bolimRoyxati} bolimId={yangi} onYopish={() => setYangi(undefined)}
+        <YangiLidOynasi bolimlar={bolimRoyxati} bolimId={yangi ?? bolimRoyxati[0]?.id ?? null} onYopish={() => setYangi(undefined)}
                         onSaqlandi={yangilaHammasi} />
       )}
       {ochiq && (

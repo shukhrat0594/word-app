@@ -23,6 +23,7 @@ const MENYU = [
   { yol: "hisobotlar", kalit: "hisobotlar", ikon: "📊", ruxsat: "hisobotlar" },
   { yol: "xodimlar", kalit: "xodimlar", ikon: "🧑‍🏫", ruxsat: "xodimlar" },
   { yol: "sozlamalar", kalit: "sozlamalar", ikon: "⚙️", ruxsat: "sozlamalar" },
+  { yol: "harakatlar", kalit: "harakatlar_tarixi", ikon: "🕘", ruxsat: "sozlamalar" },
 ];
 
 export default function Layout({ profil }) {

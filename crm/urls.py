@@ -7,7 +7,7 @@ aralashmaydi, ya'ni CRM olib tashlanganda LMS marshrutlariga tegilmaydi
 
 from django.urls import path
 
-from . import boshqaruv, views
+from . import boshqaruv, qoshimcha, views
 
 app_name = "crm"
 
@@ -80,4 +80,25 @@ urlpatterns = [
     path("chegirmalar/<int:pk>/", boshqaruv.ChegirmaDetailView.as_view(), name="chegirma_detail"),
     path("guruhlar/<int:pk>/baholar/", boshqaruv.GuruhBaholariView.as_view(), name="guruh_baholari"),
     path("eslatmalar/muddatli/", boshqaruv.MuddatliEslatmalarView.as_view(), name="muddatli_eslatmalar"),
+
+    # ── Video-TZ qayta tekshiruvi (5 soniyalik kadrlar) ─────────────
+    path("lid-doskalar/", qoshimcha.LidDoskalarView.as_view(), name="lid_doskalar"),
+    path("lid-doskalar/<int:pk>/", qoshimcha.LidDoskaDetailView.as_view(), name="lid_doska_detail"),
+    path("guruhlar/<int:pk>/mavzular/", qoshimcha.DarsMavzulariView.as_view(), name="dars_mavzulari"),
+    path("guruhlar/<int:pk>/davomat/hammasi/", qoshimcha.DavomatHammasiView.as_view(), name="davomat_hammasi"),
+    path("guruhlar/<int:pk>/davomat/eksport/", qoshimcha.DavomatEksportView.as_view(), name="davomat_eksport"),
+    path("guruhlar/<int:pk>/faollashtirish/", qoshimcha.GuruhFaollashtirishView.as_view(), name="guruh_faollashtirish"),
+    path("guruhlar/<int:pk>/sobiqlar/", qoshimcha.GuruhSobiqlariView.as_view(), name="guruh_sobiqlari"),
+    path("guruhlar/eksport/", qoshimcha.GuruhlarEksportView.as_view(), name="guruhlar_eksport"),
+    path("talabalar/eksport/", qoshimcha.TalabalarEksportView.as_view(), name="talabalar_eksport"),
+    path("talabalar/import/", qoshimcha.TalabalarImportView.as_view(), name="talabalar_import"),
+    path("talaba/<int:pk>/tarix/", qoshimcha.TalabaTarixiView.as_view(), name="talaba_tarixi"),
+    path("xodimlar/eksport/", qoshimcha.XodimlarEksportView.as_view(), name="xodimlar_eksport"),
+    path("xodimlar/davomat/", qoshimcha.XodimDavomatView.as_view(), name="xodimlar_davomat"),
+    path("harakatlar/", qoshimcha.HarakatlarTarixiView.as_view(), name="harakatlar"),
+    path("hisobot/ketganlar/", qoshimcha.KetganlarHisobotiView.as_view(), name="hisobot_ketganlar"),
+    path("hisobot/lidlar/", qoshimcha.LidlarHisobotiView.as_view(), name="hisobot_lidlar"),
+    path("hisobot/tolovlar/", qoshimcha.TolovlarHisobotiView.as_view(), name="hisobot_tolovlar"),
+    path("hisobot/bitiruvchilar/", qoshimcha.BitiruvchilarHisobotiView.as_view(), name="hisobot_bitiruvchilar"),
+    path("hisobot/eksport/", qoshimcha.HisobotlarDavrView.as_view(), name="hisobot_davr_eksport"),
 ]

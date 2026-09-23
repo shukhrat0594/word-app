@@ -4,7 +4,7 @@
 
 import { useState } from "react";
 
-import { api, apiFaylYubor } from "./api.js";
+import { api, apiFaylYubor, apiFayluniYuklab } from "./api.js";
 import { useFilial } from "./filialContext.jsx";
 import { oyNomi, pul, sana } from "./format.js";
 import { useI18n } from "./i18n.jsx";
@@ -415,9 +415,30 @@ export function DavomatJadvali({ guruhId }) {
   const ruxsat = useRuxsat();
   const [oy, setOy] = useState(() => new Date().toISOString().slice(0, 7));
   const { malumot, yuklanmoqda, xato, yangila } = useSorov(`/api/crm/guruhlar/${guruhId}/davomat/` + sorovSatri({ oy }));
+  // Dars mavzulari (SoffCRM "Mavzular" qatori).
+  const mavzular = useSorov(`/api/crm/guruhlar/${guruhId}/mavzular/` + sorovSatri({ oy }));
   const [xatoQ, setXatoQ] = useState("");
   const [kochirish, setKochirish] = useState(null);
   const tahrirlaydi = ruxsat("guruhlar.davomat");
+  const bugunSana = new Date().toISOString().slice(0, 10);
+
+  async function mavzuYoz(sanaQ) {
+    const eski = mavzular.malumot?.[sanaQ] || "";
+    const yangi = window.prompt(`${sana(sanaQ)} — ${t("dars_mavzusi")}`, eski);
+    if (yangi === null || yangi === eski) return;
+    await api(`/api/crm/guruhlar/${guruhId}/mavzular/`, { method: "POST", body: { sana: sanaQ, mavzu: yangi } });
+    mavzular.yangila();
+  }
+
+  async function hammasiKeldi(sanaQ) {
+    setXatoQ("");
+    try {
+      await api(`/api/crm/guruhlar/${guruhId}/davomat/hammasi/`, { method: "POST", body: { sana: sanaQ } });
+      yangila();
+    } catch (e) {
+      setXatoQ(e.message);
+    }
+  }
 
   function siljit(qadam) {
     const [y, o] = oy.split("-").map(Number);
@@ -464,6 +485,10 @@ export function DavomatJadvali({ guruhId }) {
             + {t("qoshimcha_dars")}
           </button>
         )}
+        <button className="tugma tugma-sokin kichik-tugma" type="button"
+                onClick={() => apiFayluniYuklab(`/api/crm/guruhlar/${guruhId}/davomat/eksport/` + sorovSatri({ oy })).catch((e) => setXatoQ(e.message))}>
+          ⬇ Excel
+        </button>
       </div>
       {(xato || xatoQ) && <div className="xato">{xato || xatoQ}</div>}
       {yuklanmoqda && !malumot && <p className="kichik">{t("yuklanmoqda")}</p>}
@@ -472,6 +497,22 @@ export function DavomatJadvali({ guruhId }) {
         <div className="jadval-oram">
           <table className="davomat-jadval">
             <thead>
+              <tr className="mavzu-qator">
+                <th className="kichik">{t("mavzular")}</th>
+                {sanalar.map((s) => (
+                  <th key={s} className="markazga">
+                    <button type="button" className="havola kichik" title={mavzular.malumot?.[s] || t("dars_mavzusi")}
+                            disabled={!tahrirlaydi} onClick={() => mavzuYoz(s)}>
+                      {mavzular.malumot?.[s] ? "📘" : "＋"}
+                    </button>
+                    {tahrirlaydi && s <= bugunSana && (
+                      <button type="button" className="havola kichik" title={t("hammasi_keldi")} onClick={() => hammasiKeldi(s)}>✓✓</button>
+                    )}
+                  </th>
+                ))}
+                <th />
+                <th />
+              </tr>
               <tr>
                 <th>{t("talaba")}</th>
                 {sanalar.map((s) => {
@@ -604,13 +645,22 @@ export function Chegirmalar({ guruhId, onOzgardi }) {
   const ruxsat = useRuxsat();
   const { malumot, yuklanmoqda, xato, yangila } = useSorov(`/api/crm/guruhlar/${guruhId}/chegirmalar/`);
   const [oyna, setOyna] = useState(null);
-  const [f, setF] = useState({ narx: "", boshlanish_oy: new Date().toISOString().slice(0, 7), oylar_soni: 1, izoh: "" });
+  // Chegirma uch xil kiritiladi (video 28:05): yangi narx, summada (ayiriladi), foizda.
+  const [rejim, setRejim] = useState("summada");
+  const [f, setF] = useState({ qiymat: "", boshlanish_oy: new Date().toISOString().slice(0, 7), oylar_soni: 1, izoh: "" });
   const [xatoQ, setXatoQ] = useState("");
 
   async function saqla() {
     setXatoQ("");
     try {
-      await api(`/api/crm/guruhlar/${guruhId}/chegirmalar/`, { method: "POST", body: { ...f, azolik_moliya_id: oyna.azolik_moliya_id } });
+      const kalit = { narx: "narx", summada: "chegirma_summasi", foizda: "foiz" }[rejim];
+      await api(`/api/crm/guruhlar/${guruhId}/chegirmalar/`, {
+        method: "POST",
+        body: {
+          [kalit]: f.qiymat, boshlanish_oy: f.boshlanish_oy, oylar_soni: f.oylar_soni, izoh: f.izoh,
+          azolik_moliya_id: oyna.azolik_moliya_id,
+        },
+      });
       setOyna(null);
       yangila();
       onOzgardi?.();
@@ -644,13 +694,13 @@ export function Chegirmalar({ guruhId, onOzgardi }) {
         </thead>
         <tbody>
           {(malumot || []).map((x) => {
-            const faol = x.chegirmalar.filter((c) => c.qolgan_oylar > 0);
+            const faol = x.chegirmalar.filter((c) => c.doimiy || c.qolgan_oylar > 0);
             const c = faol[0];
             return (
               <tr key={x.azolik_moliya_id}>
                 <td>{x.talaba}</td>
-                <td className="ongga">{c ? `${c.qolgan_oylar} ${t("oy")}` : t("yoq")}</td>
-                <td>{c ? `${oyNomi(String(c.boshlanish_oy).slice(0, 7), til)} → ${oyNomi(String(c.oxirgi_oy).slice(0, 7), til)}` : "—"}</td>
+                <td className="ongga">{c ? (c.doimiy ? t("doimiy") : `${c.qolgan_oylar} ${t("oy")}`) : t("yoq")}</td>
+                <td>{c ? `${oyNomi(String(c.boshlanish_oy).slice(0, 7), til)} → ${c.doimiy ? "∞" : oyNomi(String(c.oxirgi_oy).slice(0, 7), til)}` : "—"}</td>
                 <td>{c?.kim || "—"}</td>
                 <td>{c?.izoh || "—"}</td>
                 <td className="ongga">{c ? `${pul(c.narx)} (${x.narx ? Math.round((1 - c.narx / x.narx) * 100) : 0}%)` : "—"}</td>
@@ -672,18 +722,35 @@ export function Chegirmalar({ guruhId, onOzgardi }) {
           <div className="karta oyna">
             <h2>{t("chegirma_berish")}</h2>
             <p className="kichik">{oyna.talaba} · {t("odatiy_narx")}: {pul(oyna.narx)}</p>
-            <label>{t("chegirmadagi_narx")} ({t("nol_tekin")})
-              <input type="number" min="0" step="1000" value={f.narx} onChange={(e) => setF((x) => ({ ...x, narx: e.target.value }))} autoFocus />
+            <div className="tablar">
+              {["summada", "foizda", "narx"].map((r) => (
+                <button key={r} type="button" className={rejim === r ? "tab faol" : "tab"} onClick={() => setRejim(r)}>
+                  {t(`chegirma_${r}`)}
+                </button>
+              ))}
+            </div>
+            <label>
+              {rejim === "foizda" ? t("chegirma_foizi") : rejim === "summada" ? t("chegirma_summasi") : `${t("chegirmadagi_narx")} (${t("nol_tekin")})`}
+              <input type="number" min="0" max={rejim === "foizda" ? 100 : undefined} step={rejim === "foizda" ? 1 : 1000}
+                     value={f.qiymat} onChange={(e) => setF((x) => ({ ...x, qiymat: e.target.value }))} autoFocus />
             </label>
+            {f.qiymat !== "" && oyna.narx && (
+              <p className="kichik">
+                {t("chegirmadagi_narx")}: <b>{pul(
+                  rejim === "foizda" ? oyna.narx * (100 - Number(f.qiymat)) / 100
+                    : rejim === "summada" ? oyna.narx - Number(f.qiymat) : Number(f.qiymat)
+                )}</b>
+              </p>
+            )}
             <div className="ikki-ustun">
               <label>{t("qaysi_oydan")}<input type="month" value={f.boshlanish_oy} onChange={(e) => setF((x) => ({ ...x, boshlanish_oy: e.target.value }))} /></label>
-              <label>{t("necha_oy")}<input type="number" min="1" max="24" value={f.oylar_soni} onChange={(e) => setF((x) => ({ ...x, oylar_soni: e.target.value }))} /></label>
+              <label>{t("necha_oy")} ({t("nol_doimiy")})<input type="number" min="0" max="24" value={f.oylar_soni} onChange={(e) => setF((x) => ({ ...x, oylar_soni: e.target.value }))} /></label>
             </div>
             <label>{t("izoh")}<input value={f.izoh} onChange={(e) => setF((x) => ({ ...x, izoh: e.target.value }))} /></label>
             {xatoQ && <div className="xato">{xatoQ}</div>}
             <div className="oyna-tugmalar">
               <button className="tugma tugma-sokin" type="button" onClick={() => setOyna(null)}>{t("bekor")}</button>
-              <button className="tugma" type="button" onClick={saqla} disabled={f.narx === ""}>{t("saqlash")}</button>
+              <button className="tugma" type="button" onClick={saqla} disabled={f.qiymat === ""}>{t("saqlash")}</button>
             </div>
           </div>
         </div>

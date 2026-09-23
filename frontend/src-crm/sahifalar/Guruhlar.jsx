@@ -7,7 +7,7 @@
 import { Fragment, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
-import { api } from "../api.js";
+import { api, apiFayluniYuklab } from "../api.js";
 import { GuruhOynasi, TalabaQoshishOynasi } from "../GuruhOynalari.jsx";
 import GuruhTablari from "../GuruhTablari.jsx";
 import { useRuxsat } from "../profilContext.jsx";
@@ -58,7 +58,29 @@ function Azolar({ guruhId, onOzgardi }) {
   async function chiqar(a) {
     const sanaQ = window.prompt(`${a.talaba}: ${t("chiqarish_sanasi")}`, bugun());
     if (!sanaQ) return;
-    await api(`/api/crm/guruhlar/${guruhId}/talabalar/?talaba=${a.talaba_id}&sana=${sanaQ}`, { method: "DELETE" });
+    // Sabab "Ketgan o'quvchilar hisoboti"ga tushadi.
+    const sabab = window.prompt(t("chiqish_sababi")) || "";
+    await api(
+      `/api/crm/guruhlar/${guruhId}/talabalar/?talaba=${a.talaba_id}&sana=${sanaQ}&sabab=${encodeURIComponent(sabab)}`,
+      { method: "DELETE" },
+    );
+    yangila();
+    sobiqlar.yangila();
+    onOzgardi?.();
+  }
+
+  // SoffCRM guruh sahifasidagi tugmalar: "O'qishgan sanani ko'rsatish",
+  // "Balansni yopish" (ustunni yashirish), "O'quvchilarni faollashtirish",
+  // "Arxivdagi o'quvchilarni ko'rish".
+  const [sanaKorsin, setSanaKorsin] = useState(true);
+  const [balansKorsin, setBalansKorsin] = useState(true);
+  const [sobiqKorsin, setSobiqKorsin] = useState(false);
+  const sobiqlar = useSorov(sobiqKorsin ? `/api/crm/guruhlar/${guruhId}/sobiqlar/` : null);
+  const sinovdagilar = (malumot || []).filter((a) => a.holat === "sinov").length;
+
+  async function faollashtir() {
+    if (!window.confirm(t("faollashtirish_tasdiq"))) return;
+    await api(`/api/crm/guruhlar/${guruhId}/faollashtirish/`, { method: "POST", body: {} });
     yangila();
     onOzgardi?.();
   }
@@ -75,6 +97,17 @@ function Azolar({ guruhId, onOzgardi }) {
           <option value="sana">{t("tartib_sana")}</option>
           <option value="holat">{t("tartib_holat")}</option>
         </select>
+        <button className="tugma tugma-sokin kichik-tugma" type="button" onClick={() => setSanaKorsin(!sanaKorsin)}>
+          {sanaKorsin ? "🙈" : "👁"} {t("qoshilgan_sana")}
+        </button>
+        <button className="tugma tugma-sokin kichik-tugma" type="button" onClick={() => setBalansKorsin(!balansKorsin)}>
+          {balansKorsin ? "🙈" : "👁"} {t("balans")}
+        </button>
+        {sinovdagilar > 0 && ruxsat("guruhlar.talaba_qoshish") && (
+          <button className="tugma kichik-tugma" type="button" onClick={faollashtir}>
+            ✔ {t("oquvchilarni_faollashtirish")} ({sinovdagilar})
+          </button>
+        )}
       </div>
       <table>
         <thead>
@@ -82,9 +115,9 @@ function Azolar({ guruhId, onOzgardi }) {
             <th>{t("talaba")}</th>
             <th>{t("telefon")}</th>
             <th>{t("holat")}</th>
-            <th>{t("boshlanish_sana")}</th>
+            {sanaKorsin && <th>{t("boshlanish_sana")}</th>}
             <th>{t("narx")}</th>
-            <th className="ongga">{t("balans")}</th>
+            {balansKorsin && <th className="ongga">{t("balans")}</th>}
             <th />
           </tr>
         </thead>
@@ -102,18 +135,20 @@ function Azolar({ guruhId, onOzgardi }) {
                   ))}
                 </select>
               </td>
-              <td>
-                <input
-                  type="date"
-                  value={a.boshlanish_sana || ""}
-                  onChange={(e) => ozgartir(a.id, "boshlanish_sana", e.target.value)}
-                />
-              </td>
+              {sanaKorsin && (
+                <td>
+                  <input
+                    type="date"
+                    value={a.boshlanish_sana || ""}
+                    onChange={(e) => ozgartir(a.id, "boshlanish_sana", e.target.value)}
+                  />
+                </td>
+              )}
               <td>
                 {a.narx_talabaga ? pul(a.narx_talabaga) : pul(a.narx)}{" "}
                 <NarxManbasi manba={a.narx_manbasi} />
               </td>
-              <td className={`ongga ${balansSinfi(a.balans)}`}>{balansMatn(a.balans)}</td>
+              {balansKorsin && <td className={`ongga ${balansSinfi(a.balans)}`}>{balansMatn(a.balans)}</td>}
               <td>
                 {ruxsat("guruhlar.talaba_qoshish") && (
                   <button className="havola rang-qarzdor" type="button" onClick={() => chiqar(a)}>
@@ -128,6 +163,31 @@ function Azolar({ guruhId, onOzgardi }) {
           )}
         </tbody>
       </table>
+      <button className="havola rang-qarzdor" type="button" onClick={() => setSobiqKorsin(!sobiqKorsin)}>
+        🗄 {sobiqKorsin ? t("yopish") : t("arxivdagi_oquvchilar")}
+      </button>
+      {sobiqKorsin && (
+        <table>
+          <thead>
+            <tr>
+              <th>{t("talaba")}</th><th>{t("boshlanish_sana")}</th><th>{t("chiqqan_sana")}</th>
+              <th>{t("sabab")}</th><th className="ongga">{t("balans")}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {(sobiqlar.malumot || []).map((x, i) => (
+              <tr key={i} className="qator-sokin">
+                <td>{x.talaba}</td><td>{sana(x.boshlagan_sana)}</td><td>{sana(x.sana)}</td>
+                <td>{x.sabab || "—"}</td>
+                <td className={`ongga ${balansSinfi(x.balans)}`}>{x.balans === null ? "—" : balansMatn(x.balans)}</td>
+              </tr>
+            ))}
+            {!sobiqlar.yuklanmoqda && (sobiqlar.malumot || []).length === 0 && (
+              <tr><td colSpan={5} className="bosh">{t("yozuv_yoq")}</td></tr>
+            )}
+          </tbody>
+        </table>
+      )}
     </div>
   );
 }
@@ -194,9 +254,15 @@ export default function Guruhlar() {
     <section>
       <div className="karta-sarlavha">
         <h1>{t("guruhlar")} <span className="belgi">{guruhlar.length}</span></h1>
-        {ruxsat("guruhlar.qoshish") && (
-          <button className="tugma" type="button" onClick={() => setSozlanayotgan(null)}>+ {t("yangi_guruh")}</button>
-        )}
+        <div className="tezkor-amallar">
+          <button className="tugma tugma-sokin" type="button"
+                  onClick={() => apiFayluniYuklab("/api/crm/guruhlar/eksport/" + sorovSatri({ filial: tanlangan, arxiv: arxiv ? 1 : "" }))}>
+            ⬇ Excel
+          </button>
+          {ruxsat("guruhlar.qoshish") && (
+            <button className="tugma" type="button" onClick={() => setSozlanayotgan(null)}>+ {t("yangi_guruh")}</button>
+          )}
+        </div>
       </div>
 
       <div className="filtrlar">
@@ -230,6 +296,7 @@ export default function Guruhlar() {
               {/* O'qituvchi — SAYT ma'lumoti (`academics.Guruh.oqituvchi`).
                   CRM uni faqat ko'rsatadi, tahrirlamaydi. */}
               <th>{t("oqituvchi")}</th>
+              <th>{t("support_ustoz")}</th>
               <th>{t("filial")}</th>
               <th className="ongga">{t("talabalar_soni")}</th>
               <th className="ongga">{t("narx")}</th>
@@ -251,6 +318,7 @@ export default function Guruhlar() {
                   </td>
                   <td>{g.daraja?.nomi || "—"}</td>
                   <td>{g.oqituvchi || "—"}</td>
+                  <td>{g.yordamchilar?.length ? g.yordamchilar.join(", ") : "—"}</td>
                   <td>{g.filial?.nomi || "—"}</td>
                   <td className="ongga">{g.talaba_soni}</td>
                   <td className="ongga">
@@ -276,7 +344,7 @@ export default function Guruhlar() {
                 </tr>
                 {ochilgan === g.id && (
                   <tr>
-                    <td colSpan={9} className="ichki">
+                    <td colSpan={10} className="ichki">
                       {/* Tezkor amallar — SoffCRM kartasidagi ikonkalar qatori. */}
                       <div className="tezkor-amallar">
                         {ruxsat("guruhlar.tahrirlash") && (
@@ -316,7 +384,7 @@ export default function Guruhlar() {
               </Fragment>
             ))}
             {!yuklanmoqda && guruhlar.length === 0 && (
-              <tr><td colSpan={9} className="bosh">{t("yozuv_yoq")}</td></tr>
+              <tr><td colSpan={10} className="bosh">{t("yozuv_yoq")}</td></tr>
             )}
           </tbody>
         </table>

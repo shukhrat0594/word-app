@@ -3,7 +3,8 @@
 
 import { useI18n } from "./i18n.jsx";
 
-const USULLAR = ["naqd", "karta", "click", "payme", "otkazma"];
+// Video (21:15): Naqd, Click, Karta orqali, Yagona QR-kod, Perechisleniye, Voucher.
+const USULLAR = ["naqd", "karta", "click", "payme", "qr", "otkazma", "voucher"];
 
 export default function UsulTanlash({ qiymat, onChange }) {
   const { t } = useI18n();

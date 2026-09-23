@@ -4,9 +4,9 @@
 
 import { useState } from "react";
 
-import { api } from "../api.js";
+import { api, apiFayluniYuklab } from "../api.js";
 import { useFilial } from "../filialContext.jsx";
-import { pul, sana } from "../format.js";
+import { oyNomi, pul, sana } from "../format.js";
 import { useI18n } from "../i18n.jsx";
 import { useProfil, useRuxsat } from "../profilContext.jsx";
 import { sorovSatri, useSorov } from "../soragich.js";
@@ -241,6 +241,83 @@ function RolOynasi({ rol, onYopish, onSaqlandi }) {
   );
 }
 
+// ── Xodimlar davomati (SoffCRM "XODIMLAR DAVOMATI") ────────────────
+
+const XD_HOLATLAR = [null, "keldi", "kechikdi", "kelmadi", "sababli"];
+const XD_BELGI = { keldi: "✓", kechikdi: "⏰", kelmadi: "✕", sababli: "◐" };
+
+function XodimlarDavomati() {
+  const { t, til } = useI18n();
+  const ruxsat = useRuxsat();
+  const [oy, setOy] = useState(() => new Date().toISOString().slice(0, 7));
+  const { malumot, xato, yangila } = useSorov("/api/crm/xodimlar/davomat/" + sorovSatri({ oy }));
+  const [xatoQ, setXatoQ] = useState("");
+  const bugun = new Date().toISOString().slice(0, 10);
+  const tahrirlaydi = ruxsat("xodimlar.tahrirlash");
+
+  function siljit(qadam) {
+    const [y, o] = oy.split("-").map(Number);
+    const d = new Date(y, o - 1 + qadam, 1);
+    setOy(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
+  }
+
+  async function belgila(xodimId, kun, joriy) {
+    const keyingi = XD_HOLATLAR[(XD_HOLATLAR.indexOf(joriy?.holat ?? null) + 1) % XD_HOLATLAR.length];
+    setXatoQ("");
+    try {
+      await api("/api/crm/xodimlar/davomat/", { method: "POST", body: { xodim_id: xodimId, sana: kun, holat: keyingi } });
+      yangila();
+    } catch (e) {
+      setXatoQ(e.message);
+    }
+  }
+
+  const kunlar = malumot?.kunlar || [];
+  return (
+    <div className="karta">
+      <div className="karta-sarlavha">
+        <h2>{t("xodimlar_davomati")}</h2>
+        <div className="oy-tanlash">
+          <button className="tugma tugma-sokin" type="button" onClick={() => siljit(-1)}>‹</button>
+          <b>{oyNomi(oy, til)}</b>
+          <button className="tugma tugma-sokin" type="button" onClick={() => siljit(1)}>›</button>
+        </div>
+      </div>
+      <p className="kichik">✓ {t("xd_keldi")} · ⏰ {t("xd_kechikdi")} · ✕ {t("xd_kelmadi")} · ◐ {t("xd_sababli")}</p>
+      {(xato || xatoQ) && <div className="xato">{xato || xatoQ}</div>}
+      <div className="jadval-oram">
+        <table className="davomat-jadval">
+          <thead>
+            <tr>
+              <th>{t("ism_familiya")}</th>
+              {kunlar.map((k) => <th key={k} className="markazga">{String(k).slice(8, 10)}</th>)}
+              <th className="ongga">✓</th><th className="ongga">⏰</th><th className="ongga">✕</th>
+            </tr>
+          </thead>
+          <tbody>
+            {(malumot?.xodimlar || []).map((x) => (
+              <tr key={x.id}>
+                <td className="nowrap">{x.ism}</td>
+                {x.kunlar.map((q, i) => (
+                  <td key={kunlar[i]} className="markazga">
+                    <button type="button" className={`davomat-katak davomat-${q?.holat === "kechikdi" ? "sababli" : q?.holat || "yoq"}`}
+                            disabled={!tahrirlaydi || kunlar[i] > bugun} onClick={() => belgila(x.id, kunlar[i], q)}>
+                      {XD_BELGI[q?.holat] || "·"}
+                    </button>
+                  </td>
+                ))}
+                <td className="ongga rang-tolandi">{x.jami.keldi || 0}</td>
+                <td className="ongga rang-qisman">{x.jami.kechikdi || 0}</td>
+                <td className="ongga rang-qarzdor">{x.jami.kelmadi || 0}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 // ── Sahifa ──────────────────────────────────────────────────────────
 
 export default function Xodimlar() {
@@ -252,6 +329,7 @@ export default function Xodimlar() {
   const [tahrir, setTahrir] = useState(undefined); // undefined yopiq, null yangi, obyekt tahrir
   const [rolOyna, setRolOyna] = useState(undefined);
   const [parol, setParol] = useState(null);
+  const [davomatKorsin, setDavomatKorsin] = useState(false);
 
   const sorov = useSorov("/api/crm/xodimlar/" + sorovSatri({ lavozim, arxiv: arxiv ? 1 : "", q: qidiruv }));
   const rollar = useSorov("/api/crm/rollar/");
@@ -274,6 +352,13 @@ export default function Xodimlar() {
       <div className="karta-sarlavha">
         <h1>{t("xodimlar")}</h1>
         <div className="tezkor-amallar">
+          <button className="tugma tugma-sokin" type="button"
+                  onClick={() => apiFayluniYuklab("/api/crm/xodimlar/eksport/" + sorovSatri({ arxiv: arxiv ? 1 : "" }))}>
+            ⬇ Excel
+          </button>
+          <button className={davomatKorsin ? "tugma" : "tugma tugma-sokin"} type="button" onClick={() => setDavomatKorsin(!davomatKorsin)}>
+            📅 {t("xodimlar_davomati")}
+          </button>
           {ruxsat("sozlamalar.rollar") && (
             <button className="tugma tugma-sokin" type="button" onClick={() => setRolOyna(null)}>+ {t("yangi_rol_yaratish")}</button>
           )}
@@ -347,6 +432,8 @@ export default function Xodimlar() {
           </tbody>
         </table>
       </div>
+
+      {davomatKorsin && <XodimlarDavomati />}
 
       <div className="karta">
         <h2>{t("rollar")}</h2>

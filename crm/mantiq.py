@@ -88,7 +88,8 @@ def chegirma_narxi(azolik_moliya: AzolikMoliya, oy: date) -> Decimal | None:
         boshi = chegirma.boshlanish_oy
         # boshlanish_oy + oylar_soni oy — oxirgi amal qiladigan oydan keyingisi
         oylar = (oy.year - boshi.year) * 12 + (oy.month - boshi.month)
-        if 0 <= oylar < chegirma.oylar_soni:
+        # `oylar_soni == 0` — doimiy chegirma (SoffCRM: "necha oyga — 0").
+        if oylar >= 0 and (chegirma.oylar_soni == 0 or oylar < chegirma.oylar_soni):
             return chegirma.narx
     return None
 

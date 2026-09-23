@@ -46,8 +46,10 @@ from .models import (
     GuruhMoliya,
     GuruhOqituvchi,
     Hisob,
+    GuruhdanChiqish,
     Lid,
     LidBolim,
+    LidDoska,
     LidTarix,
     TalabaProfil,
     Tolov,
@@ -415,7 +417,10 @@ class XodimDetailView(CrmView):
 
 
 def _bolim_dict(b, soni=None):
-    return {"id": b.id, "nomi": b.nomi, "tartib": b.tartib, "filial_id": b.filial_id, "soni": soni}
+    return {
+        "id": b.id, "nomi": b.nomi, "tartib": b.tartib, "filial_id": b.filial_id, "soni": soni,
+        "doska_id": b.doska_id, "guruh_id": b.guruh_id,
+    }
 
 
 def _lid_dict(lid, oxirgi_eslatma=None):
@@ -430,6 +435,7 @@ def _lid_dict(lid, oxirgi_eslatma=None):
         "bolim_id": lid.bolim_id,
         "holat": lid.holat,
         "holat_nomi": lid.get_holat_display(),
+        "harorat": lid.harorat,
         "filial_id": lid.filial_id,
         "kurs_id": lid.kurs_id,
         "kurs": lid.kurs.nomi if lid.kurs_id else None,
@@ -475,6 +481,11 @@ def _lid_maydonlari(lid, data):
             setattr(lid, maydon, qiymat)
     if "tugilgan_sana" in data:
         lid.tugilgan_sana = _sana(data.get("tugilgan_sana"), "tugilgan_sana", majburiy=False)
+    if "harorat" in data:
+        harorat = data.get("harorat") or ""
+        if harorat not in ("", "issiq", "iliq", "sovuq"):
+            raise ValueError("Harorat noto'g'ri")
+        lid.harorat = harorat
     if "holat" in data:
         if data["holat"] not in dict(Lid.Holat.choices):
             raise ValueError("Noma'lum holat")
@@ -516,6 +527,13 @@ class LidBolimlarView(CrmView):
 
     def get(self, request):
         qs = LidBolim.objects.all()
+        # `?doska=ID` — shu doskaning ustunlari; `?doska=0` — doskasizlar
+        # (video-TZ'dan oldin yaratilgan ustunlar "Umumiy" doskada).
+        doska = request.query_params.get("doska")
+        if doska == "0":
+            qs = qs.filter(doska__isnull=True)
+        elif doska:
+            qs = qs.filter(doska_id=doska)
         filial = request.query_params.get("filial")
         if filial:
             qs = qs.filter(Q(filial_id=filial) | Q(filial__isnull=True))
@@ -528,7 +546,15 @@ class LidBolimlarView(CrmView):
             return _xato("Bo'lim nomi bo'sh bo'lmasin")
         oxirgi = LidBolim.objects.order_by("-tartib").values_list("tartib", flat=True).first() or 0
         filial_id = request.data.get("filial_id") or None
-        bolim = LidBolim.objects.create(nomi=nomi[:100], tartib=oxirgi + 1, filial_id=filial_id)
+        doska_id = request.data.get("doska_id") or None
+        if doska_id and not LidDoska.objects.filter(pk=doska_id).exists():
+            return _xato("Doska topilmadi")
+        guruh_id = request.data.get("guruh_id") or None
+        if guruh_id and not Guruh.objects.filter(pk=guruh_id).exists():
+            return _xato("Guruh topilmadi")
+        bolim = LidBolim.objects.create(
+            nomi=nomi[:100], tartib=oxirgi + 1, filial_id=filial_id, doska_id=doska_id, guruh_id=guruh_id,
+        )
         return Response(_bolim_dict(bolim, 0), status=201)
 
 
@@ -567,6 +593,11 @@ def lidlar_qs(p):
         qs = qs.filter(Q(filial_id=p["filial"]) | Q(filial__isnull=True))
     if p.get("bolim"):
         qs = qs.filter(bolim_id=p["bolim"])
+    # Doska: lid ustuni orqali. `doska=0` — ustunsiz yoki doskasiz ustundagi.
+    if p.get("doska") == "0":
+        qs = qs.filter(Q(bolim__isnull=True) | Q(bolim__doska__isnull=True))
+    elif p.get("doska"):
+        qs = qs.filter(bolim__doska_id=p["doska"])
     if p.get("manba"):
         qs = qs.filter(manba=p["manba"])
     if p.get("oqituvchi"):
@@ -1158,11 +1189,18 @@ class GuruhTalabalariView(CrmView):
         except ValueError as e:
             return _xato(str(e))
         am = getattr(azolik, "moliya", None)
+        moliya = getattr(guruh, "moliya", None)
         with transaction.atomic():
             if am is not None:
                 am.tugash_sana = sana
                 am.save(update_fields=["tugash_sana"])
                 mantiq.azolikni_qayta_hisobla(am, mantiq.oy_boshi(sana))
+            GuruhdanChiqish.objects.create(
+                talaba=talaba, talaba_ism=_ism(talaba), guruh=guruh, guruh_nomi=guruh.name,
+                filial=moliya.filial if moliya else None,
+                boshlagan_sana=am.boshlanish_sana if am else azolik.created_at.date(),
+                sana=sana, sabab=(request.query_params.get("sabab") or "").strip()[:300], kim=request.user,
+            )
             azolik.delete()
         logla(foydalanuvchi=request.user, harakat=FaoliyatYozuvi.Harakat.OZGARTIRISH, obyekt=guruh,
               obyekt_turi="Guruh", obyekt_nomi=guruh.name,
@@ -1369,10 +1407,11 @@ def _chegirma_dict(c):
         oxirgi_oy = mantiq.keyingi_oy(oxirgi_oy)
     bugun_oy = mantiq.oy_boshi(timezone.localdate())
     otgan = (bugun_oy.year - c.boshlanish_oy.year) * 12 + (bugun_oy.month - c.boshlanish_oy.month)
+    doimiy = c.oylar_soni == 0
     return {
         "id": c.id, "azolik_moliya_id": c.azolik_id, "narx": c.narx, "boshlanish_oy": c.boshlanish_oy,
-        "oxirgi_oy": oxirgi_oy, "oylar_soni": c.oylar_soni,
-        "qolgan_oylar": max(0, min(c.oylar_soni, c.oylar_soni - max(0, otgan))),
+        "oxirgi_oy": None if doimiy else oxirgi_oy, "oylar_soni": c.oylar_soni, "doimiy": doimiy,
+        "qolgan_oylar": None if doimiy else max(0, min(c.oylar_soni, c.oylar_soni - max(0, otgan))),
         "izoh": c.izoh, "kim": _ism(c.kim) if c.kim_id else None, "vaqt": c.created_at,
     }
 
@@ -1382,7 +1421,10 @@ def _chegirma_oylarini_qayta_hisobla(am, boshlanish_oy, oylar_soni):
     yangi narx bilan qayta hisoblanadi (kelgusilari generatsiyada o'zi
     oladi). To'langan oyga tegilmaydi — `azolikni_qayta_hisobla` qoidasi."""
     oy = boshlanish_oy
-    for _ in range(oylar_soni):
+    # Doimiy chegirma (0 oy) — joriy oygacha ochilgan hamma oylar.
+    oxirgi = mantiq.oy_boshi(timezone.localdate())
+    soni = oylar_soni or max(1, (oxirgi.year - oy.year) * 12 + oxirgi.month - oy.month + 1)
+    for _ in range(soni):
         mantiq.azolikni_qayta_hisobla(am, oy)
         oy = mantiq.keyingi_oy(oy)
 
@@ -1417,15 +1459,32 @@ class GuruhChegirmalariView(CrmView):
             return _xato("Chegirma berishga ruxsat yo'q", kod=403)
         am = get_object_or_404(AzolikMoliya, pk=request.data.get("azolik_moliya_id"), azolik__guruh_id=pk)
         try:
-            narx = _son(request.data.get("narx"), "narx")
             oy = _oy(request.data.get("boshlanish_oy") or timezone.localdate().strftime("%Y-%m"), "boshlanish_oy")
-            oylar = int(request.data.get("oylar_soni") or 1)
+            xom_oylar = request.data.get("oylar_soni")
+            oylar = 1 if xom_oylar in (None, "") else int(xom_oylar)
+            # Video (28:05): chegirma SUMMADA (narxdan ayiriladi) yoki
+            # FOIZDA beriladi; yoki to'g'ridan-to'g'ri yangi narx.
+            if request.data.get("foiz") not in (None, ""):
+                foiz = _son(request.data["foiz"], "foiz")
+                if not 0 <= foiz <= 100:
+                    raise ValueError("Foiz 0..100 oralig'ida bo'lsin")
+                asl = am.narx if am.narx is not None else mantiq.guruh_narxi(am.azolik.guruh)[0]
+                if asl is None:
+                    raise ValueError("Guruh narxi belgilanmagan")
+                narx = (asl * (Decimal(100) - foiz) / Decimal(100)).quantize(Decimal("1"))
+            elif request.data.get("chegirma_summasi") not in (None, ""):
+                asl = am.narx if am.narx is not None else mantiq.guruh_narxi(am.azolik.guruh)[0]
+                if asl is None:
+                    raise ValueError("Guruh narxi belgilanmagan")
+                narx = asl - _son(request.data["chegirma_summasi"], "chegirma_summasi")
+            else:
+                narx = _son(request.data.get("narx"), "narx")
         except (ValueError, TypeError) as e:
             return _xato(str(e))
         if narx < 0:
-            return _xato("Narx manfiy bo'lmasin")
-        if not 1 <= oylar <= 24:
-            return _xato("Oylar soni 1..24")
+            return _xato("Chegirma narxdan katta bo'lmasin")
+        if not 0 <= oylar <= 24:
+            return _xato("Oylar soni 0..24 (0 — doimiy)")
         with transaction.atomic():
             c = Chegirma.objects.create(azolik=am, narx=narx, boshlanish_oy=oy, oylar_soni=oylar,
                                         izoh=(request.data.get("izoh") or "").strip()[:300], kim=request.user)
@@ -1495,9 +1554,9 @@ class KorsatkichlarView(CrmView):
                 if sana and bugun <= sana <= chegara:
                     tolov_yaqin += 1
 
-        oy_ketgan = AzolikMoliya.objects.filter(tugash_sana__gte=oy, tugash_sana__lte=bugun)
+        oy_ketgan = GuruhdanChiqish.objects.filter(sana__gte=oy, sana__lte=bugun)
         if filial:
-            oy_ketgan = oy_ketgan.filter(azolik__guruh__moliya__filial_id=filial)
+            oy_ketgan = oy_ketgan.filter(filial_id=filial)
 
         oqituvchilar = User.objects.filter(role=User.Role.TEACHER, is_active=True)
 

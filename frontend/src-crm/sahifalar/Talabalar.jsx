@@ -7,13 +7,14 @@ import Eslatmalar from "../Eslatmalar.jsx";
 import { useFilial } from "../filialContext.jsx";
 import { useProfil } from "../profilContext.jsx";
 import { balansMatn, balansSinfi, pul, sana, vaqt } from "../format.js";
-import { api, apiFayluniYuklab } from "../api.js";
+import { api, apiFaylYubor, apiFayluniYuklab } from "../api.js";
 import { useI18n } from "../i18n.jsx";
 import { sorovSatri, useSorov } from "../soragich.js";
 import { TalabaQoshishOynasi } from "../GuruhOynalari.jsx";
 import { useRuxsat } from "../profilContext.jsx";
 import QaytarishOynasi from "../QaytarishOynasi.jsx";
 import TolovOynasi from "../TolovOynasi.jsx";
+import UsulTanlash from "../TolovUsuli.jsx";
 
 const KUN_KALITLARI = [
   "kun_dushanba", "kun_seshanba", "kun_chorshanba",
@@ -81,6 +82,7 @@ function TolovTahrirOynasi({ tolov, onYopish, onSaqlandi }) {
   const [summa, setSumma] = useState(String(Number(tolov.summa)));
   const [sanaQ, setSanaQ] = useState(String(tolov.sana).slice(0, 10));
   const [izoh, setIzoh] = useState(tolov.izoh || "");
+  const [usul, setUsul] = useState(tolov.usul || "naqd");
   const [xato, setXato] = useState("");
   const [band, setBand] = useState(false);
 
@@ -90,7 +92,7 @@ function TolovTahrirOynasi({ tolov, onYopish, onSaqlandi }) {
     try {
       await api(`/api/crm/tolov/${tolov.id}/`, {
         method: "PATCH",
-        body: { summa, sana: sanaQ, izoh },
+        body: { summa, sana: sanaQ, izoh, ...(["tolov", "qaytarish"].includes(tolov.turi) ? { usul } : {}) },
       });
       onSaqlandi();
       onYopish();
@@ -118,10 +120,124 @@ function TolovTahrirOynasi({ tolov, onYopish, onSaqlandi }) {
           {t("izoh")}
           <input type="text" value={izoh} onChange={(e) => setIzoh(e.target.value)} />
         </label>
+        {["tolov", "qaytarish"].includes(tolov.turi) && <UsulTanlash qiymat={usul} onChange={setUsul} />}
         {xato && <div className="xato">{xato}</div>}
         <div className="oyna-tugmalar">
           <button className="tugma tugma-sokin" type="button" onClick={onYopish}>{t("bekor")}</button>
           <button className="tugma" type="button" onClick={saqla} disabled={band}>{t("saqlash")}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Qarzdorlikni tahrirlash (video 20:30) — faqat owner ─────────────
+
+function HisobTahrirOynasi({ hisob, onYopish, onSaqlandi }) {
+  const { t } = useI18n();
+  const [summa, setSumma] = useState(String(Number(hisob.summa)));
+  const [izoh, setIzoh] = useState(hisob.izoh || "");
+  const [xato, setXato] = useState("");
+  async function saqla() {
+    setXato("");
+    try {
+      await api(`/api/crm/hisoblar/${hisob.id}/`, { method: "PATCH", body: { summa, izoh } });
+      onSaqlandi();
+      onYopish();
+    } catch (e) {
+      setXato(e.message || "Xato");
+    }
+  }
+  return (
+    <div className="oyna-fon" role="dialog" aria-modal="true">
+      <div className="karta oyna">
+        <h2>{t("qarzdorlikni_tahrirlash")}</h2>
+        <p className="kichik">{hisob.guruh} · {String(hisob.oy).slice(0, 7)}</p>
+        <label>{t("summa")}<input type="number" min="0" step="1000" value={summa} onChange={(e) => setSumma(e.target.value)} /></label>
+        <label>{t("izoh")}<textarea rows={3} value={izoh} onChange={(e) => setIzoh(e.target.value)} maxLength={300} /></label>
+        {xato && <div className="xato">{xato}</div>}
+        <div className="oyna-tugmalar">
+          <button className="tugma tugma-sokin" type="button" onClick={onYopish}>{t("bekor")}</button>
+          <button className="tugma" type="button" onClick={saqla}>{t("saqlash")}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── O'quvchi tarixi (SoffCRM "O'QUVCHI TARIX" tabi) ─────────────────
+
+function TalabaTarixi({ talabaId }) {
+  const { t } = useI18n();
+  const { malumot, yuklanmoqda } = useSorov(`/api/crm/talaba/${talabaId}/tarix/`);
+  if (yuklanmoqda && !malumot) return <p className="kichik">{t("yuklanmoqda")}</p>;
+  return (
+    <ul className="eslatma-royxat">
+      {(malumot || []).map((v, i) => (
+        <li key={i}>
+          <div className="eslatma-matn"><b>{v.turi}</b>{v.matn ? ` — ${v.matn}` : ""}</div>
+          <div className="eslatma-past kichik">{v.kim || "—"} · {vaqt(v.vaqt)}</div>
+        </li>
+      ))}
+      {(malumot || []).length === 0 && <li className="kichik">{t("yozuv_yoq")}</li>}
+    </ul>
+  );
+}
+
+// ── Excel orqali qo'shish ───────────────────────────────────────────
+
+function ImportOynasi({ onYopish, onSaqlandi }) {
+  const { t } = useI18n();
+  const [fayl, setFayl] = useState(null);
+  const [natija, setNatija] = useState(null);
+  const [xato, setXato] = useState("");
+  const [band, setBand] = useState(false);
+  async function yubor() {
+    setXato("");
+    setBand(true);
+    try {
+      const fd = new FormData();
+      fd.append("excel_fayl", fayl);
+      const javob = await apiFaylYubor("/api/crm/talabalar/import/", fd);
+      setNatija(javob);
+      onSaqlandi();
+    } catch (e) {
+      setXato(e.message);
+    } finally {
+      setBand(false);
+    }
+  }
+  return (
+    <div className="oyna-fon" role="dialog" aria-modal="true">
+      <div className="karta oyna oyna-keng">
+        <h2>{t("excel_orqali_qoshish")}</h2>
+        {natija ? (
+          <>
+            <p>✅ {t("qoshildi")}: {natija.qoshildi.length}</p>
+            {natija.qoshildi.length > 0 && (
+              <>
+                <p className="kichik">{t("login_parol_eslatma")}</p>
+                <ul className="login-royxat">
+                  {natija.qoshildi.map((x) => (
+                    <li key={x.username}><b>{x.ism}</b> — <code>{x.username}</code> / <code>{x.parol}</code></li>
+                  ))}
+                </ul>
+              </>
+            )}
+            {natija.xatolar.length > 0 && (
+              <ul className="xato">{natija.xatolar.map((x) => <li key={x.qator}>{x.qator}: {x.xato}</li>)}</ul>
+            )}
+          </>
+        ) : (
+          <>
+            <p className="kichik">{t("excel_format_talaba")}</p>
+            <input type="file" accept=".xlsx" onChange={(e) => setFayl(e.target.files?.[0] || null)} />
+          </>
+        )}
+        {xato && <div className="xato">{xato}</div>}
+        <div className="oyna-tugmalar">
+          <button className="tugma tugma-sokin" type="button" onClick={onYopish}>{t("yopish")}</button>
+          {!natija && <button className="tugma" type="button" disabled={!fayl || band} onClick={yubor}>{t("yuklash")}</button>}
         </div>
       </div>
     </div>
@@ -375,6 +491,8 @@ function Karta({ talabaId, onOrqaga }) {
   const { malumot, yuklanmoqda, xato, yangila } = useSorov(`/api/crm/talaba/${talabaId}/`);
   const [guruhgaQoshish, setGuruhgaQoshish] = useState(false);
   const [parol, setParol] = useState(null);
+  const [pastkiTab, setPastkiTab] = useState("eslatmalar");
+  const [tahrirHisobi, setTahrirHisobi] = useState(null);
   const [tolovHisobi, setTolovHisobi] = useState(null);
   const [qaytarishGuruhi, setQaytarishGuruhi] = useState(null);
   const [tahrirTolovi, setTahrirTolovi] = useState(null);
@@ -518,6 +636,23 @@ function Karta({ talabaId, onOrqaga }) {
           <span className="kichik">{t("umumiy_balans")}</span>
           <b className={balansSinfi(talaba.balans_jami)}>{balansMatn(talaba.balans_jami)}</b>
         </div>
+        {/* SoffCRM "Ilova holati" o'rnida — saytdan foydalanadimi. */}
+        <div className="qator">
+          <span className="kichik">{t("sayt_holati")}</span>
+          <span className={talaba.sayt?.oxirgi_kirish ? "rang-tolandi" : "rang-qarzdor"}>
+            {talaba.sayt?.oxirgi_kirish
+              ? `${t("saytga_kirgan")} · ${vaqt(talaba.sayt.oxirgi_faollik || talaba.sayt.oxirgi_kirish)}`
+              : t("saytga_kirmagan")}
+          </span>
+        </div>
+        <div className="qator">
+          <span className="kichik">{t("ota_ona_hisobi")}</span>
+          <span>{talaba.ota_ona?.id ? `${talaba.ota_ona.ism} (${talaba.ota_ona.username})` : "—"}</span>
+        </div>
+        <div className="qator">
+          <span className="kichik">{t("ortacha_baho")}</span>
+          <b>{talaba.ortacha_baho ?? "—"}</b>
+        </div>
       </div>
 
       {tahrir && (
@@ -619,8 +754,18 @@ function Karta({ talabaId, onOrqaga }) {
       })}
 
       <div className="karta">
-        <h2>{t("tab_eslatmalar")}</h2>
-        <Eslatmalar talabaId={talaba.id} profilId={profil?.id} />
+        <div className="tablar">
+          {["eslatmalar", "tarix"].map((x) => (
+            <button key={x} type="button" className={pastkiTab === x ? "tab faol" : "tab"} onClick={() => setPastkiTab(x)}>
+              {t(x === "tarix" ? "oquvchi_tarixi" : "tab_eslatmalar")}
+            </button>
+          ))}
+        </div>
+        {pastkiTab === "eslatmalar" ? (
+          <Eslatmalar talabaId={talaba.id} profilId={profil?.id} eslatishVaqti />
+        ) : (
+          <TalabaTarixi talabaId={talaba.id} />
+        )}
       </div>
 
       {/* To'lov tarixi — SoffCRM'dagidek BITTA jadval: to'lovlar va
@@ -696,6 +841,10 @@ function Karta({ talabaId, onOrqaga }) {
                           {t("tolov_qilish")}
                         </button>
                       )}
+                      {hisobQatori && hisob && profil?.is_owner && (
+                        <button className="havola" type="button" title={t("qarzdorlikni_tahrirlash")}
+                                onClick={() => setTahrirHisobi(hisob)}>✎</button>
+                      )}
                       {!hisobQatori && profil?.is_owner && (
                         <>
                           <button className="havola" type="button" title={t("tahrirlash")}
@@ -725,6 +874,9 @@ function Karta({ talabaId, onOrqaga }) {
             if (!yopmasdan) setTolovHisobi(null);
           }}
         />
+      )}
+      {tahrirHisobi && (
+        <HisobTahrirOynasi hisob={tahrirHisobi} onYopish={() => setTahrirHisobi(null)} onSaqlandi={yangilaHammasi} />
       )}
       {tahrirTolovi && (
         <TolovTahrirOynasi
@@ -758,6 +910,13 @@ export default function Talabalar() {
   // Qo'shimcha filtr (video-TZ): qarzdorlar / qora ro'yxat / guruhsizlar.
   const [filtr, setFiltr] = useState("");
   const [yangiOyna, setYangiOyna] = useState(false);
+  const [importOyna, setImportOyna] = useState(false);
+  // Video (17:15): guruh, ustoz, kurs, maktab filtrlari.
+  const [guruhF, setGuruhF] = useState("");
+  const [ustozF, setUstozF] = useState("");
+  const [kursF, setKursF] = useState("");
+  const [maktabF, setMaktabF] = useState("");
+  const guruhlarF = useSorov("/api/crm/guruhlar/" + sorovSatri({ filial: tanlangan }));
   const ruxsat = useRuxsat();
   // `?talaba=ID` — LMS Talabalar kartasidagi "CRM'da ochish" va bosh
   // sahifadagi qarzdorlar ro'yxatidan kelganda karta darhol ochiladi.
@@ -778,13 +937,14 @@ export default function Talabalar() {
   // muzlatilgan talabaga hisob ochilmaydi, lekin ular ham ko'rinishi
   // kerak — aks holda admin ularni topa olmaydi va holatini
   // o'zgartira olmaydi.
-  const { malumot, yuklanmoqda, xato, yangila } = useSorov(
-    "/api/crm/talabalar/" + sorovSatri({
-      filial: tanlangan, q: qidiruv, holat,
-      qarzdor: filtr === "qarzdor" ? 1 : "", qora_royxat: filtr === "qora_royxat" ? 1 : "",
-      guruhsiz: filtr === "guruhsiz" ? 1 : "",
-    })
-  );
+  const filtrSatri = sorovSatri({
+    filial: tanlangan, q: qidiruv, holat,
+    qarzdor: filtr === "qarzdor" ? 1 : "", qora_royxat: filtr === "qora_royxat" ? 1 : "",
+    guruhsiz: filtr === "guruhsiz" ? 1 : "",
+    guruh: guruhF, oqituvchi: ustozF, kurs: kursF, maktab: maktabF,
+  });
+  const { malumot, yuklanmoqda, xato, yangila } = useSorov("/api/crm/talabalar/" + filtrSatri);
+  const [eksportXato, setEksportXato] = useState("");
 
   // Holat SoffCRM'dagidek ro'yxatdan ham o'zgaradi (guruh kartasiga
   // kirmasdan). Backend `AzolikView` chiqish/muzlatishda joriy oyni
@@ -797,14 +957,31 @@ export default function Talabalar() {
   if (ochilgan) return <Karta talabaId={ochilgan} onOrqaga={() => setOchilgan(null)} />;
 
   const royxat = malumot || [];
+  // "Qarzdor: 2 990 000 so'm" (video 23:50) — ro'yxatdagilar qarzi yig'indisi.
+  const jamiQarz = royxat.reduce((s, x) => s + Math.min(0, Number(x.balans || 0)), 0);
+  const guruhVariantlari = guruhlarF.malumot || [];
 
   return (
     <section>
       <div className="karta-sarlavha">
-        <h1>{t("talabalar")}</h1>
-        {ruxsat("talabalar.qoshish") && (
-          <button className="tugma" type="button" onClick={() => setYangiOyna(true)}>+ {t("yangi_oquvchi")}</button>
-        )}
+        <h1>
+          {t("talabalar")} <span className="belgi">{royxat.length}</span>{" "}
+          {jamiQarz < 0 && <span className="holat holat-qarzdor">{t("qarzdor")}: {pul(-jamiQarz)}</span>}
+        </h1>
+        <div className="tezkor-amallar">
+          {ruxsat("talabalar.excel") && (
+            <button className="tugma tugma-sokin" type="button"
+                    onClick={() => apiFayluniYuklab("/api/crm/talabalar/eksport/" + filtrSatri).catch((e) => setEksportXato(e.message))}>
+              ⬇ Excel
+            </button>
+          )}
+          {ruxsat("talabalar.qoshish") && (
+            <>
+              <button className="tugma tugma-sokin" type="button" onClick={() => setImportOyna(true)}>⬆ {t("excel_orqali_qoshish")}</button>
+              <button className="tugma" type="button" onClick={() => setYangiOyna(true)}>+ {t("yangi_oquvchi")}</button>
+            </>
+          )}
+        </div>
       </div>
 
       <div className="filtrlar">
@@ -821,10 +998,27 @@ export default function Talabalar() {
           <option value="guruhsiz">{t("guruhsizlar")}</option>
           <option value="qora_royxat">{t("qora_royxat")}</option>
         </select>
-        <span className="kichik">{royxat.length}</span>
+        <select value={guruhF} onChange={(e) => setGuruhF(e.target.value)} aria-label={t("guruh")}>
+          <option value="">{t("guruh")}: {t("hammasi")}</option>
+          {guruhVariantlari.map((g) => <option key={g.id} value={g.id}>{g.nomi}</option>)}
+        </select>
+        <select value={ustozF} onChange={(e) => setUstozF(e.target.value)} aria-label={t("oqituvchi")}>
+          <option value="">{t("oqituvchi")}: {t("hammasi")}</option>
+          {[...new Map(guruhVariantlari.filter((g) => g.oqituvchi).map((g) => [g.oqituvchi, g])).keys()].map((o) => {
+            const g = guruhVariantlari.find((x) => x.oqituvchi === o);
+            return <option key={o} value={g.oqituvchi_id ?? ""}>{o}</option>;
+          })}
+        </select>
+        <select value={kursF} onChange={(e) => setKursF(e.target.value)} aria-label={t("kurs")}>
+          <option value="">{t("kurs")}: {t("hammasi")}</option>
+          {[...new Map(guruhVariantlari.filter((g) => g.daraja).map((g) => [g.daraja.id, g.daraja.nomi])).entries()].map(([id, nomi]) => (
+            <option key={id} value={id}>{nomi}</option>
+          ))}
+        </select>
+        <input placeholder={t("maktab")} value={maktabF} onChange={(e) => setMaktabF(e.target.value)} style={{ maxWidth: 140 }} />
       </div>
 
-      {xato && <div className="xato">{xato}</div>}
+      {(xato || eksportXato) && <div className="xato">{xato || eksportXato}</div>}
       {yuklanmoqda && <p className="kichik">{t("yuklanmoqda")}</p>}
 
       <div className="karta jadval-oram">
@@ -833,6 +1027,7 @@ export default function Talabalar() {
             <tr>
               <th>{t("talaba")}</th>
               <th>{t("telefon")}</th>
+              <th>{t("izoh")}</th>
               <th>{t("guruhlar")} / {t("holat")}</th>
               <th className="ongga">{t("balans")}</th>
               <th className="ongga">{t("harakatlar")}</th>
@@ -848,6 +1043,7 @@ export default function Talabalar() {
                   {x.qora_royxat && <span className="holat holat-qarzdor"> {t("qora_royxat")}</span>}
                 </td>
                 <td>{x.telefon || "—"}</td>
+                <td className="kichik">{x.izoh || "—"}</td>
                 <td>
                   {x.guruhlar.map((g) => (
                     <span key={g.azolik_moliya_id} className="guruh-belgi">
@@ -894,13 +1090,14 @@ export default function Talabalar() {
               </tr>
             ))}
             {!yuklanmoqda && royxat.length === 0 && (
-              <tr><td colSpan={5} className="bosh">{t("yozuv_yoq")}</td></tr>
+              <tr><td colSpan={6} className="bosh">{t("yozuv_yoq")}</td></tr>
             )}
           </tbody>
         </table>
       </div>
 
       {yangiOyna && <YangiTalabaOynasi onYopish={() => setYangiOyna(false)} onSaqlandi={yangila} />}
+      {importOyna && <ImportOynasi onYopish={() => setImportOyna(false)} onSaqlandi={yangila} />}
       {qaytarish && (
         <QaytarishOynasi
           talabaId={qaytarish.talaba.id}

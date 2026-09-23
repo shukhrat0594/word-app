@@ -17,6 +17,12 @@ function vaqtMatni(qiymat) {
   return `${ikki(d.getDate())}.${ikki(d.getMonth() + 1)}.${d.getFullYear()} ${ikki(d.getHours())}:${ikki(d.getMinutes())}`;
 }
 
+function mahalliyVaqt(qiymat) {
+  const d = new Date(qiymat);
+  const ikki = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${ikki(d.getMonth() + 1)}-${ikki(d.getDate())}T${ikki(d.getHours())}:${ikki(d.getMinutes())}`;
+}
+
 export default function Eslatmalar({ guruhId, talabaId, lidId, profilId, eslatishVaqti = false }) {
   const { t } = useI18n();
   const [matn, setMatn] = useState("");
@@ -48,6 +54,23 @@ export default function Eslatmalar({ guruhId, talabaId, lidId, profilId, eslatis
       setXato(e.message || "Xato");
     } finally {
       setBand(false);
+    }
+  }
+
+  // Tahrirlash (video 09:05, "Eslatmani tahrirlash") — faqat o'zinikini.
+  const [tahrir, setTahrir] = useState(null); // {id, matn, vaqt}
+
+  async function tahrirSaqla() {
+    setXato("");
+    try {
+      await api(`/api/crm/eslatmalar/${tahrir.id}/`, {
+        method: "PATCH",
+        body: { matn: tahrir.matn, eslatish_vaqti: tahrir.vaqt || null },
+      });
+      setTahrir(null);
+      yangila();
+    } catch (e) {
+      setXato(e.message || "Xato");
     }
   }
 
@@ -91,7 +114,20 @@ export default function Eslatmalar({ guruhId, talabaId, lidId, profilId, eslatis
       <ul className="eslatma-royxat">
         {eslatmalar.map((e) => (
           <li key={e.id}>
+            {tahrir?.id === e.id ? (
+              <div className="eslatma-yozish">
+                <textarea rows={2} value={tahrir.matn} maxLength={2000}
+                          onChange={(ev) => setTahrir((x) => ({ ...x, matn: ev.target.value }))} />
+                <input type="datetime-local" value={tahrir.vaqt} aria-label={t("eslatish_vaqti")}
+                       onChange={(ev) => setTahrir((x) => ({ ...x, vaqt: ev.target.value }))} />
+                <button className="tugma" type="button" onClick={tahrirSaqla} disabled={!tahrir.matn.trim()}>
+                  {t("saqlash")}
+                </button>
+                <button className="tugma tugma-sokin" type="button" onClick={() => setTahrir(null)}>✕</button>
+              </div>
+            ) : (
             <div className="eslatma-matn">{e.matn}</div>
+            )}
             {e.eslatish_vaqti && <div className="kichik">⏰ {vaqtMatni(e.eslatish_vaqti)}</div>}
             <div className="eslatma-past">
               <span className="kichik">
@@ -102,9 +138,18 @@ export default function Eslatmalar({ guruhId, talabaId, lidId, profilId, eslatis
                   ruxsat beradi), lekin tugma ko'rsatilmaydi — hamkasb
                   izohini tasodifan yo'q qilib qo'ymasin. */}
               {e.kim_id === profilId && (
-                <button className="havola" type="button" onClick={() => ochir(e.id)}>
-                  {t("ochirish")}
-                </button>
+                <span>
+                  <button className="havola" type="button" onClick={() => setTahrir({
+                    id: e.id, matn: e.matn,
+                    // <input type=datetime-local> mahalliy vaqtni "YYYY-MM-DDTHH:MM" ko'rinishida kutadi.
+                    vaqt: e.eslatish_vaqti ? mahalliyVaqt(e.eslatish_vaqti) : "",
+                  })}>
+                    {t("tahrirlash")}
+                  </button>{" "}
+                  <button className="havola" type="button" onClick={() => ochir(e.id)}>
+                    {t("ochirish")}
+                  </button>
+                </span>
               )}
             </div>
           </li>

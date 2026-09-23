@@ -51,7 +51,22 @@ Format (qat'iy, parser shunga tayanadi):
   darsidagilar, to'lovi yaqinlar va h.k.) va "Markaz foydaliligi".
   Raqamlar boshida yashirin turadi — "Raqamlarni ko'rish" tugmasi bilan
   ochiladi. Vaqti kelgan eslatmalaringiz ham shu yerda chiqadi.
-- **To'lovda usul tanlanadi**: naqd, karta, Click, Payme yoki o'tkazma.
+- **To'lovda usul tanlanadi**: naqd, karta, Click, Payme, yagona QR-kod,
+  o'tkazma yoki voucher.
+- **Lidlar bo'limlarga (doskalarga) ajraladi** ("LEADS", "LEADS uzb"...),
+  har birining o'z ustunlari bor; ustunni guruhga bog'lash mumkin.
+  Lidda "harorat" (issiq/iliq/sovuq), yoshi va "Bog'lana olmadi" holati
+  bor. Lidlar, o'quvchilar, guruhlar, xodimlar va davomat Excel'ga
+  yuklab olinadi; o'quvchilarni Excel orqali qo'shish mumkin.
+- **Guruhda**: dars mavzulari, "hammasi keldi" tugmasi, sinovdagilarni
+  bir bosishda faollashtirish, guruhdan chiqqanlar ro'yxati (sababi
+  bilan). Chegirma summada yoki foizda beriladi, "0 oy" — doimiy.
+- **O'quvchi kartasida**: saytga kirgan-kirmagani, ota-ona hisobi,
+  o'rtacha baho va o'quvchi tarixi. Qarzdorlikni izoh bilan tuzatish
+  mumkin (faqat owner).
+- **Yangi hisobotlar**: to'lovlar (usul va kun bo'yicha), lidlar (manba
+  va konversiya), ketgan o'quvchilar, bitiruvchilar. Xodimlar davomati
+  va "Harakatlar tarixi" (kim, qachon, nimani o'zgartirdi) qo'shildi.
 
 ## 2026-08-09 — Rollar va panel ruxsatlari
 

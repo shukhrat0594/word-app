@@ -346,6 +346,9 @@ class Hisob(models.Model):
         default=False,
         help_text="Admin qo'lda kiritgan (boshlang'ich qarz), avtomatik generatsiya emas",
     )
+    # Video (20:30, 22:25): "Qarzdorlikni tahrirlash" oynasida izoh —
+    # "Sentabrda 4 ta darsga keladi".
+    izoh = models.CharField(max_length=300, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -424,6 +427,8 @@ class Tolov(models.Model):
         CLICK = "click", "Click"
         PAYME = "payme", "Payme"
         OTKAZMA = "otkazma", "Bank o'tkazmasi"
+        QR = "qr", "Yagona QR-kod"
+        VOUCHER = "voucher", "Voucher"
 
     sana = models.DateField(help_text="Pul haqiqatda kelgan/chiqqan sana")
     summa = models.DecimalField(max_digits=12, decimal_places=2)
@@ -543,6 +548,22 @@ class Sozlama(models.Model):
 # ═════════════════════════════════════════════════════════════════════
 
 
+class LidDoska(models.Model):
+    """Lidlar doskasi (SoffCRM'dagi "Bo'lim": "LEADS", "LEADS uzb",
+    "Beg"...). Har doskada o'z ustunlari (`LidBolim`) bor — "Bo'lim
+    yaratish" doska ochadi, "Qo'shimcha ustun qo'shish" esa ustun."""
+
+    nomi = models.CharField(max_length=100)
+    tartib = models.PositiveSmallIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["tartib", "id"]
+
+    def __str__(self):
+        return self.nomi
+
+
 class LidBolim(models.Model):
     """Lidlar kanbanidagi ustun ("New leads", "Beginner", "Rus tili"...).
 
@@ -553,6 +574,14 @@ class LidBolim(models.Model):
 
     nomi = models.CharField(max_length=100)
     tartib = models.PositiveSmallIntegerField(default=0)
+    doska = models.ForeignKey(
+        LidDoska, on_delete=models.CASCADE, null=True, blank=True, related_name="ustunlar",
+    )
+    # Ustun guruhga bog'lansa (video 05:40: ustun nomi guruhlardan
+    # tanlanadi), "Guruhga qo'shish" shu guruhni taklif qiladi.
+    guruh = models.ForeignKey(
+        "academics.Guruh", on_delete=models.SET_NULL, null=True, blank=True, related_name="+",
+    )
     filial = models.ForeignKey(
         Filial, on_delete=models.SET_NULL, null=True, blank=True, related_name="lid_bolimlari"
     )
@@ -578,6 +607,7 @@ class Lid(models.Model):
     class Holat(models.TextChoices):
         YANGI = "yangi", "Yangi"
         BOGLANILDI = "boglanildi", "Bog'lanildi"
+        BOGLANA_OLMADI = "boglana_olmadi", "Bog'lana olmadi"
         SINOV = "sinov", "Sinov darsida"
         KELMADI = "kelmadi", "Kelmadi"
         OYLAYAPTI = "oylayapti", "O'ylayapti"
@@ -595,7 +625,12 @@ class Lid(models.Model):
     bolim = models.ForeignKey(
         LidBolim, on_delete=models.SET_NULL, null=True, blank=True, related_name="lidlar"
     )
-    holat = models.CharField(max_length=12, choices=Holat.choices, default=Holat.YANGI, db_index=True)
+    holat = models.CharField(max_length=16, choices=Holat.choices, default=Holat.YANGI, db_index=True)
+    # Lid "harorati" (video 08:15, lid kartasi): qanchalik tayyor.
+    harorat = models.CharField(
+        max_length=6, blank=True,
+        choices=[("issiq", "Issiq"), ("iliq", "Iliq"), ("sovuq", "Sovuq")],
+    )
     filial = models.ForeignKey(
         Filial, on_delete=models.SET_NULL, null=True, blank=True, related_name="lidlar"
     )
@@ -874,3 +909,68 @@ class Chegirma(models.Model):
     class Meta:
         ordering = ["-boshlanish_oy", "-id"]
         verbose_name_plural = "Chegirmalar"
+
+
+class DarsMavzusi(models.Model):
+    """Dars mavzusi (SoffCRM davomat jadvalidagi "Mavzular" qatori)."""
+
+    guruh = models.ForeignKey("academics.Guruh", on_delete=models.CASCADE, related_name="crm_mavzular")
+    sana = models.DateField()
+    mavzu = models.CharField(max_length=200)
+    kim = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["guruh", "sana"], name="crm_mavzu_unikal")]
+
+
+class XodimDavomat(models.Model):
+    """Xodimlar davomati (SoffCRM "Xodimlar davomati" tugmasi va
+    hisoboti): kuniga bitta yozuv."""
+
+    class Holat(models.TextChoices):
+        KELDI = "keldi", "Keldi"
+        KECHIKDI = "kechikdi", "Kechikdi"
+        KELMADI = "kelmadi", "Kelmadi"
+        SABABLI = "sababli", "Sababli"
+
+    xodim = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="crm_davomat")
+    sana = models.DateField()
+    holat = models.CharField(max_length=10, choices=Holat.choices)
+    izoh = models.CharField(max_length=300, blank=True)
+    kim = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["xodim", "sana"], name="crm_xodim_davomat_unikal")]
+
+
+class GuruhdanChiqish(models.Model):
+    """Guruhdan chiqqan o'quvchi yozuvi ("Ketgan o'quvchilar hisoboti" va
+    bosh sahifadagi "Ketganlar" soni uchun).
+
+    Kerak, chunki chiqarishda LMS a'zoligi (`GuruhAzoligi`) o'chadi va u
+    bilan `AzolikMoliya` ham — ya'ni kim, qachon, nega ketgani boshqa
+    hech qayerda qolmaydi. SET_NULL + nom nusxasi — `Hisob` bilan bir xil
+    sabab: talaba yoki guruh keyin o'chsa ham yozuv o'qiladi.
+    """
+
+    talaba = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="crm_chiqishlari"
+    )
+    talaba_ism = models.CharField(max_length=200)
+    guruh = models.ForeignKey("academics.Guruh", on_delete=models.SET_NULL, null=True, related_name="+")
+    guruh_nomi = models.CharField(max_length=200)
+    filial = models.ForeignKey(Filial, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    boshlagan_sana = models.DateField(null=True, blank=True)
+    sana = models.DateField(help_text="Chiqqan sana")
+    sabab = models.CharField(max_length=300, blank=True)
+    kim = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-sana", "-id"]
