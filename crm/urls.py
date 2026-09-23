@@ -25,6 +25,7 @@ urlpatterns = [
     path("guruhlar/<int:pk>/moliya/", views.GuruhMoliyaView.as_view(), name="guruh_moliya"),
     path("guruhlar/<int:pk>/jadval/", views.GuruhJadvalView.as_view(), name="guruh_jadval"),
     path("guruhlar/<int:pk>/azoliklar/", views.GuruhAzoliklariView.as_view(), name="guruh_azoliklari"),
+    path("guruhlar/<int:pk>/unitlar/", views.GuruhUnitlariView.as_view(), name="guruh_unitlari"),
     # Davomat (2026-09-23, video-TZ) — CRM'dan ham BELGILANADI, yozuv
     # o'sha LMS `Davomat` jadvaliga tushadi (bitta manba). Natijalar —
     # faqat o'qish (mashqlar LMS'da yechiladi).

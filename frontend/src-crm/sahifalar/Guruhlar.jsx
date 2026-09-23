@@ -32,6 +32,10 @@ function Azolar({ guruhId, onOzgardi }) {
   const { t } = useI18n();
   const ruxsat = useRuxsat();
   const { malumot, yuklanmoqda, yangila } = useSorov(`/api/crm/guruhlar/${guruhId}/azoliklar/`);
+  // Boshlanish uniti (saytdagi Kurslar bo'limida qaysi Unit'dan boshlaydi).
+  // Guruhda daraja bo'lmasa ro'yxat bo'sh — ustun ko'rinmaydi.
+  const unitlar = useSorov(`/api/crm/guruhlar/${guruhId}/unitlar/`);
+  const unitRoyxati = unitlar.malumot || [];
   // Guruhdan chiqarish (2026-09-23): endi CRM'da — chiqish sanasigacha
   // joriy oy qayta hisoblanadi, a'zolik o'chadi, pul tarixi qoladi.
   //
@@ -135,6 +139,7 @@ function Azolar({ guruhId, onOzgardi }) {
             <th>{t("telefon")}</th>
             <th>{t("holat")}</th>
             {sanaKorsin && <th>{t("boshlanish_sana")}</th>}
+            {unitRoyxati.length > 0 && <th title={t("boshlanish_uniti_izoh")}>{t("boshlanish_uniti")}</th>}
             <th>{t("narx")}</th>
             {balansKorsin && <th className="ongga">{t("balans")}</th>}
             <th />
@@ -163,6 +168,16 @@ function Azolar({ guruhId, onOzgardi }) {
                   />
                 </td>
               )}
+              {unitRoyxati.length > 0 && (
+                <td>
+                  <select value={a.boshlanish_unit_id ?? ""} disabled={!ruxsat("guruhlar.tahrirlash")}
+                          title={t("boshlanish_uniti_izoh")} aria-label={t("boshlanish_uniti")}
+                          onChange={(e) => ozgartir(a.id, "boshlanish_unit_id", e.target.value || null)}>
+                    <option value="">{t("boshlanish_uniti_standart")}</option>
+                    {unitRoyxati.map((u) => <option key={u.id} value={u.id}>{u.nomi}</option>)}
+                  </select>
+                </td>
+              )}
               <td>
                 {a.narx_talabaga ? pul(a.narx_talabaga) : pul(a.narx)}{" "}
                 <NarxManbasi manba={a.narx_manbasi} />
@@ -178,7 +193,7 @@ function Azolar({ guruhId, onOzgardi }) {
             </tr>
           ))}
           {azolar.length === 0 && (
-            <tr><td colSpan={7} className="bosh">{t("yozuv_yoq")}</td></tr>
+            <tr><td colSpan={8} className="bosh">{t("yozuv_yoq")}</td></tr>
           )}
         </tbody>
       </table>

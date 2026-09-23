@@ -271,3 +271,46 @@ class TolovYaqinTest(ApiAsos):
         with bugun_qilib(date(2026, 9, 29)):
             javob = self.mijoz(self.admin).get("/api/crm/korsatkichlar/")
         self.assertEqual(javob.data["tolovi_yaqin"], 1)  # keyingisi 1-oktabr, 3 kun ichida
+
+
+class BoshlanishUnitiTest(Yordamchi):
+    """Guruh a'zolari jadvalidagi "Boshlanish uniti" — LMS `GuruhAzoligi`ga yoziladi."""
+
+    def setUp(self):
+        super().setUp()
+        from courses.models import KursTugun
+
+        self.am = self.azolik_qosh(boshlanish=SENTABR)
+        self.u1 = KursTugun.objects.create(markaz=self.markaz, nomi="Unit 1", parent=self.daraja,
+                                           unit_darsi=True, tartib=1)
+        self.u5 = KursTugun.objects.create(markaz=self.markaz, nomi="Unit 5", parent=self.daraja,
+                                           unit_darsi=True, tartib=5)
+        boshqa = KursTugun.objects.create(markaz=self.markaz, nomi="Boshqa daraja", parent=self.daraja.parent)
+        self.begona = KursTugun.objects.create(markaz=self.markaz, nomi="Unit X", parent=boshqa,
+                                               unit_darsi=True, tartib=1)
+        self.yol = f"/api/crm/azoliklar/{self.am.id}/"
+
+    def test_unitlar_royxati_va_saqlash(self):
+        m = self.mijoz(self.admin)
+        unitlar = m.get(f"/api/crm/guruhlar/{self.guruh.id}/unitlar/").data
+        self.assertEqual([u["nomi"] for u in unitlar], ["Unit 1", "Unit 5"])
+        javob = m.patch(self.yol, {"boshlanish_unit_id": self.u5.id}, format="json")
+        self.assertEqual(javob.status_code, 200, javob.data)
+        self.assertEqual(javob.data["boshlanish_unit_id"], self.u5.id)
+        self.am.azolik.refresh_from_db()
+        self.assertEqual(self.am.azolik.boshlanish_unit_id, self.u5.id)
+        # Bo'sh — odatiy tartib (Unit 1).
+        m.patch(self.yol, {"boshlanish_unit_id": None}, format="json")
+        self.am.azolik.refresh_from_db()
+        self.assertIsNone(self.am.azolik.boshlanish_unit_id)
+
+    def test_begona_unit_rad(self):
+        javob = self.mijoz(self.admin).patch(self.yol, {"boshlanish_unit_id": self.begona.id}, format="json")
+        self.assertEqual(javob.status_code, 400)
+
+    def test_tahrirlash_ruxsatisiz_403(self):
+        rol = CrmRol.objects.create(nomi="Davomatchi", ruxsatlar=["guruhlar.davomat"])
+        javob = self.mijoz(self.xodim("dav", rol=rol)).patch(self.yol, {"boshlanish_unit_id": self.u5.id}, format="json")
+        self.assertEqual(javob.status_code, 403)
+        self.am.azolik.refresh_from_db()
+        self.assertIsNone(self.am.azolik.boshlanish_unit_id)

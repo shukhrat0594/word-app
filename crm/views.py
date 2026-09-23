@@ -233,8 +233,21 @@ def _azolik_dict(am, balans=None):
         "narx": narx,
         "narx_manbasi": manba,
         "narx_talabaga": am.narx,
+        # Saytdagi Kurslar bo'limida qaysi Unit'dan boshlaydi (LMS
+        # `GuruhAzoligi.boshlanish_unit`; bo'sh — Unit 1, odatiy tartib).
+        "boshlanish_unit_id": am.azolik.boshlanish_unit_id,
         "balans": balans,
     }
+
+
+def daraja_unitlari(guruh):
+    """Guruh darajasining Unit'lari — `boshlanish_unit` shulardan biri
+    bo'la oladi. Qoida LMS'dagi bilan AYNAN bir xil
+    (`academics.views.GuruhAzoligiDetailView`): daraja bolasi,
+    `unit_darsi=True`."""
+    if not guruh.daraja_id:
+        return KursTugun.objects.none()
+    return KursTugun.objects.filter(parent_id=guruh.daraja_id, unit_darsi=True).order_by("tartib", "id")
 
 
 def _hisob_dict(h, tolangan=None, balans=None):
@@ -779,6 +792,16 @@ class GuruhJadvalView(CrmView):
 # ── A'zoliklar ───────────────────────────────────────────────────────
 
 
+class GuruhUnitlariView(CrmView):
+    """A'zolar jadvalidagi "Boshlanish uniti" tanlovi uchun."""
+
+    bolim = "guruhlar"
+
+    def get(self, request, pk):
+        guruh = get_object_or_404(Guruh, pk=pk)
+        return Response([{"id": u.id, "nomi": u.nomi} for u in daraja_unitlari(guruh)])
+
+
 class GuruhAzoliklariView(CrmView):
     bolim = "guruhlar"
 
@@ -979,6 +1002,9 @@ class GuruhNatijalarView(CrmView):
         return Response({"talabalar": natija})
 
 
+_AZOLIK_AUDIT = ("holat", "boshlanish_sana", "tugash_sana", "narx_talabaga", "boshlanish_unit_id")
+
+
 class AzolikView(CrmView):
     """A'zolikning moliyaviy holati — holat, sanalar, individual narx."""
 
@@ -1014,6 +1040,19 @@ class AzolikView(CrmView):
             if "narx" in request.data:
                 xom = request.data["narx"]
                 am.narx = None if xom in (None, "") else _son(xom, "narx")
+            # Boshlanish uniti (2026-09-23): LMS'dagi "Guruhlar" sahifasi
+            # admin menyusidan olingani uchun endi CRM'da tanlanadi. Yozuv
+            # o'sha LMS jadvaliga (`GuruhAzoligi`) tushadi — `crm -> LMS`.
+            yangi_unit = None
+            unit_ozgardi = "boshlanish_unit_id" in request.data
+            if unit_ozgardi:
+                if xato := _ruxsatsiz(request, "guruhlar.tahrirlash", "Boshlanish unitini o'zgartirishga ruxsat yo'q"):
+                    return xato
+                unit_id = request.data.get("boshlanish_unit_id") or None
+                if unit_id:
+                    yangi_unit = daraja_unitlari(am.azolik.guruh).filter(pk=unit_id).first()
+                    if yangi_unit is None:
+                        raise ValueError("Bu Unit guruh darajasiga tegishli emas")
         except ValueError as e:
             return _xato(str(e))
 
@@ -1026,6 +1065,9 @@ class AzolikView(CrmView):
             am.qayta_faol_sana = timezone.localdate()
 
         am.save()
+        if unit_ozgardi:
+            am.azolik.boshlanish_unit = yangi_unit
+            am.azolik.save(update_fields=["boshlanish_unit"])
 
         # Chiqish yoki muzlatish — joriy oyning TO'LANMAGAN hisobi
         # proporsional qayta hisoblanadi. Buni generatsiya qila olmaydi:
@@ -1041,8 +1083,8 @@ class AzolikView(CrmView):
             obyekt=am,
             obyekt_turi="CRM A'zolik",
             obyekt_nomi=f"{eski['talaba']} — {eski['guruh']}",
-            eski_qiymatlar={k: str(eski[k]) for k in ("holat", "boshlanish_sana", "tugash_sana", "narx_talabaga")},
-            yangi_qiymatlar={k: str(yangi[k]) for k in ("holat", "boshlanish_sana", "tugash_sana", "narx_talabaga")},
+            eski_qiymatlar={k: str(eski[k]) for k in _AZOLIK_AUDIT},
+            yangi_qiymatlar={k: str(yangi[k]) for k in _AZOLIK_AUDIT},
         )
         return Response(yangi)
 
