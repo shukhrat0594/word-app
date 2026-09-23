@@ -555,6 +555,12 @@ class LidDoska(models.Model):
 
     nomi = models.CharField(max_length=100)
     tartib = models.PositiveSmallIntegerField(default=0)
+    # Filial doskasi (2026-09-23, Shuhrat): har filial o'z doskalarini
+    # ko'radi. Bo'sh — umumiy doska (hamma filialga ko'rinadi, lekin uni
+    # faqat filialga bog'lanmagan xodim o'zgartiradi).
+    filial = models.ForeignKey(
+        Filial, on_delete=models.SET_NULL, null=True, blank=True, related_name="lid_doskalari"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

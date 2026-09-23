@@ -661,18 +661,22 @@ export function Chegirmalar({ guruhId, onOzgardi }) {
   const [rejim, setRejim] = useState("summada");
   const [f, setF] = useState({ qiymat: "", boshlanish_oy: new Date().toISOString().slice(0, 7), oylar_soni: 1, izoh: "" });
   const [xatoQ, setXatoQ] = useState("");
+  // Owner qo'lda belgilagan oyga chegirma tegmaydi — backend shuni aytadi.
+  const [ogohlantirish, setOgohlantirish] = useState("");
 
   async function saqla() {
     setXatoQ("");
+    setOgohlantirish("");
     try {
       const kalit = { narx: "narx", summada: "chegirma_summasi", foizda: "foiz" }[rejim];
-      await api(`/api/crm/guruhlar/${guruhId}/chegirmalar/`, {
+      const javob = await api(`/api/crm/guruhlar/${guruhId}/chegirmalar/`, {
         method: "POST",
         body: {
           [kalit]: f.qiymat, boshlanish_oy: f.boshlanish_oy, oylar_soni: f.oylar_soni, izoh: f.izoh,
           azolik_moliya_id: oyna.azolik_moliya_id,
         },
       });
+      setOgohlantirish(javob?.ogohlantirish || "");
       setOyna(null);
       yangila();
       onOzgardi?.();
@@ -684,8 +688,10 @@ export function Chegirmalar({ guruhId, onOzgardi }) {
   async function ochir(id) {
     if (!window.confirm(t("chegirma_ochirish_tasdiq"))) return;
     setXatoQ("");
+    setOgohlantirish("");
     try {
-      await api(`/api/crm/chegirmalar/${id}/`, { method: "DELETE" });
+      const javob = await api(`/api/crm/chegirmalar/${id}/`, { method: "DELETE" });
+      setOgohlantirish(javob?.ogohlantirish || "");
       yangila();
       onOzgardi?.();
     } catch (e) {
@@ -697,6 +703,7 @@ export function Chegirmalar({ guruhId, onOzgardi }) {
   return (
     <div className="jadval-oram">
       {(xato || (!oyna && xatoQ)) && <div className="xato">{xato || xatoQ}</div>}
+      {ogohlantirish && <p className="ogohlantirish">⚠ {ogohlantirish}</p>}
       <table>
         <thead>
           <tr>

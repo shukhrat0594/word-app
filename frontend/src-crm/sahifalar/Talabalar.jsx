@@ -696,6 +696,9 @@ function Karta({ talabaId, onOrqaga }) {
         <div className="qator">
           <span className="kichik">{t("umumiy_balans")}</span>
           <b className={balansSinfi(talaba.balans_jami)}>{balansMatn(talaba.balans_jami)}</b>
+          {/* Filial xodimi: balans umumiy, lekin boshqa filial yozuvlari
+              kartada yo'q — shuni aytib qo'yamiz (summasiz). */}
+          {talaba.boshqa_filialda && <span className="belgi" title={t("boshqa_filialda_izoh")}>{t("boshqa_filialda")}</span>}
         </div>
         {/* SoffCRM "Ilova holati" o'rnida — saytdan foydalanadimi. */}
         <div className="qator">
@@ -1128,6 +1131,7 @@ export default function Talabalar() {
                       <select
                         value={g.holat}
                         className={g.holat === "faol" ? "rang-tolandi" : "rang-qarzdor"}
+                        disabled={!ruxsat("guruhlar.tahrirlash") && !ruxsat("guruhlar.talaba_qoshish")}
                         onChange={(e) => holatOzgartir(g.azolik_moliya_id, e.target.value)}
                       >
                         {["sinov", "faol", "muzlatilgan"].map((h) => (

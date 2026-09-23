@@ -12,7 +12,7 @@ import Eslatmalar from "../Eslatmalar.jsx";
 import { useFilial } from "../filialContext.jsx";
 import { sana, vaqt } from "../format.js";
 import { useI18n } from "../i18n.jsx";
-import { useProfil, useRuxsat } from "../profilContext.jsx";
+import { useCheklangan, useProfil, useRuxsat } from "../profilContext.jsx";
 import { sorovSatri, useSorov } from "../soragich.js";
 
 // SoffCRM "Manba" ro'yxati (video 06:15). Ro'yxatda yo'q manba ham
@@ -304,6 +304,10 @@ function LidKartasi({ lidId, bolimlar, onYopish, onOzgardi, rejim = null }) {
   const [guruhga, setGuruhga] = useState(false);
   const [band, setBand] = useState(false);
   const [xato, setXato] = useState("");
+  // Qora ro'yxat hamma filialga ko'rinadi (2026-09-23) — lekin boshqa
+  // filial lidini faqat ko'rish mumkin, o'zgartirish o'sha filialda.
+  const begona = Boolean(lid?.filial_id && Array.isArray(profil?.filiallar)
+                         && !profil.filiallar.includes(lid.filial_id));
 
   async function ozgartir(body) {
     setBand(true);
@@ -351,12 +355,12 @@ function LidKartasi({ lidId, bolimlar, onYopish, onOzgardi, rejim = null }) {
               </div>
               <div className="tezkor-amallar">
                 <a className="tugma tugma-sokin kichik-tugma" href={`tel:${lid.telefon}`}>📞 {t("qongiroq")}</a>
-                {ruxsat("lidlar.guruhga") && !lid.talaba_id && (
+                {ruxsat("lidlar.guruhga") && !lid.talaba_id && !begona && (
                   <button className="tugma kichik-tugma" type="button" onClick={() => setGuruhga(true)}>
                     👥 {t("guruhga_qoshish")}
                   </button>
                 )}
-                {ruxsat("lidlar.ochirish") && (
+                {ruxsat("lidlar.ochirish") && !begona && (
                   <button className="tugma tugma-sokin kichik-tugma rang-qarzdor" type="button" onClick={ochir}>
                     🗑 {t("ochirish")}
                   </button>
@@ -409,7 +413,8 @@ function LidKartasi({ lidId, bolimlar, onYopish, onOzgardi, rejim = null }) {
                   <p className="ogohlantirish">⚠ {t("takror_raqam")}: {lid.takrorlar.map((x) => x.ism).join(", ")}</p>
                 )}
                 {xato && <div className="xato">{xato}</div>}
-                <div className="oyna-tugmalar">
+                {begona && <p className="kichik">{t("begona_filial_lidi")}</p>}
+                {!begona && <div className="oyna-tugmalar">
                   {ruxsat("lidlar.arxiv") && (
                     <button className="tugma tugma-sokin" type="button" disabled={band}
                             onClick={() => ozgartir({ arxiv: !lid.arxiv })}>
@@ -425,7 +430,7 @@ function LidKartasi({ lidId, bolimlar, onYopish, onOzgardi, rejim = null }) {
                   {ruxsat("lidlar.tahrirlash") && (
                     <button className="tugma" type="button" onClick={() => setTahrir(true)}>✎ {t("tahrirlash")}</button>
                   )}
-                </div>
+                </div>}
               </>
             ))}
 
@@ -457,6 +462,8 @@ function LidKartasi({ lidId, bolimlar, onYopish, onOzgardi, rejim = null }) {
 // ── Kanban ustuni ───────────────────────────────────────────────────
 
 function Ustun({ bolim, lidlar, tanlangan, setTanlangan, onOch, onTashla, onYangi, onNom, onOchir, onMenyu, ruxsat }) {
+  // Umumiy (filialsiz) ustunni filial xodimi o'zgartirmaydi (backend ham).
+  const cheklangan = useCheklangan();
   const { t } = useI18n();
   const [ustida, setUstida] = useState(false);
   return (
@@ -474,7 +481,7 @@ function Ustun({ bolim, lidlar, tanlangan, setTanlangan, onOch, onTashla, onYang
       <div className="kanban-sarlavha">
         <b>{bolim ? bolim.nomi : t("yangi_lidlar")}</b>
         <span className="belgi">{lidlar.length}</span>
-        {bolim && ruxsat("lidlar.bolim") && (
+        {bolim && ruxsat("lidlar.bolim") && !(cheklangan && !bolim.filial_id) && (
           <span className="kanban-amallar">
             <button className="havola" type="button" title={t("tahrirlash")} onClick={() => onNom(bolim)}>✎</button>
             <button className="havola rang-qarzdor" type="button" title={t("ochirish")} onClick={() => onOchir(bolim)}>🗑</button>
@@ -697,26 +704,42 @@ export default function Lidlar() {
   }
 
   // "Bo'lim yaratish" — yangi DOSKA ("NEW LEADS" ustuni bilan ochiladi).
+  // Doska tepada tanlangan filialniki bo'ladi (2026-09-23); "hammasi"da —
+  // umumiy (filial xodimida bitta filiali bo'lsa, backend o'zi qo'yadi).
   async function doskaYarat() {
     const nomi = window.prompt(t("doska_nomi"));
     if (!nomi) return;
-    const d = await api("/api/crm/lid-doskalar/", { method: "POST", body: { nomi } });
-    doskalar.yangila();
-    setDoska(String(d.id));
+    setEksportXato("");
+    try {
+      const d = await api("/api/crm/lid-doskalar/", { method: "POST", body: { nomi, filial_id: filial || null } });
+      doskalar.yangila();
+      setDoska(String(d.id));
+    } catch (e) {
+      setEksportXato(e.message);
+    }
   }
 
   async function doskaOchir() {
     if (doska === "0" || !window.confirm(t("doska_ochirish_tasdiq"))) return;
-    await api(`/api/crm/lid-doskalar/${doska}/`, { method: "DELETE" });
-    setDoska("0");
-    yangilaHammasi();
+    setEksportXato("");
+    try {
+      await api(`/api/crm/lid-doskalar/${doska}/`, { method: "DELETE" });
+      setDoska("0");
+      yangilaHammasi();
+    } catch (e) {
+      setEksportXato(e.message);
+    }
   }
 
   // "Qo'shimcha ustun qo'shish" — joriy doskada ustun; guruhga bog'lash ixtiyoriy.
+  // Filial doskasida ustun doska filialini oladi (backend), umumiy doskada — tanlangan filialni.
   async function ustunYarat(nomi, guruhId) {
     await api("/api/crm/lid-bolimlar/", {
       method: "POST",
-      body: { nomi, filial_id: null, doska_id: doska === "0" ? null : doska, guruh_id: guruhId || null },
+      body: {
+        nomi, filial_id: doska === "0" ? filial || null : null,
+        doska_id: doska === "0" ? null : doska, guruh_id: guruhId || null,
+      },
     });
     setUstunOyna(false);
     bolimlar.yangila();
@@ -725,19 +748,33 @@ export default function Lidlar() {
   async function bolimNom(b) {
     const nomi = window.prompt(t("bolim_nomi"), b.nomi);
     if (!nomi || nomi === b.nomi) return;
-    await api(`/api/crm/lid-bolimlar/${b.id}/`, { method: "PATCH", body: { nomi } });
-    bolimlar.yangila();
+    setEksportXato("");
+    try {
+      await api(`/api/crm/lid-bolimlar/${b.id}/`, { method: "PATCH", body: { nomi } });
+      bolimlar.yangila();
+    } catch (e) {
+      setEksportXato(e.message);
+    }
   }
 
   async function bolimOchir(b) {
     if (!window.confirm(t("bolim_ochirish_tasdiq"))) return;
-    await api(`/api/crm/lid-bolimlar/${b.id}/`, { method: "DELETE" });
-    yangilaHammasi();
+    setEksportXato("");
+    try {
+      await api(`/api/crm/lid-bolimlar/${b.id}/`, { method: "DELETE" });
+      yangilaHammasi();
+    } catch (e) {
+      setEksportXato(e.message);
+    }
   }
 
   // Umumiy doskada ustunsiz lidlar uchun "Yangi lidlar" ustuni ham bor.
   const ustunlar = doska === "0" || rejim ? [null, ...bolimRoyxati] : bolimRoyxati;
   const doskaMalumot = doskalar.malumot;
+  const tanlanganDoska = (doskaMalumot?.doskalar || []).find((d) => String(d.id) === doska);
+  // Umumiy (filialsiz) doska/ustunni filial xodimi o'zgartirmaydi (backend ham).
+  const cheklangan = useCheklangan();
+  const umumiyTegilmaydi = (yozuv) => cheklangan && yozuv && !yozuv.filial_id;
 
   return (
     <section>
@@ -773,7 +810,7 @@ export default function Lidlar() {
             <option key={d.id} value={d.id}>{d.nomi} ({d.soni ?? 0})</option>
           ))}
         </select>
-        {doska !== "0" && ruxsat("lidlar.bolim") && !rejim && (
+        {doska !== "0" && ruxsat("lidlar.bolim") && !rejim && !umumiyTegilmaydi(tanlanganDoska) && (
           <button className="tugma tugma-sokin kichik-tugma" type="button" onClick={doskaOchir} title={t("ochirish")}>🗑</button>
         )}
         <input placeholder={t("qidiruv")} value={qidiruv} onChange={(e) => setQidiruv(e.target.value)} />

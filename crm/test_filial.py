@@ -12,8 +12,8 @@ from academics.models import Guruh, GuruhAzoligi
 from accounts.models import User
 from crm import urls as crm_urls
 from crm.models import (
-    AzolikMoliya, Chegirma, DarsOzgarish, Eslatma, Filial, GuruhMoliya, Hisob, KursNarxi, Lid, LidBolim, Tolov,
-    XodimProfil,
+    AzolikMoliya, Chegirma, CrmRol, DarsOzgarish, Eslatma, Filial, GuruhMoliya, Hisob, KursNarxi, Lid, LidBolim,
+    LidDoska, Tolov, XodimProfil, Xona,
 )
 from crm.test_api import ApiAsos
 from crm.tests import SENTABR
@@ -111,7 +111,7 @@ class IdBoyichaTest(FilialAsos):
     """Boshqa filial yozuvi ID bo'yicha ham ochilmaydi — 404."""
 
     # `pk_turi` e'lon qilmasligi mumkin bo'lgan URL'lar — filialga bog'liq emas.
-    FILIALSIZ = {"rol_detail", "lid_doska_detail", "filial_detail", "xona_detail"}
+    FILIALSIZ = {"rol_detail", "filial_detail", "xona_detail"}
 
     def b_obyektlari(self):
         return {
@@ -126,6 +126,7 @@ class IdBoyichaTest(FilialAsos):
             "tolov": self.tolov_b.id,
             "eslatma": Eslatma.objects.create(guruh=self.gb, matn="x").id,
             "lid_bolim": LidBolim.objects.create(nomi="B ustun", filial=self.fb).id,
+            "lid_doska": LidDoska.objects.create(nomi="B doska", filial=self.fb).id,
             "xodim": self.xodim("kassir_b", [self.fb], lavozim="kassir", role=User.Role.ODDIY).id,
         }
 
@@ -273,3 +274,287 @@ class XodimJavobiYangiTest(FilialAsos):
         self.assertEqual(javob.status_code, 200, javob.data)
         self.assertEqual(javob.data["oylik"], Decimal("5000000"))
         self.assertEqual(str(javob.data["ishga_olingan_sana"]), "2026-01-15")
+
+
+def _excel_fayl(*qatorlar):
+    import io
+
+    import openpyxl
+
+    kitob = openpyxl.Workbook()
+    kitob.active.append(["ism", "telefon"])
+    for q in qatorlar:
+        kitob.active.append(list(q))
+    fayl = io.BytesIO()
+    kitob.save(fayl)
+    fayl.seek(0)
+    fayl.name = "t.xlsx"
+    return fayl
+
+
+class TanadagiIdTest(FilialAsos):
+    """So'rov TANASIDAGI ID'lar (talaba_id, guruh_id, xona_id, Excel) —
+    `IdBoyichaTest` faqat URL'dagi `pk`ni sinaydi. Tekshiruvda (2026-09-23)
+    teshiklar aynan shu yerdan chiqdi."""
+
+    def test_boshqa_filial_idlari_rad_etiladi(self):
+        m = self.mijoz(self.admin_a)
+        xb = Xona.objects.create(filial=self.fb, nomi="B-1")
+        doska_b = LidDoska.objects.create(nomi="B doska", filial=self.fb)
+        bolim_b = LidBolim.objects.create(nomi="B ustun", filial=self.fb)
+        a = self.guruh.id
+        jadval_b = [{"hafta_kuni": 0, "boshlanish_vaqti": "10:00", "tugash_vaqti": "11:00", "xona_id": xb.id}]
+        holatlar = [
+            ("post", "/api/crm/tolov/", {"talaba_id": self.tb.id, "guruh_id": a, "summa": "1000"}),
+            ("post", "/api/crm/hisoblar/", {"talaba_id": self.tb.id, "guruh_id": a, "summa": "1000", "oy": "2026-09"}),
+            ("post", f"/api/crm/guruhlar/{a}/talabalar/", {"talaba_id": self.tb.id}),
+            ("put", f"/api/crm/guruhlar/{a}/jadval/", {"jadval": jadval_b}),
+            ("post", "/api/crm/guruh-yaratish/", {"nomi": "Z", "boshlanish_sana": "2026-09-23", "jadval": jadval_b}),
+            ("post", f"/api/crm/guruhlar/{a}/dars-ozgarishlari/", {
+                "turi": "qoshimcha", "yangi_sana": "2026-09-28", "xona_id": xb.id}),
+            ("post", "/api/crm/lid-bolimlar/", {"nomi": "X", "doska_id": doska_b.id}),
+            ("post", "/api/crm/lid-bolimlar/", {"nomi": "X", "guruh_id": self.gb.id}),
+            ("patch", f"/api/crm/lidlar/{self.lid_a.id}/", {"yigilayotgan_guruh_id": self.gb.id}),
+            ("patch", f"/api/crm/lidlar/{self.lid_a.id}/", {"bolim_id": bolim_b.id}),
+            ("post", "/api/crm/eslatmalar/", {"guruh_id": self.gb.id, "matn": "x"}),
+            ("post", "/api/crm/lidlar/guruhga/", {"lid_id": self.lid_a.id, "guruh_id": self.gb.id}),
+            ("post", "/api/crm/talaba-yaratish/", {"ism": "Y", "guruh_id": self.gb.id}),
+            ("post", f"/api/crm/guruhlar/{a}/chegirmalar/", {"azolik_moliya_id": self.amb.id, "narx": "1"}),
+            ("post", f"/api/crm/guruhlar/{a}/davomat/", {"talaba_id": self.tb.id, "sana": "2026-09-17",
+                                                           "holat": "keldi"}),
+        ]
+        sonlar = (Tolov.objects.count(), Hisob.objects.count(), Guruh.objects.count(), LidBolim.objects.count())
+        for usul, url, tana in holatlar:
+            javob = getattr(m, usul)(url, tana, format="json")
+            self.assertIn(javob.status_code, (400, 403, 404), f"{usul.upper()} {url} {tana}: {javob.data}")
+        self.assertEqual(
+            (Tolov.objects.count(), Hisob.objects.count(), Guruh.objects.count(), LidBolim.objects.count()), sonlar)
+        self.assertFalse(GuruhAzoligi.objects.filter(guruh=self.guruh, talaba=self.tb).exists())
+
+    def test_excel_boshqa_filial_talabasini_tortmaydi(self):
+        self.tb.telefon = "+998901112233"
+        self.tb.save()
+        javob = self.mijoz(self.admin_a).post(f"/api/crm/guruhlar/{self.guruh.id}/talabalar/",
+                                              {"excel_fayl": _excel_fayl(("X", "+998901112233"))},
+                                              format="multipart")
+        self.assertEqual(javob.data["qoshildi"], [])
+        self.assertEqual(len(javob.data["xatolar"]), 1)
+        self.assertFalse(GuruhAzoligi.objects.filter(guruh=self.guruh, talaba=self.tb).exists())
+
+    def test_guruhdan_chiqqan_qarzdorga_tolov_ochiq(self):
+        """Guruhdan chiqqan, lekin qarzi qolgan talaba — hisobi bor, to'lov qabul qilinadi."""
+        GuruhAzoligi.objects.filter(guruh=self.guruh, talaba=self.talaba).delete()
+        Hisob.objects.create(talaba=self.talaba, talaba_ism="T", guruh=self.guruh, guruh_nomi="A",
+                             filial=self.filial, oy=SENTABR, summa=Decimal("1000"), holat=Hisob.Holat.QARZDOR)
+        javob = self.mijoz(self.admin_a).post("/api/crm/tolov/", {
+            "talaba_id": self.talaba.id, "guruh_id": self.guruh.id, "summa": "1000"}, format="json")
+        self.assertEqual(javob.status_code, 201, javob.data)
+
+
+class IkkiFilialliTalabaTest(FilialAsos):
+    def setUp(self):
+        super().setUp()
+        GuruhAzoligi.objects.create(guruh=self.guruh, talaba=self.tb)
+
+    def test_karta_boshqa_filial_tolovini_korsatmaydi_balans_umumiy_belgi_bilan(self):
+        d = self.mijoz(self.admin_a).get(f"/api/crm/talaba/{self.tb.id}/").data
+        self.assertNotIn(self.tolov_b.id, [t["id"] for t in d["tolovlar"]])
+        self.assertEqual(d["balans_jami"], Decimal("-560000"))  # umumiy (qaror)
+        self.assertTrue(d["boshqa_filialda"])
+        self.assertFalse(self.mijoz(self.owner).get(f"/api/crm/talaba/{self.tb.id}/").data["boshqa_filialda"])
+
+    def test_tarix_boshqa_filialni_korsatmaydi(self):
+        d = self.mijoz(self.admin_a).get(f"/api/crm/talaba/{self.tb.id}/tarix/").data
+        self.assertFalse(any("B guruh" in v["matn"] for v in d), d)
+
+    def test_guruhi_ochgan_tolov_hisob_filiali_boyicha(self):
+        t = Tolov.objects.create(talaba=self.tb, talaba_ism="B", guruh=None, guruh_nomi="O'chgan",
+                                 hisob=self.hisob_b, sana=date(2026, 9, 6), summa=Decimal("7000"),
+                                 turi=Tolov.Turi.TOLOV)
+        self.assertNotIn(t.id, [x["id"] for x in self.mijoz(self.admin_a).get("/api/crm/tolov/").data])
+        self.assertIn(t.id, [x["id"] for x in self.mijoz(self.admin_b).get("/api/crm/tolov/").data])
+
+    def test_qidiruvda_boshqa_filial_guruhi_nomi_yoq(self):
+        d = self.mijoz(self.admin_a).get("/api/crm/talaba-qidiruv/?q=talaba_b").data
+        self.assertEqual(d[0]["guruhlar"], [self.guruh.name])
+
+    def test_crm_yozuvisiz_azolik_royxatda_yoqolmaydi(self):
+        """A'zolik saytda qo'shilgan (AzolikMoliya hali yo'q) — ro'yxatda baribir chiqadi."""
+        ids = {x["id"] for x in self.mijoz(self.admin_a).get("/api/crm/talabalar/").data}
+        self.assertIn(self.tb.id, ids)
+
+
+class AzolikRuxsatlariTest(FilialAsos):
+    def rolli(self, nomi, kalitlar):
+        u = self.xodim(nomi, [self.filial], lavozim="kassir", role=User.Role.ODDIY)
+        XodimProfil.objects.filter(user=u).update(rol=CrmRol.objects.create(nomi=nomi, ruxsatlar=kalitlar))
+        return self.mijoz(u)
+
+    def test_narx_va_holat(self):
+        am = AzolikMoliya.objects.get(azolik__guruh=self.guruh, azolik__talaba=self.talaba)
+        url = f"/api/crm/azoliklar/{am.id}/"
+        dav = self.rolli("dav", ["guruhlar.davomat"])
+        self.assertEqual(dav.patch(url, {"narx": "1000"}, format="json").status_code, 403)
+        self.assertEqual(dav.patch(url, {"holat": "muzlatilgan"}, format="json").status_code, 403)
+        qosh = self.rolli("qosh", ["guruhlar.talaba_qoshish"])
+        self.assertEqual(qosh.patch(url, {"holat": "sinov"}, format="json").status_code, 200)
+        self.assertEqual(qosh.patch(url, {"narx": "1000"}, format="json").status_code, 403)
+        am.refresh_from_db()
+        self.assertIsNone(am.narx)
+
+
+class XodimQoidalariTest(FilialAsos):
+    def test_ikki_filialli_xodimni_forma_orqali_tahrirlash(self):
+        """Forma mavjud filiallarni (A+B) to'liq qaytaradi — bu 403 emas."""
+        ikki = self.xodim("ikki_x", [self.filial, self.fb], lavozim="kassir", role=User.Role.ODDIY)
+        javob = self.mijoz(self.admin_a).patch(f"/api/crm/xodimlar/{ikki.id}/", {
+            "ism": "Yangi", "filial_idlar": [self.filial.id, self.fb.id]}, format="json")
+        self.assertEqual(javob.status_code, 200, javob.data)
+        self.assertEqual(sorted(javob.data["filial_idlar"]), sorted([self.filial.id, self.fb.id]))
+
+    def test_xodim_qoshish_va_lavozim_faqat_owner_yoki_admin(self):
+        kadr = self.xodim("kadr", [self.filial], lavozim="kassir", role=User.Role.ODDIY)
+        XodimProfil.objects.filter(user=kadr).update(rol=CrmRol.objects.create(
+            nomi="Kadrlar", ruxsatlar=["xodimlar.qoshish", "xodimlar.tahrirlash"]))
+        m = self.mijoz(kadr)
+        self.assertEqual(m.post("/api/crm/xodimlar/", {"ism": "S", "telefon": "901230009", "lavozim": "support",
+                                                      "parol": "Qwerty12345!"}, format="json").status_code, 403)
+        boshqa = self.xodim("boshqa_k", [self.filial], lavozim="kassir", role=User.Role.ODDIY)
+        self.assertEqual(m.patch(f"/api/crm/xodimlar/{boshqa.id}/", {"lavozim": "oqituvchi"},
+                                 format="json").status_code, 403)
+        # Lavozimga tegmaydigan tahrir — mumkin.
+        self.assertEqual(m.patch(f"/api/crm/xodimlar/{boshqa.id}/", {"ism": "Yangi", "lavozim": "kassir"},
+                                 format="json").status_code, 200)
+        # Administrator qo'sha oladi.
+        self.assertEqual(self.mijoz(self.admin_a).post("/api/crm/xodimlar/", {
+            "ism": "K", "telefon": "901230010", "lavozim": "kassir"}, format="json").status_code, 201)
+
+    def test_admin_ozini_tahrirlaydi_lekin_huquqini_emas(self):
+        m = self.mijoz(self.admin_a)
+        url = f"/api/crm/xodimlar/{self.admin_a.id}/"
+        javob = m.patch(url, {"telefon": "901234567", "lavozim": "admin", "filial_idlar": [self.filial.id],
+                              "ishga_olingan_sana": ""}, format="json")
+        self.assertEqual(javob.status_code, 200, javob.data)
+        self.assertEqual(javob.data["telefon"], "901234567")
+        self.assertEqual(m.patch(url, {"oylik": "9000000"}, format="json").status_code, 403)
+        self.assertEqual(m.patch(url, {"filial_idlar": []}, format="json").status_code, 403)
+        self.assertEqual(m.patch(url, {"faol": False}, format="json").status_code, 403)
+
+
+class DoskaVaQoraRoyxatTest(FilialAsos):
+    def test_doska_filiali(self):
+        umumiy = LidDoska.objects.create(nomi="Umumiy")
+        doska_b = LidDoska.objects.create(nomi="B doska", filial=self.fb)
+        m = self.mijoz(self.admin_a)
+        idlar = [d["id"] for d in m.get("/api/crm/lid-doskalar/").data["doskalar"]]
+        self.assertIn(umumiy.id, idlar)
+        self.assertNotIn(doska_b.id, idlar)
+        # Umumiy doskani filial xodimi o'chirmaydi va o'zgartirmaydi.
+        self.assertEqual(m.delete(f"/api/crm/lid-doskalar/{umumiy.id}/").status_code, 403)
+        self.assertEqual(m.patch(f"/api/crm/lid-doskalar/{umumiy.id}/", {"nomi": "X"},
+                                 format="json").status_code, 403)
+        # Yangi doska va uning "NEW LEADS" ustuni — o'z filialida.
+        javob = m.post("/api/crm/lid-doskalar/", {"nomi": "A doska"}, format="json")
+        self.assertEqual(javob.status_code, 201, javob.data)
+        self.assertEqual(javob.data["filial_id"], self.filial.id)
+        self.assertEqual(LidBolim.objects.get(doska_id=javob.data["id"]).filial_id, self.filial.id)
+        self.assertEqual(m.delete(f"/api/crm/lid-doskalar/{javob.data['id']}/").status_code, 204)
+        # Filialsiz ustun ochilmaydi — filial o'zi qo'yiladi.
+        javob = m.post("/api/crm/lid-bolimlar/", {"nomi": "Ustun"}, format="json")
+        self.assertEqual(javob.data["filial_id"], self.filial.id)
+        umumiy_ustun = LidBolim.objects.create(nomi="Hammaniki")
+        self.assertEqual(m.delete(f"/api/crm/lid-bolimlar/{umumiy_ustun.id}/").status_code, 403)
+        # Owner — umumiy doskani o'chira oladi.
+        self.assertEqual(self.mijoz(self.owner).delete(f"/api/crm/lid-doskalar/{umumiy.id}/").status_code, 204)
+
+    def test_qora_royxat_hamma_filialga_korinadi(self):
+        """Shuhrat, 2026-09-23: qora ro'yxat — hamma filialga (faqat ko'rish)."""
+        self.lid_b.qora_royxat = True
+        self.lid_b.save()
+        m = self.mijoz(self.admin_a)
+        self.assertIn(self.lid_b.id, [x["id"] for x in m.get("/api/crm/lidlar/?qora_royxat=1").data])
+        self.assertEqual(m.get("/api/crm/lid-doskalar/").data["qora_royxat"], 1)
+        self.assertEqual(m.get(f"/api/crm/lidlar/{self.lid_b.id}/").status_code, 200)
+        self.assertEqual(m.get(f"/api/crm/eslatmalar/?lid={self.lid_b.id}").status_code, 200)
+        # O'zgartirish — yo'q.
+        self.assertEqual(m.patch(f"/api/crm/lidlar/{self.lid_b.id}/", {"qora_royxat": False},
+                                 format="json").status_code, 404)
+        self.assertEqual(m.delete(f"/api/crm/lidlar/{self.lid_b.id}/").status_code, 404)
+        # Qora ro'yxatda bo'lmagan lid boshqa filialga baribir yopiq.
+        self.lid_b.qora_royxat = False
+        self.lid_b.save()
+        self.assertEqual(m.get(f"/api/crm/lidlar/{self.lid_b.id}/").status_code, 404)
+        # Takrorlarda — faqat qora ro'yxatdagi boshqa filial lidi.
+        self.lid_a.telefon = self.lid_b.telefon
+        self.lid_a.save()
+        self.assertEqual(m.get(f"/api/crm/lidlar/{self.lid_a.id}/").data["takrorlar"], [])
+        self.lid_b.qora_royxat = True
+        self.lid_b.save()
+        takror = m.get(f"/api/crm/lidlar/{self.lid_a.id}/").data["takrorlar"]
+        self.assertEqual([x["id"] for x in takror], [self.lid_b.id])
+
+
+class MaydaTuzatishlarTest(FilialAsos):
+    def test_notogri_id_500_emas(self):
+        m = self.mijoz(self.admin_a)
+        self.assertEqual(m.get("/api/crm/eslatmalar/?talaba=abc").status_code, 400)
+        javob = m.post("/api/crm/xonalar/", {"nomi": "q", "filial_id": "abc"}, format="json")
+        self.assertEqual(javob.data["detail"], "Filial noto'g'ri")
+
+    def test_qolda_oyga_chegirma_ogohlantiradi(self):
+        from unittest import mock
+
+        from crm import mantiq
+        from crm.tests import bugun_qilib
+
+        am = AzolikMoliya.objects.get(azolik__guruh=self.guruh, azolik__talaba=self.talaba)
+        with bugun_qilib(date(2026, 9, 10)), mock.patch("crm.boshqaruv.timezone.localdate",
+                                                        return_value=date(2026, 9, 10)):
+            mantiq.hisoblarni_generatsiya_qil()
+            h = Hisob.objects.get(talaba=self.talaba, guruh=self.guruh, oy=SENTABR)
+            o = self.mijoz(self.owner)
+            o.patch(f"/api/crm/hisoblar/{h.id}/", {"summa": "400000"}, format="json")
+            javob = o.post(f"/api/crm/guruhlar/{self.guruh.id}/chegirmalar/", {
+                "azolik_moliya_id": am.id, "narx": "100000", "boshlanish_oy": "2026-09"}, format="json")
+            self.assertEqual(javob.status_code, 201, javob.data)
+            self.assertIn("2026-09", javob.data["ogohlantirish"])
+            h.refresh_from_db()
+            self.assertEqual(h.summa, Decimal("400000"))  # qaror: `qolda`ga tegilmaydi
+            izoh = [x["izoh"] for x in o.get(f"/api/crm/tolov/?hisoblar=1&talaba={self.talaba.id}").data
+                    if x["turi"] == "hisob"]
+            self.assertEqual(izoh, ["Qo'lda belgilangan summa"])
+            javob = o.delete(f"/api/crm/chegirmalar/{javob.data['id']}/")
+            self.assertEqual(javob.status_code, 200)
+            self.assertIn("2026-09", javob.data["ogohlantirish"])
+
+
+class SorovlarSoniTest(FilialAsos):
+    def test_xodimlar_davomati_n_plus_1_emas(self):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        m = self.mijoz(self.admin_a)
+
+        def soni():
+            with CaptureQueriesContext(connection) as c:
+                m.get("/api/crm/xodimlar/davomat/")
+            return len(c.captured_queries)
+
+        oldin = soni()
+        for i in range(10):
+            self.xodim(f"k{i}", [self.filial], lavozim="kassir", role=User.Role.ODDIY)
+        self.assertLessEqual(soni() - oldin, 1)
+
+    def test_ruxsatlar_keshlanadi(self):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        from crm.ruxsatlar import ruxsatlar
+
+        u = User.objects.get(pk=self.admin_a.pk)
+        ruxsatlar(u)
+        with CaptureQueriesContext(connection) as c:
+            birinchi = ruxsatlar(u)
+            birinchi.add("buzildi")
+            self.assertNotIn("buzildi", ruxsatlar(u))
+        self.assertEqual(len(c.captured_queries), 0)

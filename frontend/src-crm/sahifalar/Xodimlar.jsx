@@ -50,7 +50,9 @@ function XodimOynasi({ xodim, rollar, onYopish, onSaqlandi, onYangiRol }) {
     ism: xodim?.ism || "",
     telefon: xodim?.telefon || "+998",
     tugilgan_sana: xodim?.tugilgan_sana || "",
-    ishga_olingan_sana: xodim?.ishga_olingan_sana || new Date().toISOString().slice(0, 10),
+    // Bugungi sana — faqat YANGI xodimga. Tahrirda bo'sh sana bo'sh qoladi,
+    // aks holda saqlash unga jimgina bugungi sanani yozib yuborardi.
+    ishga_olingan_sana: xodim ? xodim.ishga_olingan_sana || "" : new Date().toISOString().slice(0, 10),
     filial_idlar: xodim?.filial_idlar ?? [],
     lavozim: xodim?.lavozim || "oqituvchi",
     rol_id: xodim?.rol_id ?? "",
@@ -63,6 +65,8 @@ function XodimOynasi({ xodim, rollar, onYopish, onSaqlandi, onYangiRol }) {
   const [xato, setXato] = useState("");
   const [band, setBand] = useState(false);
   const qiymat = (k) => ({ value: f[k] ?? "", onChange: (e) => setF((x) => ({ ...x, [k]: e.target.value })) });
+  // Lavozimni faqat owner yoki administrator beradi/o'zgartiradi (backend ham).
+  const lavozimBeradi = profil?.is_owner || profil?.role === "admin";
   // Administrator/CEO'ni faqat owner beradi (backend ham tekshiradi).
   const lavozimlar = BERILADIGAN_LAVOZIMLAR.filter((l) => profil?.is_owner || l !== "admin" || l === xodim?.lavozim);
 
@@ -124,7 +128,7 @@ function XodimOynasi({ xodim, rollar, onYopish, onSaqlandi, onYangiRol }) {
         </div>
         <div className="ikki-ustun">
           <label>{t("lavozim")}
-            <select {...qiymat("lavozim")}>
+            <select {...qiymat("lavozim")} disabled={!lavozimBeradi}>
               {lavozimlar.map((l) => <option key={l} value={l}>{t(`lavozim_${l}`)}</option>)}
             </select>
           </label>
@@ -363,8 +367,9 @@ export default function Xodimlar() {
   const [davomatKorsin, setDavomatKorsin] = useState(false);
   const [amalXato, setAmalXato] = useState("");
   const profil = useProfil();
-  // Boshqa xodimning parolini faqat owner yoki administrator tiklaydi (backend ham).
-  const parolTiklaydi = profil?.is_owner || profil?.role === "admin";
+  // Boshqa xodimning parolini tiklash va xodim qo'shish — faqat owner yoki
+  // administrator (backend ham tekshiradi).
+  const ownerYokiAdmin = profil?.is_owner || profil?.role === "admin";
 
   const sorov = useSorov("/api/crm/xodimlar/" + sorovSatri({ lavozim, arxiv: arxiv ? 1 : "", q: qidiruv }));
   const rollar = useSorov("/api/crm/rollar/");
@@ -407,7 +412,8 @@ export default function Xodimlar() {
           {ruxsat("sozlamalar.rollar") && (
             <button className="tugma tugma-sokin" type="button" onClick={() => setRolOyna(null)}>+ {t("yangi_rol_yaratish")}</button>
           )}
-          {ruxsat("xodimlar.qoshish") && (
+          {/* Xodimni faqat owner yoki administrator qo'shadi (backend ham). */}
+          {ruxsat("xodimlar.qoshish") && ownerYokiAdmin && (
             <button className="tugma" type="button" onClick={() => setTahrir(null)}>+ {t("yangi_qoshish")}</button>
           )}
         </div>
@@ -463,7 +469,7 @@ export default function Xodimlar() {
                   {ruxsat("xodimlar.tahrirlash") && !x.owner && (
                     <>
                       <button className="havola" type="button" title={t("tahrirlash")} onClick={() => setTahrir(x)}>✎</button>
-                      {parolTiklaydi && (
+                      {ownerYokiAdmin && (
                         <button className="havola" type="button" title={t("parol_tiklash")} onClick={() => parolTiklash(x)}>🔑</button>
                       )}
                       <button className="havola" type="button" onClick={() => faolAlmashtir(x)}>

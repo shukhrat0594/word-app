@@ -18,7 +18,7 @@ from datetime import timedelta
 from decimal import Decimal
 
 from django.db import transaction
-from django.db.models import Count, Q, Sum
+from django.db.models import Count, Prefetch, Q, Sum
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
@@ -58,7 +58,8 @@ from .models import (
     XodimProfil,
 )
 from .filial import (
-    cheklanganmi, filial_q, filial_tekshir, guruh_q, guruh_tekshir, ruxsat_filiallari, talaba_tekshir,
+    cheklanganmi, filial_korinadimi, filial_q, filial_tekshir, guruh_q, guruh_tekshir, ruxsat_filiallari,
+    talaba_korinadimi, talaba_tekshir, tolov_filiali_q, tolov_q, umumiy_yozuv_taqiq,
 )
 from .permissions import CrmView
 from .ruxsatlar import BARCHA_KALITLAR, RUXSAT_DARAXTI, lms_roli, ruxsatlar, sayt_menyusini_toraytir
@@ -154,6 +155,14 @@ def _ruxsat_royxati(xom):
     if not isinstance(xom, list):
         raise ValueError("ruxsatlar ro'yxat bo'lishi kerak")
     return sorted({str(k) for k in xom if str(k) in BARCHA_KALITLAR})
+
+
+def _lavozim_beradi(user):
+    """Xodim yaratish va lavozim berish — faqat owner yoki administrator
+    (2026-09-23, Shuhrat). Aks holda `xodimlar.qoshish` ruxsati bor kassir
+    o'qituvchi yoki kengroq ruxsatli lavozimdagi hisob ochib, parolini
+    o'zi qo'yib, o'sha huquqlar bilan kira olardi."""
+    return owner_mi(user) or user.role == User.Role.ADMIN
 
 
 def _rollarni_boshqaradi(user):
@@ -334,6 +343,8 @@ def _xodim_maydonlari(user, profil, data, kim):
         lavozim = data.get("lavozim")
         if lavozim not in dict(XodimProfil.Lavozim.choices):
             raise ValueError("Noma'lum lavozim")
+        if lavozim != profil.lavozim and not _lavozim_beradi(kim):
+            raise _Taqiq("Lavozimni faqat owner yoki administrator o'zgartiradi")
         if lavozim == XodimProfil.Lavozim.CEO:
             raise ValueError("CEO — bu owner, xodimga berilmaydi. Administrator lavozimini tanlang")
         profil.lavozim = lavozim
@@ -392,10 +403,13 @@ def _xodim_filiallari(profil, data, kim):
     ruxsat = ruxsat_filiallari(kim)
     if ruxsat is None:
         return sorted(idlar)
-    if idlar - ruxsat:
-        raise _Taqiq("Faqat o'z filialingizni biriktira olasiz")
     eski = set(profil.filiallar.values_list("id", flat=True)) if profil.pk else set()
-    yakuniy = idlar | (eski - ruxsat)
+    # Xodimning ALLAQACHON bor boshqa filiali qaytib kelsa — xato emas:
+    # forma mavjud ro'yxatni to'liq qaytaradi (ikki filialli xodimni ismini
+    # tuzatish uchun ochganda ham). Yangi begona filial qo'shish — taqiq.
+    if idlar - ruxsat - eski:
+        raise _Taqiq("Faqat o'z filialingizni biriktira olasiz")
+    yakuniy = (idlar & ruxsat) | (eski - ruxsat)
     if not yakuniy:
         # Yangi xodim — qo'shuvchining bitta filiali bo'lsa, o'shanisi o'zi qo'yiladi.
         if not profil.pk and len(ruxsat) == 1:
@@ -448,8 +462,8 @@ class XodimlarView(CrmView):
         return Response({"xodimlar": royxat, "soni": soni, "jami": sum(soni.values())})
 
     def post(self, request):
-        if "xodimlar.qoshish" not in ruxsatlar(request.user):
-            return _xato("Xodim qo'shishga ruxsat yo'q", kod=403)
+        if "xodimlar.qoshish" not in ruxsatlar(request.user) or not _lavozim_beradi(request.user):
+            return _xato("Xodimni faqat owner yoki administrator qo'shadi", kod=403)
         data = request.data
         lavozim = data.get("lavozim") or XodimProfil.Lavozim.OQITUVCHI
         if lavozim not in dict(XodimProfil.Lavozim.choices):
@@ -509,6 +523,36 @@ class XodimlarView(CrmView):
         return Response(javob, status=201)
 
 
+_OZI_TAHRIRLAYDI = {"ism", "telefon", "tugilgan_sana", "jins", "parol", "parol_tiklash"}
+
+
+def _oz_profilidagi_taqiq(user, profil, data):
+    """O'z profilida o'zgartirib bo'lmaydigan maydon o'zgargan bo'lsa — xato matni."""
+    def farq(maydon, joriy):
+        return maydon in data and str(data.get(maydon) or "") != str(joriy or "")
+
+    if farq("lavozim", profil.lavozim) or farq("rol_id", profil.rol_id) or ("faol" in data and not data["faol"]):
+        return "O'z lavozimingiz, rolingiz va holatingizni o'zgartira olmaysiz"
+    if "filial_idlar" in data or "filial_id" in data:
+        xom = data.get("filial_idlar") if "filial_idlar" in data else [data.get("filial_id")]
+        try:
+            yangi = {int(x) for x in (xom or []) if x not in (None, "")}
+        except (TypeError, ValueError):
+            return "Filial noto'g'ri"
+        if yangi != set(profil.filiallar.values_list("id", flat=True)):
+            return "O'z filiallaringizni o'zgartira olmaysiz"
+    for maydon in ("oylik", "foiz_ulushi"):
+        if maydon in data and data.get(maydon) is not None:
+            try:
+                if Decimal(str(data.get(maydon) or 0)) != getattr(profil, maydon):
+                    return "O'z oylik va ulushingizni o'zgartira olmaysiz"
+            except ArithmeticError:
+                return f"{maydon}: son bo'lishi kerak"
+    if farq("ishga_olingan_sana", profil.ishga_olingan_sana):
+        return "Ishga olingan sanangizni o'zgartira olmaysiz"
+    return None
+
+
 class XodimDetailView(CrmView):
     pk_turi = "xodim"  # filial cheklovi: `crm.filial.obyekt_tekshir`
     bolim = "xodimlar"
@@ -524,16 +568,19 @@ class XodimDetailView(CrmView):
         eski = _xodim_dict(user)
         data = request.data
         owner = owner_mi(request.user)
+        ozi = user.pk == request.user.pk
         yangi_lavozim = data.get("lavozim", profil.lavozim)
-        if (yangi_lavozim in ("admin", "ceo") or user.role == User.Role.ADMIN) and not owner:
+        if (yangi_lavozim in ("admin", "ceo") or user.role == User.Role.ADMIN) and not owner and not ozi:
             if yangi_lavozim != profil.lavozim or user.role == User.Role.ADMIN:
                 return _xato("Administratorni faqat owner tahrirlay oladi", kod=403)
-        # O'z lavozimi, roli va faolligini o'zi o'zgartira olmaydi (owner'dan boshqa).
-        if user.pk == request.user.pk and not owner:
-            if (yangi_lavozim != profil.lavozim
-                    or ("rol_id" in data and str(data.get("rol_id") or "") != str(profil.rol_id or ""))
-                    or ("faol" in data and not data["faol"])):
-                return _xato("O'z lavozimingiz, rolingiz va holatingizni o'zgartira olmaysiz", kod=403)
+        # O'zini tahrirlash (owner'dan boshqa): ism, telefon, tug'ilgan sana,
+        # jins va o'z paroli — mumkin; lavozim, rol, holat, filial, oylik va
+        # ishga olingan sana — yo'q. Forma hamma maydonni qaytaradi, shuning
+        # uchun QIYMAT o'zgargani tekshiriladi, maydon borligi emas.
+        if ozi and not owner:
+            if xato := _oz_profilidagi_taqiq(user, profil, data):
+                return _xato(xato, kod=403)
+            data = {k: v for k, v in data.items() if k in _OZI_TAHRIRLAYDI}
         parol_sorandi = bool(data.get("parol_tiklash") or data.get("parol"))
         # Boshqa xodimning parolini faqat owner yoki administrator tiklaydi —
         # aks holda `xodimlar` ruxsati bor kassir o'qituvchi nomidan saytga kira olardi.
@@ -625,8 +672,9 @@ _LID_MATN_MAYDONLARI = {
 }
 
 
-def _lid_maydonlari(lid, data):
-    """Yaratish va tahrir uchun umumiy. O'zgargan maydon nomlarini qaytaradi."""
+def _lid_maydonlari(lid, data, user=None):
+    """Yaratish va tahrir uchun umumiy. O'zgargan maydon nomlarini qaytaradi.
+    `user` — filial cheklovi: ustun va yig'ilayotgan guruh o'z filialidan."""
     ozgardi = []
     for maydon, uzunlik in _LID_MATN_MAYDONLARI.items():
         if maydon in data:
@@ -660,7 +708,11 @@ def _lid_maydonlari(lid, data):
     for maydon, model in (("bolim_id", LidBolim), ("filial_id", Filial), ("kurs_id", KursTugun)):
         if maydon in data:
             qiymat = data.get(maydon) or None
-            if qiymat and not model.objects.filter(pk=qiymat).exists():
+            yozuv = model.objects.filter(pk=qiymat).first() if qiymat else None
+            if qiymat and yozuv is None:
+                raise ValueError(f"{maydon}: topilmadi")
+            if (user is not None and model is LidBolim and yozuv is not None
+                    and not filial_korinadimi(user, yozuv.filial_id)):
                 raise ValueError(f"{maydon}: topilmadi")
             if getattr(lid, maydon) != (int(qiymat) if qiymat else None):
                 ozgardi.append(maydon)
@@ -672,7 +724,10 @@ def _lid_maydonlari(lid, data):
         lid.oqituvchi_id = int(qiymat) if qiymat else None
     if "yigilayotgan_guruh_id" in data:
         qiymat = data.get("yigilayotgan_guruh_id") or None
-        if qiymat and not Guruh.objects.filter(pk=qiymat, faol=True).exists():
+        guruhlar = Guruh.objects.filter(faol=True)
+        if user is not None:
+            guruhlar = guruhlar.filter(guruh_q(user))
+        if qiymat and not guruhlar.filter(pk=qiymat).exists():
             raise ValueError("Guruh topilmadi")
         if (int(qiymat) if qiymat else None) != lid.yigilayotgan_guruh_id:
             ozgardi.append("yigilayotgan_guruh_id")
@@ -722,18 +777,34 @@ class LidBolimlarView(CrmView):
         if not nomi:
             return _xato("Bo'lim nomi bo'sh bo'lmasin")
         oxirgi = LidBolim.objects.order_by("-tartib").values_list("tartib", flat=True).first() or 0
-        filial_id = request.data.get("filial_id") or None
-        if filial_id:
+        doska = None
+        doska_id = request.data.get("doska_id") or None
+        if doska_id:
+            doska = LidDoska.objects.filter(pk=doska_id).first()
+            if doska is None or not filial_korinadimi(request.user, doska.filial_id):
+                return _xato("Doska topilmadi")
+        # Filial doskasidagi ustun — o'sha filialniki. Filial xodimi
+        # filialsiz ("hammaniki") ustun ocha olmaydi: bittasi bo'lsa o'zi qo'yiladi.
+        filial_id = request.data.get("filial_id") or (doska.filial_id if doska else None)
+        ruxsat = ruxsat_filiallari(request.user)
+        if ruxsat is not None and not filial_id and len(ruxsat) == 1:
+            filial_id = next(iter(ruxsat))
+        if filial_id or ruxsat is not None:
             try:
                 filial_tekshir(request.user, filial_id)
             except ValueError as e:
                 return _xato(str(e), kod=403)
-        doska_id = request.data.get("doska_id") or None
-        if doska_id and not LidDoska.objects.filter(pk=doska_id).exists():
-            return _xato("Doska topilmadi")
+            if not str(filial_id).isdigit() or not Filial.objects.filter(pk=filial_id).exists():
+                return _xato("Filial topilmadi")
+        if doska and doska.filial_id and str(filial_id) != str(doska.filial_id):
+            return _xato("Ustun filiali doska filiali bilan bir xil bo'lsin")
         guruh_id = request.data.get("guruh_id") or None
-        if guruh_id and not Guruh.objects.filter(pk=guruh_id).exists():
-            return _xato("Guruh topilmadi")
+        if guruh_id:
+            guruh = Guruh.objects.select_related("moliya").filter(pk=guruh_id).first()
+            if guruh is None or not filial_korinadimi(
+                request.user, getattr(getattr(guruh, "moliya", None), "filial_id", None)
+            ):
+                return _xato("Guruh topilmadi")
         bolim = LidBolim.objects.create(
             nomi=nomi[:100], tartib=oxirgi + 1, filial_id=filial_id, doska_id=doska_id, guruh_id=guruh_id,
         )
@@ -748,6 +819,10 @@ class LidBolimDetailView(CrmView):
         if xato := _ruxsatsiz(request, "lidlar.bolim"):
             return xato
         bolim = get_object_or_404(LidBolim, pk=pk)
+        try:
+            umumiy_yozuv_taqiq(request.user, bolim.filial_id, "ustun")
+        except ValueError as e:
+            return _xato(str(e), kod=403)
         if "nomi" in request.data:
             nomi = (request.data.get("nomi") or "").strip()
             if not nomi:
@@ -765,6 +840,10 @@ class LidBolimDetailView(CrmView):
         if xato := _ruxsatsiz(request, "lidlar.bolim"):
             return xato
         bolim = get_object_or_404(LidBolim, pk=pk)
+        try:
+            umumiy_yozuv_taqiq(request.user, bolim.filial_id, "ustun")
+        except ValueError as e:
+            return _xato(str(e), kod=403)
         # Ichidagi lidlar YO'QOLMAYDI — bo'limsiz qoladi ("Yangi lidlar").
         bolim.delete()
         return Response(status=204)
@@ -774,8 +853,11 @@ def lidlar_qs(p, user=None):
     """Kanban va Excel eksport uchun BITTA filtr — eksport ekrandagi
     ro'yxatning aynan o'zi bo'lsin."""
     qs = Lid.objects.select_related("kurs", "oqituvchi", "kim_qoshdi", "bolim", "filial", "yigilayotgan_guruh")
-    if user is not None:
-        qs = qs.filter(filial_q(user, "filial"))  # filial cheklovi
+    # Filial cheklovi. Qora ro'yxat — ISTISNO: u hamma filialga ko'rinadi
+    # (Shuhrat, 2026-09-23), toki bir filialda "yomon" mijoz boshqasida
+    # yangidan yozilmasin.
+    if user is not None and not p.get("qora_royxat"):
+        qs = qs.filter(filial_q(user, "filial"))
     qs = qs.filter(arxiv=bool(p.get("arxiv")))
     qs = qs.filter(qora_royxat=bool(p.get("qora_royxat")))
     if p.get("filial"):
@@ -829,7 +911,7 @@ class LidlarView(CrmView):
         try:
             if ruxsat is not None:
                 filial_tekshir(request.user, data.get("filial_id"))
-            _lid_maydonlari(lid, data)
+            _lid_maydonlari(lid, data, request.user)
         except ValueError as e:
             return _xato(str(e))
         # Telefon bo'yicha takror — ogohlantiramiz, lekin to'xtatmaymiz
@@ -896,7 +978,12 @@ class LidDetailView(CrmView):
 
     def get(self, request, pk):
         lid = get_object_or_404(Lid.objects.select_related("kurs", "oqituvchi", "kim_qoshdi"), pk=pk)
-        takrorlar = Lid.objects.filter(telefon=lid.telefon).exclude(pk=lid.pk).values("id", "ism", "arxiv")
+        # Boshqa filial lidi takrorlarda ko'rinmaydi — qora ro'yxatdagisidan tashqari.
+        takrorlar = (
+            Lid.objects.filter(telefon=lid.telefon).exclude(pk=lid.pk)
+            .filter(filial_q(request.user, "filial") | Q(qora_royxat=True))
+            .values("id", "ism", "arxiv")
+        )
         return Response({
             **_lid_dict(lid),
             "tarix": [
@@ -922,7 +1009,7 @@ class LidDetailView(CrmView):
         try:
             if "filial_id" in request.data and ruxsat_filiallari(request.user) is not None:
                 filial_tekshir(request.user, request.data.get("filial_id"))
-            ozgardi = _lid_maydonlari(lid, request.data)
+            ozgardi = _lid_maydonlari(lid, request.data, request.user)
         except ValueError as e:
             return _xato(str(e))
         lid.save()
@@ -1284,7 +1371,7 @@ class GuruhYaratishView(CrmView):
                     guruh=guruh, filial=filial, narx=narx, boshlanish_sana=boshlanish, tugash_sana=tugash,
                     baholash_tizimi=baholash,
                 )
-                yangilar, xato = jadvalni_tekshir(guruh, data.get("jadval") or [])
+                yangilar, xato = jadvalni_tekshir(guruh, data.get("jadval") or [], request.user)
                 if xato:
                     raise ValueError(xato)
                 DarsJadvali.objects.bulk_create(yangilar)
@@ -1407,6 +1494,10 @@ class GuruhTalabalariView(CrmView):
                     talaba = (
                         User.objects.filter(role=User.Role.STUDENT, telefon=telefon).first() if telefon else None
                     )
+                    # Qo'lda qo'shishdagi kabi filial cheklovi: boshqa filial
+                    # talabasini telefon orqali o'z guruhiga tortib bo'lmaydi.
+                    if talaba is not None and not talaba_korinadimi(request.user, talaba.id):
+                        raise ValueError("Bu telefon boshqa filial o'quvchisiga tegishli")
                     parol = None
                     if talaba is None:
                         talaba, parol, xato = talaba_yarat(
@@ -1650,7 +1741,8 @@ class DarsOzgarishlariView(CrmView):
             if moliya and moliya.boshlanish_sana and yangi < moliya.boshlanish_sana:
                 return _xato("Yangi sana guruh boshlanishidan oldin")
         xona_id = request.data.get("xona_id") or None
-        if xona_id and not Xona.objects.filter(pk=xona_id).exists():
+        if xona_id and not Xona.objects.filter(filial_q(request.user, "filial", filialsiz_ham=False),
+                                               pk=xona_id).exists():
             return _xato("Xona topilmadi")
         try:
             with transaction.atomic():
@@ -1719,10 +1811,22 @@ def _chegirma_oylarini_qayta_hisobla(am, boshlanish_oy, oylar_soni, dan=None):
     # Doimiy chegirma (0 oy) — joriy oygacha ochilgan hamma oylar.
     oxirgi = mantiq.oy_boshi(timezone.localdate())
     soni = oylar_soni or max(1, (oxirgi.year - oy.year) * 12 + oxirgi.month - oy.month + 1)
+    otkazildi = []
     for _ in range(soni):
         if dan is None or oy >= dan:
-            mantiq.azolikni_qayta_hisobla(am, oy)
+            hisob = mantiq.azolikni_qayta_hisobla(am, oy)
+            if hisob is not None and hisob.qolda and hisob.holat != Hisob.Holat.TOLANDI:
+                otkazildi.append(oy)
         oy = mantiq.keyingi_oy(oy)
+    return otkazildi
+
+
+def _qolda_ogohlantirish(oylar):
+    """Chegirma `qolda` hisobga TEGMAYDI (qaror) — lekin jim ham qolmasin."""
+    if not oylar:
+        return None
+    return (", ".join(f"{o:%Y-%m}" for o in oylar)
+            + " hisobi qo'lda belgilangan — chegirma unga tegmadi. Kerak bo'lsa, summani owner tuzatadi.")
 
 
 class GuruhChegirmalariView(CrmView):
@@ -1790,11 +1894,11 @@ class GuruhChegirmalariView(CrmView):
         with transaction.atomic():
             c = Chegirma.objects.create(azolik=am, narx=narx, boshlanish_oy=oy, oylar_soni=oylar,
                                         izoh=(request.data.get("izoh") or "").strip()[:300], kim=request.user)
-            _chegirma_oylarini_qayta_hisobla(am, oy, oylar)
+            otkazildi = _chegirma_oylarini_qayta_hisobla(am, oy, oylar)
         logla(foydalanuvchi=request.user, harakat=FaoliyatYozuvi.Harakat.YARATISH, obyekt=am,
               obyekt_turi="CRM Chegirma", obyekt_nomi=_ism(am.azolik.talaba),
               snapshot={k: str(v) for k, v in _chegirma_dict(c).items()})
-        return Response(_chegirma_dict(c), status=201)
+        return Response({**_chegirma_dict(c), "ogohlantirish": _qolda_ogohlantirish(otkazildi)}, status=201)
 
 
 class ChegirmaDetailView(CrmView):
@@ -1809,11 +1913,14 @@ class ChegirmaDetailView(CrmView):
         snapshot = {k: str(v) for k, v in _chegirma_dict(c).items()}
         with transaction.atomic():
             c.delete()
-            _chegirma_oylarini_qayta_hisobla(
+            otkazildi = _chegirma_oylarini_qayta_hisobla(
                 am, oy, oylar, dan=None if owner_mi(request.user) else mantiq.oy_boshi(timezone.localdate()),
             )
         logla(foydalanuvchi=request.user, harakat=FaoliyatYozuvi.Harakat.OCHIRISH, obyekt=am,
               obyekt_turi="CRM Chegirma", obyekt_nomi=_ism(am.azolik.talaba), snapshot=snapshot)
+        ogohlantirish = _qolda_ogohlantirish(otkazildi)
+        if ogohlantirish:
+            return Response({"ogohlantirish": ogohlantirish})
         return Response(status=204)
 
 
@@ -1881,19 +1988,25 @@ class KorsatkichlarView(CrmView):
             oy_ketgan = oy_ketgan.filter(filial_id=filial)
 
         oqituvchilar = User.objects.filter(role=User.Role.TEACHER, is_active=True)
+        filiallari = ruxsat_filiallari(u)
+        if filiallari is not None:
+            # Xodimlar ro'yxatidagi qoida: o'z filiali yoki filialsiz o'qituvchi.
+            oqituvchilar = oqituvchilar.filter(
+                Q(crm_xodim__isnull=True) | Q(crm_xodim__filiallar__isnull=True)
+                | Q(crm_xodim__filiallar__in=filiallari)
+            ).distinct()
 
         # Markaz foydaliligi = (shu oy kassaga tushgan pul − xodimlar
         # oyligi − o'qituvchi ulushlari) / tushum. Ulush guruh tushumidan
         # hisoblanadi (guruhdagi o'qituvchi foizi, bo'lmasa profildagi).
         tushum = foydalilik = None
         if "bosh_sahifa.markaz_foydaliligi" in r:
-            tolovlar = Tolov.objects.filter(turi=Tolov.Turi.TOLOV, sana__gte=oy, sana__lte=bugun).filter(
-                guruh_q(u, "guruh__"))
+            tolovlar = Tolov.objects.filter(turi=Tolov.Turi.TOLOV, sana__gte=oy, sana__lte=bugun).filter(tolov_q(u))
             qaytarishlar = Tolov.objects.filter(turi=Tolov.Turi.QAYTARISH, sana__gte=oy, sana__lte=bugun).filter(
-                guruh_q(u, "guruh__"))
+                tolov_q(u))
             if filial:
-                tolovlar = tolovlar.filter(guruh__moliya__filial_id=filial)
-                qaytarishlar = qaytarishlar.filter(guruh__moliya__filial_id=filial)
+                tolovlar = tolovlar.filter(tolov_filiali_q(filial))
+                qaytarishlar = qaytarishlar.filter(tolov_filiali_q(filial))
             tushum = (tolovlar.aggregate(s=Sum("summa"))["s"] or NOL) - (
                 qaytarishlar.aggregate(s=Sum("summa"))["s"] or NOL
             )
@@ -1901,9 +2014,8 @@ class KorsatkichlarView(CrmView):
             profillar = XodimProfil.objects.filter(user__is_active=True)
             # M2M bo'yicha filtr — subquery orqali: to'g'ridan-to'g'ri join
             # ikki filialli xodimning oyligini ikki marta qo'shardi.
-            ruxsat = ruxsat_filiallari(u)
-            if ruxsat is not None:
-                profillar = profillar.filter(pk__in=XodimProfil.objects.filter(filiallar__in=ruxsat).values("pk"))
+            if filiallari is not None:
+                profillar = profillar.filter(pk__in=XodimProfil.objects.filter(filiallar__in=filiallari).values("pk"))
             if filial:
                 profillar = profillar.filter(pk__in=XodimProfil.objects.filter(filiallar=filial).values("pk"))
             xarajat += profillar.aggregate(s=Sum("oylik"))["s"] or NOL
@@ -1994,7 +2106,10 @@ class TalabaQidiruvView(CrmView):
                 "saytga_kirgan": u.last_login is not None,
                 "guruhlar": [g.name for g in u.talaba_guruhlari.all() if g.faol],
             }
-            for u in qs.prefetch_related("talaba_guruhlari").order_by("first_name", "username")[:30]
+            # Boshqa filial guruhlarining nomlari ham chiqmasin.
+            for u in qs.prefetch_related(
+                Prefetch("talaba_guruhlari", queryset=Guruh.objects.filter(guruh_q(request.user)))
+            ).order_by("first_name", "username")[:30]
         ])
 
 

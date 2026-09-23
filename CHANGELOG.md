@@ -106,6 +106,23 @@ Format (qat'iy, parser shunga tayanadi):
   o'quvchilari, lidlari, to'lovlari va hisobotlarini ko'radi. Filial
   biriktirilmagan xodim hozircha hamma filialni ko'radi. Guruhsiz
   o'quvchi va filiali belgilanmagan lid hammaga ko'rinadi.
+- **Lidlarning qora ro'yxati hamma filialga ko'rinadi** — bir filialda
+  qora ro'yxatga olingan mijoz boshqasida qayta yozilmasin. Boshqa
+  filialning lidini faqat ko'rish mumkin, o'zgartirish o'sha filialda.
+- **Lid doskalari filialga bog'lanadi**: filial xodimi o'z filiali
+  doskalarini va umumiy doskalarni ko'radi. Umumiy doska va ustunni
+  faqat filialga bog'lanmagan xodim o'zgartiradi yoki o'chiradi.
+- Ikki filialda o'qiydigan o'quvchining kartasida balans umumiy
+  ko'rinadi va yonida "boshqa filialda ham hisobi bor" belgisi chiqadi;
+  boshqa filialning to'lovlari esa ko'rinmaydi.
+- **Xodim qo'shish va lavozimni o'zgartirish** — faqat owner yoki
+  administrator. Administrator o'z ismi, telefoni va parolini o'zi
+  o'zgartira oladi (lavozim, filial va oylikni — yo'q).
+- O'quvchining narxi va sanalarini guruhni tahrirlash ruxsati bor xodim
+  o'zgartiradi; holatini (sinov/faol/muzlatish) guruhga o'quvchi
+  qo'shadigan xodim ham o'zgartira oladi.
+- Owner qo'lda belgilagan oyga chegirma tegmaydi — endi bu haqda
+  ogohlantirish chiqadi.
 - **Owner CRM'da CEO** — unga hech qanday cheklov yo'q. CEO lavozimi
   endi boshqa xodimga berilmaydi. Kurs narxlari va filiallar ro'yxatini
   filialga biriktirilgan xodim faqat ko'radi.

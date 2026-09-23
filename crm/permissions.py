@@ -95,6 +95,6 @@ class CrmView(APIView):
         if pk_turi and "pk" in kwargs:
             from .filial import obyekt_tekshir
 
-            obyekt_tekshir(request.user, pk_turi, kwargs["pk"])
+            obyekt_tekshir(request.user, pk_turi, kwargs["pk"], oqish=request.method == "GET")
         if request.method == "GET":
             hisoblarni_generatsiya_qil()

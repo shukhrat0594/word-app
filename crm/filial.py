@@ -70,13 +70,39 @@ def filial_tekshir(user, filial_id):
         return
     if not filial_id:
         raise ValueError("Filialni tanlang")
-    if int(filial_id) not in s:
+    try:
+        filial_id = int(filial_id)
+    except (TypeError, ValueError):
+        raise ValueError("Filial noto'g'ri") from None
+    if filial_id not in s:
         raise ValueError("Bu filialga ruxsatingiz yo'q")
 
 
 def guruh_q(user, prefix=""):
     """Guruh querysetlari uchun (`prefix` — masalan `"azolik__guruh__"`)."""
     return filial_q(user, f"{prefix}moliya__filial")
+
+
+def tolov_q(user, prefix=""):
+    """To'lov filtri. Filial — HISOBDAN (u yaratilgan paytdagi snapshot),
+    hisobsiz to'lovda (qaytarish, avans) — guruhdan. Faqat guruhga
+    qaralsa, guruhi o'chirilgan to'lov (`guruh=NULL`) "filialsiz" bo'lib
+    hamma filialga ko'rinardi; guruh boshqa filialga ko'chsa esa to'lov
+    hisob bilan boshqa-boshqa filialda chiqardi."""
+    if ruxsat_filiallari(user) is None:
+        return Q()
+    return (
+        (Q(**{f"{prefix}hisob__isnull": False}) & filial_q(user, f"{prefix}hisob__filial"))
+        | (Q(**{f"{prefix}hisob__isnull": True}) & guruh_q(user, f"{prefix}guruh__"))
+    )
+
+
+def tolov_filiali_q(filial_id, prefix=""):
+    """`?filial=` tanlovi — `tolov_q` bilan bir xil qoida."""
+    return (
+        Q(**{f"{prefix}hisob__isnull": False, f"{prefix}hisob__filial_id": filial_id})
+        | Q(**{f"{prefix}hisob__isnull": True, f"{prefix}guruh__moliya__filial_id": filial_id})
+    )
 
 
 def guruh_tekshir(user, guruh):
@@ -91,6 +117,10 @@ def talaba_korinadimi(user, talaba_id):
     s = ruxsat_filiallari(user)
     if s is None:
         return True
+    try:
+        talaba_id = int(talaba_id)
+    except (TypeError, ValueError):
+        return False
     from academics.models import GuruhAzoligi
 
     from .models import Hisob
@@ -109,9 +139,52 @@ def talaba_tekshir(user, talaba_id):
         raise Http404
 
 
-def lid_tekshir(user, lid):
+def talaba_boshqa_filialda(user, talaba_id):
+    """Cheklangan xodim uchun: talabaning ko'rinmaydigan filialda hisobi
+    yoki to'lovi bormi. Kartada umumiy balans yonida belgi (summasiz)
+    chiqadi — "boshqa filialda ham hisobi bor" (Shuhrat qarori)."""
+    if ruxsat_filiallari(user) is None:
+        return False
+    from .models import Hisob, Tolov
+
+    return (
+        Hisob.objects.filter(talaba_id=talaba_id).exclude(filial_q(user, "filial")).exists()
+        or Tolov.objects.filter(talaba_id=talaba_id).exclude(tolov_q(user)).exists()
+    )
+
+
+def talaba_guruhga_bogliqmi(talaba_id, guruh_id):
+    """Pul yozuvi (to'lov, qo'lda hisob) faqat shu guruhda o'qigan
+    talabaga: hozir a'zo, yoki shu guruhda hisobi / chiqish yozuvi bor
+    (guruhdan chiqib, qarzi qolgan). Aks holda istalgan talabaga — shu
+    jumladan boshqa filialnikiga — o'z guruhi orqali pul yozilardi."""
+    from academics.models import GuruhAzoligi
+
+    from .models import GuruhdanChiqish, Hisob
+
+    return (
+        GuruhAzoligi.objects.filter(talaba_id=talaba_id, guruh_id=guruh_id).exists()
+        or Hisob.objects.filter(talaba_id=talaba_id, guruh_id=guruh_id).exists()
+        or GuruhdanChiqish.objects.filter(talaba_id=talaba_id, guruh_id=guruh_id).exists()
+    )
+
+
+def lid_tekshir(user, lid, oqish=False):
+    """`oqish=True` — qora ro'yxatdagi lid HAMMA filialga ko'rinadi
+    (Shuhrat, 2026-09-23: boshqa filialga "yomon" mijoz qayta yozilmasin);
+    uni o'zgartirish esa baribir faqat o'z filialida."""
+    if oqish and lid.qora_royxat:
+        return
     if not filial_korinadimi(user, lid.filial_id):
         raise Http404
+
+
+def umumiy_yozuv_taqiq(user, filial_id, nima):
+    """Filialsiz (hamma filialga umumiy) yozuvni — lid doskasi yoki
+    ustunini — filialga bog'langan xodim o'zgartira/o'chira olmaydi:
+    bu boshqa filiallarga ham ta'sir qiladi. Xato bo'lsa ValueError."""
+    if filial_id is None and cheklanganmi(user):
+        raise ValueError(f"Umumiy {nima} barcha filiallarga tegishli — uni filialga bog'lanmagan xodim o'zgartiradi")
 
 
 def eslatma_tekshir(user, eslatma):
@@ -132,7 +205,9 @@ def xodim_korinadimi(user, xodim_user):
     profil = getattr(xodim_user, "crm_xodim", None)
     if profil is None:
         return True
-    idlar = set(profil.filiallar.values_list("id", flat=True))
+    # `.all()` — ro'yxatlarda `prefetch_related("crm_xodim__filiallar")`
+    # keshidan olinadi (`values_list` har xodimga alohida so'rov edi).
+    idlar = {f.id for f in profil.filiallar.all()}
     return not idlar or bool(idlar & s)
 
 
@@ -146,7 +221,7 @@ def _guruh_orqali(user, guruh_id):
         guruh_tekshir(user, guruh)
 
 
-def obyekt_tekshir(user, turi, pk):
+def obyekt_tekshir(user, turi, pk, oqish=False):
     """URL'dagi `pk` bo'yicha yozuv shu foydalanuvchi filialiga tegishlimi.
     `CrmView` view'dagi `pk_turi` e'loniga qarab chaqiradi — har view'da
     alohida yozilsa, bittasi esdan chiqib, boshqa filial ma'lumoti ID
@@ -166,7 +241,7 @@ def obyekt_tekshir(user, turi, pk):
     elif turi == "lid":
         lid = m.Lid.objects.filter(pk=pk).first()
         if lid is not None:
-            lid_tekshir(user, lid)
+            lid_tekshir(user, lid, oqish=oqish)
     elif turi == "azolik":
         am = m.AzolikMoliya.objects.select_related("azolik").filter(pk=pk).first()
         if am is not None:
@@ -193,6 +268,10 @@ def obyekt_tekshir(user, turi, pk):
         e = m.Eslatma.objects.select_related("guruh__moliya", "lid").filter(pk=pk).first()
         if e is not None:
             eslatma_tekshir(user, e)
+    elif turi == "lid_doska":
+        d = m.LidDoska.objects.filter(pk=pk).first()
+        if d is not None and not filial_korinadimi(user, d.filial_id):
+            raise Http404
     elif turi == "lid_bolim":
         b = m.LidBolim.objects.filter(pk=pk).first()
         if b is not None and not filial_korinadimi(user, b.filial_id):

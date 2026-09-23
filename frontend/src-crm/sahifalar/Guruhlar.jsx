@@ -153,7 +153,8 @@ function Azolar({ guruhId, onOzgardi }) {
               <td>
                 {/* Sinov va muzlatilgan talabaga hisob OCHILMAYDI —
                     shuning uchun holat aynan shu yerdan boshqariladi. */}
-                <select value={a.holat} onChange={(e) => ozgartir(a.id, "holat", e.target.value)}>
+                <select value={a.holat} onChange={(e) => ozgartir(a.id, "holat", e.target.value)}
+                        disabled={!ruxsat("guruhlar.tahrirlash") && !ruxsat("guruhlar.talaba_qoshish")}>
                   {["sinov", "faol", "muzlatilgan"].map((h) => (
                     <option key={h} value={h}>{t(`holat_${h}`)}</option>
                   ))}
@@ -164,6 +165,7 @@ function Azolar({ guruhId, onOzgardi }) {
                   <input
                     type="date"
                     value={a.boshlanish_sana || ""}
+                    disabled={!ruxsat("guruhlar.tahrirlash")}
                     onChange={(e) => ozgartir(a.id, "boshlanish_sana", e.target.value)}
                   />
                 </td>

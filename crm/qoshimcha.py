@@ -36,6 +36,7 @@ from .boshqaruv import (
 from .eksport import _varaq_yoz, javob_qil
 from .models import (
     AzolikMoliya,
+    Filial,
     DarsMavzusi,
     GuruhdanChiqish,
     Lid,
@@ -46,7 +47,10 @@ from .models import (
     XodimDavomat,
 )
 from .permissions import CrmView
-from .filial import filial_q, guruh_q, xodim_korinadimi
+from .filial import (
+    filial_q, filial_tekshir, guruh_q, ruxsat_filiallari, tolov_filiali_q, tolov_q, umumiy_yozuv_taqiq,
+    xodim_korinadimi,
+)
 from .ruxsatlar import ruxsatlar
 from .views import _oy, _ruxsatsiz, _sana, _xato
 
@@ -73,7 +77,7 @@ def _excel(nomi, sarlavhalar, qatorlar, fayl_nomi, pul_ustunlari=()):
 
 
 def _doska_dict(d, soni=None):
-    return {"id": d.id, "nomi": d.nomi, "tartib": d.tartib, "soni": soni}
+    return {"id": d.id, "nomi": d.nomi, "tartib": d.tartib, "filial_id": d.filial_id, "soni": soni}
 
 
 class LidDoskalarView(CrmView):
@@ -85,7 +89,8 @@ class LidDoskalarView(CrmView):
 
     def get(self, request):
         u = request.user
-        doskalar = list(LidDoska.objects.annotate(
+        # Filial doskalari (2026-09-23): o'z filiali + umumiy (filialsiz) doskalar.
+        doskalar = list(LidDoska.objects.filter(filial_q(u, "filial")).annotate(
             _soni=Count("ustunlar__lidlar", filter=Q(ustunlar__lidlar__arxiv=False,
                                                      ustunlar__lidlar__qora_royxat=False)
                         & filial_q(u, "ustunlar__lidlar__filial"))
@@ -97,7 +102,8 @@ class LidDoskalarView(CrmView):
         return Response({
             "doskalar": [_doska_dict(d, d._soni) for d in doskalar],
             "umumiy": umumiy,
-            "qora_royxat": Lid.objects.filter(qora_royxat=True).filter(filial_q(u, "filial")).count(),
+            # Qora ro'yxat — hamma filialniki (Shuhrat, 2026-09-23).
+            "qora_royxat": Lid.objects.filter(qora_royxat=True).count(),
         })
 
     def post(self, request):
@@ -107,19 +113,37 @@ class LidDoskalarView(CrmView):
         if not nomi:
             return _xato("Bo'lim nomi bo'sh bo'lmasin")
         oxirgi = LidDoska.objects.order_by("-tartib").values_list("tartib", flat=True).first() or 0
+        # Filial xodimi doskasi — uning filialida (bittasi bo'lsa o'zi
+        # qo'yiladi); filialsiz (umumiy) doskani faqat cheklovsiz xodim ochadi.
+        filial_id = request.data.get("filial_id") or None
+        ruxsat = ruxsat_filiallari(request.user)
+        if ruxsat is not None and not filial_id and len(ruxsat) == 1:
+            filial_id = next(iter(ruxsat))
+        if filial_id or ruxsat is not None:
+            try:
+                filial_tekshir(request.user, filial_id)
+            except ValueError as e:
+                return _xato(str(e), kod=403)
+            if not str(filial_id).isdigit() or not Filial.objects.filter(pk=filial_id).exists():
+                return _xato("Filial topilmadi")
         with transaction.atomic():
-            doska = LidDoska.objects.create(nomi=nomi[:100], tartib=oxirgi + 1)
-            LidBolim.objects.create(nomi="NEW LEADS", doska=doska, tartib=0)
+            doska = LidDoska.objects.create(nomi=nomi[:100], tartib=oxirgi + 1, filial_id=filial_id)
+            LidBolim.objects.create(nomi="NEW LEADS", doska=doska, tartib=0, filial_id=filial_id)
         return Response(_doska_dict(doska, 0), status=201)
 
 
 class LidDoskaDetailView(CrmView):
+    pk_turi = "lid_doska"  # filial cheklovi: `crm.filial.obyekt_tekshir`
     bolim = "lidlar"
 
     def patch(self, request, pk):
         if xato := _ruxsatsiz(request, "lidlar.bolim"):
             return xato
         doska = get_object_or_404(LidDoska, pk=pk)
+        try:
+            umumiy_yozuv_taqiq(request.user, doska.filial_id, "doska")
+        except ValueError as e:
+            return _xato(str(e), kod=403)
         nomi = (request.data.get("nomi") or "").strip()
         if not nomi:
             return _xato("Bo'lim nomi bo'sh bo'lmasin")
@@ -131,6 +155,10 @@ class LidDoskaDetailView(CrmView):
         if "lidlar.bolim" not in ruxsatlar(request.user):
             return _xato("Ruxsat yo'q", kod=403)
         doska = get_object_or_404(LidDoska, pk=pk)
+        try:
+            umumiy_yozuv_taqiq(request.user, doska.filial_id, "doska")
+        except ValueError as e:
+            return _xato(str(e), kod=403)
         # Lidlar yo'qolmaydi: ustunlar o'chadi, lidlar "Umumiy"ga tushadi.
         Lid.objects.filter(bolim__doska=doska).update(bolim=None)
         doska.delete()
@@ -444,19 +472,23 @@ class TalabaTarixiView(CrmView):
                 "matn": ", ".join(f.ozgarishlar.keys()) if isinstance(f.ozgarishlar, dict) else "",
                 "kim": _ism(f.foydalanuvchi) if f.foydalanuvchi_id else None,
             })
-        for t in Tolov.objects.filter(talaba=talaba).select_related("kim_kiritdi")[:200]:
+        # Filial xodimi — boshqa filialdagi to'lov, chiqish va guruhlarni ko'rmaydi.
+        for t in Tolov.objects.filter(talaba=talaba).filter(tolov_q(request.user)).select_related(
+                "kim_kiritdi")[:200]:
             voqealar.append({
                 "vaqt": t.created_at, "turi": t.get_turi_display(),
                 "matn": f"{t.guruh_nomi}: {t.summa:,.0f} so'm".replace(",", " ") + (f" — {t.izoh}" if t.izoh else ""),
                 "kim": _ism(t.kim_kiritdi) if t.kim_kiritdi_id else None,
             })
-        for c in GuruhdanChiqish.objects.filter(talaba=talaba).select_related("kim"):
+        for c in GuruhdanChiqish.objects.filter(talaba=talaba).filter(filial_q(request.user, "filial")).select_related(
+                "kim"):
             voqealar.append({
                 "vaqt": c.created_at, "turi": "Guruhdan chiqdi",
                 "matn": f"{c.guruh_nomi} ({c.sana:%d.%m.%Y})" + (f" — {c.sabab}" if c.sabab else ""),
                 "kim": _ism(c.kim) if c.kim_id else None,
             })
-        for a in GuruhAzoligi.objects.filter(talaba=talaba).select_related("guruh"):
+        for a in GuruhAzoligi.objects.filter(talaba=talaba).filter(guruh_q(request.user, "guruh__")).select_related(
+                "guruh"):
             voqealar.append({"vaqt": a.created_at, "turi": "Guruhga qo'shildi", "matn": a.guruh.name, "kim": None})
         voqealar.sort(key=lambda v: v["vaqt"], reverse=True)
         return Response(voqealar)
@@ -626,9 +658,9 @@ class TolovlarHisobotiView(CrmView):
             dan, gacha = _davr(request)
         except ValueError as e:
             return _xato(str(e))
-        qs = Tolov.objects.filter(sana__range=(dan, gacha)).filter(guruh_q(request.user, "guruh__"))
+        qs = Tolov.objects.filter(sana__range=(dan, gacha)).filter(tolov_q(request.user))
         if request.query_params.get("filial"):
-            qs = qs.filter(guruh__moliya__filial_id=request.query_params["filial"])
+            qs = qs.filter(tolov_filiali_q(request.query_params["filial"]))
         usullar = dict(Tolov.Usul.choices)
         tolov = qs.filter(turi=Tolov.Turi.TOLOV)
         return Response({

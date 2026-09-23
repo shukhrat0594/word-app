@@ -41,6 +41,9 @@ const SATRLAR = {
     hisobotlar: "Hisobotlar",
     hamma_filiallar: "Barcha filiallar",
     mening_filiallarim: "Mening filiallarim",
+    boshqa_filialda: "boshqa filialda ham hisobi bor",
+    boshqa_filialda_izoh: "Umumiy balansga boshqa filialdagi guruh hisoblari va to'lovlari ham kiradi — ular bu kartada ko'rinmaydi.",
+    begona_filial_lidi: "Bu lid boshqa filialniki (qora ro'yxatda) — faqat ko'rish mumkin.",
     filialsiz_izoh: "Filial belgilanmasa — xodim CRM'da hamma filialni ko'radi",
 
     ruxsat_yoq_sarlavha: "Bu bo'lim faqat administratorlar uchun",
@@ -555,6 +558,9 @@ const SATRLAR = {
     hisobotlar: "Отчёты",
     hamma_filiallar: "Все филиалы",
     mening_filiallarim: "Мои филиалы",
+    boshqa_filialda: "есть счета и в другом филиале",
+    boshqa_filialda_izoh: "Общий баланс включает счета и оплаты групп другого филиала — в этой карточке их не видно.",
+    begona_filial_lidi: "Лид другого филиала (в чёрном списке) — только просмотр.",
     filialsiz_izoh: "Если филиал не выбран — сотрудник видит в CRM все филиалы",
 
     ruxsat_yoq_sarlavha: "Раздел только для администраторов",
@@ -1069,6 +1075,9 @@ const SATRLAR = {
     hisobotlar: "Reports",
     hamma_filiallar: "All branches",
     mening_filiallarim: "My branches",
+    boshqa_filialda: "also has records in another branch",
+    boshqa_filialda_izoh: "The total balance includes bills and payments in another branch's groups — they are not shown on this card.",
+    begona_filial_lidi: "This lead belongs to another branch (blacklisted) — view only.",
     filialsiz_izoh: "No branch selected — the employee sees all branches in the CRM",
 
     ruxsat_yoq_sarlavha: "Administrators only",

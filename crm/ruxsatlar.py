@@ -130,6 +130,9 @@ def _lavozim(user, profil):
     return None
 
 
+_KESH = "_crm_ruxsatlar_kesh"
+
+
 def ruxsatlar(user):
     """Foydalanuvchining CRM ruxsatlari to'plami (bo'sh = CRM yopiq).
 
@@ -137,9 +140,21 @@ def ruxsatlar(user):
     (administratorda ham: "Administrator 1" kabi cheklangan rol
     ishlasin); aks holda lavozimning tizim roli (bazada, owner
     tahrirlaydi); u ham bo'lmasa — `_STANDART`.
+
+    Natija foydalanuvchi obyektida keshlanadi: bitta so'rovda 3-4 marta
+    chaqiriladi (`CrmRuxsati`, amal tekshiruvlari) va har safar tizim
+    rolini bazadan o'qirdi. Foydalanuvchi har so'rovda yangidan olinadi
+    (JWT), ya'ni kesh keyingi so'rovga o'tmaydi. Nusxa qaytariladi —
+    chaqiruvchi to'plamni o'zgartirsa, kesh buzilmasin.
     """
     if not user or not user.is_authenticated:
         return set()
+    if not hasattr(user, _KESH):
+        setattr(user, _KESH, _hisobla(user))
+    return set(getattr(user, _KESH))
+
+
+def _hisobla(user):
     if owner_mi(user):
         return set(BARCHA_KALITLAR)
     if not user.is_active:
