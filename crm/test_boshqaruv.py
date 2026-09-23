@@ -236,3 +236,25 @@ class BahoVaUlushTest(ApiAsos):
             "oqituvchilar": [{"oqituvchi_id": self.oqituvchi.id, "ulush_turi": "dars"}],
         }, format="json")
         self.assertEqual(javob.status_code, 400)
+
+
+class LidEksportTest(ApiAsos):
+    def test_excel_filtr_bilan(self):
+        from io import BytesIO
+
+        from openpyxl import load_workbook
+
+        m = self.mijoz(self.admin)
+        m.post("/api/crm/lidlar/", {"ism": "Laura", "telefon": "901112233", "manba": "Instagram"}, format="json")
+        m.post("/api/crm/lidlar/", {"ism": "Diana", "telefon": "901112244", "manba": "Telegram"}, format="json")
+        javob = m.get("/api/crm/lidlar/eksport/?manba=Instagram")
+        self.assertEqual(javob.status_code, 200)
+        varaq = load_workbook(BytesIO(javob.content)).active
+        ismlar = [r[1] for r in varaq.iter_rows(min_row=2, values_only=True)]
+        self.assertEqual(ismlar, ["Laura"])
+
+    def test_ruxsatsiz_403(self):
+        rol = CrmRol.objects.create(nomi="Faqat lid", ruxsatlar=["lidlar.qoshish"])
+        u = User.objects.create_user(username="m", password="x", role=User.Role.ODDIY)
+        XodimProfil.objects.create(user=u, lavozim="boshqa", rol=rol)
+        self.assertEqual(self.mijoz(u).get("/api/crm/lidlar/eksport/").status_code, 403)

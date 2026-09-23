@@ -7,7 +7,7 @@
 
 import { useState } from "react";
 
-import { api } from "../api.js";
+import { api, apiFayluniYuklab } from "../api.js";
 import Eslatmalar from "../Eslatmalar.jsx";
 import { useFilial } from "../filialContext.jsx";
 import { sana, vaqt } from "../format.js";
@@ -467,10 +467,21 @@ export default function Lidlar() {
   const [guruhga, setGuruhga] = useState(false);
 
   const bolimlar = useSorov("/api/crm/lid-bolimlar/" + sorovSatri({ filial }));
-  const lidlar = useSorov(
-    "/api/crm/lidlar/" +
-      sorovSatri({ filial, q: qidiruv, manba, arxiv: rejim === "arxiv" ? 1 : "", qora_royxat: rejim === "qora_royxat" ? 1 : "" })
-  );
+  const filtrSatri = sorovSatri({
+    filial, q: qidiruv, manba, arxiv: rejim === "arxiv" ? 1 : "", qora_royxat: rejim === "qora_royxat" ? 1 : "",
+  });
+  const lidlar = useSorov("/api/crm/lidlar/" + filtrSatri);
+  const [eksportXato, setEksportXato] = useState("");
+
+  // Excel — ekrandagi filtrlar bilan AYNAN shu ro'yxat.
+  async function eksport() {
+    setEksportXato("");
+    try {
+      await apiFayluniYuklab("/api/crm/lidlar/eksport/" + filtrSatri);
+    } catch (e) {
+      setEksportXato(e.message);
+    }
+  }
   const bolimRoyxati = bolimlar.malumot || [];
   const lidRoyxati = lidlar.malumot || [];
 
@@ -518,6 +529,9 @@ export default function Lidlar() {
               👥 {t("lidlarni_guruhga")} ({tanlanganLar.size})
             </button>
           )}
+          {ruxsat("lidlar.excel") && (
+            <button className="tugma tugma-sokin" type="button" onClick={eksport}>⬇ Excel</button>
+          )}
           {ruxsat("lidlar.bolim") && (
             <button className="tugma tugma-sokin" type="button" onClick={bolimYarat}>+ {t("bolim_yaratish")}</button>
           )}
@@ -541,7 +555,9 @@ export default function Lidlar() {
         <span className="kichik">{t("jami")}: {lidRoyxati.length}</span>
       </div>
 
-      {(lidlar.xato || bolimlar.xato) && <div className="xato">{lidlar.xato || bolimlar.xato}</div>}
+      {(lidlar.xato || bolimlar.xato || eksportXato) && (
+        <div className="xato">{lidlar.xato || bolimlar.xato || eksportXato}</div>
+      )}
 
       <div className="kanban">
         {ustunlar.map((b) => (

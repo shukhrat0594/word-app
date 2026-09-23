@@ -557,30 +557,35 @@ class LidBolimDetailView(CrmView):
         return Response(status=204)
 
 
+def lidlar_qs(p):
+    """Kanban va Excel eksport uchun BITTA filtr — eksport ekrandagi
+    ro'yxatning aynan o'zi bo'lsin."""
+    qs = Lid.objects.select_related("kurs", "oqituvchi", "kim_qoshdi", "bolim", "filial")
+    qs = qs.filter(arxiv=bool(p.get("arxiv")))
+    qs = qs.filter(qora_royxat=bool(p.get("qora_royxat")))
+    if p.get("filial"):
+        qs = qs.filter(Q(filial_id=p["filial"]) | Q(filial__isnull=True))
+    if p.get("bolim"):
+        qs = qs.filter(bolim_id=p["bolim"])
+    if p.get("manba"):
+        qs = qs.filter(manba=p["manba"])
+    if p.get("oqituvchi"):
+        qs = qs.filter(oqituvchi_id=p["oqituvchi"])
+    if p.get("kunlar"):
+        qs = qs.filter(kunlar=p["kunlar"])
+    if p.get("q"):
+        q = p["q"].strip()
+        qs = qs.filter(Q(ism__icontains=q) | Q(telefon__icontains=q) | Q(qoshimcha_telefon__icontains=q))
+    return qs
+
+
 class LidlarView(CrmView):
     """Lidlar kanbani: bo'limlar bo'yicha guruhlangan ro'yxat."""
 
     bolim = "lidlar"
 
     def get(self, request):
-        p = request.query_params
-        qs = Lid.objects.select_related("kurs", "oqituvchi", "kim_qoshdi")
-        qs = qs.filter(arxiv=bool(p.get("arxiv")))
-        qs = qs.filter(qora_royxat=bool(p.get("qora_royxat")))
-        if p.get("filial"):
-            qs = qs.filter(Q(filial_id=p["filial"]) | Q(filial__isnull=True))
-        if p.get("bolim"):
-            qs = qs.filter(bolim_id=p["bolim"])
-        if p.get("manba"):
-            qs = qs.filter(manba=p["manba"])
-        if p.get("oqituvchi"):
-            qs = qs.filter(oqituvchi_id=p["oqituvchi"])
-        if p.get("kunlar"):
-            qs = qs.filter(kunlar=p["kunlar"])
-        if p.get("q"):
-            q = p["q"].strip()
-            qs = qs.filter(Q(ism__icontains=q) | Q(telefon__icontains=q) | Q(qoshimcha_telefon__icontains=q))
-        lidlar = list(qs[:1000])
+        lidlar = list(lidlar_qs(request.query_params)[:1000])
         # Har lidning OXIRGI eslatmasi bitta so'rovda (N+1 emas).
         eslatmalar = {}
         for e in Eslatma.objects.filter(lid__in=lidlar).order_by("lid_id", "-created_at").values(
@@ -611,6 +616,46 @@ class LidlarView(CrmView):
         if request.data.get("eslatma"):
             Eslatma.objects.create(lid=lid, matn=str(request.data["eslatma"])[:2000], kim=request.user)
         return Response(_lid_dict(lid), status=201)
+
+
+class LidlarEksportView(CrmView):
+    """Lidlar ro'yxati Excel'da — kanbandagi filtrlar bilan bir xil."""
+
+    bolim = "lidlar"
+
+    def get(self, request):
+        if "lidlar.excel" not in ruxsatlar(request.user):
+            return _xato("Excel eksportga ruxsat yo'q", kod=403)
+        from openpyxl import Workbook
+
+        from .eksport import _varaq_yoz, javob_qil
+
+        eslatmalar = {}
+        lidlar = list(lidlar_qs(request.query_params)[:5000])
+        for e in Eslatma.objects.filter(lid__in=lidlar).order_by("lid_id", "-created_at").values("lid_id", "matn"):
+            eslatmalar.setdefault(e["lid_id"], e["matn"])
+        kitob = Workbook()
+        ws = kitob.active
+        ws.title = "Lidlar"
+        _varaq_yoz(
+            ws,
+            ["ID", "Ism familiya", "Telefon", "Qo'shimcha raqam", "Kimning raqami", "Tug'ilgan sana",
+             "Bo'lim", "Holat", "Manba", "Filial", "Kurs", "O'qituvchi", "Qulay vaqt", "Kunlar",
+             "Izoh", "Oxirgi eslatma", "Kim qo'shdi", "Qo'shilgan vaqt"],
+            [
+                [
+                    l.id, l.ism, l.telefon, l.qoshimcha_telefon, l.qoshimcha_ism,
+                    l.tugilgan_sana.strftime("%d.%m.%Y") if l.tugilgan_sana else "",
+                    l.bolim.nomi if l.bolim_id else "Yangi lidlar", l.get_holat_display(), l.manba,
+                    l.filial.nomi if l.filial_id else "", l.kurs.nomi if l.kurs_id else "",
+                    _ism(l.oqituvchi) if l.oqituvchi_id else "", l.qulay_vaqt, l.kunlar, l.izoh,
+                    eslatmalar.get(l.id, ""), _ism(l.kim_qoshdi) if l.kim_qoshdi_id else "",
+                    timezone.localtime(l.created_at).strftime("%d.%m.%Y %H:%M"),
+                ]
+                for l in lidlar
+            ],
+        )
+        return javob_qil(kitob, f"lidlar_{timezone.localdate():%Y-%m-%d}.xlsx")
 
 
 class LidDetailView(CrmView):
