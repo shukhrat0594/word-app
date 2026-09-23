@@ -57,6 +57,9 @@ from .models import (
     Xona,
     XodimProfil,
 )
+from .filial import (
+    cheklanganmi, filial_q, filial_tekshir, guruh_q, guruh_tekshir, ruxsat_filiallari, talaba_tekshir,
+)
 from .permissions import CrmView
 from .ruxsatlar import BARCHA_KALITLAR, RUXSAT_DARAXTI, lms_roli, ruxsatlar, sayt_menyusini_toraytir
 from .views import _guruh_dict, _oy, _ruxsatsiz, _sana, _son, _vaqt, _xato, jadvalni_tekshir
@@ -128,6 +131,8 @@ class MenView(CrmView):
         return Response({
             "ruxsatlar": sorted(ruxsatlar(request.user)),
             "is_owner": owner_mi(request.user),
+            # Filial cheklovi: `null` — cheklovsiz, aks holda ko'rinadigan filiallar.
+            "filiallar": (lambda s: None if s is None else sorted(s))(ruxsat_filiallari(request.user)),
             "daraxt": [
                 {"kalit": k, "nomi": n, "bolalar": [{"kalit": kk, "nomi": nn} for kk, nn in b]}
                 for k, n, b in RUXSAT_DARAXTI
@@ -253,6 +258,7 @@ class RolDetailView(CrmView):
 
 def _xodim_dict(u, oylik_korsin=True):
     p = getattr(u, "crm_xodim", None)
+    filiallar = list(p.filiallar.all()) if p else []
     return {
         "id": u.id,
         "ism": _ism(u),
@@ -261,11 +267,17 @@ def _xodim_dict(u, oylik_korsin=True):
         "tugilgan_sana": u.tugilgan_sana,
         "faol": u.is_active,
         "lms_roli": u.role,
-        "lavozim": p.lavozim if p else ("oqituvchi" if u.role == User.Role.TEACHER else "admin"),
+        # Saytdagi owner CRM'da CEO (2026-09-23, Shuhrat) — CEO lavozimi
+        # boshqa xodimga berilmaydi.
+        "lavozim": "ceo" if u.is_superuser else (
+            p.lavozim if p else ("oqituvchi" if u.role == User.Role.TEACHER else "admin")
+        ),
+        "owner": u.is_superuser,
         "rol_id": p.rol_id if p else None,
         "rol": p.rol.nomi if p and p.rol_id else None,
-        "filial_id": p.filial_id if p else None,
-        "filial": p.filial.nomi if p and p.filial_id else None,
+        # Bir nechta filial (2026-09-23). Bo'sh — cheklovsiz (hamma filial).
+        "filial_idlar": [f.id for f in filiallar],
+        "filial": ", ".join(f.nomi for f in filiallar) or None,
         "jins": p.jins if p else "",
         "ishga_olingan_sana": p.ishga_olingan_sana if p else None,
         # Oylik va ulush — maxfiy: faqat `xodimlar.oylik` ruxsati bo'lsa.
@@ -285,7 +297,8 @@ def _xodimlar_qs():
         )
         .filter(is_superuser=False)
         .exclude(role__in=[User.Role.STUDENT, User.Role.PARENT])
-        .select_related("crm_xodim", "crm_xodim__rol", "crm_xodim__filial")
+        .select_related("crm_xodim", "crm_xodim__rol")
+        .prefetch_related("crm_xodim__filiallar")
         .distinct()
     )
 
@@ -321,6 +334,8 @@ def _xodim_maydonlari(user, profil, data, kim):
         lavozim = data.get("lavozim")
         if lavozim not in dict(XodimProfil.Lavozim.choices):
             raise ValueError("Noma'lum lavozim")
+        if lavozim == XodimProfil.Lavozim.CEO:
+            raise ValueError("CEO — bu owner, xodimga berilmaydi. Administrator lavozimini tanlang")
         profil.lavozim = lavozim
     if "rol_id" in data:
         rol_id = data.get("rol_id") or None
@@ -331,9 +346,9 @@ def _xodim_maydonlari(user, profil, data, kim):
             if rol is not None and rol.lavozim:
                 raise ValueError("Lavozim roli maxsus rol sifatida berilmaydi — lavozimni tanlang")
             profil.rol = rol
-    if "filial_id" in data:
-        filial_id = data.get("filial_id")
-        profil.filial = get_object_or_404(Filial, pk=filial_id) if filial_id else None
+    filiallar = None
+    if "filial_idlar" in data or "filial_id" in data:
+        filiallar = _xodim_filiallari(profil, data, kim)
     if "jins" in data:
         jins = data.get("jins") or ""
         if jins and jins not in dict(XodimProfil.Jins.choices):
@@ -352,6 +367,41 @@ def _xodim_maydonlari(user, profil, data, kim):
         if not 0 <= foiz <= 100:
             raise ValueError("Foiz ulushi 0..100 oralig'ida bo'lsin")
         profil.foiz_ulushi = foiz
+    # M2M — profil saqlangandan keyin yoziladi (chaqiruvchi `.set()` qiladi).
+    return filiallar
+
+
+def _xodim_filiallari(profil, data, kim):
+    """Xodimning yangi filiallari ro'yxati. Filialga bog'langan (cheklangan)
+    xodim boshqa xodimga faqat O'Z filiallarini beradi/oladi; tahrirdagi
+    xodimning boshqa filiallari saqlanadi; va hech kimni filialsiz qoldira
+    olmaydi — filialsiz xodim hamma filialni ko'radi (qaror), ya'ni bu
+    cheklovdan chiqarib yuborish bo'lardi."""
+    if "filial_idlar" in data:
+        xom = data.get("filial_idlar") or []
+        if not isinstance(xom, list):
+            raise ValueError("filial_idlar ro'yxat bo'lishi kerak")
+    else:
+        xom = [data.get("filial_id")] if data.get("filial_id") else []
+    try:
+        idlar = {int(x) for x in xom if x not in (None, "")}
+    except (TypeError, ValueError):
+        raise ValueError("Filial noto'g'ri") from None
+    if Filial.objects.filter(pk__in=idlar).count() != len(idlar):
+        raise ValueError("Filial topilmadi")
+    ruxsat = ruxsat_filiallari(kim)
+    if ruxsat is None:
+        return sorted(idlar)
+    if idlar - ruxsat:
+        raise _Taqiq("Faqat o'z filialingizni biriktira olasiz")
+    eski = set(profil.filiallar.values_list("id", flat=True)) if profil.pk else set()
+    yakuniy = idlar | (eski - ruxsat)
+    if not yakuniy:
+        # Yangi xodim — qo'shuvchining bitta filiali bo'lsa, o'shanisi o'zi qo'yiladi.
+        if not profil.pk and len(ruxsat) == 1:
+            return sorted(ruxsat)
+        raise ValueError("Filialni tanlang")
+    return sorted(yakuniy)
 
 
 class XodimlarView(CrmView):
@@ -362,14 +412,32 @@ class XodimlarView(CrmView):
     oqish_ochiq = True
 
     def get(self, request):
-        qs = _xodimlar_qs().filter(is_active=not request.query_params.get("arxiv"))
-        qidiruv = (request.query_params.get("q") or "").strip()
+        p = request.query_params
+        arxiv = bool(p.get("arxiv"))
+        qs = _xodimlar_qs().filter(is_active=not arxiv)
+        # `?tanlov=1` — guruh/lid formasidagi o'qituvchi tanlovi: HAMMA
+        # o'qituvchi (bir nechta filialda dars beradi — qaror). "Xodimlar"
+        # sahifasida esa filial xodimi faqat o'z filiali xodimlarini ko'radi.
+        ruxsat = None if p.get("tanlov") else ruxsat_filiallari(request.user)
+        if ruxsat is not None:
+            qs = qs.filter(
+                Q(crm_xodim__isnull=True) | Q(crm_xodim__filiallar__isnull=True)
+                | Q(crm_xodim__filiallar__in=ruxsat)
+            )
+        qidiruv = (p.get("q") or "").strip()
         if qidiruv:
             qs = qs.filter(
                 Q(first_name__icontains=qidiruv) | Q(username__icontains=qidiruv) | Q(telefon__icontains=qidiruv)
             )
         oylik_korsin = "xodimlar.oylik" in ruxsatlar(request.user)
-        royxat = [_xodim_dict(u, oylik_korsin) for u in qs.order_by("first_name", "username")]
+        users = list(qs.order_by("first_name", "username"))
+        if not arxiv and not p.get("tanlov"):
+            # Owner — "CEO" qatori (CRM'dan tahrirlanmaydi).
+            owners = User.objects.filter(is_superuser=True, is_active=True).order_by("id")
+            if qidiruv:
+                owners = owners.filter(Q(first_name__icontains=qidiruv) | Q(username__icontains=qidiruv))
+            users = list(owners) + users
+        royxat = [_xodim_dict(u, oylik_korsin) for u in users]
         lavozim = request.query_params.get("lavozim")
         # Tab hisoblagichlari filtrdan OLDIN — "O'QITUVCHI - 12" har doim ko'rinsin.
         soni = {}
@@ -386,9 +454,11 @@ class XodimlarView(CrmView):
         lavozim = data.get("lavozim") or XodimProfil.Lavozim.OQITUVCHI
         if lavozim not in dict(XodimProfil.Lavozim.choices):
             return _xato("Noma'lum lavozim")
-        if lavozim in ("admin", "ceo") and not owner_mi(request.user):
+        if lavozim == XodimProfil.Lavozim.CEO:
+            return _xato("CEO — bu owner, xodimga berilmaydi. Administrator lavozimini tanlang")
+        if lavozim == "admin" and not owner_mi(request.user):
             # Administrator LMS'da ham admin bo'ladi — buni faqat owner beradi.
-            return _xato("Administrator/CEO'ni faqat owner qo'sha oladi", kod=403)
+            return _xato("Administratorni faqat owner qo'sha oladi", kod=403)
         ism = (data.get("ism") or "").strip()
         telefon = _telefon(data.get("telefon"))
         if not ism:
@@ -415,9 +485,12 @@ class XodimlarView(CrmView):
             sayt_menyusini_toraytir(user)
             user.set_password(parol)
             profil = XodimProfil(user=user, lavozim=lavozim)
+            malumot = {**data, "lavozim": lavozim, "ism": ism, "telefon": telefon}
+            # Filialga bog'langan xodim qo'shsa — filial majburiy (bittasi bo'lsa o'zi).
+            if cheklanganmi(request.user) and "filial_idlar" not in malumot and "filial_id" not in malumot:
+                malumot["filial_idlar"] = []
             try:
-                _xodim_maydonlari(user, profil, {**data, "lavozim": lavozim, "ism": ism, "telefon": telefon},
-                                  request.user)
+                filiallar = _xodim_maydonlari(user, profil, malumot, request.user)
             except _Taqiq as e:
                 return _xato(str(e), kod=403)
             except ValueError as e:
@@ -425,6 +498,8 @@ class XodimlarView(CrmView):
             user.save()
             profil.user = user
             profil.save()
+            if filiallar is not None:
+                profil.filiallar.set(filiallar)
 
         logla(foydalanuvchi=request.user, harakat=FaoliyatYozuvi.Harakat.YARATISH, obyekt=user,
               obyekt_turi="CRM Xodim", snapshot={"username": login, "lavozim": lavozim})
@@ -435,6 +510,7 @@ class XodimlarView(CrmView):
 
 
 class XodimDetailView(CrmView):
+    pk_turi = "xodim"  # filial cheklovi: `crm.filial.obyekt_tekshir`
     bolim = "xodimlar"
 
     def patch(self, request, pk):
@@ -464,7 +540,7 @@ class XodimDetailView(CrmView):
         if parol_sorandi and user.pk != request.user.pk and not (owner or request.user.role == User.Role.ADMIN):
             return _xato("Boshqa xodimning parolini faqat administrator tiklaydi", kod=403)
         try:
-            _xodim_maydonlari(user, profil, data, request.user)
+            filiallar = _xodim_maydonlari(user, profil, data, request.user)
         except _Taqiq as e:
             return _xato(str(e), kod=403)
         except ValueError as e:
@@ -485,6 +561,12 @@ class XodimDetailView(CrmView):
             user.set_password(yangi_parol)
         user.save()
         profil.save()
+        if filiallar is not None:
+            profil.filiallar.set(filiallar)
+        # `user.crm_xodim` so'rov boshida (select/prefetch bilan) yuklangan —
+        # `profil` esa alohida obyekt. Qayta o'qilmasa javob va audit ESKI
+        # qiymatlarni (sana, oylik, filiallar) ko'rsatardi.
+        user = _xodimlar_qs().get(pk=user.pk)
         logla(foydalanuvchi=request.user, harakat=FaoliyatYozuvi.Harakat.OZGARTIRISH, obyekt=user,
               obyekt_turi="CRM Xodim", obyekt_nomi=_ism(user),
               eski_qiymatlar={k: str(v) for k, v in eski.items()},
@@ -627,7 +709,10 @@ class LidBolimlarView(CrmView):
         filial = request.query_params.get("filial")
         if filial:
             qs = qs.filter(Q(filial_id=filial) | Q(filial__isnull=True))
-        qs = qs.annotate(_soni=Count("lidlar", filter=Q(lidlar__arxiv=False, lidlar__qora_royxat=False)))
+        qs = qs.filter(filial_q(request.user, "filial")).annotate(_soni=Count(
+            "lidlar",
+            filter=Q(lidlar__arxiv=False, lidlar__qora_royxat=False) & filial_q(request.user, "lidlar__filial"),
+        ))
         return Response([_bolim_dict(b, b._soni) for b in qs])
 
     def post(self, request):
@@ -638,6 +723,11 @@ class LidBolimlarView(CrmView):
             return _xato("Bo'lim nomi bo'sh bo'lmasin")
         oxirgi = LidBolim.objects.order_by("-tartib").values_list("tartib", flat=True).first() or 0
         filial_id = request.data.get("filial_id") or None
+        if filial_id:
+            try:
+                filial_tekshir(request.user, filial_id)
+            except ValueError as e:
+                return _xato(str(e), kod=403)
         doska_id = request.data.get("doska_id") or None
         if doska_id and not LidDoska.objects.filter(pk=doska_id).exists():
             return _xato("Doska topilmadi")
@@ -651,6 +741,7 @@ class LidBolimlarView(CrmView):
 
 
 class LidBolimDetailView(CrmView):
+    pk_turi = "lid_bolim"  # filial cheklovi: `crm.filial.obyekt_tekshir`
     bolim = "lidlar"
 
     def patch(self, request, pk):
@@ -679,10 +770,12 @@ class LidBolimDetailView(CrmView):
         return Response(status=204)
 
 
-def lidlar_qs(p):
+def lidlar_qs(p, user=None):
     """Kanban va Excel eksport uchun BITTA filtr — eksport ekrandagi
     ro'yxatning aynan o'zi bo'lsin."""
     qs = Lid.objects.select_related("kurs", "oqituvchi", "kim_qoshdi", "bolim", "filial", "yigilayotgan_guruh")
+    if user is not None:
+        qs = qs.filter(filial_q(user, "filial"))  # filial cheklovi
     qs = qs.filter(arxiv=bool(p.get("arxiv")))
     qs = qs.filter(qora_royxat=bool(p.get("qora_royxat")))
     if p.get("filial"):
@@ -712,7 +805,7 @@ class LidlarView(CrmView):
     bolim = "lidlar"
 
     def get(self, request):
-        lidlar = list(lidlar_qs(request.query_params)[:1000])
+        lidlar = list(lidlar_qs(request.query_params, request.user)[:1000])
         # Har lidning OXIRGI eslatmasi bitta so'rovda (N+1 emas).
         eslatmalar = {}
         for e in Eslatma.objects.filter(lid__in=lidlar).order_by("lid_id", "-created_at").values(
@@ -728,7 +821,14 @@ class LidlarView(CrmView):
         data = dict(request.data)
         data.setdefault("ism", "")
         data.setdefault("telefon", "")
+        # Filial xodimi qo'shgan lid — uning filialida (bitta bo'lsa o'zi
+        # qo'yiladi); filialsiz lid hammaga ko'rinardi.
+        ruxsat = ruxsat_filiallari(request.user)
+        if ruxsat is not None and not data.get("filial_id") and len(ruxsat) == 1:
+            data["filial_id"] = next(iter(ruxsat))
         try:
+            if ruxsat is not None:
+                filial_tekshir(request.user, data.get("filial_id"))
             _lid_maydonlari(lid, data)
         except ValueError as e:
             return _xato(str(e))
@@ -763,7 +863,7 @@ class LidlarEksportView(CrmView):
         from .eksport import _varaq_yoz, javob_qil
 
         eslatmalar = {}
-        lidlar = list(lidlar_qs(request.query_params)[:5000])
+        lidlar = list(lidlar_qs(request.query_params, request.user)[:5000])
         for e in Eslatma.objects.filter(lid__in=lidlar).order_by("lid_id", "-created_at").values("lid_id", "matn"):
             eslatmalar.setdefault(e["lid_id"], e["matn"])
         kitob = Workbook()
@@ -791,6 +891,7 @@ class LidlarEksportView(CrmView):
 
 
 class LidDetailView(CrmView):
+    pk_turi = "lid"  # filial cheklovi: `crm.filial.obyekt_tekshir`
     bolim = "lidlar"
 
     def get(self, request, pk):
@@ -819,6 +920,8 @@ class LidDetailView(CrmView):
         lid = get_object_or_404(Lid, pk=pk)
         eski_bolim = lid.bolim.nomi if lid.bolim_id else "—"
         try:
+            if "filial_id" in request.data and ruxsat_filiallari(request.user) is not None:
+                filial_tekshir(request.user, request.data.get("filial_id"))
             ozgardi = _lid_maydonlari(lid, request.data)
         except ValueError as e:
             return _xato(str(e))
@@ -929,6 +1032,7 @@ class TalabaYaratishView(CrmView):
         guruh = None
         if data.get("guruh_id"):
             guruh = get_object_or_404(Guruh, pk=data["guruh_id"])
+            guruh_tekshir(request.user, guruh)
         try:
             sana = _sana(data.get("boshlanish_sana"), "boshlanish_sana", majburiy=False)
             narx = None if data.get("narx") in (None, "") else _son(data["narx"], "narx")
@@ -956,6 +1060,7 @@ class TalabaYaratishView(CrmView):
 class TalabaCrmView(CrmView):
     """Talabaning CRM maydonlari: jins, maktab, qora ro'yxat, arxiv."""
 
+    pk_turi = "talaba"  # filial cheklovi: `crm.filial.obyekt_tekshir`
     bolim = "talabalar"
 
     def patch(self, request, pk):
@@ -1016,6 +1121,7 @@ class LidGuruhgaView(CrmView):
         if not idlar:
             return _xato("Lid tanlanmagan")
         guruh = get_object_or_404(Guruh, pk=request.data.get("guruh_id"), faol=True)
+        guruh_tekshir(request.user, guruh)
         holat = request.data.get("holat") or AzolikMoliya.Holat.SINOV
         if holat not in (AzolikMoliya.Holat.FAOL, AzolikMoliya.Holat.SINOV):
             return _xato("Holat: faol yoki sinov")
@@ -1027,7 +1133,7 @@ class LidGuruhgaView(CrmView):
         natija = []
         try:
             with transaction.atomic():
-                for lid in Lid.objects.filter(pk__in=idlar).select_for_update():
+                for lid in Lid.objects.filter(pk__in=idlar).filter(filial_q(request.user, "filial")).select_for_update():
                     if lid.qora_royxat:
                         raise ValueError(f"{lid.ism} qora ro'yxatda")
                     parol = None
@@ -1158,7 +1264,15 @@ class GuruhYaratishView(CrmView):
             return _xato(str(e))
         if tugash and tugash < boshlanish:
             return _xato("Tugash sanasi boshlanish sanasidan oldin bo'la olmaydi")
-        filial = get_object_or_404(Filial, pk=data["filial_id"]) if data.get("filial_id") else None
+        filial_id = data.get("filial_id") or None
+        ruxsat = ruxsat_filiallari(request.user)
+        if ruxsat is not None and not filial_id and len(ruxsat) == 1:
+            filial_id = next(iter(ruxsat))
+        try:
+            filial_tekshir(request.user, filial_id)
+        except ValueError as e:
+            return _xato(str(e), kod=403)
+        filial = get_object_or_404(Filial, pk=filial_id) if filial_id else None
         baholash = data.get("baholash_tizimi") or ""
         if baholash not in ("", "5", "10", "100"):
             return _xato("Baholash tizimi noto'g'ri")
@@ -1187,6 +1301,7 @@ class GuruhYaratishView(CrmView):
 class GuruhBoshqaruvView(CrmView):
     """Guruhni tahrirlash (nom, kurs, o'qituvchilar) va arxivlash."""
 
+    pk_turi = "guruh"  # filial cheklovi: `crm.filial.obyekt_tekshir`
     bolim = "guruhlar"
 
     def get(self, request, pk):
@@ -1224,6 +1339,7 @@ class GuruhBoshqaruvView(CrmView):
 class GuruhTalabalariView(CrmView):
     """"Guruhga o'quvchi qo'shish" (qo'lda yoki Excel) va chiqarish."""
 
+    pk_turi = "guruh"  # filial cheklovi: `crm.filial.obyekt_tekshir`
     bolim = "guruhlar"
     parser_classes = [JSONParser, MultiPartParser, FormParser]
 
@@ -1250,6 +1366,8 @@ class GuruhTalabalariView(CrmView):
         talabalar = list(User.objects.filter(pk__in=idlar, role=User.Role.STUDENT))
         if not talabalar:
             return _xato("O'quvchi tanlanmagan")
+        for t in talabalar:
+            talaba_tekshir(request.user, t.id)
         qoshildi = []
         with transaction.atomic():
             for t in talabalar:
@@ -1365,6 +1483,7 @@ class GuruhDavomatView(CrmView):
     jadvaldan tashqari belgilangan sanalar (eski yozuvlar yo'qolmasin).
     """
 
+    pk_turi = "guruh"  # filial cheklovi: `crm.filial.obyekt_tekshir`
     bolim = "guruhlar"
 
     def get(self, request, pk):
@@ -1492,6 +1611,7 @@ def _dars_yozuvlarini_kochir(guruh, dan, ga):
 
 
 class DarsOzgarishlariView(CrmView):
+    pk_turi = "guruh"  # filial cheklovi: `crm.filial.obyekt_tekshir`
     bolim = "guruhlar"
 
     def get(self, request, pk):
@@ -1550,6 +1670,7 @@ class DarsOzgarishlariView(CrmView):
 
 
 class DarsOzgarishDetailView(CrmView):
+    pk_turi = "dars_ozgarish"  # filial cheklovi: `crm.filial.obyekt_tekshir`
     bolim = "guruhlar"
 
     def delete(self, request, pk):
@@ -1608,6 +1729,7 @@ class GuruhChegirmalariView(CrmView):
     """SoffCRM guruhdagi "Chegirmalar" tabi: har talaba qatori, uning
     chegirmalari va "+" tugmasi."""
 
+    pk_turi = "guruh"  # filial cheklovi: `crm.filial.obyekt_tekshir`
     bolim = "guruhlar"
 
     def get(self, request, pk):
@@ -1676,6 +1798,7 @@ class GuruhChegirmalariView(CrmView):
 
 
 class ChegirmaDetailView(CrmView):
+    pk_turi = "chegirma"  # filial cheklovi: `crm.filial.obyekt_tekshir`
     bolim = "guruhlar"
 
     def delete(self, request, pk):
@@ -1712,10 +1835,12 @@ class KorsatkichlarView(CrmView):
         bugun = timezone.localdate()
         oy = mantiq.oy_boshi(bugun)
 
-        guruhlar = Guruh.objects.filter(faol=True)
-        azoliklar = AzolikMoliya.objects.filter(azolik__guruh__faol=True)
-        lidlar = Lid.objects.filter(arxiv=False, qora_royxat=False)
-        hisoblar = Hisob.objects.all()
+        # Filial cheklovi (2026-09-23): filial xodimi — faqat o'z filiallari.
+        u = request.user
+        guruhlar = Guruh.objects.filter(faol=True).filter(guruh_q(u))
+        azoliklar = AzolikMoliya.objects.filter(azolik__guruh__faol=True).filter(guruh_q(u, "azolik__guruh__"))
+        lidlar = Lid.objects.filter(arxiv=False, qora_royxat=False).filter(filial_q(u, "filial"))
+        hisoblar = Hisob.objects.filter(filial_q(u, "filial"))
         if filial:
             guruhlar = guruhlar.filter(moliya__filial_id=filial)
             azoliklar = azoliklar.filter(azolik__guruh__moliya__filial_id=filial)
@@ -1751,7 +1876,7 @@ class KorsatkichlarView(CrmView):
                 if sana and bugun <= sana <= chegara:
                     tolov_yaqin += 1
 
-        oy_ketgan = GuruhdanChiqish.objects.filter(sana__gte=oy, sana__lte=bugun)
+        oy_ketgan = GuruhdanChiqish.objects.filter(sana__gte=oy, sana__lte=bugun).filter(filial_q(u, "filial"))
         if filial:
             oy_ketgan = oy_ketgan.filter(filial_id=filial)
 
@@ -1762,8 +1887,10 @@ class KorsatkichlarView(CrmView):
         # hisoblanadi (guruhdagi o'qituvchi foizi, bo'lmasa profildagi).
         tushum = foydalilik = None
         if "bosh_sahifa.markaz_foydaliligi" in r:
-            tolovlar = Tolov.objects.filter(turi=Tolov.Turi.TOLOV, sana__gte=oy, sana__lte=bugun)
-            qaytarishlar = Tolov.objects.filter(turi=Tolov.Turi.QAYTARISH, sana__gte=oy, sana__lte=bugun)
+            tolovlar = Tolov.objects.filter(turi=Tolov.Turi.TOLOV, sana__gte=oy, sana__lte=bugun).filter(
+                guruh_q(u, "guruh__"))
+            qaytarishlar = Tolov.objects.filter(turi=Tolov.Turi.QAYTARISH, sana__gte=oy, sana__lte=bugun).filter(
+                guruh_q(u, "guruh__"))
             if filial:
                 tolovlar = tolovlar.filter(guruh__moliya__filial_id=filial)
                 qaytarishlar = qaytarishlar.filter(guruh__moliya__filial_id=filial)
@@ -1772,8 +1899,13 @@ class KorsatkichlarView(CrmView):
             )
             xarajat = NOL
             profillar = XodimProfil.objects.filter(user__is_active=True)
+            # M2M bo'yicha filtr — subquery orqali: to'g'ridan-to'g'ri join
+            # ikki filialli xodimning oyligini ikki marta qo'shardi.
+            ruxsat = ruxsat_filiallari(u)
+            if ruxsat is not None:
+                profillar = profillar.filter(pk__in=XodimProfil.objects.filter(filiallar__in=ruxsat).values("pk"))
             if filial:
-                profillar = profillar.filter(filial_id=filial)
+                profillar = profillar.filter(pk__in=XodimProfil.objects.filter(filiallar=filial).values("pk"))
             xarajat += profillar.aggregate(s=Sum("oylik"))["s"] or NOL
             guruh_tushumi = {
                 x["guruh_id"]: x["s"] for x in tolovlar.values("guruh_id").annotate(s=Sum("summa"))
@@ -1841,6 +1973,13 @@ class TalabaQidiruvView(CrmView):
     def get(self, request):
         q = (request.query_params.get("q") or "").strip()
         qs = User.objects.filter(role=User.Role.STUDENT, is_active=True)
+        if cheklanganmi(request.user):
+            # Filial xodimi: o'z filiali guruhlaridagi yoki hech qaysi
+            # guruhda bo'lmagan talabalar (`crm.filial.talaba_korinadimi`).
+            qs = qs.filter(
+                Q(pk__in=GuruhAzoligi.objects.filter(guruh_q(request.user, "guruh__")).values("talaba_id"))
+                | ~Q(pk__in=GuruhAzoligi.objects.values("talaba_id"))
+            )
         if q:
             qs = qs.filter(Q(first_name__icontains=q) | Q(username__icontains=q) | Q(telefon__icontains=q))
         # `?faqat_crm=1` — CRM'da yaratilgan yoki guruhga CRM orqali
@@ -1869,6 +2008,7 @@ class TalabaSaytHisobiView(CrmView):
     Talabaning pul tarixi, guruhlari va natijalari o'zgarmaydi — faqat
     kirish ma'lumoti."""
 
+    pk_turi = "talaba"  # filial cheklovi: `crm.filial.obyekt_tekshir`
     bolim = "talabalar"
 
     def post(self, request, pk):
@@ -1912,6 +2052,7 @@ class GuruhBaholariView(CrmView):
     """Darslar bo'yicha baholar jadvali. Shkala — guruh sozlamasidagi
     `baholash_tizimi` (1-5 / 1-10 / 100); u bo'sh bo'lsa baho qo'yilmaydi."""
 
+    pk_turi = "guruh"  # filial cheklovi: `crm.filial.obyekt_tekshir`
     bolim = "guruhlar"
 
     def get(self, request, pk):

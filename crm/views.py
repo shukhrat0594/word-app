@@ -40,6 +40,9 @@ from .models import (
     Tolov,
     Xona,
 )
+from .filial import (
+    cheklanganmi, filial_q, filial_tekshir, guruh_q, guruh_tekshir, lid_tekshir, ruxsat_filiallari, talaba_tekshir,
+)
 from .permissions import CrmView, FaqatOwner
 from .ruxsatlar import ruxsatlar
 
@@ -106,6 +109,14 @@ def _ruxsatsiz(request, kalit, matn="Bu amalga ruxsat yo'q"):
     darajasini `CrmRuxsati` tekshiradi; bu — undan keyingi qadam.
     Ruxsat yo'q bo'lsa 403 javob, bor bo'lsa `None`."""
     return None if kalit in ruxsatlar(request.user) else _xato(matn, kod=403)
+
+
+def _markaz_sozlamasi_taqiq(request):
+    """Butun markazga ta'sir qiladigan sozlama (kurs narxi, filiallar,
+    rollar) — filialga bog'langan xodim faqat KO'RADI (2026-09-23)."""
+    if cheklanganmi(request.user):
+        return _xato("Bu sozlama butun markazga ta'sir qiladi — uni faqat owner o'zgartiradi", kod=403)
+    return None
 
 
 def _filial_dict(f):
@@ -314,12 +325,16 @@ class FiliallarView(CrmView):
 
     def get(self, request):
         qs = Filial.objects.all()
+        # Filialga bog'langan xodim — faqat o'z filiallari (tanlovda ham).
+        ruxsat = ruxsat_filiallari(request.user)
+        if ruxsat is not None:
+            qs = qs.filter(id__in=ruxsat)
         if request.query_params.get("faqat_faol") == "1":
             qs = qs.filter(faol=True)
         return Response([_filial_dict(f) for f in qs])
 
     def post(self, request):
-        if xato := _ruxsatsiz(request, "sozlamalar.filiallar"):
+        if xato := _ruxsatsiz(request, "sozlamalar.filiallar") or _markaz_sozlamasi_taqiq(request):
             return xato
         nomi = (request.data.get("nomi") or "").strip()
         if not nomi:
@@ -353,7 +368,7 @@ class FilialDetailView(CrmView):
     bolim = "sozlamalar"
 
     def patch(self, request, pk):
-        if xato := _ruxsatsiz(request, "sozlamalar.filiallar"):
+        if xato := _ruxsatsiz(request, "sozlamalar.filiallar") or _markaz_sozlamasi_taqiq(request):
             return xato
         filial = get_object_or_404(Filial, pk=pk)
         eski = _filial_dict(filial)
@@ -417,7 +432,7 @@ class KursNarxlariView(CrmView):
         )
 
     def put(self, request):
-        if xato := _ruxsatsiz(request, "sozlamalar.narxlar"):
+        if xato := _ruxsatsiz(request, "sozlamalar.narxlar") or _markaz_sozlamasi_taqiq(request):
             return xato
         daraja = get_object_or_404(KursTugun, pk=request.data.get("daraja_id"))
         xom = request.data.get("narx")
@@ -464,6 +479,7 @@ class GuruhlarView(CrmView):
             .prefetch_related("crm_jadval", "crm_oqituvchilar__oqituvchi")
             .annotate(_talaba_soni=Count("talabalar", distinct=True))
             .order_by("name")
+            .filter(guruh_q(request.user))
         )
         filial = request.query_params.get("filial")
         if filial:
@@ -483,12 +499,14 @@ class GuruhMoliyaView(CrmView):
     keltiradi (TZ 6.4).
     """
 
+    pk_turi = "guruh"  # filial cheklovi: `crm.filial.obyekt_tekshir`
     bolim = "guruhlar"
 
     def patch(self, request, pk):
         if xato := _ruxsatsiz(request, "guruhlar.tahrirlash", "Guruhni tahrirlashga ruxsat yo'q"):
             return xato
         guruh = get_object_or_404(Guruh, pk=pk)
+        guruh_tekshir(request.user, guruh)
         # Yozuv guruh yaratilganda emas, AYNAN shu yerda paydo bo'ladi —
         # signal ishlatilmaydi (TZ 3.0, 3-qoida).
         moliya, _ = GuruhMoliya.objects.get_or_create(guruh=guruh)
@@ -497,6 +515,7 @@ class GuruhMoliyaView(CrmView):
         try:
             if "filial_id" in request.data:
                 qiymat = request.data["filial_id"]
+                filial_tekshir(request.user, qiymat)
                 moliya.filial = get_object_or_404(Filial, pk=qiymat) if qiymat else None
             if "narx" in request.data:
                 xom = request.data["narx"]
@@ -564,7 +583,7 @@ class XonalarView(CrmView):
     oqish_ochiq = True
 
     def get(self, request):
-        qs = Xona.objects.select_related("filial").all()
+        qs = Xona.objects.select_related("filial").filter(filial_q(request.user, "filial", filialsiz_ham=False))
         if request.query_params.get("filial"):
             qs = qs.filter(filial_id=request.query_params["filial"])
         if request.query_params.get("faqat_faol") == "1":
@@ -577,6 +596,10 @@ class XonalarView(CrmView):
         nomi = (request.data.get("nomi") or "").strip()
         if not nomi:
             return _xato("Xona nomi kerak")
+        try:
+            filial_tekshir(request.user, request.data.get("filial_id"))
+        except ValueError as e:
+            return _xato(str(e), kod=403)
         filial = get_object_or_404(Filial, pk=request.data.get("filial_id"))
         if Xona.objects.filter(filial=filial, nomi=nomi).exists():
             return _xato("Bu filialda shunday nomli xona allaqachon bor")
@@ -603,7 +626,7 @@ class XonaDetailView(CrmView):
     def patch(self, request, pk):
         if xato := _ruxsatsiz(request, "sozlamalar.filiallar"):
             return xato
-        xona = get_object_or_404(Xona, pk=pk)
+        xona = get_object_or_404(Xona, filial_q(request.user, "filial", filialsiz_ham=False), pk=pk)
         eski = _xona_dict(xona)
         if "nomi" in request.data:
             nomi = (request.data.get("nomi") or "").strip()
@@ -640,10 +663,12 @@ class JadvalSetkaView(CrmView):
     def get(self, request):
         filial_id = request.query_params.get("filial")
 
-        xonalar = Xona.objects.filter(faol=True).select_related("filial")
+        xonalar = Xona.objects.filter(faol=True).filter(
+            filial_q(request.user, "filial", filialsiz_ham=False)
+        ).select_related("filial")
         darslar = DarsJadvali.objects.select_related(
             "guruh", "guruh__oqituvchi", "guruh__moliya", "guruh__moliya__filial", "xona", "guruh__daraja"
-        ).filter(guruh__faol=True)
+        ).filter(guruh__faol=True).filter(guruh_q(request.user, "guruh__"))
         sonlar = {}
         for x in (
             GuruhAzoligi.objects.filter(guruh__faol=True)
@@ -762,6 +787,7 @@ def jadvalni_tekshir(guruh, kunlar):
 class GuruhJadvalView(CrmView):
     """Guruhning haftalik dars kunlari — to'liq almashtiriladi (PUT)."""
 
+    pk_turi = "guruh"  # filial cheklovi: `crm.filial.obyekt_tekshir`
     bolim = "guruhlar"
 
     def put(self, request, pk):
@@ -795,6 +821,7 @@ class GuruhJadvalView(CrmView):
 class GuruhUnitlariView(CrmView):
     """A'zolar jadvalidagi "Boshlanish uniti" tanlovi uchun."""
 
+    pk_turi = "guruh"  # filial cheklovi: `crm.filial.obyekt_tekshir`
     bolim = "guruhlar"
 
     def get(self, request, pk):
@@ -803,6 +830,7 @@ class GuruhUnitlariView(CrmView):
 
 
 class GuruhAzoliklariView(CrmView):
+    pk_turi = "guruh"  # filial cheklovi: `crm.filial.obyekt_tekshir`
     bolim = "guruhlar"
 
     def get(self, request, pk):
@@ -846,6 +874,13 @@ class EslatmalarView(CrmView):
         lid_id = request.query_params.get("lid")
         if not guruh_id and not talaba_id and not lid_id:
             return _xato("guruh, talaba yoki lid ko'rsatilishi kerak")
+        # Filial cheklovi: boshqa filial yozuvining eslatmalari — 404.
+        if guruh_id:
+            guruh_tekshir(request.user, get_object_or_404(Guruh.objects.select_related("moliya"), pk=guruh_id))
+        if talaba_id:
+            talaba_tekshir(request.user, talaba_id)
+        if lid_id:
+            lid_tekshir(request.user, get_object_or_404(Lid, pk=lid_id))
         if guruh_id:
             qs = qs.filter(guruh_id=guruh_id)
         if talaba_id:
@@ -868,6 +903,12 @@ class EslatmalarView(CrmView):
             lid = get_object_or_404(Lid, pk=request.data["lid_id"])
         if guruh is None and talaba is None and lid is None:
             return _xato("Eslatma guruh, talaba yoki lidga bog'lanishi kerak")
+        if guruh is not None:
+            guruh_tekshir(request.user, guruh)
+        if talaba is not None:
+            talaba_tekshir(request.user, talaba.id)
+        if lid is not None:
+            lid_tekshir(request.user, lid)
 
         eslatish_vaqti = None
         if request.data.get("eslatish_vaqti"):
@@ -885,6 +926,7 @@ class EslatmalarView(CrmView):
 
 
 class EslatmaDetailView(CrmView):
+    pk_turi = "eslatma"  # filial cheklovi: `crm.filial.obyekt_tekshir`
     def patch(self, request, pk):
         """Eslatmani tahrirlash (video 09:05: "Eslatmani tahrirlash" —
         matn va eslatish vaqti). Faqat O'Z eslatmasini."""
@@ -932,6 +974,7 @@ class GuruhNatijalarView(CrmView):
     guruh kattaligidan qat'i nazar 5 ta so'rov.
     """
 
+    pk_turi = "guruh"  # filial cheklovi: `crm.filial.obyekt_tekshir`
     bolim = "guruhlar"
 
     def get(self, request, pk):
@@ -1008,6 +1051,7 @@ _AZOLIK_AUDIT = ("holat", "boshlanish_sana", "tugash_sana", "narx_talabaga", "bo
 class AzolikView(CrmView):
     """A'zolikning moliyaviy holati — holat, sanalar, individual narx."""
 
+    pk_turi = "azolik"  # filial cheklovi: `crm.filial.obyekt_tekshir`
     bolim = "guruhlar"
 
     def patch(self, request, pk):
@@ -1097,7 +1141,7 @@ class HisoblarView(CrmView):
 
     def get(self, request):
         qs = _tolangan_bilan(
-            Hisob.objects.select_related("filial", "talaba", "guruh").all()
+            Hisob.objects.select_related("filial", "talaba", "guruh").filter(filial_q(request.user, "filial"))
         )
 
         oy = request.query_params.get("oy")
@@ -1161,6 +1205,7 @@ class HisoblarView(CrmView):
 
         talaba = get_object_or_404(User, pk=request.data.get("talaba_id"))
         guruh = get_object_or_404(Guruh, pk=request.data.get("guruh_id"))
+        guruh_tekshir(request.user, guruh)
         if Hisob.objects.filter(talaba=talaba, guruh=guruh, oy=oy).exists():
             return _xato("Bu talabaga shu guruhda shu oy uchun hisob allaqachon bor")
 
@@ -1196,6 +1241,7 @@ class HisobDetailView(CrmView):
     ustunini ifloslaydi va markaz bermagan chegirmani ko'rsatadi.
     """
 
+    pk_turi = "hisob"  # filial cheklovi: `crm.filial.obyekt_tekshir`
     bolim = "moliya"
 
     permission_classes = CrmView.permission_classes + [FaqatOwner]
@@ -1245,7 +1291,7 @@ class TolovlarView(CrmView):
         `hisoblar=1` bo'lsa — hisob-fakturalar ham qo'shiladi
         (SoffCRM'dagidek bitta ro'yxatda), admin ko'nikkan ko'rinish.
         """
-        qs = Tolov.objects.select_related("hisob", "kim_kiritdi", "talaba", "guruh").all()
+        qs = Tolov.objects.select_related("hisob", "kim_kiritdi", "talaba", "guruh").filter(guruh_q(request.user, "guruh__"))
         try:
             dan = _sana(request.query_params.get("dan"), "dan", majburiy=False)
             gacha = _sana(request.query_params.get("gacha"), "gacha", majburiy=False)
@@ -1272,7 +1318,7 @@ class TolovlarView(CrmView):
         ]
 
         if request.query_params.get("hisoblar") == "1":
-            hisoblar = Hisob.objects.select_related("talaba", "guruh").all()
+            hisoblar = Hisob.objects.select_related("talaba", "guruh").filter(filial_q(request.user, "filial"))
             if dan:
                 hisoblar = hisoblar.filter(oy__gte=mantiq.oy_boshi(dan))
             if gacha:
@@ -1327,6 +1373,7 @@ class TolovlarView(CrmView):
 
         talaba = get_object_or_404(User, pk=request.data.get("talaba_id"))
         guruh = get_object_or_404(Guruh, pk=request.data.get("guruh_id"))
+        guruh_tekshir(request.user, guruh)
 
         hisob = None
         if request.data.get("hisob_id"):
@@ -1381,6 +1428,7 @@ class TolovDetailView(CrmView):
     `hisobni_yangila()` qayta chaqiriladi va qarz tiklanadi.
     """
 
+    pk_turi = "tolov"  # filial cheklovi: `crm.filial.obyekt_tekshir`
     bolim = "moliya"
 
     permission_classes = CrmView.permission_classes + [FaqatOwner]
@@ -1467,7 +1515,7 @@ class TalabalarView(CrmView):
         # olmaydigan) talabalar. Busiz ular hech qayerda chiqmasdi va
         # "Arxivdan chiqarish"ga yetib bo'lmasdi (2026-09-23).
         arxiv = bool(request.query_params.get("arxiv"))
-        qs = qs.filter(azolik__talaba__is_active=not arxiv)
+        qs = qs.filter(azolik__talaba__is_active=not arxiv).filter(guruh_q(request.user, "azolik__guruh__"))
         if request.query_params.get("filial"):
             qs = qs.filter(azolik__guruh__moliya__filial_id=request.query_params["filial"])
         qidiruv = (request.query_params.get("q") or "").strip()
@@ -1530,6 +1578,12 @@ class TalabalarView(CrmView):
         if guruhsiz or not (request.query_params.get("holat") or request.query_params.get("filial")
                             or qo_shimcha_filtr):
             qolganlar = User.objects.filter(role=User.Role.STUDENT, is_active=not arxiv).exclude(pk__in=talabalar.keys())
+            if cheklanganmi(request.user):
+                # Filial xodimiga "guruhsiz" — faqat HAQIQATAN guruhsizlar:
+                # boshqa filial guruhidagi talaba bu yerga tushib qolmasin.
+                qolganlar = qolganlar.exclude(
+                    pk__in=GuruhAzoligi.objects.exclude(guruh_q(request.user, "guruh__")).values("talaba_id")
+                )
             if qidiruv:
                 qolganlar = qolganlar.filter(
                     Q(first_name__icontains=qidiruv) | Q(username__icontains=qidiruv) | Q(telefon__icontains=qidiruv)
@@ -1617,8 +1671,8 @@ class HisobotDinamikaView(CrmView):
         if not oylar:
             oylar = [oxirgi]
 
-        hisoblar = Hisob.objects.filter(oy__gte=oylar[0])
-        tolovlar = Tolov.objects.filter(hisob__oy__gte=oylar[0])
+        hisoblar = Hisob.objects.filter(oy__gte=oylar[0]).filter(filial_q(request.user, "filial"))
+        tolovlar = Tolov.objects.filter(hisob__oy__gte=oylar[0]).filter(filial_q(request.user, "hisob__filial"))
         if filial_id:
             hisoblar = hisoblar.filter(filial_id=filial_id)
             tolovlar = tolovlar.filter(hisob__filial_id=filial_id)
@@ -1660,6 +1714,7 @@ class HisobotDinamikaView(CrmView):
 
 
 class TalabaView(CrmView):
+    pk_turi = "talaba"  # filial cheklovi: `crm.filial.obyekt_tekshir`
     bolim = "talabalar"
 
     def get(self, request, pk):
@@ -1671,7 +1726,7 @@ class TalabaView(CrmView):
         talaba = get_object_or_404(User, pk=pk)
         hisoblar = list(
             _tolangan_bilan(
-                Hisob.objects.filter(talaba=talaba).select_related(
+                Hisob.objects.filter(talaba=talaba).filter(filial_q(request.user, "filial")).select_related(
                     "filial", "talaba", "guruh"
                 )
             )
@@ -1680,8 +1735,10 @@ class TalabaView(CrmView):
             "hisob", "kim_kiritdi", "talaba", "guruh"
         )
 
+        # Ikki filialda o'qiydigan talabada — filial xodimi faqat o'z
+        # filiali guruhlari va hisoblarini ko'radi.
         azoliklar = (
-            AzolikMoliya.objects.filter(azolik__talaba=talaba)
+            AzolikMoliya.objects.filter(azolik__talaba=talaba).filter(guruh_q(request.user, "azolik__guruh__"))
             .select_related("azolik__guruh__moliya", "azolik__guruh__daraja__crm_narxi", "azolik__talaba")
             .prefetch_related("azolik__guruh__crm_jadval")
         )
@@ -1833,15 +1890,16 @@ def _taqvim_sanogi(kunlar):
 # ── Hisobot ──────────────────────────────────────────────────────────
 
 
-def _hisobot_qatorlari(oy=None, filial_id=None):
+def _hisobot_qatorlari(oy=None, filial_id=None, user=None):
     """Filial va guruh kesimida moliyaviy sarhisob.
 
     MUHIM: "olingan pul" FAQAT `turi="tolov"` bo'yicha sanaladi.
     Chegirma va bonus alohida ustunlarda — aks holda hisobot markaz
     OLMAGAN pulni daromad qilib ko'rsatardi (TZ 3.8).
     """
-    hisoblar = Hisob.objects.all()
-    tolovlar = Tolov.objects.all()
+    # `user` — filial cheklovi (2026-09-23): filial xodimi faqat o'z filiallari.
+    hisoblar = Hisob.objects.filter(filial_q(user, "filial")) if user else Hisob.objects.all()
+    tolovlar = Tolov.objects.filter(filial_q(user, "hisob__filial")) if user else Tolov.objects.all()
     if oy:
         hisoblar = hisoblar.filter(oy=oy)
         tolovlar = tolovlar.filter(hisob__oy=oy)
@@ -1905,7 +1963,7 @@ class HisobotView(CrmView):
                 oy = _oy(request.query_params["oy"])
             except ValueError as e:
                 return _xato(str(e))
-        qatorlar = _hisobot_qatorlari(oy=oy, filial_id=request.query_params.get("filial"))
+        qatorlar = _hisobot_qatorlari(oy=oy, filial_id=request.query_params.get("filial"), user=request.user)
 
         jami = {
             kalit: sum((q[kalit] for q in qatorlar), NOL)
@@ -1940,8 +1998,12 @@ class EksportView(CrmView):
                 return _xato(str(e))
         filial_id = request.query_params.get("filial")
 
-        hisoblar_qs = _tolangan_bilan(Hisob.objects.select_related("filial", "talaba", "guruh").all())
-        tolovlar_qs = Tolov.objects.select_related("hisob", "kim_kiritdi", "talaba", "guruh").all()
+        hisoblar_qs = _tolangan_bilan(
+            Hisob.objects.select_related("filial", "talaba", "guruh").filter(filial_q(request.user, "filial"))
+        )
+        tolovlar_qs = Tolov.objects.select_related("hisob", "kim_kiritdi", "talaba", "guruh").filter(
+            guruh_q(request.user, "guruh__")
+        )
         if oy:
             hisoblar_qs = hisoblar_qs.filter(oy=oy)
             tolovlar_qs = tolovlar_qs.filter(hisob__oy=oy)
@@ -1957,7 +2019,7 @@ class EksportView(CrmView):
 
         kitob = eksport.qarzdorlar_kitobi(
             hisoblar=[_hisob_dict(h, tolangan=h.tolangan) for h in hisoblar_qs[:5000]],
-            hisobot_qatorlari=_hisobot_qatorlari(oy=oy, filial_id=filial_id),
+            hisobot_qatorlari=_hisobot_qatorlari(oy=oy, filial_id=filial_id, user=request.user),
             tolovlar=[_tolov_dict(t) for t in tolovlar_qs[:5000]],
         )
         nomi = f"CRM-moliya-{oy:%Y-%m}.xlsx" if oy else "CRM-moliya.xlsx"
@@ -1973,7 +2035,7 @@ class OgohlantirishlarView(CrmView):
 
     def get(self, request):
         guruhlar = (
-            Guruh.objects.filter(faol=True)
+            Guruh.objects.filter(faol=True).filter(guruh_q(request.user))
             .select_related("moliya", "daraja__crm_narxi")
             .prefetch_related("crm_jadval")
             .annotate(_talaba_soni=Count("talabalar", distinct=True))
@@ -2005,6 +2067,7 @@ class OgohlantirishlarView(CrmView):
         joriy_oy = mantiq.oy_boshi(timezone.localdate())
         chiqqanlar = (
             Hisob.objects.filter(oy=joriy_oy, talaba__isnull=False, guruh__isnull=False)
+            .filter(filial_q(request.user, "filial"))
             .exclude(holat=Hisob.Holat.TOLANDI)
             .annotate(
                 azo=Exists(

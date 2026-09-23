@@ -9,12 +9,15 @@ import { useState } from "react";
 
 import { api } from "../api.js";
 import { useI18n } from "../i18n.jsx";
+import { useCheklangan } from "../profilContext.jsx";
 import { useSorov } from "../soragich.js";
 
 function NarxQatori({ qator, onSaqlandi }) {
   const { t } = useI18n();
   const [narx, setNarx] = useState(qator.narx ?? "");
   const [holat, setHolat] = useState("");
+  // Kurs narxi butun markazga ta'sir qiladi — filialga bog'langan xodim faqat ko'radi.
+  const cheklangan = useCheklangan();
 
   async function saqla() {
     setHolat("");
@@ -42,14 +45,17 @@ function NarxQatori({ qator, onSaqlandi }) {
           min="0"
           step="1000"
           value={narx}
+          disabled={cheklangan}
           onChange={(e) => setNarx(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && saqla()}
         />
       </td>
       <td>
-        <button className="tugma kichik-tugma" type="button" onClick={saqla}>
-          {t("saqlash")}
-        </button>{" "}
+        {!cheklangan && (
+          <button className="tugma kichik-tugma" type="button" onClick={saqla}>
+            {t("saqlash")}
+          </button>
+        )}{" "}
         <span className="kichik">{holat}</span>
       </td>
     </tr>

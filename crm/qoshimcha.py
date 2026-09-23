@@ -14,6 +14,7 @@ from datetime import date
 
 from django.db import transaction
 from django.db.models import Count, Q, Sum
+from django.http import Http404
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from openpyxl import Workbook
@@ -45,6 +46,7 @@ from .models import (
     XodimDavomat,
 )
 from .permissions import CrmView
+from .filial import filial_q, guruh_q, xodim_korinadimi
 from .ruxsatlar import ruxsatlar
 from .views import _oy, _ruxsatsiz, _sana, _xato
 
@@ -82,18 +84,20 @@ class LidDoskalarView(CrmView):
     bolim = "lidlar"
 
     def get(self, request):
+        u = request.user
         doskalar = list(LidDoska.objects.annotate(
             _soni=Count("ustunlar__lidlar", filter=Q(ustunlar__lidlar__arxiv=False,
-                                                     ustunlar__lidlar__qora_royxat=False))
+                                                     ustunlar__lidlar__qora_royxat=False)
+                        & filial_q(u, "ustunlar__lidlar__filial"))
         ))
         # Doskasiz ("Umumiy") — video-TZ'dan oldingi ustunlar va ustunsiz lidlar.
-        umumiy = Lid.objects.filter(arxiv=False, qora_royxat=False).filter(
+        umumiy = Lid.objects.filter(arxiv=False, qora_royxat=False).filter(filial_q(u, "filial")).filter(
             Q(bolim__isnull=True) | Q(bolim__doska__isnull=True)
         ).count()
         return Response({
             "doskalar": [_doska_dict(d, d._soni) for d in doskalar],
             "umumiy": umumiy,
-            "qora_royxat": Lid.objects.filter(qora_royxat=True).count(),
+            "qora_royxat": Lid.objects.filter(qora_royxat=True).filter(filial_q(u, "filial")).count(),
         })
 
     def post(self, request):
@@ -140,6 +144,7 @@ class DarsMavzulariView(CrmView):
     """Davomat jadvalidagi "Mavzular" qatori: `{sana, mavzu}` (bo'sh —
     o'chirish)."""
 
+    pk_turi = "guruh"  # filial cheklovi: `crm.filial.obyekt_tekshir`
     bolim = "guruhlar"
 
     def get(self, request, pk):
@@ -174,6 +179,7 @@ class DavomatHammasiView(CrmView):
     belgi). Allaqachon belgilangan kataklarga TEGILMAYDI — faqat
     bo'shlari to'ldiriladi, qo'shilishidan oldingi kunlar o'tkaziladi."""
 
+    pk_turi = "guruh"  # filial cheklovi: `crm.filial.obyekt_tekshir`
     bolim = "guruhlar"
 
     def post(self, request, pk):
@@ -202,6 +208,7 @@ class DavomatHammasiView(CrmView):
 
 
 class DavomatEksportView(CrmView):
+    pk_turi = "guruh"  # filial cheklovi: `crm.filial.obyekt_tekshir`
     bolim = "guruhlar"
 
     def get(self, request, pk):
@@ -234,7 +241,7 @@ class GuruhlarEksportView(CrmView):
         from .views import _guruh_dict
 
         qs = (
-            Guruh.objects.filter(faol=not request.query_params.get("arxiv"))
+            Guruh.objects.filter(faol=not request.query_params.get("arxiv")).filter(guruh_q(request.user))
             .select_related("daraja", "oqituvchi", "moliya", "moliya__filial", "daraja__crm_narxi")
             .prefetch_related("crm_jadval", "crm_oqituvchilar__oqituvchi")
             .annotate(_soni=Count("talabalar", distinct=True))
@@ -305,6 +312,8 @@ class XodimlarEksportView(CrmView):
         oylik = "xodimlar.oylik" in ruxsatlar(request.user)
         qatorlar = []
         for u in _xodimlar_qs().filter(is_active=not request.query_params.get("arxiv")).order_by("first_name"):
+            if not xodim_korinadimi(request.user, u):
+                continue
             x = _xodim_dict(u, oylik)
             qatorlar.append([
                 x["id"], x["ism"], x["username"], x["telefon"] or "", x["lavozim"], x["rol"] or "",
@@ -376,6 +385,7 @@ class TalabalarImportView(CrmView):
 class GuruhFaollashtirishView(CrmView):
     """"O'QUVCHILARNI FAOLLASHTIRISH" — guruhdagi sinovdagilarni faolga."""
 
+    pk_turi = "guruh"  # filial cheklovi: `crm.filial.obyekt_tekshir`
     bolim = "guruhlar"
 
     def post(self, request, pk):
@@ -397,6 +407,7 @@ class GuruhFaollashtirishView(CrmView):
 class GuruhSobiqlariView(CrmView):
     """"Arxivdagi o'quvchilarni ko'rish" — guruhdan chiqqanlar."""
 
+    pk_turi = "guruh"  # filial cheklovi: `crm.filial.obyekt_tekshir`
     bolim = "guruhlar"
 
     def get(self, request, pk):
@@ -419,6 +430,7 @@ class TalabaTarixiView(CrmView):
     qo'shish/chiqarish) + to'lovlar + guruhdan chiqishlar — bitta
     vaqt chizig'ida."""
 
+    pk_turi = "talaba"  # filial cheklovi: `crm.filial.obyekt_tekshir`
     bolim = "talabalar"
 
     def get(self, request, pk):
@@ -471,6 +483,8 @@ class XodimDavomatView(CrmView):
         }
         xodimlar = []
         for u in _xodimlar_qs().filter(is_active=True).order_by("first_name", "username"):
+            if not xodim_korinadimi(request.user, u):
+                continue
             qator = [yozuvlar.get((u.id, k)) for k in kunlar]
             sanoq = Counter(q["holat"] for q in qator if q)
             xodimlar.append({"id": u.id, "ism": _ism(u), "kunlar": qator, "jami": dict(sanoq)})
@@ -480,6 +494,8 @@ class XodimDavomatView(CrmView):
         if xato := _ruxsatsiz(request, "xodimlar.tahrirlash"):
             return xato
         xodim = get_object_or_404(_xodimlar_qs(), pk=request.data.get("xodim_id"))
+        if not xodim_korinadimi(request.user, xodim):
+            raise Http404
         try:
             sana = _sana(request.data.get("sana"), "sana")
         except ValueError as e:
@@ -548,7 +564,8 @@ class KetganlarHisobotiView(CrmView):
             dan, gacha = _davr(request)
         except ValueError as e:
             return _xato(str(e))
-        qs = GuruhdanChiqish.objects.filter(sana__range=(dan, gacha)).select_related("kim", "filial")
+        qs = GuruhdanChiqish.objects.filter(sana__range=(dan, gacha)).filter(
+            filial_q(request.user, "filial")).select_related("kim", "filial")
         if request.query_params.get("filial"):
             qs = qs.filter(filial_id=request.query_params["filial"])
         return Response({
@@ -575,7 +592,7 @@ class LidlarHisobotiView(CrmView):
             dan, gacha = _davr(request)
         except ValueError as e:
             return _xato(str(e))
-        qs = Lid.objects.filter(created_at__date__range=(dan, gacha))
+        qs = Lid.objects.filter(created_at__date__range=(dan, gacha)).filter(filial_q(request.user, "filial"))
         if request.query_params.get("filial"):
             qs = qs.filter(Q(filial_id=request.query_params["filial"]) | Q(filial__isnull=True))
         manbalar = []
@@ -609,7 +626,7 @@ class TolovlarHisobotiView(CrmView):
             dan, gacha = _davr(request)
         except ValueError as e:
             return _xato(str(e))
-        qs = Tolov.objects.filter(sana__range=(dan, gacha))
+        qs = Tolov.objects.filter(sana__range=(dan, gacha)).filter(guruh_q(request.user, "guruh__"))
         if request.query_params.get("filial"):
             qs = qs.filter(guruh__moliya__filial_id=request.query_params["filial"])
         usullar = dict(Tolov.Usul.choices)
@@ -641,7 +658,8 @@ class BitiruvchilarHisobotiView(CrmView):
             dan, gacha = _davr(request)
         except ValueError as e:
             return _xato(str(e))
-        guruhlar = Guruh.objects.filter(moliya__tugash_sana__range=(dan, gacha)).select_related(
+        guruhlar = Guruh.objects.filter(moliya__tugash_sana__range=(dan, gacha)).filter(
+            guruh_q(request.user)).select_related(
             "moliya", "oqituvchi", "daraja"
         )
         natija = []

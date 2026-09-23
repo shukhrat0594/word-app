@@ -100,6 +100,15 @@ Format (qat'iy, parser shunga tayanadi):
 - **Faqat CRM xodimlari** (kassir, marketolog, kuzatuvchi va h.k.) saytga
   kirsa, menyuda faqat Bosh sahifa va Profil ko'rinadi — mashqlar,
   o'yinlar va reyting ko'rinmaydi.
+- **Xodimni filial(lar)ga biriktirish.** Xodim kartasida bir nechta
+  filialni belgilash mumkin. Filial biriktirilgan administrator, kassir
+  va boshqa xodimlar CRM'da faqat o'z filiallarining guruhlari,
+  o'quvchilari, lidlari, to'lovlari va hisobotlarini ko'radi. Filial
+  biriktirilmagan xodim hozircha hamma filialni ko'radi. Guruhsiz
+  o'quvchi va filiali belgilanmagan lid hammaga ko'rinadi.
+- **Owner CRM'da CEO** — unga hech qanday cheklov yo'q. CEO lavozimi
+  endi boshqa xodimga berilmaydi. Kurs narxlari va filiallar ro'yxatini
+  filialga biriktirilgan xodim faqat ko'radi.
 
 ## 2026-08-09 — Rollar va panel ruxsatlari
 

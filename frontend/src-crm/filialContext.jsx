@@ -20,7 +20,13 @@ export function FilialProvider({ children }) {
     // Xato yutiladi: filiallar hali kiritilmagan bo'lsa ham CRM
     // ochilishda davom etsin — bo'sh ro'yxat "barcha filiallar" degani.
     api("/api/crm/filiallar/")
-      .then((x) => setFiliallar(x?.natijalar ?? x ?? []))
+      .then((x) => {
+        const royxat = x?.natijalar ?? x ?? [];
+        setFiliallar(royxat);
+        // Eslab qolingan tanlov endi ruxsat etilmagan filial bo'lsa
+        // (xodimga boshqa filial biriktirildi) — "hammasi"ga qaytamiz.
+        setTanlangan((joriy) => (joriy && !royxat.some((f) => String(f.id) === joriy) ? HAMMASI : joriy));
+      })
       .catch(() => setFiliallar([]));
   }, []);
 

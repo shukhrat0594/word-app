@@ -40,6 +40,8 @@ const SATRLAR = {
     moliya: "Moliya",
     hisobotlar: "Hisobotlar",
     hamma_filiallar: "Barcha filiallar",
+    mening_filiallarim: "Mening filiallarim",
+    filialsiz_izoh: "Filial belgilanmasa — xodim CRM'da hamma filialni ko'radi",
 
     ruxsat_yoq_sarlavha: "Bu bo'lim faqat administratorlar uchun",
     ruxsat_yoq_matn:
@@ -552,6 +554,8 @@ const SATRLAR = {
     moliya: "Финансы",
     hisobotlar: "Отчёты",
     hamma_filiallar: "Все филиалы",
+    mening_filiallarim: "Мои филиалы",
+    filialsiz_izoh: "Если филиал не выбран — сотрудник видит в CRM все филиалы",
 
     ruxsat_yoq_sarlavha: "Раздел только для администраторов",
     ruxsat_yoq_matn:
@@ -1064,6 +1068,8 @@ const SATRLAR = {
     moliya: "Finance",
     hisobotlar: "Reports",
     hamma_filiallar: "All branches",
+    mening_filiallarim: "My branches",
+    filialsiz_izoh: "No branch selected — the employee sees all branches in the CRM",
 
     ruxsat_yoq_sarlavha: "Administrators only",
     ruxsat_yoq_matn:

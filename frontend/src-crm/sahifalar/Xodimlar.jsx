@@ -12,6 +12,8 @@ import { useProfil, useRuxsat } from "../profilContext.jsx";
 import { sorovSatri, useSorov } from "../soragich.js";
 
 const LAVOZIMLAR = ["admin", "ceo", "oqituvchi", "support", "kassir", "marketolog", "watcher", "boshqa"];
+// CEO — saytdagi owner (2026-09-23): tab va ro'yxatda bor, lekin xodimga berilmaydi.
+const BERILADIGAN_LAVOZIMLAR = LAVOZIMLAR.filter((l) => l !== "ceo");
 
 // ── Parol ko'rsatish (bir marta) ────────────────────────────────────
 
@@ -49,7 +51,7 @@ function XodimOynasi({ xodim, rollar, onYopish, onSaqlandi, onYangiRol }) {
     telefon: xodim?.telefon || "+998",
     tugilgan_sana: xodim?.tugilgan_sana || "",
     ishga_olingan_sana: xodim?.ishga_olingan_sana || new Date().toISOString().slice(0, 10),
-    filial_id: xodim?.filial_id ?? "",
+    filial_idlar: xodim?.filial_idlar ?? [],
     lavozim: xodim?.lavozim || "oqituvchi",
     rol_id: xodim?.rol_id ?? "",
     foiz_ulushi: xodim?.foiz_ulushi ?? 0,
@@ -62,13 +64,13 @@ function XodimOynasi({ xodim, rollar, onYopish, onSaqlandi, onYangiRol }) {
   const [band, setBand] = useState(false);
   const qiymat = (k) => ({ value: f[k] ?? "", onChange: (e) => setF((x) => ({ ...x, [k]: e.target.value })) });
   // Administrator/CEO'ni faqat owner beradi (backend ham tekshiradi).
-  const lavozimlar = LAVOZIMLAR.filter((l) => profil?.is_owner || !["admin", "ceo"].includes(l) || l === xodim?.lavozim);
+  const lavozimlar = BERILADIGAN_LAVOZIMLAR.filter((l) => profil?.is_owner || l !== "admin" || l === xodim?.lavozim);
 
   async function saqla() {
     setXato("");
     setBand(true);
     try {
-      const body = { ...f, rol_id: f.rol_id || null, filial_id: f.filial_id || null };
+      const body = { ...f, rol_id: f.rol_id || null };
       if (!oylikKorinadi) {
         delete body.oylik;
         delete body.foiz_ulushi;
@@ -101,12 +103,24 @@ function XodimOynasi({ xodim, rollar, onYopish, onSaqlandi, onYangiRol }) {
         </div>
         <div className="ikki-ustun">
           <label>{t("ishga_olingan_sana")}<input type="date" {...qiymat("ishga_olingan_sana")} /></label>
-          <label>{t("filial")}
-            <select {...qiymat("filial_id")}>
-              <option value="">—</option>
-              {filiallar.map((x) => <option key={x.id} value={x.id}>{x.nomi}</option>)}
-            </select>
-          </label>
+          {/* Bir nechta filial (2026-09-23). Hech biri belgilanmasa — xodim
+              CRM'da hamma filialni ko'radi; belgilansa — faqat shularni. */}
+          <fieldset className="radio-qator">
+            <legend className="kichik">{t("filiallar")}</legend>
+            {filiallar.map((x) => (
+              <label key={x.id} className="yonma">
+                <input type="checkbox" checked={f.filial_idlar.includes(x.id)}
+                       onChange={(e) => setF((y) => ({
+                         ...y,
+                         filial_idlar: e.target.checked
+                           ? [...y.filial_idlar, x.id]
+                           : y.filial_idlar.filter((id) => id !== x.id),
+                       }))} />
+                {x.nomi}
+              </label>
+            ))}
+            {f.filial_idlar.length === 0 && <span className="kichik">{t("filialsiz_izoh")}</span>}
+          </fieldset>
         </div>
         <div className="ikki-ustun">
           <label>{t("lavozim")}
@@ -445,7 +459,8 @@ export default function Xodimlar() {
                 <td>{x.filial || "—"}</td>
                 <td className="nowrap">{sana(x.ishga_olingan_sana)}</td>
                 <td className="amallar">
-                  {ruxsat("xodimlar.tahrirlash") && (
+                  {/* Owner (CEO) CRM'dan tahrirlanmaydi. */}
+                  {ruxsat("xodimlar.tahrirlash") && !x.owner && (
                     <>
                       <button className="havola" type="button" title={t("tahrirlash")} onClick={() => setTahrir(x)}>✎</button>
                       {parolTiklaydi && (

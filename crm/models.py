@@ -748,9 +748,10 @@ class XodimProfil(models.Model):
         CrmRol, on_delete=models.SET_NULL, null=True, blank=True, related_name="xodimlar",
         help_text="Maxsus rol — bo'lsa, ruxsatlar shundan olinadi",
     )
-    filial = models.ForeignKey(
-        Filial, on_delete=models.SET_NULL, null=True, blank=True, related_name="xodimlar"
-    )
+    # Xodim ishlaydigan filial(lar) (2026-09-23, Shuhrat). Bo'sh emas
+    # bo'lsa — CRM'da faqat shu filiallar ma'lumotini ko'radi
+    # (`crm.filial.ruxsat_filiallari`). Bo'sh — hozircha cheklovsiz.
+    filiallar = models.ManyToManyField(Filial, blank=True, related_name="xodimlar")
     jins = models.CharField(max_length=5, choices=Jins.choices, blank=True)
     ishga_olingan_sana = models.DateField(null=True, blank=True)
     oylik = models.DecimalField(

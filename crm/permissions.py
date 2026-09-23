@@ -89,5 +89,12 @@ class CrmView(APIView):
             raise Http404("CRM yoqilmagan")
 
         super().initial(request, *args, **kwargs)  # avval autentifikatsiya va ruxsat
+        # Filial cheklovi (2026-09-23): URL'dagi `pk` boshqa filialning
+        # yozuvi bo'lsa — 404. View o'z turini `pk_turi` bilan e'lon qiladi.
+        pk_turi = getattr(self, "pk_turi", None)
+        if pk_turi and "pk" in kwargs:
+            from .filial import obyekt_tekshir
+
+            obyekt_tekshir(request.user, pk_turi, kwargs["pk"])
         if request.method == "GET":
             hisoblarni_generatsiya_qil()

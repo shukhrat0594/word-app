@@ -64,7 +64,7 @@ export default function App() {
       } catch {
         // ruxsat yo'q — pastda xabar ko'rsatiladi
       }
-      setProfil({ ...asosiy, ruxsatlar: men.ruxsatlar, ruxsat_daraxti: men.daraxt });
+      setProfil({ ...asosiy, ruxsatlar: men.ruxsatlar, ruxsat_daraxti: men.daraxt, filiallar: men.filiallar ?? null });
     } catch {
       // Token yaroqsiz yoki kirish cheklangan — kirish oynasiga.
       tokenlarniTozala();

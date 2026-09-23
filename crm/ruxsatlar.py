@@ -86,7 +86,8 @@ _STANDART = {
 # Tizim rollari: (lavozim, nomi) — interfeysdagi tartib.
 TIZIM_ROLLARI = [
     ("admin", "Administrator"),
-    ("ceo", "CEO"),
+    # CEO — tizim roli EMAS: saytdagi owner CRM'da CEO (2026-09-23), unga
+    # cheklov yo'q; migratsiya 0009 CEO rolini olib tashlaydi.
     ("kassir", "Kassir"),
     ("marketolog", "Marketolog"),
     ("watcher", "Kuzatuvchi"),

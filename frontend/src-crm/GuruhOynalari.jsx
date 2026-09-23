@@ -26,7 +26,8 @@ export function GuruhOynasi({ guruh, onYopish, onSaqlandi }) {
   const { t } = useI18n();
   const { filiallar, tanlangan } = useFilial();
   const kurslar = useSorov("/api/crm/kurs-narxlari/");
-  const oqituvchilar = useSorov("/api/crm/xodimlar/?lavozim=oqituvchi");
+  // `tanlov=1` — hamma o'qituvchi (filialidan qat'i nazar, qaror 2026-09-23).
+  const oqituvchilar = useSorov("/api/crm/xodimlar/?lavozim=oqituvchi&tanlov=1");
   const tahrir = Boolean(guruh);
   const [f, setF] = useState(() => ({
     nomi: guruh?.nomi || "",

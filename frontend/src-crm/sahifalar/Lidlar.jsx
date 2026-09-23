@@ -40,7 +40,8 @@ const KUNLAR = ["toq", "juft", "har_kuni", "boshqa"];
 function LidForma({ lid, bolimlar, onSaqla, onBekor, band, xato }) {
   const { t } = useI18n();
   const { filiallar, tanlangan } = useFilial();
-  const oqituvchilar = useSorov("/api/crm/xodimlar/?lavozim=oqituvchi");
+  // `tanlov=1` — hamma o'qituvchi (filialidan qat'i nazar, qaror 2026-09-23).
+  const oqituvchilar = useSorov("/api/crm/xodimlar/?lavozim=oqituvchi&tanlov=1");
   const kurslar = useSorov("/api/crm/kurs-narxlari/");
   // "Dars vaqtini tanlang" — mavjud guruhlar boshlanish vaqtlari (video 07:20).
   const guruhlar = useSorov("/api/crm/guruhlar/");

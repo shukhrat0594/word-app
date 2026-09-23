@@ -17,6 +17,13 @@ export function useProfil() {
 
 /** Ruxsat bormi: `useRuxsat()("lidlar.excel")`. Backend baribir
  *  tekshiradi — bu faqat tugmani yashirish uchun. */
+/** Filialga bog'langanmi (2026-09-23): `true` — faqat o'z filiallari
+ *  ko'rinadi, markaz sozlamalari (kurs narxi, filiallar) faqat o'qish uchun. */
+export function useCheklangan() {
+  const profil = useContext(ProfilContext);
+  return Array.isArray(profil?.filiallar);
+}
+
 export function useRuxsat() {
   const profil = useContext(ProfilContext);
   const toplam = new Set(profil?.ruxsatlar || []);
