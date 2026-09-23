@@ -198,3 +198,30 @@ export async function apiFayluniYuklab(yol) {
   a.remove();
   URL.revokeObjectURL(url);
 }
+
+/** Fayl yuborish (Excel import) — `multipart/form-data`. `api()` ishlamaydi:
+ *  u tanani JSON qiladi va Content-Type'ni qattiq qo'yadi (brauzer
+ *  multipart chegarasini o'zi qo'yishi kerak). */
+export async function apiFaylYubor(yol, formData) {
+  const sorov = () =>
+    fetch(apiManzil(yol), {
+      method: "POST",
+      headers: tokenOl() ? { Authorization: `Bearer ${tokenOl()}` } : {},
+      body: formData,
+    });
+  let res = await sorov();
+  if (res.status === 401 && (await refreshQil())) {
+    res = await sorov();
+  }
+  if (res.status === 401) {
+    kirishGaQaytar();
+    throw new Error("401");
+  }
+  const data = await res.json().catch(() => null);
+  if (!res.ok) {
+    const e = new Error(data?.detail || `HTTP ${res.status}`);
+    e.status = res.status;
+    throw e;
+  }
+  return data;
+}

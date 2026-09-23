@@ -15,16 +15,19 @@ import Layout from "./Layout.jsx";
 import BoshSahifa from "./sahifalar/BoshSahifa.jsx";
 import Guruhlar from "./sahifalar/Guruhlar.jsx";
 import Hisobotlar from "./sahifalar/Hisobotlar.jsx";
+import Lidlar from "./sahifalar/Lidlar.jsx";
 import Moliya from "./sahifalar/Moliya.jsx";
 import Narxlar from "./sahifalar/Narxlar.jsx";
 import Sozlamalar from "./sahifalar/Sozlamalar.jsx";
 import Talabalar from "./sahifalar/Talabalar.jsx";
+import Xodimlar from "./sahifalar/Xodimlar.jsx";
 
-/** CRM'ga kira oladigan rollar. Bu — faqat KO'RINISH nazorati;
- *  haqiqiy himoya backendda (`crm.permissions.CrmRuxsati`), chunki
- *  frontendda yashirish hech qanday himoya emas. */
+/** CRM'ga kira oladimi — backend bergan ruxsatlar ro'yxatiga qarab
+ *  (2026-09-23: admin/owner'dan tashqari kassir, marketolog va maxsus
+ *  rol xodimlari ham kiradi). Bu — faqat KO'RINISH nazorati; haqiqiy
+ *  himoya backendda (`crm.permissions.CrmRuxsati`). */
 function crmGaKiraOladi(profil) {
-  return Boolean(profil?.is_owner || profil?.role === "admin");
+  return Boolean(profil?.ruxsatlar?.length);
 }
 
 function XabarEkrani({ sarlavha, matn, havola }) {
@@ -51,7 +54,16 @@ export default function App() {
       return;
     }
     try {
-      setProfil(await api("/api/profil/"));
+      const asosiy = await api("/api/profil/");
+      // CRM ruxsatlari alohida so'raladi: 403 bo'lsa — CRM yopiq, lekin
+      // bu tokenni tashlab yuborish sababi EMAS (odam LMS'ga kira oladi).
+      let men = { ruxsatlar: [], daraxt: [] };
+      try {
+        men = await api("/api/crm/men/");
+      } catch {
+        // ruxsat yo'q — pastda xabar ko'rsatiladi
+      }
+      setProfil({ ...asosiy, ruxsatlar: men.ruxsatlar, ruxsat_daraxti: men.daraxt });
     } catch {
       // Token yaroqsiz yoki kirish cheklangan — kirish oynasiga.
       tokenlarniTozala();
@@ -103,11 +115,13 @@ export default function App() {
       <Routes>
         <Route element={<Layout profil={profil} />}>
           <Route index element={<BoshSahifa />} />
+          <Route path="lidlar" element={<Lidlar />} />
           <Route path="guruhlar" element={<Guruhlar />} />
           <Route path="talabalar" element={<Talabalar />} />
           <Route path="moliya" element={<Moliya />} />
           <Route path="narxlar" element={<Narxlar />} />
           <Route path="hisobotlar" element={<Hisobotlar />} />
+          <Route path="xodimlar" element={<Xodimlar />} />
           <Route path="sozlamalar" element={<Sozlamalar />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

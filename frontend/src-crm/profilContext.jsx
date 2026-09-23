@@ -14,3 +14,11 @@ export function ProfilProvider({ profil, children }) {
 export function useProfil() {
   return useContext(ProfilContext);
 }
+
+/** Ruxsat bormi: `useRuxsat()("lidlar.excel")`. Backend baribir
+ *  tekshiradi — bu faqat tugmani yashirish uchun. */
+export function useRuxsat() {
+  const profil = useContext(ProfilContext);
+  const toplam = new Set(profil?.ruxsatlar || []);
+  return (kalit) => toplam.has(kalit);
+}

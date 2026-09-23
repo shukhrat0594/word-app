@@ -1,20 +1,23 @@
-// Guruhlar (TZ 6.4) — LMS'dagi guruhlar + CRM sozlamalari.
+// Guruhlar (TZ 6.4; video-TZ 2026-09-23) — guruhlarning ASOSIY joyi.
 //
-// Guruhning O'ZI (nomi, o'qituvchi, talabalar tarkibi) bu yerdan
-// TAHRIRLANMAYDI: u LMS'ning ishi. Ikki joyda tahrirlash chalkashlik
-// keltiradi va qaysi biri to'g'ri ekani bilinmay qoladi.
+// 2026-09-23 dan guruh CRM'da yaratiladi va tahrirlanadi (nom, kurs,
+// o'qituvchilar, jadval, tarkib). Saytda faqat o'qituvchi ishi qoladi
+// (davomat, mashqlar) — ma'lumot baribir bitta jadvalda.
 
 import { Fragment, useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 
 import { api } from "../api.js";
+import { GuruhOynasi, TalabaQoshishOynasi } from "../GuruhOynalari.jsx";
 import GuruhTablari from "../GuruhTablari.jsx";
+import { useRuxsat } from "../profilContext.jsx";
 import { useFilial } from "../filialContext.jsx";
 import { balansMatn, balansSinfi, pul, sana } from "../format.js";
 import { useI18n } from "../i18n.jsx";
 import { sorovSatri, useSorov } from "../soragich.js";
 
 const HAFTA = ["Du", "Se", "Chor", "Pay", "Ju", "Sha", "Yak"];
+const bugun = () => new Date().toISOString().slice(0, 10);
 
 function NarxManbasi({ manba }) {
   const { t } = useI18n();
@@ -23,177 +26,14 @@ function NarxManbasi({ manba }) {
   return <span className="belgi">{t(nomlar[manba])}</span>;
 }
 
-// ── Guruh sozlamalari oynasi ────────────────────────────────────────
-
-function SozlashOynasi({ guruh, filiallar, onYopish, onSaqlandi }) {
-  const { t } = useI18n();
-  const [filialId, setFilialId] = useState(guruh.filial?.id || "");
-  const [narx, setNarx] = useState(guruh.narx_guruhga ?? "");
-  const [boshlanish, setBoshlanish] = useState(guruh.boshlanish_sana || "");
-  const [tugash, setTugash] = useState(guruh.tugash_sana || "");
-  const [jadval, setJadval] = useState(
-    guruh.jadval.length
-      ? guruh.jadval.map((j) => ({ ...j }))
-      : [{ hafta_kuni: 0, boshlanish_vaqti: "14:00", tugash_vaqti: "15:30" }]
-  );
-  const [xato, setXato] = useState("");
-  const [band, setBand] = useState(false);
-  // Xonalar TANLANGAN filialga qarab filtrlanadi: boshqa filialning
-  // xonasini tanlash mantiqsiz bo'lardi.
-  const xonalar = useSorov(filialId ? `/api/crm/xonalar/${"?faqat_faol=1&filial="}${filialId}` : null);
-
-  function bandOzgartir(i, maydon, qiymat) {
-    setJadval((eski) => eski.map((b, j) => (i === j ? { ...b, [maydon]: qiymat } : b)));
-  }
-
-  async function saqla() {
-    setXato("");
-    setBand(true);
-    try {
-      await api(`/api/crm/guruhlar/${guruh.id}/moliya/`, {
-        method: "PATCH",
-        body: {
-          filial_id: filialId || null,
-          narx: narx === "" ? null : String(narx),
-          boshlanish_sana: boshlanish || null,
-          tugash_sana: tugash || null,
-        },
-      });
-      await api(`/api/crm/guruhlar/${guruh.id}/jadval/`, {
-        method: "PUT",
-        body: { jadval },
-      });
-      onSaqlandi();
-      onYopish();
-    } catch (e) {
-      setXato(e.message || "Xato");
-    } finally {
-      setBand(false);
-    }
-  }
-
-  return (
-    <div className="oyna-fon" role="dialog" aria-modal="true">
-      <div className="karta oyna oyna-keng">
-        <h2>{guruh.nomi}</h2>
-        <p className="kichik">
-          {guruh.daraja?.nomi || "—"} · {guruh.oqituvchi || "—"}
-        </p>
-
-        <label>
-          {t("filial")}
-          <select value={filialId} onChange={(e) => setFilialId(e.target.value)}>
-            <option value="">—</option>
-            {filiallar.map((f) => (
-              <option key={f.id} value={f.id}>{f.nomi}</option>
-            ))}
-          </select>
-        </label>
-
-        <label>
-          {t("narx")} ({t("narx_guruhdan")})
-          <input
-            type="number"
-            min="0"
-            step="1000"
-            value={narx}
-            onChange={(e) => setNarx(e.target.value)}
-            placeholder={guruh.narx ? String(guruh.narx) : ""}
-          />
-        </label>
-        {/* Narx qayerdan kelayotgani KO'RSATILADI: aks holda admin
-            kurs narxini o'zgartirib, nega bu guruhda ishlamaganini
-            tushunmaydi. */}
-        <p className="kichik">
-          {t("hisoblangan")}: <b>{guruh.narx ? pul(guruh.narx) : "—"}</b>{" "}
-          <NarxManbasi manba={guruh.narx_manbasi} />
-        </p>
-
-        <div className="ikki-ustun">
-          <label>
-            {t("boshlanish_sana")}
-            <input type="date" value={boshlanish} onChange={(e) => setBoshlanish(e.target.value)} />
-          </label>
-          <label>
-            {t("tugash_sana")}
-            <input type="date" value={tugash} onChange={(e) => setTugash(e.target.value)} />
-          </label>
-        </div>
-
-        <h3>{t("dars_kunlari")}</h3>
-        {jadval.map((band_, i) => (
-          <div key={i} className="jadval-qator">
-            <select
-              value={band_.hafta_kuni}
-              onChange={(e) => bandOzgartir(i, "hafta_kuni", Number(e.target.value))}
-            >
-              {HAFTA.map((nomi, k) => (
-                <option key={k} value={k}>{nomi}</option>
-              ))}
-            </select>
-            <input
-              type="time"
-              value={band_.boshlanish_vaqti}
-              onChange={(e) => bandOzgartir(i, "boshlanish_vaqti", e.target.value)}
-            />
-            <input
-              type="time"
-              value={band_.tugash_vaqti}
-              onChange={(e) => bandOzgartir(i, "tugash_vaqti", e.target.value)}
-            />
-            <select
-              value={band_.xona_id ?? ""}
-              onChange={(e) => bandOzgartir(i, "xona_id", e.target.value || null)}
-            >
-              <option value="">{t("xonasiz")}</option>
-              {(xonalar.malumot || []).map((x) => (
-                <option key={x.id} value={x.id}>{x.nomi}</option>
-              ))}
-            </select>
-            <button
-              className="tugma tugma-sokin kichik-tugma"
-              type="button"
-              onClick={() => setJadval((eski) => eski.filter((_, j) => j !== i))}
-            >
-              ✕
-            </button>
-          </div>
-        ))}
-        <button
-          className="tugma tugma-sokin kichik-tugma"
-          type="button"
-          onClick={() =>
-            setJadval((eski) => [
-              ...eski,
-              { hafta_kuni: 0, boshlanish_vaqti: "14:00", tugash_vaqti: "15:30", xona_id: null },
-            ])
-          }
-        >
-          + {t("qoshish")}
-        </button>
-
-        {xato && <div className="xato">{xato}</div>}
-        <div className="oyna-tugmalar">
-          <button className="tugma tugma-sokin" type="button" onClick={onYopish}>
-            {t("bekor")}
-          </button>
-          <button className="tugma" type="button" onClick={saqla} disabled={band}>
-            {t("saqlash")}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ── A'zolar ro'yxati ────────────────────────────────────────────────
 
 function Azolar({ guruhId, onOzgardi }) {
   const { t } = useI18n();
+  const ruxsat = useRuxsat();
   const { malumot, yuklanmoqda, yangila } = useSorov(`/api/crm/guruhlar/${guruhId}/azoliklar/`);
-  // Arxiv CRM'da YO'Q (2026-09-16): talaba saytda guruhdan chiqariladi
-  // va a'zolik bilan birga bu ro'yxatdan ham yo'qoladi. Shuning uchun
-  // bu yerda "arxivdagilarni ko'rish" tugmasi yo'q.
+  // Guruhdan chiqarish (2026-09-23): endi CRM'da — chiqish sanasigacha
+  // joriy oy qayta hisoblanadi, a'zolik o'chadi, pul tarixi qoladi.
   //
   // Qidiruv va tartiblash — mijoz tomonida: guruhda 4-8 kishi, server
   // so'rovi shart emas. SoffCRM'da ham shu ikkisi ro'yxat tepasida.
@@ -211,6 +51,14 @@ function Azolar({ guruhId, onOzgardi }) {
 
   async function ozgartir(id, maydon, qiymat) {
     await api(`/api/crm/azoliklar/${id}/`, { method: "PATCH", body: { [maydon]: qiymat } });
+    yangila();
+    onOzgardi?.();
+  }
+
+  async function chiqar(a) {
+    const sanaQ = window.prompt(`${a.talaba}: ${t("chiqarish_sanasi")}`, bugun());
+    if (!sanaQ) return;
+    await api(`/api/crm/guruhlar/${guruhId}/talabalar/?talaba=${a.talaba_id}&sana=${sanaQ}`, { method: "DELETE" });
     yangila();
     onOzgardi?.();
   }
@@ -237,6 +85,7 @@ function Azolar({ guruhId, onOzgardi }) {
             <th>{t("boshlanish_sana")}</th>
             <th>{t("narx")}</th>
             <th className="ongga">{t("balans")}</th>
+            <th />
           </tr>
         </thead>
         <tbody>
@@ -265,10 +114,17 @@ function Azolar({ guruhId, onOzgardi }) {
                 <NarxManbasi manba={a.narx_manbasi} />
               </td>
               <td className={`ongga ${balansSinfi(a.balans)}`}>{balansMatn(a.balans)}</td>
+              <td>
+                {ruxsat("guruhlar.talaba_qoshish") && (
+                  <button className="havola rang-qarzdor" type="button" onClick={() => chiqar(a)}>
+                    {t("guruhdan_chiqarish")}
+                  </button>
+                )}
+              </td>
             </tr>
           ))}
           {azolar.length === 0 && (
-            <tr><td colSpan={6} className="bosh">{t("yozuv_yoq")}</td></tr>
+            <tr><td colSpan={7} className="bosh">{t("yozuv_yoq")}</td></tr>
           )}
         </tbody>
       </table>
@@ -280,9 +136,18 @@ function Azolar({ guruhId, onOzgardi }) {
 
 export default function Guruhlar() {
   const { t } = useI18n();
-  const { tanlangan, filiallar } = useFilial();
+  const ruxsat = useRuxsat();
+  const { tanlangan } = useFilial();
   const [qidiruv, setQidiruv] = useState("");
-  const [sozlanayotgan, setSozlanayotgan] = useState(null);
+  const [arxiv, setArxiv] = useState(false);
+  // Video (17:24-17:37): filial, o'qituvchi, kurs bo'yicha filtr.
+  // Ro'yxat kichik — mijoz tomonida filtrlanadi.
+  const [oqituvchiF, setOqituvchiF] = useState("");
+  const [kursF, setKursF] = useState("");
+  const [kunF, setKunF] = useState("");
+  // undefined — yopiq, null — yangi guruh, obyekt — tahrir.
+  const [sozlanayotgan, setSozlanayotgan] = useState(undefined);
+  const [talabaQoshish, setTalabaQoshish] = useState(null);
   // `?guruh=ID` — dars jadvalidagi blokdan kelganda shu guruh ochiq
   // turadi (2026-09-17).
   const [params] = useSearchParams();
@@ -297,16 +162,60 @@ export default function Guruhlar() {
   const setTabBuyrugi = (b) => setTabBuyrugiAsl((eski) => ({ ...b, n: (eski?.n || 0) + 1 }));
 
   const { malumot, yuklanmoqda, xato, yangila } = useSorov(
-    "/api/crm/guruhlar/" + sorovSatri({ filial: tanlangan, q: qidiruv })
+    "/api/crm/guruhlar/" + sorovSatri({ filial: tanlangan, q: qidiruv, arxiv: arxiv ? 1 : "" })
   );
-  const guruhlar = malumot || [];
+  const hammasi = malumot || [];
+  const KUN_TOPLAMI = { toq: "0,2,4", juft: "1,3,5" };
+  const guruhlar = hammasi.filter((g) => {
+    if (oqituvchiF && g.oqituvchi !== oqituvchiF) return false;
+    if (kursF && String(g.daraja?.id) !== kursF) return false;
+    if (kunF) {
+      const kunlar = [...new Set(g.jadval.map((j) => j.hafta_kuni))].sort().join(",");
+      if (kunF === "boshqa" ? Object.values(KUN_TOPLAMI).includes(kunlar) : kunlar !== KUN_TOPLAMI[kunF]) return false;
+    }
+    return true;
+  });
+  const oqituvchiVariantlari = [...new Set(hammasi.map((g) => g.oqituvchi).filter(Boolean))].sort();
+  const kursVariantlari = [...new Map(hammasi.filter((g) => g.daraja).map((g) => [g.daraja.id, g.daraja.nomi])).entries()];
+
+  // Tahrir oynasi o'qituvchilar ro'yxatini ham ko'rsatadi — u guruhlar
+  // ro'yxatida yo'q, shuning uchun to'liq yozuv alohida so'raladi.
+  async function tahrirla(g) {
+    setSozlanayotgan(await api(`/api/crm/guruhlar/${g.id}/boshqaruv/`));
+  }
+
+  async function arxivla(g) {
+    if (!window.confirm(g.faol ? t("guruh_arxivlash_tasdiq") : t("guruh_tiklash_tasdiq"))) return;
+    await api(`/api/crm/guruhlar/${g.id}/boshqaruv/`, { method: "PATCH", body: { faol: !g.faol } });
+    yangila();
+  }
 
   return (
     <section>
-      <h1>{t("guruhlar")}</h1>
+      <div className="karta-sarlavha">
+        <h1>{t("guruhlar")} <span className="belgi">{guruhlar.length}</span></h1>
+        {ruxsat("guruhlar.qoshish") && (
+          <button className="tugma" type="button" onClick={() => setSozlanayotgan(null)}>+ {t("yangi_guruh")}</button>
+        )}
+      </div>
 
       <div className="filtrlar">
         <input placeholder={t("qidiruv")} value={qidiruv} onChange={(e) => setQidiruv(e.target.value)} />
+        <select value={oqituvchiF} onChange={(e) => setOqituvchiF(e.target.value)} aria-label={t("oqituvchi")}>
+          <option value="">{t("oqituvchi")}: {t("hammasi")}</option>
+          {oqituvchiVariantlari.map((o) => <option key={o} value={o}>{o}</option>)}
+        </select>
+        <select value={kursF} onChange={(e) => setKursF(e.target.value)} aria-label={t("kurs")}>
+          <option value="">{t("kurs")}: {t("hammasi")}</option>
+          {kursVariantlari.map(([id, nomi]) => <option key={id} value={id}>{nomi}</option>)}
+        </select>
+        <select value={kunF} onChange={(e) => setKunF(e.target.value)} aria-label={t("dars_kunlari")}>
+          <option value="">{t("dars_kunlari")}: {t("hammasi")}</option>
+          {["toq", "juft", "boshqa"].map((k) => <option key={k} value={k}>{t(`kunlar_${k}`)}</option>)}
+        </select>
+        <label className="yonma">
+          <input type="checkbox" checked={arxiv} onChange={(e) => setArxiv(e.target.checked)} /> {t("arxiv")}
+        </label>
       </div>
 
       {xato && <div className="xato">{xato}</div>}
@@ -358,24 +267,33 @@ export default function Guruhlar() {
                       : "—"}
                   </td>
                   <td>
-                    <button className="tugma kichik-tugma" type="button" onClick={() => setSozlanayotgan(g)}>
-                      {t("sozlash")}
-                    </button>
+                    {ruxsat("guruhlar.tahrirlash") && (
+                      <button className="tugma kichik-tugma" type="button" onClick={() => tahrirla(g)}>
+                        {t("tahrirlash")}
+                      </button>
+                    )}
                   </td>
                 </tr>
                 {ochilgan === g.id && (
                   <tr>
                     <td colSpan={9} className="ichki">
-                      {/* Tezkor amallar — SoffCRM kartasidagi ikonkalar qatori.
-                          "Talaba qo'shish" SAYTGA olib boradi: guruh tarkibi
-                          LMS ishi, ikki joyda tahrirlash chalkashlik. */}
+                      {/* Tezkor amallar — SoffCRM kartasidagi ikonkalar qatori. */}
                       <div className="tezkor-amallar">
-                        <button className="tugma kichik-tugma" type="button" onClick={() => setSozlanayotgan(g)}>
-                          ⚙ {t("sozlash")}
-                        </button>
-                        <a className="tugma tugma-sokin kichik-tugma" href="/guruhlar">
-                          ➕ {t("talaba_qoshish_lms")}
-                        </a>
+                        {ruxsat("guruhlar.tahrirlash") && (
+                          <button className="tugma kichik-tugma" type="button" onClick={() => tahrirla(g)}>
+                            ✎ {t("tahrirlash")}
+                          </button>
+                        )}
+                        {ruxsat("guruhlar.talaba_qoshish") && (
+                          <button className="tugma kichik-tugma" type="button" onClick={() => setTalabaQoshish(g)}>
+                            ➕ {t("guruhga_oquvchi_qoshish")}
+                          </button>
+                        )}
+                        {ruxsat("guruhlar.tahrirlash") && (
+                          <button className="tugma tugma-sokin kichik-tugma" type="button" onClick={() => arxivla(g)}>
+                            🗄 {g.faol ? t("arxivlash") : t("arxivdan_chiqarish")}
+                          </button>
+                        )}
                         <button className="tugma tugma-sokin kichik-tugma" type="button"
                                 onClick={() => setTabBuyrugi({ id: g.id, tab: "eslatmalar" })}>
                           📝 {t("eslatma_yozish")}
@@ -389,6 +307,7 @@ export default function Guruhlar() {
                         guruhId={g.id}
                         boshlangichTab={tabBuyrugi?.id === g.id ? tabBuyrugi.tab : undefined}
                         tabKaliti={tabBuyrugi?.id === g.id ? tabBuyrugi.n : 0}
+                        onOzgardi={yangila}
                         Azolar={() => <Azolar guruhId={g.id} onOzgardi={yangila} />}
                       />
                     </td>
@@ -403,13 +322,11 @@ export default function Guruhlar() {
         </table>
       </div>
 
-      {sozlanayotgan && (
-        <SozlashOynasi
-          guruh={sozlanayotgan}
-          filiallar={filiallar}
-          onYopish={() => setSozlanayotgan(null)}
-          onSaqlandi={yangila}
-        />
+      {sozlanayotgan !== undefined && (
+        <GuruhOynasi guruh={sozlanayotgan} onYopish={() => setSozlanayotgan(undefined)} onSaqlandi={yangila} />
+      )}
+      {talabaQoshish && (
+        <TalabaQoshishOynasi guruh={talabaQoshish} onYopish={() => setTalabaQoshish(null)} onSaqlandi={yangila} />
       )}
     </section>
   );

@@ -1,85 +1,17 @@
-// Guruh kartasining ichki tablari: A'zolar · Davomat · Natijalar.
+// Guruh kartasining ichki tablari: A'zolar · Davomat · Natijalar ·
+// Chegirmalar · Eslatmalar.
 //
-// Davomat va Natijalar FAQAT O'QISH uchun. Ular LMS'da hosil bo'ladi
-// (o'qituvchi davomat belgilaydi, talaba mashq yechadi) — CRM ularni
-// faqat ko'rsatadi. Ikki joyda belgilash ikki xil raqam degani bo'lardi,
-// va farq chiqqanda qaysi biri to'g'ri ekani bilinmay qolardi.
+// Davomat 2026-09-23 dan (video-TZ) CRM'dan ham BELGILANADI — yozuv
+// o'sha LMS jadvaliga tushadi, ya'ni o'qituvchi ham, admin ham bitta
+// yozuvni ko'radi. Natijalar FAQAT O'QISH: mashqlar saytda yechiladi.
 
 import { useEffect, useState } from "react";
 
 import Eslatmalar from "./Eslatmalar.jsx";
-import { joriyOy, oyNomi, sana, siljit } from "./format.js";
+import { Baholar, Chegirmalar, DavomatJadvali } from "./GuruhOynalari.jsx";
 import { useProfil } from "./profilContext.jsx";
 import { useI18n } from "./i18n.jsx";
-import { sorovSatri, useSorov } from "./soragich.js";
-
-// ── Davomat ─────────────────────────────────────────────────────────
-
-function Davomat({ guruhId }) {
-  const { t, til } = useI18n();
-  const [oy, setOy] = useState(joriyOy());
-  const { malumot, yuklanmoqda, xato } = useSorov(
-    `/api/crm/guruhlar/${guruhId}/davomat/` + sorovSatri({ oy })
-  );
-
-  const sanalar = malumot?.sanalar || [];
-  const talabalar = malumot?.talabalar || [];
-
-  return (
-    <>
-      <div className="filtrlar">
-        <div className="oy-tanlash">
-          <button className="tugma tugma-sokin" type="button" onClick={() => setOy(siljit(oy, -1))}>‹</button>
-          <b>{oyNomi(oy, til)}</b>
-          <button className="tugma tugma-sokin" type="button" onClick={() => setOy(siljit(oy, 1))}>›</button>
-        </div>
-        <span className="belgi">{t("faqat_oqish")}</span>
-      </div>
-
-      {xato && <div className="xato">{xato}</div>}
-      {yuklanmoqda && <p className="kichik">{t("yuklanmoqda")}</p>}
-
-      {!yuklanmoqda && sanalar.length === 0 && (
-        <p className="kichik">{t("davomat_yoq")}</p>
-      )}
-
-      {sanalar.length > 0 && (
-        <div className="jadval-oram">
-          <table>
-            <thead>
-              <tr>
-                <th>{t("talaba")}</th>
-                {sanalar.map((s) => (
-                  <th key={s} className="markazga" title={sana(s)}>
-                    {String(s).slice(8, 10)}
-                  </th>
-                ))}
-                <th className="ongga">{t("keldi")}</th>
-                <th className="ongga">{t("kelmadi")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {talabalar.map((x) => (
-                <tr key={x.id}>
-                  <td>{x.ism}</td>
-                  {x.kunlar.map((holat, i) => (
-                    <td key={sanalar[i]} className="markazga">
-                      {holat === "keldi" && <span className="davomat-keldi">✓</span>}
-                      {holat === "kelmadi" && <span className="davomat-kelmadi">✕</span>}
-                      {!holat && <span className="davomat-yoq">·</span>}
-                    </td>
-                  ))}
-                  <td className="ongga rang-tolandi">{x.keldi}</td>
-                  <td className="ongga rang-qarzdor">{x.kelmadi}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </>
-  );
-}
+import { useSorov } from "./soragich.js";
 
 // ── Natijalar ───────────────────────────────────────────────────────
 
@@ -160,9 +92,9 @@ function Natijalar({ guruhId }) {
 
 // ── Tablar ──────────────────────────────────────────────────────────
 
-const TABLAR = ["azolar", "davomat", "natijalar", "eslatmalar"];
+const TABLAR = ["azolar", "davomat", "baholar", "natijalar", "chegirmalar", "eslatmalar"];
 
-export default function GuruhTablari({ guruhId, Azolar, boshlangichTab, tabKaliti = 0 }) {
+export default function GuruhTablari({ guruhId, Azolar, boshlangichTab, tabKaliti = 0, onOzgardi }) {
   const { t } = useI18n();
   const profil = useProfil();
   const [tab, setTab] = useState(boshlangichTab || "azolar");
@@ -186,10 +118,10 @@ export default function GuruhTablari({ guruhId, Azolar, boshlangichTab, tabKalit
         ))}
       </div>
 
-      {/* A'zolar tabi TAHRIRLANADI (holat, sana, narx) — u CRM'ning
-          o'z ma'lumoti. Qolgan ikkitasi faqat o'qish. */}
       {tab === "azolar" && <Azolar />}
-      {tab === "davomat" && <Davomat guruhId={guruhId} />}
+      {tab === "davomat" && <DavomatJadvali guruhId={guruhId} />}
+      {tab === "baholar" && <Baholar guruhId={guruhId} />}
+      {tab === "chegirmalar" && <Chegirmalar guruhId={guruhId} onOzgardi={onOzgardi} />}
       {tab === "natijalar" && <Natijalar guruhId={guruhId} />}
       {tab === "eslatmalar" && <Eslatmalar guruhId={guruhId} profilId={profil?.id} />}
     </div>

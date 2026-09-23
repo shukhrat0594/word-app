@@ -14,6 +14,7 @@ import { api } from "./api.js";
 import { useFilial } from "./filialContext.jsx";
 import { balansMatn, balansSinfi, pul } from "./format.js";
 import { useI18n } from "./i18n.jsx";
+import UsulTanlash from "./TolovUsuli.jsx";
 import { sorovSatri, useSorov } from "./soragich.js";
 
 export default function TolovQoshishOynasi({ onYopish, onSaqlandi }) {
@@ -27,6 +28,7 @@ export default function TolovQoshishOynasi({ onYopish, onSaqlandi }) {
   const [bonus, setBonus] = useState("");
   const [izoh, setIzoh] = useState("");
   const [sana, setSana] = useState(new Date().toISOString().slice(0, 10));
+  const [usul, setUsul] = useState("naqd");
   const [xato, setXato] = useState("");
   const [band, setBand] = useState(false);
 
@@ -73,6 +75,7 @@ export default function TolovQoshishOynasi({ onYopish, onSaqlandi }) {
         summa: String(miqdor),
         turi,
         sana,
+        usul,
         izoh,
       },
     });
@@ -197,6 +200,7 @@ export default function TolovQoshishOynasi({ onYopish, onSaqlandi }) {
               {t("izoh")}
               <input value={izoh} onChange={(e) => setIzoh(e.target.value)} maxLength={300} />
             </label>
+            <UsulTanlash qiymat={usul} onChange={setUsul} />
             <label>
               {t("sana")}
               <input type="date" value={sana} onChange={(e) => setSana(e.target.value)} />

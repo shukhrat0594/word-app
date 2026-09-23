@@ -19,6 +19,40 @@ Format (qat'iy, parser shunga tayanadi):
 
 ---
 
+## 2026-09-23 — CRM endi o'quv markazining asosiy boshqaruv joyi
+
+- **O'quvchilar, guruhlar va xodimlar endi CRM'da qo'shiladi.** Saytda
+  (admin va owner menyusida) bu bo'limlar yo'q — ular CRM'ga ko'chdi.
+  Saytda mashqlar qoladi, o'qituvchi esa o'z guruhlarini va davomatni
+  avvalgidek saytda ko'radi.
+- **Lidlar bo'limi qo'shildi.** Kelgan so'rovlar kanban ustunlarida
+  turadi ("Yangi lidlar", "Beginner", "Rus tili"... — ustunlarni o'zingiz
+  yaratasiz), kartochkani sichqoncha bilan boshqa ustunga sudrash
+  mumkin. Har lidda qayerdan kelgani, qulay vaqti, izohlar, eslatma va
+  o'zgarishlar tarixi bor. "Guruhga qo'shish" tugmasi liddan o'quvchi
+  yaratadi va sayt uchun login-parol beradi.
+- **Yangi o'quvchi qo'shish** — CRM'ning "Talabalar" bo'limida. Login va
+  parol bo'sh qoldirilsa, o'zi yaratiladi va bir marta ko'rsatiladi.
+  O'quvchini qora ro'yxatga olish, arxivlash, parolini tiklash va
+  beyjigini chop etish ham shu yerda.
+- **Guruh qo'shish CRM'da**: kurs, filial, toq/juft kunlar (har kunga
+  alohida vaqt va xona), 3 tagacha o'qituvchi — har biriga foizda yoki
+  "har dars uchun" haq. Xona band bo'lsa, guruh saqlanmaydi va sababi
+  aytiladi.
+- **Guruh ichida**: davomatni CRM'dan belgilash (keldi / kelmadi /
+  sababli), darsni boshqa kunga ko'chirish yoki qo'shimcha dars, baholar
+  (1–5, 1–10 yoki 100 ball), muddatli chegirmalar ("3 oy 400 000",
+  "1 oy tekin"), guruhdan chiqarish.
+- **Xodimlar va rollar**: xodim kartasida filial, oylik, foiz ulushi,
+  ishga olingan sana. Kassir, marketolog va boshqa rollar CRM'ga faqat
+  o'ziga ruxsat berilgan bo'limlar bilan kiradi. "Yangi rol yaratish"da
+  har bir bo'lim va amal alohida belgilanadi.
+- **Bosh sahifa**: 12 ta ko'rsatkich (faol lidlar, qarzdorlar, sinov
+  darsidagilar, to'lovi yaqinlar va h.k.) va "Markaz foydaliligi".
+  Raqamlar boshida yashirin turadi — "Raqamlarni ko'rish" tugmasi bilan
+  ochiladi. Vaqti kelgan eslatmalaringiz ham shu yerda chiqadi.
+- **To'lovda usul tanlanadi**: naqd, karta, Click, Payme yoki o'tkazma.
+
 ## 2026-08-09 — Rollar va panel ruxsatlari
 
 - **Foydalanuvchining roli endi faqat u YARATILAYOTGANDA tanlanadi va

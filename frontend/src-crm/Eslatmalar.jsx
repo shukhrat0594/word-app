@@ -1,4 +1,4 @@
-// Eslatmalar — guruh yoki talaba haqidagi erkin izohlar.
+// Eslatmalar — guruh, talaba yoki lid haqidagi erkin izohlar.
 //
 // SoffCRM'dagi "ESLATMALAR" tabi. Bu — LMS'da ham, CRM'da ham bo'lmagan
 // yagona narsa edi: adminning kundalik ishida kerak ("onasi 15-sentabrda
@@ -17,13 +17,15 @@ function vaqtMatni(qiymat) {
   return `${ikki(d.getDate())}.${ikki(d.getMonth() + 1)}.${d.getFullYear()} ${ikki(d.getHours())}:${ikki(d.getMinutes())}`;
 }
 
-export default function Eslatmalar({ guruhId, talabaId, profilId }) {
+export default function Eslatmalar({ guruhId, talabaId, lidId, profilId, eslatishVaqti = false }) {
   const { t } = useI18n();
   const [matn, setMatn] = useState("");
+  // Eslatish vaqti (lidlar uchun, 2026-09-23): "23.09 kuni keladi".
+  const [vaqtQ, setVaqtQ] = useState("");
   const [xato, setXato] = useState("");
   const [band, setBand] = useState(false);
 
-  const yol = "/api/crm/eslatmalar/" + sorovSatri({ guruh: guruhId, talaba: talabaId });
+  const yol = "/api/crm/eslatmalar/" + sorovSatri({ guruh: guruhId, talaba: talabaId, lid: lidId });
   const { malumot, yuklanmoqda, yangila } = useSorov(yol);
   const eslatmalar = malumot || [];
 
@@ -34,9 +36,13 @@ export default function Eslatmalar({ guruhId, talabaId, profilId }) {
     try {
       await api("/api/crm/eslatmalar/", {
         method: "POST",
-        body: { guruh_id: guruhId ?? null, talaba_id: talabaId ?? null, matn },
+        body: {
+          guruh_id: guruhId ?? null, talaba_id: talabaId ?? null, lid_id: lidId ?? null, matn,
+          eslatish_vaqti: vaqtQ || null,
+        },
       });
       setMatn("");
+      setVaqtQ("");
       yangila();
     } catch (e) {
       setXato(e.message || "Xato");
@@ -66,6 +72,10 @@ export default function Eslatmalar({ guruhId, talabaId, profilId }) {
           // Ctrl+Enter — qo'l klaviaturadan uzilmasin.
           onKeyDown={(e) => (e.ctrlKey || e.metaKey) && e.key === "Enter" && qosh()}
         />
+        {eslatishVaqti && (
+          <input type="datetime-local" value={vaqtQ} onChange={(e) => setVaqtQ(e.target.value)}
+                 aria-label={t("eslatish_vaqti")} title={t("eslatish_vaqti")} />
+        )}
         <button className="tugma" type="button" onClick={qosh} disabled={band || !matn.trim()}>
           {t("qoshish")}
         </button>
@@ -82,6 +92,7 @@ export default function Eslatmalar({ guruhId, talabaId, profilId }) {
         {eslatmalar.map((e) => (
           <li key={e.id}>
             <div className="eslatma-matn">{e.matn}</div>
+            {e.eslatish_vaqti && <div className="kichik">⏰ {vaqtMatni(e.eslatish_vaqti)}</div>}
             <div className="eslatma-past">
               <span className="kichik">
                 {e.kim || "—"} · {vaqtMatni(e.vaqt)}
