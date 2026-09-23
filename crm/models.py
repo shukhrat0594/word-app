@@ -652,6 +652,13 @@ class Lid(models.Model):
         related_name="crm_lid_manbasi",
         help_text="Lid talabaga aylangandan keyin — o'sha talaba",
     )
+    # Video (17:24): lid menyusidagi "Yig'ilayotgan guruhga qo'shish" — hali
+    # boshlanmagan guruhga navbat. Lid talaba BO'LMAYDI (to'lov ochilmaydi),
+    # guruh yig'ilganda "Guruhga qo'shish" bilan o'tkaziladi. Bosh
+    # sahifadagi "Yangi guruhga qabul" kartochkasi shularni sanaydi.
+    yigilayotgan_guruh = models.ForeignKey(
+        "academics.Guruh", on_delete=models.SET_NULL, null=True, blank=True, related_name="+",
+    )
     kim_qoshdi = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
         related_name="crm_qoshgan_lidlari",

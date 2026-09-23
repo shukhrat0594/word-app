@@ -67,6 +67,15 @@ Format (qat'iy, parser shunga tayanadi):
 - **Yangi hisobotlar**: to'lovlar (usul va kun bo'yicha), lidlar (manba
   va konversiya), ketgan o'quvchilar, bitiruvchilar. Xodimlar davomati
   va "Harakatlar tarixi" (kim, qachon, nimani o'zgartirdi) qo'shildi.
+- **Lid kartochkasida "⋯" menyu**: eslatma, boshqa filial yoki bo'limga
+  ko'chirish, guruhga yoki **yig'ilayotgan guruhga** qo'shish (lid
+  navbatda turadi, to'lov ochilmaydi). Bosh sahifadagi "Yangi guruhga
+  qabul" shularni sanaydi.
+- **O'quvchi kartasidagi dars taqvimida** davomat va baho ham ko'rinadi,
+  katakni bosib davomat belgilanadi (o'ng tugma — sababli), oylar
+  bo'yicha o'tish mumkin. O'quvchilar ro'yxatida "Baho" va "Keyingi
+  to'lov" ustunlari. Dars jadvalida kurs, o'quvchilar soni va xona
+  sig'imi ko'rinadi; bosh sahifada moliya oyini tanlash mumkin.
 
 ## 2026-08-09 — Rollar va panel ruxsatlari
 

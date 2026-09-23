@@ -291,14 +291,15 @@ export function GuruhgaQoshishOynasi({ lidIdlar, standartGuruh = "", onYopish, o
 
 // ── Lid kartasi ─────────────────────────────────────────────────────
 
-function LidKartasi({ lidId, bolimlar, onYopish, onOzgardi }) {
+function LidKartasi({ lidId, bolimlar, onYopish, onOzgardi, rejim = null }) {
   // Ustun guruhga bog'langan bo'lsa — "Guruhga qo'shish" o'sha guruhni taklif qiladi.
   const { t } = useI18n();
   const profil = useProfil();
   const ruxsat = useRuxsat();
   const { malumot: lid, yuklanmoqda, yangila } = useSorov(`/api/crm/lidlar/${lidId}/`);
-  const [tab, setTab] = useState("malumot");
-  const [tahrir, setTahrir] = useState(false);
+  // `rejim` — kartochka menyusidan kelganda ("eslatma" / "tahrir").
+  const [tab, setTab] = useState(rejim === "eslatma" ? "eslatmalar" : "malumot");
+  const [tahrir, setTahrir] = useState(rejim === "tahrir");
   const [guruhga, setGuruhga] = useState(false);
   const [band, setBand] = useState(false);
   const [xato, setXato] = useState("");
@@ -391,6 +392,11 @@ function LidKartasi({ lidId, bolimlar, onYopish, onOzgardi }) {
                   <span className="kichik">{t("qulay_vaqt")}</span>
                   <span>{lid.qulay_vaqt || "—"}{lid.kunlar ? ` · ${t(`kunlar_${lid.kunlar}`)}` : ""}</span>
                 </div>
+                {lid.yigilayotgan_guruh && (
+                  <div className="qator">
+                    <span className="kichik">{t("yigilayotgan_guruh")}</span><span>👥 {lid.yigilayotgan_guruh}</span>
+                  </div>
+                )}
                 <div className="qator"><span className="kichik">{t("izoh")}</span><span>{lid.izoh || "—"}</span></div>
                 <div className="qator"><span className="kichik">{t("kim_qoshdi")}</span><span>{lid.kim_qoshdi || "—"} · {vaqt(lid.vaqt)}</span></div>
                 {lid.takrorlar?.length > 0 && (
@@ -444,7 +450,7 @@ function LidKartasi({ lidId, bolimlar, onYopish, onOzgardi }) {
 
 // ── Kanban ustuni ───────────────────────────────────────────────────
 
-function Ustun({ bolim, lidlar, tanlangan, setTanlangan, onOch, onTashla, onYangi, onNom, onOchir, ruxsat }) {
+function Ustun({ bolim, lidlar, tanlangan, setTanlangan, onOch, onTashla, onYangi, onNom, onOchir, onMenyu, ruxsat }) {
   const { t } = useI18n();
   const [ustida, setUstida] = useState(false);
   return (
@@ -491,6 +497,8 @@ function Ustun({ bolim, lidlar, tanlangan, setTanlangan, onOch, onTashla, onYang
                 aria-label={l.ism}
               />
               <button className="havola" type="button" onClick={() => onOch(l.id)}>{l.ism}</button>
+              <button className="havola lid-menyu-tugma" type="button" aria-label={t("harakatlar")}
+                      onClick={(e) => onMenyu(l, e.currentTarget.getBoundingClientRect())}>⋯</button>
             </div>
             <div className="kichik">{l.telefon}</div>
             <div className="lid-kartochka-past">
@@ -503,6 +511,7 @@ function Ustun({ bolim, lidlar, tanlangan, setTanlangan, onOch, onTashla, onYang
             {l.oxirgi_eslatma && (
               <div className="lid-eslatma kichik">💬 {l.oxirgi_eslatma.matn}</div>
             )}
+            {l.yigilayotgan_guruh && <div className="kichik">👥 {l.yigilayotgan_guruh}</div>}
           </div>
         ))}
         {lidlar.length === 0 && <p className="kichik bosh">{t("bosh_kanban")}</p>}
@@ -512,6 +521,66 @@ function Ustun({ bolim, lidlar, tanlangan, setTanlangan, onOch, onTashla, onYang
           + {t("yangi_lid_qoshish")}
         </button>
       )}
+    </div>
+  );
+}
+
+// ── Lidni ko'chirish: boshqa filial / boshqa bo'lim / yig'ilayotgan guruh ─
+
+function LidKochirishOynasi({ malumot, onYopish, onSaqlandi }) {
+  const { t } = useI18n();
+  const { filiallar } = useFilial();
+  const { lid, turi } = malumot;
+  const doskalar = useSorov(turi === "bolim" ? "/api/crm/lid-doskalar/" : null);
+  const ustunlar = useSorov(turi === "bolim" ? "/api/crm/lid-bolimlar/" : null);
+  const guruhlar = useSorov(turi === "yigilayotgan" ? "/api/crm/guruhlar/" : null);
+  const bugun = new Date().toISOString().slice(0, 10);
+  const [qiymat, setQiymat] = useState(
+    turi === "filial" ? (lid.filial_id ?? "") : turi === "bolim" ? (lid.bolim_id ?? "") : (lid.yigilayotgan_guruh_id ?? "")
+  );
+  const [xato, setXato] = useState("");
+  const maydon = { filial: "filial_id", bolim: "bolim_id", yigilayotgan: "yigilayotgan_guruh_id" }[turi];
+  const doskaNomi = (id) => (doskalar.malumot?.doskalar || []).find((d) => d.id === id)?.nomi || t("umumiy_doska");
+  // Yig'ilayotgan guruh — hali boshlanmagan guruhlar tepada.
+  const guruhRoyxati = [...(guruhlar.malumot || [])].sort(
+    (a, b) => Number((b.boshlanish_sana || "") > bugun) - Number((a.boshlanish_sana || "") > bugun)
+  );
+
+  async function saqla() {
+    setXato("");
+    try {
+      await api(`/api/crm/lidlar/${lid.id}/`, { method: "PATCH", body: { [maydon]: qiymat || null } });
+      onSaqlandi();
+      onYopish();
+    } catch (e) {
+      setXato(e.message);
+    }
+  }
+
+  return (
+    <div className="oyna-fon" role="dialog" aria-modal="true">
+      <div className="karta oyna">
+        <h2>{t({ filial: "boshqa_filialga", bolim: "boshqa_bolimga", yigilayotgan: "yigilayotgan_guruhga" }[turi])}</h2>
+        <p className="kichik">{lid.ism}</p>
+        <select value={qiymat} onChange={(e) => setQiymat(e.target.value)} aria-label={t("tanlang")}>
+          <option value="">—</option>
+          {turi === "filial" && filiallar.map((f) => <option key={f.id} value={f.id}>{f.nomi}</option>)}
+          {turi === "bolim" && (ustunlar.malumot || []).map((u) => (
+            <option key={u.id} value={u.id}>{doskaNomi(u.doska_id)} → {u.nomi}</option>
+          ))}
+          {turi === "yigilayotgan" && guruhRoyxati.map((g) => (
+            <option key={g.id} value={g.id}>
+              {g.nomi}{g.boshlanish_sana && g.boshlanish_sana > bugun ? ` (${t("boshlanadi")} ${sana(g.boshlanish_sana)})` : ""}
+            </option>
+          ))}
+        </select>
+        {turi === "yigilayotgan" && <p className="kichik">{t("yigilayotgan_izoh")}</p>}
+        {xato && <div className="xato">{xato}</div>}
+        <div className="oyna-tugmalar">
+          <button className="tugma tugma-sokin" type="button" onClick={onYopish}>{t("bekor")}</button>
+          <button className="tugma" type="button" onClick={saqla}>{t("saqlash")}</button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -568,6 +637,10 @@ export default function Lidlar() {
   const [rejim, setRejim] = useState(""); // "" | arxiv | qora_royxat
   const [yangi, setYangi] = useState(undefined); // undefined = yopiq, null/raqam = bo'lim
   const [ochiq, setOchiq] = useState(null);
+  const [ochiqRejim, setOchiqRejim] = useState(null);
+  // Kartochka "⋯" menyusi (video 17:24) va ko'chirish oynasi.
+  const [menyu, setMenyu] = useState(null);
+  const [kochirish, setKochirish] = useState(null);
   const [tanlanganLar, setTanlanganLar] = useState(new Set());
   const [guruhga, setGuruhga] = useState(false);
   // Doska (SoffCRM "Bo'lim": LEADS, LEADS uzb...). "0" — Umumiy (doskasiz
@@ -721,6 +794,7 @@ export default function Lidlar() {
             onYangi={setYangi}
             onNom={bolimNom}
             onOchir={bolimOchir}
+            onMenyu={(lid, joy) => setMenyu({ lid, joy })}
             ruxsat={ruxsat}
           />
         ))}
@@ -734,7 +808,56 @@ export default function Lidlar() {
                         onSaqlandi={yangilaHammasi} />
       )}
       {ochiq && (
-        <LidKartasi lidId={ochiq} bolimlar={bolimRoyxati} onYopish={() => setOchiq(null)} onOzgardi={yangilaHammasi} />
+        <LidKartasi lidId={ochiq} bolimlar={bolimRoyxati} rejim={ochiqRejim}
+                    onYopish={() => { setOchiq(null); setOchiqRejim(null); }} onOzgardi={yangilaHammasi} />
+      )}
+      {menyu && (
+        <div className="harakat-menyu lid-menyu" style={{ top: menyu.joy.bottom + window.scrollY, left: menyu.joy.left + window.scrollX - 180 }}
+             onMouseLeave={() => setMenyu(null)}>
+          <button type="button" onClick={() => { setOchiqRejim("eslatma"); setOchiq(menyu.lid.id); setMenyu(null); }}>
+            📝 {t("yangi_eslatma")}
+          </button>
+          <button type="button" disabled title={t("sms_ulanmagan")}>✉ {t("sms_yuborish")}</button>
+          {ruxsat("lidlar.tahrirlash") && (
+            <>
+              <button type="button" onClick={() => { setKochirish({ lid: menyu.lid, turi: "filial" }); setMenyu(null); }}>
+                🏢 {t("boshqa_filialga")}
+              </button>
+              <button type="button" onClick={() => { setKochirish({ lid: menyu.lid, turi: "bolim" }); setMenyu(null); }}>
+                🗂 {t("boshqa_bolimga")}
+              </button>
+            </>
+          )}
+          {ruxsat("lidlar.guruhga") && (
+            <>
+              <button type="button" onClick={() => { setTanlanganLar(new Set([menyu.lid.id])); setGuruhga(true); setMenyu(null); }}>
+                👥 {t("guruhga_qoshish")}
+              </button>
+              <button type="button" onClick={() => { setKochirish({ lid: menyu.lid, turi: "yigilayotgan" }); setMenyu(null); }}>
+                ⏳ {t("yigilayotgan_guruhga")}
+              </button>
+            </>
+          )}
+          {ruxsat("lidlar.tahrirlash") && (
+            <button type="button" onClick={() => { setOchiqRejim("tahrir"); setOchiq(menyu.lid.id); setMenyu(null); }}>
+              ✎ {t("tahrirlash")}
+            </button>
+          )}
+          {ruxsat("lidlar.ochirish") && (
+            <button type="button" className="rang-qarzdor" onClick={async () => {
+              const lid = menyu.lid;
+              setMenyu(null);
+              if (!window.confirm(t("lid_ochirish_tasdiq"))) return;
+              await api(`/api/crm/lidlar/${lid.id}/`, { method: "DELETE" });
+              yangilaHammasi();
+            }}>
+              🗑 {t("ochirish")}
+            </button>
+          )}
+        </div>
+      )}
+      {kochirish && (
+        <LidKochirishOynasi malumot={kochirish} onYopish={() => setKochirish(null)} onSaqlandi={yangilaHammasi} />
       )}
       {guruhga && (
         <GuruhgaQoshishOynasi

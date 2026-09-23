@@ -156,3 +156,34 @@ class XodimVaHisobotTest(ApiAsos):
                                                       format="json").status_code, 403)
 
 
+
+
+class IkkiSoniyaliTekshiruvTest(ApiAsos):
+    """2 soniyalik kadrlardan chiqqan qo'shimchalar."""
+
+    def test_yigilayotgan_guruh_va_qabul_soni(self):
+        m = self.mijoz(self.admin)
+        lid = m.post("/api/crm/lidlar/", {"ism": "Navbat", "telefon": "901000021"}, format="json").data
+        r = m.patch(f"/api/crm/lidlar/{lid['id']}/", {"yigilayotgan_guruh_id": self.guruh.id}, format="json")
+        self.assertEqual(r.data["yigilayotgan_guruh"], self.guruh.name)
+        self.assertEqual(m.get("/api/crm/korsatkichlar/").data["yangi_guruhga_qabul"], 1)
+        m.post("/api/crm/lidlar/guruhga/", {"lid_idlar": [lid["id"]], "guruh_id": self.guruh.id}, format="json")
+        self.assertIsNone(Lid.objects.get(pk=lid["id"]).yigilayotgan_guruh_id)
+
+    def test_taqvimda_davomat_va_sanoq(self):
+        self.azolik_qosh(boshlanish=SENTABR)
+        Davomat.objects.create(guruh=self.guruh, talaba=self.talaba, sana=date(2026, 9, 3), holat="keldi")
+        g = self.mijoz(self.admin).get(f"/api/crm/talaba/{self.talaba.id}/?oy=2026-09").data["guruhlar"][0]
+        kun = next(k for k in g["darslar_taqvimi"] if k["sana"] == date(2026, 9, 3))
+        self.assertEqual(kun["davomat"], "keldi")
+        self.assertEqual(g["taqvim_sanogi"]["keldi"], 1)
+
+    def test_royxatda_keyingi_tolov_va_setka(self):
+        self.azolik_qosh(boshlanish=SENTABR)
+        with bugun_qilib(date(2026, 9, 5)):
+            mantiq.hisoblarni_generatsiya_qil()
+        x = next(t for t in self.mijoz(self.admin).get("/api/crm/talabalar/").data if t["id"] == self.talaba.id)
+        self.assertEqual(x["keyingi_tolov"], SENTABR)
+        self.assertIn("baho", x)
+        dars = self.mijoz(self.admin).get("/api/crm/jadval/").data["darslar"][0]
+        self.assertEqual((dars["jami"], dars["faol"], dars["kurs"]), (1, 1, "IELTS"))

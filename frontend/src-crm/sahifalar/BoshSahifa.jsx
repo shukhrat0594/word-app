@@ -41,6 +41,7 @@ const KORSATKICHLAR = [
   ["oqituvchilar", "🧑‍🏫", "/xodimlar"],
   ["muzlatilgan", "❄️", "/talabalar"],
   ["yangi_lidlar_bugun", "🆕", "/lidlar"],
+  ["yangi_guruhga_qabul", "⏳", "/lidlar"],
 ];
 
 // Vaqti kelgan eslatmalar (video 09:05-09:26: "28-sanada soat 2 da
@@ -128,7 +129,8 @@ export default function BoshSahifa() {
   const { t, til } = useI18n();
   const { tanlangan } = useFilial();
   const ruxsat = useRuxsat();
-  const oy = joriyOy();
+  // Moliya bloki oyi (video 24:08: "Yilni / Oyni tanlang").
+  const [oy, setOy] = useState(joriyOy());
 
   // Har bo'lim o'z ruxsatiga bo'ysunadi (video-TZ): kassir moliyani,
   // marketolog faqat lid sonlarini ko'radi. Ruxsatsiz so'rov yuborilmaydi.
@@ -146,7 +148,7 @@ export default function BoshSahifa() {
 
   return (
     <section>
-      <h1>{oyNomi(oy, til)}</h1>
+      <h1>{oyNomi(joriyOy(), til)}</h1>
 
       {/* Umumiy holat — SoffCRM'dagi 12 ta kartochka. */}
       <Korsatkichlar filial={tanlangan} />
@@ -156,7 +158,10 @@ export default function BoshSahifa() {
       {/* Moliya — alohida bo'lim (2026-09-20, admin talabi). */}
       {ruxsat("hisobotlar") && (
       <div className="karta">
-        <h2>{t("moliya_xulosasi")}</h2>
+        <div className="karta-sarlavha">
+          <h2>{t("moliya_xulosasi")} — {oyNomi(oy, til)}</h2>
+          <input type="month" value={oy} onChange={(e) => e.target.value && setOy(e.target.value)} aria-label={t("oy")} />
+        </div>
         {hisobot.xato && <div className="xato">{hisobot.xato}</div>}
         <div className="kataklar">
           <Katak sarlavha={t("hisoblangan")} qiymat={pul(jami?.hisoblangan)} />

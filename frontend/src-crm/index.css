@@ -945,3 +945,53 @@ tfoot td {
   padding: 4px;
   text-align: center;
 }
+
+/* Lid kartochkasi "⋯" menyusi — sahifa koordinatasida. */
+.lid-menyu {
+  inset-inline-end: auto;
+  z-index: 50;
+}
+.lid-menyu-tugma {
+  margin-inline-start: auto;
+  font-size: 18px;
+  line-height: 1;
+}
+
+/* O'quvchi kartasidagi dars taqvimi: katak — tugma, burchakda davomat. */
+.taqvim-kun {
+  position: relative;
+  border: 0;
+  font: inherit;
+  cursor: pointer;
+}
+.taqvim-kun:disabled { cursor: default; }
+.taqvim-kun[class*="davomat-belgi-"]::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  inset-inline-end: 2px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  border: 1px solid #fff;
+}
+.davomat-belgi-keldi::after { background: var(--tolandi); }
+.davomat-belgi-kelmadi::after { background: var(--qarzdor); }
+.davomat-belgi-sababli::after { background: var(--qisman); }
+.taqvim-sanoq {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+  align-items: center;
+}
+.baho-doira {
+  display: inline-grid;
+  place-items: center;
+  min-width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid var(--tolandi);
+  font-weight: 600;
+  font-size: 13px;
+}

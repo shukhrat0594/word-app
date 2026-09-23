@@ -196,7 +196,15 @@ function Qator({ qator, raqam, darslar, boshi, ustunlar, qadam: QADAM }) {
               gridColumn: `${dan} / ${Math.max(gacha, dan + 1)}`,
               ...guruhRangi(d.guruh_id),
             }}
-            title={`${d.guruh}\n${d.boshlanish_vaqti} - ${d.tugash_vaqti}\n${d.oqituvchi || ""}`}
+            // Tooltip (video 16:46): vaqt, guruh, kurs, o'qituvchi, o'quvchilar
+            // soni (jami / faol) va xona sig'imi.
+            title={[
+              `${d.boshlanish_vaqti} - ${d.tugash_vaqti} / ${d.guruh}`,
+              d.kurs ? `${t("kurs")}: ${d.kurs}` : "",
+              d.oqituvchi ? `${t("oqituvchi")}: ${d.oqituvchi}` : "",
+              `${t("talabalar_soni")}: ${t("jami")} ${d.jami ?? 0}, ${t("holat_faol")} ${d.faol ?? 0}`,
+              `${t("xona_sigimi")}: ${d.sigim ?? "—"}`,
+            ].filter(Boolean).join("\n")}
           >
             <b>{d.boshlanish_vaqti} - {d.tugash_vaqti} / {d.guruh}</b>
             {d.oqituvchi && <i>{t("oqituvchi")}: {d.oqituvchi}</i>}

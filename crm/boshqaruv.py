@@ -447,6 +447,8 @@ def _lid_dict(lid, oxirgi_eslatma=None):
         "arxiv": lid.arxiv,
         "qora_royxat": lid.qora_royxat,
         "talaba_id": lid.talaba_id,
+        "yigilayotgan_guruh_id": lid.yigilayotgan_guruh_id,
+        "yigilayotgan_guruh": lid.yigilayotgan_guruh.name if lid.yigilayotgan_guruh_id else None,
         "kim_qoshdi": _ism(lid.kim_qoshdi) if lid.kim_qoshdi_id else None,
         "vaqt": lid.created_at,
         # Kartochka ustidagi izoh (SoffCRM'da sichqoncha olib borilganda
@@ -505,6 +507,13 @@ def _lid_maydonlari(lid, data):
         if qiymat and not User.objects.filter(pk=qiymat, role=User.Role.TEACHER).exists():
             raise ValueError("O'qituvchi topilmadi")
         lid.oqituvchi_id = int(qiymat) if qiymat else None
+    if "yigilayotgan_guruh_id" in data:
+        qiymat = data.get("yigilayotgan_guruh_id") or None
+        if qiymat and not Guruh.objects.filter(pk=qiymat, faol=True).exists():
+            raise ValueError("Guruh topilmadi")
+        if (int(qiymat) if qiymat else None) != lid.yigilayotgan_guruh_id:
+            ozgardi.append("yigilayotgan_guruh_id")
+        lid.yigilayotgan_guruh_id = int(qiymat) if qiymat else None
     for maydon in ("arxiv", "qora_royxat"):
         if maydon in data:
             qiymat = bool(data[maydon])
@@ -518,7 +527,7 @@ _MAYDON_NOMLARI = {
     "ism": "ism", "telefon": "telefon", "holat": "holat", "bolim_id": "bo'lim", "arxiv": "arxiv",
     "qora_royxat": "qora ro'yxat", "filial_id": "filial", "kurs_id": "kurs", "manba": "manba",
     "izoh": "izoh", "qoshimcha_telefon": "qo'shimcha raqam", "qoshimcha_ism": "qo'shimcha ism",
-    "qulay_vaqt": "qulay vaqt", "kunlar": "kunlar",
+    "qulay_vaqt": "qulay vaqt", "kunlar": "kunlar", "yigilayotgan_guruh_id": "yig'ilayotgan guruh",
 }
 
 
@@ -586,7 +595,7 @@ class LidBolimDetailView(CrmView):
 def lidlar_qs(p):
     """Kanban va Excel eksport uchun BITTA filtr — eksport ekrandagi
     ro'yxatning aynan o'zi bo'lsin."""
-    qs = Lid.objects.select_related("kurs", "oqituvchi", "kim_qoshdi", "bolim", "filial")
+    qs = Lid.objects.select_related("kurs", "oqituvchi", "kim_qoshdi", "bolim", "filial", "yigilayotgan_guruh")
     qs = qs.filter(arxiv=bool(p.get("arxiv")))
     qs = qs.filter(qora_royxat=bool(p.get("qora_royxat")))
     if p.get("filial"):
@@ -931,7 +940,8 @@ class LidGuruhgaView(CrmView):
                     lid.talaba = talaba
                     lid.holat = Lid.Holat.QOSHILDI
                     lid.arxiv = True
-                    lid.save(update_fields=["talaba", "holat", "arxiv", "updated_at"])
+                    lid.yigilayotgan_guruh = None
+                    lid.save(update_fields=["talaba", "holat", "arxiv", "yigilayotgan_guruh", "updated_at"])
                     LidTarix.objects.create(lid=lid, matn=f"«{guruh.name}» guruhiga qo'shildi", kim=request.user)
                     natija.append({
                         "lid_id": lid.id, "talaba_id": talaba.id, "ism": _ism(talaba),
@@ -1608,6 +1618,10 @@ class KorsatkichlarView(CrmView):
             "ketganlar": oy_ketgan.count(),
             "oqituvchilar": oqituvchilar.count(),
             "yangi_lidlar_bugun": ruxsat("bosh_sahifa.faol_lidlar", lidlar.filter(created_at__date=bugun).count()),
+            # SoffCRM "Yangi guruhga qabul" — yig'ilayotgan guruhlarga navbatdagi lidlar.
+            "yangi_guruhga_qabul": ruxsat(
+                "bosh_sahifa.faol_lidlar", lidlar.filter(yigilayotgan_guruh__isnull=False).count()
+            ),
             "muzlatilgan": azoliklar.filter(holat=AzolikMoliya.Holat.MUZLATILGAN).count(),
             "tushum": tushum,
             "markaz_foydaliligi": foydalilik,

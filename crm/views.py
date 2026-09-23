@@ -606,8 +606,15 @@ class JadvalSetkaView(CrmView):
 
         xonalar = Xona.objects.filter(faol=True).select_related("filial")
         darslar = DarsJadvali.objects.select_related(
-            "guruh", "guruh__oqituvchi", "guruh__moliya", "guruh__moliya__filial", "xona"
+            "guruh", "guruh__oqituvchi", "guruh__moliya", "guruh__moliya__filial", "xona", "guruh__daraja"
         ).filter(guruh__faol=True)
+        sonlar = {}
+        for x in (
+            GuruhAzoligi.objects.filter(guruh__faol=True)
+            .values("guruh_id")
+            .annotate(jami=Count("id"), faol=Count("id", filter=Q(moliya__holat=AzolikMoliya.Holat.FAOL)))
+        ):
+            sonlar[x["guruh_id"]] = x
         if filial_id:
             xonalar = xonalar.filter(filial_id=filial_id)
             # Filial bo'yicha filtr GURUHNING filiali bo'yicha: xonasiz
@@ -629,6 +636,11 @@ class JadvalSetkaView(CrmView):
                         "boshlanish_vaqti": d.boshlanish_vaqti.strftime("%H:%M"),
                         "tugash_vaqti": d.tugash_vaqti.strftime("%H:%M"),
                         "xona_id": d.xona_id,
+                        # Tooltip (video 16:46): kurs, o'quvchilar soni, xona sig'imi.
+                        "kurs": d.guruh.daraja.nomi if d.guruh.daraja_id else None,
+                        "jami": sonlar.get(d.guruh_id, {}).get("jami", 0),
+                        "faol": sonlar.get(d.guruh_id, {}).get("faol", 0),
+                        "sigim": d.xona.sigimi if d.xona_id else None,
                         "filial": (
                             d.guruh.moliya.filial.nomi
                             if getattr(d.guruh, "moliya", None) and d.guruh.moliya.filial_id
@@ -1452,6 +1464,30 @@ class TalabalarView(CrmView):
             if guruhsiz:
                 talabalar = {k: v for k, v in talabalar.items() if not v["guruhlar"]}
 
+        # Baho va keyingi to'lov (video 23:52: ro'yxat ustunlari) — to'plam
+        # so'rovlar bilan, har talabaga alohida so'rov emas.
+        from .models import DarsBahosi
+
+        idlar = list(talabalar.keys())
+        baholar = dict(
+            DarsBahosi.objects.filter(talaba_id__in=idlar).values("talaba_id")
+            .annotate(o=Avg("ball")).values_list("talaba_id", "o")
+        )
+        tolanmagan, oxirgi = {}, {}
+        for h in Hisob.objects.filter(talaba_id__in=idlar).values("talaba_id", "oy", "holat"):
+            tid = h["talaba_id"]
+            if h["holat"] != Hisob.Holat.TOLANDI:
+                tolanmagan[tid] = min(tolanmagan.get(tid, h["oy"]), h["oy"])
+            oxirgi[tid] = max(oxirgi.get(tid, h["oy"]), h["oy"])
+        for tid, yozuv in talabalar.items():
+            yozuv["baho"] = _yaxlit(baholar.get(tid))
+            if tid in tolanmagan:
+                yozuv["keyingi_tolov"] = tolanmagan[tid]
+            elif tid in oxirgi:
+                yozuv["keyingi_tolov"] = mantiq.keyingi_oy(oxirgi[tid])
+            else:
+                yozuv["keyingi_tolov"] = None
+
         # Qora ro'yxat va CRM profili — bitta so'rovda.
         profillar = dict(
             TalabaProfil.objects.filter(user_id__in=talabalar.keys()).values_list("user_id", "qora_royxat")
@@ -1547,6 +1583,11 @@ class TalabaView(CrmView):
     bolim = "talabalar"
 
     def get(self, request, pk):
+        # `?oy=YYYY-MM` — dars taqvimi qaysi oy uchun (standart: joriy).
+        try:
+            taqvim_oyi = _oy(request.query_params["oy"]) if request.query_params.get("oy") else None
+        except ValueError as e:
+            return _xato(str(e))
         talaba = get_object_or_404(User, pk=pk)
         hisoblar = list(
             _tolangan_bilan(
@@ -1576,7 +1617,8 @@ class TalabaView(CrmView):
                     "oqituvchi": (guruh.oqituvchi.get_full_name() or guruh.oqituvchi.username)
                     if guruh.oqituvchi_id else None,
                     "jadval": [_jadval_dict(j) for j in guruh.crm_jadval.all()],
-                    "darslar_taqvimi": _darslar_taqvimi(am, hisoblar),
+                    "darslar_taqvimi": (taqvim := _darslar_taqvimi(am, hisoblar, taqvim_oyi)),
+                    "taqvim_sanogi": _taqvim_sanogi(taqvim),
                     "keyingi_tolov": mantiq.keyingi_tolov_sanasi(talaba, guruh),
                 }
             )
@@ -1650,26 +1692,62 @@ def _talaba_profil_dict(talaba):
     }
 
 
-def _darslar_taqvimi(am, hisoblar):
-    """Joriy oyning dars sanalari va ularning to'lov holati.
+def _darslar_taqvimi(am, hisoblar, oy=None):
+    """Oyning dars sanalari: to'lov holati + davomat + baho.
 
     Rang oyning hisobidan olinadi. Hisob umuman yo'q bo'lsa (kelajakdagi
     oy) — "kutilayotgan" (kulrang): aks holda kelajakdagi darslar qizil
     chiqib, hamma qarzdorga o'xshab ketardi (TZ 6.6).
-    """
-    oy = mantiq.oy_boshi(timezone.localdate())
-    guruh = am.azolik.guruh
-    kunlar = mantiq.oylik_dars_kunlari(guruh, oy)
-    talaba_kunlar = set(mantiq.talaba_dars_kunlari(am, oy, kunlar))
 
+    Video (12:50): SoffCRM katagi ustida davomat va baho ham turadi
+    ("Holat: To'langan, Davomat: Kelgan, Baho: 0"), kartadan turib
+    davomat belgilanadi. Ustidagi sanoq: kelgan / kelmagan / sababli /
+    qilinmagan (o'tgan, lekin belgilanmagan dars).
+    """
+    from .boshqaruv import guruh_dars_sanalari
+    from .models import DarsBahosi
+
+    oy = oy or mantiq.oy_boshi(timezone.localdate())
+    guruh = am.azolik.guruh
+    talaba_id = am.azolik.talaba_id
+    kunlar = sorted(guruh_dars_sanalari(guruh, oy))
+    talaba_kunlar = set(mantiq.talaba_dars_kunlari(am, oy, mantiq.oylik_dars_kunlari(guruh, oy)))
+    oxiri = mantiq.oy_oxiri(oy)
+    davomat = {
+        d.sana: ("sababli" if getattr(d, "crm_izoh", None) and d.crm_izoh.sababli else d.holat)
+        for d in Davomat.objects.filter(guruh=guruh, talaba_id=talaba_id, sana__range=(oy, oxiri))
+        .select_related("crm_izoh")
+    }
+    baholar = dict(
+        DarsBahosi.objects.filter(guruh=guruh, talaba_id=talaba_id, sana__range=(oy, oxiri))
+        .values_list("sana", "ball")
+    )
     hisob = next(
         (h for h in hisoblar if h.guruh_id == guruh.id and h.oy == oy), None
     )
     holat = hisob.holat if hisob else "kutilayotgan"
-    return [
-        {"sana": kun, "holat": holat if kun in talaba_kunlar else "kutilayotgan"}
-        for kun in kunlar
-    ]
+    bugun = timezone.localdate()
+    boshi = am.boshlanish_sana
+    natija = []
+    for kun in kunlar:
+        natija.append({
+            "sana": kun,
+            "holat": holat if kun in talaba_kunlar else "kutilayotgan",
+            "davomat": davomat.get(kun),
+            "baho": baholar.get(kun),
+            "qulf": bool(boshi and kun < boshi) and kun not in davomat,
+            "kelajak": kun > bugun,
+        })
+    return natija
+
+
+def _taqvim_sanogi(kunlar):
+    return {
+        "keldi": sum(1 for k in kunlar if k["davomat"] == "keldi"),
+        "kelmadi": sum(1 for k in kunlar if k["davomat"] == "kelmadi"),
+        "sababli": sum(1 for k in kunlar if k["davomat"] == "sababli"),
+        "qilinmagan": sum(1 for k in kunlar if not k["davomat"] and not k["kelajak"] and not k["qulf"]),
+    }
 
 
 # ── Hisobot ──────────────────────────────────────────────────────────

@@ -6,7 +6,7 @@ import { useSearchParams } from "react-router-dom";
 import Eslatmalar from "../Eslatmalar.jsx";
 import { useFilial } from "../filialContext.jsx";
 import { useProfil } from "../profilContext.jsx";
-import { balansMatn, balansSinfi, pul, sana, vaqt } from "../format.js";
+import { balansMatn, balansSinfi, joriyOy, oyNomi, pul, sana, siljit, vaqt } from "../format.js";
 import { api, apiFaylYubor, apiFayluniYuklab } from "../api.js";
 import { useI18n } from "../i18n.jsx";
 import { sorovSatri, useSorov } from "../soragich.js";
@@ -23,22 +23,74 @@ const KUN_KALITLARI = [
 
 // ── Darslar taqvimi ─────────────────────────────────────────────────
 
-function Taqvim({ kunlar }) {
+// Video (12:50): katak rangi — to'lov holati; burchakdagi belgi —
+// davomat; ustiga olib borilsa "Holat / Davomat / Baho". Katakni bosish
+// davomatni almashtiradi (keldi -> kelmadi -> bo'sh), o'ng tugma —
+// "sababli". Yozuv o'sha guruh davomatiga tushadi (bitta manba).
+const DAVOMAT_KETMA = [null, "keldi", "kelmadi"];
+
+function Taqvim({ kunlar, sanoq, guruhId, talabaId, onOzgardi }) {
   const { t } = useI18n();
+  const ruxsat = useRuxsat();
+  const [xato, setXato] = useState("");
   if (!kunlar?.length) return <p className="kichik">{t("yozuv_yoq")}</p>;
   // Legenda ATAYLAB bor: rangli kataklar o'z-o'zidan tushunarli emas,
   // ayniqsa kulrang "kutilayotgan" — u qarz emas, hali kelmagan oy.
   const legenda = ["tolandi", "qisman", "qarzdor", "kutilayotgan"];
+  const belgilaydi = ruxsat("guruhlar.davomat") && guruhId;
+
+  async function belgila(k, holat) {
+    setXato("");
+    try {
+      await api(`/api/crm/guruhlar/${guruhId}/davomat/`, {
+        method: "POST", body: { talaba_id: talabaId, sana: k.sana, holat },
+      });
+      onOzgardi?.();
+    } catch (e) {
+      setXato(e.message);
+    }
+  }
 
   return (
     <>
+      {sanoq && (
+        <div className="taqvim-sanoq">
+          <span className="holat holat-tolandi">{t("kelgan")}: {sanoq.keldi}</span>
+          <span className="holat holat-qarzdor">{t("kelmagan")}: {sanoq.kelmadi}</span>
+          <span className="holat holat-qisman">{t("sababli_kelmagan")}: {sanoq.sababli}</span>
+          <span className="kichik">{t("qilinmagan")}: {sanoq.qilinmagan}</span>
+        </div>
+      )}
       <div className="taqvim">
-        {kunlar.map((k) => (
-          <span key={k.sana} className={`taqvim-kun holat-${k.holat}`} title={sana(k.sana)}>
-            {String(k.sana).slice(8, 10)}
-          </span>
-        ))}
+        {kunlar.map((k) => {
+          const bosiladi = belgilaydi && !k.kelajak && !k.qulf;
+          const sarlavha = [
+            sana(k.sana),
+            `${t("holat")}: ${t(`holat_${k.holat}`)}`,
+            `${t("davomat")}: ${k.davomat ? t(`davomat_${k.davomat}`) : "—"}`,
+            `${t("baho")}: ${k.baho ?? "—"}`,
+            bosiladi ? t("taqvim_bosish_izoh") : "",
+          ].filter(Boolean).join("\n");
+          return (
+            <button
+              key={k.sana}
+              type="button"
+              className={`taqvim-kun holat-${k.holat}${k.davomat ? ` davomat-belgi-${k.davomat}` : ""}`}
+              title={sarlavha}
+              disabled={!bosiladi}
+              onClick={() => belgila(k, DAVOMAT_KETMA[(DAVOMAT_KETMA.indexOf(k.davomat ?? null) + 1) % DAVOMAT_KETMA.length])}
+              onContextMenu={(e) => {
+                if (!bosiladi) return;
+                e.preventDefault();
+                belgila(k, k.davomat === "sababli" ? null : "sababli");
+              }}
+            >
+              {String(k.sana).slice(8, 10)}
+            </button>
+          );
+        })}
       </div>
+      {xato && <div className="xato">{xato}</div>}
       <div className="taqvim-legenda">
         {legenda.map((h) => (
           <span key={h}>
@@ -485,10 +537,12 @@ function GuruhTanlabQoshish({ talaba, onYopish, onSaqlandi }) {
 // ── Talaba kartasi ──────────────────────────────────────────────────
 
 function Karta({ talabaId, onOrqaga }) {
-  const { t } = useI18n();
+  const { t, til } = useI18n();
   const profil = useProfil();
   const ruxsat = useRuxsat();
-  const { malumot, yuklanmoqda, xato, yangila } = useSorov(`/api/crm/talaba/${talabaId}/`);
+  // Dars taqvimi oyi (SoffCRM "Darslar taqvimi (sentyabr 2026)" ‹ ›).
+  const [taqvimOy, setTaqvimOy] = useState(joriyOy());
+  const { malumot, yuklanmoqda, xato, yangila } = useSorov(`/api/crm/talaba/${talabaId}/` + sorovSatri({ oy: taqvimOy }));
   const [guruhgaQoshish, setGuruhgaQoshish] = useState(false);
   const [parol, setParol] = useState(null);
   const [pastkiTab, setPastkiTab] = useState("eslatmalar");
@@ -740,8 +794,13 @@ function Karta({ talabaId, onOrqaga }) {
             </div>
           </div>
 
-          <h3>{t("darslar_taqvimi")}</h3>
-          <Taqvim kunlar={g.darslar_taqvimi} />
+          <div className="oy-tanlash">
+            <button className="tugma tugma-sokin kichik-tugma" type="button" onClick={() => setTaqvimOy(siljit(taqvimOy, -1))}>‹</button>
+            <h3>{t("darslar_taqvimi")} ({oyNomi(taqvimOy, til)})</h3>
+            <button className="tugma tugma-sokin kichik-tugma" type="button" onClick={() => setTaqvimOy(siljit(taqvimOy, 1))}>›</button>
+          </div>
+          <Taqvim kunlar={g.darslar_taqvimi} sanoq={g.taqvim_sanogi} guruhId={g.guruh_id} talabaId={talaba.id}
+                  onOzgardi={yangila} />
 
           <div className="oyna-tugmalar">
             <button className="tugma tugma-sokin" type="button"
@@ -1026,6 +1085,8 @@ export default function Talabalar() {
           <thead>
             <tr>
               <th>{t("talaba")}</th>
+              <th>{t("baho")}</th>
+              <th>{t("keyingi_tolov_sanasi")}</th>
               <th>{t("telefon")}</th>
               <th>{t("izoh")}</th>
               <th>{t("guruhlar")} / {t("holat")}</th>
@@ -1042,6 +1103,8 @@ export default function Talabalar() {
                   </button>
                   {x.qora_royxat && <span className="holat holat-qarzdor"> {t("qora_royxat")}</span>}
                 </td>
+                <td>{x.baho !== null && x.baho !== undefined ? <span className="baho-doira">{x.baho}</span> : <span className="kichik">{t("bahosi_yoq")}</span>}</td>
+                <td className="nowrap">{sana(x.keyingi_tolov)}</td>
                 <td>{x.telefon || "—"}</td>
                 <td className="kichik">{x.izoh || "—"}</td>
                 <td>
@@ -1090,7 +1153,7 @@ export default function Talabalar() {
               </tr>
             ))}
             {!yuklanmoqda && royxat.length === 0 && (
-              <tr><td colSpan={6} className="bosh">{t("yozuv_yoq")}</td></tr>
+              <tr><td colSpan={8} className="bosh">{t("yozuv_yoq")}</td></tr>
             )}
           </tbody>
         </table>
