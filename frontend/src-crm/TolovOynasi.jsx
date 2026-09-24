@@ -10,6 +10,7 @@ import { useState } from "react";
 import { api } from "./api.js";
 import { pul } from "./format.js";
 import { useI18n } from "./i18n.jsx";
+import UsulTanlash from "./TolovUsuli.jsx";
 import { sorovSatri, useSorov } from "./soragich.js";
 
 export default function TolovOynasi({ hisob: boshlangichHisob, onYopish, onSaqlandi }) {
@@ -26,6 +27,7 @@ export default function TolovOynasi({ hisob: boshlangichHisob, onYopish, onSaqla
     (oylar.malumot || []).find((h) => h.id === hisobId) || boshlangichHisob;
   const [summa, setSumma] = useState(String(hisob.qoldiq ?? hisob.summa ?? ""));
   const [sana, setSana] = useState(new Date().toISOString().slice(0, 10));
+  const [usul, setUsul] = useState("naqd");
   const [izoh, setIzoh] = useState("");
   const [xato, setXato] = useState("");
   const [band, setBand] = useState(false);
@@ -50,6 +52,7 @@ export default function TolovOynasi({ hisob: boshlangichHisob, onYopish, onSaqla
           summa: String(miqdor),
           turi,
           sana,
+          usul,
           izoh,
         },
       });
@@ -159,6 +162,7 @@ export default function TolovOynasi({ hisob: boshlangichHisob, onYopish, onSaqla
                 autoFocus
               />
             </label>
+            <UsulTanlash qiymat={usul} onChange={setUsul} />
             <label>
               {t("sana")}
               <input type="date" value={sana} onChange={(e) => setSana(e.target.value)} />

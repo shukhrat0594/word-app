@@ -618,10 +618,11 @@ class XonaVaSetkaTest(ApiAsos):
 
 
 class DavomatVaNatijaTest(ApiAsos):
-    """Davomat va natijalar — FAQAT O'QISH (2026-09-14).
+    """Davomat va natijalar.
 
-    Ular LMS'da hosil bo'ladi; CRM faqat ko'rsatadi. Shuning uchun
-    testlar ham LMS modellariga yozib, CRM API'sidan o'qiydi.
+    2026-09-23 (video-TZ): davomat CRM'dan ham BELGILANADI — yozuv o'sha
+    LMS `Davomat` jadvaliga tushadi. Ustunlar endi oyning JADVAL bo'yicha
+    dars kunlari + jadvaldan tashqari belgilangan sanalar.
     """
 
     def setUp(self):
@@ -637,6 +638,10 @@ class DavomatVaNatijaTest(ApiAsos):
             sana=date(2026, 9, kun), guruh=self.guruh, talaba=talaba, holat=holat
         )
 
+    @staticmethod
+    def kataklar(qator):
+        return {k["sana"]: k["holat"] for k in qator["kunlar"]}
+
     def test_davomat_matritsasi(self):
         self.davomat_yoz(self.talaba, 3, Davomat.Holat.KELDI)
         self.davomat_yoz(self.talaba, 4, Davomat.Holat.KELMADI)
@@ -647,14 +652,19 @@ class DavomatVaNatijaTest(ApiAsos):
             f"/api/crm/guruhlar/{self.guruh.id}/davomat/?oy=2026-09"
         )
         self.assertEqual(javob.status_code, 200)
-        # Ustunlar — faqat dars bo'lgan sanalar
-        self.assertEqual(javob.data["sanalar"], [date(2026, 9, 3), date(2026, 9, 4)])
+        # Ustunlar — jadvaldagi dars kunlari (yozuvli sanalar ham ichida)
+        sanalar = set(javob.data["sanalar"])
+        self.assertTrue({date(2026, 9, 3), date(2026, 9, 4)} <= sanalar)
+        kutilgan = set(mantiq.oylik_dars_kunlari(self.guruh, date(2026, 9, 1)))
+        self.assertEqual(sanalar, kutilgan | {date(2026, 9, 3), date(2026, 9, 4)})
 
         qatorlar = {x["ism"]: x for x in javob.data["talabalar"]}
-        self.assertEqual(qatorlar["talaba1"]["kunlar"], ["keldi", "kelmadi"])
+        k1 = self.kataklar(qatorlar["talaba1"])
+        self.assertEqual((k1[date(2026, 9, 3)], k1[date(2026, 9, 4)]), ("keldi", "kelmadi"))
         self.assertEqual(qatorlar["talaba1"]["keldi"], 1)
         self.assertEqual(qatorlar["talaba1"]["kelmadi"], 1)
-        self.assertEqual(qatorlar["talaba2"]["kunlar"], ["keldi", None])
+        k2 = self.kataklar(qatorlar["talaba2"])
+        self.assertEqual((k2[date(2026, 9, 3)], k2[date(2026, 9, 4)]), ("keldi", None))
 
     def test_davomat_boshqa_oy_aralashmaydi(self):
         self.davomat_yoz(self.talaba, 3, Davomat.Holat.KELDI)
@@ -665,7 +675,25 @@ class DavomatVaNatijaTest(ApiAsos):
         javob = self.mijoz(self.admin).get(
             f"/api/crm/guruhlar/{self.guruh.id}/davomat/?oy=2026-09"
         )
-        self.assertEqual(javob.data["sanalar"], [date(2026, 9, 3)])
+        self.assertNotIn(date(2026, 8, 20), javob.data["sanalar"])
+        self.assertIn(date(2026, 9, 3), javob.data["sanalar"])
+
+    def test_davomat_crmdan_belgilanadi(self):
+        """CRM belgilagan katak AYNAN LMS `Davomat` jadvaliga tushadi;
+        "sababli" — kelmadi + CRM izohi."""
+        yol = f"/api/crm/guruhlar/{self.guruh.id}/davomat/"
+        m = self.mijoz(self.admin)
+        javob = m.post(yol, {"talaba_id": self.talaba.id, "sana": "2026-09-03", "holat": "sababli",
+                             "izoh": "kasal"}, format="json")
+        self.assertEqual(javob.status_code, 200, javob.data)
+        yozuv = Davomat.objects.get(guruh=self.guruh, talaba=self.talaba, sana=date(2026, 9, 3))
+        self.assertEqual(yozuv.holat, Davomat.Holat.KELMADI)
+        self.assertTrue(yozuv.crm_izoh.sababli)
+        qator = next(x for x in m.get(yol + "?oy=2026-09").data["talabalar"] if x["id"] == self.talaba.id)
+        self.assertEqual(self.kataklar(qator)[date(2026, 9, 3)], "sababli")
+        # Belgini olib tashlash
+        m.post(yol, {"talaba_id": self.talaba.id, "sana": "2026-09-03", "holat": None}, format="json")
+        self.assertFalse(Davomat.objects.filter(guruh=self.guruh, talaba=self.talaba).exists())
 
     def test_davomat_talaba_uchun_403(self):
         self.assertEqual(

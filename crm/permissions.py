@@ -11,10 +11,10 @@ from django.http import Http404
 from rest_framework.permissions import BasePermission, IsAuthenticated
 from rest_framework.views import APIView
 
-from accounts.models import User
 from accounts.permissions import owner_mi
 
 from .mantiq import hisoblarni_generatsiya_qil
+from .ruxsatlar import ruxsatlar
 
 
 class CrmRuxsati(BasePermission):
@@ -28,13 +28,24 @@ class CrmRuxsati(BasePermission):
     (`src-crm/App.jsx`), aks holda owner tizimni buzuq deb o'ylardi.
     """
 
-    message = "Bu bo'lim faqat administratorlar uchun"
+    message = "Bu bo'limga ruxsatingiz yo'q"
 
     def has_permission(self, request, view):
-        user = request.user
-        if not user or not user.is_authenticated:
+        # 2026-09-23 (video-TZ): admin/owner'dan tashqari xodim rollari
+        # (kassir, marketolog, maxsus rol) ham kiradi — lekin faqat
+        # ruxsat berilgan BO'LIMga. View `bolim` e'lon qiladi; `None`
+        # bo'lsa istalgan CRM foydalanuvchisiga ochiq (filial ro'yxati,
+        # eslatmalar kabi umumiy narsalar). `oqish_ochiq=True` — GET
+        # hamma CRM foydalanuvchisiga, yozish esa faqat bo'lim egasiga.
+        berilgan = ruxsatlar(request.user)
+        if not berilgan:
             return False
-        return owner_mi(user) or user.role == User.Role.ADMIN
+        bolim = getattr(view, "bolim", None)
+        if bolim is None:
+            return True
+        if request.method == "GET" and getattr(view, "oqish_ochiq", False):
+            return True
+        return bolim in berilgan
 
 
 class FaqatOwner(BasePermission):
@@ -78,5 +89,12 @@ class CrmView(APIView):
             raise Http404("CRM yoqilmagan")
 
         super().initial(request, *args, **kwargs)  # avval autentifikatsiya va ruxsat
+        # Filial cheklovi (2026-09-23): URL'dagi `pk` boshqa filialning
+        # yozuvi bo'lsa — 404. View o'z turini `pk_turi` bilan e'lon qiladi.
+        pk_turi = getattr(self, "pk_turi", None)
+        if pk_turi and "pk" in kwargs:
+            from .filial import obyekt_tekshir
+
+            obyekt_tekshir(request.user, pk_turi, kwargs["pk"], oqish=request.method == "GET")
         if request.method == "GET":
             hisoblarni_generatsiya_qil()

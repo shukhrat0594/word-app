@@ -19,6 +19,115 @@ Format (qat'iy, parser shunga tayanadi):
 
 ---
 
+## 2026-09-23 — CRM endi o'quv markazining asosiy boshqaruv joyi
+
+- **O'quvchilar, guruhlar va xodimlar endi CRM'da qo'shiladi.** Saytda
+  (admin va owner menyusida) "Guruhlar" va "Xodimlar" yo'q — ular CRM'ga
+  ko'chdi; "Talabalar" saytga xos amallar (qurilma, panellar) uchun qoldi.
+  Saytda mashqlar qoladi, o'qituvchi esa o'z guruhlarini va davomatni
+  avvalgidek saytda ko'radi.
+- **Lidlar bo'limi qo'shildi.** Kelgan so'rovlar kanban ustunlarida
+  turadi ("Yangi lidlar", "Beginner", "Rus tili"... — ustunlarni o'zingiz
+  yaratasiz), kartochkani sichqoncha bilan boshqa ustunga sudrash
+  mumkin. Har lidda qayerdan kelgani, qulay vaqti, izohlar, eslatma va
+  o'zgarishlar tarixi bor. "Guruhga qo'shish" tugmasi liddan o'quvchi
+  yaratadi va sayt uchun login-parol beradi.
+- **Yangi o'quvchi qo'shish** — CRM'ning "Talabalar" bo'limida. Login va
+  parol bo'sh qoldirilsa, o'zi yaratiladi va bir marta ko'rsatiladi.
+  O'quvchini qora ro'yxatga olish, arxivlash, parolini tiklash va
+  beyjigini chop etish ham shu yerda.
+- **Guruh qo'shish CRM'da**: kurs, filial, toq/juft kunlar (har kunga
+  alohida vaqt va xona), 3 tagacha o'qituvchi — har biriga foizda yoki
+  "har dars uchun" haq. Xona band bo'lsa, guruh saqlanmaydi va sababi
+  aytiladi.
+- **Guruh ichida**: davomatni CRM'dan belgilash (keldi / kelmadi /
+  sababli), darsni boshqa kunga ko'chirish yoki qo'shimcha dars, baholar
+  (1–5, 1–10 yoki 100 ball), muddatli chegirmalar ("3 oy 400 000",
+  "1 oy tekin"), guruhdan chiqarish.
+- **Xodimlar va rollar**: xodim kartasida filial, oylik, foiz ulushi,
+  ishga olingan sana. Kassir, marketolog va boshqa rollar CRM'ga faqat
+  o'ziga ruxsat berilgan bo'limlar bilan kiradi. "Yangi rol yaratish"da
+  har bir bo'lim va amal alohida belgilanadi.
+- **Bosh sahifa**: 12 ta ko'rsatkich (faol lidlar, qarzdorlar, sinov
+  darsidagilar, to'lovi yaqinlar va h.k.) va "Markaz foydaliligi".
+  Raqamlar boshida yashirin turadi — "Raqamlarni ko'rish" tugmasi bilan
+  ochiladi. Vaqti kelgan eslatmalaringiz ham shu yerda chiqadi.
+- **To'lovda usul tanlanadi**: naqd, karta, Click, Payme, yagona QR-kod,
+  o'tkazma yoki voucher.
+- **Lidlar bo'limlarga (doskalarga) ajraladi** ("LEADS", "LEADS uzb"...),
+  har birining o'z ustunlari bor; ustunni guruhga bog'lash mumkin.
+  Lidda "harorat" (issiq/iliq/sovuq), yoshi va "Bog'lana olmadi" holati
+  bor. Lidlar, o'quvchilar, guruhlar, xodimlar va davomat Excel'ga
+  yuklab olinadi; o'quvchilarni Excel orqali qo'shish mumkin.
+- **Guruhda**: dars mavzulari, "hammasi keldi" tugmasi, sinovdagilarni
+  bir bosishda faollashtirish, guruhdan chiqqanlar ro'yxati (sababi
+  bilan). Chegirma summada yoki foizda beriladi, "0 oy" — doimiy.
+- **O'quvchi kartasida**: saytga kirgan-kirmagani, ota-ona hisobi,
+  o'rtacha baho va o'quvchi tarixi. Qarzdorlikni izoh bilan tuzatish
+  mumkin (faqat owner).
+- **Yangi hisobotlar**: to'lovlar (usul va kun bo'yicha), lidlar (manba
+  va konversiya), ketgan o'quvchilar, bitiruvchilar. Xodimlar davomati
+  va "Harakatlar tarixi" (kim, qachon, nimani o'zgartirdi) qo'shildi.
+- **Lid kartochkasida "⋯" menyu**: eslatma, boshqa filial yoki bo'limga
+  ko'chirish, guruhga yoki **yig'ilayotgan guruhga** qo'shish (lid
+  navbatda turadi, to'lov ochilmaydi). Bosh sahifadagi "Yangi guruhga
+  qabul" shularni sanaydi.
+- **O'quvchi kartasidagi dars taqvimida** davomat va baho ham ko'rinadi,
+  katakni bosib davomat belgilanadi (o'ng tugma — sababli), oylar
+  bo'yicha o'tish mumkin. O'quvchilar ro'yxatida "Baho" va "Keyingi
+  to'lov" ustunlari. Dars jadvalida kurs, o'quvchilar soni va xona
+  sig'imi ko'rinadi; bosh sahifada moliya oyini tanlash mumkin.
+- **Lavozim rollarini ham tahrirlash mumkin.** Xodimlar sahifasidagi
+  "Rollar" jadvalida endi Administrator, Kassir, Marketolog, Kuzatuvchi,
+  O'qituvchi va boshqa lavozimlar ham turadi — ✎ bosib, ular qaysi
+  bo'lim va amallarni ko'rishini belgilaysiz.
+- **Ruxsatlar qat'iylashdi.** Rolni faqat "Rollar" ruxsati borlar
+  tahrirlaydi va xodimga beradi; hech kim o'z rolini o'zi o'zgartira
+  olmaydi; boshqa xodimning parolini faqat administrator tiklaydi.
+  Administratorga cheklangan rol berilsa, cheklov endi ishlaydi.
+- **Pul himoyasi**: o'tgan oylar uchun chegirmani faqat owner beradi;
+  owner qo'lda tuzatgan qarz summasi chegirma yoki muzlatishda qayta
+  hisoblanib ketmaydi. Oyligini ko'rmaydigan xodim tahrirlaganda oylik
+  endi 0 ga tushib qolmaydi.
+- **Darsni ko'chirganda** davomat, mavzu va baholar ham yangi kunga
+  ko'chadi; o'tgan kunga, darsi bor kunga yoki guruh tugaganidan keyinga
+  ko'chirib bo'lmaydi.
+- Talabalar ro'yxatida "Arxivdagilar" filtri — arxivlangan o'quvchini
+  shu yerdan qaytarish mumkin. Marketolog lidni guruhga qo'sha oladi.
+  Saytda admin menyusiga "Talabalar" qaytdi (qurilma tiklash, panellar).
+- Guruh a'zolari jadvalida **"Boshlanish uniti"** — o'quvchi saytdagi
+  Kurslar bo'limida qaysi Unit'dan boshlashini CRM'dan tanlaysiz.
+- **Faqat CRM xodimlari** (kassir, marketolog, kuzatuvchi va h.k.) saytga
+  kirsa, menyuda faqat Bosh sahifa va Profil ko'rinadi — mashqlar,
+  o'yinlar va reyting ko'rinmaydi.
+- **Xodimni filial(lar)ga biriktirish.** Xodim kartasida bir nechta
+  filialni belgilash mumkin. Filial biriktirilgan administrator, kassir
+  va boshqa xodimlar CRM'da faqat o'z filiallarining guruhlari,
+  o'quvchilari, lidlari, to'lovlari va hisobotlarini ko'radi. Filial
+  biriktirilmagan xodim hozircha hamma filialni ko'radi. Guruhsiz
+  o'quvchi va filiali belgilanmagan lid hammaga ko'rinadi.
+- **Qora ro'yxat (lidlar va o'quvchilar) hamma filialga ko'rinadi** —
+  bir filialda qora ro'yxatga olingan mijoz boshqasida qayta yozilmasin.
+  Boshqa filialning lidi yoki o'quvchisini faqat ko'rish mumkin,
+  o'zgartirish o'sha filialda.
+- **Lid doskalari filialga bog'lanadi**: filial xodimi o'z filiali
+  doskalarini va umumiy doskalarni ko'radi. Umumiy doska va ustunni
+  faqat filialga bog'lanmagan xodim o'zgartiradi yoki o'chiradi.
+- Ikki filialda o'qiydigan o'quvchining kartasida balans umumiy
+  ko'rinadi va yonida "boshqa filialda ham hisobi bor" belgisi chiqadi;
+  boshqa filialning to'lovlari esa ko'rinmaydi.
+- **Xodim qo'shish va lavozimni o'zgartirish** — faqat owner yoki
+  administrator. Administrator o'z ismi, telefoni va parolini o'zi
+  o'zgartira oladi (lavozim, filial va oylikni — yo'q).
+- O'quvchining narxi va sanalarini guruhni tahrirlash ruxsati bor xodim
+  o'zgartiradi; holatini (sinov/faol/muzlatish) guruhga o'quvchi
+  qo'shadigan xodim ham o'zgartira oladi.
+- Owner qo'lda belgilagan oyga chegirma tegmaydi — endi bu haqda
+  ogohlantirish chiqadi.
+- **Owner CRM'da CEO** — unga hech qanday cheklov yo'q. CEO lavozimi
+  endi boshqa xodimga berilmaydi. Kurs narxlari va filiallar ro'yxatini
+  filialga biriktirilgan xodim faqat ko'radi.
+
 ## 2026-08-09 — Rollar va panel ruxsatlari
 
 - **Foydalanuvchining roli endi faqat u YARATILAYOTGANDA tanlanadi va

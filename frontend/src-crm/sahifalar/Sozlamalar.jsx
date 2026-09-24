@@ -7,10 +7,12 @@ import { useState } from "react";
 
 import { api } from "../api.js";
 import { useI18n } from "../i18n.jsx";
+import { useCheklangan } from "../profilContext.jsx";
 import { useSorov } from "../soragich.js";
 
 function FilialQatori({ filial, onSaqlandi }) {
   const { t } = useI18n();
+  const cheklangan = useCheklangan();
   const [tahrir, setTahrir] = useState(false);
   const [nomi, setNomi] = useState(filial.nomi);
   const [manzil, setManzil] = useState(filial.manzil);
@@ -50,12 +52,17 @@ function FilialQatori({ filial, onSaqlandi }) {
         <td>{filial.telefon || "—"}</td>
         <td>{filial.faol ? t("faol") : t("arxivlangan")}</td>
         <td>
-          <button className="tugma kichik-tugma" type="button" onClick={() => setTahrir(true)}>
-            {t("tahrirlash")}
-          </button>{" "}
-          <button className="tugma tugma-sokin kichik-tugma" type="button" onClick={faollikOzgartir}>
-            {filial.faol ? t("arxivlash") : t("tiklash")}
-          </button>
+          {/* Filiallar — markaz sozlamasi: filialga bog'langan xodim faqat ko'radi. */}
+          {!cheklangan && (
+            <>
+              <button className="tugma kichik-tugma" type="button" onClick={() => setTahrir(true)}>
+                {t("tahrirlash")}
+              </button>{" "}
+              <button className="tugma tugma-sokin kichik-tugma" type="button" onClick={faollikOzgartir}>
+                {filial.faol ? t("arxivlash") : t("tiklash")}
+              </button>
+            </>
+          )}
         </td>
       </tr>
     );
@@ -184,6 +191,7 @@ function Xonalar({ filiallar }) {
 
 export default function Sozlamalar() {
   const { t } = useI18n();
+  const cheklangan = useCheklangan();
   const { malumot, yuklanmoqda, xato, yangila } = useSorov("/api/crm/filiallar/");
   const [yangiNomi, setYangiNomi] = useState("");
   const [yangiManzil, setYangiManzil] = useState("");
@@ -246,6 +254,7 @@ export default function Sozlamalar() {
 
       <Xonalar filiallar={filiallar} />
 
+      {!cheklangan && (
       <div className="karta">
         <h2>{t("yangi_filial")}</h2>
         <div className="uch-ustun">
@@ -267,6 +276,7 @@ export default function Sozlamalar() {
           <button className="tugma" type="button" onClick={qosh}>{t("qoshish")}</button>
         </div>
       </div>
+      )}
     </section>
   );
 }

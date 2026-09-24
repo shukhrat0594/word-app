@@ -80,7 +80,21 @@ def guruh_narxi(guruh) -> tuple[Decimal | None, str | None]:
     return None, None
 
 
-def narx_va_manba(azolik_moliya: AzolikMoliya) -> tuple[Decimal | None, str | None]:
+def chegirma_narxi(azolik_moliya: AzolikMoliya, oy: date) -> Decimal | None:
+    """Shu oyga tushadigan muddatli chegirma narxi (video-TZ,
+    2026-09-23). Bir nechta chegirma ustma-ust tushsa — eng oxirgi
+    kiritilgani (admin keyin tuzatgan bo'lsa, o'shanisi amal qilsin)."""
+    for chegirma in azolik_moliya.chegirmalar.order_by("-created_at", "-id"):
+        boshi = chegirma.boshlanish_oy
+        # boshlanish_oy + oylar_soni oy — oxirgi amal qiladigan oydan keyingisi
+        oylar = (oy.year - boshi.year) * 12 + (oy.month - boshi.month)
+        # `oylar_soni == 0` — doimiy chegirma (SoffCRM: "necha oyga — 0").
+        if oylar >= 0 and (chegirma.oylar_soni == 0 or oylar < chegirma.oylar_soni):
+            return chegirma.narx
+    return None
+
+
+def narx_va_manba(azolik_moliya: AzolikMoliya, oy: date | None = None) -> tuple[Decimal | None, str | None]:
     """Shu a'zolik uchun amaldagi oylik narx va uning manbasi.
 
     Uch qavat, pastdan yuqoriga — birinchi to'ldirilgani olinadi:
@@ -94,19 +108,25 @@ def narx_va_manba(azolik_moliya: AzolikMoliya) -> tuple[Decimal | None, str | No
     `(None, None)` qaytsa — narx hech qayerda belgilanmagan, hisob
     OCHILMAYDI va guruh ogohlantirishlar ro'yxatiga tushadi.
     """
+    # Muddatli chegirma — eng ustun qavat, lekin FAQAT o'z oylarida.
+    # `oy` berilmasa joriy oy olinadi (kartada "hozirgi narx" uchun).
+    if azolik_moliya.pk:
+        chegirma = chegirma_narxi(azolik_moliya, oy or oy_boshi(timezone.localdate()))
+        if chegirma is not None:
+            return chegirma, "chegirma"
     if azolik_moliya.narx is not None:
         return azolik_moliya.narx, "talaba"
     return guruh_narxi(azolik_moliya.azolik.guruh)
 
 
-def amaldagi_narx(azolik_moliya: AzolikMoliya) -> Decimal | None:
+def amaldagi_narx(azolik_moliya: AzolikMoliya, oy: date | None = None) -> Decimal | None:
     """Amaldagi oylik narx.
 
     Narx FAQAT shu funksiya (yoki `narx_va_manba`) orqali olinadi. Boshqa
     joyda qo'lda qidirilsa, uch qavatning biri unutiladi va admin
     kiritgan chegirma ishlamay qoladi.
     """
-    return narx_va_manba(azolik_moliya)[0]
+    return narx_va_manba(azolik_moliya, oy)[0]
 
 
 # ── Dars kunlari ─────────────────────────────────────────────────────
@@ -191,9 +211,14 @@ def hisob_yarat(azolik_moliya: AzolikMoliya, oy: date) -> str:
     guruh = azolik.guruh
     guruh_moliya = getattr(guruh, "moliya", None)
 
-    narx = amaldagi_narx(azolik_moliya)
-    if guruh_moliya is None or narx is None or narx <= 0:
+    narx, manba = narx_va_manba(azolik_moliya, oy)
+    if guruh_moliya is None or narx is None:
         return SOZLANMAGAN
+    if narx <= 0:
+        # Tekin oy (100% chegirma) — hisob ochilmaydi, lekin bu XATO
+        # emas: watermark surilsin. Guruh/kurs narxi 0 bo'lsa esa bu
+        # sozlash xatosi — ogohlantirishga tushsin (jimgina tekin emas).
+        return DARS_YOQ if manba == "chegirma" else SOZLANMAGAN
 
     oylik_kunlar = oylik_dars_kunlari(guruh, oy)
     if not oylik_kunlar:
@@ -494,8 +519,14 @@ def azolikni_qayta_hisobla(azolik_moliya: AzolikMoliya, oy: date | None = None) 
     ).first()
     if hisob is None or hisob.holat == Hisob.Holat.TOLANDI:
         return hisob
+    # Qo'lda kiritilgan yoki owner tuzatgan summa (`qolda`) — avtomatik
+    # qayta hisoblash uni USTIDAN YOZMAYDI (2026-09-23). Aks holda chegirma
+    # yoki muzlatish owner'ning "Sentabrda 4 ta darsga keladi" tuzatishini
+    # jimgina bekor qilardi.
+    if hisob.qolda:
+        return hisob
 
-    narx = amaldagi_narx(azolik_moliya)
+    narx = amaldagi_narx(azolik_moliya, oy)
     oylik_kunlar = oylik_dars_kunlari(azolik_moliya.azolik.guruh, oy)
     if narx is None or not oylik_kunlar:
         return hisob

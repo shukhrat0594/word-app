@@ -124,9 +124,25 @@ export const ROL_PANELLARI = {
  * `is_owner` ROLDAN ustun: owner'ning `role` maydoni "admin" bo'lib
  * turadi (`FoydalanuvchiRolView` shunday yozadi), ya'ni rol bo'yicha
  * qaralsa owner admin ro'yxatini olib qolardi. */
+// 2026-09-23 (video-TZ, Shuhrat qarori): talabalar, guruhlar va xodimlar
+// CRM'ga ko'chdi — saytda faqat mashqlar qoladi. CRM yoqiq bo'lsa owner va
+// admin menyusidan bu bo'limlar olib tashlanadi (ular CRM havolasi orqali
+// ishlaydi). O'qituvchida QOLADI: u o'z guruhlari davomatini saytda
+// belgilaydi. Sahifalar va backend joyida — CRM o'chirilsa menyu avtomatik
+// avvalgi holiga qaytadi.
+//
+// "Talabalar" QAYTARILDI (2026-09-23, Shuhrat): unda CRM'da yo'q sayt
+// amallari bor — qurilma tiklash/limiti, panel ruxsatlari, nomaqbul rasmni
+// o'chirish. Talabani qo'shish va guruhga yozish baribir CRM'da.
+const CRM_GA_KOCHGAN = ["/guruhlar", "/xodimlar"];
+
 export function rolPanellariOl(role, ownerMi) {
-  if (ownerMi) return ROL_PANELLARI.owner;
-  return ROL_PANELLARI[role] || ROL_PANELLARI.student;
+  const kalit = ownerMi ? "owner" : role;
+  const panellar = ROL_PANELLARI[kalit] || ROL_PANELLARI.student;
+  if (import.meta.env.VITE_CRM === "1" && (kalit === "owner" || kalit === "admin")) {
+    return panellar.filter((y) => !CRM_GA_KOCHGAN.includes(y));
+  }
+  return panellar;
 }
 
 /** "Ko'rinadigan panellar" tanlovida chiqadigan ro'yxat — shu rolning

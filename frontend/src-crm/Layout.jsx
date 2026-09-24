@@ -6,23 +6,29 @@ import { NavLink, Outlet } from "react-router-dom";
 import { serverdaChiqish, tokenlarniTozala } from "./api.js";
 import { TILLAR, useI18n } from "./i18n.jsx";
 import FilialTanlash from "./FilialTanlash.jsx";
+import { useRuxsat } from "./profilContext.jsx";
 
+// `ruxsat` — backenddagi bo'lim kaliti (`crm/ruxsatlar.py`). Ruxsati
+// yo'q band menyuda ko'rinmaydi.
 const MENYU = [
-  { yol: ".", kalit: "bosh_sahifa", ikon: "🏠", oxirigacha: true },
-  { yol: "guruhlar", kalit: "guruhlar", ikon: "📚" },
-  { yol: "talabalar", kalit: "talabalar", ikon: "👤" },
-  { yol: "moliya", kalit: "moliya", ikon: "💰" },
+  { yol: ".", kalit: "bosh_sahifa", ikon: "🏠", oxirigacha: true, ruxsat: "bosh_sahifa" },
+  { yol: "lidlar", kalit: "lidlar", ikon: "🎯", ruxsat: "lidlar" },
+  { yol: "guruhlar", kalit: "guruhlar", ikon: "📚", ruxsat: "guruhlar" },
+  { yol: "talabalar", kalit: "talabalar", ikon: "👤", ruxsat: "talabalar" },
+  { yol: "moliya", kalit: "moliya", ikon: "💰", ruxsat: "moliya" },
   // Narxlar ATAYLAB alohida band (Shuhrat talabi 2026-09-14): u
   // hisobot emas, SOZLAMA — bir marta kiritiladi va butun tizimga
   // ta'sir qiladi, shuning uchun ko'rinadigan joyda turishi kerak.
-  { yol: "narxlar", kalit: "narxlar", ikon: "🏷️" },
-  { yol: "hisobotlar", kalit: "hisobotlar", ikon: "📊" },
-  { yol: "sozlamalar", kalit: "sozlamalar", ikon: "⚙️" },
-  // Lidlar va Jadval — keyingi bosqichlarda qo'shiladi.
+  { yol: "narxlar", kalit: "narxlar", ikon: "🏷️", ruxsat: "sozlamalar" },
+  { yol: "hisobotlar", kalit: "hisobotlar", ikon: "📊", ruxsat: "hisobotlar" },
+  { yol: "xodimlar", kalit: "xodimlar", ikon: "🧑‍🏫", ruxsat: "xodimlar" },
+  { yol: "sozlamalar", kalit: "sozlamalar", ikon: "⚙️", ruxsat: "sozlamalar" },
+  { yol: "harakatlar", kalit: "harakatlar_tarixi", ikon: "🕘", ruxsat: "sozlamalar" },
 ];
 
 export default function Layout({ profil }) {
   const { til, setTil, t } = useI18n();
+  const ruxsat = useRuxsat();
 
   async function chiq() {
     await serverdaChiqish();
@@ -66,7 +72,7 @@ export default function Layout({ profil }) {
       </header>
 
       <nav className="crm-menyu">
-        {MENYU.map((band) => (
+        {MENYU.filter((band) => ruxsat(band.ruxsat)).map((band) => (
           <NavLink
             key={band.kalit}
             to={band.yol}

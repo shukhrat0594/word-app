@@ -9,11 +9,13 @@ import { useState } from "react";
 import { api } from "./api.js";
 import { pul } from "./format.js";
 import { useI18n } from "./i18n.jsx";
+import UsulTanlash from "./TolovUsuli.jsx";
 
 export default function QaytarishOynasi({ talabaId, talabaIsmi, guruhId, guruhNomi, balans, onYopish, onSaqlandi }) {
   const { t } = useI18n();
   const [summa, setSumma] = useState("");
   const [sana, setSana] = useState(new Date().toISOString().slice(0, 10));
+  const [usul, setUsul] = useState("naqd");
   const [izoh, setIzoh] = useState("");
   const [xato, setXato] = useState("");
   const [band, setBand] = useState(false);
@@ -37,6 +39,7 @@ export default function QaytarishOynasi({ talabaId, talabaIsmi, guruhId, guruhNo
           summa: String(summa),
           turi: "qaytarish",
           sana,
+          usul,
           izoh,
         },
       });
@@ -67,6 +70,7 @@ export default function QaytarishOynasi({ talabaId, talabaIsmi, guruhId, guruhNo
           <input type="number" min="0" step="1000" value={summa}
                  onChange={(e) => setSumma(e.target.value)} autoFocus />
         </label>
+        <UsulTanlash qiymat={usul} onChange={setUsul} />
         <label>
           {t("sana")}
           <input type="date" value={sana} onChange={(e) => setSana(e.target.value)} />
