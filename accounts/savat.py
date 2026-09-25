@@ -186,6 +186,42 @@ def tikla(yozuv, kim=None):
     return user, tiklanmaganlar
 
 
+# ── Saytdan o'chirilmaydigan foydalanuvchilar ────────────────────────
+#
+# CRM o'quvchisi saytdagi "O'chirish" bilan O'CHIRILMAYDI — faqat saytga
+# kirishi yopiladi (Shuhrat, 2026-09-25): sayt hisobi va CRM talabasi
+# BITTA yozuv, o'chirilsa CRM'dagi guruhlar va moliya ham ketardi.
+#
+# Qaysi foydalanuvchi "CRM o'quvchisi" ekanini accounts BILMAYDI (u crm'dan
+# import qilmaydi — `crm.tests.IzolyatsiyaTest`). CRM o'z tekshiruvini
+# shu ro'yxatga qo'shadi (`crm/apps.py`); CRM olib tashlansa ro'yxat bo'sh
+# qoladi va hamma avvalgidek o'chiriladi.
+#
+# Tekshiruv: `fn(user_idlar) -> set(id)` — o'chirilmaydiganlar.
+SAYTDAN_OCHIRILMAYDIGANLAR = []
+
+
+def ochirilmaydiganlar(user_idlar):
+    idlar = list(user_idlar)
+    natija = set()
+    if not idlar:
+        return natija
+    for tekshiruv in SAYTDAN_OCHIRILMAYDIGANLAR:
+        natija |= set(tekshiruv(idlar))
+    return natija
+
+
+def sayt_kirishini_yop(user):
+    """O'chirish o'rniga: parol olib tashlanadi va barcha seanslar
+    yopiladi. Hamma ma'lumot (guruh, moliya, natijalar) joyida qoladi;
+    "Parol o'rnatish" bilan kirish qayta ochiladi."""
+    from .seans_views import kalitlarni_bekor_qil
+
+    user.set_unusable_password()
+    user.save(update_fields=["password"])
+    return kalitlarni_bekor_qil(user.pk)
+
+
 def muddati_otganlarni_tozala():
     """Saqlash muddati o'tgan nusxalarni butunlay o'chiradi. Qaytaradi: soni."""
     chegara = timezone.now() - timedelta(days=SAQLASH_KUNI)

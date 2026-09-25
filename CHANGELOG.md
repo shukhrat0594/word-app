@@ -31,6 +31,11 @@ Format (qat'iy, parser shunga tayanadi):
   ichida tiklash mumkinligini aytadi va ketgan o'quvchini o'chirish
   o'rniga CRM'da arxivlashni maslahat beradi.
 - O'chirilgan administratorni faqat owner ko'radi va tiklaydi.
+- **CRM o'quvchisi saytdan o'chirilmaydi.** Uning uchun "O'chirish"
+  faqat saytga kirishini yopadi (paroli olib tashlanadi, ochiq
+  seanslari yopiladi) — guruhlari, to'lovlari va tarixi CRM'da qoladi.
+  Kirishni qayta ochish uchun "Parol o'rnatish" bilan yangi parol
+  berasiz. Oynada buni oldindan ko'rasiz: "Saytga kirishni yopish".
 
 ## 2026-09-25 — CRM: qarzni tuzatish, eslatma xabarnomalari
 

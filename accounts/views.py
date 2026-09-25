@@ -566,6 +566,12 @@ class FoydalanuvchilarView(APIView):
         q = (request.query_params.get("q") or "").strip()
         if q:
             qs = qs.filter(username__icontains=q)
+        from .savat import ochirilmaydiganlar
+
+        qs = list(qs[:200])
+        # CRM o'quvchilari — "O'chirish" ularni o'chirmaydi, faqat saytga
+        # kirishini yopadi; ogohlantirish oynasi shuni oldindan aytadi.
+        crm_talabalari = ochirilmaydiganlar(u.id for u in qs if u.role == User.Role.STUDENT)
         return Response(
             [
                 {
@@ -599,8 +605,9 @@ class FoydalanuvchilarView(APIView):
                     # Talaba uchun — allaqachon biriktirilganmi (frontend
                     # band talabani belgilashga ruxsat bermasligi uchun).
                     "ota_ona_id": u.ota_ona_id,
+                    "crm_talaba": u.id in crm_talabalari,
                 }
-                for u in qs[:200]
+                for u in qs
             ]
         )
 
@@ -1194,11 +1201,22 @@ class FoydalanuvchiOchirishView(APIView):
                 {"detail": "Adminni faqat owner o'chira oladi"}, status=403
             )
 
-        from .savat import SAQLASH_KUNI, ochir_va_saqla
+        from .savat import SAQLASH_KUNI, ochir_va_saqla, ochirilmaydiganlar, sayt_kirishini_yop
 
         username = user.username
         user_id = user.id
         rol = user.role
+        # CRM o'quvchisi O'CHIRILMAYDI — faqat saytga kirishi yopiladi
+        # (Shuhrat, 2026-09-25; `savat.SAYTDAN_OCHIRILMAYDIGANLAR` izohi).
+        if user_id in ochirilmaydiganlar([user_id]):
+            sayt_kirishini_yop(user)
+            logla(foydalanuvchi=request.user, harakat=FaoliyatYozuvi.Harakat.OZGARTIRISH, obyekt=user,
+                  obyekt_turi="Foydalanuvchi", obyekt_nomi=username,
+                  ozgarishlar={"sayt_kirishi": {"eski": "ochiq", "yangi": "yopildi (CRM o'quvchisi o'chirilmadi)"}})
+            return Response({
+                "detail": f"{username} CRM o'quvchisi — o'chirilmadi, saytga kirishi yopildi",
+                "sayt_kirishi_yopildi": True,
+            })
         ochir_va_saqla(user, request.user)
         FaoliyatYozuvi.objects.create(
             foydalanuvchi=request.user,

@@ -522,13 +522,27 @@ function OchirishOynasi({ user, onYopish, onTasdiq, t }) {
     }
   }
 
+  // CRM o'quvchisi O'CHIRILMAYDI — faqat saytga kirishi yopiladi
+  // (2026-09-25): sayt hisobi va CRM talabasi bitta yozuv.
+  const crm = Boolean(user.crm_talaba);
+  const nom = user.ism || user.username;
+
   return (
     <div className="ochirish-modal-fon" role="dialog" aria-modal="true">
       <div className="ochirish-modal">
-        <h3>⚠️ {t("ochirish_sarlavha")}</h3>
-        <p><strong>{user.ism || user.username}</strong> <span className="izoh">({user.username})</span></p>
-        <p>{t("ochirish_tasdiq").replace("{nom}", user.ism || user.username)}</p>
-        <p className="ochirish-7-kun">🗑 {t("ochirish_7_kun")}</p>
+        <h3>⚠️ {t(crm ? "sayt_kirishini_yopish" : "ochirish_sarlavha")}</h3>
+        <p><strong>{nom}</strong> <span className="izoh">({user.username})</span></p>
+        {crm ? (
+          <>
+            <p>{t("crm_talaba_ochirilmaydi").replace("{nom}", nom)}</p>
+            <p className="ochirish-7-kun">🔑 {t("crm_talaba_qayta_ochish")}</p>
+          </>
+        ) : (
+          <>
+            <p>{t("ochirish_tasdiq").replace("{nom}", nom)}</p>
+            <p className="ochirish-7-kun">🗑 {t("ochirish_7_kun")}</p>
+          </>
+        )}
         {user.role === "student" && <p className="izoh">💡 {t("ochirish_arxiv_maslahat")}</p>}
         {xato && <p className="xato-xabar">{xato}</p>}
         <div className="ochirish-modal-tugmalar">
@@ -536,7 +550,7 @@ function OchirishOynasi({ user, onYopish, onTasdiq, t }) {
             {t("ochirish_bekor")}
           </button>
           <button className="tugma xavfli" type="button" onClick={tasdiqla} disabled={band}>
-            {t("ha_ochirish")}
+            {t(crm ? "kirishni_yopish" : "ha_ochirish")}
           </button>
         </div>
       </div>
@@ -678,7 +692,9 @@ export default function Foydalanuvchilar() {
 
   // Xato `OchirishOynasi`da ko'rsatiladi (u yerda ushlanadi).
   async function ochir(u) {
-    await api(`/api/foydalanuvchilar/${u.id}/ochirish/`, { method: "DELETE" });
+    const j = await api(`/api/foydalanuvchilar/${u.id}/ochirish/`, { method: "DELETE" });
+    // CRM o'quvchisi ro'yxatda qoladi — nima bo'lganini shu qatorda aytamiz.
+    if (j?.sayt_kirishi_yopildi) setXabar((x) => ({ ...x, [u.id]: t("sayt_kirishi_yopildi_xabar") }));
     yukla();
   }
 

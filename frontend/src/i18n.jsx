@@ -2,6 +2,11 @@ import { createContext, useContext, useState } from "react";
 
 const LUGAT = {
   uz: {
+    sayt_kirishini_yopish: "Saytga kirishni yopish",
+    crm_talaba_ochirilmaydi: "«{nom}» — CRM o'quvchisi, shuning uchun u O'CHIRILMAYDI: guruhlari, to'lovlari va tarixi CRM'da qoladi. Faqat saytga kirishi yopiladi — paroli olib tashlanadi va ochiq seanslari yopiladi.",
+    crm_talaba_qayta_ochish: "Kirishni qayta ochish uchun «Parol o'rnatish» bilan yangi parol bering.",
+    kirishni_yopish: "Kirishni yopish",
+    sayt_kirishi_yopildi_xabar: "Saytga kirishi yopildi (CRM o'quvchisi — o'chirilmadi)",
     ochirish_sarlavha: "Foydalanuvchini o'chirish",
     ochirish_7_kun: "7 kun ichida «O'chirilganlar» bo'limidan hammasi bilan birga to'liq tiklash mumkin. Shundan keyin butunlay o'chadi va qaytarib bo'lmaydi.",
     ochirish_arxiv_maslahat: "O'quvchi shunchaki ketgan bo'lsa — o'chirmang, CRM'da sababi bilan arxivlang: ma'lumotlari saqlanib qoladi.",
@@ -801,6 +806,11 @@ const LUGAT = {
       "Bu promtni nusxalab AI'ga (ChatGPT/Claude/Gemini) haqiqiy Cambridge test matnini/transkriptini bering — tayyor JSON qaytaradi, uni faylga saqlab yuqoridan yuklaysiz.",
   },
   ru: {
+    sayt_kirishini_yopish: "Закрыть доступ к сайту",
+    crm_talaba_ochirilmaydi: "«{nom}» — ученик CRM, поэтому он НЕ удаляется: группы, оплаты и история остаются в CRM. Закрывается только доступ к сайту — пароль удаляется, открытые сеансы завершаются.",
+    crm_talaba_qayta_ochish: "Чтобы снова открыть доступ, задайте новый пароль кнопкой «Установить пароль».",
+    kirishni_yopish: "Закрыть доступ",
+    sayt_kirishi_yopildi_xabar: "Доступ к сайту закрыт (ученик CRM — не удалён)",
     ochirish_sarlavha: "Удаление пользователя",
     ochirish_7_kun: "В течение 7 дней его можно полностью восстановить в разделе «Удалённые». После этого он удаляется навсегда.",
     ochirish_arxiv_maslahat: "Если ученик просто ушёл — не удаляйте, а архивируйте в CRM с причиной: данные сохранятся.",
@@ -1600,6 +1610,11 @@ const LUGAT = {
       "Скопируйте этот промт и передайте AI (ChatGPT/Claude/Gemini) реальный текст/транскрипт теста Cambridge — он вернёт готовый JSON, сохраните его в файл и загрузите выше.",
   },
   en: {
+    sayt_kirishini_yopish: "Close site access",
+    crm_talaba_ochirilmaydi: "«{nom}» is a CRM student, so they are NOT deleted: groups, payments and history stay in the CRM. Only site access is closed — the password is removed and open sessions end.",
+    crm_talaba_qayta_ochish: "To reopen access, set a new password with «Set password».",
+    kirishni_yopish: "Close access",
+    sayt_kirishi_yopildi_xabar: "Site access closed (CRM student — not deleted)",
     ochirish_sarlavha: "Delete user",
     ochirish_7_kun: "For 7 days the user can be fully restored from the «Deleted» section. After that they are deleted permanently.",
     ochirish_arxiv_maslahat: "If the student simply left, don't delete — archive them in the CRM with a reason: their data is kept.",
