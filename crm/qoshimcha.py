@@ -443,7 +443,8 @@ class GuruhSobiqlariView(CrmView):
         return Response([
             {
                 "talaba_id": c.talaba_id, "talaba": c.talaba_ism, "boshlagan_sana": c.boshlagan_sana,
-                "sana": c.sana, "sabab": c.sabab, "kim": _ism(c.kim) if c.kim_id else None,
+                "sana": c.sana, "sabab": c.sabab, "sabab_turi": c.sabab_turi,
+                "sabab_turi_nomi": c.get_sabab_turi_display(), "kim": _ism(c.kim) if c.kim_id else None,
                 "balans": mantiq.balans(c.talaba, guruh=guruh) if c.talaba_id else None,
             }
             for c in GuruhdanChiqish.objects.filter(guruh=guruh).select_related("talaba", "kim")
@@ -484,7 +485,8 @@ class TalabaTarixiView(CrmView):
                 "kim"):
             voqealar.append({
                 "vaqt": c.created_at, "turi": "Guruhdan chiqdi",
-                "matn": f"{c.guruh_nomi} ({c.sana:%d.%m.%Y})" + (f" — {c.sabab}" if c.sabab else ""),
+                "matn": f"{c.guruh_nomi} ({c.sana:%d.%m.%Y}) — {c.get_sabab_turi_display()}"
+                        + (f": {c.sabab}" if c.sabab else ""),
                 "kim": _ism(c.kim) if c.kim_id else None,
             })
         for a in GuruhAzoligi.objects.filter(talaba=talaba).filter(guruh_q(request.user, "guruh__")).select_related(
@@ -587,7 +589,15 @@ class HarakatlarTarixiView(CrmView):
 
 
 class KetganlarHisobotiView(CrmView):
-    """"Ketgan o'quvchilar hisoboti" — davr ichida guruhdan chiqqanlar."""
+    """"Ketgan o'quvchilar hisoboti" (video-TZ 2026-09-25, SoffCRM
+    "Ketish hisoboti") — davr ichida guruhdan ketganlar.
+
+    "Ketgan" — bitirgan va boshqa guruhga o'tganlardan TASHQARI (ular
+    markazda qolgan). Boshqa guruhga o'tish alohida — "Guruh o'zgarishi
+    (ichki migratsiya)" bo'limida.
+
+    Filtrlar: `q` (ism), `kurs`, `guruh`, `oqituvchi`, `sabab_turi`, `chegirma` (1/0).
+    """
 
     bolim = "hisobotlar"
 
@@ -596,20 +606,75 @@ class KetganlarHisobotiView(CrmView):
             dan, gacha = _davr(request)
         except ValueError as e:
             return _xato(str(e))
-        qs = GuruhdanChiqish.objects.filter(sana__range=(dan, gacha)).filter(
-            filial_q(request.user, "filial")).select_related("kim", "filial")
-        if request.query_params.get("filial"):
-            qs = qs.filter(filial_id=request.query_params["filial"])
+        p = request.query_params
+        hammasi = GuruhdanChiqish.objects.filter(sana__range=(dan, gacha)).filter(
+            filial_q(request.user, "filial")).select_related("kim", "filial", "guruh__daraja", "guruh__oqituvchi")
+        if p.get("filial"):
+            hammasi = hammasi.filter(filial_id=p["filial"])
+        if p.get("kurs"):
+            hammasi = hammasi.filter(guruh__daraja_id=p["kurs"])
+        if p.get("guruh"):
+            hammasi = hammasi.filter(guruh_id=p["guruh"])
+        if p.get("oqituvchi"):
+            hammasi = hammasi.filter(guruh__oqituvchi_id=p["oqituvchi"])
+
+        kochganlar = list(hammasi.filter(sabab_turi=GuruhdanChiqish.SababTuri.KOCHIRILDI))
+        ketganlar = hammasi.exclude(sabab_turi__in=GuruhdanChiqish.KETMAGAN_TURLAR)
+        # Kartochkalar va grafiklar — ro'yxat filtrlaridan (qidiruv, sabab,
+        # chegirma) OLDINGI to'plamdan: filtr faqat pastdagi jadvalni toraytiradi.
+        umumiy = list(ketganlar)
+        royxat = umumiy
+        if p.get("sabab_turi"):
+            royxat = [c for c in royxat if c.sabab_turi == p["sabab_turi"]]
+        if p.get("chegirma") in ("0", "1"):
+            royxat = [c for c in royxat if c.chegirma_bor == (p["chegirma"] == "1")]
+        if (q := (p.get("q") or "").strip().lower()):
+            royxat = [c for c in royxat if q in c.talaba_ism.lower()]
+
+        # Ketish koeffitsienti = ketganlar / (hozir guruhdagilar + ketganlar).
+        hozir = AzolikMoliya.objects.filter(azolik__guruh__faol=True).filter(guruh_q(request.user, "azolik__guruh__"))
+        if p.get("filial"):
+            hozir = hozir.filter(azolik__guruh__moliya__filial_id=p["filial"])
+        hozir_soni = hozir.values("azolik__talaba_id").distinct().count()
+        soni = len(umumiy)
+        umrlar = [(c.sana - c.boshlagan_sana).days for c in umumiy if c.boshlagan_sana and c.sana >= c.boshlagan_sana]
+
+        kunlar = Counter(c.sana for c in umumiy)
+        sabablar = Counter(c.sabab_turi for c in umumiy)
+        # O'zgargandan keyin ketish: boshqa guruhga o'tib, keyin (davr ichida) ketganlar.
+        kochgan_talabalar = {c.talaba_id: c.sana for c in kochganlar if c.talaba_id}
+        keyin_ketgan = {c.talaba_id for c in umumiy if c.talaba_id in kochgan_talabalar
+                        and c.sana >= kochgan_talabalar[c.talaba_id]}
+        nomlar = dict(GuruhdanChiqish.SababTuri.choices)
+
+        def qator(c):
+            g = c.guruh
+            return {
+                "talaba_id": c.talaba_id, "talaba": c.talaba_ism, "guruh_id": c.guruh_id, "guruh": c.guruh_nomi,
+                "kurs": g.daraja.nomi if g and g.daraja_id else None,
+                "oqituvchi": _ism(g.oqituvchi) if g and g.oqituvchi_id else None,
+                "filial": c.filial.nomi if c.filial_id else None, "boshlagan_sana": c.boshlagan_sana,
+                "sana": c.sana, "sabab_turi": c.sabab_turi, "sabab_turi_nomi": nomlar.get(c.sabab_turi, c.sabab_turi),
+                "sabab": c.sabab, "chegirma_bor": c.chegirma_bor, "oylik_narx": c.oylik_narx,
+                "kim": _ism(c.kim) if c.kim_id else None,
+            }
+
         return Response({
             "dan": dan, "gacha": gacha,
-            "royxat": [
-                {
-                    "talaba_id": c.talaba_id, "talaba": c.talaba_ism, "guruh": c.guruh_nomi,
-                    "filial": c.filial.nomi if c.filial_id else None, "boshlagan_sana": c.boshlagan_sana,
-                    "sana": c.sana, "sabab": c.sabab, "kim": _ism(c.kim) if c.kim_id else None,
-                }
-                for c in qs
-            ],
+            "soni": soni,
+            "koeffitsient": round(soni / (hozir_soni + soni) * 100, 2) if soni else 0.0,
+            "yoqotilgan_daromad": sum((c.oylik_narx or 0) for c in umumiy),
+            "ortacha_umr_oy": round(sum(umrlar) / len(umrlar) / 30, 1) if umrlar else None,
+            "dinamika": [{"sana": k, "soni": v} for k, v in sorted(kunlar.items())],
+            "sabablar": [{"sabab_turi": k, "nomi": nomlar.get(k, k), "soni": v} for k, v in sabablar.most_common()],
+            "chegirma": {"bor": sum(1 for c in umumiy if c.chegirma_bor), "yoq": sum(1 for c in umumiy if not c.chegirma_bor)},
+            "migratsiya": {
+                "soni": len(kochganlar),
+                "keyin_ketgan_foiz": round(len(keyin_ketgan) / len(kochgan_talabalar) * 100, 1) if kochgan_talabalar else 0.0,
+                "royxat": [qator(c) for c in kochganlar],
+            },
+            "bitirganlar": hammasi.filter(sabab_turi=GuruhdanChiqish.SababTuri.BITIRDI).count(),
+            "royxat": [qator(c) for c in royxat],
         })
 
 
@@ -714,10 +779,12 @@ class HisobotlarDavrView(CrmView):
         turi = request.query_params.get("turi")
         if turi == "ketganlar":
             d = KetganlarHisobotiView().get(request).data
-            return _excel("Ketganlar", ["O'quvchi", "Guruh", "Filial", "Boshlagan", "Chiqqan", "Sabab", "Kim"], [
-                [x["talaba"], x["guruh"], x["filial"] or "",
+            return _excel("Ketganlar", ["O'quvchi", "Guruh", "Kurs", "O'qituvchi", "Filial", "Chegirma", "Boshlagan",
+                                        "Chiqqan", "Sabab", "Izoh", "Kim chiqargan"], [
+                [x["talaba"], x["guruh"], x["kurs"] or "", x["oqituvchi"] or "", x["filial"] or "",
+                 "Bor" if x["chegirma_bor"] else "",
                  x["boshlagan_sana"].strftime("%d.%m.%Y") if x["boshlagan_sana"] else "",
-                 x["sana"].strftime("%d.%m.%Y"), x["sabab"], x["kim"] or ""]
+                 x["sana"].strftime("%d.%m.%Y"), x["sabab_turi_nomi"], x["sabab"], x["kim"] or ""]
                 for x in d.get("royxat", [])
             ], "ketgan_oquvchilar")
         if turi == "lidlar":

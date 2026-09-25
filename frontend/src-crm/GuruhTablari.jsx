@@ -94,10 +94,12 @@ function Natijalar({ guruhId }) {
 
 const TABLAR = ["azolar", "davomat", "baholar", "natijalar", "chegirmalar", "eslatmalar"];
 
-export default function GuruhTablari({ guruhId, azolar, boshlangichTab, tabKaliti = 0, onOzgardi }) {
+// `tablar` — qaysi tablar ko'rinadi. Alohida guruh sahifasida a'zolar
+// pastda doim ochiq turadi, shuning uchun u yerda "azolar" tabi yo'q.
+export default function GuruhTablari({ guruhId, azolar, boshlangichTab, tabKaliti = 0, onOzgardi, tablar = TABLAR }) {
   const { t } = useI18n();
   const profil = useProfil();
-  const [tab, setTab] = useState(boshlangichTab || "azolar");
+  const [tab, setTab] = useState(boshlangichTab || tablar[0]);
   // Tashqaridan (tezkor amallar) tab o'zgartirilsa — shunga o'tamiz.
   useEffect(() => {
     if (boshlangichTab) setTab(boshlangichTab);
@@ -106,7 +108,7 @@ export default function GuruhTablari({ guruhId, azolar, boshlangichTab, tabKalit
   return (
     <div className="guruh-tablari">
       <div className="tablar">
-        {TABLAR.map((x) => (
+        {tablar.map((x) => (
           <button
             key={x}
             type="button"

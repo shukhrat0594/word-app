@@ -262,6 +262,11 @@ class AzolikMoliya(models.Model):
             "(doim oyning 1-sanasi)"
         ),
     )
+    # Muzlatish oynasi (video-TZ 2026-09-25, SoffCRM "O'quvchi statusini
+    # o'zgartirish": sana + izoh). Faqat MA'LUMOT — hisob-kitobga ta'sir
+    # qilmaydi (muzlatilgan a'zolikka hisob baribir ochilmaydi).
+    muzlatish_sana = models.DateField(null=True, blank=True)
+    muzlatish_izoh = models.CharField(max_length=300, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -653,6 +658,17 @@ class Lid(models.Model):
     izoh = models.CharField(max_length=500, blank=True)
     arxiv = models.BooleanField(default=False, db_index=True)
     qora_royxat = models.BooleanField(default=False, db_index=True)
+    # Arxivlash / qora ro'yxat sababi (video-TZ 2026-09-25): SoffCRM'dagi
+    # "Sababni tanlang" + "Sabab (majburiy)". Sababsiz arxivdagi lid
+    # unutilib ketardi — nega ketgani hech qayerda qolmasdi.
+    arxiv_sabab = models.CharField(max_length=20, blank=True, choices=[
+        ("kelmadi", "Kelaman deb kelmadi"),
+        ("raqobatchi", "Raqobatchiga ketdi"),
+        ("boshqa_filial", "Boshqa filialga yuborildi"),
+        ("boshqa", "Boshqa sabab"),
+    ])
+    arxiv_izoh = models.CharField(max_length=300, blank=True)
+    qora_royxat_izoh = models.CharField(max_length=300, blank=True)
     talaba = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
         related_name="crm_lid_manbasi",
@@ -830,6 +846,10 @@ class TalabaProfil(models.Model):
     maktab = models.CharField(max_length=100, blank=True)
     qora_royxat = models.BooleanField(default=False, db_index=True)
     qora_royxat_sabab = models.CharField(max_length=300, blank=True)
+    # Arxivlash sababi (video-TZ 2026-09-25): guruhdan chiqarishdagi
+    # ro'yxat (`GuruhdanChiqish.SababTuri`dan ketish sabablari) + izoh.
+    arxiv_sabab = models.CharField(max_length=15, blank=True)
+    arxiv_izoh = models.CharField(max_length=300, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -985,7 +1005,31 @@ class GuruhdanChiqish(models.Model):
     filial = models.ForeignKey(Filial, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
     boshlagan_sana = models.DateField(null=True, blank=True)
     sana = models.DateField(help_text="Chiqqan sana")
-    sabab = models.CharField(max_length=300, blank=True)
+
+    # Sabab turi (video-TZ 2026-09-25, SoffCRM "Asosiy ketish sabablari").
+    # BITIRDI va KOCHIRILDI "ketgan" hisoblanmaydi: biri kursni tugatgan,
+    # ikkinchisi markazda qolgan (ichki migratsiya).
+    class SababTuri(models.TextChoices):
+        JOYLASHUV = "joylashuv", "Joylashuv"
+        NARX = "narx", "Narx"
+        NATIJA = "natija", "Natija"
+        DARS_JADVALI = "dars_jadvali", "Dars jadvali"
+        OQITUVCHI = "oqituvchi", "O'qituvchi"
+        BOSHQA = "boshqa", "Boshqa sabablar"
+        LIDGA = "lidga", "Lidlarga qaytarildi"
+        BITIRDI = "bitirdi", "Kursni bitirdi"
+        KOCHIRILDI = "kochirildi", "Boshqa guruhga o'tdi"
+
+    KETMAGAN_TURLAR = (SababTuri.BITIRDI, SababTuri.KOCHIRILDI)
+
+    sabab_turi = models.CharField(max_length=15, choices=SababTuri.choices, default=SababTuri.BOSHQA)
+    sabab = models.CharField(max_length=300, blank=True, help_text="Izoh")
+    # Chiqqan paytdagi oylik narx — "Yo'qotilgan daromad" uchun. Keyin
+    # a'zolik o'chadi va narxni qayta hisoblab bo'lmaydi.
+    oylik_narx = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    # Chiqqan paytda chegirmasi bormidi ("Chegirmalarning ta'siri"). Chegirma
+    # yozuvlari a'zolik bilan birga o'chadi — shuning uchun shu yerda.
+    chegirma_bor = models.BooleanField(default=False)
     kim = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
     )

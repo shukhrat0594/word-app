@@ -249,6 +249,8 @@ def _azolik_dict(am, balans=None):
         # Saytdagi Kurslar bo'limida qaysi Unit'dan boshlaydi (LMS
         # `GuruhAzoligi.boshlanish_unit`; bo'sh — Unit 1, odatiy tartib).
         "boshlanish_unit_id": am.azolik.boshlanish_unit_id,
+        "muzlatish_sana": am.muzlatish_sana,
+        "muzlatish_izoh": am.muzlatish_izoh,
         "balans": balans,
     }
 
@@ -485,7 +487,11 @@ class GuruhlarView(CrmView):
         )
         filial = request.query_params.get("filial")
         if filial:
-            qs = qs.filter(moliya__filial_id=filial)
+            # Filiali hali qo'yilmagan (saytda ochilgan, CRM'da sozlanmagan)
+            # guruhlar ham chiqadi (video-TZ 2026-09-25): bosh sahifa ular
+            # haqida ogohlantiradi, lekin filial tanlanganda ro'yxatda
+            # ko'rinmay, ularni sozlashning iloji qolmasdi.
+            qs = qs.filter(Q(moliya__filial_id=filial) | Q(moliya__isnull=True) | Q(moliya__filial__isnull=True))
         qidiruv = (request.query_params.get("q") or "").strip()
         if qidiruv:
             qs = qs.filter(name__icontains=qidiruv)
@@ -1076,6 +1082,8 @@ class AzolikView(CrmView):
         "boshlanish_sana": ("guruhlar.tahrirlash",),
         "tugash_sana": ("guruhlar.tahrirlash",),
         "boshlanish_unit_id": ("guruhlar.tahrirlash",),
+        "muzlatish_sana": ("guruhlar.tahrirlash", "guruhlar.talaba_qoshish"),
+        "muzlatish_izoh": ("guruhlar.tahrirlash", "guruhlar.talaba_qoshish"),
     }
 
     def patch(self, request, pk):
@@ -1105,6 +1113,20 @@ class AzolikView(CrmView):
                 if holat == AzolikMoliya.Holat.ARXIV:
                     return _xato("Arxivlash bu yerda emas — guruh sahifasidagi «Guruhdan chiqarish» tugmasidan foydalaning")
                 am.holat = holat
+            # Muzlatish oynasi: sana (standart — bugun) va izoh. Faqat
+            # ma'lumot, hisob-kitobga ta'sir qilmaydi; muzlatishdan
+            # chiqqanda tozalanadi.
+            if am.holat == AzolikMoliya.Holat.MUZLATILGAN:
+                if eski_holat != AzolikMoliya.Holat.MUZLATILGAN or "muzlatish_sana" in request.data:
+                    am.muzlatish_sana = (
+                        _sana(request.data.get("muzlatish_sana"), "muzlatish_sana", majburiy=False)
+                        or timezone.localdate()
+                    )
+                if "muzlatish_izoh" in request.data:
+                    am.muzlatish_izoh = str(request.data.get("muzlatish_izoh") or "").strip()[:300]
+            else:
+                am.muzlatish_sana = None
+                am.muzlatish_izoh = ""
             if "boshlanish_sana" in request.data:
                 am.boshlanish_sana = _sana(request.data["boshlanish_sana"], "boshlanish_sana")
             if "tugash_sana" in request.data:
@@ -1877,6 +1899,8 @@ def _talaba_profil_dict(talaba):
         "maktab": p.maktab if p else "",
         "qora_royxat": p.qora_royxat if p else False,
         "qora_royxat_sabab": p.qora_royxat_sabab if p else "",
+        "arxiv_sabab": p.arxiv_sabab if p else "",
+        "arxiv_izoh": p.arxiv_izoh if p else "",
         "lid_id": lid.id if lid else None,
     }
 

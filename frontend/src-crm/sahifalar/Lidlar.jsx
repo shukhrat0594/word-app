@@ -12,6 +12,7 @@ import Eslatmalar from "../Eslatmalar.jsx";
 import { useFilial } from "../filialContext.jsx";
 import { sana, vaqt } from "../format.js";
 import { useI18n } from "../i18n.jsx";
+import { SababOynasi } from "../OquvchiAmallari.jsx";
 import { useCheklangan, useProfil, useRuxsat } from "../profilContext.jsx";
 import { sorovSatri, useSorov } from "../soragich.js";
 
@@ -23,6 +24,9 @@ const MANBALAR = [
 ];
 const HOLATLAR = ["yangi", "boglanildi", "boglana_olmadi", "sinov", "kelmadi", "oylayapti", "yoqotilgan"];
 const HARORATLAR = ["issiq", "iliq", "sovuq"];
+// Arxivlash sabablari — SoffCRM'dagi ro'yxat (video-TZ 2026-09-25);
+// "Boshqa sabab"da izoh majburiy (backend ham tekshiradi).
+const ARXIV_SABABLARI = ["kelmadi", "raqobatchi", "boshqa_filial", "boshqa"];
 
 /** Tug'ilgan sanadan yosh ("28 yosh") — SoffCRM formasidagi "Yoshi". */
 function yosh(tugilgan) {
@@ -304,6 +308,9 @@ function LidKartasi({ lidId, bolimlar, onYopish, onOzgardi, rejim = null }) {
   const [guruhga, setGuruhga] = useState(false);
   const [band, setBand] = useState(false);
   const [xato, setXato] = useState("");
+  // "arxiv" / "qora" — sabab oynasi (video-TZ 2026-09-25: avval bir
+  // bosishda arxivga/qora ro'yxatga ketib qolardi, sababi yozilmasdi).
+  const [sababOyna, setSababOyna] = useState(null);
   // Qora ro'yxat hamma filialga ko'rinadi (2026-09-23) — lekin boshqa
   // filial lidini faqat ko'rish mumkin, o'zgartirish o'sha filialda.
   const begona = Boolean(lid?.filial_id && Array.isArray(profil?.filiallar)
@@ -355,7 +362,9 @@ function LidKartasi({ lidId, bolimlar, onYopish, onOzgardi, rejim = null }) {
               </div>
               <div className="tezkor-amallar">
                 <a className="tugma tugma-sokin kichik-tugma" href={`tel:${lid.telefon}`}>📞 {t("qongiroq")}</a>
-                {ruxsat("lidlar.guruhga") && !lid.talaba_id && !begona && (
+                {/* Lidlarga qaytarilgan o'quvchida `talaba_id` bor — u ham
+                    guruhga qayta qo'shiladi (yangi hisob ochilmaydi). */}
+                {ruxsat("lidlar.guruhga") && lid.holat !== "qoshildi" && !begona && (
                   <button className="tugma kichik-tugma" type="button" onClick={() => setGuruhga(true)}>
                     👥 {t("guruhga_qoshish")}
                   </button>
@@ -409,6 +418,18 @@ function LidKartasi({ lidId, bolimlar, onYopish, onOzgardi, rejim = null }) {
                 )}
                 <div className="qator"><span className="kichik">{t("izoh")}</span><span>{lid.izoh || "—"}</span></div>
                 <div className="qator"><span className="kichik">{t("kim_qoshdi")}</span><span>{lid.kim_qoshdi || "—"} · {vaqt(lid.vaqt)}</span></div>
+                {lid.arxiv && lid.arxiv_sabab && (
+                  <div className="qator">
+                    <span className="kichik">{t("arxiv_sababi")}</span>
+                    <span className="rang-qarzdor">{t(`lid_arxiv_${lid.arxiv_sabab}`)}{lid.arxiv_izoh ? ` — ${lid.arxiv_izoh}` : ""}</span>
+                  </div>
+                )}
+                {lid.qora_royxat && lid.qora_royxat_izoh && (
+                  <div className="qator">
+                    <span className="kichik">{t("qora_royxat_sababi")}</span>
+                    <span className="rang-qarzdor">{lid.qora_royxat_izoh}</span>
+                  </div>
+                )}
                 {lid.takrorlar?.length > 0 && (
                   <p className="ogohlantirish">⚠ {t("takror_raqam")}: {lid.takrorlar.map((x) => x.ism).join(", ")}</p>
                 )}
@@ -417,13 +438,15 @@ function LidKartasi({ lidId, bolimlar, onYopish, onOzgardi, rejim = null }) {
                 {!begona && <div className="oyna-tugmalar">
                   {ruxsat("lidlar.arxiv") && (
                     <button className="tugma tugma-sokin" type="button" disabled={band}
-                            onClick={() => ozgartir({ arxiv: !lid.arxiv })}>
+                            onClick={() => (lid.arxiv ? ozgartir({ arxiv: false }) : setSababOyna("arxiv"))}>
                       {lid.arxiv ? t("arxivdan_chiqarish") : t("arxivlash")}
                     </button>
                   )}
                   {ruxsat("lidlar.qora_royxat") && (
                     <button className="tugma tugma-sokin" type="button" disabled={band}
-                            onClick={() => ozgartir({ qora_royxat: !lid.qora_royxat })}>
+                            onClick={() => (lid.qora_royxat
+                              ? window.confirm(t("qora_royxatdan_chiqarish_tasdiq")) && ozgartir({ qora_royxat: false })
+                              : setSababOyna("qora"))}>
                       {lid.qora_royxat ? t("qora_royxatdan_chiqarish") : t("qora_royxatga")}
                     </button>
                   )}
@@ -450,6 +473,36 @@ function LidKartasi({ lidId, bolimlar, onYopish, onOzgardi, rejim = null }) {
           </>
         )}
       </div>
+      {sababOyna === "arxiv" && lid && (
+        <SababOynasi
+          sarlavha={`${t("arxivlash")} — ${lid.ism}`}
+          sabablar={ARXIV_SABABLARI.map((k) => [k, t(`lid_arxiv_${k}`)])}
+          izohMajburiy={(sabab) => sabab === "boshqa"}
+          onYopish={() => setSababOyna(null)}
+          onTasdiq={async ({ sabab, izoh }) => {
+            await api(`/api/crm/lidlar/${lidId}/`, {
+              method: "PATCH", body: { arxiv: true, arxiv_sabab: sabab, arxiv_izoh: izoh },
+            });
+            yangila();
+            onOzgardi();
+          }}
+        />
+      )}
+      {sababOyna === "qora" && lid && (
+        <SababOynasi
+          sarlavha={`${t("qora_royxatga")} — ${lid.ism}`}
+          izoh={t("qora_royxat_ogohlantirish")}
+          xavfli
+          onYopish={() => setSababOyna(null)}
+          onTasdiq={async ({ izoh }) => {
+            await api(`/api/crm/lidlar/${lidId}/`, {
+              method: "PATCH", body: { qora_royxat: true, qora_royxat_izoh: izoh },
+            });
+            yangila();
+            onOzgardi();
+          }}
+        />
+      )}
       {guruhga && lid && (
         <GuruhgaQoshishOynasi lidIdlar={[lid.id]} standartGuruh={bolimlar.find((b) => b.id === lid.bolim_id)?.guruh_id || ""}
                               onYopish={() => { setGuruhga(false); onYopish(); }}

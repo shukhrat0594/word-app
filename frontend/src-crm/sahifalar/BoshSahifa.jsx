@@ -28,18 +28,23 @@ function Katak({ sarlavha, qiymat, sinf, ikon, havola }) {
 // Raqamlar ATAYLAB boshida yashirin ("Raqamlarni ko'rish"): bosh sahifa
 // ko'pincha qabulxona ekranida ochiq turadi, pul raqamlari begona
 // ko'zga tushmasin. Tanlov shu brauzerda eslab qolinadi.
+//
+// Kartochka bosilganda ro'yxat DARHOL shu filtr bilan ochiladi (video-TZ
+// 2026-09-25): "Qarzdorlar" — faqat qarzdor o'quvchilar (avval Moliya'ga
+// o'tib, to'laganlar ham chiqardi), "Sinov darsida" — sinovdagilar,
+// "Shu oy ketganlar" — ketish hisoboti.
 const KORSATKICHLAR = [
   ["faol_lidlar", "🎯", "/lidlar"],
   ["guruhlar", "📚", "/guruhlar"],
-  ["qolgan_qarz", "⚠️", "/moliya?tab=qarzdorlar", "pul"],
-  ["qarzdorlar", "🔻", "/talabalar"],
+  ["qolgan_qarz", "⚠️", "/talabalar?filtr=qarzdor", "pul"],
+  ["qarzdorlar", "🔻", "/talabalar?filtr=qarzdor"],
   ["tolovi_yaqin", "⏰", "/moliya?tab=qarzdorlar"],
-  ["faol_talabalar", "👤", "/talabalar"],
+  ["faol_talabalar", "👤", "/talabalar?holat=faol"],
   ["jami_guruhdagi", "👥", "/talabalar"],
-  ["sinov_darsida", "🧪", "/talabalar"],
-  ["ketganlar", "🚪", null],
+  ["sinov_darsida", "🧪", "/talabalar?holat=sinov"],
+  ["ketganlar", "🚪", "/hisobotlar?tab=ketganlar"],
   ["oqituvchilar", "🧑‍🏫", "/xodimlar"],
-  ["muzlatilgan", "❄️", "/talabalar"],
+  ["muzlatilgan", "❄️", "/talabalar?holat=muzlatilgan"],
   ["yangi_lidlar_bugun", "🆕", "/lidlar"],
   ["yangi_guruhga_qabul", "⏳", "/lidlar"],
 ];
@@ -60,7 +65,7 @@ function VaqtiKelganEslatmalar() {
             <span>
               {e.lid_id && <Link className="havola" to="/lidlar">🎯 {e.lid}</Link>}
               {e.talaba_id && <Link className="havola" to={`/talabalar?talaba=${e.talaba_id}`}>👤 {e.talaba}</Link>}
-              {e.guruh_id && <Link className="havola" to={`/guruhlar?guruh=${e.guruh_id}`}>📚 {e.guruh}</Link>}
+              {e.guruh_id && <Link className="havola" to={`/guruhlar/${e.guruh_id}`}>📚 {e.guruh}</Link>}
               <span className="kichik">{e.matn}</span>
             </span>
             <span className={e.otgan ? "rang-qarzdor" : "rang-qisman"}>
@@ -223,11 +228,18 @@ export default function BoshSahifa() {
           <p className="kichik">✅ {t("ogohlantirish_yoq")}</p>
         ) : (
           <>
-            <p className="kichik">{t("ogohlantirish_izoh")}</p>
+            {/* Har guruh — sozlash uchun o'z sahifasiga havola (video-TZ
+                2026-09-25: saytda ochilgan guruhlar CRM ro'yxatida
+                ko'rinmay, ularni sozlab bo'lmasdi). */}
+            <p className="kichik">
+              {t("ogohlantirish_izoh")}{" "}
+              <Link className="havola" to="/guruhlar?sozlanmagan=1">{t("sozlanmaganlarni_ochish")} →</Link>
+            </p>
             <ul className="ogoh-royxat">
               {ogohRoyxati.map((o) => (
                 <li key={o.guruh_id}>
-                  <b>{o.guruh}</b> ({o.talaba_soni} {t("talabalar_soni").toLowerCase()}) —{" "}
+                  <Link className="havola" to={`/guruhlar/${o.guruh_id}`}><b>{o.guruh}</b></Link>{" "}
+                  ({o.talaba_soni} {t("talabalar_soni").toLowerCase()}) —{" "}
                   <span className="rang-qarzdor">{o.sabablar.join(", ")}</span>
                 </li>
               ))}

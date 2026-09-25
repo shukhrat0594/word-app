@@ -126,6 +126,12 @@ select {
   border: 1px solid var(--chegara);
 }
 
+/* Qaytarib bo'lmaydigan amal (guruhdan chiqarish, qora ro'yxat). */
+.tugma-xavfli {
+  background: var(--qarzdor);
+  border-color: var(--qarzdor);
+}
+
 .xato {
   color: var(--qarzdor);
   font-size: 13px;
@@ -995,3 +1001,61 @@ tfoot td {
   font-weight: 600;
   font-size: 13px;
 }
+
+/* ── Alohida guruh sahifasi (video-TZ 2026-09-25) ────────────────── */
+.guruh-sahifa {
+  display: grid;
+  grid-template-columns: minmax(260px, 340px) minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+.guruh-malumot { display: flex; flex-direction: column; gap: 8px; }
+.guruh-malumot h1 { font-size: 20px; margin: 0; }
+.guruh-tablar-karta { min-width: 0; overflow-x: auto; }
+table.ixcham td { padding: 3px 6px; font-size: 13px; }
+@media (max-width: 860px) {
+  .guruh-sahifa { grid-template-columns: 1fr; }
+}
+
+/* ── Ketish hisoboti (video-TZ 2026-09-25) ───────────────────────── */
+.hisobot-ikki {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 16px;
+}
+.hisobot-ikki .karta h3, .jadval-oram > h3 { margin: 0 0 10px; font-size: 15px; }
+.kunlik-grafik {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 160px;
+  overflow-x: auto;
+}
+.kunlik-ustun {
+  flex: 1 0 14px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+}
+.kunlik-ustun span {
+  width: 100%;
+  min-height: 1px;
+  background: var(--qarzdor);
+  border-radius: 3px 3px 0 0;
+  color: #fff;
+  font-size: 10px;
+  text-align: center;
+}
+.kunlik-ustun i { font-style: normal; font-size: 9px; color: var(--sokin); }
+.sabab-qator {
+  display: grid;
+  grid-template-columns: 120px 1fr auto;
+  gap: 8px;
+  align-items: center;
+  margin: 6px 0;
+  font-size: 13px;
+}
+.sabab-chiziq { background: var(--fon); border-radius: 4px; height: 14px; overflow: hidden; }
+.sabab-chiziq span { display: block; height: 100%; background: var(--qarzdor); }

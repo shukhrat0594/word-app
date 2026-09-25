@@ -17,12 +17,14 @@ import { useI18n } from "./i18n.jsx";
 import UsulTanlash from "./TolovUsuli.jsx";
 import { sorovSatri, useSorov } from "./soragich.js";
 
-export default function TolovQoshishOynasi({ onYopish, onSaqlandi }) {
+// `talabaBilan` — guruh sahifasidagi ⋮ "To'lov" (video-TZ 2026-09-25):
+// o'quvchi va guruh oldindan tanlangan keladi, qidirish shart emas.
+export default function TolovQoshishOynasi({ onYopish, onSaqlandi, talabaBilan = null, guruhBilan = "" }) {
   const { t } = useI18n();
   const { tanlangan, filiallar } = useFilial();
   const [qidiruv, setQidiruv] = useState("");
-  const [talaba, setTalaba] = useState(null);
-  const [guruhId, setGuruhId] = useState("");
+  const [talaba, setTalaba] = useState(talabaBilan);
+  const [guruhId, setGuruhId] = useState(String(guruhBilan || ""));
   const [hisobId, setHisobId] = useState("");
   const [summa, setSumma] = useState("");
   const [bonus, setBonus] = useState("");

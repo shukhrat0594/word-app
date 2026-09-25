@@ -11,6 +11,7 @@ import { api, apiFaylYubor, apiFayluniYuklab } from "../api.js";
 import { useI18n } from "../i18n.jsx";
 import { sorovSatri, useSorov } from "../soragich.js";
 import { TalabaQoshishOynasi } from "../GuruhOynalari.jsx";
+import OquvchiMenyusi, { KETISH_SABABLARI, MuzlatishOynasi, SababOynasi } from "../OquvchiAmallari.jsx";
 import { useRuxsat } from "../profilContext.jsx";
 import QaytarishOynasi from "../QaytarishOynasi.jsx";
 import TolovOynasi from "../TolovOynasi.jsx";
@@ -551,6 +552,7 @@ function Karta({ talabaId, onOrqaga }) {
   const [qaytarishGuruhi, setQaytarishGuruhi] = useState(null);
   const [tahrirTolovi, setTahrirTolovi] = useState(null);
   const [tahrir, setTahrir] = useState(false);
+  const [arxivOyna, setArxivOyna] = useState(false);
 
   // To'lov tarixi — SoffCRM'dagidek BITTA ro'yxat: to'lovlar va
   // hisob-fakturalar ("Qarzdorlik") birga, guruh va sana filtri bilan.
@@ -633,8 +635,12 @@ function Karta({ talabaId, onOrqaga }) {
                       onClick={() => window.confirm(t("parol_tiklash_tasdiq")) && crmOzgartir({ parol_tiklash: 1 })}>
                 🔑 {t("parol_tiklash")}
               </button>
+              {/* Arxivlash — sabab bilan (video-TZ 2026-09-25), guruhdan
+                  chiqarishdagi ro'yxat. Arxivdan chiqarish — oddiy tasdiq. */}
               <button className="tugma tugma-sokin" type="button"
-                      onClick={() => window.confirm(talaba.faol ? t("talaba_arxiv_tasdiq") : t("talaba_tiklash_tasdiq")) && crmOzgartir({ faol: !talaba.faol })}>
+                      onClick={() => talaba.faol
+                        ? setArxivOyna(true)
+                        : window.confirm(t("talaba_tiklash_tasdiq")) && crmOzgartir({ faol: true })}>
                 🗄 {talaba.faol ? t("arxivlash") : t("arxivdan_chiqarish")}
               </button>
             </>
@@ -642,6 +648,21 @@ function Karta({ talabaId, onOrqaga }) {
         </div>}
       </div>
       {talaba.faqat_korish && <p className="kichik">{t("begona_filial_talabasi")}</p>}
+      {arxivOyna && (
+        <SababOynasi
+          sarlavha={`${t("arxivlash")} — ${talaba.ism}`}
+          izoh={t("talaba_arxiv_tasdiq")}
+          sabablar={KETISH_SABABLARI.map((k) => [k, t(`sabab_${k}`)])}
+          xavfli
+          onYopish={() => setArxivOyna(false)}
+          onTasdiq={async ({ sabab, izoh }) => {
+            await api(`/api/crm/talaba/${talabaId}/crm/`, {
+              method: "PATCH", body: { faol: false, arxiv_sabab: sabab, arxiv_izoh: izoh },
+            });
+            yangila();
+          }}
+        />
+      )}
       {amalXato && <div className="xato">{amalXato}</div>}
       {parol && (
         <p className="ogohlantirish">🔑 {t("yangi_parol")}: <code>{parol}</code> — {t("login_parol_eslatma")}</p>
@@ -689,6 +710,14 @@ function Karta({ talabaId, onOrqaga }) {
             {talaba.crm?.maktab || "—"}
           </span>
         </div>
+        {!talaba.faol && talaba.crm?.arxiv_sabab && (
+          <div className="qator">
+            <span className="kichik">{t("arxiv_sababi")}</span>
+            <span className="rang-qarzdor">
+              {t(`sabab_${talaba.crm.arxiv_sabab}`)}{talaba.crm.arxiv_izoh ? ` — ${talaba.crm.arxiv_izoh}` : ""}
+            </span>
+          </div>
+        )}
         {talaba.crm?.qora_royxat_sabab && (
           <div className="qator">
             <span className="kichik">{t("qora_royxat_sababi")}</span>
@@ -768,7 +797,16 @@ function Karta({ talabaId, onOrqaga }) {
               {g.oqituvchi && <p className="kichik">🎓 {g.oqituvchi}</p>}
             </div>
             <div className="ongga">
-              <b className={balansSinfi(g.balans)}>{balansMatn(g.balans)}</b>
+              <b className={balansSinfi(g.balans)}>{balansMatn(g.balans)}</b>{" "}
+              {/* SoffCRM o'quvchi kartasidagi guruh ⋮ menyusi (video-TZ 2026-09-25). */}
+              {!talaba.faqat_korish && (
+                <OquvchiMenyusi
+                  guruhId={g.guruh_id}
+                  guruhNomi={g.guruh}
+                  talaba={{ id: talaba.id, ism: talaba.ism, telefon: talaba.telefon, balans: talaba.balans_jami }}
+                  onOzgardi={yangilaHammasi}
+                />
+              )}
               <div><span className={`holat holat-${g.holat === "faol" ? "tolandi" : "kutilayotgan"}`}>{t(`holat_${g.holat}`)}</span></div>
             </div>
           </div>
@@ -977,9 +1015,16 @@ export default function Talabalar() {
   const { t } = useI18n();
   const { tanlangan } = useFilial();
   const [qidiruv, setQidiruv] = useState("");
-  const [holat, setHolat] = useState("");
+  // `?holat=sinov` / `?filtr=qarzdor` — bosh sahifadagi kartochkadan
+  // kelganda ro'yxat darhol shu filtr bilan ochiladi (video-TZ 2026-09-25).
+  const [params, setParams] = useSearchParams();
+  const [holat, setHolat] = useState(() => params.get("holat") || "");
   // Qo'shimcha filtr (video-TZ): qarzdorlar / qora ro'yxat / guruhsizlar.
-  const [filtr, setFiltr] = useState("");
+  const [filtr, setFiltr] = useState(() => params.get("filtr") || "");
+  useEffect(() => {
+    if (params.get("holat") !== null) setHolat(params.get("holat"));
+    if (params.get("filtr") !== null) setFiltr(params.get("filtr"));
+  }, [params]);
   const [yangiOyna, setYangiOyna] = useState(false);
   const [importOyna, setImportOyna] = useState(false);
   // Video (17:15): guruh, ustoz, kurs, maktab filtrlari.
@@ -991,7 +1036,6 @@ export default function Talabalar() {
   const ruxsat = useRuxsat();
   // `?talaba=ID` — LMS Talabalar kartasidagi "CRM'da ochish" va bosh
   // sahifadagi qarzdorlar ro'yxatidan kelganda karta darhol ochiladi.
-  const [params, setParams] = useSearchParams();
   const [ochilgan, setOchilganAsl] = useState(() => Number(params.get("talaba")) || null);
   useEffect(() => {
     const id = Number(params.get("talaba"));
@@ -1003,6 +1047,7 @@ export default function Talabalar() {
   };
   const [menyu, setMenyu] = useState(null);
   const [qaytarish, setQaytarish] = useState(null);
+  const [muzlatish, setMuzlatish] = useState(null);
 
   // Ro'yxat `Hisob`dan EMAS, a'zoliklardan yig'iladi: sinov va
   // muzlatilgan talabaga hisob ochilmaydi, lekin ular ham ko'rinishi
@@ -1139,7 +1184,9 @@ export default function Talabalar() {
                         className={g.holat === "faol" ? "rang-tolandi" : "rang-qarzdor"}
                         disabled={(!ruxsat("guruhlar.tahrirlash") && !ruxsat("guruhlar.talaba_qoshish"))
                                   || begonaFilial(g.filial_id)}
-                        onChange={(e) => holatOzgartir(g.azolik_moliya_id, e.target.value)}
+                        onChange={(e) => e.target.value === "muzlatilgan"
+                          ? setMuzlatish({ id: g.azolik_moliya_id, ism: `${x.ism} — ${g.guruh}` })
+                          : holatOzgartir(g.azolik_moliya_id, e.target.value)}
                       >
                         {["sinov", "faol", "muzlatilgan"].map((h) => (
                           <option key={h} value={h}>{t(`holat_${h}`)}</option>
@@ -1184,6 +1231,10 @@ export default function Talabalar() {
         </table>
       </div>
 
+      {muzlatish && (
+        <MuzlatishOynasi azolikId={muzlatish.id} talabaIsmi={muzlatish.ism}
+                         onYopish={() => setMuzlatish(null)} onSaqlandi={yangila} />
+      )}
       {yangiOyna && <YangiTalabaOynasi onYopish={() => setYangiOyna(false)} onSaqlandi={yangila} />}
       {importOyna && <ImportOynasi onYopish={() => setImportOyna(false)} onSaqlandi={yangila} />}
       {qaytarish && (
