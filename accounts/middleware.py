@@ -118,4 +118,12 @@ class ZaxiraTekshiruvMiddleware:
             audio_tekshir()
         except Exception:  # noqa: BLE001 — tozalash hech qachon saytni buzmasin
             pass
+        # O'chirilgan foydalanuvchilar nusxasi 7 kundan keyin butunlay
+        # o'chadi (2026-09-25) — xuddi shu naqsh, soatiga bir marta.
+        try:
+            from .savat import fonda_tekshir as savat_tekshir
+
+            savat_tekshir()
+        except Exception:  # noqa: BLE001
+            pass
         return self.get_response(request)

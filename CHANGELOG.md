@@ -19,6 +19,19 @@ Format (qat'iy, parser shunga tayanadi):
 
 ---
 
+## 2026-09-25 — O'chirilgan foydalanuvchini 7 kun ichida tiklash mumkin
+
+- **Foydalanuvchi o'chirilganda darhol yo'qolib ketmaydi.** U saytga kira
+  olmaydi va hamma ro'yxatdan chiqadi, lekin 7 kun davomida
+  "Foydalanuvchilar → O'chirilganlar" bo'limida turadi. "Tiklash"
+  bosilsa hammasi bilan birga qaytadi: guruhlari, davomati, natijalari,
+  XP'si, CRM'dagi to'lovlari va paroli ham. 7 kun o'tgach butunlay
+  o'chadi (muddatni kutmasdan "Butunlay o'chirish" ham mumkin).
+- **O'chirish tugmasi endi ogohlantiradi**: nima yo'qolishini, 7 kun
+  ichida tiklash mumkinligini aytadi va ketgan o'quvchini o'chirish
+  o'rniga CRM'da arxivlashni maslahat beradi.
+- O'chirilgan administratorni faqat owner ko'radi va tiklaydi.
+
 ## 2026-09-25 — CRM: qarzni tuzatish, eslatma xabarnomalari
 
 - **Qarzni tuzatish mumkin.** O'quvchi kartasidagi "To'lov tarixi"da
