@@ -192,7 +192,7 @@ export default function BoshSahifa() {
       <div className="karta">
         <div className="karta-sarlavha">
           <h2>{t("qarzdorlar_royxati")} <span className="kichik">({qarzdorRoyxati.length})</span></h2>
-          <Link className="havola" to="/moliya?tab=qarzdorlar">{t("hammasini_korish")} →</Link>
+          <Link className="havola" to="/talabalar?filtr=qarzdor">{t("hammasini_korish")} →</Link>
         </div>
         {qarzdorlar.yuklanmoqda ? (
           <p className="kichik">{t("yuklanmoqda")}</p>

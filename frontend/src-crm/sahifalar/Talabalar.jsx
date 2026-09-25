@@ -1021,9 +1021,12 @@ export default function Talabalar() {
   const [holat, setHolat] = useState(() => params.get("holat") || "");
   // Qo'shimcha filtr (video-TZ): qarzdorlar / qora ro'yxat / guruhsizlar.
   const [filtr, setFiltr] = useState(() => params.get("filtr") || "");
+  // Kartochkadan kelganda IKKALA filtr ham URL'dan olinadi: aks holda
+  // oldingi kartochkaning filtri ("qarzdor") qolib, "Sinov darsida" bo'sh chiqardi.
   useEffect(() => {
-    if (params.get("holat") !== null) setHolat(params.get("holat"));
-    if (params.get("filtr") !== null) setFiltr(params.get("filtr"));
+    if (params.get("holat") === null && params.get("filtr") === null) return;
+    setHolat(params.get("holat") || "");
+    setFiltr(params.get("filtr") || "");
   }, [params]);
   const [yangiOyna, setYangiOyna] = useState(false);
   const [importOyna, setImportOyna] = useState(false);

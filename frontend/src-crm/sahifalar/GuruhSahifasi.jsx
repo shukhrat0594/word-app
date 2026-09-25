@@ -112,7 +112,7 @@ export default function GuruhSahifasi() {
             {g.boshlanish_sana || g.tugash_sana ? `${sana(g.boshlanish_sana)} – ${sana(g.tugash_sana)}` : "—"}
           </Maydon>
           <Maydon nomi={t("filial")}>{g.filial?.nomi || "—"}</Maydon>
-          <Maydon nomi={t("kurs_narxi")}>
+          <Maydon nomi={t("narx")}>
             {g.narx ? `${pul(g.narx)} so'm` : "—"} <NarxManbasi manba={g.narx_manbasi} />
           </Maydon>
 

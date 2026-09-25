@@ -1009,6 +1009,8 @@ tfoot td {
   gap: 16px;
   align-items: start;
 }
+/* Umumiy `.karta + .karta` chekinishi ikki ustunni tepada tekislamas edi. */
+.guruh-sahifa > .karta { margin: 0; }
 .guruh-malumot { display: flex; flex-direction: column; gap: 8px; }
 .guruh-malumot h1 { font-size: 20px; margin: 0; }
 .guruh-tablar-karta { min-width: 0; overflow-x: auto; }
@@ -1022,7 +1024,9 @@ table.ixcham td { padding: 3px 6px; font-size: 13px; }
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: 16px;
+  margin-top: 14px;
 }
+.hisobot-ikki > .karta { margin: 0; }
 .hisobot-ikki .karta h3, .jadval-oram > h3 { margin: 0 0 10px; font-size: 15px; }
 .kunlik-grafik {
   display: flex;
