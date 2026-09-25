@@ -655,7 +655,11 @@ def _lid_dict(lid, oxirgi_eslatma=None):
         "kunlar": lid.kunlar,
         "izoh": lid.izoh,
         "arxiv": lid.arxiv,
+        "arxiv_sabab": lid.arxiv_sabab,
+        "arxiv_sabab_nomi": lid.get_arxiv_sabab_display() if lid.arxiv_sabab else "",
+        "arxiv_izoh": lid.arxiv_izoh,
         "qora_royxat": lid.qora_royxat,
+        "qora_royxat_izoh": lid.qora_royxat_izoh,
         "talaba_id": lid.talaba_id,
         "yigilayotgan_guruh_id": lid.yigilayotgan_guruh_id,
         "yigilayotgan_guruh": lid.yigilayotgan_guruh.name if lid.yigilayotgan_guruh_id else None,
@@ -732,13 +736,59 @@ def _lid_maydonlari(lid, data, user=None):
         if (int(qiymat) if qiymat else None) != lid.yigilayotgan_guruh_id:
             ozgardi.append("yigilayotgan_guruh_id")
         lid.yigilayotgan_guruh_id = int(qiymat) if qiymat else None
-    for maydon in ("arxiv", "qora_royxat"):
-        if maydon in data:
-            qiymat = bool(data[maydon])
-            if getattr(lid, maydon) != qiymat:
-                ozgardi.append(maydon)
-            setattr(lid, maydon, qiymat)
+    # Arxiv va qora ro'yxat — SABAB bilan (video-TZ 2026-09-25): arxivda
+    # ro'yxatdan sabab (+ "Boshqa sabab"da izoh majburiy), qora ro'yxatda
+    # izoh majburiy. Chiqarilganda sabab tozalanadi.
+    if "arxiv" in data:
+        qiymat = bool(data["arxiv"])
+        if qiymat and not lid.arxiv:
+            sabab = data.get("arxiv_sabab") or ""
+            izoh = str(data.get("arxiv_izoh") or "").strip()[:300]
+            if sabab not in dict(Lid._meta.get_field("arxiv_sabab").choices):
+                raise ValueError("Arxivlash sababini tanlang")
+            if sabab == "boshqa" and not izoh:
+                raise ValueError("Sababni yozing")
+            lid.arxiv_sabab, lid.arxiv_izoh = sabab, izoh
+            ozgardi.append("arxiv")
+        elif not qiymat and lid.arxiv:
+            lid.arxiv_sabab, lid.arxiv_izoh = "", ""
+            ozgardi.append("arxiv")
+        lid.arxiv = qiymat
+    if "qora_royxat" in data:
+        qiymat = bool(data["qora_royxat"])
+        if qiymat and not lid.qora_royxat:
+            izoh = str(data.get("qora_royxat_izoh") or "").strip()[:300]
+            if not izoh:
+                raise ValueError("Qora ro'yxatga olish sababini yozing")
+            lid.qora_royxat_izoh = izoh
+            ozgardi.append("qora_royxat")
+        elif not qiymat and lid.qora_royxat:
+            lid.qora_royxat_izoh = ""
+            ozgardi.append("qora_royxat")
+        lid.qora_royxat = qiymat
     return ozgardi
+
+
+def _lid_tarix_matni(lid, ozgardi, eski_bolim):
+    """Lid tarixi odam tilida (video-TZ 2026-09-25: "O'zgartirildi: arxiv"
+    arxivlandimi yoki chiqarildimi — bilinmasdi)."""
+    qismlar = []
+    if "arxiv" in ozgardi:
+        if lid.arxiv:
+            sabab = lid.get_arxiv_sabab_display()
+            qismlar.append(f"Arxivlandi — {sabab}" + (f": {lid.arxiv_izoh}" if lid.arxiv_izoh else ""))
+        else:
+            qismlar.append("Arxivdan chiqarildi")
+    if "qora_royxat" in ozgardi:
+        qismlar.append(f"Qora ro'yxatga olindi: {lid.qora_royxat_izoh}" if lid.qora_royxat
+                       else "Qora ro'yxatdan chiqarildi")
+    if "bolim_id" in ozgardi:
+        yangi = LidBolim.objects.filter(pk=lid.bolim_id).values_list("nomi", flat=True).first() or "—"
+        qismlar.append(f"Bo'lim: {eski_bolim} → {yangi}")
+    qolgan = [m for m in ozgardi if m not in ("arxiv", "qora_royxat", "bolim_id")]
+    if qolgan:
+        qismlar.append("O'zgartirildi: " + ", ".join(_MAYDON_NOMLARI.get(m, m) for m in qolgan))
+    return "; ".join(qismlar)
 
 
 _MAYDON_NOMLARI = {
@@ -995,7 +1045,9 @@ class LidDetailView(CrmView):
 
     # Maydon -> kerakli amal ruxsati. Qolgan maydonlar — `lidlar.tahrirlash`.
     _MAYDON_RUXSATI = {
-        "arxiv": "lidlar.arxiv", "qora_royxat": "lidlar.qora_royxat", "yigilayotgan_guruh_id": "lidlar.guruhga",
+        "arxiv": "lidlar.arxiv", "arxiv_sabab": "lidlar.arxiv", "arxiv_izoh": "lidlar.arxiv",
+        "qora_royxat": "lidlar.qora_royxat", "qora_royxat_izoh": "lidlar.qora_royxat",
+        "yigilayotgan_guruh_id": "lidlar.guruhga",
     }
 
     def patch(self, request, pk):
@@ -1014,21 +1066,12 @@ class LidDetailView(CrmView):
             return _xato(str(e))
         lid.save()
         if ozgardi:
-            matn = "O'zgartirildi: " + ", ".join(_MAYDON_NOMLARI.get(m, m) for m in ozgardi)
-            if "bolim_id" in ozgardi:
-                yangi = LidBolim.objects.filter(pk=lid.bolim_id).values_list("nomi", flat=True).first() or "—"
-                matn = f"Bo'lim: {eski_bolim} → {yangi}"
-            LidTarix.objects.create(lid=lid, matn=matn[:300], kim=request.user)
+            LidTarix.objects.create(lid=lid, matn=_lid_tarix_matni(lid, ozgardi, eski_bolim)[:300], kim=request.user)
         return Response(_lid_dict(lid))
 
-    def delete(self, request, pk):
-        if "lidlar.ochirish" not in ruxsatlar(request.user):
-            return _xato("O'chirishga ruxsat yo'q", kod=403)
-        lid = get_object_or_404(Lid, pk=pk)
-        logla(foydalanuvchi=request.user, harakat=FaoliyatYozuvi.Harakat.OCHIRISH, obyekt=lid,
-              obyekt_turi="CRM Lid", obyekt_nomi=str(lid))
-        lid.delete()
-        return Response(status=204)
+    # O'chirish YO'Q (Shuhrat, 2026-09-25): SoffCRM'dagidek lid faqat SABAB
+    # bilan arxivlanadi — o'chirilsa nega yo'qolgani va manba statistikasi
+    # ham yo'qolardi.
 
 
 # ── Talaba yaratish va guruhga qo'shish ──────────────────────────────
@@ -1172,8 +1215,32 @@ class TalabaCrmView(CrmView):
             profil.maktab = (data.get("maktab") or "").strip()[:100]
         profil.save()
         if "faol" in data:
-            talaba.is_active = bool(data["faol"])
-            talaba.save(update_fields=["is_active"])
+            faol = bool(data["faol"])
+            # Arxivlash — SABAB bilan (video-TZ 2026-09-25), guruhdan
+            # chiqarishdagi kabi: ro'yxatdan sabab + izoh (majburiy).
+            if not faol and talaba.is_active:
+                sabab = data.get("arxiv_sabab") or ""
+                izoh = str(data.get("arxiv_izoh") or "").strip()[:300]
+                if sabab not in KETISH_SABABLARI:
+                    return _xato("Arxivlash sababini tanlang")
+                if not izoh:
+                    return _xato("Izoh yozilsin")
+                profil.arxiv_sabab, profil.arxiv_izoh = sabab, izoh
+            elif faol:
+                profil.arxiv_sabab, profil.arxiv_izoh = "", ""
+            with transaction.atomic():
+                # Arxivlangan o'quvchi BARCHA guruhlaridan shu sabab bilan
+                # chiqariladi (Shuhrat, 2026-09-25): aks holda unga hisob
+                # ochilishda davom etar va "Ketish hisoboti"ga tushmasdi.
+                # Arxivdan chiqarish guruhlarga QAYTARMAYDI — qaysi guruhga
+                # qaytishini admin o'zi tanlaydi.
+                if not faol and talaba.is_active:
+                    bugun = timezone.localdate()
+                    for azolik in GuruhAzoligi.objects.filter(talaba=talaba).select_related("guruh", "talaba"):
+                        guruhdan_chiqar(request.user, azolik, bugun, profil.arxiv_sabab, profil.arxiv_izoh)
+                profil.save(update_fields=["arxiv_sabab", "arxiv_izoh"])
+                talaba.is_active = faol
+                talaba.save(update_fields=["is_active"])
         yangi_parol = None
         if data.get("parol_tiklash"):
             yangi_parol = parol_yarat()
@@ -1185,6 +1252,7 @@ class TalabaCrmView(CrmView):
         return Response({
             "id": talaba.id, "faol": talaba.is_active, "qora_royxat": profil.qora_royxat,
             "qora_royxat_sabab": profil.qora_royxat_sabab, "jins": profil.jins, "maktab": profil.maktab,
+            "arxiv_sabab": profil.arxiv_sabab, "arxiv_izoh": profil.arxiv_izoh,
             "parol": yangi_parol,
         })
 
@@ -1512,37 +1580,147 @@ class GuruhTalabalariView(CrmView):
         return Response({"qoshildi": natija, "xatolar": xatolar}, status=201)
 
     def delete(self, request, pk):
-        """Guruhdan chiqarish: joriy oy chiqish sanasigacha qayta
-        hisoblanadi, keyin LMS a'zoligi o'chadi (LMS'dagi kabi). Pul
-        tarixi (`Hisob`/`Tolov`) qoladi — ular a'zolikka emas, talaba va
-        guruhga bog'langan."""
+        """Guruhdan chiqarish (`?talaba=&sana=&sabab_turi=&sabab=`) —
+        `guruhdan_chiqar` izohiga qara."""
         if xato := _ruxsatsiz(request, "guruhlar.talaba_qoshish"):
             return xato
         guruh = get_object_or_404(Guruh, pk=pk)
         talaba = get_object_or_404(User, pk=request.query_params.get("talaba"))
         azolik = get_object_or_404(GuruhAzoligi, guruh=guruh, talaba=talaba)
+        sabab_turi = request.query_params.get("sabab_turi") or GuruhdanChiqish.SababTuri.BOSHQA
+        # Bitirdi / ko'chirildi / lidga — o'z amallari orqali (`GuruhTalabaAmaliView`).
+        if sabab_turi not in KETISH_SABABLARI:
+            return _xato("Ketish sababi noto'g'ri")
         try:
             sana = _sana(request.query_params.get("sana"), "sana", majburiy=False) or timezone.localdate()
         except ValueError as e:
             return _xato(str(e))
-        am = getattr(azolik, "moliya", None)
-        moliya = getattr(guruh, "moliya", None)
         with transaction.atomic():
-            if am is not None:
-                am.tugash_sana = sana
-                am.save(update_fields=["tugash_sana"])
-                mantiq.azolikni_qayta_hisobla(am, mantiq.oy_boshi(sana))
-            GuruhdanChiqish.objects.create(
-                talaba=talaba, talaba_ism=_ism(talaba), guruh=guruh, guruh_nomi=guruh.name,
-                filial=moliya.filial if moliya else None,
-                boshlagan_sana=am.boshlanish_sana if am else azolik.created_at.date(),
-                sana=sana, sabab=(request.query_params.get("sabab") or "").strip()[:300], kim=request.user,
-            )
-            azolik.delete()
-        logla(foydalanuvchi=request.user, harakat=FaoliyatYozuvi.Harakat.OZGARTIRISH, obyekt=guruh,
-              obyekt_turi="Guruh", obyekt_nomi=guruh.name,
-              ozgarishlar={"chiqarildi": {"eski": _ism(talaba), "yangi": str(sana)}})
+            guruhdan_chiqar(request.user, azolik, sana, sabab_turi, request.query_params.get("sabab"))
         return Response(status=204)
+
+
+# Guruhdan "ketish" sabablari — chiqarish oynasidagi ro'yxat.
+KETISH_SABABLARI = (
+    GuruhdanChiqish.SababTuri.JOYLASHUV, GuruhdanChiqish.SababTuri.NARX, GuruhdanChiqish.SababTuri.NATIJA,
+    GuruhdanChiqish.SababTuri.DARS_JADVALI, GuruhdanChiqish.SababTuri.OQITUVCHI,
+    GuruhdanChiqish.SababTuri.BOSHQA,
+)
+
+
+def guruhdan_chiqar(kim, azolik, sana, sabab_turi, izoh="", *, tugash_sana=None):
+    """Talabani guruhdan chiqaradi va `GuruhdanChiqish` yozuvini qaytaradi.
+
+    Joriy oy chiqish sanasigacha qayta hisoblanadi, keyin LMS a'zoligi
+    o'chadi (LMS'dagi kabi). Pul tarixi (`Hisob`/`Tolov`) qoladi — ular
+    a'zolikka emas, talaba va guruhga bog'langan. Chaqiruvchi
+    `transaction.atomic()` ichida chaqiradi.
+
+    `tugash_sana` — hisob-kitob uchun oxirgi kun (standart: `sana`).
+    Ko'chirishda u bir kun oldin: shu kundan yangi guruh hisoblaydi.
+    """
+    guruh, talaba = azolik.guruh, azolik.talaba
+    tugash_sana = tugash_sana or sana
+    am = getattr(azolik, "moliya", None)
+    moliya = getattr(guruh, "moliya", None)
+    oylik_narx = chegirma_bor = None
+    if am is not None:
+        oylik_narx = mantiq.amaldagi_narx(am, mantiq.oy_boshi(sana))
+        chegirma_bor = bool(am.narx is not None or mantiq.chegirma_narxi(am, mantiq.oy_boshi(sana)) is not None)
+        am.tugash_sana = tugash_sana
+        am.save(update_fields=["tugash_sana"])
+        mantiq.azolikni_qayta_hisobla(am, mantiq.oy_boshi(tugash_sana))
+    chiqish = GuruhdanChiqish.objects.create(
+        talaba=talaba, talaba_ism=_ism(talaba), guruh=guruh, guruh_nomi=guruh.name,
+        filial=moliya.filial if moliya else None,
+        boshlagan_sana=am.boshlanish_sana if am else azolik.created_at.date(),
+        sana=sana, sabab_turi=sabab_turi, sabab=(izoh or "").strip()[:300],
+        oylik_narx=oylik_narx, chegirma_bor=bool(chegirma_bor), kim=kim,
+    )
+    azolik.delete()
+    logla(foydalanuvchi=kim, harakat=FaoliyatYozuvi.Harakat.OZGARTIRISH, obyekt=guruh,
+          obyekt_turi="Guruh", obyekt_nomi=guruh.name,
+          ozgarishlar={"chiqarildi": {"eski": _ism(talaba), "yangi": f"{sana} · {chiqish.get_sabab_turi_display()}"}})
+    return chiqish
+
+
+class GuruhTalabaAmaliView(CrmView):
+    """Guruhdagi o'quvchi ustidagi ⋮ harakatlar (video-TZ 2026-09-25,
+    SoffCRM guruh sahifasi): `kochirish` (boshqa guruhga), `bitirdi`,
+    `lidga` (lidlarga qaytarish).
+
+    POST {amal, talaba_id, sana?, izoh?, yangi_guruh_id?}
+    """
+
+    pk_turi = "guruh"
+    bolim = "guruhlar"
+
+    def post(self, request, pk):
+        if xato := _ruxsatsiz(request, "guruhlar.talaba_qoshish"):
+            return xato
+        guruh = get_object_or_404(Guruh, pk=pk)
+        azolik = get_object_or_404(
+            GuruhAzoligi.objects.select_related("guruh", "talaba"), guruh=guruh, talaba_id=request.data.get("talaba_id")
+        )
+        amal = request.data.get("amal")
+        izoh = request.data.get("izoh") or ""
+        try:
+            sana = _sana(request.data.get("sana"), "sana", majburiy=False) or timezone.localdate()
+        except ValueError as e:
+            return _xato(str(e))
+
+        if amal == "kochirish":
+            yangi = Guruh.objects.filter(pk=request.data.get("yangi_guruh_id"), faol=True).first()
+            if yangi is None or yangi.pk == guruh.pk:
+                return _xato("Yangi guruh tanlanmagan")
+            guruh_tekshir(request.user, yangi)
+            if GuruhAzoligi.objects.filter(guruh=yangi, talaba=azolik.talaba).exists():
+                return _xato("O'quvchi bu guruhda allaqachon bor")
+            am = getattr(azolik, "moliya", None)
+            # Individual narx va holat (sinov/faol/muzlatilgan) yangi guruhga
+            # ham o'tadi — ko'chirish o'quvchining shartini o'zgartirmaydi.
+            narx = am.narx if am else None
+            holat = am.holat if am and am.holat != AzolikMoliya.Holat.ARXIV else AzolikMoliya.Holat.FAOL
+            talaba = azolik.talaba
+            with transaction.atomic():
+                guruhdan_chiqar(request.user, azolik, sana, GuruhdanChiqish.SababTuri.KOCHIRILDI,
+                                f"→ {yangi.name}" + (f". {izoh}" if izoh else ""),
+                                tugash_sana=sana - timedelta(days=1))
+                guruhga_qosh(talaba, yangi, sana=sana, narx=narx, holat=holat)
+            return Response({"yangi_guruh_id": yangi.pk})
+
+        if amal == "bitirdi":
+            with transaction.atomic():
+                guruhdan_chiqar(request.user, azolik, sana, GuruhdanChiqish.SababTuri.BITIRDI, izoh)
+            return Response({})
+
+        if amal == "lidga":
+            talaba = azolik.talaba
+            moliya = getattr(guruh, "moliya", None)
+            with transaction.atomic():
+                guruhdan_chiqar(request.user, azolik, sana, GuruhdanChiqish.SababTuri.LIDGA, izoh)
+                # Shu talabadan kelgan lid bo'lsa — o'sha qayta ochiladi
+                # (tarixi bilan), bo'lmasa yangisi. `talaba` bog'lanadi:
+                # keyin "Guruhga qo'shish" yangi hisob OCHMAYDI, shu talabani
+                # qaytaradi (`LidGuruhgaView`).
+                lid = Lid.objects.filter(talaba=talaba).order_by("-id").first()
+                if lid is None:
+                    lid = Lid.objects.create(
+                        ism=_ism(talaba), telefon=talaba.telefon or "", talaba=talaba,
+                        filial=moliya.filial if moliya else None, kim_qoshdi=request.user,
+                    )
+                lid.arxiv = False
+                lid.arxiv_sabab = lid.arxiv_izoh = ""
+                lid.holat = Lid.Holat.YANGI
+                lid.bolim = None
+                lid.save()
+                LidTarix.objects.create(
+                    lid=lid, kim=request.user,
+                    matn=(f"«{guruh.name}» guruhidan lidlarga qaytarildi" + (f": {izoh}" if izoh else ""))[:300],
+                )
+            return Response({"lid_id": lid.id})
+
+        return _xato("amal: kochirish | bitirdi | lidga")
 
 
 # ── Davomat (CRM'dan belgilash) ──────────────────────────────────────
@@ -1983,7 +2161,9 @@ class KorsatkichlarView(CrmView):
                 if sana and bugun <= sana <= chegara:
                     tolov_yaqin += 1
 
-        oy_ketgan = GuruhdanChiqish.objects.filter(sana__gte=oy, sana__lte=bugun).filter(filial_q(u, "filial"))
+        # Bitirgan va boshqa guruhga o'tgan "ketgan" emas (markazda qolgan).
+        oy_ketgan = GuruhdanChiqish.objects.filter(sana__gte=oy, sana__lte=bugun).filter(
+            filial_q(u, "filial")).exclude(sabab_turi__in=GuruhdanChiqish.KETMAGAN_TURLAR)
         if filial:
             oy_ketgan = oy_ketgan.filter(filial_id=filial)
 

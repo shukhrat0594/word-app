@@ -75,6 +75,8 @@ urlpatterns = [
     path("guruh-yaratish/", boshqaruv.GuruhYaratishView.as_view(), name="guruh_yaratish"),
     path("guruhlar/<int:pk>/boshqaruv/", boshqaruv.GuruhBoshqaruvView.as_view(), name="guruh_boshqaruv"),
     path("guruhlar/<int:pk>/talabalar/", boshqaruv.GuruhTalabalariView.as_view(), name="guruh_talabalari"),
+    # Video-TZ (2026-09-25): ko'chirish / bitirdi / lidlarga qaytarish.
+    path("guruhlar/<int:pk>/talabalar/amal/", boshqaruv.GuruhTalabaAmaliView.as_view(), name="guruh_talaba_amali"),
     path("guruhlar/<int:pk>/dars-ozgarishlari/", boshqaruv.DarsOzgarishlariView.as_view(), name="dars_ozgarishlari"),
     path("dars-ozgarishlari/<int:pk>/", boshqaruv.DarsOzgarishDetailView.as_view(), name="dars_ozgarish_detail"),
     path("guruhlar/<int:pk>/chegirmalar/", boshqaruv.GuruhChegirmalariView.as_view(), name="guruh_chegirmalari"),

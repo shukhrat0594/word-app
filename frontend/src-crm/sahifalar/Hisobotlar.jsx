@@ -6,6 +6,7 @@
 // shuning uchun alohida.
 
 import { useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 
 import { apiFayluniYuklab } from "../api.js";
 import { useFilial } from "../filialContext.jsx";
@@ -167,6 +168,178 @@ function DavrTanlash({ dan, setDan, gacha, setGacha, turi, filial }) {
   );
 }
 
+// ── Ketish hisoboti (video-TZ 2026-09-25, SoffCRM "Ketish hisoboti") ──
+
+/** Kunlik ketishlar — oddiy ustunli grafik (kutubxonasiz, `Dinamika`dagi
+ *  sabab bilan). Davrdagi HAR kun ko'rsatiladi: bo'sh kun ham ko'rinsin. */
+function KunlikGrafik({ dan, gacha, qatorlar }) {
+  const { t } = useI18n();
+  const soni = Object.fromEntries(qatorlar.map((x) => [String(x.sana), x.soni]));
+  const kunlar = [];
+  for (let d = new Date(dan); d <= new Date(gacha) && kunlar.length < 93; d.setDate(d.getDate() + 1)) {
+    kunlar.push(d.toISOString().slice(0, 10));
+  }
+  const eng = Math.max(1, ...qatorlar.map((x) => x.soni));
+  return (
+    <div className="kunlik-grafik" role="img" aria-label={t("ketish_dinamikasi")}>
+      {kunlar.map((k) => (
+        <div key={k} className="kunlik-ustun" title={`${sana(k)}: ${soni[k] || 0}`}>
+          <span style={{ height: `${((soni[k] || 0) / eng) * 100}%` }}>{soni[k] ? soni[k] : ""}</span>
+          <i>{k.slice(8, 10)}</i>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function KetishHisoboti() {
+  const { t } = useI18n();
+  const { tanlangan } = useFilial();
+  const b = new Date();
+  const [dan, setDan] = useState(`${b.getFullYear()}-${String(b.getMonth() + 1).padStart(2, "0")}-01`);
+  const [gacha, setGacha] = useState(b.toISOString().slice(0, 10));
+  const [f, setF] = useState({ q: "", kurs: "", guruh: "", oqituvchi: "", sabab_turi: "", chegirma: "" });
+  const guruhlar = useSorov("/api/crm/guruhlar/" + sorovSatri({ filial: tanlangan }));
+  const parametrlar = { dan, gacha, filial: tanlangan, ...f };
+  const { malumot: d, yuklanmoqda, xato } = useSorov("/api/crm/hisobot/ketganlar/" + sorovSatri(parametrlar));
+  const [eksportXato, setEksportXato] = useState("");
+
+  const gv = guruhlar.malumot || [];
+  const kurslar = [...new Map(gv.filter((g) => g.daraja).map((g) => [g.daraja.id, g.daraja.nomi])).entries()];
+  const oqituvchilar = [...new Map(gv.filter((g) => g.oqituvchi_id).map((g) => [g.oqituvchi_id, g.oqituvchi])).entries()];
+  const maydon = (k) => ({ value: f[k], onChange: (e) => setF((x) => ({ ...x, [k]: e.target.value })) });
+  const jamiSabab = (d?.sabablar || []).reduce((s, x) => s + x.soni, 0);
+
+  return (
+    <>
+      <div className="filtrlar">
+        <label className="yonma">{t("dan")}<input type="date" value={dan} onChange={(e) => setDan(e.target.value)} /></label>
+        <label className="yonma">{t("gacha")}<input type="date" value={gacha} onChange={(e) => setGacha(e.target.value)} /></label>
+        <button className="tugma tugma-sokin kichik-tugma" type="button"
+                onClick={() => apiFayluniYuklab("/api/crm/hisobot/eksport/" + sorovSatri({ turi: "ketganlar", ...parametrlar }))
+                  .catch((e) => setEksportXato(e.message))}>
+          ⬇ Excel
+        </button>
+      </div>
+      {(xato || eksportXato) && <div className="xato">{xato || eksportXato}</div>}
+      {yuklanmoqda && !d && <p className="kichik">{t("yuklanmoqda")}</p>}
+      {d && (
+        <>
+          <div className="kataklar">
+            <div className="katak" title={t("ketish_koeffitsienti_izoh")}>
+              <span className="kichik">{t("ketish_koeffitsienti")}</span><b className="rang-qarzdor">{d.koeffitsient}%</b>
+            </div>
+            <div className="katak"><span className="kichik">{t("ketganlar_soni")}</span><b>{d.soni}</b></div>
+            <div className="katak" title={t("yoqotilgan_daromad_izoh")}>
+              <span className="kichik">{t("yoqotilgan_daromad")}</span><b className="rang-qarzdor">{pul(d.yoqotilgan_daromad)}</b>
+            </div>
+            <div className="katak" title={t("ortacha_umr_izoh")}>
+              <span className="kichik">{t("ortacha_umr")}</span>
+              <b>{d.ortacha_umr_oy !== null ? `${d.ortacha_umr_oy} ${t("oy")}` : "—"}</b>
+            </div>
+            <div className="katak"><span className="kichik">{t("bitirganlar")}</span><b className="rang-tolandi">{d.bitirganlar}</b></div>
+          </div>
+
+          <div className="hisobot-ikki">
+            <div className="karta">
+              <h3>{t("ketish_dinamikasi")}</h3>
+              <KunlikGrafik dan={dan} gacha={gacha} qatorlar={d.dinamika} />
+            </div>
+            <div className="karta">
+              <h3>{t("asosiy_ketish_sabablari")}</h3>
+              {d.sabablar.length === 0 && <p className="kichik">{t("yozuv_yoq")}</p>}
+              {d.sabablar.map((x) => (
+                <div key={x.sabab_turi} className="sabab-qator">
+                  <span>{t(`sabab_${x.sabab_turi}`)}</span>
+                  <span className="sabab-chiziq">
+                    <span style={{ width: `${(x.soni / jamiSabab) * 100}%` }} />
+                  </span>
+                  <b>{x.soni} <span className="kichik">({Math.round((x.soni / jamiSabab) * 100)}%)</span></b>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="hisobot-ikki">
+            <div className="karta">
+              <h3>{t("ichki_migratsiya")}</h3>
+              <div className="kataklar">
+                <div className="katak"><span className="kichik">{t("jami_ozgarishlar")}</span><b>{d.migratsiya.soni}</b></div>
+                <div className="katak" title={t("ozgargandan_keyin_ketish_izoh")}>
+                  <span className="kichik">{t("ozgargandan_keyin_ketish")}</span><b>{d.migratsiya.keyin_ketgan_foiz}%</b>
+                </div>
+              </div>
+            </div>
+            <div className="karta">
+              <h3>{t("chegirmalar_tasiri")}</h3>
+              <div className="kataklar">
+                <div className="katak"><span className="kichik">{t("chegirmasi_bor")}</span><b>{d.chegirma.bor}</b></div>
+                <div className="katak"><span className="kichik">{t("chegirmasiz")}</span><b>{d.chegirma.yoq}</b></div>
+              </div>
+            </div>
+          </div>
+
+          <div className="karta jadval-oram">
+            <h3>{t("ketgan_talabalar_royxati")} <span className="belgi">{d.royxat.length}</span></h3>
+            <div className="filtrlar">
+              <input placeholder={t("qidiruv")} {...maydon("q")} />
+              <select {...maydon("kurs")} aria-label={t("kurs")}>
+                <option value="">{t("kurs")}: {t("hammasi")}</option>
+                {kurslar.map(([id, nomi]) => <option key={id} value={id}>{nomi}</option>)}
+              </select>
+              <select {...maydon("guruh")} aria-label={t("guruh")}>
+                <option value="">{t("guruh")}: {t("hammasi")}</option>
+                {gv.map((g) => <option key={g.id} value={g.id}>{g.nomi}</option>)}
+              </select>
+              <select {...maydon("oqituvchi")} aria-label={t("oqituvchi")}>
+                <option value="">{t("oqituvchi")}: {t("hammasi")}</option>
+                {oqituvchilar.map(([id, ism]) => <option key={id} value={id}>{ism}</option>)}
+              </select>
+              <select {...maydon("sabab_turi")} aria-label={t("sabab")}>
+                <option value="">{t("sabab")}: {t("hammasi")}</option>
+                {["narx", "natija", "oqituvchi", "dars_jadvali", "joylashuv", "boshqa", "lidga"].map((k) => (
+                  <option key={k} value={k}>{t(`sabab_${k}`)}</option>
+                ))}
+              </select>
+              <select {...maydon("chegirma")} aria-label={t("chegirma")}>
+                <option value="">{t("chegirma")}: {t("hammasi")}</option>
+                <option value="1">{t("chegirmasi_bor")}</option>
+                <option value="0">{t("chegirmasiz")}</option>
+              </select>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th><th>{t("talaba")}</th><th>{t("guruh")}</th><th>{t("kurs")}</th><th>{t("chegirma")}</th>
+                  <th>{t("oqituvchi")}</th><th>{t("sabab")}</th><th>{t("ketgan_sana")}</th>
+                  <th>{t("kim_chiqargan")}</th><th>{t("izoh")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {d.royxat.map((x, i) => (
+                  <tr key={i}>
+                    <td>{i + 1}</td>
+                    <td>{x.talaba_id ? <Link className="havola" to={`/talabalar?talaba=${x.talaba_id}`}>{x.talaba}</Link> : x.talaba}</td>
+                    <td>{x.guruh}</td>
+                    <td>{x.kurs || "—"}</td>
+                    <td>{x.chegirma_bor ? <span className="belgi">{t("bor")}</span> : "—"}</td>
+                    <td>{x.oqituvchi || "—"}</td>
+                    <td>{t(`sabab_${x.sabab_turi}`)}</td>
+                    <td className="nowrap">{sana(x.sana)}</td>
+                    <td>{x.kim || "—"}</td>
+                    <td className="kichik" title={x.sabab}>{x.sabab || "—"}</td>
+                  </tr>
+                ))}
+                {d.royxat.length === 0 && <tr><td colSpan={10} className="bosh">{t("yozuv_yoq")}</td></tr>}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+    </>
+  );
+}
+
 function DavrHisoboti({ turi }) {
   const { t } = useI18n();
   const { tanlangan } = useFilial();
@@ -174,7 +347,7 @@ function DavrHisoboti({ turi }) {
   const [dan, setDan] = useState(`${b.getFullYear()}-${String(b.getMonth() + 1).padStart(2, "0")}-01`);
   const [gacha, setGacha] = useState(b.toISOString().slice(0, 10));
   const { malumot: d, yuklanmoqda, xato } = useSorov(`/api/crm/hisobot/${turi}/` + sorovSatri({ dan, gacha, filial: tanlangan }));
-  const eksportTuri = ["tolovlar", "lidlar", "ketganlar"].includes(turi) ? turi : null;
+  const eksportTuri = ["tolovlar", "lidlar"].includes(turi) ? turi : null;
 
   return (
     <>
@@ -234,19 +407,6 @@ function DavrHisoboti({ turi }) {
           </div>
         </>
       )}
-      {d && turi === "ketganlar" && (
-        <div className="karta jadval-oram">
-          <table>
-            <thead><tr><th>{t("talaba")}</th><th>{t("guruh")}</th><th>{t("filial")}</th><th>{t("boshlanish_sana")}</th><th>{t("chiqqan_sana")}</th><th>{t("sabab")}</th><th>{t("kim")}</th></tr></thead>
-            <tbody>
-              {d.royxat.map((x, i) => (
-                <tr key={i}><td>{x.talaba}</td><td>{x.guruh}</td><td>{x.filial || "—"}</td><td>{sana(x.boshlagan_sana)}</td><td>{sana(x.sana)}</td><td>{x.sabab || "—"}</td><td>{x.kim || "—"}</td></tr>
-              ))}
-              {d.royxat.length === 0 && <tr><td colSpan={7} className="bosh">{t("yozuv_yoq")}</td></tr>}
-            </tbody>
-          </table>
-        </div>
-      )}
       {d && turi === "bitiruvchilar" && (
         <div className="karta jadval-oram">
           <table>
@@ -266,7 +426,9 @@ function DavrHisoboti({ turi }) {
 
 export default function Hisobotlar() {
   const { t } = useI18n();
-  const [tab, setTab] = useState("dinamika");
+  // `?tab=ketganlar` — bosh sahifadagi "Shu oy ketganlar" kartochkasidan.
+  const [params] = useSearchParams();
+  const [tab, setTab] = useState(() => (HISOBOT_TABLARI.includes(params.get("tab")) ? params.get("tab") : "dinamika"));
   return (
     <section>
       <h1>{t("hisobotlar")}</h1>
@@ -277,7 +439,7 @@ export default function Hisobotlar() {
           </button>
         ))}
       </div>
-      {tab === "dinamika" ? <Dinamika /> : <DavrHisoboti key={tab} turi={tab} />}
+      {tab === "dinamika" ? <Dinamika /> : tab === "ketganlar" ? <KetishHisoboti /> : <DavrHisoboti key={tab} turi={tab} />}
     </section>
   );
 }

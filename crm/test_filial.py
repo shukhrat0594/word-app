@@ -479,7 +479,6 @@ class DoskaVaQoraRoyxatTest(FilialAsos):
         # O'zgartirish — yo'q.
         self.assertEqual(m.patch(f"/api/crm/lidlar/{self.lid_b.id}/", {"qora_royxat": False},
                                  format="json").status_code, 404)
-        self.assertEqual(m.delete(f"/api/crm/lidlar/{self.lid_b.id}/").status_code, 404)
         # Qora ro'yxatda bo'lmagan lid boshqa filialga baribir yopiq.
         self.lid_b.qora_royxat = False
         self.lid_b.save()

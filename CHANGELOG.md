@@ -19,6 +19,46 @@ Format (qat'iy, parser shunga tayanadi):
 
 ---
 
+## 2026-09-25 — CRM: guruh sahifasi, ketish sabablari va hisoboti
+
+- **Har guruhning o'z sahifasi bor.** Dars jadvalidagi guruh bosilganda
+  endi alohida sahifa ochiladi: chapda guruh ma'lumoti (kurs, dars
+  kunlari, xona, o'qituvchi, narx), o'ngda davomat oylar bo'yicha,
+  pastda o'quvchilar ro'yxati. Guruhlar ro'yxatida guruh nomini bosib
+  ham shu sahifaga o'tiladi.
+- **O'quvchi ustida ⋮ tugmasi**: to'lov qabul qilish, boshqa guruhga
+  ko'chirish, guruhdan chiqarish, "Bitirdi" va "Lidlarga qaytarish".
+  Xuddi shu menyu o'quvchi kartasidagi har guruhda ham bor.
+- **Guruhdan chiqarishda sabab so'raladi** (narx, natija, o'qituvchi,
+  dars jadvali, joylashuv yoki boshqa) va izoh yoziladi. Muzlatishda esa
+  sana va izoh so'raladi.
+- **O'quvchini arxivlashda ham sabab so'raladi** va u barcha
+  guruhlaridan shu sabab bilan chiqariladi — endi arxivdagi o'quvchiga
+  to'lov hisoblanmaydi va u "Ketish hisoboti"da ko'rinadi. Arxivdan
+  chiqarilganda guruhga o'zi qaytmaydi, uni kerakli guruhga qo'shasiz.
+- **"Ketish hisoboti"** (Hisobotlar → Ketganlar): nechta o'quvchi
+  ketgani, ketish foizi, yo'qotilgan daromad, o'rtacha necha oy o'qigani,
+  kunlar bo'yicha grafik, asosiy sabablar, boshqa guruhga o'tganlar va
+  chegirmaning ta'siri. Pastda ketganlar ro'yxati kurs, guruh, o'qituvchi
+  va sabab bo'yicha filtr bilan. Kursni bitirgan va boshqa guruhga
+  o'tgan o'quvchi "ketgan" hisoblanmaydi.
+- **Bosh sahifadagi kartochkalar kerakli ro'yxatni darhol ochadi**:
+  "Qarzdorlar" — faqat qarzdor o'quvchilar, "Sinov darsida" —
+  sinovdagilar, "Muzlatilgan" — muzlatilganlar, "Shu oy ketganlar" —
+  ketish hisoboti.
+- **Lidni arxivlash yoki qora ro'yxatga olishda sabab so'raladi**
+  ("Kelaman deb kelmadi", "Raqobatchiga ketdi", "Boshqa filialga
+  yuborildi" yoki o'z izohingiz). Endi bir bosishda tasodifan qora
+  ro'yxatga tushib qolmaydi. Lid tarixida "Arxivlandi — sabab" deb
+  aniq yoziladi.
+- **Lidni o'chirib bo'lmaydi** — SoffCRM'dagidek faqat sabab bilan
+  arxivlanadi, kerak bo'lsa arxivdan qaytariladi. Shunda lid qayerdan
+  kelgani va nega ketgani yo'qolmaydi.
+- **Saytda ochilgan, CRM'da sozlanmagan guruhlar** endi Guruhlar
+  ro'yxatida ham ko'rinadi ("Faqat sozlanmaganlar" belgisi bilan
+  ajratish mumkin). Bosh sahifadagi ogohlantirishdagi guruh nomini bosib,
+  darhol sozlashga o'tasiz.
+
 ## 2026-09-23 — CRM endi o'quv markazining asosiy boshqaruv joyi
 
 - **O'quvchilar, guruhlar va xodimlar endi CRM'da qo'shiladi.** Saytda

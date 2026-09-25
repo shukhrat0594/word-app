@@ -218,7 +218,10 @@ class ArxivTalabaTest(ApiAsos):
     def test_arxivdagi_talaba_filtrda_chiqadi(self):
         """O-3: arxivlangan talabaga CRM'dan qaytib bo'lsin."""
         m = self.mijoz(self.admin)
-        self.assertEqual(m.patch(f"/api/crm/talaba/{self.talaba.id}/crm/", {"faol": False}, format="json").status_code, 200)
+        # Arxivlash sabab bilan (video-TZ 2026-09-25) — `test_video_tz.TalabaArxivSababiTest`.
+        self.assertEqual(m.patch(f"/api/crm/talaba/{self.talaba.id}/crm/",
+                                 {"faol": False, "arxiv_sabab": "narx", "arxiv_izoh": "qimmat"},
+                                 format="json").status_code, 200)
         self.assertNotIn(self.talaba.id, [x["id"] for x in m.get("/api/crm/talabalar/").data])
         self.assertIn(self.talaba.id, [x["id"] for x in m.get("/api/crm/talabalar/?arxiv=1").data])
 

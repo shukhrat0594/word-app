@@ -25,7 +25,6 @@ RUXSAT_DARAXTI = [
         ("lidlar.guruhga", "Guruhga qo'shish"),
         ("lidlar.arxiv", "Arxiv"),
         ("lidlar.bolim", "Bo'lim yaratish"),
-        ("lidlar.ochirish", "O'chirish"),
         ("lidlar.tahrirlash", "Tahrirlash"),
         ("lidlar.excel", "Excel"),
         ("lidlar.qora_royxat", "Qora ro'yxat"),

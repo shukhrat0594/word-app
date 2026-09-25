@@ -14,6 +14,7 @@ import Kirish from "./Kirish.jsx";
 import Layout from "./Layout.jsx";
 import BoshSahifa from "./sahifalar/BoshSahifa.jsx";
 import Guruhlar from "./sahifalar/Guruhlar.jsx";
+import GuruhSahifasi from "./sahifalar/GuruhSahifasi.jsx";
 import Harakatlar from "./sahifalar/Harakatlar.jsx";
 import Hisobotlar from "./sahifalar/Hisobotlar.jsx";
 import Lidlar from "./sahifalar/Lidlar.jsx";
@@ -118,6 +119,7 @@ export default function App() {
           <Route index element={<BoshSahifa />} />
           <Route path="lidlar" element={<Lidlar />} />
           <Route path="guruhlar" element={<Guruhlar />} />
+          <Route path="guruhlar/:id" element={<GuruhSahifasi />} />
           <Route path="talabalar" element={<Talabalar />} />
           <Route path="moliya" element={<Moliya />} />
           <Route path="narxlar" element={<Narxlar />} />

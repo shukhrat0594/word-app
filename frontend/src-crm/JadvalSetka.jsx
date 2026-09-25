@@ -183,14 +183,13 @@ function Qator({ qator, raqam, darslar, boshi, ustunlar, qadam: QADAM }) {
         // 1-ustun xona nomi uchun, shuning uchun +2.
         const dan = Math.floor((daqiqa(d.boshlanish_vaqti) - boshi) / QADAM) + 2;
         const gacha = Math.ceil((daqiqa(d.tugash_vaqti) - boshi) / QADAM) + 2;
-        // Blokka bosilsa guruh kartasi ochiladi (2026-09-17, admin
-        // talabi: "jadval orqali guruhga kirish"). Oddiy <a> — Guruhlar
-        // sahifasi `?guruh=` parametrini o'qib guruhni ochiq ko'rsatadi.
+        // Blokka bosilsa alohida GURUH SAHIFASI ochiladi (video-TZ
+        // 2026-09-25; avval guruhlar ro'yxati ochilib, guruh pastda yoyilardi).
         return (
           <a
             key={d.id}
             className="setka-dars"
-            href={`/crm/guruhlar?guruh=${d.guruh_id}`}
+            href={`/crm/guruhlar/${d.guruh_id}`}
             style={{
               gridRow: raqam,
               gridColumn: `${dan} / ${Math.max(gacha, dan + 1)}`,
