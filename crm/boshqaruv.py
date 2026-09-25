@@ -1069,14 +1069,9 @@ class LidDetailView(CrmView):
             LidTarix.objects.create(lid=lid, matn=_lid_tarix_matni(lid, ozgardi, eski_bolim)[:300], kim=request.user)
         return Response(_lid_dict(lid))
 
-    def delete(self, request, pk):
-        if "lidlar.ochirish" not in ruxsatlar(request.user):
-            return _xato("O'chirishga ruxsat yo'q", kod=403)
-        lid = get_object_or_404(Lid, pk=pk)
-        logla(foydalanuvchi=request.user, harakat=FaoliyatYozuvi.Harakat.OCHIRISH, obyekt=lid,
-              obyekt_turi="CRM Lid", obyekt_nomi=str(lid))
-        lid.delete()
-        return Response(status=204)
+    # O'chirish YO'Q (Shuhrat, 2026-09-25): SoffCRM'dagidek lid faqat SABAB
+    # bilan arxivlanadi — o'chirilsa nega yo'qolgani va manba statistikasi
+    # ham yo'qolardi.
 
 
 # ── Talaba yaratish va guruhga qo'shish ──────────────────────────────
@@ -1233,9 +1228,19 @@ class TalabaCrmView(CrmView):
                 profil.arxiv_sabab, profil.arxiv_izoh = sabab, izoh
             elif faol:
                 profil.arxiv_sabab, profil.arxiv_izoh = "", ""
-            profil.save(update_fields=["arxiv_sabab", "arxiv_izoh"])
-            talaba.is_active = faol
-            talaba.save(update_fields=["is_active"])
+            with transaction.atomic():
+                # Arxivlangan o'quvchi BARCHA guruhlaridan shu sabab bilan
+                # chiqariladi (Shuhrat, 2026-09-25): aks holda unga hisob
+                # ochilishda davom etar va "Ketish hisoboti"ga tushmasdi.
+                # Arxivdan chiqarish guruhlarga QAYTARMAYDI — qaysi guruhga
+                # qaytishini admin o'zi tanlaydi.
+                if not faol and talaba.is_active:
+                    bugun = timezone.localdate()
+                    for azolik in GuruhAzoligi.objects.filter(talaba=talaba).select_related("guruh", "talaba"):
+                        guruhdan_chiqar(request.user, azolik, bugun, profil.arxiv_sabab, profil.arxiv_izoh)
+                profil.save(update_fields=["arxiv_sabab", "arxiv_izoh"])
+                talaba.is_active = faol
+                talaba.save(update_fields=["is_active"])
         yangi_parol = None
         if data.get("parol_tiklash"):
             yangi_parol = parol_yarat()

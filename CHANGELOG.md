@@ -30,8 +30,12 @@ Format (qat'iy, parser shunga tayanadi):
   ko'chirish, guruhdan chiqarish, "Bitirdi" va "Lidlarga qaytarish".
   Xuddi shu menyu o'quvchi kartasidagi har guruhda ham bor.
 - **Guruhdan chiqarishda sabab so'raladi** (narx, natija, o'qituvchi,
-  dars jadvali, joylashuv yoki boshqa) va izoh yoziladi. O'quvchini
-  arxivlashda ham shunday. Muzlatishda esa sana va izoh so'raladi.
+  dars jadvali, joylashuv yoki boshqa) va izoh yoziladi. Muzlatishda esa
+  sana va izoh so'raladi.
+- **O'quvchini arxivlashda ham sabab so'raladi** va u barcha
+  guruhlaridan shu sabab bilan chiqariladi — endi arxivdagi o'quvchiga
+  to'lov hisoblanmaydi va u "Ketish hisoboti"da ko'rinadi. Arxivdan
+  chiqarilganda guruhga o'zi qaytmaydi, uni kerakli guruhga qo'shasiz.
 - **"Ketish hisoboti"** (Hisobotlar → Ketganlar): nechta o'quvchi
   ketgani, ketish foizi, yo'qotilgan daromad, o'rtacha necha oy o'qigani,
   kunlar bo'yicha grafik, asosiy sabablar, boshqa guruhga o'tganlar va
@@ -47,6 +51,9 @@ Format (qat'iy, parser shunga tayanadi):
   yuborildi" yoki o'z izohingiz). Endi bir bosishda tasodifan qora
   ro'yxatga tushib qolmaydi. Lid tarixida "Arxivlandi — sabab" deb
   aniq yoziladi.
+- **Lidni o'chirib bo'lmaydi** — SoffCRM'dagidek faqat sabab bilan
+  arxivlanadi, kerak bo'lsa arxivdan qaytariladi. Shunda lid qayerdan
+  kelgani va nega ketgani yo'qolmaydi.
 - **Saytda ochilgan, CRM'da sozlanmagan guruhlar** endi Guruhlar
   ro'yxatida ham ko'rinadi ("Faqat sozlanmaganlar" belgisi bilan
   ajratish mumkin). Bosh sahifadagi ogohlantirishdagi guruh nomini bosib,

@@ -33,6 +33,7 @@ from .models import (
     Eslatma,
     Filial,
     GuruhMoliya,
+    GuruhdanChiqish,
     Hisob,
     KursNarxi,
     Lid,
@@ -1636,9 +1637,16 @@ class TalabalarView(CrmView):
         # chiqqan) ham ko'rinishi kerak. Holat/filial filtri berilganda
         # ular chiqmaydi: guruhsizning holati ham, filiali ham yo'q.
         guruhsiz = request.query_params.get("guruhsiz")
-        if guruhsiz or not (request.query_params.get("holat") or request.query_params.get("filial")
-                            or qo_shimcha_filtr):
+        # Arxivlangan o'quvchi guruhlaridan chiqariladi (2026-09-25) — ya'ni
+        # u doim "guruhsiz". Filial tanlanganda — o'sha filial guruhidan
+        # chiqqanlari (aks holda arxiv ro'yxati filial bilan bo'sh chiqardi).
+        arxiv_filiali = request.query_params.get("filial") if arxiv else None
+        if guruhsiz or arxiv_filiali or not (request.query_params.get("holat") or request.query_params.get("filial")
+                                             or qo_shimcha_filtr):
             qolganlar = User.objects.filter(role=User.Role.STUDENT, is_active=not arxiv).exclude(pk__in=talabalar.keys())
+            if arxiv_filiali:
+                qolganlar = qolganlar.filter(
+                    pk__in=GuruhdanChiqish.objects.filter(filial_id=arxiv_filiali).values("talaba_id"))
             if qora:
                 qolganlar = qolganlar.filter(crm_talaba__qora_royxat=True)
             elif cheklanganmi(request.user):

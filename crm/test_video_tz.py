@@ -149,6 +149,11 @@ class LidSababTest(ApiAsos):
         self.assertEqual((self.lid.arxiv_sabab, self.lid.arxiv_izoh), ("", ""))
         self.assertEqual(LidTarix.objects.order_by("-id").first().matn, "Arxivdan chiqarildi")
 
+    def test_lidni_ochirib_bolmaydi(self):
+        """Shuhrat, 2026-09-25: o'chirish yo'q — faqat sabab bilan arxiv."""
+        self.assertEqual(self.m.delete(self.yol).status_code, 405)
+        self.assertTrue(Lid.objects.filter(pk=self.lid.pk).exists())
+
     def test_qora_royxat_izoh_majburiy(self):
         self.assertEqual(self.m.patch(self.yol, {"qora_royxat": True}, format="json").status_code, 400)
         j = self.m.patch(self.yol, {"qora_royxat": True, "qora_royxat_izoh": "haqorat qildi"}, format="json")
@@ -169,6 +174,30 @@ class TalabaArxivSababiTest(ApiAsos):
         m.patch(yol, {"faol": True}, format="json")
         p = TalabaProfil.objects.get(user=self.talaba)
         self.assertEqual((p.arxiv_sabab, p.arxiv_izoh), ("", ""))
+
+    def test_arxivlanganda_barcha_guruhlardan_chiqadi(self):
+        """Shuhrat, 2026-09-25: arxiv — guruhlardan ham chiqarish, ketish hisobotiga tushsin."""
+        self.azolik_qosh()
+        m = self.mijoz(self.admin)
+        with bugun(date(2026, 9, 20)):
+            j = m.patch(f"/api/crm/talaba/{self.talaba.id}/crm/",
+                        {"faol": False, "arxiv_sabab": "joylashuv", "arxiv_izoh": "ko'chib ketdi"}, format="json")
+        self.assertEqual(j.status_code, 200, j.data)
+        self.assertFalse(GuruhAzoligi.objects.filter(talaba=self.talaba).exists())
+        c = GuruhdanChiqish.objects.get()
+        self.assertEqual((c.sabab_turi, c.sabab, c.sana), ("joylashuv", "ko'chib ketdi", date(2026, 9, 20)))
+        # Filial tanlangan arxiv ro'yxatida ham ko'rinadi (guruhsiz bo'lib qolgani uchun).
+        royxat = m.get(f"/api/crm/talabalar/?arxiv=1&filial={self.filial.id}").data
+        self.assertIn(self.talaba.id, [x["id"] for x in royxat])
+        # Arxivdan chiqarish guruhga qaytarmaydi.
+        m.patch(f"/api/crm/talaba/{self.talaba.id}/crm/", {"faol": True}, format="json")
+        self.assertFalse(GuruhAzoligi.objects.filter(talaba=self.talaba).exists())
+
+    def test_sababsiz_arxivda_guruhdan_chiqmaydi(self):
+        self.azolik_qosh()
+        self.mijoz(self.admin).patch(f"/api/crm/talaba/{self.talaba.id}/crm/", {"faol": False}, format="json")
+        self.assertTrue(GuruhAzoligi.objects.filter(talaba=self.talaba).exists())
+        self.assertEqual(GuruhdanChiqish.objects.count(), 0)
 
 
 class KetishHisobotiTest(ApiAsos):

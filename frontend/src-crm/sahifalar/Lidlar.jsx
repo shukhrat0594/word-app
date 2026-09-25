@@ -302,7 +302,7 @@ function LidKartasi({ lidId, bolimlar, onYopish, onOzgardi, rejim = null }) {
   const profil = useProfil();
   const ruxsat = useRuxsat();
   const { malumot: lid, yuklanmoqda, yangila } = useSorov(`/api/crm/lidlar/${lidId}/`);
-  // `rejim` — kartochka menyusidan kelganda ("eslatma" / "tahrir").
+  // `rejim` — kartochka menyusidan kelganda ("eslatma" / "tahrir" / "arxiv").
   const [tab, setTab] = useState(rejim === "eslatma" ? "eslatmalar" : "malumot");
   const [tahrir, setTahrir] = useState(rejim === "tahrir");
   const [guruhga, setGuruhga] = useState(false);
@@ -310,7 +310,7 @@ function LidKartasi({ lidId, bolimlar, onYopish, onOzgardi, rejim = null }) {
   const [xato, setXato] = useState("");
   // "arxiv" / "qora" — sabab oynasi (video-TZ 2026-09-25: avval bir
   // bosishda arxivga/qora ro'yxatga ketib qolardi, sababi yozilmasdi).
-  const [sababOyna, setSababOyna] = useState(null);
+  const [sababOyna, setSababOyna] = useState(rejim === "arxiv" ? "arxiv" : null);
   // Qora ro'yxat hamma filialga ko'rinadi (2026-09-23) — lekin boshqa
   // filial lidini faqat ko'rish mumkin, o'zgartirish o'sha filialda.
   const begona = Boolean(lid?.filial_id && Array.isArray(profil?.filiallar)
@@ -328,18 +328,6 @@ function LidKartasi({ lidId, bolimlar, onYopish, onOzgardi, rejim = null }) {
       setXato(e.message);
     } finally {
       setBand(false);
-    }
-  }
-
-  async function ochir() {
-    if (!window.confirm(t("lid_ochirish_tasdiq"))) return;
-    setXato("");
-    try {
-      await api(`/api/crm/lidlar/${lidId}/`, { method: "DELETE" });
-      onOzgardi();
-      onYopish();
-    } catch (e) {
-      setXato(e.message);
     }
   }
 
@@ -367,11 +355,6 @@ function LidKartasi({ lidId, bolimlar, onYopish, onOzgardi, rejim = null }) {
                 {ruxsat("lidlar.guruhga") && lid.holat !== "qoshildi" && !begona && (
                   <button className="tugma kichik-tugma" type="button" onClick={() => setGuruhga(true)}>
                     👥 {t("guruhga_qoshish")}
-                  </button>
-                )}
-                {ruxsat("lidlar.ochirish") && !begona && (
-                  <button className="tugma tugma-sokin kichik-tugma rang-qarzdor" type="button" onClick={ochir}>
-                    🗑 {t("ochirish")}
                   </button>
                 )}
               </div>
@@ -945,20 +928,11 @@ export default function Lidlar() {
               ✎ {t("tahrirlash")}
             </button>
           )}
-          {ruxsat("lidlar.ochirish") && (
-            <button type="button" className="rang-qarzdor" onClick={async () => {
-              const lid = menyu.lid;
-              setMenyu(null);
-              if (!window.confirm(t("lid_ochirish_tasdiq"))) return;
-              setEksportXato("");
-              try {
-                await api(`/api/crm/lidlar/${lid.id}/`, { method: "DELETE" });
-                yangilaHammasi();
-              } catch (e) {
-                setEksportXato(e.message);
-              }
-            }}>
-              🗑 {t("ochirish")}
+          {/* O'chirish yo'q (2026-09-25) — o'rniga sabab bilan arxivlash. */}
+          {ruxsat("lidlar.arxiv") && !menyu.lid.arxiv && (
+            <button type="button" className="rang-qarzdor"
+                    onClick={() => { setOchiqRejim("arxiv"); setOchiq(menyu.lid.id); setMenyu(null); }}>
+              🗄 {t("arxivlash")}
             </button>
           )}
         </div>
