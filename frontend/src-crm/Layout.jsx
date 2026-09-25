@@ -4,6 +4,7 @@
 import { NavLink, Outlet } from "react-router-dom";
 
 import { serverdaChiqish, tokenlarniTozala } from "./api.js";
+import { EslatmaXabarProvider, XabarQongirogi } from "./EslatmaXabarlari.jsx";
 import { TILLAR, useI18n } from "./i18n.jsx";
 import FilialTanlash from "./FilialTanlash.jsx";
 import { useRuxsat } from "./profilContext.jsx";
@@ -37,6 +38,7 @@ export default function Layout({ profil }) {
   }
 
   return (
+    <EslatmaXabarProvider>
     <div className="crm">
       <header className="crm-sarlavha">
         <div className="crm-logo">
@@ -47,6 +49,7 @@ export default function Layout({ profil }) {
         <FilialTanlash />
 
         <div className="crm-onng">
+          <XabarQongirogi />
           <select
             className="til-tanlash"
             value={til}
@@ -88,5 +91,6 @@ export default function Layout({ profil }) {
         <Outlet />
       </main>
     </div>
+    </EslatmaXabarProvider>
   );
 }

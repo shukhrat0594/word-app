@@ -49,7 +49,6 @@ urlpatterns = [
     path("hisobot/", views.HisobotView.as_view(), name="hisobot"),
     path("hisobot/dinamika/", views.HisobotDinamikaView.as_view(), name="hisobot_dinamika"),
     path("eksport/", views.EksportView.as_view(), name="eksport"),
-    path("ogohlantirishlar/", views.OgohlantirishlarView.as_view(), name="ogohlantirishlar"),
 
     # ── Video-TZ (2026-09-23): CRM asosiy manba ──────────────────────
     path("men/", boshqaruv.MenView.as_view(), name="men"),

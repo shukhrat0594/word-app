@@ -536,7 +536,7 @@ class MaydaTuzatishlarTest(FilialAsos):
             mantiq.hisoblarni_generatsiya_qil()
             h = Hisob.objects.get(talaba=self.talaba, guruh=self.guruh, oy=SENTABR)
             o = self.mijoz(self.owner)
-            o.patch(f"/api/crm/hisoblar/{h.id}/", {"summa": "400000"}, format="json")
+            o.patch(f"/api/crm/hisoblar/{h.id}/", {"summa": "400000", "izoh": "kelishilgan"}, format="json")
             javob = o.post(f"/api/crm/guruhlar/{self.guruh.id}/chegirmalar/", {
                 "azolik_moliya_id": am.id, "narx": "100000", "boshlanish_oy": "2026-09"}, format="json")
             self.assertEqual(javob.status_code, 201, javob.data)
@@ -545,7 +545,7 @@ class MaydaTuzatishlarTest(FilialAsos):
             self.assertEqual(h.summa, Decimal("400000"))  # qaror: `qolda`ga tegilmaydi
             izoh = [x["izoh"] for x in o.get(f"/api/crm/tolov/?hisoblar=1&talaba={self.talaba.id}").data
                     if x["turi"] == "hisob"]
-            self.assertEqual(izoh, ["Qo'lda belgilangan summa"])
+            self.assertEqual(izoh, ["kelishilgan"])
             javob = o.delete(f"/api/crm/chegirmalar/{javob.data['id']}/")
             self.assertEqual(javob.status_code, 200)
             self.assertIn("2026-09", javob.data["ogohlantirish"])

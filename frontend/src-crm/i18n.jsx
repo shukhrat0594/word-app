@@ -16,6 +16,13 @@ export const TILLAR = [
 
 const SATRLAR = {
   uz: {
+    lidga_otish: "Lidga o'tish",
+    bajarildi_belgi: "Bajarildi",
+    bajarilmadi_qaytarish: "Bajarilmadi (qaytarish)",
+    xabarnomalar: "Xabarnomalar",
+    xabarnoma_yoq: "Vaqti kelgan eslatma yo'q",
+    qarz_izoh_namuna: "Masalan: sentabr oyida 7 ta dars uchun",
+    guruh_sozlanmagan_soni: "ta guruh CRM'da sozlanmagan (narx, dars jadvali yoki filial yo'q) — ularga hisob ochilmaydi.",
     // Video-TZ 2026-09-25: guruh sahifasi, sabablar, ketish hisoboti.
     arxiv_sababi: "Arxiv sababi",
     asosiy_ketish_sabablari: "Asosiy ketish sabablari",
@@ -213,10 +220,8 @@ const SATRLAR = {
     ota_ona_ismi: "Ota-ona ismi",
     umumiy_balans: "Umumiy balans",
 
-    ogohlantirishlar: "Ogohlantirishlar",
     ogohlantirish_izoh:
       "Bu guruhlarga hisob OCHILMAYDI — ya'ni ular jimgina pul yo'qotadi.",
-    ogohlantirish_yoq: "Hammasi sozlangan",
 
     narxlar: "Narxlar",
     sozlamalar: "Sozlamalar",
@@ -300,8 +305,6 @@ const SATRLAR = {
     tartib_balans: "Balans bo'yicha",
     tartib_sana: "Qo'shilgan sana bo'yicha",
     tartib_holat: "Holat bo'yicha",
-    qarzdorlar_royxati: "Qarzdorlar",
-    hammasini_korish: "Hammasini ko'rish",
     tolov_qoshish: "To'lov qo'shish",
     talaba_qidirish: "O'quvchini qidiring (ism yoki telefon)",
     qaysi_guruh: "Qaysi guruh uchun?",
@@ -590,6 +593,13 @@ const SATRLAR = {
   },
 
   ru: {
+    lidga_otish: "К лиду",
+    bajarildi_belgi: "Выполнено",
+    bajarilmadi_qaytarish: "Не выполнено (вернуть)",
+    xabarnomalar: "Уведомления",
+    xabarnoma_yoq: "Нет напоминаний",
+    qarz_izoh_namuna: "Например: за 7 занятий в сентябре",
+    guruh_sozlanmagan_soni: "групп не настроены в CRM (нет цены, расписания или филиала) — счета не создаются.",
     // Video-TZ 2026-09-25: guruh sahifasi, sabablar, ketish hisoboti.
     arxiv_sababi: "Причина архивации",
     asosiy_ketish_sabablari: "Основные причины ухода",
@@ -787,10 +797,8 @@ const SATRLAR = {
     ota_ona_ismi: "Имя родителя",
     umumiy_balans: "Общий баланс",
 
-    ogohlantirishlar: "Предупреждения",
     ogohlantirish_izoh:
       "По этим группам начисления НЕ создаются — то есть они тихо теряют деньги.",
-    ogohlantirish_yoq: "Всё настроено",
 
     narxlar: "Цены",
     sozlamalar: "Настройки",
@@ -874,8 +882,6 @@ const SATRLAR = {
     tartib_balans: "По балансу",
     tartib_sana: "По дате добавления",
     tartib_holat: "По статусу",
-    qarzdorlar_royxati: "Должники",
-    hammasini_korish: "Показать все",
     tolov_qoshish: "Добавить платёж",
     talaba_qidirish: "Найти ученика (имя или телефон)",
     qaysi_guruh: "За какую группу?",
@@ -1164,6 +1170,13 @@ const SATRLAR = {
   },
 
   en: {
+    lidga_otish: "Open lead",
+    bajarildi_belgi: "Done",
+    bajarilmadi_qaytarish: "Not done (undo)",
+    xabarnomalar: "Notifications",
+    xabarnoma_yoq: "No due reminders",
+    qarz_izoh_namuna: "E.g.: for 7 lessons in September",
+    guruh_sozlanmagan_soni: "groups are not configured in the CRM (no price, schedule or branch) — no invoices are created.",
     // Video-TZ 2026-09-25: guruh sahifasi, sabablar, ketish hisoboti.
     arxiv_sababi: "Archive reason",
     asosiy_ketish_sabablari: "Main reasons for leaving",
@@ -1361,10 +1374,8 @@ const SATRLAR = {
     ota_ona_ismi: "Parent name",
     umumiy_balans: "Total balance",
 
-    ogohlantirishlar: "Warnings",
     ogohlantirish_izoh:
       "No charges are created for these groups — they are quietly losing money.",
-    ogohlantirish_yoq: "Everything is configured",
 
     narxlar: "Prices",
     sozlamalar: "Settings",
@@ -1448,8 +1459,6 @@ const SATRLAR = {
     tartib_balans: "By balance",
     tartib_sana: "By join date",
     tartib_holat: "By status",
-    qarzdorlar_royxati: "Debtors",
-    hammasini_korish: "View all",
     tolov_qoshish: "Add payment",
     talaba_qidirish: "Find student (name or phone)",
     qaysi_guruh: "For which group?",

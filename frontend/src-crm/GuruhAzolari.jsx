@@ -5,6 +5,7 @@
 // izoh so'raladi), balans va ⋮ harakatlar (`OquvchiAmallari.jsx`).
 
 import { useState } from "react";
+import { Link } from "react-router-dom";
 
 import { api } from "./api.js";
 import OquvchiMenyusi, { MuzlatishOynasi } from "./OquvchiAmallari.jsx";
@@ -134,7 +135,8 @@ export default function GuruhAzolari({ guruhId, guruhNomi, onOzgardi }) {
         <tbody>
           {azolar.map((a) => (
             <tr key={a.id}>
-              <td>{a.talaba}</td>
+              {/* Ism — o'quvchi kartasiga (video-TZ 2026-09-25, SoffCRM'dagidek). */}
+              <td><Link className="havola" to={`/talabalar?talaba=${a.talaba_id}`}>{a.talaba}</Link></td>
               <td>{a.telefon || "—"}</td>
               <td>
                 {/* Sinov va muzlatilgan talabaga hisob OCHILMAYDI —
@@ -205,7 +207,10 @@ export default function GuruhAzolari({ guruhId, guruhNomi, onOzgardi }) {
           <tbody>
             {(sobiqlar.malumot || []).map((x, i) => (
               <tr key={i} className="qator-sokin">
-                <td>{x.talaba}</td><td>{sana(x.boshlagan_sana)}</td><td>{sana(x.sana)}</td>
+                <td>
+                  {x.talaba_id ? <Link className="havola" to={`/talabalar?talaba=${x.talaba_id}`}>{x.talaba}</Link> : x.talaba}
+                </td>
+                <td>{sana(x.boshlagan_sana)}</td><td>{sana(x.sana)}</td>
                 <td>
                   {t(`sabab_${x.sabab_turi}`)}
                   {x.sabab && <span className="kichik"> — {x.sabab}</span>}

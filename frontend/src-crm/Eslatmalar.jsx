@@ -7,6 +7,7 @@
 import { useState } from "react";
 
 import { api } from "./api.js";
+import { useEslatmaXabarlari } from "./EslatmaXabarlari.jsx";
 import { useI18n } from "./i18n.jsx";
 import { sorovSatri, useSorov } from "./soragich.js";
 
@@ -32,8 +33,14 @@ export default function Eslatmalar({ guruhId, talabaId, lidId, profilId, eslatis
   const [band, setBand] = useState(false);
 
   const yol = "/api/crm/eslatmalar/" + sorovSatri({ guruh: guruhId, talaba: talabaId, lid: lidId });
-  const { malumot, yuklanmoqda, yangila } = useSorov(yol);
+  const { malumot, yuklanmoqda, yangila: royxatniYangila } = useSorov(yol);
   const eslatmalar = malumot || [];
+  // 🔔 xabarnoma ham shu eslatmalardan — qo'shilsa / o'zgarsa u ham yangilansin.
+  const xabarlar = useEslatmaXabarlari();
+  function yangila() {
+    royxatniYangila();
+    xabarlar.yangila();
+  }
 
   async function qosh() {
     if (!matn.trim()) return;
@@ -71,6 +78,17 @@ export default function Eslatmalar({ guruhId, talabaId, lidId, profilId, eslatis
       yangila();
     } catch (e) {
       setXato(e.message || "Xato");
+    }
+  }
+
+  // "Bajarildi" (video-TZ 2026-09-25) — vaqti kelgan eslatma xabarnomadan ketadi.
+  async function bajarildi(e) {
+    setXato("");
+    try {
+      await api(`/api/crm/eslatmalar/${e.id}/`, { method: "PATCH", body: { bajarildi: !e.bajarildi } });
+      yangila();
+    } catch (err) {
+      setXato(err.message || "Xato");
     }
   }
 
@@ -128,7 +146,11 @@ export default function Eslatmalar({ guruhId, talabaId, lidId, profilId, eslatis
             ) : (
             <div className="eslatma-matn">{e.matn}</div>
             )}
-            {e.eslatish_vaqti && <div className="kichik">⏰ {vaqtMatni(e.eslatish_vaqti)}</div>}
+            {e.eslatish_vaqti && (
+              <div className={`kichik${e.bajarildi ? " rang-tolandi" : ""}`}>
+                ⏰ {vaqtMatni(e.eslatish_vaqti)}{e.bajarildi ? ` · ✓ ${t("bajarildi_belgi")}` : ""}
+              </div>
+            )}
             <div className="eslatma-past">
               <span className="kichik">
                 {e.kim || "—"} · {vaqtMatni(e.vaqt)}
@@ -139,6 +161,13 @@ export default function Eslatmalar({ guruhId, talabaId, lidId, profilId, eslatis
                   izohini tasodifan yo'q qilib qo'ymasin. */}
               {e.kim_id === profilId && (
                 <span>
+                  {e.eslatish_vaqti && (
+                    <>
+                      <button className="havola" type="button" onClick={() => bajarildi(e)}>
+                        {e.bajarildi ? t("bajarilmadi_qaytarish") : `✓ ${t("bajarildi_belgi")}`}
+                      </button>{" "}
+                    </>
+                  )}
                   <button className="havola" type="button" onClick={() => setTahrir({
                     id: e.id, matn: e.matn,
                     // <input type=datetime-local> mahalliy vaqtni "YYYY-MM-DDTHH:MM" ko'rinishida kutadi.

@@ -10,7 +10,7 @@ mavjud audit ilovasi qayta ishlatiladi, unga tegilmaydi.
 from datetime import timedelta
 from decimal import Decimal, InvalidOperation
 
-from django.db.models import Avg, Count, Exists, OuterRef, Q, Sum
+from django.db.models import Avg, Count, Q, Sum
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
@@ -181,6 +181,7 @@ def _eslatma_dict(e):
         "talaba_id": e.talaba_id,
         "lid_id": e.lid_id,
         "eslatish_vaqti": e.eslatish_vaqti,
+        "bajarildi": e.bajarildi,
         "kim_id": e.kim_id,
         "kim": (e.kim.get_full_name() or e.kim.username) if e.kim_id else None,
         "vaqt": e.created_at,
@@ -948,7 +949,7 @@ class EslatmaDetailView(CrmView):
     pk_turi = "eslatma"  # filial cheklovi: `crm.filial.obyekt_tekshir`
     def patch(self, request, pk):
         """Eslatmani tahrirlash (video 09:05: "Eslatmani tahrirlash" —
-        matn va eslatish vaqti). Faqat O'Z eslatmasini."""
+        matn, eslatish vaqti; 2026-09-25 dan "bajarildi"). Faqat O'Z eslatmasini."""
         eslatma = get_object_or_404(Eslatma, pk=pk)
         if eslatma.kim_id != request.user.pk:
             return _xato("Faqat o'z eslatmangizni tahrirlay olasiz", kod=403)
@@ -967,7 +968,9 @@ class EslatmaDetailView(CrmView):
                 if timezone.is_naive(vaqt):
                     vaqt = timezone.make_aware(vaqt)
             eslatma.eslatish_vaqti = vaqt
-        eslatma.save(update_fields=["matn", "eslatish_vaqti"])
+        if "bajarildi" in request.data:
+            eslatma.bajarildi = bool(request.data["bajarildi"])
+        eslatma.save(update_fields=["matn", "eslatish_vaqti", "bajarildi"])
         return Response(_eslatma_dict(eslatma))
 
     def delete(self, request, pk):
@@ -1284,20 +1287,25 @@ class HisoblarView(CrmView):
 
 
 class HisobDetailView(CrmView):
-    """Hisob summasini tuzatish — FAQAT owner.
+    """Hisob summasini tuzatish ("Qarzdorlikni tahrirlash").
 
     Kerak bo'ladigan holatlar: narx xato kiritilgan; bitta talabaga
     boshqacha kelishilgan; oyda kutilganidan kam dars bo'lgan. Busiz
     yagona qurol `chegirma` bo'lardi, u esa hisobotdagi chegirma
     ustunini ifloslaydi va markaz bermagan chegirmani ko'rsatadi.
+
+    Avval faqat owner edi; video-TZ (2026-09-25) dan — "Qarzdorlik
+    yozuvlari" (`moliya.hisob`) ruxsati borlar ham: qo'lda hisob qo'sha
+    oladigan xodim uni tuzata ham olsin. IZOH MAJBURIY — nega
+    o'zgargani to'lov tarixida ko'rinsin; o'zgarish audit jurnalida.
     """
 
     pk_turi = "hisob"  # filial cheklovi: `crm.filial.obyekt_tekshir`
     bolim = "moliya"
 
-    permission_classes = CrmView.permission_classes + [FaqatOwner]
-
     def patch(self, request, pk):
+        if xato := _ruxsatsiz(request, "moliya.hisob", "Qarzdorlikni tahrirlashga ruxsat yo'q"):
+            return xato
         hisob = get_object_or_404(Hisob, pk=pk)
         try:
             summa = _son(request.data.get("summa"), "summa")
@@ -1305,6 +1313,8 @@ class HisobDetailView(CrmView):
             return _xato(str(e))
         if summa < 0:
             return _xato("Summa manfiy bo'la olmaydi")
+        if not str(request.data.get("izoh") or "").strip():
+            return _xato("Izoh yozilsin — nega o'zgargani to'lov tarixida ko'rinadi")
 
         eski = hisob.summa
         hisob.summa = summa
@@ -1312,8 +1322,7 @@ class HisobDetailView(CrmView):
         # guruhdan chiqish) bu summaga TEGMAYDI: owner nima yozgan bo'lsa
         # shu qoladi (`mantiq.azolikni_qayta_hisobla`).
         hisob.qolda = True
-        if "izoh" in request.data:
-            hisob.izoh = (request.data.get("izoh") or "").strip()[:300]
+        hisob.izoh = str(request.data.get("izoh")).strip()[:300]
         hisob.save(update_fields=["summa", "izoh", "qolda"])
         mantiq.hisobni_yangila(hisob)
 
@@ -2108,67 +2117,3 @@ class EksportView(CrmView):
         )
         nomi = f"CRM-moliya-{oy:%Y-%m}.xlsx" if oy else "CRM-moliya.xlsx"
         return eksport.javob_qil(kitob, nomi)
-
-
-class OgohlantirishlarView(CrmView):
-    """Sozlanmagan guruhlar — narxi yoki dars jadvali yo'q.
-
-    Bunday guruhlarga hisob OCHILMAYDI, ya'ni ular jimgina pul
-    yo'qotadi. Shuning uchun alohida ro'yxat kerak.
-    """
-
-    def get(self, request):
-        guruhlar = (
-            Guruh.objects.filter(faol=True).filter(guruh_q(request.user))
-            .select_related("moliya", "daraja__crm_narxi")
-            .prefetch_related("crm_jadval")
-            .annotate(_talaba_soni=Count("talabalar", distinct=True))
-        )
-        natija = []
-        for g in guruhlar:
-            if g._talaba_soni == 0:
-                continue  # a'zosi yo'q guruh — muammo emas
-            sabablar = []
-            narx = mantiq.guruh_narxi(g)[0]
-            if narx is None or narx <= 0:
-                sabablar.append("narx yo'q")
-            if not g.crm_jadval.all():
-                sabablar.append("dars jadvali yo'q")
-            if getattr(g, "moliya", None) is None:
-                sabablar.append("CRM'da sozlanmagan")
-            if sabablar:
-                natija.append(
-                    {"guruh_id": g.id, "guruh": g.name,
-                     "talaba_soni": g._talaba_soni, "sabablar": sabablar}
-                )
-
-        # Saytda guruhdan chiqarilgan talabaning JORIY OY to'lanmagan
-        # hisobi. Arxivlash CRM'da emas (2026-09-16): a'zolik saytda
-        # o'chadi, `AzolikMoliya` u bilan ketadi, ya'ni chiqish
-        # sanasigacha proporsional qayta hisob (TZ 4.6) O'ZI ishlamaydi.
-        # Signal ulanmaydi (TZ 3.0, 3-qoida) — shuning uchun bu yerda
-        # ko'rsatiladi, owner summani qo'lda tuzatadi yoki chegirma qiladi.
-        joriy_oy = mantiq.oy_boshi(timezone.localdate())
-        chiqqanlar = (
-            Hisob.objects.filter(oy=joriy_oy, talaba__isnull=False, guruh__isnull=False)
-            .filter(filial_q(request.user, "filial"))
-            .exclude(holat=Hisob.Holat.TOLANDI)
-            .annotate(
-                azo=Exists(
-                    GuruhAzoligi.objects.filter(
-                        guruh_id=OuterRef("guruh_id"), talaba_id=OuterRef("talaba_id")
-                    )
-                )
-            )
-            .filter(azo=False)
-            .select_related("talaba", "guruh")
-        )
-        for h in chiqqanlar:
-            natija.append(
-                {"guruh_id": h.guruh_id, "guruh": _tirik_guruh(h), "hisob_id": h.id,
-                 "talaba_soni": 1,
-                 "sabablar": [f"{_tirik_talaba(h)} saytda guruhdan chiqarilgan, "
-                              f"{h.oy:%Y-%m} hisobi ({h.summa:,.0f}) to'lanmagan — "
-                              f"summani tuzating yoki chegirma qiling"]}
-            )
-        return Response(natija)

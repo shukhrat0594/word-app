@@ -19,6 +19,25 @@ Format (qat'iy, parser shunga tayanadi):
 
 ---
 
+## 2026-09-25 — CRM: qarzni tuzatish, eslatma xabarnomalari
+
+- **Qarzni tuzatish mumkin.** O'quvchi kartasidagi "To'lov tarixi"da
+  qarz qatorida "Tahrirlash" tugmasi bor: summani o'zgartirib, izoh
+  yozasiz ("sentabr oyida 7 ta dars uchun"). Izoh majburiy va to'lov
+  tarixida ko'rinib turadi. Bu "Qarzdorlik yozuvlari" ruxsati bor
+  xodimlarga (administrator) ochiq.
+- **Eslatmalar xabarnoma bo'lib chiqadi.** Sarlavhada 🔔 qo'ng'iroqcha —
+  vaqti kelgan eslatmalar soni bilan. Bosganda ro'yxat ochiladi: "Lidga
+  o'tish" o'sha lid kartasini ochadi, "Bajarildi" eslatmani ro'yxatdan
+  olib tashlaydi. Bosh sahifadagi "Vaqti kelgan eslatmalar"da ham shu
+  tugmalar bor.
+- **Guruhdagi o'quvchi ismini bosib** uning kartasiga o'tasiz.
+- **Bosh sahifa soddalashdi**: "Qarzdorlar" ro'yxati (u "Qarzdorlar"
+  kartochkasidan ochiladi) va "Ogohlantirishlar" bloki olib tashlandi —
+  boshqa guruhga ko'chirilgan o'quvchini "saytda guruhdan chiqarilgan"
+  deb ko'rsatib adashtirardi. Sozlanmagan guruhlar haqidagi eslatma endi
+  Guruhlar sahifasining tepasida.
+
 ## 2026-09-25 — CRM: guruh sahifasi, ketish sabablari va hisoboti
 
 - **Har guruhning o'z sahifasi bor.** Dars jadvalidagi guruh bosilganda

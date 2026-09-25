@@ -2411,15 +2411,17 @@ class GuruhBaholariView(CrmView):
 
 class MuddatliEslatmalarView(CrmView):
     """Vaqti kelgan eslatmalar (video 09:05-09:26: "28-sanada soat 2 da
-    eslatsin") — bosh sahifada bugungi va muddati o'tganlari chiqadi.
-    Faqat shu foydalanuvchi YOZGANLARI: har kim o'z eslatmalarini ko'radi."""
+    eslatsin") — bosh sahifa va 🔔 xabarnomada bugungi va muddati
+    o'tganlari, "Bajarildi" belgilanmaganlari chiqadi. Faqat shu
+    foydalanuvchi YOZGANLARI: har kim o'z eslatmalarini ko'radi."""
 
     bolim = None
 
     def get(self, request):
         oxiri = timezone.localtime().replace(hour=23, minute=59, second=59)
         qs = (
-            Eslatma.objects.filter(kim=request.user, eslatish_vaqti__isnull=False, eslatish_vaqti__lte=oxiri)
+            Eslatma.objects.filter(kim=request.user, eslatish_vaqti__isnull=False, eslatish_vaqti__lte=oxiri,
+                                   bajarildi=False)
             .select_related("lid", "talaba", "guruh")
             .order_by("eslatish_vaqti")[:50]
         )
