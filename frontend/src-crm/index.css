@@ -1063,3 +1063,40 @@ table.ixcham td { padding: 3px 6px; font-size: 13px; }
 }
 .sabab-chiziq { background: var(--fon); border-radius: 4px; height: 14px; overflow: hidden; }
 .sabab-chiziq span { display: block; height: 100%; background: var(--qarzdor); }
+
+/* ── 🔔 Xabarnomalar va vaqti kelgan eslatmalar (video-TZ 2026-09-25) ── */
+.xabar-qongiroq { position: relative; display: inline-block; }
+.xabar-soni {
+  display: inline-block;
+  min-width: 18px;
+  margin-inline-start: 4px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--qarzdor);
+  color: #fff;
+  font-size: 11px;
+  line-height: 18px;
+  text-align: center;
+}
+.xabar-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 30;
+  width: min(380px, calc(100vw - 32px));
+  max-height: 70vh;
+  overflow-y: auto;
+  margin: 0;
+  text-align: start;
+}
+.xabar-panel h3 { margin: 0 0 8px; font-size: 15px; }
+.eslatma-xabarlar { list-style: none; margin: 0; padding: 0; }
+.eslatma-xabarlar li { padding: 8px 0; border-bottom: 1px solid var(--chegara); }
+.eslatma-xabarlar li:last-child { border-bottom: 0; }
+.eslatma-xabar-bosh, .eslatma-xabar-past {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+.eslatma-xabar-past { margin-top: 4px; font-size: 13px; }

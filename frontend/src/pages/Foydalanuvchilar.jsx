@@ -501,6 +501,145 @@ function CrmTalabaTanlash({ t, tanlangan, setTanlangan, qidiruv, setQidiruv }) {
   );
 }
 
+/** O'chirish ogohlantirishi (2026-09-25, Shuhrat talabi). Avval oddiy
+ * `window.confirm` edi va "butunlay o'chadi" derdi. Endi o'chirilgan
+ * foydalanuvchi 7 kun "O'chirilganlar"da turadi — oyna shuni, nima
+ * yo'qolishini va ketgan o'quvchini arxivlash yaxshiroq ekanini aytadi. */
+function OchirishOynasi({ user, onYopish, onTasdiq, t }) {
+  const [band, setBand] = useState(false);
+  const [xato, setXato] = useState("");
+
+  async function tasdiqla() {
+    setBand(true);
+    setXato("");
+    try {
+      await onTasdiq(user);
+      onYopish();
+    } catch (e) {
+      setXato(e.data?.detail || t("xato_yuz_berdi"));
+    } finally {
+      setBand(false);
+    }
+  }
+
+  // CRM o'quvchisi O'CHIRILMAYDI — faqat saytga kirishi yopiladi
+  // (2026-09-25): sayt hisobi va CRM talabasi bitta yozuv.
+  const crm = Boolean(user.crm_talaba);
+  const nom = user.ism || user.username;
+
+  return (
+    <div className="ochirish-modal-fon" role="dialog" aria-modal="true">
+      <div className="ochirish-modal">
+        <h3>⚠️ {t(crm ? "sayt_kirishini_yopish" : "ochirish_sarlavha")}</h3>
+        <p><strong>{nom}</strong> <span className="izoh">({user.username})</span></p>
+        {crm ? (
+          <>
+            <p>{t("crm_talaba_ochirilmaydi").replace("{nom}", nom)}</p>
+            <p className="ochirish-7-kun">🔑 {t("crm_talaba_qayta_ochish")}</p>
+          </>
+        ) : (
+          <>
+            <p>{t("ochirish_tasdiq").replace("{nom}", nom)}</p>
+            <p className="ochirish-7-kun">🗑 {t("ochirish_7_kun")}</p>
+          </>
+        )}
+        {user.role === "student" && <p className="izoh">💡 {t("ochirish_arxiv_maslahat")}</p>}
+        {xato && <p className="xato-xabar">{xato}</p>}
+        <div className="ochirish-modal-tugmalar">
+          <button className="tugma ikkinchi" type="button" onClick={onYopish} disabled={band}>
+            {t("ochirish_bekor")}
+          </button>
+          <button className="tugma xavfli" type="button" onClick={tasdiqla} disabled={band}>
+            {t(crm ? "kirishni_yopish" : "ha_ochirish")}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** "O'chirilganlar" (2026-09-25) — 7 kun ichida tiklash yoki butunlay
+ * o'chirish. Backend: `accounts/savat.py`. */
+function Ochirilganlar({ t, onOzgardi }) {
+  const [royxat, setRoyxat] = useState(null);
+  const [xabar, setXabar] = useState("");
+  const [band, setBand] = useState(null);
+
+  function yukla() {
+    api("/api/ochirilganlar/").then(setRoyxat).catch((e) => setXabar(e.data?.detail || t("xato_yuz_berdi")));
+  }
+  useEffect(() => {
+    yukla();
+  }, []);
+
+  async function tikla(y) {
+    setBand(y.id);
+    setXabar("");
+    try {
+      const j = await api(`/api/ochirilganlar/${y.id}/`, { method: "POST", body: {} });
+      let matn = t("tiklandi_xabar").replace("{nom}", y.username);
+      if (j.tiklanmaganlar?.length) matn += " " + t("tiklanmaganlar_xabar").replace("{soni}", j.tiklanmaganlar.length);
+      setXabar(matn);
+      yukla();
+      onOzgardi?.();
+    } catch (e) {
+      setXabar(e.data?.detail || t("xato_yuz_berdi"));
+    } finally {
+      setBand(null);
+    }
+  }
+
+  async function butunlay(y) {
+    if (!window.confirm(t("butunlay_ochirish_tasdiq").replace("{nom}", y.username))) return;
+    setBand(y.id);
+    setXabar("");
+    try {
+      await api(`/api/ochirilganlar/${y.id}/`, { method: "DELETE" });
+      yukla();
+    } catch (e) {
+      setXabar(e.data?.detail || t("xato_yuz_berdi"));
+    } finally {
+      setBand(null);
+    }
+  }
+
+  if (!royxat) return <div className="karta">{xabar || t("yuklanmoqda")}</div>;
+
+  return (
+    <div className="karta">
+      <p className="izoh" style={{ marginTop: 0 }}>{t("ochirilganlar_izoh")}</p>
+      {xabar && <p className="izoh"><strong>{xabar}</strong></p>}
+      {royxat.length === 0 && <p className="izoh">{t("ochirilganlar_yoq")}</p>}
+      <div style={{ display: "grid", gap: 10 }}>
+        {royxat.map((y) => (
+          <div className="davomat-qator" key={y.id}>
+            <span>
+              <strong>{y.ism || y.username}</strong>{" "}
+              <span className="izoh">
+                {y.username} · {t(`rol_${y.rol}`)} · {t("ochirgan_kim")}: {y.ochirgan || "—"} ·{" "}
+                {new Date(y.ochirilgan_vaqt).toLocaleString()}
+              </span>
+              <br />
+              <span className={y.qolgan_kun <= 1 ? "xato-xabar" : "izoh"}>
+                ⏳ {y.qolgan_kun > 0 ? t("qolgan_kun").replace("{kun}", y.qolgan_kun) : t("bugun_ochadi")}
+              </span>
+            </span>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <button className="tugma" type="button" disabled={band === y.id} onClick={() => tikla(y)}>
+                ↩ {t("tiklash")}
+              </button>
+              <button className="tugma ikkinchi" type="button" style={{ color: "#d33" }} disabled={band === y.id}
+                      onClick={() => butunlay(y)}>
+                {t("butunlay_ochirish")}
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function Foydalanuvchilar() {
   const { t } = useI18n();
   const { profil } = useProfil();
@@ -517,6 +656,10 @@ export default function Foydalanuvchilar() {
   // va sahifani cho'zib yuborardi. Endi ikkita vkladka: chapda ro'yxat,
   // o'ngda aktiv seanslar. Aktiv bo'limini faqat owner ko'radi.
   const [bolim, setBolim] = useState("royxat");
+  // O'chirish oynasi (2026-09-25) — `OchirishOynasi` izohiga qarang.
+  const [ochiriladigan, setOchiriladigan] = useState(null);
+  // "O'chirilganlar" — o'chira oladiganlar (owner va admin) ko'radi.
+  const savatKorinadi = profil?.is_owner || profil?.role === "admin";
 
   function yukla(q) {
     const query = q !== undefined ? q : qidiruv;
@@ -547,14 +690,12 @@ export default function Foydalanuvchilar() {
     }
   }
 
+  // Xato `OchirishOynasi`da ko'rsatiladi (u yerda ushlanadi).
   async function ochir(u) {
-    if (!window.confirm(t("ochirish_tasdiq").replace("{nom}", u.username))) return;
-    try {
-      await api(`/api/foydalanuvchilar/${u.id}/ochirish/`, { method: "DELETE" });
-      yukla();
-    } catch (e) {
-      setXabar((x) => ({ ...x, [u.id]: e.data?.detail || t("xato_yuz_berdi") }));
-    }
+    const j = await api(`/api/foydalanuvchilar/${u.id}/ochirish/`, { method: "DELETE" });
+    // CRM o'quvchisi ro'yxatda qoladi — nima bo'lganini shu qatorda aytamiz.
+    if (j?.sayt_kirishi_yopildi) setXabar((x) => ({ ...x, [u.id]: t("sayt_kirishi_yopildi_xabar") }));
+    yukla();
   }
 
   async function panellarSaqla(id, panellar) {
@@ -648,7 +789,7 @@ export default function Foydalanuvchilar() {
 
   return (
     <div style={{ display: "grid", gap: 20 }}>
-    {profil?.is_owner && (
+    {savatKorinadi && (
       <div className="tab-guruh">
         <button
           className={bolim === "royxat" ? "aktiv" : undefined}
@@ -656,20 +797,33 @@ export default function Foydalanuvchilar() {
         >
           {t("nav_foydalanuvchilar")}
         </button>
+        {profil?.is_owner && (
+          <button
+            className={bolim === "aktiv" ? "aktiv" : undefined}
+            onClick={() => setBolim("aktiv")}
+          >
+            {t("seans_sarlavha")}
+          </button>
+        )}
         <button
-          className={bolim === "aktiv" ? "aktiv" : undefined}
-          onClick={() => setBolim("aktiv")}
+          className={bolim === "ochirilganlar" ? "aktiv" : undefined}
+          onClick={() => setBolim("ochirilganlar")}
         >
-          {t("seans_sarlavha")}
+          🗑 {t("ochirilganlar")}
         </button>
       </div>
     )}
+    {ochiriladigan && (
+      <OchirishOynasi user={ochiriladigan} onYopish={() => setOchiriladigan(null)} onTasdiq={ochir} t={t} />
+    )}
     {profil?.is_owner && bolim === "aktiv" ? (
     <AktivFoydalanuvchilar t={t} />
+    ) : savatKorinadi && bolim === "ochirilganlar" ? (
+    <Ochirilganlar t={t} onOzgardi={() => yukla()} />
     ) : (
     <div className="karta">
-      {/* Owner'da bo'lim nomi vkladkada turadi, takrorlamaymiz. */}
-      {!profil?.is_owner && <h3>{t("nav_foydalanuvchilar")}</h3>}
+      {/* Vkladkalar bo'lsa, bo'lim nomi o'sha yerda turadi — takrorlamaymiz. */}
+      {!savatKorinadi && <h3>{t("nav_foydalanuvchilar")}</h3>}
 
       <form
         onSubmit={yangiYarat}
@@ -784,7 +938,7 @@ export default function Foydalanuvchilar() {
                 <button
                   className="tugma ikkinchi"
                   style={{ color: "#d33" }}
-                  onClick={() => ochir(u)}
+                  onClick={() => setOchiriladigan(u)}
                 >
                   {t("ochirish")}
                 </button>

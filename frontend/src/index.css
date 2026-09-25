@@ -1351,3 +1351,19 @@ input.imtihon-bosh-joy.faol { border-color: var(--sariq-toq); box-shadow: 0 0 0 
 .blok-tasdiq-savol-qator { display: flex; align-items: center; gap: 8px; }
 .blok-tasdiq-savol-qator .izoh { flex: 1; }
 .blok-tasdiq-savol-qator input { max-width: 160px; }
+
+/* O'chirish ogohlantirishi (2026-09-25) — foydalanuvchi 7 kun tiklanadi. */
+.ochirish-modal-fon {
+  position: fixed; inset: 0; z-index: 300; background: rgba(0, 0, 0, .55);
+  display: flex; align-items: center; justify-content: center; padding: 16px;
+}
+.ochirish-modal {
+  background: var(--sirt); border-radius: 14px; padding: 20px 24px;
+  max-width: 460px; width: 100%; box-shadow: 0 10px 40px rgba(0, 0, 0, .35);
+}
+.ochirish-modal h3 { margin: 0 0 10px; color: var(--xato); }
+.ochirish-modal p { margin: 0 0 10px; font-size: 14px; }
+.ochirish-7-kun {
+  background: var(--sirt-2); border-radius: 8px; padding: 8px 10px;
+}
+.ochirish-modal-tugmalar { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }

@@ -184,7 +184,11 @@ function TolovTahrirOynasi({ tolov, onYopish, onSaqlandi }) {
   );
 }
 
-// ── Qarzdorlikni tahrirlash (video 20:30) — faqat owner ─────────────
+// ── Qarzdorlikni tahrirlash (video 20:30; video-TZ 2026-09-25) ──────
+//
+// "Qarzdorlik yozuvlari" (`moliya.hisob`) ruxsati borlarga. Izoh majburiy:
+// SoffCRM'dagidek "sentabr oyida 7 ta dars uchun" — nega o'zgargani to'lov
+// tarixida ko'rinsin (dars sonida xato bo'lganda tuzatiladi).
 
 function HisobTahrirOynasi({ hisob, onYopish, onSaqlandi }) {
   const { t } = useI18n();
@@ -193,6 +197,7 @@ function HisobTahrirOynasi({ hisob, onYopish, onSaqlandi }) {
   const [xato, setXato] = useState("");
   async function saqla() {
     setXato("");
+    if (!izoh.trim()) return setXato(t("izoh_majburiy"));
     try {
       await api(`/api/crm/hisoblar/${hisob.id}/`, { method: "PATCH", body: { summa, izoh } });
       onSaqlandi();
@@ -205,9 +210,13 @@ function HisobTahrirOynasi({ hisob, onYopish, onSaqlandi }) {
     <div className="oyna-fon" role="dialog" aria-modal="true">
       <div className="karta oyna">
         <h2>{t("qarzdorlikni_tahrirlash")}</h2>
-        <p className="kichik">{hisob.guruh} · {String(hisob.oy).slice(0, 7)}</p>
-        <label>{t("summa")}<input type="number" min="0" step="1000" value={summa} onChange={(e) => setSumma(e.target.value)} /></label>
-        <label>{t("izoh")}<textarea rows={3} value={izoh} onChange={(e) => setIzoh(e.target.value)} maxLength={300} /></label>
+        <div className="qator"><span className="kichik">{t("qaysi_guruh")}</span><b>{hisob.guruh}</b></div>
+        <div className="qator"><span className="kichik">{t("qaysi_oy")}</span><span>{String(hisob.oy).slice(0, 7)}</span></div>
+        <label>{t("summa")}<input type="number" min="0" step="1000" value={summa} onChange={(e) => setSumma(e.target.value)} autoFocus /></label>
+        <label>{t("izoh")} *
+          <textarea rows={3} value={izoh} onChange={(e) => setIzoh(e.target.value)} maxLength={300}
+                    placeholder={t("qarz_izoh_namuna")} />
+        </label>
         {xato && <div className="xato">{xato}</div>}
         <div className="oyna-tugmalar">
           <button className="tugma tugma-sokin" type="button" onClick={onYopish}>{t("bekor")}</button>
@@ -950,9 +959,9 @@ function Karta({ talabaId, onOrqaga }) {
                           {t("tolov_qilish")}
                         </button>
                       )}
-                      {hisobQatori && hisob && profil?.is_owner && (
-                        <button className="havola" type="button" title={t("qarzdorlikni_tahrirlash")}
-                                onClick={() => setTahrirHisobi(hisob)}>✎</button>
+                      {hisobQatori && hisob && ruxsat("moliya.hisob") && (
+                        <button className="tugma tugma-sokin kichik-tugma" type="button" title={t("qarzdorlikni_tahrirlash")}
+                                onClick={() => setTahrirHisobi(hisob)}>✎ {t("tahrirlash")}</button>
                       )}
                       {!hisobQatori && profil?.is_owner && (
                         <>

@@ -66,6 +66,10 @@ export default function Guruhlar() {
     }
     return true;
   });
+  // Sozlanmagan (narx / jadval / filial yo'q) va o'quvchisi bor guruhlar —
+  // ularga hisob ochilmaydi. 2026-09-25 dan bu ogohlantirish bosh sahifada
+  // emas, shu yerda (admin talabi: bosh sahifadagi blok olib tashlandi).
+  const sozlanmaganlar = hammasi.filter((g) => !g.sozlangan && g.talaba_soni > 0);
   const oqituvchiVariantlari = [...new Set(hammasi.map((g) => g.oqituvchi).filter(Boolean))].sort();
   const kursVariantlari = [...new Map(hammasi.filter((g) => g.daraja).map((g) => [g.daraja.id, g.daraja.nomi])).entries()];
 
@@ -128,6 +132,16 @@ export default function Guruhlar() {
 
       {(xato || amalXato) && <div className="xato">{xato || amalXato}</div>}
       {yuklanmoqda && <p className="kichik">{t("yuklanmoqda")}</p>}
+      {!arxiv && sozlanmaganlar.length > 0 && (
+        <p className="ogohlantirish">
+          ⚠ {sozlanmaganlar.length} {t("guruh_sozlanmagan_soni")}{" "}
+          {!sozlanmaganF && (
+            <button className="havola" type="button" onClick={() => setSozlanmaganF(true)}>
+              {t("sozlanmaganlarni_ochish")} →
+            </button>
+          )}
+        </p>
+      )}
 
       <div className="karta jadval-oram">
         <table>

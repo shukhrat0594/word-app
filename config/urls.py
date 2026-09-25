@@ -38,6 +38,8 @@ from accounts.views import (
     FoydalanuvchilarView,
     FoydalanuvchiOchirishView,
     FoydalanuvchiParolTiklashView,
+    OchirilganlarView,
+    OchirilganTiklashView,
     FoydalanuvchiFarzandlarView,
     FoydalanuvchiNatijalariView,
     FoydalanuvchiPanellarView,
@@ -144,6 +146,9 @@ urlpatterns = [
         FoydalanuvchiOchirishView.as_view(),
         name='foydalanuvchi_ochirish',
     ),
+    # O'chirilganlar (2026-09-25): 7 kun ichida tiklash — `accounts/savat.py`.
+    path('api/ochirilganlar/', OchirilganlarView.as_view(), name='ochirilganlar'),
+    path('api/ochirilganlar/<int:pk>/', OchirilganTiklashView.as_view(), name='ochirilgan_tiklash'),
     path(
         'api/foydalanuvchilar/<int:pk>/rol/',
         FoydalanuvchiRolView.as_view(),

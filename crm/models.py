@@ -496,6 +496,9 @@ class Eslatma(models.Model):
     # Ixtiyoriy eslatish vaqti ("23.09 kuni keladi") — lid kartochkasi
     # ustida va bosh sahifada ko'rsatiladi.
     eslatish_vaqti = models.DateTimeField(null=True, blank=True)
+    # "Bajarildi" (video-TZ 2026-09-25): vaqti o'tgan eslatma bosh sahifa
+    # va 🔔 xabarnomada qolib ketardi — belgilanmaguncha chiqib turadi.
+    bajarildi = models.BooleanField(default=False)
     matn = models.TextField(max_length=2000)
     kim = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,

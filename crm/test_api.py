@@ -97,23 +97,26 @@ class RuxsatTest(ApiAsos):
         )
         self.assertEqual(self.mijoz(self.owner).get("/api/crm/hisoblar/").status_code, 200)
 
-    def test_hisob_summasini_admin_tuzata_olmaydi(self):
+    def test_hisob_summasini_tuzatish_izoh_bilan(self):
+        """Video-TZ 2026-09-25: "Qarzdorlik yozuvlari" ruxsati borlar
+        (administrator) ham tuzatadi, lekin IZOH majburiy; ruxsatsiz — 403."""
         self.azolik_qosh(boshlanish=date(2026, 9, 1))
         with bugun_qilib(date(2026, 9, 30)):
             mantiq.hisoblarni_generatsiya_qil()
         hisob = Hisob.objects.get()
+        yol = f"/api/crm/hisoblar/{hisob.id}/"
 
-        javob = self.mijoz(self.admin).patch(
-            f"/api/crm/hisoblar/{hisob.id}/", {"summa": "100000"}, format="json"
-        )
-        self.assertEqual(javob.status_code, 403)
-
-        javob = self.mijoz(self.owner).patch(
-            f"/api/crm/hisoblar/{hisob.id}/", {"summa": "100000"}, format="json"
-        )
-        self.assertEqual(javob.status_code, 200)
+        self.assertEqual(self.mijoz(self.admin).patch(yol, {"summa": "100000"}, format="json").status_code, 400)
+        javob = self.mijoz(self.admin).patch(yol, {"summa": "100000", "izoh": "7 ta dars"}, format="json")
+        self.assertEqual(javob.status_code, 200, javob.data)
         hisob.refresh_from_db()
-        self.assertEqual(hisob.summa, Decimal("100000"))
+        self.assertEqual((hisob.summa, hisob.izoh, hisob.qolda), (Decimal("100000"), "7 ta dars", True))
+
+        from crm.models import XodimProfil
+        marketolog = User.objects.create_user(username="mk", password="x", role=User.Role.ODDIY)
+        XodimProfil.objects.create(user=marketolog, lavozim="marketolog")
+        javob = self.mijoz(marketolog).patch(yol, {"summa": "1", "izoh": "x"}, format="json")
+        self.assertEqual(javob.status_code, 403)
 
     def test_tolovni_faqat_owner_ochiradi(self):
         tolov = Tolov.objects.create(
@@ -356,34 +359,6 @@ class OqimTest(ApiAsos):
         am.refresh_from_db()
         mantiq.azolikni_qayta_hisobla(am, SENTABR)
         self.assertEqual(Hisob.objects.get().summa, Decimal("330000"))
-
-    def test_saytdan_chiqarilgan_talaba_ogohlantirishda(self):
-        """Talaba saytda guruhdan chiqarilsa a'zolik (va AzolikMoliya)
-        o'chadi, joriy oy hisobi esa to'liq summada qoladi — bu
-        ogohlantirishda ko'rinishi shart, aks holda jimgina ortiqcha
-        qarz turadi."""
-        am = self.azolik_qosh(boshlanish=date(2026, 9, 1))
-        mijoz = self.mijoz(self.admin)
-        with bugun_qilib(date(2026, 9, 20)):
-            mijoz.get("/api/crm/hisoblar/")
-            self.assertEqual(Hisob.objects.count(), 1)
-
-            am.azolik.delete()  # saytdagi "guruhdan chiqarish"
-            self.assertEqual(Hisob.objects.count(), 1)  # pul tarixi qoladi
-
-            javob = mijoz.get("/api/crm/ogohlantirishlar/")
-        self.assertEqual(javob.status_code, 200)
-        chiqqan = [x for x in javob.data if x.get("hisob_id")]
-        self.assertEqual(len(chiqqan), 1)
-        self.assertIn("guruhdan chiqarilgan", chiqqan[0]["sabablar"][0])
-
-    def test_ogohlantirishlar_sozlanmagan_guruhni_korsatadi(self):
-        KursNarxi.objects.all().delete()
-        self.azolik_qosh()
-        javob = self.mijoz(self.admin).get("/api/crm/ogohlantirishlar/")
-        self.assertEqual(javob.status_code, 200)
-        self.assertEqual(len(javob.data), 1)
-        self.assertIn("narx yo'q", javob.data[0]["sabablar"])
 
     def test_talaba_kartasi(self):
         self.azolik_qosh(boshlanish=date(2026, 9, 1))

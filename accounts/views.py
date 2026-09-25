@@ -1,4 +1,5 @@
 import datetime
+import math
 
 from django.conf import settings
 from django.contrib.auth.password_validation import validate_password
@@ -565,6 +566,12 @@ class FoydalanuvchilarView(APIView):
         q = (request.query_params.get("q") or "").strip()
         if q:
             qs = qs.filter(username__icontains=q)
+        from .savat import ochirilmaydiganlar
+
+        qs = list(qs[:200])
+        # CRM o'quvchilari — "O'chirish" ularni o'chirmaydi, faqat saytga
+        # kirishini yopadi; ogohlantirish oynasi shuni oldindan aytadi.
+        crm_talabalari = ochirilmaydiganlar(u.id for u in qs if u.role == User.Role.STUDENT)
         return Response(
             [
                 {
@@ -598,8 +605,9 @@ class FoydalanuvchilarView(APIView):
                     # Talaba uchun — allaqachon biriktirilganmi (frontend
                     # band talabani belgilashga ruxsat bermasligi uchun).
                     "ota_ona_id": u.ota_ona_id,
+                    "crm_talaba": u.id in crm_talabalari,
                 }
-                for u in qs[:200]
+                for u in qs
             ]
         )
 
@@ -1171,6 +1179,10 @@ class FoydalanuvchiOchirishView(APIView):
     o'chira olmaydi; owner bo'lmagan admin boshqa adminni o'chira olmaydi.
     O'chirish bilan birga foydalanuvchining barcha bog'liq ma'lumotlari
     (tekshiruv tarixi va h.k.) ham o'chadi (FK cascade).
+
+    2026-09-25 dan o'chirishdan OLDIN hamma narsa nusxalanadi va 7 kun
+    "O'chirilganlar"da turadi — shu muddatda tiklash mumkin
+    (`accounts/savat.py`), keyin nusxa butunlay o'chadi.
     """
 
     permission_classes = [IsAuthenticated]
@@ -1189,19 +1201,128 @@ class FoydalanuvchiOchirishView(APIView):
                 {"detail": "Adminni faqat owner o'chira oladi"}, status=403
             )
 
+        from .savat import SAQLASH_KUNI, ochir_va_saqla, ochirilmaydiganlar, sayt_kirishini_yop
+
         username = user.username
         user_id = user.id
         rol = user.role
-        user.delete()
+        # CRM o'quvchisi O'CHIRILMAYDI — faqat saytga kirishi yopiladi
+        # (Shuhrat, 2026-09-25; `savat.SAYTDAN_OCHIRILMAYDIGANLAR` izohi).
+        if user_id in ochirilmaydiganlar([user_id]):
+            sayt_kirishini_yop(user)
+            logla(foydalanuvchi=request.user, harakat=FaoliyatYozuvi.Harakat.OZGARTIRISH, obyekt=user,
+                  obyekt_turi="Foydalanuvchi", obyekt_nomi=username,
+                  ozgarishlar={"sayt_kirishi": {"eski": "ochiq", "yangi": "yopildi (CRM o'quvchisi o'chirilmadi)"}})
+            return Response({
+                "detail": f"{username} CRM o'quvchisi — o'chirilmadi, saytga kirishi yopildi",
+                "sayt_kirishi_yopildi": True,
+            })
+        ochir_va_saqla(user, request.user)
         FaoliyatYozuvi.objects.create(
             foydalanuvchi=request.user,
             harakat=FaoliyatYozuvi.Harakat.OCHIRISH,
             obyekt_turi="Foydalanuvchi",
             obyekt_id=user_id,
             obyekt_nomi=username,
-            ozgarishlar={"username": username, "role": rol},
+            ozgarishlar={"username": username, "role": rol, "tiklash_muddati_kun": SAQLASH_KUNI},
         )
-        return Response({"detail": f"{username} o'chirildi"})
+        return Response({"detail": f"{username} o'chirildi — {SAQLASH_KUNI} kun ichida tiklash mumkin"})
+
+
+def _savatga_ruxsat(request, yozuv=None):
+    """O'chirilganlar bilan o'chirish huquqi borlar ishlaydi: owner va
+    admin. Admin yozuvini (o'chirilgan adminni) faqat owner ko'radi va
+    tiklaydi — `FoydalanuvchiOchirishView`dagi qoida bilan bir xil."""
+    if not (owner_mi(request.user) or request.user.role == User.Role.ADMIN):
+        return False
+    if yozuv is not None and yozuv.rol == User.Role.ADMIN and not owner_mi(request.user):
+        return False
+    return True
+
+
+def _savat_dict(yozuv):
+    from .savat import tugash_vaqti
+
+    tugash = tugash_vaqti(yozuv)
+    return {
+        "id": yozuv.id,
+        "foydalanuvchi_id": yozuv.foydalanuvchi_id,
+        "username": yozuv.username,
+        "ism": yozuv.ism,
+        "rol": yozuv.rol,
+        "ochirgan": (yozuv.ochirgan.get_full_name() or yozuv.ochirgan.username) if yozuv.ochirgan_id else None,
+        "ochirilgan_vaqt": yozuv.ochirilgan_vaqt,
+        "tugash_vaqti": tugash,
+        # Yuqoriga yaxlitlanadi: hozirgina o'chirilgani "7 kun" (6 emas),
+        # oxirgi soatlarda — "1 kun"; 0 faqat muddat tugaganda.
+        "qolgan_kun": max(0, math.ceil((tugash - timezone.now()).total_seconds() / 86400)),
+        "soni": yozuv.soni,
+    }
+
+
+class OchirilganlarView(APIView):
+    """GET — "O'chirilganlar": 7 kun ichida tiklash mumkin bo'lganlar."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from .models import OchirilganFoydalanuvchi
+        from .savat import muddati_otganlarni_tozala
+
+        if not _savatga_ruxsat(request):
+            return Response({"detail": "Ruxsat yo'q"}, status=403)
+        muddati_otganlarni_tozala()
+        qs = OchirilganFoydalanuvchi.objects.select_related("ochirgan")
+        if not owner_mi(request.user):
+            qs = qs.exclude(rol=User.Role.ADMIN)
+        return Response([_savat_dict(y) for y in qs])
+
+
+class OchirilganTiklashView(APIView):
+    """POST — tiklash; DELETE — muddatini kutmasdan butunlay o'chirish."""
+
+    permission_classes = [IsAuthenticated]
+
+    def _yozuv(self, request, pk):
+        from .models import OchirilganFoydalanuvchi
+
+        yozuv = get_object_or_404(OchirilganFoydalanuvchi, pk=pk)
+        return yozuv if _savatga_ruxsat(request, yozuv) else None
+
+    def post(self, request, pk):
+        from .savat import tikla
+
+        yozuv = self._yozuv(request, pk)
+        if yozuv is None:
+            return Response({"detail": "Ruxsat yo'q"}, status=403)
+        try:
+            user, tiklanmaganlar = tikla(yozuv, request.user)
+        except ValueError as e:
+            return Response({"detail": str(e)}, status=400)
+        FaoliyatYozuvi.objects.create(
+            foydalanuvchi=request.user,
+            harakat=FaoliyatYozuvi.Harakat.YARATISH,
+            obyekt_turi="Foydalanuvchi",
+            obyekt_id=user.id,
+            obyekt_nomi=user.username,
+            ozgarishlar={"tiklandi": True, "tiklanmaganlar": tiklanmaganlar},
+        )
+        return Response({"id": user.id, "username": user.username, "tiklanmaganlar": tiklanmaganlar})
+
+    def delete(self, request, pk):
+        yozuv = self._yozuv(request, pk)
+        if yozuv is None:
+            return Response({"detail": "Ruxsat yo'q"}, status=403)
+        FaoliyatYozuvi.objects.create(
+            foydalanuvchi=request.user,
+            harakat=FaoliyatYozuvi.Harakat.OCHIRISH,
+            obyekt_turi="Foydalanuvchi nusxasi",
+            obyekt_id=yozuv.foydalanuvchi_id,
+            obyekt_nomi=yozuv.username,
+            ozgarishlar={"butunlay_ochirildi": True},
+        )
+        yozuv.delete()
+        return Response(status=204)
 
 
 class OddiyStudentgaOtkazishView(APIView):

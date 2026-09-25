@@ -232,3 +232,28 @@ class FilialsizGuruhTest(ApiAsos):
         self.assertIn(saytdagi.id, idlar)
         self.assertIn(self.guruh.id, idlar)
 
+
+
+class EslatmaBajarildiTest(ApiAsos):
+    """Video-TZ 2026-09-25 (3-to'plam): vaqti o'tgan eslatmani "Bajarildi"
+    deb belgilash — bosh sahifa va 🔔 xabarnomadan ketadi."""
+
+    def test_bajarilgani_muddatlilarda_chiqmaydi(self):
+        from django.utils import timezone
+
+        from crm.models import Eslatma
+
+        e = Eslatma.objects.create(talaba=self.talaba, matn="darsga chaqirish", kim=self.admin,
+                                   eslatish_vaqti=timezone.now())
+        m = self.mijoz(self.admin)
+        self.assertEqual([x["id"] for x in m.get("/api/crm/eslatmalar/muddatli/").data], [e.id])
+        j = m.patch(f"/api/crm/eslatmalar/{e.id}/", {"bajarildi": True}, format="json")
+        self.assertEqual(j.status_code, 200, j.data)
+        self.assertTrue(j.data["bajarildi"])
+        self.assertEqual(m.get("/api/crm/eslatmalar/muddatli/").data, [])
+        # Boshqa xodim birovning eslatmasini belgilay olmaydi.
+        self.assertEqual(self.mijoz(self.owner).patch(f"/api/crm/eslatmalar/{e.id}/", {"bajarildi": False},
+                                                      format="json").status_code, 403)
+
+    def test_ogohlantirishlar_yoli_olib_tashlangan(self):
+        self.assertEqual(self.mijoz(self.admin).get("/api/crm/ogohlantirishlar/").status_code, 404)

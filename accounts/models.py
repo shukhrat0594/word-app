@@ -354,3 +354,41 @@ class Zaxira(models.Model):
 
     def __str__(self):
         return f"{self.markaz.name} — {self.sana} ({self.turi})"
+
+
+class OchirilganFoydalanuvchi(models.Model):
+    """O'chirilgan foydalanuvchining NUSXASI — 7 kun ichida tiklash uchun
+    (2026-09-25, Shuhrat talabi: "o'chirilgan foydalanuvchi 7 kun bazada
+    saqlansin, tiklanmasa to'liq o'chsin").
+
+    Foydalanuvchi AVVALGIDEK darhol o'chiriladi (`user.delete()`) — shu
+    bilan u hamma ro'yxatdan, guruhdan va CRM hisob-kitobidan o'zi
+    yo'qoladi. "O'chirilgan" bayrog'i bilan bazada qoldirilsa, uni o'nlab
+    so'rovda yashirish kerak bo'lardi va bittasi unutilsa, masalan, unga
+    to'lov hisoblanishi davom etardi.
+
+    O'chirishdan OLDIN Django `Collector` yig'adigan hamma yozuvlar
+    (foydalanuvchi va CASCADE bilan ketadiganlar) `obyektlar`ga
+    serializatsiya qilinadi, SET_NULL bilan uzilgan bog'lanishlar (masalan
+    CRM hisob va to'lovlarining `talaba`si) esa `bogliqlar`ga yoziladi —
+    tiklashda ular qayta ulanadi. Mantiq: `accounts/savat.py`.
+    """
+
+    foydalanuvchi_id = models.PositiveIntegerField(help_text="O'chirilgan foydalanuvchining asl ID'si")
+    username = models.CharField(max_length=150)
+    ism = models.CharField(max_length=300, blank=True)
+    rol = models.CharField(max_length=20)
+    ochirgan = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+",
+    )
+    ochirilgan_vaqt = models.DateTimeField(auto_now_add=True, db_index=True)
+    obyektlar = models.TextField(help_text="django.core.serializers JSON")
+    bogliqlar = models.JSONField(default=list, help_text="[{model, maydon, pklar}] — SET_NULL bilan uzilganlar")
+    soni = models.PositiveIntegerField(default=0, help_text="Nusxadagi yozuvlar soni")
+
+    class Meta:
+        ordering = ["-ochirilgan_vaqt", "-id"]
+        verbose_name_plural = "O'chirilgan foydalanuvchilar"
+
+    def __str__(self):
+        return f"{self.username} ({self.ochirilgan_vaqt:%Y-%m-%d})"

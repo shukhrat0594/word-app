@@ -5,7 +5,8 @@
 // sudrab boshqa ustunga tashlash mumkin. Lid guruhga qo'shilganda undan
 // talaba yaratiladi va lid arxivga o'tadi (backend: `LidGuruhgaView`).
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
 import { api, apiFayluniYuklab } from "../api.js";
 import Eslatmalar from "../Eslatmalar.jsx";
@@ -686,7 +687,18 @@ export default function Lidlar() {
   const [manba, setManba] = useState("");
   const [rejim, setRejim] = useState(""); // "" | arxiv | qora_royxat
   const [yangi, setYangi] = useState(undefined); // undefined = yopiq, null/raqam = bo'lim
-  const [ochiq, setOchiq] = useState(null);
+  // `?lid=ID` — eslatma xabarnomasidagi "Lidga o'tish" (video-TZ 2026-09-25):
+  // o'sha lid kartasi darhol ochiladi.
+  const [params, setParams] = useSearchParams();
+  const [ochiq, setOchiqAsl] = useState(() => Number(params.get("lid")) || null);
+  useEffect(() => {
+    const id = Number(params.get("lid"));
+    if (id) setOchiqAsl(id);
+  }, [params]);
+  const setOchiq = (id) => {
+    setOchiqAsl(id);
+    if (!id && params.get("lid")) setParams({});
+  };
   const [ochiqRejim, setOchiqRejim] = useState(null);
   // Kartochka "⋯" menyusi (video 17:24) va ko'chirish oynasi.
   const [menyu, setMenyu] = useState(null);
