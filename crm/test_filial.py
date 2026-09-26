@@ -111,7 +111,9 @@ class IdBoyichaTest(FilialAsos):
     """Boshqa filial yozuvi ID bo'yicha ham ochilmaydi — 404."""
 
     # `pk_turi` e'lon qilmasligi mumkin bo'lgan URL'lar — filialga bog'liq emas.
-    FILIALSIZ = {"rol_detail", "filial_detail", "xona_detail"}
+    # `kurs_detail` — kurs butun markazniki; filial xodimini
+    # `_markaz_sozlamasi_taqiq` to'sadi (`KursTahrirOchirishTest`).
+    FILIALSIZ = {"rol_detail", "filial_detail", "xona_detail", "kurs_detail"}
 
     def b_obyektlari(self):
         return {

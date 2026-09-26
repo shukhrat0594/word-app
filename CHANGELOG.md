@@ -27,6 +27,12 @@ Format (qat'iy, parser shunga tayanadi):
   ro'yxatida paydo bo'ladi.
 - Kurs saytdagi "Kurslar" bo'limiga ham qo'shiladi va darslari
   qo'shilguncha u yerda "tez orada" bo'lib turadi.
+- **Kursni tahrirlash va o'chirish.** Har kurs qatorida "Tahrirlash"
+  (nomini tuzatish) va "O'chirish" tugmalari bor. O'chirishdan oldin
+  tasdiqlash so'raladi. Faqat bo'sh va hech qaysi guruhda ishlatilmagan
+  kursni o'chirish mumkin — ichida darslari bor (Beginner, IELTS kabi)
+  yoki guruhi bor kursda tugma yopiq: aks holda darslar va o'quvchi
+  natijalari ham o'chib ketardi.
 
 ## 2026-09-25 — O'chirilgan foydalanuvchini 7 kun ichida tiklash mumkin
 

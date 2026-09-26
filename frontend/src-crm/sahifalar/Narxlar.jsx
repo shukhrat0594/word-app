@@ -84,12 +84,53 @@ function KursQoshishOynasi({ onYopish, onSaqlandi }) {
   );
 }
 
+/** O'chirishni tasdiqlash (2026-09-26, Shuhrat: "o'chirishni bosganda
+ *  avval tasdiqlash kerak"). */
+function OchirishTasdigi({ qator, onYopish, onTasdiq }) {
+  const { t } = useI18n();
+  const [band, setBand] = useState(false);
+  const [xato, setXato] = useState("");
+
+  async function tasdiqla() {
+    setBand(true);
+    setXato("");
+    try {
+      await onTasdiq();
+      onYopish();
+    } catch (e) {
+      setXato(e.message || "Xato");
+    } finally {
+      setBand(false);
+    }
+  }
+
+  return (
+    <div className="oyna-fon" role="dialog" aria-modal="true">
+      <div className="karta oyna">
+        <h2>🗑 {t("kursni_ochirish")}</h2>
+        <p><b>{qator.fan} — {qator.daraja}</b></p>
+        <p className="kichik">{t("kursni_ochirish_izoh")}</p>
+        {xato && <div className="xato">{xato}</div>}
+        <div className="oyna-tugmalar">
+          <button className="tugma tugma-sokin" type="button" onClick={onYopish} disabled={band}>{t("bekor")}</button>
+          <button className="tugma tugma-xavfli" type="button" onClick={tasdiqla} disabled={band}>{t("ha_ochirish")}</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function NarxQatori({ qator, onSaqlandi }) {
   const { t } = useI18n();
   const [narx, setNarx] = useState(qator.narx ?? "");
   const [holat, setHolat] = useState("");
   // Kurs narxi butun markazga ta'sir qiladi — filialga bog'langan xodim faqat ko'radi.
   const cheklangan = useCheklangan();
+  const ruxsat = useRuxsat();
+  const boshqaradi = !cheklangan && ruxsat("sozlamalar.narxlar");
+  // ✎ — kurs NOMINI tahrirlash (narx esa shu qatorda turibdi).
+  const [nomi, setNomi] = useState(null);
+  const [ochirish, setOchirish] = useState(false);
 
   async function saqla() {
     setHolat("");
@@ -105,10 +146,35 @@ function NarxQatori({ qator, onSaqlandi }) {
     }
   }
 
+  async function nomniSaqla() {
+    setHolat("");
+    try {
+      await api(`/api/crm/kurslar/${qator.daraja_id}/`, { method: "PATCH", body: { nomi } });
+      setNomi(null);
+      setHolat(t("saqlandi"));
+      onSaqlandi();
+    } catch (e) {
+      setHolat(e.message || "Xato");
+    }
+  }
+
   return (
     <tr>
       <td>{qator.fan || "—"}</td>
-      <td><b>{qator.daraja}</b></td>
+      <td>
+        {nomi === null ? (
+          <b>{qator.daraja}</b>
+        ) : (
+          <span className="yonma">
+            <input value={nomi} maxLength={200} autoFocus onChange={(e) => setNomi(e.target.value)}
+                   onKeyDown={(e) => (e.key === "Enter" ? nomniSaqla() : e.key === "Escape" && setNomi(null))} />
+            <button className="tugma kichik-tugma" type="button" onClick={nomniSaqla} disabled={!nomi.trim()}>
+              {t("saqlash")}
+            </button>
+            <button className="tugma tugma-sokin kichik-tugma" type="button" onClick={() => setNomi(null)}>✕</button>
+          </span>
+        )}
+      </td>
       <td className="ongga">{qator.guruh_soni}</td>
       <td className="ongga">
         <input
@@ -122,13 +188,37 @@ function NarxQatori({ qator, onSaqlandi }) {
           onKeyDown={(e) => e.key === "Enter" && saqla()}
         />
       </td>
-      <td>
+      <td className="nowrap">
         {!cheklangan && (
           <button className="tugma kichik-tugma" type="button" onClick={saqla}>
             {t("saqlash")}
           </button>
         )}{" "}
+        {boshqaradi && nomi === null && (
+          <button className="tugma tugma-sokin kichik-tugma" type="button" onClick={() => setNomi(qator.daraja)}>
+            ✎ {t("tahrirlash")}
+          </button>
+        )}{" "}
+        {/* Darsi bor yoki guruhda ishlatilgan kurs o'chirilmaydi — sababi tugma ustida. */}
+        {boshqaradi && (
+          <button className="tugma tugma-sokin kichik-tugma rang-qarzdor" type="button"
+                  disabled={!qator.ochirsa_boladi}
+                  title={qator.ochirsa_boladi ? t("ochirish") : t("kurs_ochirilmaydi")}
+                  onClick={() => setOchirish(true)}>
+            🗑 {t("ochirish")}
+          </button>
+        )}{" "}
         <span className="kichik">{holat}</span>
+        {ochirish && (
+          <OchirishTasdigi
+            qator={qator}
+            onYopish={() => setOchirish(false)}
+            onTasdiq={async () => {
+              await api(`/api/crm/kurslar/${qator.daraja_id}/`, { method: "DELETE" });
+              onSaqlandi();
+            }}
+          />
+        )}
       </td>
     </tr>
   );
