@@ -19,6 +19,15 @@ Format (qat'iy, parser shunga tayanadi):
 
 ---
 
+## 2026-09-26 — CRM'da yangi kurs qo'shish
+
+- **"Narxlar" sahifasida "Kurs qo'shish" tugmasi.** Fanni tanlaysiz (yoki
+  yangi fan nomini yozasiz), kurs nomi va oylik narxini kiritasiz —
+  kurs darhol narxlar ro'yxatida va guruh yaratish oynasidagi "Kurs"
+  ro'yxatida paydo bo'ladi.
+- Kurs saytdagi "Kurslar" bo'limiga ham qo'shiladi va darslari
+  qo'shilguncha u yerda "tez orada" bo'lib turadi.
+
 ## 2026-09-25 — O'chirilgan foydalanuvchini 7 kun ichida tiklash mumkin
 
 - **Foydalanuvchi o'chirilganda darhol yo'qolib ketmaydi.** U saytga kira
