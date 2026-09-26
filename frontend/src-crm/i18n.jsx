@@ -16,6 +16,16 @@ export const TILLAR = [
 
 const SATRLAR = {
   uz: {
+    kurs_qoshish: "Kurs qo'shish",
+    kurs_qoshish_izoh: "Kurs saytdagi Kurslar bo'limiga ham qo'shiladi va darslari qo'shilguncha u yerda «tez kunda» bo'lib turadi. Guruh yaratishda darhol tanlash mumkin.",
+    fanni_tanlang: "Fanni tanlang yoki yangi fan nomini yozing",
+    kurs_nomini_yozing: "Kurs nomini yozing",
+    narx_kiriting: "Oylik narxni kiriting",
+    yangi_fan: "Yangi fan",
+    yangi_fan_nomi: "Yangi fan nomi",
+    kurs_nomi: "Kurs nomi",
+    kurs_nomi_namuna: "Masalan: Kids English, Rus tili (boshlang'ich)",
+    oylik_narx: "Oylik narx",
     lidga_otish: "Lidga o'tish",
     bajarildi_belgi: "Bajarildi",
     bajarilmadi_qaytarish: "Bajarilmadi (qaytarish)",
@@ -593,6 +603,16 @@ const SATRLAR = {
   },
 
   ru: {
+    kurs_qoshish: "Добавить курс",
+    kurs_qoshish_izoh: "Курс добавится и в раздел «Курсы» на сайте и будет там «скоро», пока не добавят уроки. Его сразу можно выбрать при создании группы.",
+    fanni_tanlang: "Выберите предмет или впишите новый",
+    kurs_nomini_yozing: "Введите название курса",
+    narx_kiriting: "Введите цену в месяц",
+    yangi_fan: "Новый предмет",
+    yangi_fan_nomi: "Название нового предмета",
+    kurs_nomi: "Название курса",
+    kurs_nomi_namuna: "Например: Kids English, Русский (начальный)",
+    oylik_narx: "Цена в месяц",
     lidga_otish: "К лиду",
     bajarildi_belgi: "Выполнено",
     bajarilmadi_qaytarish: "Не выполнено (вернуть)",
@@ -1170,6 +1190,16 @@ const SATRLAR = {
   },
 
   en: {
+    kurs_qoshish: "Add course",
+    kurs_qoshish_izoh: "The course is also added to the site's Courses section and shows as «coming soon» there until lessons are added. It can be chosen right away when creating a group.",
+    fanni_tanlang: "Choose a subject or type a new one",
+    kurs_nomini_yozing: "Enter the course name",
+    narx_kiriting: "Enter the monthly price",
+    yangi_fan: "New subject",
+    yangi_fan_nomi: "New subject name",
+    kurs_nomi: "Course name",
+    kurs_nomi_namuna: "E.g.: Kids English, Russian (beginner)",
+    oylik_narx: "Monthly price",
     lidga_otish: "Open lead",
     bajarildi_belgi: "Done",
     bajarilmadi_qaytarish: "Not done (undo)",

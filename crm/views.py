@@ -7,10 +7,12 @@ Har bir pul harakati `audit.utils.logla()` orqali yozib boriladi —
 mavjud audit ilovasi qayta ishlatiladi, unga tegilmaydi.
 """
 
+import re
 from datetime import timedelta
 from decimal import Decimal, InvalidOperation
 
-from django.db.models import Avg, Count, Q, Sum
+from django.db import transaction
+from django.db.models import Avg, Count, Max, Q, Sum
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
@@ -404,7 +406,7 @@ def _darajalar_qs():
     `academics.Guruh.daraja` aynan shu qatlamga ishora qiladi, ya'ni narx
     shu yerga osiladi va o'sha darajaning barcha guruhlari uni oladi.
     """
-    fanlar = KursTugun.objects.filter(parent__parent__isnull=True, parent__isnull=False)
+    fanlar = _fanlar_qs()
     return (
         KursTugun.objects.filter(parent__in=fanlar)
         .select_related("parent", "crm_narxi")
@@ -466,6 +468,93 @@ class KursNarxlariView(CrmView):
             ozgarishlar={"narx": {"eski": None, "yangi": str(narx)}},
         )
         return Response({"daraja_id": daraja.id, "narx": narx})
+
+    def post(self, request):
+        """"Kurs qo'shish" (2026-09-26, Shuhrat): yangi kurs (daraja) va narxi
+        CRM'ning o'zidan. `{nomi, narx, fan_id}` yoki yangi fan uchun
+        `{nomi, narx, fan_nomi}`.
+
+        Kurs saytdagi Kurslar daraxtiga (Kurslar > Fan > Daraja) qo'shiladi —
+        guruh aynan shu darajaga bog'lanadi (`Guruh.daraja`). Darsi hali
+        yo'q, shuning uchun saytda "tez kunda" bo'lib turadi (CEFR kabi);
+        darslar saytdagi Kurslar bo'limida qo'shilgach belgini u yerda olib
+        tashlash kifoya.
+        """
+        if xato := _ruxsatsiz(request, "sozlamalar.narxlar") or _markaz_sozlamasi_taqiq(request):
+            return xato
+        nomi = (request.data.get("nomi") or "").strip()[:200]
+        if not nomi:
+            return _xato("Kurs nomini yozing")
+        try:
+            narx = _son(request.data.get("narx"), "narx")
+        except ValueError as e:
+            return _xato(str(e))
+        if narx <= 0:
+            return _xato("Narx noldan katta bo'lishi kerak")
+
+        fan_nomi = (request.data.get("fan_nomi") or "").strip()[:200]
+        with transaction.atomic():
+            if fan_nomi:
+                ildiz = _kurslar_ildizi()
+                if ildiz is None:
+                    return _xato("Saytda Kurslar bo'limi topilmadi")
+                fan = ildiz.children.filter(nomi__iexact=fan_nomi).first() or _tugun_yarat(ildiz, fan_nomi)
+            else:
+                fan = _fanlar_qs().filter(pk=request.data.get("fan_id")).first()
+                if fan is None:
+                    return _xato("Fanni tanlang")
+            if fan.children.filter(nomi__iexact=nomi).exists():
+                return _xato(f"«{fan.nomi}» fanida «{nomi}» kursi allaqachon bor — narxini jadvaldan o'zgartiring")
+            daraja = _tugun_yarat(fan, nomi)
+            KursNarxi.objects.create(daraja=daraja, narx=narx)
+        logla(
+            foydalanuvchi=request.user,
+            harakat=FaoliyatYozuvi.Harakat.YARATISH,
+            obyekt=daraja,
+            obyekt_turi="CRM Kurs",
+            obyekt_nomi=f"{fan.nomi} — {daraja.nomi}",
+            ozgarishlar={"kurs": {"eski": None, "yangi": daraja.nomi}, "narx": {"eski": None, "yangi": str(narx)}},
+        )
+        return Response(
+            {"daraja_id": daraja.id, "daraja": daraja.nomi, "fan": fan.nomi, "narx": narx, "guruh_soni": 0},
+            status=201,
+        )
+
+
+def _kurslar_ildizi():
+    """Kurslar daraxtining ildizi ("Kurslar") — platforma bitta markazli."""
+    return KursTugun.objects.filter(parent__isnull=True).order_by("id").first()
+
+
+def _fanlar_qs():
+    """Kurslar daraxtining IKKINCHI qatlami (Ingliz tili, Rus tili...)."""
+    return KursTugun.objects.filter(parent__isnull=False, parent__parent__isnull=True)
+
+
+def _tugun_yarat(ota, nomi):
+    """Yangi fan yoki daraja: oxiriga, "tez kunda" belgisi bilan (darsi hali
+    yo'q). `kalit` — nomdan, shu ota ichida takrorlanmaydigan qilib (LMS
+    kodi tugunni kalitdan taniydi, `KursTugun.kalit` izohi)."""
+    asos = re.sub(r"[^a-z0-9]+", "_", nomi.lower()).strip("_")[:40]
+    kalit = asos
+    n = 2
+    while kalit and ota.children.filter(kalit=kalit).exists():
+        kalit = f"{asos}_{n}"
+        n += 1
+    tartib = (ota.children.aggregate(m=Max("tartib"))["m"] or 0) + 1
+    return KursTugun.objects.create(
+        parent=ota, markaz_id=ota.markaz_id, nomi=nomi, kalit=kalit, tartib=tartib, tez_kunda=True,
+    )
+
+
+class KursFanlariView(CrmView):
+    """"Kurs qo'shish" oynasi uchun fanlar ro'yxati."""
+
+    bolim = "sozlamalar"
+    oqish_ochiq = True
+
+    def get(self, request):
+        return Response([{"id": f.id, "nomi": f.nomi} for f in _fanlar_qs().order_by("tartib", "id")])
 
 
 # ── Guruhlar ─────────────────────────────────────────────────────────

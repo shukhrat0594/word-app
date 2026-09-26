@@ -16,6 +16,7 @@ urlpatterns = [
     path("filiallar/<int:pk>/", views.FilialDetailView.as_view(), name="filial_detail"),
 
     path("kurs-narxlari/", views.KursNarxlariView.as_view(), name="kurs_narxlari"),
+    path("kurs-fanlari/", views.KursFanlariView.as_view(), name="kurs_fanlari"),
 
     path("xonalar/", views.XonalarView.as_view(), name="xonalar"),
     path("xonalar/<int:pk>/", views.XonaDetailView.as_view(), name="xona_detail"),

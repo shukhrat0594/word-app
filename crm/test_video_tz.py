@@ -257,3 +257,64 @@ class EslatmaBajarildiTest(ApiAsos):
 
     def test_ogohlantirishlar_yoli_olib_tashlangan(self):
         self.assertEqual(self.mijoz(self.admin).get("/api/crm/ogohlantirishlar/").status_code, 404)
+
+
+class KursQoshishTest(ApiAsos):
+    """2026-09-26, Shuhrat: CRM'dan yangi kurs va narxi ("Narxlar" → "Kurs qo'shish")."""
+
+    def setUp(self):
+        super().setUp()
+        from courses.models import KursTugun
+
+        self.ildiz = self.daraja.parent  # CrmAsos'dagi ildiz
+        self.fan = KursTugun.objects.create(markaz=self.markaz, nomi="Rus tili", parent=self.ildiz, tartib=5)
+
+    def test_mavjud_fanga_kurs_va_narx(self):
+        from courses.models import KursTugun
+        from crm.models import KursNarxi
+
+        m = self.mijoz(self.admin)
+        j = m.post("/api/crm/kurs-narxlari/", {"fan_id": self.fan.id, "nomi": "Rus tili (boshlang'ich)",
+                                               "narx": "450000"}, format="json")
+        self.assertEqual(j.status_code, 201, j.data)
+        k = KursTugun.objects.get(pk=j.data["daraja_id"])
+        self.assertEqual((k.parent_id, k.markaz_id, k.tez_kunda, k.kalit), (self.fan.id, self.markaz.id, True,
+                                                                           "rus_tili_boshlang_ich"))
+        self.assertEqual(KursNarxi.objects.get(daraja=k).narx, 450000)
+        # Guruh oynasidagi ro'yxatda darhol chiqadi va guruh shu kurs bilan yaratiladi.
+        self.assertIn(k.id, [x["daraja_id"] for x in m.get("/api/crm/kurs-narxlari/").data])
+        j = m.post("/api/crm/guruh-yaratish/", {"nomi": "Rus 1", "daraja_id": k.id, "filial_id": self.filial.id,
+                                                "boshlanish_sana": "2026-10-01"}, format="json")
+        self.assertEqual(j.status_code, 201, j.data)
+
+    def test_yangi_fan_bilan(self):
+        from courses.models import KursTugun
+
+        j = self.mijoz(self.admin).post("/api/crm/kurs-narxlari/", {
+            "fan_nomi": "Matematika", "nomi": "Matematika 5-sinf", "narx": "300000"}, format="json")
+        self.assertEqual(j.status_code, 201, j.data)
+        fan = KursTugun.objects.get(nomi="Matematika")
+        self.assertEqual((fan.parent_id, fan.tez_kunda), (self.ildiz.id, True))
+        self.assertEqual(j.data["fan"], "Matematika")
+
+    def test_takror_nom_va_notogri_narx(self):
+        m = self.mijoz(self.admin)
+        tana = {"fan_id": self.fan.id, "nomi": "Kids", "narx": "300000"}
+        self.assertEqual(m.post("/api/crm/kurs-narxlari/", tana, format="json").status_code, 201)
+        self.assertEqual(m.post("/api/crm/kurs-narxlari/", {**tana, "nomi": "kids"}, format="json").status_code, 400)
+        self.assertEqual(m.post("/api/crm/kurs-narxlari/", {**tana, "nomi": "B", "narx": "0"},
+                                format="json").status_code, 400)
+        self.assertEqual(m.post("/api/crm/kurs-narxlari/", {"nomi": "C", "narx": "1000"},
+                                format="json").status_code, 400)  # fan yo'q
+
+    def test_ruxsatsizga_yopiq(self):
+        from accounts.models import User
+        from crm.models import XodimProfil
+
+        kassir = User.objects.create_user(username="kassir9", password="x", role=User.Role.ODDIY)
+        XodimProfil.objects.create(user=kassir, lavozim="kassir")
+        j = self.mijoz(kassir).post("/api/crm/kurs-narxlari/", {"fan_id": self.fan.id, "nomi": "X", "narx": "1000"},
+                                    format="json")
+        self.assertEqual(j.status_code, 403)
+        self.assertEqual([f["nomi"] for f in self.mijoz(self.admin).get("/api/crm/kurs-fanlari/").data].count(
+            "Rus tili"), 1)
