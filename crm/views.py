@@ -426,6 +426,11 @@ class KursNarxlariView(CrmView):
             .annotate(soni=Count("id"))
             .values_list("daraja_id", "soni")
         )
+        # Darsi bor yoki biror guruhda (arxivdagisi ham) ishlatilgan kurslar.
+        band = set(KursTugun.objects.filter(parent__in=_fanlar_qs()).filter(
+            Q(children__isnull=False) | Q(mashqlar__isnull=False) | Q(sozlar__isnull=False)
+            | Q(guruhlar_daraja__isnull=False)
+        ).values_list("pk", flat=True))
         return Response(
             [
                 {
@@ -434,6 +439,8 @@ class KursNarxlariView(CrmView):
                     "fan": d.parent.nomi if d.parent_id else None,
                     "narx": getattr(d, "crm_narxi", None).narx if hasattr(d, "crm_narxi") else None,
                     "guruh_soni": guruh_sonlari.get(d.id, 0),
+                    # 🗑 tugmasi faqat bo'sh va guruhsiz kursda (`_kurs_ochirilmasligi`).
+                    "ochirsa_boladi": d.id not in band,
                 }
                 for d in _darajalar_qs()
             ]
@@ -545,6 +552,65 @@ def _tugun_yarat(ota, nomi):
     return KursTugun.objects.create(
         parent=ota, markaz_id=ota.markaz_id, nomi=nomi, kalit=kalit, tartib=tartib, tez_kunda=True,
     )
+
+
+class KursDetailView(CrmView):
+    """Kursni tahrirlash (nomi) va o'chirish — "Narxlar" jadvalidagi
+    ✎ va 🗑 (2026-09-26, Shuhrat).
+
+    O'chirish FAQAT bo'sh va ishlatilmagan kursga: kurs saytdagi Kurslar
+    daraxtining tuguni — ichidagi unitlar, mashqlar, so'zlar va o'quvchi
+    natijalari u bilan birga (CASCADE) o'chib ketardi. Guruhi bor kursni
+    o'chirish guruhlarni kurssiz (va narxsiz — hisobsiz) qoldirardi.
+    """
+
+    bolim = "sozlamalar"
+
+    def _kurs(self, request, pk):
+        if xato := _ruxsatsiz(request, "sozlamalar.narxlar") or _markaz_sozlamasi_taqiq(request):
+            return None, xato
+        # Faqat daraja qatlami — unit yoki fan emas.
+        return get_object_or_404(_darajalar_qs(), pk=pk), None
+
+    def patch(self, request, pk):
+        kurs, xato = self._kurs(request, pk)
+        if xato:
+            return xato
+        nomi = (request.data.get("nomi") or "").strip()[:200]
+        if not nomi:
+            return _xato("Kurs nomini yozing")
+        if kurs.parent.children.filter(nomi__iexact=nomi).exclude(pk=kurs.pk).exists():
+            return _xato(f"«{kurs.parent.nomi}» fanida «{nomi}» kursi allaqachon bor")
+        eski = kurs.nomi
+        # Faqat NOM: `kalit` o'zgarmaydi — sayt kodi tugunni kalitdan taniydi.
+        kurs.nomi = nomi
+        kurs.save(update_fields=["nomi"])
+        logla(foydalanuvchi=request.user, harakat=FaoliyatYozuvi.Harakat.OZGARTIRISH, obyekt=kurs,
+              obyekt_turi="CRM Kurs", obyekt_nomi=f"{kurs.parent.nomi} — {nomi}",
+              ozgarishlar={"nomi": {"eski": eski, "yangi": nomi}})
+        return Response({"daraja_id": kurs.id, "daraja": kurs.nomi})
+
+    def delete(self, request, pk):
+        kurs, xato = self._kurs(request, pk)
+        if xato:
+            return xato
+        if sabab := _kurs_ochirilmasligi(kurs):
+            return _xato(sabab)
+        nomi = f"{kurs.parent.nomi} — {kurs.nomi}"
+        logla(foydalanuvchi=request.user, harakat=FaoliyatYozuvi.Harakat.OCHIRISH, obyekt=kurs,
+              obyekt_turi="CRM Kurs", obyekt_nomi=nomi)
+        kurs.delete()  # narxi (KursNarxi) ham CASCADE bilan
+        return Response(status=204)
+
+
+def _kurs_ochirilmasligi(kurs):
+    """Kursni o'chirib bo'lmasa — sababi, bo'lsa — None."""
+    if kurs.children.exists() or kurs.mashqlar.exists() or kurs.sozlar.exists():
+        return "Kursda saytdagi darslar (unit, mashq) bor — ular ham o'chib ketadi. Bunday kursni o'chirib bo'lmaydi."
+    guruhlar = Guruh.objects.filter(daraja=kurs).count()
+    if guruhlar:
+        return f"Bu kursda {guruhlar} ta guruh bor (arxivdagilari ham). Avval guruhlarni boshqa kursga o'tkazing."
+    return None
 
 
 class KursFanlariView(CrmView):

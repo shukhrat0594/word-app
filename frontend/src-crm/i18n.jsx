@@ -16,6 +16,10 @@ export const TILLAR = [
 
 const SATRLAR = {
   uz: {
+    kursni_ochirish: "Kursni o'chirish",
+    kursni_ochirish_izoh: "Kurs va uning narxi butunlay o'chiriladi, saytdagi Kurslar bo'limidan ham. Bu amalni qaytarib bo'lmaydi.",
+    kurs_ochirilmaydi: "O'chirib bo'lmaydi: kursda saytdagi darslar bor yoki u biror guruhda ishlatilgan",
+    ha_ochirish: "Ha, o'chirish",
     kurs_qoshish: "Kurs qo'shish",
     kurs_qoshish_izoh: "Kurs saytdagi Kurslar bo'limiga ham qo'shiladi va darslari qo'shilguncha u yerda «tez kunda» bo'lib turadi. Guruh yaratishda darhol tanlash mumkin.",
     fanni_tanlang: "Fanni tanlang yoki yangi fan nomini yozing",
@@ -603,6 +607,10 @@ const SATRLAR = {
   },
 
   ru: {
+    kursni_ochirish: "Удаление курса",
+    kursni_ochirish_izoh: "Курс и его цена удалятся полностью, в том числе из раздела «Курсы» на сайте. Это действие нельзя отменить.",
+    kurs_ochirilmaydi: "Нельзя удалить: в курсе есть уроки на сайте или он используется в группе",
+    ha_ochirish: "Да, удалить",
     kurs_qoshish: "Добавить курс",
     kurs_qoshish_izoh: "Курс добавится и в раздел «Курсы» на сайте и будет там «скоро», пока не добавят уроки. Его сразу можно выбрать при создании группы.",
     fanni_tanlang: "Выберите предмет или впишите новый",
@@ -1190,6 +1198,10 @@ const SATRLAR = {
   },
 
   en: {
+    kursni_ochirish: "Delete course",
+    kursni_ochirish_izoh: "The course and its price are deleted permanently, including from the site's Courses section. This cannot be undone.",
+    kurs_ochirilmaydi: "Cannot delete: the course has lessons on the site or is used by a group",
+    ha_ochirish: "Yes, delete",
     kurs_qoshish: "Add course",
     kurs_qoshish_izoh: "The course is also added to the site's Courses section and shows as «coming soon» there until lessons are added. It can be chosen right away when creating a group.",
     fanni_tanlang: "Choose a subject or type a new one",

@@ -318,3 +318,77 @@ class KursQoshishTest(ApiAsos):
         self.assertEqual(j.status_code, 403)
         self.assertEqual([f["nomi"] for f in self.mijoz(self.admin).get("/api/crm/kurs-fanlari/").data].count(
             "Rus tili"), 1)
+
+
+class KursTahrirOchirishTest(ApiAsos):
+    """2026-09-26, Shuhrat: "Narxlar"da kursni tahrirlash va o'chirish."""
+
+    def setUp(self):
+        super().setUp()
+        from courses.models import KursTugun
+
+        self.fan = KursTugun.objects.create(markaz=self.markaz, nomi="Matematika", parent=self.daraja.parent)
+        self.m = self.mijoz(self.admin)
+        j = self.m.post("/api/crm/kurs-narxlari/", {"fan_id": self.fan.id, "nomi": "MAtematika", "narx": "480000"},
+                        format="json")
+        self.kurs_id = j.data["daraja_id"]
+
+    def test_nomini_tahrirlash(self):
+        from courses.models import KursTugun
+
+        j = self.m.patch(f"/api/crm/kurslar/{self.kurs_id}/", {"nomi": "Matematika"}, format="json")
+        self.assertEqual(j.status_code, 200, j.data)
+        k = KursTugun.objects.get(pk=self.kurs_id)
+        self.assertEqual(k.nomi, "Matematika")
+        self.assertEqual(k.kalit, "matematika")  # kalit o'zgarmaydi
+        self.assertEqual(self.m.patch(f"/api/crm/kurslar/{self.kurs_id}/", {"nomi": " "}, format="json").status_code,
+                         400)
+
+    def test_bosh_kursni_ochirish_va_royxatdagi_belgi(self):
+        from courses.models import KursTugun
+        from crm.models import KursNarxi
+
+        qator = next(x for x in self.m.get("/api/crm/kurs-narxlari/").data if x["daraja_id"] == self.kurs_id)
+        self.assertTrue(qator["ochirsa_boladi"])
+        self.assertEqual(self.m.delete(f"/api/crm/kurslar/{self.kurs_id}/").status_code, 204)
+        self.assertFalse(KursTugun.objects.filter(pk=self.kurs_id).exists())
+        self.assertFalse(KursNarxi.objects.filter(daraja_id=self.kurs_id).exists())
+
+    def test_guruhi_yoki_darsi_bor_kurs_ochirilmaydi(self):
+        from academics.models import Guruh
+        from courses.models import KursTugun
+
+        Guruh.objects.create(name="Mat 1", markaz=self.markaz, daraja_id=self.kurs_id, faol=False)  # arxivdagi ham
+        j = self.m.delete(f"/api/crm/kurslar/{self.kurs_id}/")
+        self.assertEqual(j.status_code, 400)
+        self.assertIn("guruh", j.data["detail"])
+        Guruh.objects.filter(daraja_id=self.kurs_id).delete()
+        KursTugun.objects.create(markaz=self.markaz, nomi="Unit 1", parent_id=self.kurs_id)
+        self.assertEqual(self.m.delete(f"/api/crm/kurslar/{self.kurs_id}/").status_code, 400)
+        self.assertTrue(KursTugun.objects.filter(pk=self.kurs_id).exists())
+        qator = next(x for x in self.m.get("/api/crm/kurs-narxlari/").data if x["daraja_id"] == self.kurs_id)
+        self.assertFalse(qator["ochirsa_boladi"])
+
+    def test_unit_yoki_fanni_bu_yol_bilan_ochirib_bolmaydi(self):
+        self.assertEqual(self.m.delete(f"/api/crm/kurslar/{self.fan.id}/").status_code, 404)
+
+    def test_ruxsatsizga_yopiq(self):
+        from accounts.models import User
+        from crm.models import XodimProfil
+
+        kassir = User.objects.create_user(username="kassir8", password="x", role=User.Role.ODDIY)
+        XodimProfil.objects.create(user=kassir, lavozim="kassir")
+        self.assertEqual(self.mijoz(kassir).delete(f"/api/crm/kurslar/{self.kurs_id}/").status_code, 403)
+
+    def test_filialga_boglangan_xodimga_yopiq(self):
+        """Kurs butun markazniki — filial administratori faqat ko'radi."""
+        from accounts.models import User
+        from crm.models import XodimProfil
+
+        u = User.objects.create_user(username="admin_filial", password="x", role=User.Role.ADMIN, markaz=self.markaz)
+        XodimProfil.objects.create(user=u, lavozim="admin").filiallar.set([self.filial])
+        m = self.mijoz(u)
+        self.assertEqual(m.patch(f"/api/crm/kurslar/{self.kurs_id}/", {"nomi": "X"}, format="json").status_code, 403)
+        self.assertEqual(m.delete(f"/api/crm/kurslar/{self.kurs_id}/").status_code, 403)
+        self.assertEqual(m.post("/api/crm/kurs-narxlari/", {"fan_id": self.fan.id, "nomi": "Y", "narx": "1000"},
+                                format="json").status_code, 403)

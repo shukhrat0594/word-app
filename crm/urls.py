@@ -17,6 +17,7 @@ urlpatterns = [
 
     path("kurs-narxlari/", views.KursNarxlariView.as_view(), name="kurs_narxlari"),
     path("kurs-fanlari/", views.KursFanlariView.as_view(), name="kurs_fanlari"),
+    path("kurslar/<int:pk>/", views.KursDetailView.as_view(), name="kurs_detail"),
 
     path("xonalar/", views.XonalarView.as_view(), name="xonalar"),
     path("xonalar/<int:pk>/", views.XonaDetailView.as_view(), name="xona_detail"),
