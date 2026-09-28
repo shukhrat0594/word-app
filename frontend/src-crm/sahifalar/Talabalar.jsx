@@ -1182,6 +1182,8 @@ export default function Talabalar() {
                     {x.ism}
                   </button>
                   {x.qora_royxat && <span className="holat holat-qarzdor"> {t("qora_royxat")}</span>}
+                  {/* Qarzdorlar filtrida arxivlangan, lekin qarzi qolgan o'quvchi ham chiqadi. */}
+                  {x.faol === false && <span className="holat holat-kutilayotgan"> {t("arxiv")}</span>}
                 </td>
                 <td>{x.baho !== null && x.baho !== undefined ? <span className="baho-doira">{x.baho}</span> : <span className="kichik">{t("bahosi_yoq")}</span>}</td>
                 <td className="nowrap">{sana(x.keyingi_tolov)}</td>

@@ -58,7 +58,7 @@ from .models import (
     XodimProfil,
 )
 from .filial import (
-    cheklanganmi, filial_korinadimi, filial_q, filial_tekshir, guruh_q, guruh_tekshir, ruxsat_filiallari,
+    balans_doirasi, cheklanganmi, filial_korinadimi, filial_q, filial_tekshir, guruh_q, guruh_tekshir, ruxsat_filiallari,
     talaba_korinadimi, talaba_tekshir, tolov_filiali_q, tolov_q, umumiy_yozuv_taqiq,
 )
 from .permissions import CrmView
@@ -2135,7 +2135,7 @@ class KorsatkichlarView(CrmView):
         faol_talaba_idlar = set(
             azoliklar.filter(holat=AzolikMoliya.Holat.FAOL).values_list("azolik__talaba_id", flat=True)
         )
-        qarz_qs = mantiq_qarzdorlar(hisoblar)
+        qarz_qs = mantiq_qarzdorlar(hisoblar, balans_doirasi(u, filial))
         tolov_yaqin = 0
         if "moliya" in r:
             # "To'lovi yaqin" — keyingi 3 kunda to'lov sanasi keladigan
@@ -2239,19 +2239,19 @@ class KorsatkichlarView(CrmView):
         })
 
 
-def mantiq_qarzdorlar(hisoblar):
-    """To'lanmagan hisoblar bo'yicha qarz summasi va qarzdor talabalar soni."""
-    ochiq = hisoblar.exclude(holat=Hisob.Holat.TOLANDI).annotate(
-        tolangan=Sum("tolovlar__summa", filter=Q(tolovlar__turi__in=Tolov.YOPUVCHI_TURLAR), default=NOL)
-    )
-    summa = NOL
-    talabalar = set()
-    for h in ochiq:
-        qoldiq = h.summa - h.tolangan
-        if qoldiq > 0:
-            summa += qoldiq
-            talabalar.add(h.talaba_id)
-    return {"summa": summa, "soni": len(talabalar)}
+def mantiq_qarzdorlar(hisoblar, doira):
+    """Qarzdor o'quvchilar soni va qolgan qarz — BALANS bo'yicha.
+
+    2026-09-28 (Shuhrat): avval har oy hisobi alohida qaralardi — bir oyga
+    ortiqcha to'langan pul boshqa oyning qarzini yopmasdi va bosh sahifa
+    "4 qarzdor" desa, Talabalar -> "Qarzdorlar" (balans bo'yicha) bo'sh
+    chiqardi. Endi ikkalasi BITTA qoida: balans < 0 — qarzdor, qolgan
+    qarz — manfiy balanslar yig'indisi. `hisoblar` — kimlar qaraladi
+    (filial doirasidagi hisobi bor o'quvchilar, arxivlangani ham),
+    `doira` — balans qaysi yozuvlardan (`crm.filial.balans_doirasi`)."""
+    idlar = set(hisoblar.exclude(talaba__isnull=True).values_list("talaba_id", flat=True))
+    manfiy = [b for b in mantiq.balanslarni_ol(idlar, *doira).values() if b < 0]
+    return {"summa": -sum(manfiy, NOL), "soni": len(manfiy)}
 
 
 # ── Talaba qidiruvi (guruhga qo'shish oynasi uchun) ──────────────────

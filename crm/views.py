@@ -44,7 +44,7 @@ from .models import (
     Xona,
 )
 from .filial import (
-    cheklanganmi, filial_korinadimi, filial_q, filial_tekshir, guruh_q, guruh_tekshir, lid_tekshir,
+    balans_doirasi, cheklanganmi, filial_korinadimi, filial_q, filial_tekshir, guruh_q, guruh_tekshir, lid_tekshir,
     ruxsat_filiallari, talaba_boshqa_filialda, talaba_guruhga_bogliqmi, talaba_korinadimi, talaba_tekshir,
     tolov_filiali_q, tolov_q,
 )
@@ -1027,7 +1027,7 @@ class GuruhAzoliklariView(CrmView):
                 am.azolik = azolik
             natija.append(am)
 
-        balanslar = mantiq.balanslarni_ol([a.azolik.talaba_id for a in natija])
+        balanslar = mantiq.balanslarni_ol([a.azolik.talaba_id for a in natija], *balans_doirasi(request.user))
         return Response(
             [_azolik_dict(am, balans=balanslar.get(am.azolik.talaba_id)) for am in natija]
         )
@@ -1383,7 +1383,8 @@ class HisoblarView(CrmView):
             )
 
         hisoblar = list(qs[:1000])
-        balanslar = mantiq.balanslarni_ol({h.talaba_id for h in hisoblar if h.talaba_id})
+        balanslar = mantiq.balanslarni_ol({h.talaba_id for h in hisoblar if h.talaba_id},
+                                          *balans_doirasi(request.user, request.query_params.get("filial")))
         return Response(
             [
                 _hisob_dict(h, tolangan=h.tolangan, balans=balanslar.get(h.talaba_id))
@@ -1526,7 +1527,7 @@ class TolovlarView(CrmView):
         tolovlar = list(qs[:2000])
         # Balans — Moliya > To'lovlar ro'yxatida ustun (admin talabi,
         # 2026-09-17). Bitta so'rovda, N+1 emas.
-        balanslar = mantiq.balanslarni_ol({t.talaba_id for t in tolovlar if t.talaba_id})
+        balanslar = mantiq.balanslarni_ol({t.talaba_id for t in tolovlar if t.talaba_id}, *balans_doirasi(request.user))
         qatorlar = [
             {**_tolov_dict(t), "balans": balanslar.get(t.talaba_id) if t.talaba_id else None}
             for t in tolovlar
@@ -1767,7 +1768,9 @@ class TalabalarView(CrmView):
             qs = qs.filter(azolik__talaba__crm_talaba__maktab__icontains=p["maktab"])
 
         azoliklar = list(qs[:2000])
-        balanslar = mantiq.balanslarni_ol({a.azolik.talaba_id for a in azoliklar})
+        # Balans — filial tanlangan bo'lsa shu filial bo'yicha (2026-09-28).
+        doira = balans_doirasi(request.user, request.query_params.get("filial"))
+        balanslar = mantiq.balanslarni_ol({a.azolik.talaba_id for a in azoliklar}, *doira)
 
         talabalar = {}
         for am in azoliklar:
@@ -1780,6 +1783,7 @@ class TalabalarView(CrmView):
                     "telefon": talaba.telefon,
                     "izoh": talaba.izoh,
                     "balans": balanslar.get(talaba.id, NOL),
+                    "faol": talaba.is_active,
                     "guruhlar": [],
                 },
             )
@@ -1828,14 +1832,37 @@ class TalabalarView(CrmView):
                     Q(first_name__icontains=qidiruv) | Q(username__icontains=qidiruv) | Q(telefon__icontains=qidiruv)
                 )
             qolganlar = list(qolganlar[:2000])
-            qb = mantiq.balanslarni_ol({t.id for t in qolganlar})
+            qb = mantiq.balanslarni_ol({t.id for t in qolganlar}, *doira)
             for t in qolganlar:
                 talabalar[t.id] = {
                     "id": t.id, "ism": t.get_full_name() or t.username, "telefon": t.telefon,
-                    "izoh": t.izoh, "balans": qb.get(t.id, NOL), "guruhlar": [],
+                    "izoh": t.izoh, "balans": qb.get(t.id, NOL), "faol": t.is_active, "guruhlar": [],
                 }
             if guruhsiz:
                 talabalar = {k: v for k, v in talabalar.items() if not v["guruhlar"]}
+
+        # Qarzdorlar filtri: guruhdan chiqqan yoki arxivlangan, lekin qarzi
+        # qolgan o'quvchi ham qaraladi (filial doirasida hisobi bor) — aks
+        # holda bosh sahifa "4 qarzdor" deb, ro'yxat bo'sh chiqardi (2026-09-28).
+        boshqa_filtr = qora or request.query_params.get("holat") or qo_shimcha_filtr
+        if request.query_params.get("qarzdor") and not boshqa_filtr:
+            qolgan_qarz = User.objects.filter(
+                role=User.Role.STUDENT, pk__in=Hisob.objects.filter(doira[0]).values("talaba_id"),
+            ).exclude(pk__in=talabalar.keys())
+            if arxiv:
+                qolgan_qarz = qolgan_qarz.filter(is_active=False)
+            if qidiruv:
+                qolgan_qarz = qolgan_qarz.filter(
+                    Q(first_name__icontains=qidiruv) | Q(username__icontains=qidiruv)
+                    | Q(telefon__icontains=qidiruv)
+                )
+            qolgan_qarz = list(qolgan_qarz[:2000])
+            qqb = mantiq.balanslarni_ol({t.id for t in qolgan_qarz}, *doira)
+            for t in qolgan_qarz:
+                talabalar[t.id] = {
+                    "id": t.id, "ism": t.get_full_name() or t.username, "telefon": t.telefon,
+                    "izoh": t.izoh, "balans": qqb.get(t.id, NOL), "faol": t.is_active, "guruhlar": [],
+                }
 
         # Baho va keyingi to'lov (video 23:52: ro'yxat ustunlari) — to'plam
         # so'rovlar bilan, har talabaga alohida so'rov emas.
@@ -1868,6 +1895,8 @@ class TalabalarView(CrmView):
         for yozuv in talabalar.values():
             yozuv["qora_royxat"] = bool(profillar.get(yozuv["id"]))
         if request.query_params.get("qarzdor"):
+            # Qarzdor — balansi MANFIY o'quvchi (bosh sahifadagi "Qarzdorlar"
+            # bilan BITTA qoida, 2026-09-28).
             talabalar = {k: v for k, v in talabalar.items() if v["balans"] < 0}
         if request.query_params.get("qora_royxat"):
             talabalar = {k: v for k, v in talabalar.items() if v["qora_royxat"]}

@@ -105,6 +105,19 @@ def tolov_filiali_q(filial_id, prefix=""):
     )
 
 
+def balans_doirasi(user, filial_id=None):
+    """Balans va qarzdorlik qaysi yozuvlardan hisoblanadi: `(hisob_q, tolov_q)`.
+
+    Shuhrat, 2026-09-28: filial tanlangan bo'lsa — faqat o'sha filialning
+    hisob va to'lovlari; tanlanmagan bo'lsa — filialga bog'langan xodimga
+    o'z filiallari, qolganlarga umumiy (hamma filial)."""
+    if filial_id and str(filial_id).isdigit():
+        return Q(filial_id=filial_id), tolov_filiali_q(filial_id)
+    if ruxsat_filiallari(user) is not None:
+        return filial_q(user, "filial"), tolov_q(user)
+    return Q(), Q()
+
+
 def guruh_tekshir(user, guruh):
     moliya = getattr(guruh, "moliya", None)
     if not filial_korinadimi(user, moliya.filial_id if moliya else None):

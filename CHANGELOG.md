@@ -19,6 +19,20 @@ Format (qat'iy, parser shunga tayanadi):
 
 ---
 
+## 2026-09-28 — Qarzdorlik to'g'ri hisoblanadi
+
+- **Bosh sahifadagi "Qarzdorlar" va "Qolgan qarzlar" endi Talabalar →
+  "Qarzdorlar" ro'yxati bilan doim bir xil.** Qarzdor — balansi minusda
+  bo'lgan o'quvchi. Avval bir oyga ortiqcha to'langan pul boshqa oy
+  qarzini yopmasdi va bosh sahifa qarzdor ko'rsatsa ham ro'yxat bo'sh
+  chiqardi.
+- Guruhdan chiqqan yoki arxivlangan, lekin qarzi qolgan o'quvchi ham
+  "Qarzdorlar" ro'yxatida chiqadi ("arxiv" belgisi bilan).
+- **Filial tanlangan bo'lsa**, balans va qarzdorlik faqat shu filialning
+  hisob va to'lovlari bo'yicha hisoblanadi.
+- **Balans ko'rinishi:** qarzdor bo'lsa minus bilan qizil rangda,
+  ortiqcha to'lagan bo'lsa yashil rangda (belgisiz).
+
 ## 2026-09-26 — CRM'da yangi kurs qo'shish
 
 - **"Narxlar" sahifasida "Kurs qo'shish" tugmasi.** Fanni tanlaysiz (yoki
