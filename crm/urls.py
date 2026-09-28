@@ -66,6 +66,7 @@ urlpatterns = [
     path("lidlar/", boshqaruv.LidlarView.as_view(), name="lidlar"),
     path("lidlar/guruhga/", boshqaruv.LidGuruhgaView.as_view(), name="lid_guruhga"),
     path("lidlar/eksport/", boshqaruv.LidlarEksportView.as_view(), name="lidlar_eksport"),
+    path("lidlar/qora-oquvchilar/", boshqaruv.QoraOquvchilarView.as_view(), name="lid_qora_oquvchilar"),
     path("lidlar/<int:pk>/", boshqaruv.LidDetailView.as_view(), name="lid_detail"),
 
     path("talaba-yaratish/", boshqaruv.TalabaYaratishView.as_view(), name="talaba_yaratish"),

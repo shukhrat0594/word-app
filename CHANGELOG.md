@@ -19,7 +19,25 @@ Format (qat'iy, parser shunga tayanadi):
 
 ---
 
-## 2026-09-28 — Qarzdorlik to'g'ri hisoblanadi
+## 2026-09-28 — Qarzdorlik, davomat va o'quvchi natijalari
+
+- **Davomat katagi bosilganda variantlar chiqadi:** keldi, kechikdi,
+  kelmadi, sababli yoki tozalash — avvalgidek bir necha marta bosib
+  kerakli belgiga yetish shart emas. "Kechikdi" kelganlar soniga
+  kiradi. O'quvchi kartasidagi taqvimda ham xuddi shunday.
+- **Guruh davomatida "Arxivdagi o'quvchilar"** tugmasi — guruhdan
+  chiqqan o'quvchining o'sha oydagi davomatini ko'rish mumkin (faqat
+  ko'rish uchun).
+- Guruh a'zolari, davomat va baholar jadvallarida **tartib raqami (№)**.
+- **General kursdagi o'quvchi kartasida har bir Unit bo'yicha uy
+  vazifasi:** nechta mashq bajarilgani, necha foizi to'g'ri va necha
+  foizi noto'g'ri, Unit o'tilganmi.
+- **Bosh sahifada "To'lov qo'shish" tugmasi.** "To'lovi yaqin"
+  kartochkasi olib tashlandi.
+- **Qora ro'yxatdagi o'quvchilar Lidlar → "Qora ro'yxat"da ham
+  ko'rinadi** — hamma filial administratorlariga.
+- O'quvchi kartasidagi "Sayt holati" endi to'g'ri: saytda mashq
+  qilayotgan o'quvchi "Saytga kirgan" bo'lib ko'rinadi.
 
 - **Bosh sahifadagi "Qarzdorlar" va "Qolgan qarzlar" endi Talabalar →
   "Qarzdorlar" ro'yxati bilan doim bir xil.** Qarzdor — balansi minusda

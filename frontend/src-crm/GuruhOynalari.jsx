@@ -2,7 +2,7 @@
 // tahrirlash, guruhga o'quvchi qo'shish (qo'lda, yangi o'quvchi, Excel),
 // chegirmalar va darsni ko'chirish. CRM endi guruhning ASOSIY joyi.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { api, apiFaylYubor, apiFayluniYuklab } from "./api.js";
 import { useFilial } from "./filialContext.jsx";
@@ -408,18 +408,67 @@ export function TalabaQoshishOynasi({ guruh, tanlanganTalaba = null, onYopish, o
 
 // ── Davomat (tahrirlanadigan) ───────────────────────────────────────
 
-const HOLAT_BELGI = { keldi: "✓", kelmadi: "✕", sababli: "◐" };
-const HOLAT_KETMA = [null, "keldi", "kelmadi", "sababli"];
+export const HOLAT_BELGI = { keldi: "✓", kechikdi: "⏰", kelmadi: "✕", sababli: "◐" };
+const DAVOMAT_VARIANTLARI = ["keldi", "kechikdi", "kelmadi", "sababli"];
+
+/** Davomat katagi bosilganda chiqadigan variantlar (video-TZ 2026-09-28,
+ *  eski tizimdagidek): keldi / kechikdi / kelmadi / sababli / tozalash.
+ *  Avval katak har bosishda holatlar bo'yicha aylanardi — kerakli
+ *  holatga yetguncha bir necha marta bosish, adashib qolish oson edi.
+ *  Guruh davomati ham, o'quvchi kartasidagi taqvim ham shuni ishlatadi. */
+export function DavomatMenyusi({ joy, joriy, onTanla, onYopish }) {
+  const { t } = useI18n();
+  useEffect(() => {
+    const esc = (e) => e.key === "Escape" && onYopish();
+    window.addEventListener("keydown", esc);
+    return () => window.removeEventListener("keydown", esc);
+  }, [onYopish]);
+  async function tanla(holat) {
+    let izoh = "";
+    if (holat === "sababli") {
+      const javob = window.prompt(t("sabab_izoh"), "");
+      if (javob === null) return;
+      izoh = javob;
+    }
+    onYopish();
+    onTanla(holat, izoh);
+  }
+  // Ekran chetidan chiqib ketmasin.
+  const chap = Math.min(joy.x, window.innerWidth - 190);
+  const tepa = Math.min(joy.y, window.innerHeight - 230);
+  return (
+    <>
+      <div className="davomat-menyu-fon" onClick={onYopish} />
+      <div className="davomat-menyu" role="menu" style={{ left: chap, top: tepa }}>
+        {DAVOMAT_VARIANTLARI.map((h) => (
+          <button key={h} type="button" role="menuitem"
+                  className={`davomat-${h}${joriy === h ? " faol" : ""}`} onClick={() => tanla(h)}>
+            <span>{HOLAT_BELGI[h]}</span> {t(`davomat_${h}`)}
+          </button>
+        ))}
+        {joriy && (
+          <button type="button" role="menuitem" onClick={() => tanla(null)}>
+            <span>☐</span> {t("davomat_tozalash")}
+          </button>
+        )}
+      </div>
+    </>
+  );
+}
 
 export function DavomatJadvali({ guruhId }) {
   const { t, til } = useI18n();
   const ruxsat = useRuxsat();
   const [oy, setOy] = useState(() => new Date().toISOString().slice(0, 7));
-  const { malumot, yuklanmoqda, xato, yangila } = useSorov(`/api/crm/guruhlar/${guruhId}/davomat/` + sorovSatri({ oy }));
+  // Arxivdagi (guruhdan chiqqan) o'quvchilar davomati — faqat ko'rish (video-TZ 2026-09-28).
+  const [sobiqKorsin, setSobiqKorsin] = useState(false);
+  const { malumot, yuklanmoqda, xato, yangila } = useSorov(
+    `/api/crm/guruhlar/${guruhId}/davomat/` + sorovSatri({ oy, sobiqlar: sobiqKorsin ? 1 : "" }));
   // Dars mavzulari (SoffCRM "Mavzular" qatori).
   const mavzular = useSorov(`/api/crm/guruhlar/${guruhId}/mavzular/` + sorovSatri({ oy }));
   const [xatoQ, setXatoQ] = useState("");
   const [kochirish, setKochirish] = useState(null);
+  const [menyu, setMenyu] = useState(null); // { talaba, kun, joy }
   const tahrirlaydi = ruxsat("guruhlar.davomat");
   const bugunSana = new Date().toISOString().slice(0, 10);
 
@@ -447,20 +496,12 @@ export function DavomatJadvali({ guruhId }) {
     setOy(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
   }
 
-  async function belgila(talaba, kun) {
-    if (!tahrirlaydi || kun.qulf || kun.kelajak) return;
-    const keyingi = HOLAT_KETMA[(HOLAT_KETMA.indexOf(kun.holat) + 1) % HOLAT_KETMA.length];
-    let izoh = kun.izoh || "";
-    if (keyingi === "sababli") {
-      const javob = window.prompt(t("sabab_izoh"), izoh);
-      if (javob === null) return;
-      izoh = javob;
-    }
+  async function belgila(talaba, kun, holat, izoh) {
     setXatoQ("");
     try {
       await api(`/api/crm/guruhlar/${guruhId}/davomat/`, {
         method: "POST",
-        body: { talaba_id: talaba.id, sana: kun.sana, holat: keyingi, izoh },
+        body: { talaba_id: talaba.id, sana: kun.sana, holat, izoh },
       });
       yangila();
     } catch (e) {
@@ -469,7 +510,7 @@ export function DavomatJadvali({ guruhId }) {
   }
 
   const sanalar = malumot?.sanalar || [];
-  const talabalar = malumot?.talabalar || [];
+  const talabalar = [...(malumot?.talabalar || []), ...(malumot?.sobiqlar || [])];
   const ozgarishlar = malumot?.ozgarishlar || [];
 
   return (
@@ -490,6 +531,12 @@ export function DavomatJadvali({ guruhId }) {
                 onClick={() => apiFayluniYuklab(`/api/crm/guruhlar/${guruhId}/davomat/eksport/` + sorovSatri({ oy })).catch((e) => setXatoQ(e.message))}>
           ⬇ Excel
         </button>
+        {(malumot?.sobiqlar_soni > 0 || sobiqKorsin) && (
+          <button className={`tugma kichik-tugma ${sobiqKorsin ? "" : "tugma-sokin"}`} type="button"
+                  onClick={() => setSobiqKorsin((x) => !x)}>
+            🗄 {sobiqKorsin ? t("arxivdagilarni_yashirish") : `${t("arxivdagi_oquvchilar")} (${malumot?.sobiqlar_soni ?? 0})`}
+          </button>
+        )}
       </div>
       {(xato || xatoQ) && <div className="xato">{xato || xatoQ}</div>}
       {yuklanmoqda && !malumot && <p className="kichik">{t("yuklanmoqda")}</p>}
@@ -499,6 +546,7 @@ export function DavomatJadvali({ guruhId }) {
           <table className="davomat-jadval">
             <thead>
               <tr className="mavzu-qator">
+                <th />
                 <th className="kichik">{t("mavzular")}</th>
                 {sanalar.map((s) => (
                   <th key={s} className="markazga">
@@ -515,6 +563,7 @@ export function DavomatJadvali({ guruhId }) {
                 <th />
               </tr>
               <tr>
+                <th className="ongga">№</th>
                 <th>{t("talaba")}</th>
                 {sanalar.map((s) => {
                   const oz = ozgarishlar.find((o) => o.yangi_sana === s);
@@ -534,17 +583,25 @@ export function DavomatJadvali({ guruhId }) {
               </tr>
             </thead>
             <tbody>
-              {talabalar.map((x) => (
-                <tr key={x.id}>
-                  <td>{x.ism}</td>
+              {talabalar.map((x, i) => (
+                <tr key={x.id} className={x.sobiq ? "sobiq-qator" : undefined}>
+                  <td className="ongga kichik">{i + 1}</td>
+                  <td>
+                    {x.ism}
+                    {x.sobiq && (
+                      <div className="kichik">
+                        🗄 {t("arxiv")}{x.chiqqan_sana ? ` · ${sana(x.chiqqan_sana)}` : ""}
+                      </div>
+                    )}
+                  </td>
                   {x.kunlar.map((k) => (
                     <td key={k.sana} className="markazga">
                       <button
                         type="button"
                         className={`davomat-katak davomat-${k.holat || "yoq"}${k.qulf ? " qulf" : ""}`}
-                        disabled={!tahrirlaydi || k.qulf || k.kelajak}
-                        title={k.qulf ? t("hali_qoshilmagan") : k.izoh || sana(k.sana)}
-                        onClick={() => belgila(x, k)}
+                        disabled={!tahrirlaydi || k.qulf || k.kelajak || x.sobiq}
+                        title={k.qulf ? t(x.sobiq ? "guruhdan_chiqqan" : "hali_qoshilmagan") : k.izoh || sana(k.sana)}
+                        onClick={(e) => setMenyu({ talaba: x, kun: k, joy: { x: e.clientX, y: e.clientY } })}
                       >
                         {k.qulf ? "🔒" : HOLAT_BELGI[k.holat] || "·"}
                       </button>
@@ -580,6 +637,10 @@ export function DavomatJadvali({ guruhId }) {
             </li>
           ))}
         </ul>
+      )}
+      {menyu && (
+        <DavomatMenyusi joy={menyu.joy} joriy={menyu.kun.holat} onYopish={() => setMenyu(null)}
+                        onTanla={(holat, izoh) => belgila(menyu.talaba, menyu.kun, holat, izoh)} />
       )}
       {kochirish && (
         <DarsKochirishOynasi guruhId={guruhId} boshlangich={kochirish}
@@ -830,14 +891,16 @@ export function Baholar({ guruhId }) {
           <table className="davomat-jadval">
             <thead>
               <tr>
+                <th className="ongga">№</th>
                 <th>{t("talaba")}</th>
                 {sanalar.map((s) => <th key={s} className="markazga" title={sana(s)}>{String(s).slice(8, 10)}</th>)}
                 <th className="ongga">{t("ortacha")}</th>
               </tr>
             </thead>
             <tbody>
-              {(malumot?.talabalar || []).map((x) => (
+              {(malumot?.talabalar || []).map((x, i) => (
                 <tr key={x.id}>
+                  <td className="ongga kichik">{i + 1}</td>
                   <td>{x.ism}</td>
                   {x.baholar.map((b, i) => (
                     <td key={sanalar[i]} className="markazga">

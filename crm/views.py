@@ -24,7 +24,7 @@ from accounts.permissions import owner_mi
 from audit.models import FaoliyatYozuvi
 from assessment.models import SpeakingTekshiruv, WritingTekshiruv
 from audit.utils import logla
-from courses.models import KursTugun
+from courses.models import KursMashq, KursMashqYechim, KursTugun
 from exercises.models import Bolim, MashqYechim
 from stats.services import talaba_statistikasi
 
@@ -2025,6 +2025,8 @@ class TalabaView(CrmView):
                     "darslar_taqvimi": (taqvim := _darslar_taqvimi(am, hisoblar, taqvim_oyi)),
                     "taqvim_sanogi": _taqvim_sanogi(taqvim),
                     "keyingi_tolov": mantiq.keyingi_tolov_sanasi(talaba, guruh),
+                    # General kurslar: har Unit uy vazifasi (video-TZ 2026-09-28).
+                    "unitlar": unit_natijalari(talaba.id, guruh),
                 }
             )
 
@@ -2074,10 +2076,7 @@ class TalabaView(CrmView):
                 "faol": talaba.is_active,
                 "crm": _talaba_profil_dict(talaba),
                 # SoffCRM "Ilova holati" o'rnida — saytdan foydalanadimi.
-                "sayt": {
-                    "oxirgi_kirish": talaba.last_login,
-                    "oxirgi_faollik": talaba.oxirgi_faollik,
-                },
+                "sayt": _sayt_holati(talaba),
                 "ota_ona": {
                     "id": talaba.ota_ona_id,
                     "ism": (talaba.ota_ona.get_full_name() or talaba.ota_ona.username) if talaba.ota_ona_id else None,
@@ -2090,6 +2089,79 @@ class TalabaView(CrmView):
                 "tolovlar": [_tolov_dict(t) for t in tolovlar],
             }
         )
+
+
+def _sayt_holati(talaba):
+    """Saytdan foydalanadimi (video-TZ 2026-09-28: "saytda dars qilayotgan
+    o'quvchi 'saytga kirmagan' bo'lib turibdi").
+
+    `last_login` bu loyihada YANGILANMAYDI — kirish JWT orqali, u maydonni
+    yozmaydi. Shuning uchun belgi: oxirgi faollik (har so'rovda,
+    `accounts.authentication.faollikni_belgila`) yoki oxirgi yechgan mashqi —
+    qaysi biri bor bo'lsa, "kirgan"; vaqt — eng oxirgisi."""
+    oxirgi_mashq = MashqYechim.objects.filter(talaba=talaba).order_by("-created_at").values_list(
+        "created_at", flat=True).first()
+    vaqtlar = [v for v in (talaba.last_login, talaba.oxirgi_faollik, oxirgi_mashq) if v]
+    return {"kirgan": bool(vaqtlar), "oxirgi_faollik": max(vaqtlar) if vaqtlar else None}
+
+
+def unit_natijalari(talaba_id, guruh):
+    """Guruh kursining har bir Unit'i bo'yicha uy vazifasi natijasi (video-TZ
+    2026-09-28: "IELTS'da writing/speaking ko'rinadi, General o'quvchida har
+    unit uchun uy vazifasi qanchalik bajarilgani — necha foizi to'g'ri,
+    necha foizi noto'g'ri").
+
+    Qoida saytdagi Unit qulfi bilan BIR XIL (`courses.views._unit_otildimi`):
+    Unit ostidagi butun shox (Student's Book + Workbook) mashqlari, har
+    mashqning ENG YANGI yechimi; "o'tildi" — hammasi yechilgan va jami
+    ball 60%+. Unit'siz kurs (IELTS) — bo'sh ro'yxat.
+
+    So'rovlar soni Unit'lar soniga bog'liq emas: shox qatlam-qatlam bitta
+    so'rovdan, mashqlar va yechimlar bittadan."""
+    from courses.views import OTISH_FOIZ
+
+    unitlar = list(daraja_unitlari(guruh))
+    if not unitlar:
+        return []
+    unit_of = {u.id: u.id for u in unitlar}
+    joriy = list(unit_of)
+    while joriy:
+        bolalar = list(KursTugun.objects.filter(parent_id__in=joriy).values_list("id", "parent_id"))
+        for tid, pid in bolalar:
+            unit_of[tid] = unit_of[pid]
+        joriy = [tid for tid, _ in bolalar]
+    mashq_unit = {
+        mid: unit_of[tid] for mid, tid in KursMashq.objects.filter(tugun_id__in=unit_of).values_list("id", "tugun_id")
+    }
+    yechimlar = {}
+    for mid, ball, jami in KursMashqYechim.objects.filter(
+        talaba_id=talaba_id, mashq_id__in=mashq_unit,
+    ).order_by("-created_at").values_list("mashq_id", "ball", "jami"):
+        yechimlar.setdefault(mid, (ball, jami))  # eng yangisi
+
+    hisob = {u.id: {"mashqlar": 0, "bajarilgan": 0, "ball": 0, "savol": 0} for u in unitlar}
+    for mid, uid in mashq_unit.items():
+        h = hisob[uid]
+        h["mashqlar"] += 1
+        if mid in yechimlar:
+            ball, jami = yechimlar[mid]
+            h["bajarilgan"] += 1
+            h["ball"] += ball
+            h["savol"] += jami
+    natija = []
+    for u in unitlar:
+        h = hisob[u.id]
+        if not h["mashqlar"]:
+            continue  # mashqi hali kiritilmagan Unit
+        togri = round(h["ball"] / h["savol"] * 100) if h["savol"] else None
+        natija.append({
+            "id": u.id, "nomi": u.nomi, "mashqlar": h["mashqlar"], "bajarilgan": h["bajarilgan"],
+            "bajarilgan_foiz": round(h["bajarilgan"] / h["mashqlar"] * 100),
+            "togri_foiz": togri, "notogri_foiz": None if togri is None else 100 - togri,
+            "otildi": h["bajarilgan"] == h["mashqlar"] and h["savol"] > 0
+            and h["ball"] / h["savol"] >= OTISH_FOIZ,
+        })
+    return natija
 
 
 def _talaba_profil_dict(talaba):
@@ -2118,7 +2190,7 @@ def _darslar_taqvimi(am, hisoblar, oy=None):
     davomat belgilanadi. Ustidagi sanoq: kelgan / kelmagan / sababli /
     qilinmagan (o'tgan, lekin belgilanmagan dars).
     """
-    from .boshqaruv import guruh_dars_sanalari
+    from .boshqaruv import davomat_holati, guruh_dars_sanalari
     from .models import DarsBahosi
 
     oy = oy or mantiq.oy_boshi(timezone.localdate())
@@ -2128,7 +2200,7 @@ def _darslar_taqvimi(am, hisoblar, oy=None):
     talaba_kunlar = set(mantiq.talaba_dars_kunlari(am, oy, mantiq.oylik_dars_kunlari(guruh, oy)))
     oxiri = mantiq.oy_oxiri(oy)
     davomat = {
-        d.sana: ("sababli" if getattr(d, "crm_izoh", None) and d.crm_izoh.sababli else d.holat)
+        d.sana: davomat_holati(d)
         for d in Davomat.objects.filter(guruh=guruh, talaba_id=talaba_id, sana__range=(oy, oxiri))
         .select_related("crm_izoh")
     }
@@ -2157,7 +2229,9 @@ def _darslar_taqvimi(am, hisoblar, oy=None):
 
 def _taqvim_sanogi(kunlar):
     return {
-        "keldi": sum(1 for k in kunlar if k["davomat"] == "keldi"),
+        # Kechikkan ham kelgan (dars qoldirilmagan).
+        "keldi": sum(1 for k in kunlar if k["davomat"] in ("keldi", "kechikdi")),
+        "kechikdi": sum(1 for k in kunlar if k["davomat"] == "kechikdi"),
         "kelmadi": sum(1 for k in kunlar if k["davomat"] == "kelmadi"),
         "sababli": sum(1 for k in kunlar if k["davomat"] == "sababli"),
         "qilinmagan": sum(1 for k in kunlar if not k["davomat"] and not k["kelajak"] and not k["qulf"]),

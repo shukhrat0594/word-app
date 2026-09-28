@@ -30,6 +30,7 @@ from .boshqaruv import (
     _ism,
     _telefon,
     _xodimlar_qs,
+    davomat_holati,
     guruh_dars_sanalari,
     talaba_yarat,
 )
@@ -102,8 +103,10 @@ class LidDoskalarView(CrmView):
         return Response({
             "doskalar": [_doska_dict(d, d._soni) for d in doskalar],
             "umumiy": umumiy,
-            # Qora ro'yxat — hamma filialniki (Shuhrat, 2026-09-23).
-            "qora_royxat": Lid.objects.filter(qora_royxat=True).count(),
+            # Qora ro'yxat — hamma filialniki (Shuhrat, 2026-09-23): lidlar VA
+            # qora ro'yxatga olingan o'quvchilar (video-TZ 2026-09-28).
+            "qora_royxat": Lid.objects.filter(qora_royxat=True).count()
+            + TalabaProfil.objects.filter(qora_royxat=True).count(),
         })
 
     def post(self, request):
@@ -248,16 +251,18 @@ class DavomatEksportView(CrmView):
         yozuvlar = Davomat.objects.filter(guruh=guruh, sana__range=(oy, mantiq.oy_oxiri(oy))).select_related("crm_izoh")
         sanalar = sorted(guruh_dars_sanalari(guruh, oy) | {y.sana for y in yozuvlar})
         katak = {}
+        belgi = {"sababli": "S", "kechikdi": "K", "keldi": "+"}
         for y in yozuvlar:
-            izoh = getattr(y, "crm_izoh", None)
-            katak[(y.talaba_id, y.sana)] = "S" if (izoh and izoh.sababli) else ("+" if y.holat == "keldi" else "-")
+            katak[(y.talaba_id, y.sana)] = belgi.get(davomat_holati(y), "-")
         qatorlar = []
         for a in sorted(GuruhAzoligi.objects.filter(guruh=guruh).select_related("talaba"),
                         key=lambda a: (_ism(a.talaba) or "").lower()):
             kunlar = [katak.get((a.talaba_id, s), "") for s in sanalar]
-            qatorlar.append([_ism(a.talaba), *kunlar, kunlar.count("+"), kunlar.count("-"), kunlar.count("S")])
+            qatorlar.append([_ism(a.talaba), *kunlar, kunlar.count("+") + kunlar.count("K"), kunlar.count("K"),
+                             kunlar.count("-"), kunlar.count("S")])
         return _excel(
-            "Davomat", ["O'quvchi", *[s.strftime("%d.%m") for s in sanalar], "Keldi", "Kelmadi", "Sababli"],
+            "Davomat", ["O'quvchi", *[s.strftime("%d.%m") for s in sanalar], "Keldi", "Kechikdi", "Kelmadi",
+                        "Sababli"],
             qatorlar, f"davomat_{guruh.name}_{oy:%Y-%m}",
         )
 

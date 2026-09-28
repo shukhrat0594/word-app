@@ -18,7 +18,7 @@ from datetime import timedelta
 from decimal import Decimal
 
 from django.db import transaction
-from django.db.models import Count, Prefetch, Q, Sum
+from django.db.models import Count, Exists, OuterRef, Prefetch, Q, Sum
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
@@ -31,6 +31,7 @@ from accounts.permissions import owner_mi
 from audit.models import FaoliyatYozuvi
 from audit.utils import logla
 from courses.models import KursTugun
+from exercises.models import MashqYechim
 
 from . import mantiq
 from .models import (
@@ -982,6 +983,46 @@ class LidlarView(CrmView):
         return Response(_lid_dict(lid), status=201)
 
 
+class QoraOquvchilarView(CrmView):
+    """Lidlar -> "Qora ro'yxat"dagi o'quvchilar (video-TZ 2026-09-28): bir
+    filialda qora ro'yxatga olingan o'quvchi HAMMA filial administratoriga
+    shu bo'limda ko'rinadi — yangi lid sifatida qayta yozilmasin. Faqat
+    o'qish; o'quvchi kartasi "Talabalar" ruxsati bilan ochiladi."""
+
+    bolim = "lidlar"
+
+    def get(self, request):
+        profillar = (
+            TalabaProfil.objects.filter(qora_royxat=True, user__role=User.Role.STUDENT)
+            .select_related("user").order_by("user__first_name", "user__username")
+        )
+        q = (request.query_params.get("q") or "").strip()
+        if q:
+            profillar = profillar.filter(
+                Q(user__first_name__icontains=q) | Q(user__username__icontains=q) | Q(user__telefon__icontains=q)
+            )
+        profillar = list(profillar[:500])
+        idlar = [p.user_id for p in profillar]
+        # Filial — hozirgi guruhlaridan, guruhsiz bo'lsa oxirgi chiqqan guruhidan.
+        filiallar = {}
+        guruh_filiallari = GuruhAzoligi.objects.filter(
+            talaba_id__in=idlar, guruh__moliya__filial__isnull=False,
+        ).values_list("talaba_id", "guruh__moliya__filial__nomi")
+        for tid, nomi in guruh_filiallari:
+            filiallar.setdefault(tid, set()).add(nomi)
+        for c in GuruhdanChiqish.objects.filter(talaba_id__in=idlar, filial__isnull=False).select_related(
+                "filial").order_by("sana"):
+            if c.talaba_id not in filiallar:
+                filiallar[c.talaba_id] = {c.filial.nomi}
+        return Response([
+            {
+                "id": p.user_id, "ism": _ism(p.user), "telefon": p.user.telefon,
+                "sabab": p.qora_royxat_sabab, "filial": ", ".join(sorted(filiallar.get(p.user_id, ()))) or None,
+            }
+            for p in profillar
+        ])
+
+
 class LidlarEksportView(CrmView):
     """Lidlar ro'yxati Excel'da — kanbandagi filtrlar bilan bir xil."""
 
@@ -1726,6 +1767,18 @@ class GuruhTalabaAmaliView(CrmView):
 # ── Davomat (CRM'dan belgilash) ──────────────────────────────────────
 
 
+def davomat_holati(yozuv):
+    """`academics.Davomat` yozuvining CRM'dagi holati: LMS'dagi keldi/kelmadi
+    + CRM belgilari (`DavomatIzoh`): "sababli" (kelmadi) va "kechikdi" (keldi,
+    video-TZ 2026-09-28). Guruh davomati, talaba taqvimi va Excel — BITTA qoida."""
+    izoh = getattr(yozuv, "crm_izoh", None)
+    if yozuv.holat == Davomat.Holat.KELMADI and izoh and izoh.sababli:
+        return "sababli"
+    if yozuv.holat == Davomat.Holat.KELDI and izoh and izoh.kechikdi:
+        return "kechikdi"
+    return yozuv.holat
+
+
 def guruh_dars_sanalari(guruh, oy):
     """Oydagi haqiqiy dars sanalari: haftalik jadval + qo'shimcha /
     ko'chirilgan darslar − bekor qilingan / ko'chirib ketilganlari."""
@@ -1770,10 +1823,7 @@ class GuruhDavomatView(CrmView):
         katak = {}
         for y in yozuvlar:
             izoh = getattr(y, "crm_izoh", None)
-            holat = y.holat
-            if holat == Davomat.Holat.KELMADI and izoh and izoh.sababli:
-                holat = "sababli"
-            katak[(y.talaba_id, y.sana)] = {"holat": holat, "izoh": izoh.izoh if izoh else ""}
+            katak[(y.talaba_id, y.sana)] = {"holat": davomat_holati(y), "izoh": izoh.izoh if izoh else ""}
 
         ozgarishlar = [
             _ozgarish_dict(o)
@@ -1805,11 +1855,45 @@ class GuruhDavomatView(CrmView):
                 "ism": _ism(a.talaba),
                 "holat": am.holat if am else None,
                 "kunlar": kunlar,
-                "keldi": sum(1 for k in kunlar if k["holat"] == "keldi"),
+                "keldi": sum(1 for k in kunlar if k["holat"] in ("keldi", "kechikdi")),
+                "kechikdi": sum(1 for k in kunlar if k["holat"] == "kechikdi"),
                 "kelmadi": sum(1 for k in kunlar if k["holat"] == "kelmadi"),
                 "sababli": sum(1 for k in kunlar if k["holat"] == "sababli"),
             })
-        return Response({"oy": oy, "sanalar": sanalar, "talabalar": talabalar, "ozgarishlar": ozgarishlar})
+
+        # Arxivdagi (guruhdan chiqqan) o'quvchilar (video-TZ 2026-09-28:
+        # "sentabrda nechta darsga kelgan — ko'ra olmadim"; SoffCRM'dagi
+        # "Arxivdagi o'quvchilarni ko'rish"). A'zolik o'chgan, davomat
+        # yozuvlari esa qolgan — shu oyda yozuvi bor yoki shu guruhdan
+        # chiqqanlar. FAQAT KO'RISH: chiqqan kundan keyingi kataklar qulf,
+        # belgilash (POST) a'zo bo'lmagani uchun baribir rad etiladi.
+        azo_idlar = {a.talaba_id for a in azoliklar}
+        chiqishlar = {}
+        for c in GuruhdanChiqish.objects.filter(guruh=guruh, talaba__isnull=False).order_by("sana"):
+            chiqishlar[c.talaba_id] = c  # eng oxirgi chiqish qoladi
+        sobiq_idlar = ({y.talaba_id for y in yozuvlar} | set(chiqishlar)) - azo_idlar
+        sobiqlar = []
+        if request.query_params.get("sobiqlar"):
+            for t in sorted(User.objects.filter(pk__in=sobiq_idlar), key=lambda u: (_ism(u) or "").lower()):
+                c = chiqishlar.get(t.id)
+                kunlar = []
+                for s in sanalar:
+                    k = katak.get((t.id, s))
+                    kunlar.append({
+                        "sana": s, "holat": k["holat"] if k else None, "izoh": k["izoh"] if k else "",
+                        "qulf": not k and bool(c and (s > c.sana or (c.boshlagan_sana and s < c.boshlagan_sana))),
+                        "kelajak": s > bugun,
+                    })
+                sobiqlar.append({
+                    "id": t.id, "ism": _ism(t), "holat": None, "sobiq": True,
+                    "chiqqan_sana": c.sana if c else None, "kunlar": kunlar,
+                    "keldi": sum(1 for k in kunlar if k["holat"] in ("keldi", "kechikdi")),
+                "kechikdi": sum(1 for k in kunlar if k["holat"] == "kechikdi"),
+                    "kelmadi": sum(1 for k in kunlar if k["holat"] == "kelmadi"),
+                    "sababli": sum(1 for k in kunlar if k["holat"] == "sababli"),
+                })
+        return Response({"oy": oy, "sanalar": sanalar, "talabalar": talabalar, "ozgarishlar": ozgarishlar,
+                         "sobiqlar": sobiqlar, "sobiqlar_soni": len(sobiq_idlar)})
 
     def post(self, request, pk):
         """Bitta katak: `{talaba_id, sana, holat: keldi|kelmadi|sababli|null, izoh}`.
@@ -1827,7 +1911,7 @@ class GuruhDavomatView(CrmView):
         if sana > timezone.localdate():
             return _xato("Kelajakdagi darsga davomat qo'yib bo'lmaydi")
         holat = request.data.get("holat")
-        if holat not in (None, "", "keldi", "kelmadi", "sababli"):
+        if holat not in (None, "", "keldi", "kechikdi", "kelmadi", "sababli"):
             return _xato("Holat noto'g'ri")
 
         yozuv = Davomat.objects.filter(guruh=guruh, talaba=talaba, sana=sana).first()
@@ -1839,13 +1923,15 @@ class GuruhDavomatView(CrmView):
         with transaction.atomic():
             if yozuv is None:
                 yozuv = Davomat(guruh=guruh, talaba=talaba, sana=sana)
-            yozuv.holat = Davomat.Holat.KELDI if holat == "keldi" else Davomat.Holat.KELMADI
+            # "Kechikdi" LMS'da "keldi" — dars qoldirilmagan (belgi CRM'da).
+            yozuv.holat = Davomat.Holat.KELDI if holat in ("keldi", "kechikdi") else Davomat.Holat.KELMADI
             yozuv.belgilagan = request.user
             yozuv.save()
             izoh_matn = (request.data.get("izoh") or "").strip()[:300]
-            if holat == "sababli" or izoh_matn:
+            if holat in ("sababli", "kechikdi") or izoh_matn:
                 DavomatIzoh.objects.update_or_create(
-                    davomat=yozuv, defaults={"sababli": holat == "sababli", "izoh": izoh_matn}
+                    davomat=yozuv,
+                    defaults={"sababli": holat == "sababli", "kechikdi": holat == "kechikdi", "izoh": izoh_matn},
                 )
             else:
                 DavomatIzoh.objects.filter(davomat=yozuv).delete()
@@ -2136,30 +2222,7 @@ class KorsatkichlarView(CrmView):
             azoliklar.filter(holat=AzolikMoliya.Holat.FAOL).values_list("azolik__talaba_id", flat=True)
         )
         qarz_qs = mantiq_qarzdorlar(hisoblar, balans_doirasi(u, filial))
-        tolov_yaqin = 0
-        if "moliya" in r:
-            # "To'lovi yaqin" — keyingi 3 kunda to'lov sanasi keladigan
-            # faol talabalar (joriy oy hisobi hali to'lanmagan).
-            # `mantiq.keyingi_tolov_sanasi` mantig'i, lekin har a'zolikka
-            # alohida so'rov emas (N+1) — hamma hisoblar bitta so'rovda.
-            chegara = bugun + timedelta(days=3)
-            juftlar = set(
-                azoliklar.filter(holat=AzolikMoliya.Holat.FAOL).values_list("azolik__talaba_id", "azolik__guruh_id")
-            )
-            tolanmagan, oxirgi = {}, {}
-            for tid, gid, h_oy, h_holat in Hisob.objects.filter(
-                talaba_id__in={t for t, _ in juftlar}, guruh_id__in={g for _, g in juftlar}
-            ).values_list("talaba_id", "guruh_id", "oy", "holat"):
-                k = (tid, gid)
-                if k not in juftlar:
-                    continue
-                if h_holat != Hisob.Holat.TOLANDI:
-                    tolanmagan[k] = min(tolanmagan.get(k, h_oy), h_oy)
-                oxirgi[k] = max(oxirgi.get(k, h_oy), h_oy)
-            for k in juftlar:
-                sana = tolanmagan.get(k) or (mantiq.keyingi_oy(oxirgi[k]) if k in oxirgi else None)
-                if sana and bugun <= sana <= chegara:
-                    tolov_yaqin += 1
+        # "To'lovi yaqin" kartochkasi olib tashlandi (video-TZ 2026-09-28: "kerak emas").
 
         # Bitirgan va boshqa guruhga o'tgan "ketgan" emas (markazda qolgan).
         oy_ketgan = GuruhdanChiqish.objects.filter(sana__gte=oy, sana__lte=bugun).filter(
@@ -2222,7 +2285,6 @@ class KorsatkichlarView(CrmView):
             "guruhlar": guruhlar.count(),
             "qolgan_qarz": ruxsat("bosh_sahifa.qarzdorlar", qarz_qs["summa"]),
             "qarzdorlar": ruxsat("bosh_sahifa.qarzdorlar", qarz_qs["soni"]),
-            "tolovi_yaqin": ruxsat("moliya", tolov_yaqin),
             "faol_talabalar": ruxsat("bosh_sahifa.faol_talabalar", len(faol_talaba_idlar)),
             "jami_guruhdagi": azoliklar.values("azolik__talaba_id").distinct().count(),
             "sinov_darsida": azoliklar.filter(holat=AzolikMoliya.Holat.SINOV).count(),
@@ -2283,13 +2345,15 @@ class TalabaQidiruvView(CrmView):
                 "id": u.id, "ism": _ism(u), "telefon": u.telefon, "username": u.username,
                 # Saytga hech kirmagan — CRM avtomatik bergan login hali
                 # ishlatilmagan, uni almashtirish xavfsiz.
-                "saytga_kirgan": u.last_login is not None,
+                # `last_login` JWT'da yangilanmaydi — faollik yoki mashq bo'yicha.
+                "saytga_kirgan": bool(u.last_login or u.oxirgi_faollik or u._mashq_bor),
                 "guruhlar": [g.name for g in u.talaba_guruhlari.all() if g.faol],
             }
             # Boshqa filial guruhlarining nomlari ham chiqmasin.
             for u in qs.prefetch_related(
                 Prefetch("talaba_guruhlari", queryset=Guruh.objects.filter(guruh_q(request.user)))
-            ).order_by("first_name", "username")[:30]
+            ).annotate(_mashq_bor=Exists(MashqYechim.objects.filter(talaba=OuterRef("pk"))))
+            .order_by("first_name", "username")[:30]
         ])
 
 

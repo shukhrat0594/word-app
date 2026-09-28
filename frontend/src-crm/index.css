@@ -869,7 +869,38 @@ tfoot td {
 .davomat-keldi { color: var(--tolandi); border-color: var(--tolandi); }
 .davomat-kelmadi { color: var(--qarzdor); border-color: var(--qarzdor); }
 .davomat-sababli { color: var(--qisman); border-color: var(--qisman); }
+.davomat-kechikdi { color: var(--qisman); border-color: var(--qisman); }
+/* Davomat variantlari menyusi (katak bosilganda). */
+.davomat-menyu-fon { position: fixed; inset: 0; z-index: 40; }
+.davomat-menyu {
+  position: fixed;
+  z-index: 41;
+  display: flex;
+  flex-direction: column;
+  min-width: 170px;
+  padding: 4px;
+  background: var(--karta);
+  border: 1px solid var(--chegara);
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+}
+.davomat-menyu button {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.davomat-menyu button:hover, .davomat-menyu button.faol { background: var(--fon); }
+.davomat-menyu button span { width: 18px; text-align: center; }
 .davomat-katak.qulf { border-style: dashed; }
+/* Arxivdagi (guruhdan chiqqan) o'quvchi — faqat ko'rish uchun, xiraroq. */
+.sobiq-qator td { opacity: 0.7; }
 .ozgarish-royxat {
   margin: 8px 0 0;
   padding-inline-start: 18px;
@@ -983,6 +1014,7 @@ tfoot td {
 .davomat-belgi-keldi::after { background: var(--tolandi); }
 .davomat-belgi-kelmadi::after { background: var(--qarzdor); }
 .davomat-belgi-sababli::after { background: var(--qisman); }
+.davomat-belgi-kechikdi::after { background: var(--qisman); }
 .taqvim-sanoq {
   display: flex;
   flex-wrap: wrap;
