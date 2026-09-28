@@ -122,6 +122,8 @@ export default function GuruhAzolari({ guruhId, guruhNomi, onOzgardi }) {
       <table>
         <thead>
           <tr>
+            {/* Tartib raqami (video-TZ 2026-09-28, SoffCRM'dagidek). */}
+            <th className="ongga">№</th>
             <th>{t("talaba")}</th>
             <th>{t("telefon")}</th>
             <th>{t("holat")}</th>
@@ -133,8 +135,9 @@ export default function GuruhAzolari({ guruhId, guruhNomi, onOzgardi }) {
           </tr>
         </thead>
         <tbody>
-          {azolar.map((a) => (
+          {azolar.map((a, i) => (
             <tr key={a.id}>
+              <td className="ongga kichik">{i + 1}</td>
               {/* Ism — o'quvchi kartasiga (video-TZ 2026-09-25, SoffCRM'dagidek). */}
               <td><Link className="havola" to={`/talabalar?talaba=${a.talaba_id}`}>{a.talaba}</Link></td>
               <td>{a.telefon || "—"}</td>
@@ -189,7 +192,7 @@ export default function GuruhAzolari({ guruhId, guruhNomi, onOzgardi }) {
             </tr>
           ))}
           {azolar.length === 0 && (
-            <tr><td colSpan={8} className="bosh">{t("yozuv_yoq")}</td></tr>
+            <tr><td colSpan={9} className="bosh">{t("yozuv_yoq")}</td></tr>
           )}
         </tbody>
       </table>

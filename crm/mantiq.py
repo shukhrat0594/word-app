@@ -431,11 +431,15 @@ def balans(talaba, guruh=None) -> Decimal:
     return kirim - chiqim - hisoblangan
 
 
-def balanslarni_ol(talaba_idlar) -> dict:
+def balanslarni_ol(talaba_idlar, hisob_q=None, tolov_q=None) -> dict:
     """Ko'p talabaning balansi — BITTA so'rovda (N+1'dan qochish uchun).
 
     Qarzdorlar ro'yxatida har qatorda balans ko'rsatiladi; `balans()`ni
     har qator uchun chaqirish 200 talabada 600 ta so'rov degani bo'lardi.
+
+    `hisob_q` / `tolov_q` — doira (filial): filial tanlanganda balans faqat
+    o'sha filialning hisoblari va to'lovlaridan (Shuhrat, 2026-09-28).
+    Qoida `crm.filial.balans_doirasi`da.
     """
     talaba_idlar = list(talaba_idlar)
     if not talaba_idlar:
@@ -444,7 +448,7 @@ def balanslarni_ol(talaba_idlar) -> dict:
     natija = {pk: Decimal("0") for pk in talaba_idlar}
 
     tolovlar = (
-        Tolov.objects.filter(talaba_id__in=talaba_idlar)
+        Tolov.objects.filter(talaba_id__in=talaba_idlar).filter(tolov_q or models.Q())
         .values("talaba_id")
         .annotate(
             kirim=models.Sum(
@@ -459,7 +463,7 @@ def balanslarni_ol(talaba_idlar) -> dict:
         natija[qator["talaba_id"]] += qator["kirim"] - qator["chiqim"]
 
     hisoblar = (
-        Hisob.objects.filter(talaba_id__in=talaba_idlar)
+        Hisob.objects.filter(talaba_id__in=talaba_idlar).filter(hisob_q or models.Q())
         .values("talaba_id")
         .annotate(jami=models.Sum("summa", default=Decimal("0")))
     )

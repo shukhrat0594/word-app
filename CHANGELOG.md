@@ -19,6 +19,38 @@ Format (qat'iy, parser shunga tayanadi):
 
 ---
 
+## 2026-09-28 — Qarzdorlik, davomat va o'quvchi natijalari
+
+- **Davomat katagi bosilganda variantlar chiqadi:** keldi, kechikdi,
+  kelmadi, sababli yoki tozalash — avvalgidek bir necha marta bosib
+  kerakli belgiga yetish shart emas. "Kechikdi" kelganlar soniga
+  kiradi. O'quvchi kartasidagi taqvimda ham xuddi shunday.
+- **Guruh davomatida "Arxivdagi o'quvchilar"** tugmasi — guruhdan
+  chiqqan o'quvchining o'sha oydagi davomatini ko'rish mumkin (faqat
+  ko'rish uchun).
+- Guruh a'zolari, davomat va baholar jadvallarida **tartib raqami (№)**.
+- **General kursdagi o'quvchi kartasida har bir Unit bo'yicha uy
+  vazifasi:** nechta mashq bajarilgani, necha foizi to'g'ri va necha
+  foizi noto'g'ri, Unit o'tilganmi.
+- **Bosh sahifada "To'lov qo'shish" tugmasi.** "To'lovi yaqin"
+  kartochkasi olib tashlandi.
+- **Qora ro'yxatdagi o'quvchilar Lidlar → "Qora ro'yxat"da ham
+  ko'rinadi** — hamma filial administratorlariga.
+- O'quvchi kartasidagi "Sayt holati" endi to'g'ri: saytda mashq
+  qilayotgan o'quvchi "Saytga kirgan" bo'lib ko'rinadi.
+
+- **Bosh sahifadagi "Qarzdorlar" va "Qolgan qarzlar" endi Talabalar →
+  "Qarzdorlar" ro'yxati bilan doim bir xil.** Qarzdor — balansi minusda
+  bo'lgan o'quvchi. Avval bir oyga ortiqcha to'langan pul boshqa oy
+  qarzini yopmasdi va bosh sahifa qarzdor ko'rsatsa ham ro'yxat bo'sh
+  chiqardi.
+- Guruhdan chiqqan yoki arxivlangan, lekin qarzi qolgan o'quvchi ham
+  "Qarzdorlar" ro'yxatida chiqadi ("arxiv" belgisi bilan).
+- **Filial tanlangan bo'lsa**, balans va qarzdorlik faqat shu filialning
+  hisob va to'lovlari bo'yicha hisoblanadi.
+- **Balans ko'rinishi:** qarzdor bo'lsa minus bilan qizil rangda,
+  ortiqcha to'lagan bo'lsa yashil rangda (belgisiz).
+
 ## 2026-09-26 — CRM'da yangi kurs qo'shish
 
 - **"Narxlar" sahifasida "Kurs qo'shish" tugmasi.** Fanni tanlaysiz (yoki

@@ -871,6 +871,9 @@ class DavomatIzoh(models.Model):
         "academics.Davomat", on_delete=models.CASCADE, related_name="crm_izoh"
     )
     sababli = models.BooleanField(default=False)
+    # "Kechikdi" (video-TZ 2026-09-28, SoffCRM "Kech qoldi") — LMS'da u
+    # "keldi" bo'lib turadi (dars qoldirilmagan), shu belgi faqat CRM'da.
+    kechikdi = models.BooleanField(default=False)
     izoh = models.CharField(max_length=300, blank=True)
 
 

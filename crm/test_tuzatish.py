@@ -264,18 +264,6 @@ class DarsKochirishTest(ApiAsos):
                                                "yangi_sana": "2026-09-21"}, format="json").status_code, 400)
 
 
-class TolovYaqinTest(ApiAsos):
-    def test_tolovi_yaqin_sanaladi(self):
-        """O-6: to'plam so'rov bilan hisoblangan natija eski mantiq bilan bir xil."""
-        self.azolik_qosh(boshlanish=SENTABR)
-        with bugun_qilib(date(2026, 9, 5)):
-            mantiq.hisoblarni_generatsiya_qil()
-        Hisob.objects.filter(talaba=self.talaba).update(holat=Hisob.Holat.TOLANDI)
-        with bugun_qilib(date(2026, 9, 29)):
-            javob = self.mijoz(self.admin).get("/api/crm/korsatkichlar/")
-        self.assertEqual(javob.data["tolovi_yaqin"], 1)  # keyingisi 1-oktabr, 3 kun ichida
-
-
 class BoshlanishUnitiTest(Yordamchi):
     """Guruh a'zolari jadvalidagi "Boshlanish uniti" — LMS `GuruhAzoligi`ga yoziladi."""
 

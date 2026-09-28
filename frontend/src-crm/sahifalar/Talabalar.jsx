@@ -10,7 +10,7 @@ import { balansMatn, balansSinfi, joriyOy, oyNomi, pul, sana, siljit, vaqt } fro
 import { api, apiFaylYubor, apiFayluniYuklab } from "../api.js";
 import { useI18n } from "../i18n.jsx";
 import { sorovSatri, useSorov } from "../soragich.js";
-import { TalabaQoshishOynasi } from "../GuruhOynalari.jsx";
+import { DavomatMenyusi, TalabaQoshishOynasi } from "../GuruhOynalari.jsx";
 import OquvchiMenyusi, { KETISH_SABABLARI, MuzlatishOynasi, SababOynasi } from "../OquvchiAmallari.jsx";
 import { useRuxsat } from "../profilContext.jsx";
 import QaytarishOynasi from "../QaytarishOynasi.jsx";
@@ -25,26 +25,25 @@ const KUN_KALITLARI = [
 // ── Darslar taqvimi ─────────────────────────────────────────────────
 
 // Video (12:50): katak rangi — to'lov holati; burchakdagi belgi —
-// davomat; ustiga olib borilsa "Holat / Davomat / Baho". Katakni bosish
-// davomatni almashtiradi (keldi -> kelmadi -> bo'sh), o'ng tugma —
-// "sababli". Yozuv o'sha guruh davomatiga tushadi (bitta manba).
-const DAVOMAT_KETMA = [null, "keldi", "kelmadi"];
-
+// davomat; ustiga olib borilsa "Holat / Davomat / Baho". Katak bosilganda
+// davomat variantlari chiqadi (video-TZ 2026-09-28, guruh davomatidagi
+// menyuning o'zi). Yozuv o'sha guruh davomatiga tushadi (bitta manba).
 function Taqvim({ kunlar, sanoq, guruhId, talabaId, onOzgardi }) {
   const { t } = useI18n();
   const ruxsat = useRuxsat();
   const [xato, setXato] = useState("");
+  const [menyu, setMenyu] = useState(null); // { kun, joy }
   if (!kunlar?.length) return <p className="kichik">{t("yozuv_yoq")}</p>;
   // Legenda ATAYLAB bor: rangli kataklar o'z-o'zidan tushunarli emas,
   // ayniqsa kulrang "kutilayotgan" — u qarz emas, hali kelmagan oy.
   const legenda = ["tolandi", "qisman", "qarzdor", "kutilayotgan"];
   const belgilaydi = ruxsat("guruhlar.davomat") && guruhId;
 
-  async function belgila(k, holat) {
+  async function belgila(k, holat, izoh = "") {
     setXato("");
     try {
       await api(`/api/crm/guruhlar/${guruhId}/davomat/`, {
-        method: "POST", body: { talaba_id: talabaId, sana: k.sana, holat },
+        method: "POST", body: { talaba_id: talabaId, sana: k.sana, holat, izoh },
       });
       onOzgardi?.();
     } catch (e) {
@@ -56,7 +55,9 @@ function Taqvim({ kunlar, sanoq, guruhId, talabaId, onOzgardi }) {
     <>
       {sanoq && (
         <div className="taqvim-sanoq">
-          <span className="holat holat-tolandi">{t("kelgan")}: {sanoq.keldi}</span>
+          <span className="holat holat-tolandi">
+            {t("kelgan")}: {sanoq.keldi}{sanoq.kechikdi ? ` (${t("davomat_kechikdi")}: ${sanoq.kechikdi})` : ""}
+          </span>
           <span className="holat holat-qarzdor">{t("kelmagan")}: {sanoq.kelmadi}</span>
           <span className="holat holat-qisman">{t("sababli_kelmagan")}: {sanoq.sababli}</span>
           <span className="kichik">{t("qilinmagan")}: {sanoq.qilinmagan}</span>
@@ -79,12 +80,7 @@ function Taqvim({ kunlar, sanoq, guruhId, talabaId, onOzgardi }) {
               className={`taqvim-kun holat-${k.holat}${k.davomat ? ` davomat-belgi-${k.davomat}` : ""}`}
               title={sarlavha}
               disabled={!bosiladi}
-              onClick={() => belgila(k, DAVOMAT_KETMA[(DAVOMAT_KETMA.indexOf(k.davomat ?? null) + 1) % DAVOMAT_KETMA.length])}
-              onContextMenu={(e) => {
-                if (!bosiladi) return;
-                e.preventDefault();
-                belgila(k, k.davomat === "sababli" ? null : "sababli");
-              }}
+              onClick={(e) => setMenyu({ kun: k, joy: { x: e.clientX, y: e.clientY } })}
             >
               {String(k.sana).slice(8, 10)}
             </button>
@@ -92,6 +88,10 @@ function Taqvim({ kunlar, sanoq, guruhId, talabaId, onOzgardi }) {
         })}
       </div>
       {xato && <div className="xato">{xato}</div>}
+      {menyu && (
+        <DavomatMenyusi joy={menyu.joy} joriy={menyu.kun.davomat} onYopish={() => setMenyu(null)}
+                        onTanla={(holat, izoh) => belgila(menyu.kun, holat, izoh)} />
+      )}
       <div className="taqvim-legenda">
         {legenda.map((h) => (
           <span key={h}>
@@ -743,9 +743,9 @@ function Karta({ talabaId, onOrqaga }) {
         {/* SoffCRM "Ilova holati" o'rnida — saytdan foydalanadimi. */}
         <div className="qator">
           <span className="kichik">{t("sayt_holati")}</span>
-          <span className={talaba.sayt?.oxirgi_kirish ? "rang-tolandi" : "rang-qarzdor"}>
-            {talaba.sayt?.oxirgi_kirish
-              ? `${t("saytga_kirgan")} · ${vaqt(talaba.sayt.oxirgi_faollik || talaba.sayt.oxirgi_kirish)}`
+          <span className={talaba.sayt?.kirgan ? "rang-tolandi" : "rang-qarzdor"}>
+            {talaba.sayt?.kirgan
+              ? `${t("saytga_kirgan")} · ${vaqt(talaba.sayt.oxirgi_faollik)}`
               : t("saytga_kirmagan")}
           </span>
         </div>
@@ -852,6 +852,42 @@ function Karta({ talabaId, onOrqaga }) {
               <b className="rang-tolandi">{g.narx ? `${pul(g.narx)} so'm` : "—"}</b>
             </div>
           </div>
+
+          {/* General kurslar: har Unit bo'yicha uy vazifasi (video-TZ 2026-09-28).
+              IELTS kabi Unit'siz kursda ro'yxat bo'sh — blok chiqmaydi. */}
+          {g.unitlar?.length > 0 && (
+            <>
+              <h3>{t("uy_vazifasi_unitlar")}</h3>
+              <div className="jadval-oram">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>{t("unit")}</th>
+                      <th className="ongga">{t("bajarildi")}</th>
+                      <th className="ongga">{t("togri")}</th>
+                      <th className="ongga">{t("notogri")}</th>
+                      <th>{t("holat")}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {g.unitlar.map((u) => (
+                      <tr key={u.id}>
+                        <td>{u.nomi}</td>
+                        <td className="ongga">{u.bajarilgan}/{u.mashqlar} ({u.bajarilgan_foiz}%)</td>
+                        <td className="ongga rang-tolandi">{u.togri_foiz === null ? "—" : `${u.togri_foiz}%`}</td>
+                        <td className="ongga rang-qarzdor">{u.notogri_foiz === null ? "—" : `${u.notogri_foiz}%`}</td>
+                        <td>
+                          {u.otildi ? <span className="holat holat-tolandi">{t("unit_otildi")}</span>
+                            : u.bajarilgan ? <span className="holat holat-qisman">{t("unit_jarayonda")}</span>
+                              : <span className="kichik">{t("unit_boshlanmagan")}</span>}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
 
           <div className="oy-tanlash">
             <button className="tugma tugma-sokin kichik-tugma" type="button" onClick={() => setTaqvimOy(siljit(taqvimOy, -1))}>‹</button>
@@ -1182,6 +1218,8 @@ export default function Talabalar() {
                     {x.ism}
                   </button>
                   {x.qora_royxat && <span className="holat holat-qarzdor"> {t("qora_royxat")}</span>}
+                  {/* Qarzdorlar filtrida arxivlangan, lekin qarzi qolgan o'quvchi ham chiqadi. */}
+                  {x.faol === false && <span className="holat holat-kutilayotgan"> {t("arxiv")}</span>}
                 </td>
                 <td>{x.baho !== null && x.baho !== undefined ? <span className="baho-doira">{x.baho}</span> : <span className="kichik">{t("bahosi_yoq")}</span>}</td>
                 <td className="nowrap">{sana(x.keyingi_tolov)}</td>

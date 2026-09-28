@@ -10,17 +10,14 @@ export function pul(qiymat) {
   return son.toLocaleString("ru-RU", { maximumFractionDigits: 0 });
 }
 
-/** Balans uchun: musbat bo'lsa "+" bilan — oldindan to'langani ko'rinsin. */
+/** Balans (Shuhrat, 2026-09-28): qarzdor — minus bilan ("-260 000", qizil);
+ *  ortiqcha to'lagan — belgisiz ("260 000", yashil). */
 export function balansMatn(qiymat) {
-  const son = Number(qiymat ?? 0);
-  return son > 0 ? `+${pul(son)}` : pul(son);
+  return pul(qiymat);
 }
 
 export function balansSinfi(qiymat) {
-  const son = Number(qiymat ?? 0);
-  if (son < 0) return "rang-qarzdor";
-  if (son > 0) return "rang-oldindan";
-  return "rang-tolandi";
+  return Number(qiymat ?? 0) < 0 ? "rang-qarzdor" : "rang-tolandi";
 }
 
 /** "2026-09-11" -> "11.09.2026" */

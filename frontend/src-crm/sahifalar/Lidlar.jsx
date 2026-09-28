@@ -6,7 +6,7 @@
 // talaba yaratiladi va lid arxivga o'tadi (backend: `LidGuruhgaView`).
 
 import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 
 import { api, apiFayluniYuklab } from "../api.js";
 import Eslatmalar from "../Eslatmalar.jsx";
@@ -677,6 +677,42 @@ function UstunOynasi({ guruhlar, onYopish, onSaqla }) {
   );
 }
 
+// ── Qora ro'yxatdagi o'quvchilar ────────────────────────────────────
+
+/** Video-TZ (2026-09-28): bir filialda qora ro'yxatga olingan o'quvchi hamma
+ *  filialga Lidlar -> "Qora ro'yxat"da ko'rinadi — lid sifatida qayta
+ *  yozilmasin. Faqat ko'rish; kartasi "Talabalar" ruxsati bilan ochiladi. */
+function QoraOquvchilar({ qidiruv }) {
+  const { t } = useI18n();
+  const ruxsat = useRuxsat();
+  const { malumot, xato } = useSorov("/api/crm/lidlar/qora-oquvchilar/" + sorovSatri({ q: qidiruv }));
+  const royxat = malumot || [];
+  return (
+    <div className="karta">
+      <h2>{t("qora_royxat_oquvchilar")} ({royxat.length})</h2>
+      {xato && <div className="xato">{xato}</div>}
+      <div className="jadval-oram">
+        <table>
+          <thead>
+            <tr><th>{t("talaba")}</th><th>{t("telefon")}</th><th>{t("filial")}</th><th>{t("qora_royxat_sababi")}</th></tr>
+          </thead>
+          <tbody>
+            {royxat.map((x) => (
+              <tr key={x.id}>
+                <td>{ruxsat("talabalar") ? <Link to={`/talabalar?talaba=${x.id}`}>{x.ism}</Link> : x.ism}</td>
+                <td>{x.telefon || "—"}</td>
+                <td>{x.filial || "—"}</td>
+                <td>{x.sabab || "—"}</td>
+              </tr>
+            ))}
+            {royxat.length === 0 && <tr><td colSpan={4} className="bosh">{t("yozuv_yoq")}</td></tr>}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 // ── Sahifa ──────────────────────────────────────────────────────────
 
 export default function Lidlar() {
@@ -896,6 +932,8 @@ export default function Lidlar() {
           />
         ))}
       </div>
+
+      {rejim === "qora_royxat" && <QoraOquvchilar qidiruv={qidiruv} />}
 
       {ustunOyna && (
         <UstunOynasi guruhlar={guruhRoyxati.malumot || []} onYopish={() => setUstunOyna(false)} onSaqla={ustunYarat} />

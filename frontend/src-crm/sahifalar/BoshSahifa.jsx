@@ -12,6 +12,7 @@ import { Link } from "react-router-dom";
 import { VaqtiKelganEslatmalar } from "../EslatmaXabarlari.jsx";
 import { useFilial } from "../filialContext.jsx";
 import JadvalSetka from "../JadvalSetka.jsx";
+import TolovQoshishOynasi from "../TolovQoshishOynasi.jsx";
 import { joriyOy, oyNomi, pul } from "../format.js";
 import { useI18n } from "../i18n.jsx";
 import { useRuxsat } from "../profilContext.jsx";
@@ -41,7 +42,6 @@ const KORSATKICHLAR = [
   ["guruhlar", "📚", "/guruhlar"],
   ["qolgan_qarz", "⚠️", "/talabalar?filtr=qarzdor", "pul"],
   ["qarzdorlar", "🔻", "/talabalar?filtr=qarzdor"],
-  ["tolovi_yaqin", "⏰", "/moliya?tab=qarzdorlar"],
   ["faol_talabalar", "👤", "/talabalar?holat=faol"],
   ["jami_guruhdagi", "👥", "/talabalar"],
   ["sinov_darsida", "🧪", "/talabalar?holat=sinov"],
@@ -60,9 +60,9 @@ function yashirinOl() {
   }
 }
 
-function Korsatkichlar({ filial }) {
+function Korsatkichlar({ filial, yangilash }) {
   const { t } = useI18n();
-  const { malumot, xato } = useSorov("/api/crm/korsatkichlar/" + sorovSatri({ filial }));
+  const { malumot, xato } = useSorov("/api/crm/korsatkichlar/" + sorovSatri({ filial, _: yangilash || "" }));
   const [yashirin, setYashirinAsl] = useState(yashirinOl);
   function setYashirin(q) {
     setYashirinAsl(q);
@@ -110,19 +110,28 @@ export default function BoshSahifa() {
   const ruxsat = useRuxsat();
   // Moliya bloki oyi (video 24:08: "Yilni / Oyni tanlang").
   const [oy, setOy] = useState(joriyOy());
+  // Bosh sahifadan to'lov qo'shish (video-TZ 2026-09-28, eski tizimdagidek).
+  const [tolovOyna, setTolovOyna] = useState(false);
+  const [yangilash, setYangilash] = useState(0);
 
   // Har bo'lim o'z ruxsatiga bo'ysunadi (video-TZ): kassir moliyani,
   // marketolog faqat lid sonlarini ko'radi. Ruxsatsiz so'rov yuborilmaydi.
-  const hisobot = useSorov(ruxsat("hisobotlar") ? "/api/crm/hisobot/" + sorovSatri({ oy, filial: tanlangan }) : null);
+  const hisobot = useSorov(ruxsat("hisobotlar")
+    ? "/api/crm/hisobot/" + sorovSatri({ oy, filial: tanlangan, _: yangilash || "" }) : null);
 
   const jami = hisobot.malumot?.jami;
 
   return (
     <section>
-      <h1>{oyNomi(joriyOy(), til)}</h1>
+      <div className="karta-sarlavha">
+        <h1>{oyNomi(joriyOy(), til)}</h1>
+        {ruxsat("moliya.tolov") && (
+          <button className="tugma" type="button" onClick={() => setTolovOyna(true)}>+ {t("tolov_qoshish")}</button>
+        )}
+      </div>
 
-      {/* Umumiy holat — SoffCRM'dagi 12 ta kartochka. */}
-      <Korsatkichlar filial={tanlangan} />
+      {/* Umumiy holat — SoffCRM'dagi kartochkalar. */}
+      <Korsatkichlar filial={tanlangan} yangilash={yangilash} />
 
       <VaqtiKelganEslatmalar />
 
@@ -152,6 +161,10 @@ export default function BoshSahifa() {
           <h2>{t("dars_jadvali")}</h2>
           <JadvalSetka />
         </div>
+      )}
+
+      {tolovOyna && (
+        <TolovQoshishOynasi onYopish={() => setTolovOyna(false)} onSaqlandi={() => setYangilash((n) => n + 1)} />
       )}
     </section>
   );
