@@ -392,3 +392,46 @@ class KursTahrirOchirishTest(ApiAsos):
         self.assertEqual(m.delete(f"/api/crm/kurslar/{self.kurs_id}/").status_code, 403)
         self.assertEqual(m.post("/api/crm/kurs-narxlari/", {"fan_id": self.fan.id, "nomi": "Y", "narx": "1000"},
                                 format="json").status_code, 403)
+
+
+class LidRejimlariTest(ApiAsos):
+    """Video-TZ 2026-09-29: qora ro'yxat filial tanlovidan qat'i nazar
+    ko'rinadi; guruhga qo'shilgan lid "Arxiv"da emas, "O'quvchi bo'lganlar"da."""
+
+    def setUp(self):
+        super().setUp()
+        from accounts.models import User
+        from crm.models import Filial, XodimProfil
+
+        self.boshqa = Filial.objects.create(markaz=self.markaz, nomi="Troitsk")
+        self.qora = Lid.objects.create(ism="Qora", telefon="901110001", filial=self.boshqa, qora_royxat=True,
+                                       qora_royxat_izoh="x")
+        self.rad = Lid.objects.create(ism="Rad", telefon="901110002", filial=self.filial, arxiv=True,
+                                      arxiv_sabab="kelmadi")
+        self.sinovchi = Lid.objects.create(ism="Sinovchi", telefon="901110003", filial=self.filial)
+        self.admin_gp = User.objects.create_user(username="gp_admin", password="x", role=User.Role.ADMIN,
+                                                 markaz=self.markaz)
+        XodimProfil.objects.create(user=self.admin_gp, lavozim="admin").filiallar.set([self.filial])
+
+    def ismlar(self, user, satr):
+        j = self.mijoz(user).get("/api/crm/lidlar/" + satr)
+        self.assertEqual(j.status_code, 200, j.data)
+        return sorted(x["ism"] for x in j.data)
+
+    def test_qora_royxat_filial_tanlanganda_ham_korinadi(self):
+        self.assertEqual(self.ismlar(self.admin_gp, "?qora_royxat=1"), ["Qora"])
+        self.assertEqual(self.ismlar(self.admin_gp, f"?qora_royxat=1&filial={self.filial.id}"), ["Qora"])
+        self.assertEqual(self.ismlar(self.owner, f"?qora_royxat=1&filial={self.filial.id}"), ["Qora"])
+
+    def test_guruhga_qoshilgan_lid_arxivda_emas(self):
+        j = self.mijoz(self.admin).post("/api/crm/lidlar/guruhga/", {
+            "lid_idlar": [self.sinovchi.id], "guruh_id": self.guruh.id, "holat": "sinov"}, format="json")
+        self.assertEqual(j.status_code, 201, j.data)
+        self.assertEqual(self.ismlar(self.admin_gp, "?arxiv=1"), ["Rad"])
+        self.assertEqual(self.ismlar(self.admin_gp, "?oquvchi=1"), ["Sinovchi"])
+        self.assertEqual(self.ismlar(self.admin_gp, ""), [])  # faol lidlar ro'yxatida ham yo'q
+
+    def test_boshqa_filial_arxivi_hali_ham_yopiq(self):
+        Lid.objects.create(ism="Troitsk rad", telefon="901110004", filial=self.boshqa, arxiv=True,
+                           arxiv_sabab="kelmadi")
+        self.assertEqual(self.ismlar(self.admin_gp, "?arxiv=1"), ["Rad"])
