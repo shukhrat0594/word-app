@@ -83,6 +83,40 @@ class RolAmalKalitiTest(Yordamchi):
         self.assertIn("lidlar.excel", r)
 
 
+class TalabaniTahrirlashRuxsatiTest(Yordamchi):
+    """Video-TZ 2026-09-29: CRM xodimi (saytda ADMIN emas) o'quvchi
+    ma'lumotini saqlay olmadi — "Faqat admin uchun". CRM ruxsati yetadi."""
+
+    def setUp(self):
+        super().setUp()
+        self.t = User.objects.create_user(username="sinov_talaba", password="x", role=User.Role.STUDENT)
+        self.yol = f"/api/talabalar/{self.t.id}/"
+
+    def test_crm_ruxsati_bor_xodim_tahrirlaydi(self):
+        rol = CrmRol.objects.create(nomi="Tahrirchi 2", ruxsatlar=["talabalar.tahrirlash"])
+        m = self.mijoz(self.xodim("tahrirchi2", rol=rol))
+        j = m.patch(self.yol, {"izoh": "yangi izoh"}, format="json")
+        self.assertEqual(j.status_code, 200, j.data)
+        self.t.refresh_from_db()
+        self.assertEqual(self.t.izoh, "yangi izoh")
+
+    def test_ruxsatsiz_xodim_tahrirlay_olmaydi(self):
+        rol = CrmRol.objects.create(nomi="Faqat lid 2", ruxsatlar=["lidlar.qoshish"])
+        m = self.mijoz(self.xodim("lidchi3", rol=rol))
+        self.assertEqual(m.patch(self.yol, {"izoh": "x"}, format="json").status_code, 403)
+
+    def test_arxivlash_faqat_adminga(self):
+        rol = CrmRol.objects.create(nomi="Tahrirchi 3", ruxsatlar=["talabalar.tahrirlash"])
+        m = self.mijoz(self.xodim("tahrirchi3", rol=rol))
+        self.assertEqual(m.patch(self.yol, {"faol": False}, format="json").status_code, 403)
+        self.t.refresh_from_db()
+        self.assertTrue(self.t.is_active)
+
+    def test_admin_avvalgidek(self):
+        j = self.mijoz(self.admin).patch(self.yol, {"izoh": "admin"}, format="json")
+        self.assertEqual(j.status_code, 200, j.data)
+
+
 class XodimgaRolBerishTest(Yordamchi):
     """J-2: `xodimlar` ruxsati rol berishga yetmaydi; o'zini tahrirlab
     bo'lmaydi; boshqaning parolini faqat administrator tiklaydi."""

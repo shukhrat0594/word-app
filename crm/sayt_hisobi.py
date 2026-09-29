@@ -36,3 +36,12 @@ def crm_talabalari(user_idlar):
     ):
         topildi |= set(qs.values_list(maydon, flat=True))
     return topildi
+
+
+def talabani_tahrirlay_oladi(user, talaba_id):
+    """CRM xodimi: "o'quvchini tahrirlash" ruxsati bor va talaba uning
+    filialiga ko'rinadi. Saytdagi `PATCH /api/talabalar/<id>/` uchun."""
+    from .filial import talaba_korinadimi
+    from .ruxsatlar import ruxsatlar
+
+    return "talabalar.tahrirlash" in ruxsatlar(user) and talaba_korinadimi(user, talaba_id)
