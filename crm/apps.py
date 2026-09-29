@@ -23,8 +23,12 @@ class CrmConfig(AppConfig):
 
     def ready(self):
         from accounts.savat import SAYTDAN_OCHIRILMAYDIGANLAR
+        from accounts.views import TALABANI_TAHRIRLASH_RUXSATLARI
 
-        from .sayt_hisobi import crm_talabalari
+        from .sayt_hisobi import crm_talabalari, talabani_tahrirlay_oladi
 
         if crm_talabalari not in SAYTDAN_OCHIRILMAYDIGANLAR:
             SAYTDAN_OCHIRILMAYDIGANLAR.append(crm_talabalari)
+        # Xuddi shu naqsh: CRM xodimi o'quvchi ma'lumotini tahrirlay oladi.
+        if talabani_tahrirlay_oladi not in TALABANI_TAHRIRLASH_RUXSATLARI:
+            TALABANI_TAHRIRLASH_RUXSATLARI.append(talabani_tahrirlay_oladi)

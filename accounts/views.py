@@ -1873,6 +1873,12 @@ def _talaba_maydonlarini_yoz(talaba, data):
     return None
 
 
+# Qo'shimcha ruxsat tekshiruvlari: `fn(user, talaba_id) -> bool`. accounts CRM'ni
+# bilmaydi (`crm.tests.IzolyatsiyaTest`) — CRM o'zini `crm/apps.py`da qo'shadi;
+# CRM olib tashlansa ro'yxat bo'sh qoladi va faqat admin/owner tahrirlaydi.
+TALABANI_TAHRIRLASH_RUXSATLARI = []
+
+
 class TalabaDetailView(APIView):
     """Bitta talabani arxivlash/faollashtirish (2026-08-02) — `is_active=
     False` qilingan talaba tizimga kira olmaydi (SimpleJWT avtomatik
@@ -1885,8 +1891,14 @@ class TalabaDetailView(APIView):
     permission_classes = [IsAuthenticated]
 
     def patch(self, request, pk):
-        ruxsat = owner_mi(request.user) or request.user.role == User.Role.ADMIN
-        if not ruxsat:
+        admin = owner_mi(request.user) or request.user.role == User.Role.ADMIN
+        # CRM xodimi (saytda ADMIN emas, lekin CRM'da "o'quvchini tahrirlash"
+        # ruxsati bor) ham ma'lumotini tahrirlaydi — CRM kartasi shu
+        # endpointni chaqiradi (video-TZ 2026-09-29: Gor-Park xodimi
+        # "Faqat admin uchun" oldi). Arxivlash (`faol`) esa faqat adminga.
+        if not admin and not any(f(request.user, pk) for f in TALABANI_TAHRIRLASH_RUXSATLARI):
+            return Response({"detail": "Faqat admin uchun"}, status=403)
+        if not admin and "faol" in request.data:
             return Response({"detail": "Faqat admin uchun"}, status=403)
         talaba = get_object_or_404(User, pk=pk, role=User.Role.STUDENT)
 

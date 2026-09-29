@@ -63,7 +63,7 @@ from .filial import (
     talaba_korinadimi, talaba_tekshir, tolov_filiali_q, tolov_q, umumiy_yozuv_taqiq,
 )
 from .permissions import CrmView
-from .ruxsatlar import BARCHA_KALITLAR, RUXSAT_DARAXTI, lms_roli, ruxsatlar, sayt_menyusini_toraytir
+from .ruxsatlar import BARCHA_KALITLAR, RUXSAT_DARAXTI, _kengaytir, lms_roli, ruxsatlar, sayt_menyusini_toraytir
 from .views import _guruh_dict, _oy, _ruxsatsiz, _sana, _son, _vaqt, _xato, jadvalni_tekshir
 
 NOL = Decimal("0")
@@ -155,7 +155,13 @@ def _rol_dict(r):
 def _ruxsat_royxati(xom):
     if not isinstance(xom, list):
         raise ValueError("ruxsatlar ro'yxat bo'lishi kerak")
-    return sorted({str(k) for k in xom if str(k) in BARCHA_KALITLAR})
+    # Faqat AMAL kalitlari saqlanadi: bo'lim kaliti (`lidlar`) saqlansa,
+    # `_kengaytir` uning HAMMA amalini berardi va bitta amalni belgilash
+    # yoki olib tashlash ishlamasdi. Bo'lim kaliti kelsa — avval amallarga
+    # yoyiladi (ma'nosi o'zgarmaydi), bo'limning o'zini `_kengaytir` amaldan
+    # chiqaradi.
+    kengaytirilgan = _kengaytir({str(k) for k in xom if str(k) in BARCHA_KALITLAR})
+    return sorted(k for k in kengaytirilgan if "." in k)
 
 
 def _lavozim_beradi(user):
