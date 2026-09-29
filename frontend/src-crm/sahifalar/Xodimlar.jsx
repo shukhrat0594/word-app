@@ -188,7 +188,14 @@ function RolOynasi({ rol, onYopish, onSaqlandi }) {
   const tizim = Boolean(rol?.lavozim);
   const [nomi, setNomi] = useState(rol?.nomi || "");
   const [faol, setFaol] = useState(rol?.faol ?? true);
-  const [tanlangan, setTanlangan] = useState(() => new Set(rol?.ruxsatlar || []));
+  // Faqat AMAL kalitlari. Eski rolda bo'lim kaliti bo'lsa (u bo'limning hamma
+  // amalini bergan) — amallarga yoyiladi, oyna haqiqiy holatni ko'rsatsin.
+  const [tanlangan, setTanlangan] = useState(() => {
+    const s = new Set(rol?.ruxsatlar || []);
+    daraxt.forEach((b) => { if (s.has(b.kalit)) b.bolalar.forEach((x) => s.add(x.kalit)); });
+    daraxt.forEach((b) => s.delete(b.kalit));
+    return s;
+  });
   const [ochiq, setOchiq] = useState(null);
   const [xato, setXato] = useState("");
   const [band, setBand] = useState(false);
@@ -217,7 +224,7 @@ function RolOynasi({ rol, onYopish, onSaqlandi }) {
   }
 
   const komponentSoni = daraxt.reduce((s, b) => s + b.bolalar.filter((x) => tanlangan.has(x.kalit)).length, 0);
-  const bolimSoni = daraxt.filter((b) => b.bolalar.some((x) => tanlangan.has(x.kalit)) || tanlangan.has(b.kalit)).length;
+  const bolimSoni = daraxt.filter((b) => b.bolalar.some((x) => tanlangan.has(x.kalit))).length;
 
   return (
     <div className="oyna-fon" role="dialog" aria-modal="true">
@@ -235,14 +242,14 @@ function RolOynasi({ rol, onYopish, onSaqlandi }) {
           {daraxt.map((b) => {
             const bolaKalitlari = b.bolalar.map((x) => x.kalit);
             const nechta = bolaKalitlari.filter((k) => tanlangan.has(k)).length;
-            const hammasi = nechta === bolaKalitlari.length && tanlangan.has(b.kalit);
+            const hammasi = nechta === bolaKalitlari.length;
             return (
               <div key={b.kalit} className="ruxsat-bolim">
                 <div className="ruxsat-bolim-bosh">
                   <label className="yonma">
                     <input type="checkbox" checked={hammasi}
                            ref={(el) => { if (el) el.indeterminate = nechta > 0 && !hammasi; }}
-                           onChange={(e) => almashtir([b.kalit, ...bolaKalitlari], e.target.checked)} />
+                           onChange={(e) => almashtir(bolaKalitlari, e.target.checked)} />
                     <b>{b.nomi}</b>
                   </label>
                   <span className="kichik">{nechta} {t("ta_korinadi")}</span>
@@ -255,7 +262,7 @@ function RolOynasi({ rol, onYopish, onSaqlandi }) {
                     {b.bolalar.map((x) => (
                       <label key={x.kalit} className="yonma">
                         <input type="checkbox" checked={tanlangan.has(x.kalit)}
-                               onChange={(e) => almashtir([x.kalit, ...(e.target.checked ? [b.kalit] : [])], e.target.checked)} />
+                               onChange={(e) => almashtir([x.kalit], e.target.checked)} />
                         {x.nomi}
                       </label>
                     ))}

@@ -42,6 +42,47 @@ class RolKengaytirishTest(Yordamchi):
         self.assertEqual(javob.status_code, 200, javob.data)
 
 
+class RolAmalKalitiTest(Yordamchi):
+    """Bitta amal berilsa, bo'limning hamma amali berilmasin: bo'lim kaliti
+    saqlanmaydi (`_ruxsat_royxati`), faqat amallar."""
+
+    def rol_saqla(self, ruxsatlar):
+        self._n = getattr(self, "_n", 0) + 1
+        j = self.mijoz(self.owner).post("/api/crm/rollar/", {"nomi": f"Sinov rol {self._n}", "ruxsatlar": ruxsatlar},
+                                        format="json")
+        self.assertEqual(j.status_code, 201, j.data)
+        return CrmRol.objects.get(pk=j.data["id"])
+
+    def test_bitta_amal_bolim_kalitisiz_saqlanadi(self):
+        from crm.ruxsatlar import ruxsatlar
+
+        rol = self.rol_saqla(["lidlar.qoshish", "lidlar"])  # eski interfeys shunday yuborardi
+        # "lidlar" hamma amalga yoyiladi — ma'nosi o'zgarmaydi, lekin faqat amallar saqlanadi
+        self.assertNotIn("lidlar", rol.ruxsatlar)
+        rol = self.rol_saqla(["lidlar.qoshish"])
+        self.assertEqual(rol.ruxsatlar, ["lidlar.qoshish"])
+        u = self.xodim("lidchi", rol=rol)
+        r = ruxsatlar(u)
+        self.assertIn("lidlar", r)  # bo'lim ochiq (amaldan chiqadi)
+        self.assertIn("lidlar.qoshish", r)
+        self.assertNotIn("lidlar.arxiv", r)
+        self.assertNotIn("lidlar.bolim", r)
+
+    def test_bolim_kaliti_hali_ham_hamma_amalni_beradi(self):
+        rol = self.rol_saqla(["moliya"])
+        self.assertEqual(rol.ruxsatlar, ["moliya.hisob", "moliya.qaytarish", "moliya.tolov"])
+
+    def test_amalni_olib_tashlash_ishlaydi(self):
+        rol = self.rol_saqla(["lidlar"])
+        yangi = [k for k in rol.ruxsatlar if k != "lidlar.arxiv"]
+        j = self.mijoz(self.owner).patch(f"/api/crm/rollar/{rol.id}/", {"ruxsatlar": yangi}, format="json")
+        self.assertEqual(j.status_code, 200, j.data)
+        from crm.ruxsatlar import ruxsatlar
+        r = ruxsatlar(self.xodim("lidchi2", rol=CrmRol.objects.get(pk=rol.id)))
+        self.assertNotIn("lidlar.arxiv", r)
+        self.assertIn("lidlar.excel", r)
+
+
 class XodimgaRolBerishTest(Yordamchi):
     """J-2: `xodimlar` ruxsati rol berishga yetmaydi; o'zini tahrirlab
     bo'lmaydi; boshqaning parolini faqat administrator tiklaydi."""
