@@ -899,6 +899,28 @@ tfoot td {
 .davomat-menyu button:hover, .davomat-menyu button.faol { background: var(--fon); }
 .davomat-menyu button span { width: 18px; text-align: center; }
 .davomat-katak.qulf { border-style: dashed; }
+
+/* Davomat jadvali gorizontal surilganda № va ism-familiya joyida qoladi,
+   faqat sanalar suriladi (video-TZ 2026-09-29, IMG_6795). Fon to'la
+   (shaffof emas) — aks holda ostidan sanalar ko'rinib qoladi. */
+.davomat-jadval th:nth-child(1),
+.davomat-jadval td:nth-child(1),
+.davomat-jadval th:nth-child(2),
+.davomat-jadval td:nth-child(2) {
+  position: sticky;
+  background: var(--karta);
+  z-index: 2;
+}
+/* Arxivdagi qator xiralashadi, lekin qotgan kataklar shaffof bo'lmasin. */
+.sobiq-qator td:nth-child(-n+2) { opacity: 1; color: var(--sokin); }
+.davomat-jadval th:nth-child(1),
+.davomat-jadval td:nth-child(1) { inset-inline-start: 0; min-width: 40px; }
+.davomat-jadval th:nth-child(2),
+.davomat-jadval td:nth-child(2) {
+  inset-inline-start: 40px;
+  /* Ism ustuni ajralib turishi uchun o'ng chegara. */
+  border-inline-end: 1px solid var(--chegara);
+}
 /* Arxivdagi (guruhdan chiqqan) o'quvchi — faqat ko'rish uchun, xiraroq. */
 .sobiq-qator td { opacity: 0.7; }
 .ozgarish-royxat {
