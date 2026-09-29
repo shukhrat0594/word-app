@@ -16,6 +16,7 @@ export const TILLAR = [
 
 const SATRLAR = {
   uz: {
+    oquvchi_bolganlar: "O'quvchi bo'lganlar",
     kursni_ochirish: "Kursni o'chirish",
     kursni_ochirish_izoh: "Kurs va uning narxi butunlay o'chiriladi, saytdagi Kurslar bo'limidan ham. Bu amalni qaytarib bo'lmaydi.",
     kurs_ochirilmaydi: "O'chirib bo'lmaydi: kursda saytdagi darslar bor yoki u biror guruhda ishlatilgan",
@@ -618,6 +619,7 @@ const SATRLAR = {
   },
 
   ru: {
+    oquvchi_bolganlar: "Стали учениками",
     kursni_ochirish: "Удаление курса",
     kursni_ochirish_izoh: "Курс и его цена удалятся полностью, в том числе из раздела «Курсы» на сайте. Это действие нельзя отменить.",
     kurs_ochirilmaydi: "Нельзя удалить: в курсе есть уроки на сайте или он используется в группе",
@@ -1220,6 +1222,7 @@ const SATRLAR = {
   },
 
   en: {
+    oquvchi_bolganlar: "Became students",
     kursni_ochirish: "Delete course",
     kursni_ochirish_izoh: "The course and its price are deleted permanently, including from the site's Courses section. This cannot be undone.",
     kurs_ochirilmaydi: "Cannot delete: the course has lessons on the site or is used by a group",

@@ -112,9 +112,11 @@ class TalabaVaLidTest(ApiAsos):
         self.assertEqual(l.holat, Lid.Holat.QOSHILDI)
         self.assertTrue(GuruhAzoligi.objects.filter(guruh=self.guruh, talaba=l.talaba).exists())
         self.assertEqual(AzolikMoliya.objects.get(azolik__talaba=l.talaba).holat, "sinov")
-        # Kanbanda endi ko'rinmaydi, arxivda bor
+        # Kanbanda endi ko'rinmaydi. "Arxiv"da ham emas (u — rad etilganlar,
+        # video-TZ 2026-09-29), "O'quvchi bo'lganlar"da bor.
         self.assertEqual(m.get("/api/crm/lidlar/").data, [])
-        self.assertEqual(len(m.get("/api/crm/lidlar/?arxiv=1").data), 1)
+        self.assertEqual(m.get("/api/crm/lidlar/?arxiv=1").data, [])
+        self.assertEqual(len(m.get("/api/crm/lidlar/?oquvchi=1").data), 1)
 
     def test_qora_royxatdagi_raqam_409(self):
         m = self.mijoz(self.admin)

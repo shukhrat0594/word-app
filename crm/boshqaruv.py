@@ -906,13 +906,26 @@ def lidlar_qs(p, user=None):
     qs = Lid.objects.select_related("kurs", "oqituvchi", "kim_qoshdi", "bolim", "filial", "yigilayotgan_guruh")
     # Filial cheklovi. Qora ro'yxat — ISTISNO: u hamma filialga ko'rinadi
     # (Shuhrat, 2026-09-23), toki bir filialda "yomon" mijoz boshqasida
-    # yangidan yozilmasin.
-    if user is not None and not p.get("qora_royxat"):
-        qs = qs.filter(filial_q(user, "filial"))
-    qs = qs.filter(arxiv=bool(p.get("arxiv")))
-    qs = qs.filter(qora_royxat=bool(p.get("qora_royxat")))
-    if p.get("filial"):
-        qs = qs.filter(Q(filial_id=p["filial"]) | Q(filial__isnull=True))
+    # yangidan yozilmasin. Sarlavhadagi filial tanlovi (`filial`) ham unga
+    # tegmaydi (video-TZ 2026-09-29: Gor-Park tanlanganda "Qora ro'yxat (9)"
+    # deb turib, ro'yxat bo'sh chiqardi — lidlar Troitsk filialidan edi).
+    qora = bool(p.get("qora_royxat"))
+    qs = qs.filter(qora_royxat=qora)
+    if not qora:
+        if user is not None:
+            qs = qs.filter(filial_q(user, "filial"))
+        if p.get("filial"):
+            qs = qs.filter(Q(filial_id=p["filial"]) | Q(filial__isnull=True))
+        # Guruhga qo'shilgan (o'quvchi bo'lgan) lid ham `arxiv=True`, lekin u
+        # rad etilgan lid EMAS (video-TZ 2026-09-29: sinovdagi va faol
+        # o'quvchilar "Arxiv"da turardi). "Arxiv" — faqat rad etilganlar,
+        # o'quvchi bo'lganlar alohida (`oquvchi=1`).
+        if p.get("oquvchi"):
+            qs = qs.filter(holat=Lid.Holat.QOSHILDI)
+        elif p.get("arxiv"):
+            qs = qs.filter(arxiv=True).exclude(holat=Lid.Holat.QOSHILDI)
+        else:
+            qs = qs.filter(arxiv=False)
     if p.get("bolim"):
         qs = qs.filter(bolim_id=p["bolim"])
     # Doska: lid ustuni orqali. `doska=0` — ustunsiz yoki doskasiz ustundagi.

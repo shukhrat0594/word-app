@@ -19,6 +19,18 @@ Format (qat'iy, parser shunga tayanadi):
 
 ---
 
+## 2026-09-29 — Lidlar: qora ro'yxat va arxiv tuzatildi
+
+- **Qora ro'yxat har qanday filialda to'liq ko'rinadi.** Sarlavhada
+  filial tanlangan bo'lsa ham (masalan Gor-Park) boshqa filialda qora
+  ro'yxatga olingan lidlar chiqadi — avval "Qora ro'yxat (9)" deb turib,
+  ro'yxat bo'sh ko'rinardi.
+- **Guruhga qo'shilgan lidlar "Arxiv"da turmaydi.** "Arxiv"da endi faqat
+  rad etilgan lidlar; sinov darsiga yoki guruhga qo'shilganlari yangi
+  "O'quvchi bo'lganlar" ko'rinishida. O'quvchining o'zi esa "Talabalar"da.
+- Boshqa doska yoki filial ustunidagi lid arxiv / qora ro'yxat
+  ko'rinishida endi "Yangi lidlar" ustunida chiqadi, yo'qolib qolmaydi.
+
 ## 2026-09-28 — Qarzdorlik, davomat va o'quvchi natijalari
 
 - **Davomat katagi bosilganda variantlar chiqadi:** keldi, kechikdi,

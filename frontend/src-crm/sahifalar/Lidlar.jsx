@@ -420,7 +420,9 @@ function LidKartasi({ lidId, bolimlar, onYopish, onOzgardi, rejim = null }) {
                 {xato && <div className="xato">{xato}</div>}
                 {begona && <p className="kichik">{t("begona_filial_lidi")}</p>}
                 {!begona && <div className="oyna-tugmalar">
-                  {ruxsat("lidlar.arxiv") && (
+                  {/* O'quvchi bo'lgan lid rad etilgan emas — arxiv tugmasi unga tegishli emas
+                      (o'quvchi kartasida "Lidlarga qaytarish" bor). */}
+                  {ruxsat("lidlar.arxiv") && lid.holat !== "qoshildi" && (
                     <button className="tugma tugma-sokin" type="button" disabled={band}
                             onClick={() => (lid.arxiv ? ozgartir({ arxiv: false }) : setSababOyna("arxiv"))}>
                       {lid.arxiv ? t("arxivdan_chiqarish") : t("arxivlash")}
@@ -721,7 +723,8 @@ export default function Lidlar() {
   const { tanlangan: filial } = useFilial();
   const [qidiruv, setQidiruv] = useState("");
   const [manba, setManba] = useState("");
-  const [rejim, setRejim] = useState(""); // "" | arxiv | qora_royxat
+  // "" | arxiv (rad etilganlar) | oquvchi (guruhga qo'shilganlar) | qora_royxat
+  const [rejim, setRejim] = useState("");
   const [yangi, setYangi] = useState(undefined); // undefined = yopiq, null/raqam = bo'lim
   // `?lid=ID` — eslatma xabarnomasidagi "Lidga o'tish" (video-TZ 2026-09-25):
   // o'sha lid kartasi darhol ochiladi.
@@ -752,6 +755,7 @@ export default function Lidlar() {
   const bolimlar = useSorov("/api/crm/lid-bolimlar/" + sorovSatri({ filial, doska }));
   const filtrSatri = sorovSatri({
     filial, q: qidiruv, manba, arxiv: rejim === "arxiv" ? 1 : "", qora_royxat: rejim === "qora_royxat" ? 1 : "",
+    oquvchi: rejim === "oquvchi" ? 1 : "",
     doska: rejim ? "" : doska,
   });
   const lidlar = useSorov("/api/crm/lidlar/" + filtrSatri);
@@ -854,6 +858,13 @@ export default function Lidlar() {
 
   // Umumiy doskada ustunsiz lidlar uchun "Yangi lidlar" ustuni ham bor.
   const ustunlar = doska === "0" || rejim ? [null, ...bolimRoyxati] : bolimRoyxati;
+  // Rejimlarda lidlar HAMMA doska va filialdan keladi, ustunlar esa faqat
+  // tanlangan doskaniki — ustuni ekranda yo'q lid "Yangi lidlar"da turadi,
+  // yo'qolib qolmaydi (video-TZ 2026-09-29: Gor-Park'da qora ro'yxat bo'sh
+  // ko'rinardi — lidlar Troitsk filiali ustunlarida edi).
+  const korinadiganUstunlar = new Set(bolimRoyxati.map((b) => b.id));
+  const lidUstuni = (l) =>
+    ustunlar.includes(null) && !korinadiganUstunlar.has(l.bolim_id) ? null : l.bolim_id ?? null;
   const doskaMalumot = doskalar.malumot;
   const tanlanganDoska = (doskaMalumot?.doskalar || []).find((d) => String(d.id) === doska);
   // Umumiy (filialsiz) doska/ustunni filial xodimi o'zgartirmaydi (backend ham).
@@ -905,6 +916,8 @@ export default function Lidlar() {
         <select value={rejim} onChange={(e) => setRejim(e.target.value)} aria-label={t("holat")}>
           <option value="">{t("faol_lidlar")}</option>
           <option value="arxiv">{t("arxiv")}</option>
+          {/* Guruhga qo'shilgan lidlar — "Arxiv"da (rad etilganlar bilan) aralashmaydi. */}
+          <option value="oquvchi">{t("oquvchi_bolganlar")}</option>
           <option value="qora_royxat">{t("qora_royxat")} ({doskaMalumot?.qora_royxat ?? 0})</option>
         </select>
         <span className="kichik">{t("jami")}: {lidRoyxati.length}</span>
@@ -919,7 +932,7 @@ export default function Lidlar() {
           <Ustun
             key={b ? b.id : "yangi"}
             bolim={b}
-            lidlar={lidRoyxati.filter((l) => (l.bolim_id ?? null) === (b ? b.id : null))}
+            lidlar={lidRoyxati.filter((l) => lidUstuni(l) === (b ? b.id : null))}
             tanlangan={tanlanganLar}
             setTanlangan={setTanlanganLar}
             onOch={setOchiq}
