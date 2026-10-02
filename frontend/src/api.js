@@ -20,9 +20,12 @@ export function tokenOl() {
   return localStorage.getItem("access");
 }
 
-export function tokenlarniSaqla({ access, refresh }) {
+export function tokenlarniSaqla({ access, refresh, qurilma_id }) {
   localStorage.setItem("access", access);
   if (refresh) localStorage.setItem("refresh", refresh);
+  // Server qurilmani cookie orqali tanisa, o'zining ID'sini qaytaradi —
+  // localStorage tozalangan bo'lsa ham shu qurilma "yangi" bo'lib qolmasin.
+  if (qurilma_id) localStorage.setItem("qurilma_id", qurilma_id);
 }
 
 export function tokenlarniTozala() {

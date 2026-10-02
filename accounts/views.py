@@ -1,3 +1,4 @@
+import re
 import datetime
 import math
 
@@ -2163,6 +2164,8 @@ class XodimLoginView(TokenObtainPairView):
                     if qurilma_javobi is not None:
                         _berilmagan_kalitni_ochir(javob)
                         return qurilma_javobi
+                    if qurilma_id := getattr(request, "_qurilma_id", None):
+                        _qurilma_cookiesini_ber(javob, qurilma_id)
                 LoginHistory.objects.create(foydalanuvchi=user, rol=user.role)
         return javob
 
@@ -2208,6 +2211,27 @@ def _berilmagan_kalitni_ochir(javob):
         pass
 
 
+QURILMA_COOKIE = "qurilma"
+_QURILMA_ID_NAMUNA = re.compile(r"^[A-Za-z0-9-]{1,64}$")
+
+
+def _qurilma_idsi_tozala(xom):
+    """Kelgan qurilma ID'si: faqat harf/raqam/chiziqcha, 1-64 belgi
+    (cookie va ro'yxatga begona qiymat tushmasin). Yaroqsiz bo'lsa — ''."""
+    xom = (xom or "").strip() if isinstance(xom, str) else ""
+    return xom if _QURILMA_ID_NAMUNA.match(xom) else ""
+
+
+def _qurilma_cookiesini_ber(javob, qurilma_id):
+    """Qurilma ID'sini serverdan HttpOnly cookie qilib beradi va javobda
+    qaytaradi (frontend localStorage'ni tiklashi uchun)."""
+    javob.data["qurilma_id"] = qurilma_id
+    javob.set_cookie(
+        QURILMA_COOKIE, qurilma_id,
+        max_age=365 * 24 * 3600, httponly=True, samesite="Lax", secure=not settings.DEBUG, path="/",
+    )
+
+
 def _qurilma_tekshir(request, user):
     """OWNER bo'lmagan foydalanuvchi uchun qurilma cheklovi — mos kelmasa
     403 Response qaytaradi (login rad etiladi), mos kelsa/ro'yxatga yangi
@@ -2218,8 +2242,15 @@ def _qurilma_tekshir(request, user):
     o'tishining oldini olish uchun (avval check-then-act race condition
     bor edi: ikkala so'rov ham "hali joy bor" deb o'qib, ikkalasi ham
     qo'shilib ketishi mumkin edi)."""
-    qurilma_id = (request.data.get("qurilma_id") or "").strip()
-    if not qurilma_id:
+    # Qurilma ID ikki joydan keladi: so'rov tanasi (localStorage) va server
+    # bergan cookie. Foydalanuvchi brauzer tarixini/`localStorage`ni
+    # tozalasa ham cookie qoladi (Safari 7 kunda localStorage'ni o'zi
+    # o'chiradi, server cookie'siga tegmaydi) — shuning uchun qurilma
+    # "boshqa" bo'lib qolmaydi. Ikkalasi ham yo'qolsa (hammasi tozalangan) —
+    # yangi qurilma, eskicha.
+    tana_id = _qurilma_idsi_tozala(request.data.get("qurilma_id"))
+    cookie_id = _qurilma_idsi_tozala(request.COOKIES.get(QURILMA_COOKIE))
+    if not tana_id and not cookie_id:
         return Response(
             {"detail": "Qurilma identifikatori yuborilmadi", "kod": "qurilma_id_yoq"},
             status=400,
@@ -2227,11 +2258,15 @@ def _qurilma_tekshir(request, user):
 
     with transaction.atomic():
         user = User.objects.select_for_update().get(pk=user.pk)
-        if qurilma_id in user.qurilmalar:
+        taniganlar = [x for x in (cookie_id, tana_id) if x and x in user.qurilmalar]
+        if taniganlar:
+            request._qurilma_id = taniganlar[0]
             return None
+        yangi = cookie_id or tana_id
         if len(user.qurilmalar) < user.qurilma_limiti:
-            user.qurilmalar = [*user.qurilmalar, qurilma_id]
+            user.qurilmalar = [*user.qurilmalar, yangi]
             user.save(update_fields=["qurilmalar"])
+            request._qurilma_id = yangi
             return None
 
     for admin in User.objects.filter(role=User.Role.ADMIN) | User.objects.filter(is_superuser=True):
