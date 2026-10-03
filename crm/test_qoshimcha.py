@@ -74,9 +74,11 @@ class GuruhQoshimchaTest(ApiAsos):
 
     def test_chegirma_foizda_va_doimiy(self):
         am = self.azolik_qosh(boshlanish=SENTABR)
-        r = self.mijoz(self.admin).post(f"/api/crm/guruhlar/{self.guruh.id}/chegirmalar/", {
-            "azolik_moliya_id": am.id, "foiz": "50", "boshlanish_oy": "2026-09", "oylar_soni": 0,
-        }, format="json")
+        # Sentabr "joriy oy" bo'lsin: o'tgan oyga chegirmani faqat owner beradi.
+        with bugun_qilib(date(2026, 9, 15)):
+            r = self.mijoz(self.admin).post(f"/api/crm/guruhlar/{self.guruh.id}/chegirmalar/", {
+                "azolik_moliya_id": am.id, "foiz": "50", "boshlanish_oy": "2026-09", "oylar_soni": 0,
+            }, format="json")
         self.assertEqual(r.status_code, 201, r.data)
         self.assertTrue(r.data["doimiy"])
         self.assertEqual(mantiq.amaldagi_narx(am, date(2027, 5, 1)), NARX / 2)

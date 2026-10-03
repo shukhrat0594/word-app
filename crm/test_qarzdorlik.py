@@ -13,12 +13,15 @@ from decimal import Decimal
 from academics.models import Guruh, GuruhAzoligi
 from crm.models import AzolikMoliya, Filial, GuruhMoliya, Hisob, Tolov
 from crm.test_api import ApiAsos
-from crm.tests import AVGUST, NARX, SENTABR
+from crm.tests import AVGUST, NARX, SENTABR, bugun_qilib
 
 
 class QarzdorlikTest(ApiAsos):
     def setUp(self):
         super().setUp()
+        # Sana sentabrda qotadi: aks holda har GET so'rovi bugungi oy uchun
+        # qo'shimcha hisob ochib, qarzni ikki barobar qilardi.
+        self.enterContext(bugun_qilib(date(2026, 9, 30)))
         self.azolik_qosh()
 
     def hisob(self, oy, guruh=None, filial=None, summa=NARX):

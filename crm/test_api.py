@@ -363,9 +363,10 @@ class OqimTest(ApiAsos):
     def test_talaba_kartasi(self):
         self.azolik_qosh(boshlanish=date(2026, 9, 1))
         mijoz = self.mijoz(self.admin)
+        # Karta so'rovi ham sana bo'yicha hisob ochadi — sentabrda qolsin.
         with bugun_qilib(date(2026, 9, 30)):
             mijoz.get("/api/crm/hisoblar/")
-        javob = mijoz.get(f"/api/crm/talaba/{self.talaba.id}/")
+            javob = mijoz.get(f"/api/crm/talaba/{self.talaba.id}/")
 
         self.assertEqual(javob.status_code, 200)
         self.assertEqual(javob.data["balans_jami"], -NARX)
