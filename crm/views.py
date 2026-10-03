@@ -1237,6 +1237,7 @@ class AzolikView(CrmView):
     # "O'quvchilarni faollashtirish"ni ham boshqaradi.
     _MAYDON_RUXSATI = {
         "holat": ("guruhlar.tahrirlash", "guruhlar.talaba_qoshish"),
+        "faollashtirish_sana": ("guruhlar.tahrirlash", "guruhlar.talaba_qoshish"),
         "narx": ("guruhlar.tahrirlash",),
         "boshlanish_sana": ("guruhlar.tahrirlash",),
         "tugash_sana": ("guruhlar.tahrirlash",),
@@ -1272,6 +1273,13 @@ class AzolikView(CrmView):
                 if holat == AzolikMoliya.Holat.ARXIV:
                     return _xato("Arxivlash bu yerda emas — guruh sahifasidagi «Guruhdan chiqarish» tugmasidan foydalaning")
                 am.holat = holat
+                # Sinovdan faolga o'tkazishda sana tanlanadi (video-TZ
+                # 2026-10-03, SoffCRM "Qo'shilgan sanasi"): oylik hisob
+                # shu sanadan boshlab hisoblanadi — sinov kunlari pullik
+                # bo'lib qolmaydi.
+                if (eski_holat == AzolikMoliya.Holat.SINOV and holat == AzolikMoliya.Holat.FAOL
+                        and request.data.get("faollashtirish_sana")):
+                    am.boshlanish_sana = _sana(request.data["faollashtirish_sana"], "faollashtirish_sana")
             # Muzlatish oynasi: sana (standart — bugun) va izoh. Faqat
             # ma'lumot, hisob-kitobga ta'sir qilmaydi; muzlatishdan
             # chiqqanda tozalanadi.

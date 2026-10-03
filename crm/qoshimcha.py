@@ -429,10 +429,17 @@ class GuruhFaollashtirishView(CrmView):
         qs = AzolikMoliya.objects.filter(azolik__guruh=guruh, holat=AzolikMoliya.Holat.SINOV)
         if idlar:
             qs = qs.filter(azolik__talaba_id__in=idlar)
+        # Ixtiyoriy `sana` — hisob shu sanadan boshlanadi (video-TZ 2026-10-03).
+        try:
+            sana = _sana(request.data.get("sana"), "sana", majburiy=False)
+        except ValueError as e:
+            return _xato(str(e))
         soni = 0
         for am in qs:
             am.holat = AzolikMoliya.Holat.FAOL
-            am.save(update_fields=["holat"])
+            if sana:
+                am.boshlanish_sana = sana
+            am.save(update_fields=["holat", "boshlanish_sana"] if sana else ["holat"])
             soni += 1
         return Response({"faollashtirildi": soni})
 

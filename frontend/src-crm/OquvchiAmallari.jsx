@@ -25,7 +25,7 @@ export const KETISH_SABABLARI = ["narx", "natija", "oqituvchi", "dars_jadvali", 
  *  `izohMajburiy(sabab)` — izoh qaysi sababda majburiy. */
 export function SababOynasi({
   sarlavha, izoh: tushuntirish = null, sabablar = null, izohMajburiy = () => true, sanaBilan = false,
-  tasdiqMatni = null, xavfli = false, onYopish, onTasdiq, children = null,
+  izohKorsat = true, sanaNomi = null, tasdiqMatni = null, xavfli = false, onYopish, onTasdiq, children = null,
 }) {
   const { t } = useI18n();
   const [sabab, setSabab] = useState("");
@@ -63,12 +63,14 @@ export function SababOynasi({
             </select>
           </label>
         )}
-        <label>{t("izoh")}{izohMajburiy(sabab) ? " *" : ""}
-          <textarea rows={3} maxLength={300} value={matn} onChange={(e) => setMatn(e.target.value)}
-                    autoFocus={!sabablar} />
-        </label>
+        {izohKorsat && (
+          <label>{t("izoh")}{izohMajburiy(sabab) ? " *" : ""}
+            <textarea rows={3} maxLength={300} value={matn} onChange={(e) => setMatn(e.target.value)}
+                      autoFocus={!sabablar} />
+          </label>
+        )}
         {sanaBilan && (
-          <label>{t("sana")}<input type="date" value={sana} onChange={(e) => setSana(e.target.value)} /></label>
+          <label>{sanaNomi || t("sana")}<input type="date" value={sana} onChange={(e) => setSana(e.target.value)} /></label>
         )}
         {xato && <div className="xato">{xato}</div>}
         <div className="oyna-tugmalar">
@@ -96,6 +98,36 @@ export function MuzlatishOynasi({ azolikId, talabaIsmi, onYopish, onSaqlandi }) 
         await api(`/api/crm/azoliklar/${azolikId}/`, {
           method: "PATCH", body: { holat: "muzlatilgan", muzlatish_sana: sana, muzlatish_izoh: izoh },
         });
+        onSaqlandi?.();
+      }}
+    />
+  );
+}
+
+/** Sinovdagi o'quvchini faollashtirish: qo'shilgan sana tanlanadi, oylik hisob
+ *  shu sanadan o'zi hisoblanadi (video-TZ 2026-10-03, SoffCRM "O'quvchini
+ *  statusini o'zgartirish"). `azolikId` — bitta; `guruhId` — guruhdagi
+ *  sinovdagilar (yoki `talabaIdlar`). */
+export function FaollashtirishOynasi({ azolikId = null, guruhId = null, talabaIsmi = "", onYopish, onSaqlandi }) {
+  const { t } = useI18n();
+  return (
+    <SababOynasi
+      sarlavha={`${t("faollashtirish_oyna")}${talabaIsmi ? ` — ${talabaIsmi}` : ""}`}
+      izoh={t("faollashtirish_sana_izoh")}
+      sanaBilan
+      sanaNomi={t("qoshilgan_sana")}
+      izohKorsat={false}
+      izohMajburiy={() => false}
+      onYopish={onYopish}
+      onTasdiq={async ({ sana }) => {
+        if (!sana) throw new Error(t("sana_tanlang"));
+        if (azolikId) {
+          await api(`/api/crm/azoliklar/${azolikId}/`, {
+            method: "PATCH", body: { holat: "faol", faollashtirish_sana: sana },
+          });
+        } else {
+          await api(`/api/crm/guruhlar/${guruhId}/faollashtirish/`, { method: "POST", body: { sana } });
+        }
         onSaqlandi?.();
       }}
     />

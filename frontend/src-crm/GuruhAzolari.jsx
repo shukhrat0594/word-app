@@ -8,7 +8,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 
 import { api } from "./api.js";
-import OquvchiMenyusi, { MuzlatishOynasi } from "./OquvchiAmallari.jsx";
+import OquvchiMenyusi, { FaollashtirishOynasi, MuzlatishOynasi } from "./OquvchiAmallari.jsx";
 import { useRuxsat } from "./profilContext.jsx";
 import { balansMatn, balansSinfi, pul, sana } from "./format.js";
 import { useI18n } from "./i18n.jsx";
@@ -46,6 +46,8 @@ export default function GuruhAzolari({ guruhId, guruhNomi, onOzgardi }) {
 
   const [amalXato, setAmalXato] = useState("");
   const [muzlatish, setMuzlatish] = useState(null);
+  // Faollashtirish oynasi: bitta a'zolik (obyekt) yoki hammasi ("hammasi").
+  const [faollashtirish, setFaollashtirish] = useState(null);
 
   // Amal xatosi (403/400) jim yutilmasin — foydalanuvchi sababini ko'rsin.
   async function amal(fn) {
@@ -67,6 +69,8 @@ export default function GuruhAzolari({ guruhId, guruhNomi, onOzgardi }) {
 
   function holatTanla(a, holat) {
     if (holat === "muzlatilgan") return setMuzlatish(a);
+    // Sinovdan faolga — qo'shilgan sana so'raladi (hisob shu sanadan).
+    if (holat === "faol" && a.holat === "sinov") return setFaollashtirish(a);
     return ozgartir(a.id, "holat", holat);
   }
 
@@ -85,13 +89,9 @@ export default function GuruhAzolari({ guruhId, guruhNomi, onOzgardi }) {
     onOzgardi?.();
   }
 
+  // "O'quvchilarni faollashtirish" — hamma sinovdagilar uchun bitta sana.
   function faollashtir() {
-    if (!window.confirm(t("faollashtirish_tasdiq"))) return;
-    return amal(async () => {
-      await api(`/api/crm/guruhlar/${guruhId}/faollashtirish/`, { method: "POST", body: {} });
-      yangila();
-      onOzgardi?.();
-    });
+    setFaollashtirish("hammasi");
   }
 
   if (yuklanmoqda) return <p className="kichik">{t("yuklanmoqda")}</p>;
@@ -226,6 +226,15 @@ export default function GuruhAzolari({ guruhId, guruhNomi, onOzgardi }) {
             )}
           </tbody>
         </table>
+      )}
+      {faollashtirish && (
+        <FaollashtirishOynasi
+          azolikId={faollashtirish === "hammasi" ? null : faollashtirish.id}
+          guruhId={guruhId}
+          talabaIsmi={faollashtirish === "hammasi" ? "" : faollashtirish.talaba}
+          onYopish={() => setFaollashtirish(null)}
+          onSaqlandi={() => { yangila(); onOzgardi?.(); }}
+        />
       )}
       {muzlatish && (
         <MuzlatishOynasi azolikId={muzlatish.id} talabaIsmi={muzlatish.talaba}
