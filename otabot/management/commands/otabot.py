@@ -5,6 +5,7 @@ yangilanish bazada saqlanadi — qayta ishga tushganda xabarlar takrorlanmaydi.
 """
 
 import logging
+import threading
 import time
 
 from django.conf import settings
@@ -15,8 +16,28 @@ from otabot.bot import Bot
 from otabot.matnlar import BUYRUQLAR
 from otabot.models import OtaBotKuzatuv
 from otabot.telegram import Tg, TgXato
+from otabot.xabarlar import skanerla_davomat, yubor_navbat
 
 log = logging.getLogger("otabot")
+
+TEKSHIRUV_SEK = 30  # yangi davomat/xabarlar shuncha sekundda bir tekshiriladi
+
+
+def xabar_bir_marta(tg):
+    skanerla_davomat()
+    yubor_navbat(tg)
+
+
+def xabar_oqimi(tg):
+    """Ota-onaga xabar yuborish oqimi (suhbat oqimi bilan parallel). Xato bo'lsa to'xtamaydi."""
+    while True:
+        try:
+            xabar_bir_marta(tg)
+        except Exception:  # noqa: BLE001
+            log.exception("Xabar oqimi xatosi")
+        finally:
+            close_old_connections()
+        time.sleep(TEKSHIRUV_SEK)
 
 
 class Command(BaseCommand):
@@ -39,6 +60,10 @@ class Command(BaseCommand):
         bot = Bot(tg)
         offset = OtaBotKuzatuv.ol().oxirgi_update_id + 1
         log.info("Ota-ona boti ishga tushdi (offset %s)", offset)
+        if opts["bir"]:
+            xabar_bir_marta(tg)
+        else:
+            threading.Thread(target=xabar_oqimi, args=(tg,), name="otabot-xabar", daemon=True).start()
         while True:
             try:
                 yangilar = tg.yangilanishlar(offset, kutish=1 if opts["bir"] else 30)

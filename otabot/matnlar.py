@@ -77,6 +77,19 @@ MATNLAR = {
     "tugma_yordam": {"uz": "ℹ️ Yordam", "ru": "ℹ️ Помощь"},
     "tugma_stop": {"uz": "⏸ Xabarlarni to'xtatish", "ru": "⏸ Остановить сообщения"},
     "tugma_start": {"uz": "▶️ Xabarlarni qayta yoqish", "ru": "▶️ Включить сообщения"},
+    # Davomat xabarlari. {kun} — "bugun" yoki "05.10.2026 kuni" (tilga qarab).
+    "davomat_kelmadi": {
+        "uz": "⚠️ {ism} {kun} «{guruh}» guruhida darsga kelmadi.",
+        "ru": "⚠️ {ism} {kun} отсутствовал(а) на занятии в группе «{guruh}».",
+    },
+    "davomat_kechikdi": {
+        "uz": "⏰ {ism} {kun} «{guruh}» guruhidagi darsga kechikib keldi.",
+        "ru": "⏰ {ism} {kun} опоздал(а) на занятие в группе «{guruh}».",
+    },
+    "davomat_sababli": {
+        "uz": "ℹ️ {ism} {kun} «{guruh}» guruhida sababli kelmadi.",
+        "ru": "ℹ️ {ism} {kun} отсутствовал(а) по уважительной причине (группа «{guruh}»).",
+    },
     "tushunmadim": {
         "uz": "Tushunmadim. Buyruqlar uchun /yordam ni bosing.",
         "ru": "Не понял. Команды — /yordam.",
@@ -118,3 +131,11 @@ BUYRUQLAR = {
         ("yordam", "Список команд"),
     ],
 }
+
+
+def kun_matni(til, sana, bugun):
+    """Xabardagi sana: bugun bo'lsa "bugun" / "сегодня", aks holda aniq sana."""
+    if sana == bugun:
+        return "bugun" if til == "uz" else "сегодня"
+    matn = sana.strftime("%d.%m.%Y")
+    return f"{matn} kuni" if til == "uz" else matn

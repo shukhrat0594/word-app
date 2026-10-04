@@ -59,6 +59,9 @@ class OtaBotKuzatuv(models.Model):
     yangilanishi — qayta ishga tushganda xabarlar takrorlanmasin."""
 
     oxirgi_update_id = models.BigIntegerField(default=0)
+    # Davomat xabarlari shu paytdan KEYIN yaratilgan yozuvlar uchun yuboriladi (eski davomatlar
+    # birinchi ishga tushganda ota-onalarga bir yo'la yog'ilib ketmasin).
+    davomat_boshlandi = models.DateTimeField(null=True, blank=True)
 
     @classmethod
     def ol(cls):
@@ -143,3 +146,33 @@ class Sorov(models.Model):
 
     class Meta:
         ordering = ["-yaratilgan"]
+
+
+class Xabar(models.Model):
+    """Ota-onaga yuboriladigan xabar navbati (davomat; keyingi bosqichlarda to'lov, qarz, natija).
+
+    Nega navbat: tinch soatlarda xabar kutadi, kechiktirilgan xabar yuborishdan oldin qayta
+    tekshiriladi (davomat tuzatilgan bo'lsa bekor), va bir voqea uchun ikki marta yuborilmaydi
+    (`abonent + kalit` yagona).
+    """
+
+    class Holat(models.TextChoices):
+        KUTILMOQDA = "kutilmoqda", "Kutilmoqda"
+        YUBORILDI = "yuborildi", "Yuborildi"
+        BEKOR = "bekor", "Bekor qilindi"
+        XATO = "xato", "Xato"
+
+    abonent = models.ForeignKey(Abonent, on_delete=models.CASCADE, related_name="xabarlar")
+    talaba = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="+")
+    turi = models.CharField(max_length=20)  # "davomat" ...
+    kalit = models.CharField(max_length=100)
+    payload = models.JSONField(default=dict, blank=True)
+    yuborilsin = models.DateTimeField(db_index=True)  # shundan oldin yuborilmaydi
+    holat = models.CharField(max_length=12, choices=Holat.choices, default=Holat.KUTILMOQDA, db_index=True)
+    urinish = models.PositiveSmallIntegerField(default=0)
+    yaratilgan = models.DateTimeField(auto_now_add=True)
+    yuborildi = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["abonent", "kalit"], name="otabot_xabar_unikal")]
+        ordering = ["id"]
