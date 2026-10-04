@@ -24,6 +24,7 @@ const MENYU = [
   { yol: "hisobotlar", kalit: "hisobotlar", ikon: "📊", ruxsat: "hisobotlar" },
   { yol: "xodimlar", kalit: "xodimlar", ikon: "🧑‍🏫", ruxsat: "xodimlar" },
   { yol: "sozlamalar", kalit: "sozlamalar", ikon: "⚙️", ruxsat: "sozlamalar" },
+  { yol: "otabot", kalit: "otabot", ikon: "👪", ruxsat: "otabot" },
   { yol: "harakatlar", kalit: "harakatlar_tarixi", ikon: "🕘", ruxsat: "sozlamalar" },
 ];
 

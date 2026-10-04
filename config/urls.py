@@ -201,6 +201,8 @@ urlpatterns = [
     # `api/` yo'llari bilan aralashmaydi. CRM olib tashlansa shu bitta
     # qatorni o'chirish yetarli.
     path('api/crm/', include('crm.urls')),
+    # Ota-ona boti (CRM bo'limi uchun API). Olib tashlash: shu qator + settings'dagi 'otabot'.
+    path('api/crm/otabot/', include('otabot.urls')),
     # B3.2: media'dan FAQAT markaz logolari ochiq (brending — maxfiy emas).
     # Audio fayllar bu yo'l orqali BERILMAYDI — ular faqat autentifikatsiyalangan
     # stream endpointlar orqali (exercises.MashqAudioView).
