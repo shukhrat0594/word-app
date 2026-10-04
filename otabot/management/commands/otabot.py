@@ -12,6 +12,7 @@ from django.core.management.base import BaseCommand
 from django.db import close_old_connections
 
 from otabot.bot import Bot
+from otabot.matnlar import BUYRUQLAR
 from otabot.models import OtaBotKuzatuv
 from otabot.telegram import Tg, TgXato
 
@@ -31,6 +32,10 @@ class Command(BaseCommand):
             logging.getLogger(nom).setLevel(logging.WARNING)
         tg = Tg(settings.UTMOSTPARENTSBOT_TOKEN)
         tg.chaqir("deleteWebhook")  # polling bilan webhook to'qnashmasin
+        try:
+            tg.buyruqlarni_ornat(BUYRUQLAR)  # "/" bosilganda buyruqlar menyusi
+        except TgXato as xato:
+            log.warning("Buyruqlar menyusi o'rnatilmadi: %s", xato)
         bot = Bot(tg)
         offset = OtaBotKuzatuv.ol().oxirgi_update_id + 1
         log.info("Ota-ona boti ishga tushdi (offset %s)", offset)

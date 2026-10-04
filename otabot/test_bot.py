@@ -195,3 +195,65 @@ class BuyruqlarTest(BotAsos):
         self.ulangan()
         self.yubor(100, "/notanish")
         self.assertIn("Tushunmadim", self.tg.oxirgi())
+
+
+class TugmalarMenyusiTest(BotAsos):
+    def ulangan(self, til="uz"):
+        self.tilgacha(til=til)
+        self.yubor(100, contact={"phone_number": "+998901234567", "user_id": 100})
+
+    def tugma_matnlari(self, xabar_indeksi=-1):
+        klaviatura = self.tg.yuborilgan[xabar_indeksi][2]
+        return [b["text"] for qator in klaviatura["keyboard"] for b in qator]
+
+    def test_ulangach_doimiy_menyu_chiqadi(self):
+        self.ulangan()
+        matnlar = self.tugma_matnlari()
+        self.assertEqual(len(matnlar), 4)
+        self.assertIn("👨‍👩‍👧 Farzandlarim", matnlar)
+        self.assertTrue(self.tg.yuborilgan[-1][2]["is_persistent"])
+
+    def test_tugma_buyruq_vazifasini_bajaradi(self):
+        self.ulangan()
+        self.yubor(100, "👨‍👩‍👧 Farzandlarim")
+        self.assertIn("Aziz Karimov", self.tg.oxirgi())
+        self.yubor(100, "ℹ️ Yordam")
+        self.assertIn("Buyruqlar", self.tg.oxirgi())
+
+    def test_til_tugmasi_va_ruscha_menyu(self):
+        self.ulangan()
+        self.yubor(100, "🌐 Til")
+        self.bot.qayta_ishla(tugma(100, "til:ru"))
+        self.assertEqual(Abonent.objects.get().til, "ru")
+        self.assertIn("👨‍👩‍👧 Мои дети", self.tugma_matnlari())
+        self.yubor(100, "👨‍👩‍👧 Мои дети")  # ruscha tugma ham taniladi
+        self.assertIn("Aziz Karimov", self.tg.oxirgi())
+
+    def test_stop_tugmasi_va_qayta_yoqish_tugmasi(self):
+        self.ulangan()
+        self.yubor(100, "⏸ Xabarlarni to'xtatish")
+        self.assertFalse(Abonent.objects.get().faol)
+        self.assertEqual(self.tugma_matnlari(), ["▶️ Xabarlarni qayta yoqish"])
+        self.yubor(100, "▶️ Xabarlarni qayta yoqish")
+        self.assertTrue(Abonent.objects.get().faol)
+        self.assertIn("Aziz Karimov", self.tg.oxirgi())
+
+    def test_ulanmagan_ota_onaga_menyu_yoq(self):
+        self.tilgacha()
+        self.yubor(100, contact={"phone_number": "+998931112233", "user_id": 100})  # CRM'da yo'q raqam
+        self.yubor(100, "/yordam")
+        self.assertIsNone(self.tg.yuborilgan[-1][2])
+
+    def test_ism_bosqichida_tugma_matni_ism_sifatida_ketmaydi_lekin_oddiy_matn_ketadi(self):
+        self.tilgacha()
+        self.yubor(100, contact={"phone_number": "+998931112233", "user_id": 100})
+        self.yubor(100, "Sevara Jorayeva")  # oddiy ism — tugma emas
+        self.assertIn("sanasini", self.tg.oxirgi())
+
+    def test_ism_bilan_ulanganda_ham_menyu(self):
+        self.tilgacha()
+        self.yubor(100, contact={"phone_number": "+998931112233", "user_id": 100})
+        self.yubor(100, "Sevara Jorayeva")
+        self.yubor(100, "03.03.2011")
+        self.assertIn("Ulandi", self.tg.oxirgi())
+        self.assertEqual(len(self.tugma_matnlari()), 4)

@@ -46,6 +46,15 @@ class Tg:
             parametrlar["reply_markup"] = tugmalar
         return self.chaqir("sendMessage", **parametrlar)
 
+    def buyruqlarni_ornat(self, buyruqlar):
+        """"/" menyusi. `buyruqlar` — {"uz": [(buyruq, tavsif), ...], "ru": [...]}.
+        Asosiy (tilsiz) ro'yxat — o'zbekcha; ruscha Telegram'i bor foydalanuvchiga ruscha ko'rinadi."""
+        for til, royxat in buyruqlar.items():
+            tarkib = [{"command": b, "description": t} for b, t in royxat]
+            if til == "uz":
+                self.chaqir("setMyCommands", commands=tarkib)
+            self.chaqir("setMyCommands", commands=tarkib, language_code=til)
+
     def callback_javob(self, callback_id):
         try:
             self.chaqir("answerCallbackQuery", callback_query_id=callback_id)

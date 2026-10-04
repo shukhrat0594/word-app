@@ -70,6 +70,11 @@ MATNLAR = {
         "ru": "Команды:\n/farzandlarim — подключённые дети\n/til — сменить язык\n"
               "/stop — остановить сообщения\n/start — включить снова",
     },
+    "tugma_farzandlar": {"uz": "👨‍👩‍👧 Farzandlarim", "ru": "👨‍👩‍👧 Мои дети"},
+    "tugma_til": {"uz": "🌐 Til", "ru": "🌐 Язык"},
+    "tugma_yordam": {"uz": "ℹ️ Yordam", "ru": "ℹ️ Помощь"},
+    "tugma_stop": {"uz": "⏸ Xabarlarni to'xtatish", "ru": "⏸ Остановить сообщения"},
+    "tugma_start": {"uz": "▶️ Xabarlarni qayta yoqish", "ru": "▶️ Включить сообщения"},
     "tushunmadim": {
         "uz": "Tushunmadim. Buyruqlar uchun /yordam ni bosing.",
         "ru": "Не понял. Команды — /yordam.",
@@ -92,3 +97,22 @@ def t(til, kalit, **qiymatlar):
     ma = MATNLAR[kalit]
     matn = ma.get(til) or ma["uz"]
     return matn.format(**qiymatlar) if qiymatlar else matn
+
+
+# "/" bosilganda Telegram ko'rsatadigan buyruqlar ro'yxati (BotFather menyusi, `setMyCommands`).
+BUYRUQLAR = {
+    "uz": [
+        ("start", "Boshlash / qayta yoqish"),
+        ("farzandlarim", "Ulangan farzandlarim"),
+        ("til", "Tilni o'zgartirish"),
+        ("stop", "Xabarlarni to'xtatish"),
+        ("yordam", "Buyruqlar ro'yxati"),
+    ],
+    "ru": [
+        ("start", "Начать / включить снова"),
+        ("farzandlarim", "Мои дети"),
+        ("til", "Сменить язык"),
+        ("stop", "Остановить сообщения"),
+        ("yordam", "Список команд"),
+    ],
+}

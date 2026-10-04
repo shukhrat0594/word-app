@@ -7,7 +7,7 @@ from django.utils import timezone
 
 from accounts.models import Bildirishnoma, User
 
-from . import matnlar
+from . import matnlar, tugmalar
 from .models import Abonent, Boglanish, Sorov
 from .moslash import talaba_ismi
 from .telegram import TgXato
@@ -73,9 +73,9 @@ def sorov_yarat(abonent, ism, sana_matni, nomzod_idlar):
     return s
 
 
-def _yubor(tg, abonent, kalit, **q):
+def _yubor(tg, abonent, kalit, tugmalar_=None, **q):
     try:
-        tg.yubor(abonent.telegram_id, matnlar.t(abonent.til, kalit, **q))
+        tg.yubor(abonent.telegram_id, matnlar.t(abonent.til, kalit, **q), tugmalar_)
     except TgXato:
         log.warning("Ota-onaga xabar yuborilmadi (so'rov qarori)")
 
@@ -98,7 +98,7 @@ def sorovni_hal_qil(sorov, amal, kim, tg, talaba=None):
     sorov.save(update_fields=["holat", "talaba", "hal_qilgan", "hal_vaqti"])
     if tg is not None:
         if amal == "ulash":
-            _yubor(tg, sorov.abonent, "admin_ulandi", ismlar=talaba_ismi(talaba))
+            _yubor(tg, sorov.abonent, "admin_ulandi", tugmalar.menyu(sorov.abonent.til), ismlar=talaba_ismi(talaba))
         else:
             _yubor(tg, sorov.abonent, "admin_rad")
     return sorov

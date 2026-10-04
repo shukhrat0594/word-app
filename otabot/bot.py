@@ -9,7 +9,7 @@ from datetime import timedelta
 
 from django.utils import timezone
 
-from . import matnlar, moslash, xizmat
+from . import matnlar, moslash, tugmalar, xizmat
 from .matnlar import t
 from .models import Abonent, Boglanish
 from .telegram import TgXato
@@ -62,6 +62,9 @@ class Bot:
             return
         if matn.startswith("/"):
             return self._buyruq(ab, matn.split()[0].split("@")[0].lower())
+        buyruq = tugmalar.tugma_buyrugi(matn)
+        if buyruq:
+            return self._buyruq(ab, buyruq)
         self._matn(ab, matn)
 
     def _abonent(self, kim):
@@ -75,6 +78,12 @@ class Bot:
 
     def _yubor(self, ab, kalit, tugmalar=None, **q):
         self.tg.yubor(ab.telegram_id, t(ab.til, kalit, **q), tugmalar)
+
+    def _menyu(self, ab):
+        """Doimiy tugmalar: ulangan (yoki to'xtatilgan) ota-onaga; hali ulanmaganga — yo'q."""
+        if not ab.faol:
+            return tugmalar.menyu(ab.til, faol=False)
+        return tugmalar.menyu(ab.til) if xizmat.faol_farzandlar(ab) else None
 
     # ── buyruqlar ───────────────────────────────────────────────────
     def _buyruq(self, ab, buyruq):
@@ -95,9 +104,9 @@ class Bot:
         if buyruq == "/stop":
             ab.faol = False
             ab.save(update_fields=["faol"])
-            return self._yubor(ab, "to_xtadi", KLAVIATURA_YOP)
+            return self._yubor(ab, "to_xtadi", tugmalar.menyu(ab.til, faol=False))
         if buyruq == "/yordam":
-            return self._yubor(ab, "yordam")
+            return self._yubor(ab, "yordam", self._menyu(ab))
         self._yubor(ab, "tushunmadim")
 
     def _farzandlar(self, ab):
@@ -105,7 +114,7 @@ class Bot:
         if not bolalar:
             return self._yubor(ab, "farzand_yoq")
         royxat = "\n".join(f"• {moslash.talaba_ismi(b)}" for b in bolalar)
-        self._yubor(ab, "farzandlar", royxat=royxat)
+        self._yubor(ab, "farzandlar", self._menyu(ab), royxat=royxat)
 
     def _callback(self, cb):
         kim = cb.get("from") or {}
@@ -123,7 +132,7 @@ class Bot:
             ab.save(update_fields=["til", "holat"])
             return self._yubor(ab, "salom_telefon", telefon_tugmasi(til))
         ab.save(update_fields=["til"])
-        self._yubor(ab, "til_ozgardi")
+        self._yubor(ab, "til_ozgardi", self._menyu(ab))
 
     # ── telefon ─────────────────────────────────────────────────────
     def _kontakt(self, ab, kontakt, kim):
@@ -136,7 +145,7 @@ class Bot:
             xizmat.ulash(ab, topildi, Boglanish.Usul.TELEFON)
             ab.holat = Abonent.Holat.TAYYOR
             ab.save(update_fields=["telefon", "holat"])
-            return self._yubor(ab, "ulandi", KLAVIATURA_YOP, ismlar=xizmat.ismlar_matni(topildi))
+            return self._yubor(ab, "ulandi", self._menyu(ab), ismlar=xizmat.ismlar_matni(topildi))
         ab.holat = Abonent.Holat.FARZAND_ISM
         ab.save(update_fields=["telefon", "holat"])
         self._yubor(ab, "farzand_ism_so", KLAVIATURA_YOP)
@@ -176,7 +185,7 @@ class Bot:
         ab.save(update_fields=["urinishlar", "kontekst", "holat"])
         if len(mos) == 1:
             xizmat.ulash(ab, mos, Boglanish.Usul.ISM_SANA)
-            return self._yubor(ab, "ulandi", ismlar=xizmat.ismlar_matni(mos))
+            return self._yubor(ab, "ulandi", self._menyu(ab), ismlar=xizmat.ismlar_matni(mos))
         # Topilmadi yoki bir nechta mos keldi: ota-onaga ATAYLAB bir xil javob; adminlar hal qiladi.
         xizmat.sorov_yarat(ab, ism, matn.strip()[:30], moslash.nomzodlar(ism, sana))
         self._yubor(ab, "sorov_yuborildi")

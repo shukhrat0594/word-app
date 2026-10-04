@@ -23,3 +23,39 @@ class TokenLogdaYoqTest(SimpleTestCase):
             Tg("SIRLI:TOKEN", klient=Buzuq()).chaqir("getMe")
         self.assertNotIn("SIRLI", str(ctx.exception))
         self.assertNotIn("TOKEN", str(ctx.exception))
+
+
+class BuyruqlarMenyusiTest(SimpleTestCase):
+    def test_buyruqlar_ornatiladi(self):
+        from otabot.matnlar import BUYRUQLAR
+
+        class Yozuvchi:
+            def __init__(self):
+                self.chaqiruvlar = []
+
+            def post(self, url, json=None):
+                self.chaqiruvlar.append((url.rsplit("/", 1)[-1], json))
+
+                class R:
+                    def json(self_):
+                        return {"ok": True, "result": True}
+                return R()
+
+        y = Yozuvchi()
+        Tg("123456:ABC", klient=y).buyruqlarni_ornat(BUYRUQLAR)
+        self.assertTrue(all(m == "setMyCommands" for m, _ in y.chaqiruvlar))
+        # uz: tilsiz + "uz"; ru: "ru"
+        tillar = [j.get("language_code") for _, j in y.chaqiruvlar]
+        self.assertEqual(tillar, [None, "uz", "ru"])
+        nomlar = [c["command"] for c in y.chaqiruvlar[0][1]["commands"]]
+        self.assertEqual(nomlar, ["start", "farzandlarim", "til", "stop", "yordam"])
+
+    def test_har_buyruq_botda_bor(self):
+        from otabot.matnlar import BUYRUQLAR
+
+        # menyudagi har buyruq botda ishlaydi (tushunmadim bermaydi)
+        kodda = {"/start", "/farzandlarim", "/til", "/stop", "/yordam"}
+        for til, royxat in BUYRUQLAR.items():
+            self.assertEqual({"/" + b for b, _ in royxat}, kodda, til)
+            for _, tavsif in royxat:
+                self.assertLessEqual(len(tavsif), 256)
