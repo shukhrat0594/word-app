@@ -9,9 +9,11 @@ MATNLAR = {
     },
     "salom_telefon": {
         "uz": "Assalomu alaykum! Farzandingiz haqida xabar olish uchun telefon raqamingizni ulashing "
-              "(pastdagi tugma orqali).",
+              "(pastdagi tugma orqali).\n\nTelegram tasdiq so'rashi mumkin — «Ulashish» "
+              "(Поделиться / Share) tugmasini bosing.",
         "ru": "Здравствуйте! Чтобы получать сообщения о вашем ребёнке, поделитесь номером телефона "
-              "(кнопка внизу).",
+              "(кнопка внизу).\n\nTelegram может запросить подтверждение — нажмите «Поделиться» "
+              "(Ulashish / Share).",
     },
     "telefon_tugma": {"uz": "📱 Raqamni ulashish", "ru": "📱 Поделиться номером"},
     "begona_kontakt": {
