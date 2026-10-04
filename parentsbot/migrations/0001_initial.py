@@ -2,7 +2,7 @@
 
 import datetime
 import django.db.models.deletion
-import otabot.models
+import parentsbot.models
 from django.conf import settings
 from django.db import migrations, models
 
@@ -37,14 +37,14 @@ class Migration(migrations.Migration):
             },
         ),
         migrations.CreateModel(
-            name='OtaBotKuzatuv',
+            name='ParentsBotKuzatuv',
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('oxirgi_update_id', models.BigIntegerField(default=0)),
             ],
         ),
         migrations.CreateModel(
-            name='OtaBotSozlama',
+            name='ParentsBotSozlama',
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('davomat_yoqilgan', models.BooleanField(default=True)),
@@ -53,10 +53,10 @@ class Migration(migrations.Migration):
                 ('davomat_sababli', models.BooleanField(default=False)),
                 ('tolov_yoqilgan', models.BooleanField(default=True)),
                 ('qarz_yoqilgan', models.BooleanField(default=True)),
-                ('qarz_kunlari', models.JSONField(default=otabot.models._dushanba)),
+                ('qarz_kunlari', models.JSONField(default=parentsbot.models._dushanba)),
                 ('qarz_soati', models.TimeField(default=datetime.time(10, 0))),
                 ('natija_yoqilgan', models.BooleanField(default=True)),
-                ('natija_kunlari', models.JSONField(default=otabot.models._hamma_kunlar)),
+                ('natija_kunlari', models.JSONField(default=parentsbot.models._hamma_kunlar)),
                 ('natija_soati', models.TimeField(default=datetime.time(19, 0))),
                 ('tinch_boshi', models.TimeField(default=datetime.time(22, 0))),
                 ('tinch_oxiri', models.TimeField(default=datetime.time(8, 0))),
@@ -76,7 +76,7 @@ class Migration(migrations.Migration):
                 ('holat', models.CharField(choices=[('kutilmoqda', 'Kutilmoqda'), ('ulandi', 'Ulandi'), ('rad', 'Rad etildi')], db_index=True, default='kutilmoqda', max_length=12)),
                 ('hal_vaqti', models.DateTimeField(blank=True, null=True)),
                 ('yaratilgan', models.DateTimeField(auto_now_add=True)),
-                ('abonent', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='sorovlar', to='otabot.abonent')),
+                ('abonent', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='sorovlar', to='parentsbot.abonent')),
                 ('hal_qilgan', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='+', to=settings.AUTH_USER_MODEL)),
                 ('talaba', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='+', to=settings.AUTH_USER_MODEL)),
             ],
@@ -91,12 +91,12 @@ class Migration(migrations.Migration):
                 ('usul', models.CharField(choices=[('telefon', 'Telefon raqami'), ('ism_sana', "Ism va tug'ilgan sana"), ('admin', 'Admin ulagan')], max_length=10)),
                 ('faol', models.BooleanField(default=True)),
                 ('yaratilgan', models.DateTimeField(auto_now_add=True)),
-                ('abonent', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='boglanishlar', to='otabot.abonent')),
+                ('abonent', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='boglanishlar', to='parentsbot.abonent')),
                 ('kim', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='+', to=settings.AUTH_USER_MODEL)),
                 ('talaba', models.ForeignKey(limit_choices_to={'role': 'student'}, on_delete=django.db.models.deletion.CASCADE, related_name='ota_bot_boglanishlar', to=settings.AUTH_USER_MODEL)),
             ],
             options={
-                'constraints': [models.UniqueConstraint(fields=('abonent', 'talaba'), name='otabot_boglanish_unikal')],
+                'constraints': [models.UniqueConstraint(fields=('abonent', 'talaba'), name='parentsbot_boglanish_unikal')],
             },
         ),
     ]

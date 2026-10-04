@@ -14,7 +14,7 @@ from .matnlar import t
 from .models import Abonent, Boglanish
 from .telegram import TgXato
 
-log = logging.getLogger("otabot")
+log = logging.getLogger("parentsbot")
 
 URINISH_CHEGARASI = 3  # bitta Telegram hisobi 24 soatda ko'pi bilan shuncha marta ism bilan urinadi
 TIL_TUGMALARI = {"inline_keyboard": [[

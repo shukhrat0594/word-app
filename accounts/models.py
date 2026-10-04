@@ -284,7 +284,7 @@ class Bildirishnoma(models.Model):
     sarlavha = models.CharField(max_length=300)
     matn = models.TextField(blank=True)
     oqilgan = models.BooleanField(default=False)
-    # Bosilganda o'tadigan sayt ichidagi yo'l (masalan "/crm/otabot"). Bo'sh — bosilmaydi.
+    # Bosilganda o'tadigan sayt ichidagi yo'l (masalan "/crm/parentsbot"). Bo'sh — bosilmaydi.
     # Faqat "/" bilan boshlanadigan ichki yo'l (tashqi manzil emas): `havola_xavfsiz`.
     havola = models.CharField(max_length=300, blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)

@@ -1,6 +1,6 @@
-"""Ota-ona botini ishga tushiradi (Railway'da alohida service): `python manage.py otabot`.
+"""Ota-ona botini ishga tushiradi (Railway'da alohida service): `python manage.py parentsbot`.
 
-Long polling: Telegram'dan yangilanishlarni oladi va `otabot.bot.Bot`ga beradi. Oxirgi ko'rilgan
+Long polling: Telegram'dan yangilanishlarni oladi va `parentsbot.bot.Bot`ga beradi. Oxirgi ko'rilgan
 yangilanish bazada saqlanadi — qayta ishga tushganda xabarlar takrorlanmaydi.
 """
 
@@ -12,13 +12,13 @@ from django.conf import settings
 from django.core.management.base import BaseCommand
 from django.db import close_old_connections
 
-from otabot.bot import Bot
-from otabot.matnlar import BUYRUQLAR
-from otabot.models import OtaBotKuzatuv
-from otabot.telegram import Tg, TgXato
-from otabot.xabarlar import skanerla_davomat, yubor_navbat
+from parentsbot.bot import Bot
+from parentsbot.matnlar import BUYRUQLAR
+from parentsbot.models import ParentsBotKuzatuv
+from parentsbot.telegram import Tg, TgXato
+from parentsbot.xabarlar import skanerla_davomat, yubor_navbat
 
-log = logging.getLogger("otabot")
+log = logging.getLogger("parentsbot")
 
 TEKSHIRUV_SEK = 30  # yangi davomat/xabarlar shuncha sekundda bir tekshiriladi
 
@@ -58,12 +58,12 @@ class Command(BaseCommand):
         except TgXato as xato:
             log.warning("Buyruqlar menyusi o'rnatilmadi: %s", xato)
         bot = Bot(tg)
-        offset = OtaBotKuzatuv.ol().oxirgi_update_id + 1
+        offset = ParentsBotKuzatuv.ol().oxirgi_update_id + 1
         log.info("Ota-ona boti ishga tushdi (offset %s)", offset)
         if opts["bir"]:
             xabar_bir_marta(tg)
         else:
-            threading.Thread(target=xabar_oqimi, args=(tg,), name="otabot-xabar", daemon=True).start()
+            threading.Thread(target=xabar_oqimi, args=(tg,), name="parentsbot-xabar", daemon=True).start()
         while True:
             try:
                 yangilar = tg.yangilanishlar(offset, kutish=1 if opts["bir"] else 30)
@@ -74,7 +74,7 @@ class Command(BaseCommand):
             for u in yangilar:
                 bot.qayta_ishla(u)
                 offset = u["update_id"] + 1
-                OtaBotKuzatuv.objects.filter(pk=1).update(oxirgi_update_id=u["update_id"])
+                ParentsBotKuzatuv.objects.filter(pk=1).update(oxirgi_update_id=u["update_id"])
             close_old_connections()
             if opts["bir"]:
                 return

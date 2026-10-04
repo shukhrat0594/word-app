@@ -3,8 +3,8 @@ from datetime import date
 from django.test import TestCase
 
 from accounts.models import Bildirishnoma, User
-from otabot.bot import Bot
-from otabot.models import Abonent, Boglanish, Sorov
+from parentsbot.bot import Bot
+from parentsbot.models import Abonent, Boglanish, Sorov
 
 
 class SoxtaTg:

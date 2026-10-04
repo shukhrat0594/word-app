@@ -12,7 +12,7 @@ from .models import Abonent, Boglanish, Sorov
 from .moslash import talaba_ismi
 from .telegram import TgXato
 
-log = logging.getLogger("otabot")
+log = logging.getLogger("parentsbot")
 
 
 def ulash(abonent, talabalar, usul, kim=None):
@@ -39,24 +39,24 @@ def faol_farzandlar(abonent):
 
 
 def adminlar():
-    """So'rovlarni ko'rib chiqa oladigan foydalanuvchilar (owner + `otabot.ulash` ruxsatli xodimlar)."""
+    """So'rovlarni ko'rib chiqa oladigan foydalanuvchilar (owner + `parentsbot.ulash` ruxsatli xodimlar)."""
     from crm.ruxsatlar import ruxsatlar
 
     nomzod = User.objects.filter(
         Q(is_superuser=True) | Q(role=User.Role.ADMIN) | Q(crm_xodim__isnull=False), is_active=True,
     ).distinct()
-    return [u for u in nomzod if "otabot.ulash" in ruxsatlar(u)]
+    return [u for u in nomzod if "parentsbot.ulash" in ruxsatlar(u)]
 
 
 def adminlarga_bildir(sorov):
     """Yangi so'rov — adminlarga saytdagi 🔔 bildirishnoma (har admin uchun bitta)."""
     for u in adminlar():
         Bildirishnoma.objects.get_or_create(
-            foydalanuvchi=u, kalit=f"otabot:sorov:{sorov.id}",
+            foydalanuvchi=u, kalit=f"parentsbot:sorov:{sorov.id}",
             defaults={
                 "turi": Bildirishnoma.Turi.OGOHLANTIRISH,
                 "sarlavha": "Ota-ona so'rovi",
-                "havola": "/crm/otabot",
+                "havola": "/crm/parentsbot",
                 "matn": "Ota-ona farzandiga ulanish uchun so'rov yubordi — CRM → Ota-ona boti bo'limida ko'ring.",
             },
         )

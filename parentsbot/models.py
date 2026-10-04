@@ -18,7 +18,7 @@ def _dushanba():
     return [0]
 
 
-class OtaBotSozlama(models.Model):
+class ParentsBotSozlama(models.Model):
     """Xabarlar QACHON va NIMA yuborilishi (CRM -> Sozlamalar -> "Ota-ona boti").
 
     Bitta yozuv (pk=1) — butun markaz uchun. Kunlar: 0=dushanba ... 6=yakshanba.
@@ -54,7 +54,7 @@ class OtaBotSozlama(models.Model):
         return obj
 
 
-class OtaBotKuzatuv(models.Model):
+class ParentsBotKuzatuv(models.Model):
     """Bot jarayonining ichki holati (bitta yozuv, pk=1): oxirgi ko'rilgan Telegram
     yangilanishi — qayta ishga tushganda xabarlar takrorlanmasin."""
 
@@ -119,7 +119,7 @@ class Boglanish(models.Model):
     yaratilgan = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        constraints = [models.UniqueConstraint(fields=["abonent", "talaba"], name="otabot_boglanish_unikal")]
+        constraints = [models.UniqueConstraint(fields=["abonent", "talaba"], name="parentsbot_boglanish_unikal")]
 
 
 class Sorov(models.Model):
@@ -174,5 +174,5 @@ class Xabar(models.Model):
     yuborildi = models.DateTimeField(null=True, blank=True)
 
     class Meta:
-        constraints = [models.UniqueConstraint(fields=["abonent", "kalit"], name="otabot_xabar_unikal")]
+        constraints = [models.UniqueConstraint(fields=["abonent", "kalit"], name="parentsbot_xabar_unikal")]
         ordering = ["id"]

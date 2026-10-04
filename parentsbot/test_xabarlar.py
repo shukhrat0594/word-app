@@ -7,10 +7,10 @@ from academics.models import Davomat
 from accounts.models import User
 from crm.models import DavomatIzoh
 from crm.test_api import ApiAsos
-from otabot import xabarlar as xb
-from otabot.models import Abonent, Boglanish, OtaBotKuzatuv, OtaBotSozlama, Xabar
-from otabot.telegram import TgXato
-from otabot.test_bot import SoxtaTg
+from parentsbot import xabarlar as xb
+from parentsbot.models import Abonent, Boglanish, ParentsBotKuzatuv, ParentsBotSozlama, Xabar
+from parentsbot.telegram import TgXato
+from parentsbot.test_bot import SoxtaTg
 from django.test import SimpleTestCase
 
 TOSH = ZoneInfo("Asia/Tashkent")
@@ -58,7 +58,7 @@ class XabarAsos(ApiAsos):
 class SkanerTest(XabarAsos):
     def test_birinchi_ishga_tushganda_eski_davomat_yuborilmaydi(self):
         Xabar.objects.all().delete()
-        OtaBotKuzatuv.objects.update(davomat_boshlandi=None)
+        ParentsBotKuzatuv.objects.update(davomat_boshlandi=None)
         self.belgi()  # baseline'dan OLDIN yaratilgan
         self.assertEqual(xb.skanerla_davomat(timezone.now() + timedelta(hours=1)), 0)  # faqat baseline
         self.assertEqual(self.skaner(61), 0)  # shu yozuv baseline'dan oldin edi
@@ -97,17 +97,17 @@ class SkanerTest(XabarAsos):
     def test_sababli_standart_ochiq_emas_yoqilsa_ketadi(self):
         self.belgi(sababli=True)
         self.assertEqual(self.skaner(), 0)  # davomat_sababli=False
-        OtaBotSozlama.objects.filter(pk=1).update(davomat_sababli=True)
+        ParentsBotSozlama.objects.filter(pk=1).update(davomat_sababli=True)
         self.assertEqual(self.skaner(1), 1)
         self.yubor(minut=7)
         self.assertIn("sababli", self.tg.yuborilgan[-1][1])
 
     def test_sozlamada_ochirilgan(self):
-        OtaBotSozlama.ol()
-        OtaBotSozlama.objects.filter(pk=1).update(davomat_kelmadi=False)
+        ParentsBotSozlama.ol()
+        ParentsBotSozlama.objects.filter(pk=1).update(davomat_kelmadi=False)
         self.belgi()
         self.assertEqual(self.skaner(), 0)
-        OtaBotSozlama.objects.filter(pk=1).update(davomat_kelmadi=True, davomat_yoqilgan=False)
+        ParentsBotSozlama.objects.filter(pk=1).update(davomat_kelmadi=True, davomat_yoqilgan=False)
         self.assertEqual(self.skaner(1), 0)
 
     def test_ulanmagan_ota_ona_xabar_olmaydi(self):
@@ -200,7 +200,7 @@ class TinchSoatXabarTest(XabarAsos):
     def test_tinch_soat_sozlamadan_olinadi(self):
         self.belgi()
         self.skaner()
-        OtaBotSozlama.objects.filter(pk=1).update(tinch_boshi=time(11, 0), tinch_oxiri=time(13, 0))
+        ParentsBotSozlama.objects.filter(pk=1).update(tinch_boshi=time(11, 0), tinch_oxiri=time(13, 0))
         self.assertEqual(xb.yubor_navbat(self.tg, self.t0 + timedelta(minutes=0), pauza=0), 0)  # 12:00 tinch
         # yuborilsin vaqti (hozir+5 daq) ham o'tgan bo'lishi kerak: 13:30 da hammasi ochiq
         self.assertEqual(xb.yubor_navbat(self.tg, self.t0 + timedelta(hours=1, minutes=30), pauza=0), 1)

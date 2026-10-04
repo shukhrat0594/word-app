@@ -249,7 +249,7 @@ const SATRLAR = {
 
     narxlar: "Narxlar",
     sozlamalar: "Sozlamalar",
-    otabot: "Ota-ona boti",
+    parentsbot: "Ota-ona boti",
     ob_sorovlar: "So'rovlar",
     ob_ulanganlar: "Ulangan ota-onalar",
     ob_sozlama: "Sozlamalar",
@@ -892,7 +892,7 @@ const SATRLAR = {
 
     narxlar: "Цены",
     sozlamalar: "Настройки",
-    otabot: "Бот для родителей",
+    parentsbot: "Бот для родителей",
     ob_sorovlar: "Запросы",
     ob_ulanganlar: "Подключённые родители",
     ob_sozlama: "Настройки",
@@ -1535,7 +1535,7 @@ const SATRLAR = {
 
     narxlar: "Prices",
     sozlamalar: "Settings",
-    otabot: "Parents bot",
+    parentsbot: "Parents bot",
     ob_sorovlar: "Requests",
     ob_ulanganlar: "Linked parents",
     ob_sozlama: "Settings",

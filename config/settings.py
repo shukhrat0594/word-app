@@ -81,7 +81,7 @@ INSTALLED_APPS = [
     'crm',
     # Ota-ona nazorati boti (2026-10-04). crm va LMS'dan O'QIYDI; ular unga
     # bog'liq emas (olib tashlash: shu qator + config/urls.py'dagi bitta qator).
-    'otabot',
+    'parentsbot',
 ]
 
 # CRM bayrog'i. 2026-09-15 da prodda o'chiq edi (DEBUG'ga bog'langan),

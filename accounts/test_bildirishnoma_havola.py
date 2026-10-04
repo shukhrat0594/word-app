@@ -18,14 +18,14 @@ class HavolaTest(DrosselsizTest):
             sarlavha="S", matn="m", havola=havola)
 
     def test_xavfsiz_havola(self):
-        self.assertEqual(havola_xavfsiz("/crm/otabot"), "/crm/otabot")
+        self.assertEqual(havola_xavfsiz("/crm/parentsbot"), "/crm/parentsbot")
         for yomon in ("https://yomon.example", "//yomon.example", "javascript:alert(1)", "\\x", "", None):
             self.assertEqual(havola_xavfsiz(yomon), "", yomon)
 
     def test_api_havolani_qaytaradi(self):
-        self.yarat("/crm/otabot")
+        self.yarat("/crm/parentsbot")
         d = self.c.get("/api/bildirishnomalar/").data["bildirishnomalar"]
-        self.assertEqual(d[0]["havola"], "/crm/otabot")
+        self.assertEqual(d[0]["havola"], "/crm/parentsbot")
 
     def test_tashqi_havola_api_orqali_chiqmaydi(self):
         self.yarat("https://yomon.example/x")
@@ -38,6 +38,6 @@ class HavolaTest(DrosselsizTest):
         self.assertEqual(d[0]["havola"], "")
 
     def test_ochilganda_oqilgan_belgilanadi(self):
-        b = self.yarat("/crm/otabot")
+        b = self.yarat("/crm/parentsbot")
         j = self.c.post("/api/bildirishnomalar/", {"id": b.id}, format="json")
         self.assertEqual(j.data["oqilmagan"], 0)

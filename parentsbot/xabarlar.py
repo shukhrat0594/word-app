@@ -22,11 +22,11 @@ from django.utils import timezone
 from academics.models import Davomat
 
 from . import matnlar
-from .models import Boglanish, OtaBotKuzatuv, OtaBotSozlama, Xabar
+from .models import Boglanish, ParentsBotKuzatuv, ParentsBotSozlama, Xabar
 from .moslash import talaba_ismi
 from .telegram import TgXato
 
-log = logging.getLogger("otabot")
+log = logging.getLogger("parentsbot")
 
 KECHIKISH = timedelta(minutes=5)
 URINISH_CHEGARASI = 5
@@ -62,12 +62,12 @@ def _kod_yoqilgan(sozlama, kod):
 def skanerla_davomat(hozir=None):
     """Yangi xabarlar sonini qaytaradi. Birinchi chaqiruv faqat boshlanish vaqtini belgilaydi."""
     hozir = hozir or timezone.now()
-    kuzatuv = OtaBotKuzatuv.ol()
+    kuzatuv = ParentsBotKuzatuv.ol()
     if kuzatuv.davomat_boshlandi is None:
         kuzatuv.davomat_boshlandi = hozir
         kuzatuv.save(update_fields=["davomat_boshlandi"])
         return 0
-    sozlama = OtaBotSozlama.ol()
+    sozlama = ParentsBotSozlama.ol()
     if not sozlama.davomat_yoqilgan:
         return 0
     bugun = timezone.localdate(hozir)
@@ -119,7 +119,7 @@ def _matn(x, bugun):
 def yubor_navbat(tg, hozir=None, pauza=0.05):
     """Vaqti kelgan xabarlarni yuboradi. Qaytaradi: yuborilganlar soni."""
     hozir = hozir or timezone.now()
-    sozlama = OtaBotSozlama.ol()
+    sozlama = ParentsBotSozlama.ol()
     if tinch_mi(timezone.localtime(hozir).time(), sozlama.tinch_boshi, sozlama.tinch_oxiri):
         return 0  # tinch soatlar: xabarlar kutadi
     bugun = timezone.localdate(hozir)

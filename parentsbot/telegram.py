@@ -4,7 +4,7 @@ import logging
 
 import httpx
 
-log = logging.getLogger("otabot")
+log = logging.getLogger("parentsbot")
 
 # MUHIM: httpx har so'rovni INFO darajasida URL bilan log'ga yozadi, Telegram URL'ida esa bot
 # TOKENI bor. Shu sababli bu kutubxonalarning loglari faqat ogohlantirishdan boshlab yoziladi.

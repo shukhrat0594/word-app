@@ -1,10 +1,10 @@
-"""`/api/crm/otabot/...` — CRM'dagi "Ota-ona boti" bo'limi uchun."""
+"""`/api/crm/parentsbot/...` — CRM'dagi "Ota-ona boti" bo'limi uchun."""
 
 from django.urls import path
 
 from . import views
 
-app_name = "otabot"
+app_name = "parentsbot"
 
 urlpatterns = [
     path("sorovlar/", views.SorovlarView.as_view(), name="sorovlar"),

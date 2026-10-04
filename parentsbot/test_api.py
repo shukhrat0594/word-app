@@ -6,17 +6,17 @@ from accounts.models import Bildirishnoma, User
 from audit.models import FaoliyatYozuvi
 from crm.models import CrmRol, Filial, GuruhMoliya, XodimProfil
 from crm.test_api import ApiAsos
-from otabot.models import Abonent, Boglanish, OtaBotSozlama, Sorov
-from otabot.test_bot import SoxtaTg
+from parentsbot.models import Abonent, Boglanish, ParentsBotSozlama, Sorov
+from parentsbot.test_bot import SoxtaTg
 
-YOL = "/api/crm/otabot/"
+YOL = "/api/crm/parentsbot/"
 
 
 class OtabotApiAsos(ApiAsos):
     def setUp(self):
         super().setUp()
         self.tg = SoxtaTg()
-        p = mock.patch("otabot.views.tg_ol", return_value=self.tg)
+        p = mock.patch("parentsbot.views.tg_ol", return_value=self.tg)
         p.start()
         self.addCleanup(p.stop)
         self.ota = Abonent.objects.create(telegram_id=555, ism="Ota Telegram", telefon="+998931112233",
@@ -82,7 +82,7 @@ class SorovlarTest(OtabotApiAsos):
         self.assertEqual(m.post(YOL + f"sorovlar/{self.sorov.id}/hal/", {"amal": "yoq qil"}, format="json").status_code, 400)
 
     def test_telegram_ishlamasa_ham_ulanadi(self):
-        self.tg.yubor = mock.Mock(side_effect=__import__("otabot.telegram", fromlist=["TgXato"]).TgXato("x"))
+        self.tg.yubor = mock.Mock(side_effect=__import__("parentsbot.telegram", fromlist=["TgXato"]).TgXato("x"))
         j = self.mijoz(self.owner).post(YOL + f"sorovlar/{self.sorov.id}/hal/",
                                         {"amal": "ulash", "talaba_id": self.t.id}, format="json")
         self.assertEqual(j.status_code, 200, j.data)
@@ -102,7 +102,7 @@ class RuxsatTest(OtabotApiAsos):
         self.assertEqual(m.get(YOL + "sozlama/").status_code, 403)
 
     def test_faqat_sozlama_ruxsati_ulay_olmaydi(self):
-        u = self.rolli_xodim("sozlamachi", ["otabot.sozlama"])
+        u = self.rolli_xodim("sozlamachi", ["parentsbot.sozlama"])
         m = self.mijoz(u)
         self.assertEqual(m.get(YOL + "sorovlar/").status_code, 200)  # bo'lim ochiladi
         j = m.post(YOL + f"sorovlar/{self.sorov.id}/hal/", {"amal": "rad"}, format="json")
@@ -111,7 +111,7 @@ class RuxsatTest(OtabotApiAsos):
         self.assertEqual(self.sorov.holat, "kutilmoqda")
 
     def test_faqat_ulash_ruxsati_sozlamani_ozgartira_olmaydi(self):
-        u = self.rolli_xodim("ulovchi", ["otabot.ulash"])
+        u = self.rolli_xodim("ulovchi", ["parentsbot.ulash"])
         self.assertEqual(self.mijoz(u).put(YOL + "sozlama/", {"qarz_soati": "11:00"}, format="json").status_code, 403)
 
     def test_talaba_va_ota_ona_kira_olmaydi(self):
@@ -126,7 +126,7 @@ class FilialTest(OtabotApiAsos):
         gb = Guruh.objects.create(name="B guruh", markaz=self.markaz, daraja=self.daraja)
         GuruhMoliya.objects.create(guruh=gb, filial=self.fb, boshlanish_sana=date(2026, 1, 1))
         GuruhAzoligi.objects.create(guruh=gb, talaba=self.t)  # talaba B filialda
-        self.a_xodim = self.rolli_xodim("a_admin", ["otabot"], filial=self.filial)  # faqat A filial
+        self.a_xodim = self.rolli_xodim("a_admin", ["parentsbot"], filial=self.filial)  # faqat A filial
 
     def test_boshqa_filial_sorovi_korinmaydi(self):
         self.assertEqual(self.mijoz(self.a_xodim).get(YOL + "sorovlar/").data, [])
@@ -152,7 +152,7 @@ class FilialTest(OtabotApiAsos):
         self.assertEqual(j.status_code, 200, j.data)
 
     def test_filial_xodimi_sozlamani_ozgartira_olmaydi(self):
-        u = self.rolli_xodim("a_sozlama", ["otabot", "otabot.sozlama"], filial=self.filial)
+        u = self.rolli_xodim("a_sozlama", ["parentsbot", "parentsbot.sozlama"], filial=self.filial)
         self.assertEqual(self.mijoz(u).put(YOL + "sozlama/", {"qarz_soati": "11:00"}, format="json").status_code, 403)
 
 
@@ -183,7 +183,7 @@ class SozlamaTest(OtabotApiAsos):
             "tinch_boshi": "21:30", "qarz_kunlari": [4, 0, 4], "davomat_sababli": True, "natija_yoqilgan": False,
         }, format="json")
         self.assertEqual(j.status_code, 200, j.data)
-        s = OtaBotSozlama.ol()
+        s = ParentsBotSozlama.ol()
         self.assertEqual((s.tinch_boshi.strftime("%H:%M"), s.qarz_kunlari, s.davomat_sababli, s.natija_yoqilgan),
                          ("21:30", [0, 4], True, False))
         self.assertTrue(FaoliyatYozuvi.objects.filter(obyekt_turi="Ota-ona boti sozlamasi").exists())
@@ -199,12 +199,12 @@ class SozlamaTest(OtabotApiAsos):
 
 class AdminlarTest(OtabotApiAsos):
     def test_yangi_sorov_adminlarga_bildirishnoma(self):
-        from otabot import xizmat
+        from parentsbot import xizmat
 
         yangi = Abonent.objects.create(telegram_id=777, ism="Yangi ota", holat="tayyor")
         s = xizmat.sorov_yarat(yangi, "Boshqa Ism", "01.01.2000", [])
         adminlar = {u.id for u in xizmat.adminlar()}
         self.assertIn(self.owner.id, adminlar)
-        self.assertTrue(Bildirishnoma.objects.filter(foydalanuvchi=self.owner, kalit=f"otabot:sorov:{s.id}").exists())
+        self.assertTrue(Bildirishnoma.objects.filter(foydalanuvchi=self.owner, kalit=f"parentsbot:sorov:{s.id}").exists())
         # rolsiz oddiy foydalanuvchiga bormaydi
         self.assertNotIn(self.talaba.id, adminlar)

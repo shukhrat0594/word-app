@@ -3,7 +3,7 @@ from datetime import date
 from django.test import SimpleTestCase, TestCase
 
 from accounts.models import User
-from otabot import moslash as m
+from parentsbot import moslash as m
 
 
 class TozaFunksiyalarTest(SimpleTestCase):

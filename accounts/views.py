@@ -2310,7 +2310,7 @@ class GoogleLoginView(APIView):
 
 
 def havola_xavfsiz(havola):
-    """Faqat sayt ichidagi yo'l ("/crm/otabot"). Tashqi manzil ("https://...", "//x.com") yoki
+    """Faqat sayt ichidagi yo'l ("/crm/parentsbot"). Tashqi manzil ("https://...", "//x.com") yoki
     "javascript:" bo'lsa — bo'sh qaytadi: bildirishnoma boshqa saytga olib o'tmasin."""
     h = (havola or "").strip()
     return h if h.startswith("/") and not h.startswith("//") and "\\" not in h else ""

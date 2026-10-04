@@ -64,9 +64,9 @@ RUXSAT_DARAXTI = [
         ("sozlamalar.rollar", "Rollar"),
     ]),
     # Ota-ona boti (2026-10-04): so'rovlarni ko'rib chiqish va ulash; xabar vaqtlari sozlamasi.
-    ("otabot", "Ota-ona boti", [
-        ("otabot.ulash", "So'rovlarni ko'rib chiqish va ulash"),
-        ("otabot.sozlama", "Xabar vaqtlarini sozlash"),
+    ("parentsbot", "Ota-ona boti", [
+        ("parentsbot.ulash", "So'rovlarni ko'rib chiqish va ulash"),
+        ("parentsbot.sozlama", "Xabar vaqtlarini sozlash"),
     ]),
 ]
 

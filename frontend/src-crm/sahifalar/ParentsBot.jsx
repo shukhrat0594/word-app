@@ -38,7 +38,7 @@ function SorovKartasi({ s, onHal, ruxsatUlash }) {
       return undefined;
     }
     const id = setTimeout(() => {
-      api(`/api/crm/otabot/talaba-qidiruv/?q=${encodeURIComponent(qidiruv.trim())}`)
+      api(`/api/crm/parentsbot/talaba-qidiruv/?q=${encodeURIComponent(qidiruv.trim())}`)
         .then(setTopilgan)
         .catch(() => setTopilgan([]));
     }, 300);
@@ -50,7 +50,7 @@ function SorovKartasi({ s, onHal, ruxsatUlash }) {
     setXato("");
     setBand(true);
     try {
-      await api(`/api/crm/otabot/sorovlar/${s.id}/hal/`, {
+      await api(`/api/crm/parentsbot/sorovlar/${s.id}/hal/`, {
         method: "POST", body: amal === "ulash" ? { amal, talaba_id: tanlangan } : { amal },
       });
       onHal();
@@ -104,26 +104,26 @@ function SorovKartasi({ s, onHal, ruxsatUlash }) {
 function Sorovlar() {
   const { t } = useI18n();
   const ruxsat = useRuxsat();
-  const { malumot, yuklanmoqda, xato, yangila } = useSorov("/api/crm/otabot/sorovlar/");
+  const { malumot, yuklanmoqda, xato, yangila } = useSorov("/api/crm/parentsbot/sorovlar/");
   if (yuklanmoqda && !malumot) return <p className="kichik">{t("yuklanmoqda")}</p>;
   if (xato) return <div className="xato">{xato}</div>;
   if (!malumot?.length) return <p className="kichik">{t("ob_yangi_yoq")}</p>;
   return malumot.map((s) => (
-    <SorovKartasi key={s.id} s={s} onHal={yangila} ruxsatUlash={ruxsat("otabot.ulash")} />
+    <SorovKartasi key={s.id} s={s} onHal={yangila} ruxsatUlash={ruxsat("parentsbot.ulash")} />
   ));
 }
 
 function Ulanganlar() {
   const { t } = useI18n();
   const ruxsat = useRuxsat();
-  const { malumot, yuklanmoqda, xato, yangila } = useSorov("/api/crm/otabot/abonentlar/");
+  const { malumot, yuklanmoqda, xato, yangila } = useSorov("/api/crm/parentsbot/abonentlar/");
   const [amalXato, setAmalXato] = useState("");
 
   async function uz(id) {
     if (!window.confirm(t("ob_uzish_tasdiq"))) return;
     setAmalXato("");
     try {
-      await api(`/api/crm/otabot/boglanishlar/${id}/uzish/`, { method: "POST", body: {} });
+      await api(`/api/crm/parentsbot/boglanishlar/${id}/uzish/`, { method: "POST", body: {} });
       yangila();
     } catch (e) {
       setAmalXato(e.message);
@@ -149,7 +149,7 @@ function Ulanganlar() {
                 {a.farzandlar.map((f) => (
                   <div key={f.boglanish_id} className="ob-farzand">
                     <TalabaQatori x={f.talaba} /> <span className="kichik">({f.usul_nomi})</span>
-                    {ruxsat("otabot.ulash") && (
+                    {ruxsat("parentsbot.ulash") && (
                       <button className="havola" type="button" onClick={() => uz(f.boglanish_id)}>
                         {t("ob_uzish")}
                       </button>
@@ -186,11 +186,11 @@ function KunTanlash({ qiymat, onChange, disabled }) {
 function Sozlama() {
   const { t } = useI18n();
   const ruxsat = useRuxsat();
-  const { malumot, yuklanmoqda, xato, yangila } = useSorov("/api/crm/otabot/sozlama/");
+  const { malumot, yuklanmoqda, xato, yangila } = useSorov("/api/crm/parentsbot/sozlama/");
   const [forma, setForma] = useState(null);
   const [holat, setHolat] = useState("");
   const [saqlashXato, setSaqlashXato] = useState("");
-  const tahrir = ruxsat("otabot.sozlama");
+  const tahrir = ruxsat("parentsbot.sozlama");
 
   useEffect(() => {
     if (malumot) setForma(malumot);
@@ -213,7 +213,7 @@ function Sozlama() {
   async function saqla() {
     setSaqlashXato("");
     try {
-      await api("/api/crm/otabot/sozlama/", { method: "PUT", body: forma });
+      await api("/api/crm/parentsbot/sozlama/", { method: "PUT", body: forma });
       setHolat(t("ob_saqlandi"));
       yangila();
     } catch (e) {
@@ -266,12 +266,12 @@ function Sozlama() {
   );
 }
 
-export default function OtaBot() {
+export default function ParentsBot() {
   const { t } = useI18n();
   const [tab, setTab] = useState("sorovlar");
   return (
     <div>
-      <h1>{t("otabot")}</h1>
+      <h1>{t("parentsbot")}</h1>
       <div className="tablar">
         {TABLAR.map((x) => (
           <button key={x} type="button" className={tab === x ? "tab faol" : "tab"} onClick={() => setTab(x)}>

@@ -2,8 +2,8 @@ import logging
 
 from django.test import SimpleTestCase
 
-from otabot import telegram  # noqa: F401 — import log sozlamasini o'rnatadi
-from otabot.telegram import Tg, TgXato
+from parentsbot import telegram  # noqa: F401 — import log sozlamasini o'rnatadi
+from parentsbot.telegram import Tg, TgXato
 
 
 class TokenLogdaYoqTest(SimpleTestCase):
@@ -27,7 +27,7 @@ class TokenLogdaYoqTest(SimpleTestCase):
 
 class BuyruqlarMenyusiTest(SimpleTestCase):
     def test_buyruqlar_ornatiladi(self):
-        from otabot.matnlar import BUYRUQLAR
+        from parentsbot.matnlar import BUYRUQLAR
 
         class Yozuvchi:
             def __init__(self):
@@ -51,7 +51,7 @@ class BuyruqlarMenyusiTest(SimpleTestCase):
         self.assertEqual(nomlar, ["start", "farzandlarim", "til", "stop", "yordam"])
 
     def test_har_buyruq_botda_bor(self):
-        from otabot.matnlar import BUYRUQLAR
+        from parentsbot.matnlar import BUYRUQLAR
 
         # menyudagi har buyruq botda ishlaydi (tushunmadim bermaydi)
         kodda = {"/start", "/farzandlarim", "/til", "/stop", "/yordam"}

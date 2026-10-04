@@ -1,7 +1,7 @@
 """CRM uchun API: ota-ona so'rovlari, ulangan ota-onalar, xabar vaqtlari sozlamasi.
 
-Hamma yo'l `/api/crm/otabot/...` ostida, `crm.permissions.CrmView` orqali (CRM yoqilgan bo'lishi,
-CRM ruxsati, "otabot" bo'limi). Filial xodimi faqat o'z filiali o'quvchilari bilan bog'liq narsani
+Hamma yo'l `/api/crm/parentsbot/...` ostida, `crm.permissions.CrmView` orqali (CRM yoqilgan bo'lishi,
+CRM ruxsati, "parentsbot" bo'limi). Filial xodimi faqat o'z filiali o'quvchilari bilan bog'liq narsani
 ko'radi va ulay oladi (`crm.filial.talaba_korinadimi`).
 """
 
@@ -22,11 +22,11 @@ from crm.permissions import CrmView
 from crm.ruxsatlar import ruxsatlar
 
 from . import xizmat
-from .models import Abonent, Boglanish, OtaBotSozlama, Sorov
+from .models import Abonent, Boglanish, ParentsBotSozlama, Sorov
 from .moslash import talaba_ismi
 from .telegram import Tg, TgXato
 
-log = logging.getLogger("otabot")
+log = logging.getLogger("parentsbot")
 
 
 def tg_ol():
@@ -79,7 +79,7 @@ class SorovlarView(CrmView):
     """Ota-ona so'rovlari. Cheklangan (filial) xodim faqat o'ziga ko'rinadigan nomzodi bor
     so'rovlarni ko'radi; nomzodsiz so'rovlarni cheklanmagan xodim (owner/markaz) hal qiladi."""
 
-    bolim = "otabot"
+    bolim = "parentsbot"
 
     def get(self, request):
         holat = request.query_params.get("holat") or Sorov.Holat.KUTILMOQDA
@@ -99,7 +99,7 @@ class SorovlarView(CrmView):
 class TalabaQidiruvView(CrmView):
     """Qo'lda ulash uchun o'quvchi qidirish (ism bo'yicha, faol, ko'rinadigan filial)."""
 
-    bolim = "otabot"
+    bolim = "parentsbot"
 
     def get(self, request):
         q = (request.query_params.get("q") or "").strip()
@@ -119,10 +119,10 @@ class TalabaQidiruvView(CrmView):
 class SorovHalView(CrmView):
     """Admin qarori: {"amal": "ulash", "talaba_id": 12} yoki {"amal": "rad"}."""
 
-    bolim = "otabot"
+    bolim = "parentsbot"
 
     def post(self, request, pk):
-        if not _ruxsat(request, "otabot.ulash"):
+        if not _ruxsat(request, "parentsbot.ulash"):
             return _xato("Bu amalga ruxsat yo'q", 403)
         try:
             sorov = Sorov.objects.select_related("abonent").get(pk=pk)
@@ -157,7 +157,7 @@ class SorovHalView(CrmView):
 class AbonentlarView(CrmView):
     """Ulangan ota-onalar (har birida ko'rinadigan farzandlari)."""
 
-    bolim = "otabot"
+    bolim = "parentsbot"
 
     def get(self, request):
         natija = []
@@ -174,10 +174,10 @@ class AbonentlarView(CrmView):
 
 
 class BoglanishUzishView(CrmView):
-    bolim = "otabot"
+    bolim = "parentsbot"
 
     def post(self, request, pk):
-        if not _ruxsat(request, "otabot.ulash"):
+        if not _ruxsat(request, "parentsbot.ulash"):
             return _xato("Bu amalga ruxsat yo'q", 403)
         b = Boglanish.objects.filter(pk=pk, faol=True).select_related("abonent", "talaba").first()
         if b is None or not _korinadi(request.user, b.talaba_id):
@@ -210,20 +210,20 @@ def _sozlama_dict(s):
 
 
 class SozlamaView(CrmView):
-    """Butun markazga ta'sir qiladi: o'qish — bo'lim egasiga, o'zgartirish — `otabot.sozlama`
+    """Butun markazga ta'sir qiladi: o'qish — bo'lim egasiga, o'zgartirish — `parentsbot.sozlama`
     (cheklangan filial xodimiga emas)."""
 
-    bolim = "otabot"
+    bolim = "parentsbot"
 
     def get(self, request):
-        return Response(_sozlama_dict(OtaBotSozlama.ol()))
+        return Response(_sozlama_dict(ParentsBotSozlama.ol()))
 
     def put(self, request):
-        if not _ruxsat(request, "otabot.sozlama"):
+        if not _ruxsat(request, "parentsbot.sozlama"):
             return _xato("Bu amalga ruxsat yo'q", 403)
         if cheklanganmi(request.user):
             return _xato("Bu sozlama butun markazga ta'sir qiladi — uni faqat owner o'zgartiradi", 403)
-        s = OtaBotSozlama.ol()
+        s = ParentsBotSozlama.ol()
         eski = _sozlama_dict(s)
         for k in _BOOL_MAYDONLAR:
             if k in request.data:

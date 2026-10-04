@@ -7,7 +7,7 @@ Boshqa rollarga (kassir, marketolog...) tegilmaydi. Owner hamma ruxsatni o'zi ol
 
 from django.db import migrations
 
-KALITLAR = ["otabot", "otabot.ulash", "otabot.sozlama"]
+KALITLAR = ["parentsbot", "parentsbot.ulash", "parentsbot.sozlama"]
 
 
 def qosh(apps, schema_editor):

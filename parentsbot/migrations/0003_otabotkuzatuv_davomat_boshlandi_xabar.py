@@ -8,13 +8,13 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('otabot', '0002_sorov_bildirishnomalari_havolasi'),
+        ('parentsbot', '0002_sorov_bildirishnomalari_havolasi'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='otabotkuzatuv',
+            model_name='parentsbotkuzatuv',
             name='davomat_boshlandi',
             field=models.DateTimeField(blank=True, null=True),
         ),
@@ -30,12 +30,12 @@ class Migration(migrations.Migration):
                 ('urinish', models.PositiveSmallIntegerField(default=0)),
                 ('yaratilgan', models.DateTimeField(auto_now_add=True)),
                 ('yuborildi', models.DateTimeField(blank=True, null=True)),
-                ('abonent', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='xabarlar', to='otabot.abonent')),
+                ('abonent', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='xabarlar', to='parentsbot.abonent')),
                 ('talaba', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='+', to=settings.AUTH_USER_MODEL)),
             ],
             options={
                 'ordering': ['id'],
-                'constraints': [models.UniqueConstraint(fields=('abonent', 'kalit'), name='otabot_xabar_unikal')],
+                'constraints': [models.UniqueConstraint(fields=('abonent', 'kalit'), name='parentsbot_xabar_unikal')],
             },
         ),
     ]
