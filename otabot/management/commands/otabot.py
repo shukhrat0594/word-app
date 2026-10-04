@@ -26,6 +26,9 @@ class Command(BaseCommand):
 
     def handle(self, *args, **opts):
         logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+        # basicConfig'dan KEYIN: httpx URL'i (ya'ni bot tokeni) log'ga tushmasin.
+        for nom in ("httpx", "httpcore"):
+            logging.getLogger(nom).setLevel(logging.WARNING)
         tg = Tg(settings.UTMOSTPARENTSBOT_TOKEN)
         tg.chaqir("deleteWebhook")  # polling bilan webhook to'qnashmasin
         bot = Bot(tg)

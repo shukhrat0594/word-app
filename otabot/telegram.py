@@ -6,6 +6,11 @@ import httpx
 
 log = logging.getLogger("otabot")
 
+# MUHIM: httpx har so'rovni INFO darajasida URL bilan log'ga yozadi, Telegram URL'ida esa bot
+# TOKENI bor. Shu sababli bu kutubxonalarning loglari faqat ogohlantirishdan boshlab yoziladi.
+for _nom in ("httpx", "httpcore"):
+    logging.getLogger(_nom).setLevel(logging.WARNING)
+
 
 class TgXato(Exception):
     pass
