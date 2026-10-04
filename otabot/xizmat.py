@@ -56,6 +56,7 @@ def adminlarga_bildir(sorov):
             defaults={
                 "turi": Bildirishnoma.Turi.OGOHLANTIRISH,
                 "sarlavha": "Ota-ona so'rovi",
+                "havola": "/crm/otabot",
                 "matn": "Ota-ona farzandiga ulanish uchun so'rov yubordi — CRM → Ota-ona boti bo'limida ko'ring.",
             },
         )

@@ -224,6 +224,21 @@ function Bildirishnomalar({ t }) {
     }
   }
 
+  // Havolali bildirishnoma ustiga bosilsa: o'qilgan deb belgilanadi va o'sha sahifaga o'tiladi.
+  // Faqat sayt ichidagi yo'l ("/..." — backend ham shunday beradi); CRM boshqa ilova, shuning
+  // uchun u yerga to'liq sahifa yuklash bilan o'tiladi.
+  async function ochish(b) {
+    if (!b.havola || !b.havola.startsWith("/") || b.havola.startsWith("//")) return;
+    if (!b.oqilgan) {
+      try {
+        await api("/api/bildirishnomalar/", { method: "POST", body: { id: b.id } });
+      } catch {
+        // belgilanmasa ham o'tish davom etadi
+      }
+    }
+    window.location.href = b.havola;
+  }
+
   const oqilmagan = malumot?.oqilmagan || 0;
   const royxat = malumot?.bildirishnomalar || [];
 
@@ -273,13 +288,19 @@ function Bildirishnomalar({ t }) {
             royxat.map((b) => (
               <div
                 key={b.id}
+                onClick={b.havola ? () => ochish(b) : undefined}
+                role={b.havola ? "link" : undefined}
+                tabIndex={b.havola ? 0 : undefined}
+                onKeyDown={b.havola ? (e) => { if (e.key === "Enter") ochish(b); } : undefined}
+                title={b.havola ? t("bildirishnoma_ochish") : undefined}
                 style={{
                   padding: "8px 0", borderTop: "1px solid var(--chiziq)",
                   opacity: b.oqilgan ? 0.6 : 1,
+                  cursor: b.havola ? "pointer" : "default",
                 }}
               >
                 <div style={{ fontWeight: 700, marginBottom: 4 }}>
-                  {b.oqilgan ? "" : "• "}{b.sarlavha}
+                  {b.oqilgan ? "" : "• "}{b.sarlavha}{b.havola ? " →" : ""}
                 </div>
                 <ul className="izoh" style={{ margin: 0, paddingLeft: 18 }}>
                   {bandlarniAjrat(b.matn).map((band, k) => (
