@@ -318,6 +318,21 @@ class SozlamalarTest(BotAsos):
         self.ulangan()
         self.tugma_bos("toifa:boshqa")
         self.assertEqual(Abonent.objects.get().toifa_ochirilgan, [])
+        self.assertEqual(len(self.tg.javoblar), 2)  # til + shu: tugma "soat"i osilib qolmaydi
+
+    def test_tugmani_yangilab_bolmasa_yangi_xabar(self):
+        from parentsbot.telegram import TgXato
+
+        self.ulangan()
+
+        def xato(*a, **k):
+            raise TgXato("editMessageReplyMarkup: 400 Bad Request: message can't be edited")
+
+        self.tg.tugmalarni_yangila = xato
+        self.tugma_bos("toifa:davomat")
+        self.assertEqual(Abonent.objects.get().toifa_ochirilgan, ["davomat"])
+        self.assertIn("Qaysi xabarlarni", self.tg.oxirgi())
+        self.assertTrue(self.tugmalar(self.tg.yuborilgan[-1][2])["toifa:davomat"].startswith("❌"))
 
 
 class TilJarayonOrtasidaTest(BotAsos):

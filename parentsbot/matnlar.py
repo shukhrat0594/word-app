@@ -101,12 +101,12 @@ MATNLAR = {
         "ru": "💳 Напоминание: на счёте {ism} задолженность {summa} сум. Пожалуйста, произведите оплату. "
               "Если есть вопросы — обратитесь в центр.",
     },
-    # Natijalar yig'masi. {davr} — "bugungi" yoki "01.10–05.10".
+    # Natijalar yig'masi. {davr} — "kunlik" (so'nggi 24 soat) yoki "01.10–05.10 kunlardagi".
     "natija_yigma": {
         "uz": "📊 {ism}: {davr} natijalar\n{qatorlar}",
         "ru": "📊 {ism}: результаты {davr}\n{qatorlar}",
     },
-    "natija_bugun": {"uz": "bugungi", "ru": "за сегодня"},
+    "natija_kunlik": {"uz": "kunlik", "ru": "за день"},
     "natija_davr": {"uz": "{boshi}–{oxiri} kunlardagi", "ru": "за {boshi}–{oxiri}"},
     "natija_mashq": {"uz": "• Mashqlar: {soni} ta", "ru": "• Упражнения: {soni}"},
     "natija_mashq_foiz": {

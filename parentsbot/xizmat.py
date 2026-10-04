@@ -22,8 +22,8 @@ def ulash(abonent, talabalar, usul, kim=None):
         b, yaratildi = Boglanish.objects.get_or_create(
             abonent=abonent, talaba=t, defaults={"usul": usul, "kim": kim})
         if not yaratildi and not b.faol:
-            b.faol, b.usul, b.kim = True, usul, kim
-            b.save(update_fields=["faol", "usul", "kim"])
+            b.faol, b.usul, b.kim, b.faollashgan = True, usul, kim, timezone.now()
+            b.save(update_fields=["faol", "usul", "kim", "faollashgan"])
             yaratildi = True
         if yaratildi:
             ulandi.append(t)

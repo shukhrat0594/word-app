@@ -6,25 +6,30 @@ Signal ISHLATILMAYDI (CRM qoidasi) — davriy tekshiruv:
    (`abonent + kalit` yagona — bir voqea uchun ikki marta xabar yo'q).
    - davomat: "kelmadi"/"kechikdi"/"sababli" — `KECHIKISH` dan keyin (admin adashib qo'yib tuzatsa,
      ota-onaga xato xabar ketmasin);
-   - to'lov: yangi `crm.Tolov` (faqat `turi=tolov`) — ham `KECHIKISH` bilan (summa xato kiritilib
-     o'chirilsa/tuzatilsa — bekor);
-   - qarz: sozlamadagi kun va soatda, balansi manfiy farzand uchun (kuniga bitta, kalitda sana);
+   - to'lov: yangi `crm.Tolov` (faqat `turi=tolov`) — ham `KECHIKISH` bilan (o'chirilsa — bekor,
+     summa tuzatilsa — TO'G'RI summa bilan yuboriladi);
+   - qarz: sozlamadagi kun va soatda, balansi manfiy farzand uchun (kuniga bitta);
    - natija: sozlamadagi kun va soatda, oldingi yig'madan beri bajarilgan mashq/Writing/Speaking
      yig'masi. Hech narsa qilinmagan bo'lsa — xabar yo'q (spam bo'lmasin).
 2. `yubor_navbat`: vaqti kelgan xabarlarni yuboradi. Yuborishdan oldin qayta tekshiradi
-   (davomat/to'lov o'zgargan yoki o'chirilgan, qarz to'langan, ota-ona to'xtatgan, sozlama
-   o'chirilgan — bekor qilinadi). Tinch soatlarda hech narsa yuborilmaydi — xabar kutadi.
+   (davomat o'zgargan, to'lov o'chirilgan, qarz to'langan, ota-ona to'xtatgan, sozlama o'chirilgan —
+   bekor qilinadi). Tinch soatlarda hech narsa yuborilmaydi — xabar kutadi.
 
-Eski voqealar yog'ilib ketmasin: davomat va to'lov faqat birinchi tekshiruvdan KEYIN yaratilgan
-yozuvlar uchun (`ParentsBotKuzatuv`), qarz/natija esa bir kundan eski bo'lsa yuborilmaydi.
+Eski voqealar yog'ilib ketmasin:
+- davomat va to'lov — faqat birinchi tekshiruvdan (`ParentsBotKuzatuv`) va ota-ona ulangandan
+  (`Boglanish.faollashgan`) KEYIN yaratilgan yozuvlar;
+- toifa o'chirilgan yoki ota-ona /stop qilgan paytda ham davomat/to'lov xabari YARATILADI, faqat
+  yuborishda bekor qilinadi. Shunda qayta yoqilganda o'tgan voqealar bir yo'la ketmaydi;
+- qarz/natija bir kundan ko'p kutib qolsa — yuborilmaydi (eskirgan).
 
 `crm.mantiq` (billing) faqat O'QILADI.
 """
 
 import logging
+import math
 import time
 from datetime import date, datetime, timedelta
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 
 from django.db.models import Avg, Count, Sum
 from django.utils import timezone
@@ -45,10 +50,16 @@ log = logging.getLogger("parentsbot")
 
 KECHIKISH = timedelta(minutes=5)
 URINISH_CHEGARASI = 5
+QAYTA_URINISH = timedelta(minutes=1)  # yuborilmagan xabar shundan keyin qayta uriniladi
 YOSH_KUNLAR = 1  # shuncha kun oldingi sanagacha bo'lgan davomatlar xabar beradi (kecha va bugun)
 TOLOV_YOSHI = timedelta(days=2)  # bot uzoq to'xtab qolsa ham, bundan eski to'lov xabar bermaydi
 ESKIRISH_KUNLARI = 1  # qarz/natija xabari shuncha kundan ko'p kutib qolsa — bekor (eskirgan)
+# Natija yig'masi soatdan shuncha keyin tuziladi: soat chegarasida topshirilgan Writing/Speaking
+# AI tekshiruvi tugab ulgursin (aks holda u bu yig'maga ham, keyingisiga ham tushmay qolardi).
+NATIJA_KUTISH = timedelta(minutes=10)
 TOIFALAR = ("davomat", "tolov", "qarz", "natija")
+# Telegram'ning bu xatolari doimiy — ota-onaga boshqa urinilmaydi.
+DOIMIY_XATOLAR = ("403", "chat not found", "user is deactivated")
 
 
 def tinch_mi(vaqt, boshi, oxiri):
@@ -66,18 +77,30 @@ def toifa_yoqilgan(sozlama, turi):
 
 
 def summa_matni(summa):
-    """1250000 -> '1 250 000'."""
-    return f"{int(abs(Decimal(summa))):,}".replace(",", " ")
+    """1250000 -> '1 250 000' (so'mgacha yaxlitlanadi)."""
+    butun = abs(Decimal(summa)).quantize(Decimal(1), rounding=ROUND_HALF_UP)
+    return f"{int(butun):,}".replace(",", " ")
+
+
+def band_yaxlitla(x):
+    """IELTS qoidasi: eng yaqin 0.5 ga, o'rtasi yuqoriga (6.25 -> 6.5, 6.75 -> 7.0)."""
+    return math.floor(x * 2 + 0.5) / 2
 
 
 # ── umumiy yordamchilar ────────────────────────────────────────────
 
-def _abonentlar():
-    """{talaba_id: [abonent, ...]} — faol ota-onalar, faol bog'lanishlar, faol o'quvchilar."""
+def _boglanishlar(faqat_faol=False):
+    """{talaba_id: [Boglanish, ...]} — faol bog'lanishlar (`abonent` bilan).
+
+    `faqat_faol=False` (davomat/to'lov): to'xtatgan ota-ona va nofaol o'quvchi ham kiradi — xabar
+    yaratiladi-yu, yuborishda bekor qilinadi (qayta yoqilganda eski voqealar yog'ilmasin).
+    """
+    q = Boglanish.objects.filter(faol=True).select_related("abonent")
+    if faqat_faol:
+        q = q.filter(abonent__faol=True, talaba__is_active=True)
     xarita = {}
-    for b in Boglanish.objects.filter(faol=True, abonent__faol=True, talaba__is_active=True) \
-            .select_related("abonent"):
-        xarita.setdefault(b.talaba_id, []).append(b.abonent)
+    for b in q:
+        xarita.setdefault(b.talaba_id, []).append(b)
     return xarita
 
 
@@ -102,10 +125,11 @@ def _navbatga(nomzodlar):
     return len(yangi)
 
 
-def _jadval_vaqti(hozir, kunlar, soat):
-    """Bugun jadval kunimi va soati o'tganmi? Qaytaradi: mahalliy sana yoki None."""
+def _jadval_vaqti(hozir, kunlar, soat, kutish=timedelta(0)):
+    """Bugun jadval kunimi va soat (+kutish) o'tganmi? Qaytaradi: mahalliy sana yoki None."""
     mahalliy = timezone.localtime(hozir)
-    if mahalliy.weekday() not in (kunlar or []) or mahalliy.time() < soat:
+    chegara = timezone.make_aware(datetime.combine(mahalliy.date(), soat)) + kutish
+    if mahalliy.weekday() not in (kunlar or []) or hozir < chegara:
         return None
     return mahalliy.date()
 
@@ -130,17 +154,17 @@ def _kod_yoqilgan(sozlama, kod):
 
 
 def skanerla_davomat(hozir=None):
-    """Yangi xabarlar sonini qaytaradi. Birinchi chaqiruv faqat boshlanish vaqtini belgilaydi."""
+    """Yangi xabarlar sonini qaytaradi. Birinchi chaqiruv faqat boshlanish vaqtini belgilaydi.
+
+    Sozlamada o'chirilgan belgilar uchun ham xabar yaratiladi (yuborishda bekor bo'ladi) —
+    sozlama keyin yoqilsa, o'tgan davomatlar ota-onaga bir yo'la ketmasin."""
     hozir = hozir or timezone.now()
     kuzatuv = ParentsBotKuzatuv.ol()
     if kuzatuv.davomat_boshlandi is None:
         kuzatuv.davomat_boshlandi = hozir
         kuzatuv.save(update_fields=["davomat_boshlandi"])
         return 0
-    sozlama = ParentsBotSozlama.ol()
-    if not sozlama.davomat_yoqilgan:
-        return 0
-    xarita = _abonentlar()
+    xarita = _boglanishlar()
     if not xarita:
         return 0
     bugun = timezone.localdate(hozir)
@@ -151,11 +175,13 @@ def skanerla_davomat(hozir=None):
     ).select_related("guruh", "crm_izoh")
     for d in yozuvlar:
         kod = davomat_kodi(d)
-        if not kod or not _kod_yoqilgan(sozlama, kod):
+        if not kod:
             continue
         payload = {"davomat_id": d.id, "kod": kod, "sana": d.sana.isoformat(), "guruh": d.guruh.name}
-        for ab in xarita[d.talaba_id]:
-            nomzodlar.append((ab, d.talaba_id, "davomat", f"davomat:{d.id}:{kod}", hozir + KECHIKISH, payload))
+        for b in xarita[d.talaba_id]:
+            if d.created_at >= b.faollashgan:
+                nomzodlar.append((b.abonent, d.talaba_id, "davomat", f"davomat:{d.id}:{kod}",
+                                  hozir + KECHIKISH, payload))
     return _navbatga(nomzodlar)
 
 
@@ -163,16 +189,14 @@ def skanerla_davomat(hozir=None):
 
 def skanerla_tolov(hozir=None):
     """Yangi to'lovlar (`turi=tolov`; chegirma/bonus/qaytarish — xabarsiz). Birinchi chaqiruv
-    faqat boshlanish vaqtini belgilaydi."""
+    faqat boshlanish vaqtini belgilaydi. Sozlama o'chiq bo'lsa ham yaratiladi (davomatdagi sabab)."""
     hozir = hozir or timezone.now()
     kuzatuv = ParentsBotKuzatuv.ol()
     if kuzatuv.tolov_boshlandi is None:
         kuzatuv.tolov_boshlandi = hozir
         kuzatuv.save(update_fields=["tolov_boshlandi"])
         return 0
-    if not ParentsBotSozlama.ol().tolov_yoqilgan:
-        return 0
-    xarita = _abonentlar()
+    xarita = _boglanishlar()
     if not xarita:
         return 0
     nomzodlar = []
@@ -181,34 +205,37 @@ def skanerla_tolov(hozir=None):
         created_at__gte=max(kuzatuv.tolov_boshlandi, hozir - TOLOV_YOSHI),
     )
     for tl in tolovlar:
-        payload = {"tolov_id": tl.id, "summa": str(tl.summa), "sana": tl.sana.isoformat(), "guruh": tl.guruh_nomi}
-        for ab in xarita[tl.talaba_id]:
-            nomzodlar.append((ab, tl.talaba_id, "tolov", f"tolov:{tl.id}", hozir + KECHIKISH, payload))
+        for b in xarita[tl.talaba_id]:
+            if tl.created_at >= b.faollashgan:
+                nomzodlar.append((b.abonent, tl.talaba_id, "tolov", f"tolov:{tl.id}", hozir + KECHIKISH,
+                                  {"tolov_id": tl.id}))
     return _navbatga(nomzodlar)
 
 
 # ── qarz ───────────────────────────────────────────────────────────
 
 def skanerla_qarz(hozir=None):
-    """Qarz eslatmasi: sozlamadagi kunlarda, `qarz_soati`dan keyin. Balans — farzandning UMUMIY
-    balansi (barcha guruh va filiallar bo'yicha). Kuniga bitta (kalitda sana)."""
+    """Qarz eslatmasi: sozlamadagi kunlarda, `qarz_soati`dan keyin, kuniga BIR marta skanerlanadi.
+    Balans — farzandning UMUMIY balansi (barcha guruh va filiallar bo'yicha)."""
     hozir = hozir or timezone.now()
     sozlama = ParentsBotSozlama.ol()
     if not sozlama.qarz_yoqilgan:
         return 0
     sana = _jadval_vaqti(hozir, sozlama.qarz_kunlari, sozlama.qarz_soati)
-    if sana is None:
+    kuzatuv = ParentsBotKuzatuv.ol()
+    if sana is None or kuzatuv.qarz_skanlandi == sana:
         return 0
-    xarita = _abonentlar()
-    if not xarita:
-        return 0
+    xarita = _boglanishlar(faqat_faol=True)
     nomzodlar = []
-    for talaba_id, b in balanslarni_ol(list(xarita)).items():
-        if b >= 0:
+    for talaba_id, b in (balanslarni_ol(list(xarita)) if xarita else {}).items():
+        if b > -1:  # so'mdan kam "qarz" (tiyinlar) — eslatma emas
             continue
-        for ab in xarita[talaba_id]:
-            nomzodlar.append((ab, talaba_id, "qarz", f"qarz:{sana.isoformat()}", hozir, {"sana": sana.isoformat()}))
-    return _navbatga(nomzodlar)
+        for bg in xarita[talaba_id]:
+            nomzodlar.append((bg.abonent, talaba_id, "qarz", f"qarz:{talaba_id}:{sana.isoformat()}", hozir,
+                              {"sana": sana.isoformat()}))
+    yangi = _navbatga(nomzodlar)
+    ParentsBotKuzatuv.objects.filter(pk=kuzatuv.pk).update(qarz_skanlandi=sana)
+    return yangi
 
 
 # ── natijalar yig'masi ─────────────────────────────────────────────
@@ -246,7 +273,7 @@ def natijalar(talaba_idlar, boshi, oxiri):
                 .values("talaba_id").annotate(soni=Count("id"), band=Avg("overall_band")):
             r = qator(q["talaba_id"])
             r[f"{nom}_soni"] = q["soni"]
-            r[f"{nom}_band"] = round(q["band"], 1)
+            r[f"{nom}_band"] = band_yaxlitla(q["band"])
     for r in natija.values():
         ball, jami = r.pop("_ball"), r.pop("_jami")
         r["mashq_foiz"] = round(ball / jami * 100) if jami else None
@@ -254,24 +281,27 @@ def natijalar(talaba_idlar, boshi, oxiri):
 
 
 def skanerla_natija(hozir=None):
-    """Natijalar yig'masi: sozlamadagi kunlarda, `natija_soati`dan keyin; kuniga bitta."""
+    """Natijalar yig'masi: sozlamadagi kunlarda, `natija_soati`dan (+`NATIJA_KUTISH`) keyin,
+    kuniga BIR marta skanerlanadi."""
     hozir = hozir or timezone.now()
     sozlama = ParentsBotSozlama.ol()
     if not sozlama.natija_yoqilgan:
         return 0
-    sana = _jadval_vaqti(hozir, sozlama.natija_kunlari, sozlama.natija_soati)
-    if sana is None:
+    sana = _jadval_vaqti(hozir, sozlama.natija_kunlari, sozlama.natija_soati, NATIJA_KUTISH)
+    kuzatuv = ParentsBotKuzatuv.ol()
+    if sana is None or kuzatuv.natija_skanlandi == sana:
         return 0
-    xarita = _abonentlar()
-    if not xarita:
-        return 0
+    xarita = _boglanishlar(faqat_faol=True)
     boshi, oxiri = natija_davri(sana, sozlama.natija_kunlari, sozlama.natija_soati)
     nomzodlar = []
-    for talaba_id, r in natijalar(list(xarita), boshi, oxiri).items():
+    for talaba_id, r in (natijalar(list(xarita), boshi, oxiri) if xarita else {}).items():
         payload = {**r, "sana": sana.isoformat(), "boshi": timezone.localdate(boshi).isoformat()}
-        for ab in xarita[talaba_id]:
-            nomzodlar.append((ab, talaba_id, "natija", f"natija:{sana.isoformat()}", hozir, payload))
-    return _navbatga(nomzodlar)
+        for bg in xarita[talaba_id]:
+            nomzodlar.append((bg.abonent, talaba_id, "natija", f"natija:{talaba_id}:{sana.isoformat()}", hozir,
+                              payload))
+    yangi = _navbatga(nomzodlar)
+    ParentsBotKuzatuv.objects.filter(pk=kuzatuv.pk).update(natija_skanlandi=sana)
+    return yangi
 
 
 def skanerla_hammasi(hozir=None):
@@ -293,23 +323,23 @@ def _hali_yaroqli(x, sozlama, bugun):
     if x.turi == "davomat":
         d = Davomat.objects.filter(pk=x.payload.get("davomat_id")).select_related("crm_izoh").first()
         kod = x.payload.get("kod")
-        return d is not None and davomat_kodi(d) == kod and _kod_yoqilgan(sozlama, kod)
+        return (d is not None and d.talaba_id == x.talaba_id and davomat_kodi(d) == kod
+                and _kod_yoqilgan(sozlama, kod))
     if x.turi == "tolov":
         tl = Tolov.objects.filter(pk=x.payload.get("tolov_id")).first()
-        return (tl is not None and tl.turi == Tolov.Turi.TOLOV and tl.talaba_id == x.talaba_id
-                and str(tl.summa) == x.payload.get("summa"))
+        return tl is not None and tl.turi == Tolov.Turi.TOLOV and tl.talaba_id == x.talaba_id
     if x.turi in ("qarz", "natija"):
         if (bugun - date.fromisoformat(x.payload["sana"])).days > ESKIRISH_KUNLARI:
             return False  # bot uzoq to'xtab qolgan — eskirgan eslatma yuborilmaydi
         if x.turi == "qarz":
-            return balans(x.talaba) < 0  # orada to'lagan bo'lsa — bekor
+            return balans(x.talaba) <= -1  # orada to'lagan bo'lsa — bekor
     return True
 
 
 def _natija_matni(til, p, bugun):
     sana, boshi = date.fromisoformat(p["sana"]), date.fromisoformat(p["boshi"])
     if sana == bugun and (sana - boshi).days <= 1:
-        davr = matnlar.t(til, "natija_bugun")
+        davr = matnlar.t(til, "natija_kunlik")
     else:
         davr = matnlar.t(til, "natija_davr", boshi=boshi.strftime("%d.%m"), oxiri=sana.strftime("%d.%m"))
     qatorlar = []
@@ -327,8 +357,9 @@ def _matn(x, bugun):
     ab, p = x.abonent, x.payload
     ism = talaba_ismi(x.talaba)
     if x.turi == "tolov":
-        return matnlar.t(ab.til, "tolov_qabul", ism=ism, summa=summa_matni(p["summa"]),
-                         sana=date.fromisoformat(p["sana"]).strftime("%d.%m.%Y"), guruh=p.get("guruh", ""))
+        tl = Tolov.objects.get(pk=p["tolov_id"])  # joriy qiymatlar: summa tuzatilgan bo'lsa — to'g'risi
+        return matnlar.t(ab.til, "tolov_qabul", ism=ism, summa=summa_matni(tl.summa),
+                         sana=tl.sana.strftime("%d.%m.%Y"), guruh=tl.guruh_nomi)
     if x.turi == "qarz":
         return matnlar.t(ab.til, "qarz_eslatma", ism=ism, summa=summa_matni(balans(x.talaba)))
     if x.turi == "natija":
@@ -356,15 +387,25 @@ def yubor_navbat(tg, hozir=None, pauza=0.05):
             x.holat = Xabar.Holat.BEKOR
             x.save(update_fields=["holat"])
             continue
+        # Xabarni "egallash": ikkinchi jarayon (masalan deploy paytida eski va yangi bot birga
+        # ishlab qolsa) shu xabarni ikkinchi marta yubormasin. Muvaffaqiyatsiz bo'lsa —
+        # `QAYTA_URINISH` dan keyin yana navbatga chiqadi.
+        if not Xabar.objects.filter(pk=x.pk, holat=Xabar.Holat.KUTILMOQDA, yuborilsin=x.yuborilsin) \
+                .update(yuborilsin=hozir + QAYTA_URINISH):
+            continue
         try:
             tg.yubor(x.abonent.telegram_id, _matn(x, bugun))
         except TgXato as xato:
-            if "403" in str(xato):  # ota-ona botni bloklagan — boshqa urinmaymiz
+            matn = str(xato)
+            if "429" in matn:  # Telegram "sekinroq" demoqda — bu partiyani to'xtatamiz, urinish sanalmaydi
+                log.warning("Telegram cheklovi (429): yuborish keyinroq davom etadi")
+                break
+            if any(m in matn for m in DOIMIY_XATOLAR):  # bloklagan / hisob o'chirilgan
                 x.abonent.faol = False
                 x.abonent.save(update_fields=["faol"])
                 x.holat = Xabar.Holat.XATO
                 x.save(update_fields=["holat"])
-                log.info("Ota-ona botni bloklagan: xabarlar to'xtatildi")
+                log.info("Ota-onaga yetkazib bo'lmaydi (bloklagan yoki hisob yo'q): xabarlar to'xtatildi")
                 continue
             x.urinish += 1
             if x.urinish >= URINISH_CHEGARASI:

@@ -32,6 +32,7 @@ class TinchSoatlarTest(SimpleTestCase):
 class XabarAsos(ApiAsos):
     def setUp(self):
         super().setUp()
+        ParentsBotSozlama.ol()  # sozlama yozuvi bo'lsin: testlardagi update() bo'shga ketmasin
         self.tg = SoxtaTg()
         self.kun = timezone.localdate()
         # Ish vaqti (tinch soat emas): bugun 12:00 Toshkent
@@ -94,21 +95,66 @@ class SkanerTest(XabarAsos):
         self.yubor(minut=6)
         self.assertIn("kechikib", self.tg.yuborilgan[-1][1])
 
-    def test_sababli_standart_ochiq_emas_yoqilsa_ketadi(self):
+    def test_sababli_standart_ochiq_emas_yoqilsa_faqat_yangilari_ketadi(self):
         self.belgi(sababli=True)
-        self.assertEqual(self.skaner(), 0)  # davomat_sababli=False
+        self.skaner()  # davomat_sababli=False: xabar yaratiladi, lekin yuborilmaydi
+        self.assertEqual(self.yubor(minut=6), 0)
         ParentsBotSozlama.objects.filter(pk=1).update(davomat_sababli=True)
-        self.assertEqual(self.skaner(1), 1)
-        self.yubor(minut=7)
+        self.assertEqual(self.skaner(7), 0)  # yoqilganda eski davomat qayta yog'ilmaydi
+        self.belgi(sababli=True, talaba=self.yangi_talaba())
+        self.skaner(8)
+        self.yubor(minut=14)
+        self.assertEqual(len(self.tg.yuborilgan), 1)
         self.assertIn("sababli", self.tg.yuborilgan[-1][1])
+
+    def yangi_talaba(self):
+        t = User.objects.create_user(username="t_yangi", password="x", role=User.Role.STUDENT, markaz=self.markaz)
+        Boglanish.objects.create(abonent=self.ota, talaba=t, usul="admin")
+        return t
 
     def test_sozlamada_ochirilgan(self):
         ParentsBotSozlama.ol()
         ParentsBotSozlama.objects.filter(pk=1).update(davomat_kelmadi=False)
         self.belgi()
-        self.assertEqual(self.skaner(), 0)
+        self.skaner()
         ParentsBotSozlama.objects.filter(pk=1).update(davomat_kelmadi=True, davomat_yoqilgan=False)
-        self.assertEqual(self.skaner(1), 0)
+        self.belgi(talaba=self.yangi_talaba())
+        self.skaner(1)
+        self.assertEqual(self.yubor(minut=7), 0)
+        self.assertEqual(set(Xabar.objects.values_list("holat", flat=True)), {"bekor"})
+
+    def test_yoqilganda_ochiq_paytdagi_davomat_yogilmaydi(self):
+        ParentsBotSozlama.ol()
+        ParentsBotSozlama.objects.filter(pk=1).update(davomat_yoqilgan=False)
+        self.belgi()
+        self.skaner()
+        self.yubor(minut=6)
+        ParentsBotSozlama.objects.filter(pk=1).update(davomat_yoqilgan=True)
+        self.skaner(7)
+        self.yubor(minut=13)
+        self.assertEqual(self.tg.yuborilgan, [])
+
+    def test_stop_dan_keyin_start_eski_davomat_yogilmaydi(self):
+        Abonent.objects.filter(pk=self.ota.pk).update(faol=False)
+        self.belgi()
+        self.skaner()
+        self.yubor(minut=6)
+        Abonent.objects.filter(pk=self.ota.pk).update(faol=True)
+        self.skaner(7)
+        self.yubor(minut=13)
+        self.assertEqual(self.tg.yuborilgan, [])
+
+    def test_ulanishdan_oldingi_davomat_yuborilmaydi(self):
+        self.belgi()
+        Boglanish.objects.update(faollashgan=timezone.now() + timedelta(seconds=5))  # hozir ulangan
+        self.assertEqual(self.skaner(), 0)
+
+    def test_davomat_boshqa_talabaga_otkazilsa_bekor(self):
+        d = self.belgi()
+        self.skaner()
+        Davomat.objects.filter(pk=d.pk).update(talaba=self.yangi_talaba())
+        self.yubor(minut=6)
+        self.assertEqual(Xabar.objects.get(talaba=self.talaba).holat, "bekor")
 
     def test_ulanmagan_ota_ona_xabar_olmaydi(self):
         Boglanish.objects.all().update(faol=False)
@@ -241,3 +287,44 @@ class XatolarTest(XabarAsos):
         self.assertEqual(self.yubor(minut=6), 1)  # 502 ga ketdi
         self.assertEqual(Xabar.objects.get(abonent=ona).holat, "yuborildi")
         self.assertEqual(Xabar.objects.get(abonent=self.ota).holat, "kutilmoqda")
+
+    def test_chat_topilmadi_doimiy_xato(self):
+        self.belgi()
+        self.skaner()
+        self.tg.yubor = lambda *a, **k: (_ for _ in ()).throw(TgXato("sendMessage: 400 Bad Request: chat not found"))
+        self.yubor(minut=6)
+        self.assertEqual(Xabar.objects.get().holat, "xato")
+        self.assertFalse(Abonent.objects.get(pk=self.ota.pk).faol)
+
+    def test_429_urinish_sanalmaydi_partiya_toxtaydi(self):
+        ona = Abonent.objects.create(telegram_id=502, ism="Ona", til="uz", holat="tayyor")
+        Boglanish.objects.create(abonent=ona, talaba=self.talaba, usul="admin")
+        self.belgi()
+        self.skaner()
+        chaqiruvlar = []
+
+        def yubor(chat, matn, tugmalar=None):
+            chaqiruvlar.append(chat)
+            raise TgXato("sendMessage: 429 Too Many Requests: retry after 3")
+
+        self.tg.yubor = yubor
+        self.assertEqual(self.yubor(minut=6), 0)
+        self.assertEqual(len(chaqiruvlar), 1)  # birinchisidan keyin to'xtadi
+        self.assertEqual(set(Xabar.objects.values_list("urinish", "holat")), {(0, "kutilmoqda")})
+
+    def test_egallangan_xabar_qayta_yuborilmaydi(self):
+        # Ikkinchi jarayon xabarni yuborish paytida egallab bo'lgan (yuborilsin surilgan) holat
+        self.belgi()
+        self.skaner()
+        x = Xabar.objects.get()
+        asl = self.tg.yubor
+
+        def yubor(chat, matn, tugmalar=None):
+            # yuborish paytida parallel jarayon ham shu daqiqada navbatni ko'radi
+            self.assertEqual(xb.yubor_navbat(SoxtaTg(), self.t0 + timedelta(minutes=6), pauza=0), 0)
+            return asl(chat, matn, tugmalar)
+
+        self.tg.yubor = yubor
+        self.assertEqual(self.yubor(minut=6), 1)
+        self.assertEqual(len(self.tg.yuborilgan), 1)
+        self.assertNotEqual(Xabar.objects.get().yuborilsin, x.yuborilsin)

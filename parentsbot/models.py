@@ -8,6 +8,7 @@ from datetime import time
 
 from django.conf import settings
 from django.db import models
+from django.utils import timezone
 
 
 def _hamma_kunlar():
@@ -64,6 +65,10 @@ class ParentsBotKuzatuv(models.Model):
     davomat_boshlandi = models.DateTimeField(null=True, blank=True)
     # To'lov xabarlari ham xuddi shunday: faqat shu paytdan keyin kiritilgan to'lovlar.
     tolov_boshlandi = models.DateTimeField(null=True, blank=True)
+    # Qarz/natija shu sana uchun allaqachon skanerlangan — kun oxirigacha har 30 soniyada
+    # og'ir hisob-kitob qaytarilmasin.
+    qarz_skanlandi = models.DateField(null=True, blank=True)
+    natija_skanlandi = models.DateField(null=True, blank=True)
 
     @classmethod
     def ol(cls):
@@ -119,6 +124,9 @@ class Boglanish(models.Model):
     )
     faol = models.BooleanField(default=True)
     yaratilgan = models.DateTimeField(auto_now_add=True)
+    # Oxirgi marta ulangan (qayta ulanganda yangilanadi): davomat/to'lov xabarlari faqat shundan
+    # KEYINGI voqealar uchun — yangi ulangan ota-onaga eski tarix yog'ilib ketmasin.
+    faollashgan = models.DateTimeField(default=timezone.now)
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=["abonent", "talaba"], name="parentsbot_boglanish_unikal")]

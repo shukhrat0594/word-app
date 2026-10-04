@@ -168,7 +168,7 @@ class Bot:
     def _toifa(self, cb, kim, turi):
         """Ota-ona o'zi toifani yoqadi/o'chiradi. Markaz o'chirgan toifani yoqib bo'lmaydi."""
         if turi not in TOIFALAR:
-            return
+            return self.tg.callback_javob(cb.get("id"))  # tugmadagi "soat" belgisi osilib qolmasin
         ab = self._abonent(kim)
         if not xizmat.faol_farzandlar(ab):
             self.tg.callback_javob(cb.get("id"))
@@ -185,9 +185,11 @@ class Bot:
         self.tg.callback_javob(cb.get("id"))
         xabar_id = (cb.get("message") or {}).get("message_id")
         if xabar_id:
-            self.tg.tugmalarni_yangila(kim["id"], xabar_id, self._sozlama_tugmalari(ab))
-        else:
-            self._yubor(ab, "sozlamalar", self._sozlama_tugmalari(ab))
+            try:
+                return self.tg.tugmalarni_yangila(kim["id"], xabar_id, self._sozlama_tugmalari(ab))
+            except TgXato as xato:  # masalan xabar juda eski — yangisini yuboramiz
+                log.warning("Sozlama tugmalari yangilanmadi: %s", xato)
+        self._yubor(ab, "sozlamalar", self._sozlama_tugmalari(ab))
 
     # ── telefon ─────────────────────────────────────────────────────
     def _kontakt(self, ab, kontakt, kim):

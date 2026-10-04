@@ -16,6 +16,7 @@ TOSH = ZoneInfo("Asia/Tashkent")
 class Asos(ApiAsos):
     def setUp(self):
         super().setUp()
+        ParentsBotSozlama.ol()  # sozlama yozuvi bo'lsin: testlardagi update() bo'shga ketmasin
         self.tg = SoxtaTg()
         self.kun = timezone.localdate()
         # Vaqt QAT'IY: bugun 12:00 Toshkent (tinch soat emas)
@@ -76,24 +77,76 @@ class TolovXabariTest(Asos):
             self.tolov(turi=turi)
         self.assertEqual(self.skaner(), 0)
 
-    def test_ochirilsa_yoki_summa_tuzatilsa_bekor(self):
+    def test_ochirilsa_bekor(self):
         a = self.tolov(100000)
-        b = self.tolov(200000)
         self.skaner()
         a.delete()
-        Tolov.objects.filter(pk=b.pk).update(summa=Decimal(20000))  # kassir nolni ortiqcha yozgan edi
         self.assertEqual(self.yubor(self.t0 + timedelta(minutes=6)), 0)
-        self.assertEqual(set(Xabar.objects.values_list("holat", flat=True)), {"bekor"})
+        self.assertEqual(Xabar.objects.get().holat, "bekor")
+
+    def test_summa_tuzatilsa_togri_summa_bilan_ketadi(self):
+        b = self.tolov(2000000)
+        self.skaner()
+        Tolov.objects.filter(pk=b.pk).update(summa=Decimal(200000))  # kassir nolni ortiqcha yozgan edi
+        self.assertEqual(self.yubor(self.t0 + timedelta(minutes=6)), 1)
+        self.assertIn("200 000 so'm", self.tg.yuborilgan[-1][1])
+        self.assertNotIn("2 000 000", self.tg.yuborilgan[-1][1])
+
+    def test_turi_ozgarsa_bekor(self):
+        b = self.tolov()
+        self.skaner()
+        Tolov.objects.filter(pk=b.pk).update(turi=Tolov.Turi.CHEGIRMA)
+        self.yubor(self.t0 + timedelta(minutes=6))
+        self.assertEqual(Xabar.objects.get().holat, "bekor")
 
     def test_sozlamada_ochirilgan(self):
         ParentsBotSozlama.ol()
         ParentsBotSozlama.objects.filter(pk=1).update(tolov_yoqilgan=False)
         self.tolov()
+        self.skaner()
+        self.assertEqual(self.yubor(self.t0 + timedelta(minutes=6)), 0)
+        self.assertEqual(Xabar.objects.get().holat, "bekor")
+
+    def test_qayta_yoqilganda_eski_tolovlar_yogilmaydi(self):
+        ParentsBotSozlama.ol()
+        ParentsBotSozlama.objects.filter(pk=1).update(tolov_yoqilgan=False)
+        self.tolov()
+        self.skaner()
+        self.yubor(self.t0 + timedelta(minutes=6))
+        ParentsBotSozlama.objects.filter(pk=1).update(tolov_yoqilgan=True)
+        self.assertEqual(self.skaner(7), 0)
+        self.yubor(self.t0 + timedelta(minutes=13))
+        self.assertEqual(self.tg.yuborilgan, [])
+
+    def test_stop_qilgan_ota_ona_start_bossa_eski_tolov_kelmaydi(self):
+        Abonent.objects.filter(pk=self.ota.pk).update(faol=False)
+        self.tolov()
+        self.skaner()
+        self.yubor(self.t0 + timedelta(minutes=6))
+        Abonent.objects.filter(pk=self.ota.pk).update(faol=True)
+        self.skaner(7)
+        self.yubor(self.t0 + timedelta(minutes=13))
+        self.assertEqual(self.tg.yuborilgan, [])
+
+    def test_ulanishdan_oldingi_tolov_xabar_bermaydi(self):
+        self.tolov()
+        Boglanish.objects.update(faollashgan=timezone.now() + timedelta(seconds=5))  # keyin ulangan
+        self.assertEqual(self.skaner(), 0)
+
+    def test_qayta_ulanganda_faollashgan_yangilanadi(self):
+        from parentsbot import xizmat
+
+        b = Boglanish.objects.get()
+        Boglanish.objects.filter(pk=b.pk).update(faol=False, faollashgan=timezone.now() - timedelta(days=30))
+        self.tolov()  # uzilgan paytdagi to'lov
+        xizmat.ulash(self.ota, [self.talaba], "admin")
+        self.assertGreater(Boglanish.objects.get().faollashgan, timezone.now() - timedelta(minutes=1))
         self.assertEqual(self.skaner(), 0)
 
     def test_sozlama_kechikish_ichida_ochirilsa_bekor(self):
         self.tolov()
         self.skaner()
+        ParentsBotSozlama.ol()
         ParentsBotSozlama.objects.filter(pk=1).update(tolov_yoqilgan=False)
         self.yubor(self.t0 + timedelta(minutes=6))
         self.assertEqual(Xabar.objects.get().holat, "bekor")
@@ -161,12 +214,42 @@ class QarzEslatmasiTest(Asos):
         self.assertEqual(Xabar.objects.count(), 1)
         self.assertEqual(xb.skanerla_qarz(self.vaqt(kun=self.dushanba + timedelta(days=7))), 1)
 
-    def test_qarzi_yoq_yoki_oldindan_tolagan(self):
+    def test_qarzi_yoq(self):
         self.hisob(600000)
         self.tolov(600000)
         self.assertEqual(xb.skanerla_qarz(self.vaqt()), 0)
-        self.tolov(100000)  # balans +100 000
-        self.assertEqual(xb.skanerla_qarz(self.vaqt(soat=11)), 0)
+
+    def test_oldindan_tolagan(self):
+        self.hisob(600000)
+        self.tolov(700000)  # balans +100 000
+        self.assertEqual(xb.skanerla_qarz(self.vaqt()), 0)
+
+    def test_tiyinlik_qarz_eslatma_emas(self):
+        self.hisob(Decimal("600000.50"))
+        self.tolov(600000)
+        self.assertEqual(xb.skanerla_qarz(self.vaqt()), 0)
+
+    def test_kuniga_bir_marta_skanerlanadi(self):
+        self.assertEqual(xb.skanerla_qarz(self.vaqt()), 0)  # hozir qarz yo'q
+        self.hisob()
+        self.assertEqual(xb.skanerla_qarz(self.vaqt(soat=11)), 0)  # shu kun skanerlangan
+        self.assertEqual(ParentsBotKuzatuv.ol().qarz_skanlandi, self.dushanba)
+
+    def test_ikki_farzand_ikkalasiga_eslatma(self):
+        from accounts.models import User
+
+        ikkinchi = User.objects.create_user(username="t2", password="x", role=User.Role.STUDENT,
+                                            markaz=self.markaz, first_name="Malika")
+        Boglanish.objects.create(abonent=self.ota, talaba=ikkinchi, usul="admin")
+        self.hisob(600000)
+        Hisob.objects.create(talaba=ikkinchi, talaba_ism="t2", guruh=self.guruh, guruh_nomi=self.guruh.name,
+                             oy=self.kun.replace(day=1), summa=Decimal(300000))
+        self.assertEqual(xb.skanerla_qarz(self.vaqt()), 2)
+        self.assertEqual(self.yubor(self.vaqt(minut=31)), 2)
+        matnlar = " | ".join(m for _, m, _ in self.tg.yuborilgan)
+        self.assertIn("600 000 so'm", matnlar)
+        self.assertIn("300 000 so'm", matnlar)
+        self.assertIn("Malika", matnlar)
 
     def test_orada_tolasa_bekor(self):
         self.hisob(600000)

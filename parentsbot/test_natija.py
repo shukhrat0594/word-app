@@ -32,6 +32,7 @@ class DavrTest(SimpleTestCase):
 class NatijaAsos(ApiAsos):
     def setUp(self):
         super().setUp()
+        ParentsBotSozlama.ol()  # sozlama yozuvi bo'lsin: testlardagi update() bo'shga ketmasin
         self.tg = SoxtaTg()
         self.kun = timezone.localdate()
         self.hozir = datetime.combine(self.kun, time(19, 30), tzinfo=TOSH)  # standart 19:00 dan keyin
@@ -58,7 +59,7 @@ class NatijaTest(NatijaAsos):
         self.assertEqual(xb.skanerla_natija(self.hozir), 1)
         self.assertEqual(xb.yubor_navbat(self.tg, self.hozir, pauza=0), 1)
         matn = self.tg.yuborilgan[-1][1]
-        self.assertIn("bugungi natijalar", matn)
+        self.assertIn("kunlik natijalar", matn)
         self.assertIn("Mashqlar: 2 ta, o'rtacha natija 70%", matn)
         self.assertIn("Writing: 1 ta, band 6.5", matn)
         self.assertNotIn("Speaking", matn)
@@ -71,9 +72,38 @@ class NatijaTest(NatijaAsos):
     def test_soatdan_oldin_va_kuniga_bitta(self):
         self.yechim(8, 10)
         self.assertEqual(xb.skanerla_natija(self.hozir.replace(hour=18)), 0)
+        # 19:05 — AI tekshiruvlari tugashi uchun NATIJA_KUTISH (10 daqiqa) hali o'tmagan
+        self.assertEqual(xb.skanerla_natija(self.hozir.replace(hour=19, minute=5)), 0)
         xb.skanerla_natija(self.hozir)
         xb.skanerla_natija(self.hozir + timedelta(hours=1))
         self.assertEqual(Xabar.objects.filter(turi="natija").count(), 1)
+
+    def test_soat_chegarasida_topshirilgan_writing_yigmaga_tushadi(self):
+        # 18:59 da topshirilgan, AI 19:03 da tugatgan — 19:10 dagi yig'mada bor
+        w = WritingTekshiruv.objects.create(talaba=self.talaba, matn="x", overall_band=None, holat="kutilmoqda")
+        WritingTekshiruv.objects.filter(pk=w.pk).update(
+            created_at=datetime.combine(self.kun, time(18, 59), tzinfo=TOSH))
+        WritingTekshiruv.objects.filter(pk=w.pk).update(holat="tayyor", overall_band=7.0)
+        self.assertEqual(xb.skanerla_natija(self.hozir.replace(hour=19, minute=10)), 1)
+
+    def test_band_ielts_qoidasida_yaxlitlanadi(self):
+        self.writing(6.0)
+        self.writing(6.5)  # o'rtacha 6.25 -> 6.5
+        xb.skanerla_natija(self.hozir)
+        xb.yubor_navbat(self.tg, self.hozir, pauza=0)
+        self.assertIn("band 6.5", self.tg.yuborilgan[-1][1])
+
+    def test_ikki_farzand_ikkalasining_natijasi(self):
+        from accounts.models import User
+
+        ikkinchi = User.objects.create_user(username="t2", password="x", role=User.Role.STUDENT,
+                                            markaz=self.markaz, first_name="Malika")
+        Boglanish.objects.create(abonent=self.ota, talaba=ikkinchi, usul="admin")
+        self.yechim(8, 10)
+        self.yechim(5, 10, talaba=ikkinchi)
+        self.assertEqual(xb.skanerla_natija(self.hozir), 2)
+        self.assertEqual(xb.yubor_navbat(self.tg, self.hozir, pauza=0), 2)
+        self.assertTrue(any("Malika" in m and "50%" in m for _, m, _ in self.tg.yuborilgan))
 
     def test_davr_chegarasi_19_00(self):
         # 19:00 dan keyin qilingani — ertangi yig'maga kiradi, bugungiga emas
@@ -104,6 +134,6 @@ class NatijaTest(NatijaAsos):
         xb.skanerla_natija(self.hozir)
         xb.yubor_navbat(self.tg, self.hozir, pauza=0)
         matn = self.tg.yuborilgan[-1][1]
-        self.assertIn("результаты за сегодня", matn)
+        self.assertIn("результаты за день", matn)
         self.assertIn("Speaking: 1, band 6.0", matn)
         self.assertNotIn("Упражнения", matn)
