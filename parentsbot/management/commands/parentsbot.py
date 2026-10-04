@@ -16,15 +16,15 @@ from parentsbot.bot import Bot
 from parentsbot.matnlar import BUYRUQLAR
 from parentsbot.models import ParentsBotKuzatuv
 from parentsbot.telegram import Tg, TgXato
-from parentsbot.xabarlar import skanerla_davomat, yubor_navbat
+from parentsbot.xabarlar import skanerla_hammasi, yubor_navbat
 
 log = logging.getLogger("parentsbot")
 
-TEKSHIRUV_SEK = 30  # yangi davomat/xabarlar shuncha sekundda bir tekshiriladi
+TEKSHIRUV_SEK = 30  # yangi davomat/to'lov/qarz/natija va navbat shuncha sekundda bir tekshiriladi
 
 
 def xabar_bir_marta(tg):
-    skanerla_davomat()
+    skanerla_hammasi()
     yubor_navbat(tg)
 
 

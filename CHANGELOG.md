@@ -19,6 +19,31 @@ Format (qat'iy, parser shunga tayanadi):
 
 ---
 
+## 2026-10-05 — Ota-onalar uchun Telegram bot
+
+- **Yangi Telegram bot — @UtmostParentsBot.** Ota-ona botga kirib telefon
+  raqamini ulashadi va farzandiga avtomatik ulanadi (raqam CRM'dagi
+  ota-ona telefoniga mos kelsa). Mos kelmasa, farzandning ism-familiyasi
+  va tug'ilgan sanasini yozadi; aniqlab bo'lmasa, so'rov adminlarga
+  boradi.
+- **CRM → "Ota-ona boti" bo'limi:** ota-onalar so'rovlarini ulash yoki
+  rad etish, ulangan ota-onalar ro'yxati (kerak bo'lsa uzish) va
+  xabarlar sozlamasi — qaysi xabarlar, qaysi kunlari va soatda, tunda
+  xabar yubormaslik vaqti.
+- **Ota-onaga avtomatik xabarlar:** farzand darsga kelmasa, kechiksa
+  (sababli kelmaganini ham yoqish mumkin); to'lov qabul qilinganda;
+  qarzdorlik eslatmasi (standart — har dushanba 10:00 da); kunlik
+  natijalar — bajargan mashqlari, Writing va Speaking bahosi
+  (standart — har kuni 19:00 da, hech narsa qilmagan kuni xabar
+  kelmaydi).
+- Admin davomat yoki to'lovni adashib kiritib, bir necha daqiqa ichida
+  tuzatsa, ota-onaga xato xabar bormaydi. Qarzni orada to'lab qo'ygan
+  ota-onaga eslatma bormaydi.
+- Ota-ona botdagi "⚙️ Sozlamalar" orqali o'ziga kerak bo'lmagan
+  xabarlarni o'chira oladi (markaz o'chirgan xabarni yoqa olmaydi) yoki
+  hammasini to'xtatib qo'yadi.
+- Saytdagi 🔔 bildirishnoma bosilganda kerakli sahifa ochiladi.
+
 ## 2026-09-29 — Lidlar: qora ro'yxat va arxiv tuzatildi
 
 - **Qora ro'yxat har qanday filialda to'liq ko'rinadi.** Sarlavhada

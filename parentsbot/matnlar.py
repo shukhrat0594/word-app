@@ -67,10 +67,10 @@ MATNLAR = {
     },
     "til_ozgardi": {"uz": "Til o'zgartirildi: o'zbekcha.", "ru": "Язык изменён: русский."},
     "yordam": {
-        "uz": "Buyruqlar:\n/farzandlarim — ulangan farzandlar\n/til — tilni almashtirish\n"
-              "/stop — xabarlarni to'xtatish\n/start — qayta yoqish",
-        "ru": "Команды:\n/farzandlarim — подключённые дети\n/til — сменить язык\n"
-              "/stop — остановить сообщения\n/start — включить снова",
+        "uz": "Buyruqlar:\n/farzandlarim — ulangan farzandlar\n/sozlamalar — qaysi xabarlarni olish\n"
+              "/til — tilni almashtirish\n/stop — xabarlarni to'xtatish\n/start — qayta yoqish",
+        "ru": "Команды:\n/farzandlarim — подключённые дети\n/sozlamalar — какие сообщения получать\n"
+              "/til — сменить язык\n/stop — остановить сообщения\n/start — включить снова",
     },
     "tugma_farzandlar": {"uz": "👨‍👩‍👧 Farzandlarim", "ru": "👨‍👩‍👧 Мои дети"},
     "tugma_til": {"uz": "🌐 Til", "ru": "🌐 Язык"},
@@ -90,6 +90,44 @@ MATNLAR = {
         "uz": "ℹ️ {ism} {kun} «{guruh}» guruhida sababli kelmadi.",
         "ru": "ℹ️ {ism} {kun} отсутствовал(а) по уважительной причине (группа «{guruh}»).",
     },
+    # To'lov va qarz
+    "tolov_qabul": {
+        "uz": "✅ {ism} uchun {summa} so'm to'lov qabul qilindi ({sana}, «{guruh}» guruhi). Rahmat!",
+        "ru": "✅ Оплата за {ism} принята: {summa} сум ({sana}, группа «{guruh}»). Спасибо!",
+    },
+    "qarz_eslatma": {
+        "uz": "💳 Eslatma: {ism} hisobida {summa} so'm qarzdorlik bor. Iltimos, to'lovni amalga oshiring. "
+              "Savol bo'lsa — markazga murojaat qiling.",
+        "ru": "💳 Напоминание: на счёте {ism} задолженность {summa} сум. Пожалуйста, произведите оплату. "
+              "Если есть вопросы — обратитесь в центр.",
+    },
+    # Natijalar yig'masi. {davr} — "bugungi" yoki "01.10–05.10".
+    "natija_yigma": {
+        "uz": "📊 {ism}: {davr} natijalar\n{qatorlar}",
+        "ru": "📊 {ism}: результаты {davr}\n{qatorlar}",
+    },
+    "natija_bugun": {"uz": "bugungi", "ru": "за сегодня"},
+    "natija_davr": {"uz": "{boshi}–{oxiri} kunlardagi", "ru": "за {boshi}–{oxiri}"},
+    "natija_mashq": {"uz": "• Mashqlar: {soni} ta", "ru": "• Упражнения: {soni}"},
+    "natija_mashq_foiz": {
+        "uz": "• Mashqlar: {soni} ta, o'rtacha natija {foiz}%",
+        "ru": "• Упражнения: {soni}, средний результат {foiz}%",
+    },
+    "natija_band": {"uz": "• {nom}: {soni} ta, band {band}", "ru": "• {nom}: {soni}, band {band}"},
+    # Ota-ona sozlamalari (/sozlamalar)
+    "sozlamalar": {
+        "uz": "⚙️ Qaysi xabarlarni olishni tanlang (bosib yoqing/o'chiring):",
+        "ru": "⚙️ Выберите, какие сообщения получать (нажмите, чтобы включить/выключить):",
+    },
+    "toifa_davomat": {"uz": "Davomat", "ru": "Посещаемость"},
+    "toifa_tolov": {"uz": "To'lovlar", "ru": "Оплаты"},
+    "toifa_qarz": {"uz": "Qarz eslatmasi", "ru": "Напоминание о долге"},
+    "toifa_natija": {"uz": "Natijalar", "ru": "Результаты"},
+    "toifa_markaz_ochirgan": {
+        "uz": "Bu xabarlarni markaz hozircha yubormaydi.",
+        "ru": "Центр пока не отправляет эти сообщения.",
+    },
+    "tugma_sozlamalar": {"uz": "⚙️ Sozlamalar", "ru": "⚙️ Настройки"},
     "tushunmadim": {
         "uz": "Tushunmadim. Buyruqlar uchun /yordam ni bosing.",
         "ru": "Не понял. Команды — /yordam.",
@@ -119,6 +157,7 @@ BUYRUQLAR = {
     "uz": [
         ("start", "Boshlash / qayta yoqish"),
         ("farzandlarim", "Ulangan farzandlarim"),
+        ("sozlamalar", "Qaysi xabarlarni olish"),
         ("til", "Tilni o'zgartirish"),
         ("stop", "Xabarlarni to'xtatish"),
         ("yordam", "Buyruqlar ro'yxati"),
@@ -126,6 +165,7 @@ BUYRUQLAR = {
     "ru": [
         ("start", "Начать / включить снова"),
         ("farzandlarim", "Мои дети"),
+        ("sozlamalar", "Какие сообщения получать"),
         ("til", "Сменить язык"),
         ("stop", "Остановить сообщения"),
         ("yordam", "Список команд"),

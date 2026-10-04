@@ -9,6 +9,7 @@ from .matnlar import t
 # kalit -> (tugma kaliti, mos buyruq)
 _TUGMALAR = {
     "farzandlar": "/farzandlarim",
+    "sozlamalar": "/sozlamalar",
     "til": "/til",
     "yordam": "/yordam",
     "stop": "/stop",
@@ -18,10 +19,11 @@ TILLAR = ("uz", "ru")
 
 
 def menyu(til, faol=True):
-    """ReplyKeyboardMarkup: faol bo'lsa [Farzandlarim] [Til | Yordam] [To'xtatish]; to'xtatilgan bo'lsa — [Qayta yoqish]."""
+    """ReplyKeyboardMarkup: faol bo'lsa [Farzandlarim | Sozlamalar] [Til | Yordam] [To'xtatish];
+    to'xtatilgan bo'lsa — [Qayta yoqish]."""
     if faol:
         qatorlar = [
-            [t(til, "tugma_farzandlar")],
+            [t(til, "tugma_farzandlar"), t(til, "tugma_sozlamalar")],
             [t(til, "tugma_til"), t(til, "tugma_yordam")],
             [t(til, "tugma_stop")],
         ]

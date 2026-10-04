@@ -62,6 +62,8 @@ class ParentsBotKuzatuv(models.Model):
     # Davomat xabarlari shu paytdan KEYIN yaratilgan yozuvlar uchun yuboriladi (eski davomatlar
     # birinchi ishga tushganda ota-onalarga bir yo'la yog'ilib ketmasin).
     davomat_boshlandi = models.DateTimeField(null=True, blank=True)
+    # To'lov xabarlari ham xuddi shunday: faqat shu paytdan keyin kiritilgan to'lovlar.
+    tolov_boshlandi = models.DateTimeField(null=True, blank=True)
 
     @classmethod
     def ol(cls):
@@ -149,7 +151,7 @@ class Sorov(models.Model):
 
 
 class Xabar(models.Model):
-    """Ota-onaga yuboriladigan xabar navbati (davomat; keyingi bosqichlarda to'lov, qarz, natija).
+    """Ota-onaga yuboriladigan xabar navbati (davomat, to'lov, qarz, natija).
 
     Nega navbat: tinch soatlarda xabar kutadi, kechiktirilgan xabar yuborishdan oldin qayta
     tekshiriladi (davomat tuzatilgan bo'lsa bekor), va bir voqea uchun ikki marta yuborilmaydi
@@ -164,7 +166,7 @@ class Xabar(models.Model):
 
     abonent = models.ForeignKey(Abonent, on_delete=models.CASCADE, related_name="xabarlar")
     talaba = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="+")
-    turi = models.CharField(max_length=20)  # "davomat" ...
+    turi = models.CharField(max_length=20)  # "davomat" | "tolov" | "qarz" | "natija"
     kalit = models.CharField(max_length=100)
     payload = models.JSONField(default=dict, blank=True)
     yuborilsin = models.DateTimeField(db_index=True)  # shundan oldin yuborilmaydi

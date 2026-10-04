@@ -14,8 +14,11 @@ class SoxtaTg:
     def yubor(self, chat_id, matn, tugmalar=None):
         self.yuborilgan.append((chat_id, matn, tugmalar))
 
-    def callback_javob(self, callback_id):
-        pass
+    def callback_javob(self, callback_id, matn=None):
+        self.javoblar = getattr(self, "javoblar", []) + [matn]
+
+    def tugmalarni_yangila(self, chat_id, message_id, tugmalar):
+        self.yangilangan = getattr(self, "yangilangan", []) + [(chat_id, message_id, tugmalar)]
 
     def oxirgi(self):
         return self.yuborilgan[-1][1] if self.yuborilgan else None
@@ -209,8 +212,9 @@ class TugmalarMenyusiTest(BotAsos):
     def test_ulangach_doimiy_menyu_chiqadi(self):
         self.ulangan()
         matnlar = self.tugma_matnlari()
-        self.assertEqual(len(matnlar), 4)
+        self.assertEqual(len(matnlar), 5)
         self.assertIn("👨‍👩‍👧 Farzandlarim", matnlar)
+        self.assertIn("⚙️ Sozlamalar", matnlar)
         self.assertTrue(self.tg.yuborilgan[-1][2]["is_persistent"])
 
     def test_tugma_buyruq_vazifasini_bajaradi(self):
@@ -256,4 +260,75 @@ class TugmalarMenyusiTest(BotAsos):
         self.yubor(100, "Sevara Jorayeva")
         self.yubor(100, "03.03.2011")
         self.assertIn("Ulandi", self.tg.oxirgi())
-        self.assertEqual(len(self.tugma_matnlari()), 4)
+        self.assertEqual(len(self.tugma_matnlari()), 5)
+
+
+class SozlamalarTest(BotAsos):
+    def ulangan(self):
+        self.tilgacha()
+        self.yubor(100, contact={"phone_number": "+998901234567", "user_id": 100})
+
+    def tugma_bos(self, data, xabar_id=7):
+        u = tugma(100, data)
+        u["callback_query"]["message"] = {"message_id": xabar_id}
+        self.bot.qayta_ishla(u)
+
+    def tugmalar(self, klaviatura):
+        return {b["callback_data"]: b["text"] for qator in klaviatura["inline_keyboard"] for b in qator}
+
+    def test_sozlamalar_toifalarni_korsatadi(self):
+        self.ulangan()
+        self.yubor(100, "⚙️ Sozlamalar")
+        self.assertIn("Qaysi xabarlarni", self.tg.oxirgi())
+        t = self.tugmalar(self.tg.yuborilgan[-1][2])
+        self.assertEqual(set(t), {"toifa:davomat", "toifa:tolov", "toifa:qarz", "toifa:natija"})
+        self.assertTrue(all(v.startswith("✅") for v in t.values()))
+
+    def test_toifani_ochirish_va_qayta_yoqish(self):
+        self.ulangan()
+        self.yubor(100, "/sozlamalar")
+        self.tugma_bos("toifa:qarz")
+        self.assertEqual(Abonent.objects.get().toifa_ochirilgan, ["qarz"])
+        chat, xabar_id, klav = self.tg.yangilangan[-1]
+        self.assertEqual((chat, xabar_id), (100, 7))
+        self.assertTrue(self.tugmalar(klav)["toifa:qarz"].startswith("❌"))
+        self.tugma_bos("toifa:qarz")
+        self.assertEqual(Abonent.objects.get().toifa_ochirilgan, [])
+
+    def test_markaz_ochirgan_toifani_yoqib_bolmaydi(self):
+        from parentsbot.models import ParentsBotSozlama
+
+        self.ulangan()
+        ParentsBotSozlama.ol()
+        ParentsBotSozlama.objects.filter(pk=1).update(natija_yoqilgan=False)
+        self.yubor(100, "/sozlamalar")
+        self.assertTrue(self.tugmalar(self.tg.yuborilgan[-1][2])["toifa:natija"].startswith("🚫"))
+        self.tugma_bos("toifa:natija")
+        self.assertEqual(Abonent.objects.get().toifa_ochirilgan, [])
+        self.assertIn("markaz", self.tg.javoblar[-1].lower())
+
+    def test_ulanmagan_ota_ona_sozlama_ololmaydi(self):
+        self.tilgacha()
+        self.yubor(100, "/sozlamalar")
+        self.assertIn("Hali hech kim", self.tg.oxirgi())
+        self.tugma_bos("toifa:davomat")
+        self.assertEqual(Abonent.objects.get().toifa_ochirilgan, [])
+
+    def test_notogri_toifa_e_tiborsiz(self):
+        self.ulangan()
+        self.tugma_bos("toifa:boshqa")
+        self.assertEqual(Abonent.objects.get().toifa_ochirilgan, [])
+
+
+class TilJarayonOrtasidaTest(BotAsos):
+    def test_telefon_kutilayotganda_til_almashsa_telefon_tugmasi_qaytadi(self):
+        self.tilgacha()
+        self.bot.qayta_ishla(tugma(100, "til:ru"))
+        self.assertIn("поделитесь номером", self.tg.oxirgi())
+        self.assertTrue(self.tg.yuborilgan[-1][2]["keyboard"][0][0]["request_contact"])
+
+    def test_ism_kutilayotganda_til_almashsa_ism_qayta_soraladi(self):
+        self.tilgacha()
+        self.yubor(100, contact={"phone_number": "+998931112233", "user_id": 100})
+        self.bot.qayta_ishla(tugma(100, "til:ru"))
+        self.assertIn("имя и фамилию", self.tg.oxirgi())

@@ -11,8 +11,9 @@ from django.utils import timezone
 
 from . import matnlar, moslash, tugmalar, xizmat
 from .matnlar import t
-from .models import Abonent, Boglanish
+from .models import Abonent, Boglanish, ParentsBotSozlama
 from .telegram import TgXato
+from .xabarlar import TOIFALAR, toifa_yoqilgan
 
 log = logging.getLogger("parentsbot")
 
@@ -99,6 +100,10 @@ class Bot:
             return self._yubor(ab, "salom_telefon", telefon_tugmasi(ab.til))
         if buyruq == "/farzandlarim":
             return self._farzandlar(ab)
+        if buyruq == "/sozlamalar":
+            if not xizmat.faol_farzandlar(ab):
+                return self._yubor(ab, "farzand_yoq")
+            return self._yubor(ab, "sozlamalar", self._sozlama_tugmalari(ab))
         if buyruq == "/til":
             return self._yubor(ab, "til_tanlang", TIL_TUGMALARI)
         if buyruq == "/stop":
@@ -116,10 +121,28 @@ class Bot:
         royxat = "\n".join(f"• {moslash.talaba_ismi(b)}" for b in bolalar)
         self._yubor(ab, "farzandlar", self._menyu(ab), royxat=royxat)
 
+    def _sozlama_tugmalari(self, ab):
+        """Har toifa — bitta tugma: ✅ yoqilgan, ❌ ota-ona o'chirgan, 🚫 markaz o'chirgan."""
+        sozlama = ParentsBotSozlama.ol()
+        qatorlar = []
+        for turi in TOIFALAR:
+            if not toifa_yoqilgan(sozlama, turi):
+                belgi = "🚫"
+            elif turi in (ab.toifa_ochirilgan or []):
+                belgi = "❌"
+            else:
+                belgi = "✅"
+            qatorlar.append([{"text": f"{belgi} {t(ab.til, f'toifa_{turi}')}", "callback_data": f"toifa:{turi}"}])
+        return {"inline_keyboard": qatorlar}
+
     def _callback(self, cb):
         kim = cb.get("from") or {}
         data = cb.get("data") or ""
-        if kim.get("is_bot") or not kim.get("id") or not data.startswith("til:"):
+        if kim.get("is_bot") or not kim.get("id"):
+            return
+        if data.startswith("toifa:"):
+            return self._toifa(cb, kim, data[6:])
+        if not data.startswith("til:"):
             return
         til = data[4:]
         if til not in matnlar.TILLAR:
@@ -132,7 +155,39 @@ class Bot:
             ab.save(update_fields=["til", "holat"])
             return self._yubor(ab, "salom_telefon", telefon_tugmasi(til))
         ab.save(update_fields=["til"])
+        # Ulanish jarayonining o'rtasida til almashsa — joriy savol yangi tilda qayta beriladi
+        # (aks holda telefon tugmasi yo'qolib, ota-ona nima qilishini bilmay qolardi).
+        if ab.holat == Abonent.Holat.TELEFON:
+            return self._yubor(ab, "salom_telefon", telefon_tugmasi(til))
+        if ab.holat == Abonent.Holat.FARZAND_ISM:
+            return self._yubor(ab, "farzand_ism_so")
+        if ab.holat == Abonent.Holat.FARZAND_SANA:
+            return self._yubor(ab, "farzand_sana_so")
         self._yubor(ab, "til_ozgardi", self._menyu(ab))
+
+    def _toifa(self, cb, kim, turi):
+        """Ota-ona o'zi toifani yoqadi/o'chiradi. Markaz o'chirgan toifani yoqib bo'lmaydi."""
+        if turi not in TOIFALAR:
+            return
+        ab = self._abonent(kim)
+        if not xizmat.faol_farzandlar(ab):
+            self.tg.callback_javob(cb.get("id"))
+            return self._yubor(ab, "farzand_yoq")
+        if not toifa_yoqilgan(ParentsBotSozlama.ol(), turi):
+            return self.tg.callback_javob(cb.get("id"), t(ab.til, "toifa_markaz_ochirgan"))
+        ochirilgan = [x for x in (ab.toifa_ochirilgan or []) if x in TOIFALAR]
+        if turi in ochirilgan:
+            ochirilgan.remove(turi)
+        else:
+            ochirilgan.append(turi)
+        ab.toifa_ochirilgan = ochirilgan
+        ab.save(update_fields=["toifa_ochirilgan"])
+        self.tg.callback_javob(cb.get("id"))
+        xabar_id = (cb.get("message") or {}).get("message_id")
+        if xabar_id:
+            self.tg.tugmalarni_yangila(kim["id"], xabar_id, self._sozlama_tugmalari(ab))
+        else:
+            self._yubor(ab, "sozlamalar", self._sozlama_tugmalari(ab))
 
     # ── telefon ─────────────────────────────────────────────────────
     def _kontakt(self, ab, kontakt, kim):
