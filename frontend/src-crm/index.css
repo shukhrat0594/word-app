@@ -160,6 +160,25 @@ select {
   font-size: 20px;
 }
 
+.crm-qidiruv {
+  position: relative;
+  min-width: 220px;
+}
+
+.crm-qidiruv input {
+  width: 100%;
+}
+
+.crm-qidiruv-natija {
+  position: absolute;
+  inset-inline-start: 0;
+  top: 100%;
+  z-index: 20;
+  width: 100%;
+  background: var(--karta);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
 .crm-onng {
   margin-inline-start: auto;
   display: flex;
