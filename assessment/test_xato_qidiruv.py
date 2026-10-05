@@ -61,6 +61,44 @@ class DasturTekshiruviTest(SimpleTestCase):
         self.assertIn(("i", "I"), self.topilgan("Yesterday i went home."))
         self.assertEqual({(e["xato"]) for e in xq.dastur_xatolari("yesterday i went home", "speaking")}, set())
 
+    def test_odatiy_xatolar(self):
+        t = self.topilgan("At the beginning, in the end of the year. It is more better. We need informations "
+                          "and advices. Peoples discuss about it. It depends of money. Childrens play.")
+        for kutilgan in (("in the end of", "at the end of"), ("more better", "better"), ("informations", "information"),
+                         ("advices", "advice"), ("Peoples", "People"), ("discuss about", "discuss"),
+                         ("depends of", "depends on"), ("Childrens", "Children")):
+            kichik = {(a.lower(), b.lower()) for a, b in t}
+            self.assertIn((kutilgan[0].lower(), kutilgan[1].lower()), kichik, kutilgan)
+
+    def test_dastur_xatolariga_gap_raqami_yoziladi(self):
+        matn = "Good start. The peoples agree. Another line. Many peoples left."
+        r = [e for e in xq.dastur_xatolari(matn) if e["xato"].lower() == "peoples"]
+        self.assertEqual([e["gap"] for e in r], [2, 4])  # bir xil xato ikki gapda — ikkalasi alohida
+        self.assertNotIn("_pozitsiya", r[0])
+
+    def test_dastur_va_ai_bir_xil_xatoni_ikki_marta_korsatmaydi(self):
+        matn = "Good start. The peoples agree. Another line."
+        ai = [dict(xato("peoples", "people", turi="plural"), gap=2)]
+        r = xq.birlashtir(xq.dastur_xatolari(matn), ai)
+        self.assertEqual(len([e for e in r if "peoples" in e["xato"].lower()]), 1)
+
+    def test_speaking_gap_raqami_bolaklar_boyicha(self):
+        matn = " ".join(["word"] * 45) + "  more better here"   # qo'sh bo'shliq: 2-bo'lak
+        r = [e for e in xq.dastur_xatolari(matn, "speaking") if e["xato"].lower() == "more better"]
+        self.assertEqual([e["gap"] for e in r], [2])
+
+    def test_kichik_harfli_millat_oy_kun_faqat_writing(self):
+        t = self.topilgan("In 2000, canadian households and the monday meeting in june.")
+        self.assertTrue({("canadian", "Canadian"), ("monday", "Monday"), ("june", "June")} <= t)
+        self.assertEqual({e["xato"] for e in xq.dastur_xatolari("canadian monday june", "speaking")}, set())
+
+    def test_yolg_on_signal_yoq(self):
+        # bosh harfli, ko'p ma'noli yoki to'g'ri shakllar xato sanalmasin
+        matn = ("Canadian and Monday and June are fine. The march was long and I may go. He said that people need "
+                "information and advice, and more money is better. Children and women agree. It depends on money. "
+                "The end of the year is near, and at the end of it we rest. This is easier.")
+        self.assertEqual(self.topilgan(matn), set())
+
     def test_xatosiz_matn(self):
         self.assertEqual(self.topilgan("Technology plays an important role. I believe it helps us."), set())
 
@@ -87,6 +125,15 @@ class BirlashtirTest(SimpleTestCase):
     def test_farqi_bir_xil_lekin_boshqacha_qirqilgan(self):
         r = xq.birlashtir([xato("technology play", "technology plays")], [dict(xato("play an", "plays an"), gap=1)])
         self.assertEqual(len(r), 1)
+
+    def test_gap_raqami_yoq_ikki_yozuv_takror_hisoblanadi(self):
+        # asosiy baholash ("Peoples") va dastur qoidasi ("Peoples") — ikkalasida ham gap raqami yo'q
+        r = xq.birlashtir([xato("Peoples", "People")], [xato("Peoples", "people")])
+        self.assertEqual(len(r), 1)
+
+    def test_faqat_bosh_harf_farqi_tashlanmaydi(self):
+        r = xq.birlashtir([xato("canadian", "Canadian"), xato("i", "I"), xato("same", "same")])
+        self.assertEqual([e["xato"] for e in r], ["canadian", "i"])
 
     def test_ma_nosiz_yozuv_tashlanadi(self):
         self.assertEqual(xq.birlashtir([xato("same", "same"), xato("a", "b")]), [xato("a", "b")])
@@ -185,6 +232,26 @@ class ChuqurlashtirTest(SimpleTestCase):
     def test_tokenlar_qoshiladi(self):
         r = xq.chuqurlashtir(self.ai(), self.javob(), self.MATN)
         self.assertEqual((r["input_tokens"], r["output_tokens"]), (1000 + 200, 500 + 100))  # 2 qo'shimcha chaqiruv
+
+    def test_speaking_tinish_va_bosh_harf_xato_emas(self):
+        ai = SoxtaAI(
+            {"gaplar": [{"n": 1, "xatolar": [
+                xato("house i go", "house. I go", turi="punctuation"),
+                xato("i want", "I want", turi="other"),           # faqat bosh harf farqi
+                xato("it have", "it has"),
+            ]}]},
+            {"yangi": []},
+        )
+        javob = {"natija": {"errors": []}, "input_tokens": 0, "output_tokens": 0}
+        n = xq.chuqurlashtir(ai, javob, "i want a park near my house i go there it have trees", soha="speaking")["natija"]
+        self.assertEqual([e["xato"] for e in n["errors"]], ["it have"])
+
+    def test_writing_tinish_xatosi_saqlanadi(self):
+        ai = SoxtaAI({"gaplar": [{"n": 1, "xatolar": [xato("house i go", "house. I go", turi="punctuation")]}]},
+                     {"yangi": []})
+        javob = {"natija": {"errors": []}, "input_tokens": 0, "output_tokens": 0}
+        n = xq.chuqurlashtir(ai, javob, "It is my house i go there.", soha="writing")["natija"]
+        self.assertIn("house i go", [e["xato"] for e in n["errors"]])
 
     def test_xatoda_asosiy_natija_ozgarmaydi(self):
         javob = self.javob()
