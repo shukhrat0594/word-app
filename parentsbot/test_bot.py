@@ -347,3 +347,30 @@ class TilJarayonOrtasidaTest(BotAsos):
         self.yubor(100, contact={"phone_number": "+998931112233", "user_id": 100})
         self.bot.qayta_ishla(tugma(100, "til:ru"))
         self.assertIn("имя и фамилию", self.tg.oxirgi())
+
+
+class TugmaMatniVariantlariTest(BotAsos):
+    """Telegram tugma matnidagi emojini o'zgartirib qaytarishi mumkin (real holat, 2026-10-05:
+    "⚙️ Sozlamalar" bosilganda "Tushunmadim" javobi kelgan)."""
+
+    def test_variation_selectorsiz_emoji(self):
+        from parentsbot.tugmalar import tugma_buyrugi
+
+        self.assertEqual(tugma_buyrugi("\u2699 Sozlamalar"), "/sozlamalar")  # U+FE0F yo'q
+        self.assertEqual(tugma_buyrugi("\u2699\ufe0f Sozlamalar"), "/sozlamalar")
+        self.assertEqual(tugma_buyrugi("\u2139 Yordam"), "/yordam")
+        self.assertEqual(tugma_buyrugi("\u25b6 Xabarlarni qayta yoqish"), "/start")
+        self.assertEqual(tugma_buyrugi("⏸️ Xabarlarni to'xtatish"), "/stop")
+        self.assertEqual(tugma_buyrugi("👨 Мои дети"), "/farzandlarim")
+
+    def test_oddiy_matn_tugma_emas(self):
+        from parentsbot.tugmalar import tugma_buyrugi
+
+        for matn in ("Aziz Karimov", "", "⚙️", "Sozlamalar kerak", "salom"):
+            self.assertIsNone(tugma_buyrugi(matn), matn)
+
+    def test_botda_sozlamalar_ochiladi(self):
+        self.tilgacha()
+        self.yubor(100, contact={"phone_number": "+998901234567", "user_id": 100})
+        self.yubor(100, "\u2699 Sozlamalar")
+        self.assertIn("Qaysi xabarlarni", self.tg.oxirgi())

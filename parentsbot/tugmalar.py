@@ -4,6 +4,8 @@ Tugma bosilganda Telegram uning MATNINI xabar sifatida yuboradi — bot shu matn
 tugma deb taniydi (`tugma_buyrugi`).
 """
 
+import re
+
 from .matnlar import t
 
 # kalit -> (tugma kaliti, mos buyruq)
@@ -35,11 +37,20 @@ def menyu(til, faol=True):
     }
 
 
+def _soz_qismi(matn):
+    """Tugma matnining faqat so'zlari: emoji, ko'rinmas belgilar (U+FE0F, ZWJ) va tinish belgilarisiz.
+    Telegram tugma matnini qaytarib yuborganda emojini o'zgartirishi mumkin (masalan "⚙️" ->
+    "⚙" — U+FE0F tushib qoladi), shuning uchun harfma-harf solishtirib bo'lmaydi."""
+    return re.sub(r"[^\w']+", " ", matn or "").strip().casefold()
+
+
 def tugma_buyrugi(matn):
     """Tugma matni (istalgan tilda) -> mos buyruq ('/farzandlarim'...); tugma bo'lmasa — None."""
-    matn = (matn or "").strip()
+    soz = _soz_qismi(matn)
+    if not soz:
+        return None
     for til in TILLAR:
         for kalit, buyruq in _TUGMALAR.items():
-            if matn == t(til, f"tugma_{kalit}"):
+            if soz == _soz_qismi(t(til, f"tugma_{kalit}")):
                 return buyruq
     return None
