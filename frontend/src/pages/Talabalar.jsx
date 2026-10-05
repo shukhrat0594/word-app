@@ -441,9 +441,13 @@ export default function Talabalar() {
             <summary className="guruh-papka-sarlavha">
               {g.nomi} <span className="izoh">({g.talabalar.length})</span>
             </summary>
-            {g.talabalar.map((tl) => (
+            {g.talabalar.map((tl, i) => (
               <div className="tarix-el" key={tl.id}>
                 <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  {/* Tartib raqami (2026-10-05, video-TZ): guruh a'zolarini
+                      bir-biridan ajratish uchun — faqat ko'rinish, ma'lumotga
+                      saqlanmaydi. */}
+                  <span className="izoh" style={{ minWidth: 20, textAlign: "right" }}>{i + 1}.</span>
                   {/* Rasm ALOHIDA turadi — ismga bosilganda natijalar oynasi
                       ochiladi, rasmga bosilganda esa o'chirish oynasi; ikkisi
                       bir joyda bo'lsa bosish bir-biriga tushib ketardi. */}
