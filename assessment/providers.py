@@ -461,6 +461,8 @@ def javobni_parse_qil(raw_text):
 # ro'yxatiga qo'shgani uchun hatto foydaliroq), lekin ~20% tezroq va
 # chiqish tokenlari ~25% kam.
 GEMINI_MODEL = "gemini-3.1-flash-lite"
+# Xato qidiruvi (gap-ma-gap + auditor) uchun tez model; asosiy baholash modeli o'zgarmaydi.
+XATO_QIDIRUV_MODEL = "gemini-3.1-flash-lite"
 MAX_OUTPUT_TOKENS = 8192
 
 # Bitta AI chaqiruvi uchun timeout (millisekund — google-genai shu birlikda
@@ -677,13 +679,27 @@ class GeminiProvider:
         baho["transkript"] = transkript
         return baho
 
+    def tez_nusxa(self):
+        """Qo'shimcha xato qidiruvi bosqichlari uchun TEZ model (2026-10-05): asosiy baholash
+        qimmat/sekin modelda qolsa ham, gap-ma-gap tekshiruv va auditor tez modelda ishlaydi."""
+        from .xato_qidiruv import CHAQIRUV_TIMEOUT_MS
+
+        return GeminiProvider(self.api_key, model=XATO_QIDIRUV_MODEL, timeout_ms=CHAQIRUV_TIMEOUT_MS)
+
     def writing_baholash(self, matn, savol_matni="", tur="task2", rasm_bytes=None, rasm_mime=None):
+        from .xato_qidiruv import chuqurlashtir
+
         kontent = _writing_kontent_tuz(savol_matni, tur, matn)
-        return self._generate(writing_promt_ol(tur), kontent, rasm_bytes, rasm_mime)
+        javob = self._generate(writing_promt_ol(tur), kontent, rasm_bytes, rasm_mime)
+        # Asosiy baholash 1-2 ta xato topadi; chuqur tekshiruv HAMMASINI topadi (xato_qidiruv.py).
+        return chuqurlashtir(self.tez_nusxa(), javob, matn, savol_matni, tur, soha="writing")
 
     def speaking_matn_baholash(self, matn, savol_matni="", tur="part1"):
+        from .xato_qidiruv import chuqurlashtir
+
         kontent = _speaking_kontent_tuz(savol_matni, tur, matn)
-        return self._generate(SPEAKING_SYSTEM_PROMPT, kontent)
+        javob = self._generate(SPEAKING_SYSTEM_PROMPT, kontent)
+        return chuqurlashtir(self.tez_nusxa(), javob, matn, savol_matni, tur, soha="speaking")
 
     def generate_json(self, system_prompt, matn, rasm_bytes=None, rasm_mime=None,
                        javob_sxemasi=None, max_tokens=None):

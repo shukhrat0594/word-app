@@ -102,6 +102,21 @@ export function Natija({ natija }) {
               </div>
             );
           })}
+          {(natija.suggestions || []).length > 0 && (
+            <>
+              <h3 style={{ marginTop: 20 }}>
+                {t("tavsiyalar")} ({natija.suggestions.length})
+              </h3>
+              <p className="izoh" style={{ margin: "0 0 6px" }}>{t("tavsiyalar_izoh")}</p>
+              {natija.suggestions.map((qator, i) => (
+                <div className="xato-el" key={`t${i}`} style={{ opacity: 0.85 }}>
+                  <span>{qator.xato}</span>
+                  {qator.tuzatish && <>→ <span className="xato-togri">{qator.tuzatish}</span></>}
+                  {qator.izoh && <span className="xato-sabab">({T(qator.izoh, til)})</span>}
+                </div>
+              ))}
+            </>
+          )}
         </div>
         <div className="karta">
           <h3>{t("kuchli")}</h3>
