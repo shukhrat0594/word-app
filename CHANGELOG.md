@@ -38,7 +38,7 @@ Format (qat'iy, parser shunga tayanadi):
   ota-ona telefoniga mos kelsa). Mos kelmasa, farzandning ism-familiyasi
   va tug'ilgan sanasini yozadi; aniqlab bo'lmasa, so'rov adminlarga
   boradi.
-- **CRM → "Ota-ona boti" bo'limi:** ota-onalar so'rovlarini ulash yoki
+- **CRM → "Ota-ona nazorati" bo'limi:** ota-onalar so'rovlarini ulash yoki
   rad etish, ulangan ota-onalar ro'yxati (kerak bo'lsa uzish) va
   xabarlar sozlamasi — qaysi xabarlar, qaysi kunlari va soatda, tunda
   xabar yubormaslik vaqti.

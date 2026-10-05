@@ -1,4 +1,4 @@
-"""`/api/crm/parentsbot/...` — CRM'dagi "Ota-ona boti" bo'limi uchun."""
+"""`/api/crm/parentsbot/...` — CRM'dagi "Ota-ona nazorati" bo'limi uchun."""
 
 from django.urls import path
 
