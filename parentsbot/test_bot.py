@@ -233,6 +233,11 @@ class TugmalarMenyusiTest(BotAsos):
         self.ulangan()
         self.yubor(100, "⏸ Xabarlarni to'xtatish")
         self.assertTrue(Abonent.objects.get().faol)
+        # javob bilan YANGI menyu keladi — telefondagi eski tugmalar almashadi
+        self.assertEqual(self.tugma_matnlari(), ["👨‍👩‍👧 Farzandlarim", "🌐 Til", "ℹ️ Yordam"])
+        self.yubor(100, "⚙️ Sozlamalar")
+        self.assertIn("Tushunmadim", self.tg.oxirgi())
+        self.assertEqual(len(self.tugma_matnlari()), 3)
 
     def test_ulanmagan_ota_onaga_menyu_yoq(self):
         self.tilgacha()

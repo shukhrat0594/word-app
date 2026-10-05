@@ -120,7 +120,12 @@ class Bot:
             return self._yubor(ab, "til_tanlang", TIL_TUGMALARI)
         if buyruq == "/yordam":
             return self._yubor(ab, "yordam", self._menyu(ab))
-        self._yubor(ab, "tushunmadim")
+        self._tushunmadim(ab)
+
+    def _tushunmadim(self, ab):
+        # Joriy menyu bilan: telefonda eski tugmalar ("Sozlamalar", "To'xtatish") qolgan bo'lsa,
+        # bosilganda shu javob ularni yangisiga almashtiradi.
+        self._yubor(ab, "tushunmadim", self._menyu(ab))
 
     def _farzandlar(self, ab):
         bolalar = xizmat.faol_farzandlar(ab)
@@ -187,7 +192,7 @@ class Bot:
             return self._yubor(ab, "til_tanlang", TIL_TUGMALARI)
         if h == Abonent.Holat.TELEFON:
             return self._yubor(ab, "salom_telefon", telefon_tugmasi(ab.til))
-        self._yubor(ab, "tushunmadim")
+        self._tushunmadim(ab)
 
     def _sana(self, ab, matn):
         sana = moslash.sana_tahlil(matn)
