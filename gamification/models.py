@@ -10,6 +10,21 @@ XP_QOIDALARI = {
     "writing_tekshiruv": 20,
     "speaking_tekshiruv": 20,
     "davomat_keldi": 2,
+    # IELTS Reading/Listening TESTI (2026-10-05): 10 XP + band x 4; shu testni qayta yechish XP bermaydi.
+    "test_yechildi": 10,
+    # Kurslar (Beginner, Elementary...): mashqning birinchi urinishi — 1 to'g'ri javob = 1 XP (miqdor
+    # chaqiruvchidan keladi) + 100% bo'lsa bonus.
+    "kurs_mashq": 0,
+    "kurs_mukammal": 5,
+}
+
+# XP qaysi reytingga tegishli: "ielts" (platforma: mashq, Writing, Speaking, R/L testlar), "kurs"
+# (Kurslar mashqlari), "umumiy" (davomat — ikkala reytingga ham hisoblanadi).
+TEST_BAND_KOEFFITSIENT = 4
+XP_TURLARI = {
+    "kurs_mashq": "kurs",
+    "kurs_mukammal": "kurs",
+    "davomat_keldi": "umumiy",
 }
 
 # Badge katalogi: kod -> (nom, tavsif)
@@ -33,6 +48,8 @@ class XPYozuv(models.Model):
     )
     miqdor = models.PositiveIntegerField()
     sabab = models.CharField(max_length=30)
+    # Qaysi reytingga hisoblanadi: "ielts" | "kurs" | "umumiy" (ikkalasiga ham).
+    tur = models.CharField(max_length=10, default="ielts", db_index=True)
     manba_id = models.PositiveIntegerField(
         null=True, blank=True,
         help_text="Hodisa manbai (yechim/tekshiruv/faollik id) — takror bermaslik uchun",
@@ -80,19 +97,24 @@ def jami_xp(talaba):
     return talaba.xp_yozuvlar.aggregate(s=Sum("miqdor"))["s"] or 0
 
 
-def xp_ber(talaba, sabab, manba_id=None):
-    """XP beradi (takror hodisaga bermaydi), keyin badge'larni tekshiradi."""
-    miqdor = XP_QOIDALARI[sabab]
+def xp_ber(talaba, sabab, manba_id=None, miqdor=None):
+    """XP beradi (takror hodisaga bermaydi), keyin badge'larni tekshiradi.
+
+    `miqdor` berilmasa — `XP_QOIDALARI`dagi qat'iy qiymat. Qaytaradi: XP haqiqatan berildimi."""
+    if miqdor is None:
+        miqdor = XP_QOIDALARI[sabab]
+    tur = XP_TURLARI.get(sabab, "ielts")
     if manba_id is not None:
         _, yaratildi = XPYozuv.objects.get_or_create(
             talaba=talaba, sabab=sabab, manba_id=manba_id,
-            defaults={"miqdor": miqdor},
+            defaults={"miqdor": miqdor, "tur": tur},
         )
         if not yaratildi:
-            return
+            return False
     else:
-        XPYozuv.objects.create(talaba=talaba, miqdor=miqdor, sabab=sabab)
+        XPYozuv.objects.create(talaba=talaba, miqdor=miqdor, sabab=sabab, tur=tur)
     badgelarni_tekshir(talaba)
+    return True
 
 
 def badgelarni_tekshir(talaba):

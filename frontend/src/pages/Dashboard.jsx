@@ -36,7 +36,7 @@ export default function Dashboard() {
   if (!stat || !gami) return <div className="yuklanmoqda">{t("yuklanmoqda")}</div>;
 
   const k = stat.konikmalar;
-  const orin = lb?.umumiy?.mening_ornim?.orin;
+  const orin = lb?.asosiy?.mening_ornim?.orin;
 
   return (
     <>
@@ -82,20 +82,20 @@ export default function Dashboard() {
 
       <div className="ikki-ustun">
         <div className="karta">
-          <h3>{t("umumiy_reyting")}</h3>
-          {(lb?.umumiy?.top || []).slice(0, 5).map((r) => (
+          <h3>{t("nav_reyting")}{lb?.asosiy?.daraja ? ` · ${lb.asosiy.daraja.nomi}` : ""}</h3>
+          {(lb?.asosiy?.top || []).slice(0, 5).map((r) => (
             <div
               key={r.id}
               className={
                 "lb-qator" +
                 (r.orin === 1 ? " birinchi" : "") +
-                (lb.umumiy.mening_ornim?.id === r.id ? " men" : "")
+                (lb.asosiy.mening_ornim?.id === r.id ? " men" : "")
               }
             >
               <span className="lb-orin">{r.orin}</span>
               <span className="lb-ism">
                 {r.first_name || r.username}
-                {lb.umumiy.mening_ornim?.id === r.id && (
+                {lb.asosiy.mening_ornim?.id === r.id && (
                   <span style={{ color: "var(--matn-sokin)" }}> ({t("siz")})</span>
                 )}
               </span>
