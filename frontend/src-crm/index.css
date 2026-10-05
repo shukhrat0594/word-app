@@ -1153,3 +1153,16 @@ table.ixcham td { padding: 3px 6px; font-size: 13px; }
   gap: 8px;
 }
 .eslatma-xabar-past { margin-top: 4px; font-size: 13px; }
+
+
+/* ── Ota-ona boti (CRM) ─────────────────────────────────────────── */
+
+.ob-sorov { margin-bottom: 12px; }
+.ob-sorov-bosh { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 8px; }
+.ob-sarlavha { margin: 8px 0 4px; }
+.ob-nomzod { display: flex; gap: 8px; align-items: center; padding: 4px 0; }
+.ob-qidiruv { width: 100%; margin: 8px 0; }
+.ob-farzand { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 2px 0; }
+.ob-sozlama h3 { margin: 16px 0 6px; font-size: 15px; }
+.ob-qator { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+.ob-kunlar { display: inline-flex; gap: 8px; flex-wrap: wrap; }

@@ -2309,6 +2309,13 @@ class GoogleLoginView(APIView):
         return Response({"detail": "Google orqali kirish yopilgan"}, status=403)
 
 
+def havola_xavfsiz(havola):
+    """Faqat sayt ichidagi yo'l ("/crm/parentsbot"). Tashqi manzil ("https://...", "//x.com") yoki
+    "javascript:" bo'lsa — bo'sh qaytadi: bildirishnoma boshqa saytga olib o'tmasin."""
+    h = (havola or "").strip()
+    return h if h.startswith("/") and not h.startswith("//") and "\\" not in h else ""
+
+
 class BildirishnomalarView(APIView):
     """Owner uchun — ilova ichidagi bildirishnomalar (2026-08-08).
 
@@ -2344,6 +2351,7 @@ class BildirishnomalarView(APIView):
                     "sarlavha": b.sarlavha,
                     "matn": b.matn,
                     "oqilgan": b.oqilgan,
+                    "havola": havola_xavfsiz(b.havola),
                     "sana": b.created_at.isoformat(),
                 }
                 for b in yozuvlar

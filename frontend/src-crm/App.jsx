@@ -21,6 +21,7 @@ import Lidlar from "./sahifalar/Lidlar.jsx";
 import Moliya from "./sahifalar/Moliya.jsx";
 import Narxlar from "./sahifalar/Narxlar.jsx";
 import Sozlamalar from "./sahifalar/Sozlamalar.jsx";
+import ParentsBot from "./sahifalar/ParentsBot.jsx";
 import Talabalar from "./sahifalar/Talabalar.jsx";
 import Xodimlar from "./sahifalar/Xodimlar.jsx";
 
@@ -126,6 +127,7 @@ export default function App() {
           <Route path="hisobotlar" element={<Hisobotlar />} />
           <Route path="xodimlar" element={<Xodimlar />} />
           <Route path="sozlamalar" element={<Sozlamalar />} />
+          <Route path="parentsbot" element={<ParentsBot />} />
           <Route path="harakatlar" element={<Harakatlar />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

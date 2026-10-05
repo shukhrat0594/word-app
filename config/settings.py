@@ -79,6 +79,9 @@ INSTALLED_APPS = [
     # Bog'lanish faqat bir tomonga: crm -> LMS. Olib tashlash tartibi
     # tmp/plans/moliya-tz.md, 8-bandda.
     'crm',
+    # Ota-ona nazorati boti (2026-10-04). crm va LMS'dan O'QIYDI; ular unga
+    # bog'liq emas (olib tashlash: shu qator + config/urls.py'dagi bitta qator).
+    'parentsbot',
 ]
 
 # CRM bayrog'i. 2026-09-15 da prodda o'chiq edi (DEBUG'ga bog'langan),
@@ -87,6 +90,9 @@ INSTALLED_APPS = [
 # qo'yiladi (frontend'da VITE_CRM=0), kodga tegilmaydi. O'chiq bo'lsa
 # `/api/crm/...` 404 qaytaradi (`crm/permissions.py`).
 CRM_YOQILGAN = config('CRM_YOQILGAN', default=True, cast=bool)
+
+# Ota-ona boti tokeni (BotFather, @UtmostParentsBot). Faqat muhit o'zgaruvchisida.
+UTMOSTPARENTSBOT_TOKEN = config('UTMOSTPARENTSBOT_TOKEN', default='')
 
 AUTH_USER_MODEL = 'accounts.User'
 

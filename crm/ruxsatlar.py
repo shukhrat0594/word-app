@@ -63,6 +63,11 @@ RUXSAT_DARAXTI = [
         ("sozlamalar.narxlar", "Kurs narxlari"),
         ("sozlamalar.rollar", "Rollar"),
     ]),
+    # Ota-ona boti (2026-10-04): so'rovlarni ko'rib chiqish va ulash; xabar vaqtlari sozlamasi.
+    ("parentsbot", "Ota-ona boti", [
+        ("parentsbot.ulash", "So'rovlarni ko'rib chiqish va ulash"),
+        ("parentsbot.sozlama", "Xabar vaqtlarini sozlash"),
+    ]),
 ]
 
 BOLIMLAR = [b[0] for b in RUXSAT_DARAXTI]
