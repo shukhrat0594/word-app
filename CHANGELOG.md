@@ -19,6 +19,18 @@ Format (qat'iy, parser shunga tayanadi):
 
 ---
 
+## 2026-10-05 — CRM: talaba kartasidan ota-ona hisobi ochish
+
+- **Talaba kartasidagi "Ota-ona hisobi" bo'limida endi profil ochish
+  mumkin.** Avval faqat ota-ona telefoni/ismi matn maydon sifatida
+  saqlanardi — saytga kiradigan haqiqiy hisobni esa faqat owner
+  "Foydalanuvchilar" sahifasidan yarata olardi.
+- **Yangi profil** — ism va telefon kiritiladi, login/parol avtomatik
+  yaratiladi (bir martalik ko'rsatiladi, yozib olish kerak).
+- **Boshqa farzandga ulash** — bitta ota-onada bir nechta farzand
+  bo'lishi mumkin: ikkinchi o'quvchini qidirib, birinchisining
+  ota-ona hisobiga ulaysiz — ikkalasi ham bitta hisobdan kuzatiladi.
+
 ## 2026-10-05 — Ota-onalar uchun Telegram bot
 
 - **Yangi Telegram bot — @UtmostParentsBot.** Ota-ona botga kirib telefon

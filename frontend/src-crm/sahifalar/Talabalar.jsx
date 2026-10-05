@@ -544,6 +544,112 @@ function GuruhTanlabQoshish({ talaba, onYopish, onSaqlandi }) {
   );
 }
 
+// Ota-ona hisobi — yangi profil yaratish yoki boshqa (ota-onasi bor)
+// farzandga ulash (video-TZ 2026-10-05: "bitta ota-onada ikkita bola
+// bo'lishi mumkin").
+function OtaOnaOynasi({ talaba, onYopish, onSaqlandi }) {
+  const { t } = useI18n();
+  const [rejim, setRejim] = useState("yangi");
+  const [ism, setIsm] = useState(talaba.ota_ona_ismi || "");
+  const [telefon, setTelefon] = useState(talaba.ota_ona_telefon || "");
+  const [qidiruv, setQidiruv] = useState("");
+  const [tanlangan, setTanlangan] = useState(null);
+  const [natija, setNatija] = useState(null);
+  const [xato, setXato] = useState("");
+  const [band, setBand] = useState(false);
+  const topilganlar = useSorov(
+    rejim === "ulash" && qidiruv.trim().length >= 2
+      ? "/api/crm/talaba-qidiruv/" + sorovSatri({ q: qidiruv, ota_ona_bor: 1 })
+      : null
+  );
+
+  async function saqla() {
+    setXato("");
+    setBand(true);
+    try {
+      if (rejim === "yangi") {
+        const javob = await api(`/api/crm/talaba/${talaba.id}/ota-ona/`, {
+          method: "POST", body: { amal: "yaratish", ism, telefon },
+        });
+        setNatija(javob);
+        onSaqlandi();
+      } else if (tanlangan) {
+        await api(`/api/crm/talaba/${talaba.id}/ota-ona/`, {
+          method: "POST", body: { amal: "ulash", manba_talaba_id: tanlangan.id },
+        });
+        onSaqlandi();
+        onYopish();
+      }
+    } catch (e) {
+      setXato(e.message);
+    } finally {
+      setBand(false);
+    }
+  }
+
+  return (
+    <div className="oyna-fon" role="dialog" aria-modal="true">
+      <div className="karta oyna">
+        <h2>{t("ota_ona_hisobi_yaratish")}</h2>
+        {natija ? (
+          <>
+            <p>✅ {t("ota_ona_hisobi_yaratildi")}</p>
+            <p className="kichik">{t("login_parol_eslatma")}</p>
+            <p><b>{natija.ism}</b> — <code>{natija.username}</code> / <code>{natija.parol}</code></p>
+            <div className="oyna-tugmalar">
+              <button className="tugma" type="button" onClick={onYopish}>{t("yopish")}</button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="tablar">
+              <button type="button" className={rejim === "yangi" ? "tab faol" : "tab"} onClick={() => setRejim("yangi")}>
+                {t("ota_ona_yangi_profil")}
+              </button>
+              <button type="button" className={rejim === "ulash" ? "tab faol" : "tab"} onClick={() => setRejim("ulash")}>
+                {t("ota_ona_mavjud_farzandga")}
+              </button>
+            </div>
+            {rejim === "yangi" ? (
+              <>
+                <label>{t("ota_ona_ismi")}<input value={ism} autoFocus onChange={(e) => setIsm(e.target.value)} /></label>
+                <label>{t("ota_ona_telefon")}<input value={telefon} onChange={(e) => setTelefon(e.target.value)} /></label>
+              </>
+            ) : (
+              <>
+                <p className="kichik">{t("ota_ona_mavjud_farzandga_izoh")}</p>
+                <input placeholder={t("oquvchini_qidiring")} value={qidiruv} autoFocus
+                       onChange={(e) => { setQidiruv(e.target.value); setTanlangan(null); }} />
+                {tanlangan ? (
+                  <p>✔ <b>{tanlangan.ism}</b> <span className="kichik">{tanlangan.telefon}</span></p>
+                ) : (
+                  <ul className="qidiruv-natija">
+                    {(topilganlar.malumot || []).filter((x) => x.id !== talaba.id).map((x) => (
+                      <li key={x.id}>
+                        <button className="havola" type="button" onClick={() => setTanlangan(x)}>
+                          {x.ism} <span className="kichik">{x.telefon || x.username}</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </>
+            )}
+            {xato && <div className="xato">{xato}</div>}
+            <div className="oyna-tugmalar">
+              <button className="tugma tugma-sokin" type="button" onClick={onYopish}>{t("bekor")}</button>
+              <button className="tugma" type="button" disabled={band || (rejim === "yangi" ? !ism.trim() : !tanlangan)}
+                      onClick={saqla}>
+                {t("saqlash")}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Talaba kartasi ──────────────────────────────────────────────────
 
 function Karta({ talabaId, onOrqaga }) {
@@ -562,6 +668,7 @@ function Karta({ talabaId, onOrqaga }) {
   const [tahrirTolovi, setTahrirTolovi] = useState(null);
   const [tahrir, setTahrir] = useState(false);
   const [arxivOyna, setArxivOyna] = useState(false);
+  const [otaOnaOyna, setOtaOnaOyna] = useState(false);
 
   // To'lov tarixi — SoffCRM'dagidek BITTA ro'yxat: to'lovlar va
   // hisob-fakturalar ("Qarzdorlik") birga, guruh va sana filtri bilan.
@@ -751,7 +858,15 @@ function Karta({ talabaId, onOrqaga }) {
         </div>
         <div className="qator">
           <span className="kichik">{t("ota_ona_hisobi")}</span>
-          <span>{talaba.ota_ona?.id ? `${talaba.ota_ona.ism} (${talaba.ota_ona.username})` : "—"}</span>
+          <span>
+            {talaba.ota_ona?.id ? (
+              `${talaba.ota_ona.ism} (${talaba.ota_ona.username})`
+            ) : ruxsat("talabalar.tahrirlash") && !talaba.faqat_korish ? (
+              <button className="tugma tugma-sokin" type="button" onClick={() => setOtaOnaOyna(true)}>
+                ➕ {t("ota_ona_hisobi_yaratish")}
+              </button>
+            ) : "—"}
+          </span>
         </div>
         <div className="qator">
           <span className="kichik">{t("ortacha_baho")}</span>
@@ -764,6 +879,9 @@ function Karta({ talabaId, onOrqaga }) {
       )}
       {guruhgaQoshish && (
         <GuruhTanlabQoshish talaba={talaba} onYopish={() => setGuruhgaQoshish(false)} onSaqlandi={yangila} />
+      )}
+      {otaOnaOyna && (
+        <OtaOnaOynasi talaba={talaba} onYopish={() => setOtaOnaOyna(false)} onSaqlandi={yangila} />
       )}
 
       {/* Umumiy o'quv natijasi — LMS'da hosil bo'ladi, bu yerda faqat
