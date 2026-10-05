@@ -209,6 +209,7 @@ a.logo:hover .logo-nom { color: var(--sariq); }
 }
 .holat-tugmalar button.keldi.aktiv { background: rgba(46, 158, 91, .15); color: var(--yaxshi); border-color: var(--yaxshi); }
 .holat-tugmalar button.kelmadi.aktiv { background: rgba(214, 69, 69, .12); color: var(--xato); border-color: var(--xato); }
+.holat-tugmalar button.kechikdi.aktiv, .holat-tugmalar button.sababli.aktiv { background: rgba(230, 168, 0, .15); color: #B8860B; border-color: #B8860B; }
 
 /* ==== Writing ==== */
 .mezon-qator { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }

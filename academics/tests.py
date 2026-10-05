@@ -117,3 +117,83 @@ class DavomatSanasiTest(TestCase):
         with mock.patch("django.utils.timezone.now", return_value=QOTIRILGAN_LAHZA):
             self.assertEqual(str(timezone.localdate()), KUTILGAN_SANA)
         self.assertNotEqual(str(datetime.date.today()), KUTILGAN_SANA)
+
+
+class DavomatKechikdiSababliTest(TestCase):
+    """Video-TZ 2026-10-05: o'qituvchi profilida admin CRM panelidagi kabi
+    "kechikdi" va "sababli" variantlari ham bo'lishi kerak — avval faqat
+    keldi/kelmadi bor edi."""
+
+    def setUp(self):
+        cache.clear()
+        self.markaz = Markaz.objects.create(name="Utmost")
+        self.oqituvchi = User.objects.create_user(
+            username="oqituvchi", password=PAROL, role=User.Role.TEACHER, markaz=self.markaz
+        )
+        self.talaba = User.objects.create_user(
+            username="talaba", password=PAROL, role=User.Role.STUDENT, markaz=self.markaz
+        )
+        self.guruh = Guruh.objects.create(
+            name="A1", markaz=self.markaz, oqituvchi=self.oqituvchi
+        )
+        self.guruh.talabalar.add(self.talaba)
+
+        self.client_ = APIClient()
+        javob = self.client_.post(
+            "/api/token/",
+            {"username": "oqituvchi", "password": PAROL, "qurilma_id": "q1"},
+            format="json",
+        )
+        self.assertEqual(javob.status_code, 200, javob.data)
+        self.client_.credentials(HTTP_AUTHORIZATION="Bearer " + javob.data["access"])
+
+    def _belgila(self, holat, izoh=""):
+        return self.client_.post(
+            "/api/davomat/",
+            {
+                "guruh": self.guruh.id,
+                "sana": "2026-03-15",
+                "yozuvlar": [{"talaba": self.talaba.id, "holat": holat, "izoh": izoh}],
+            },
+            format="json",
+        )
+
+    def test_kechikdi_lmsda_keldi_bolib_saqlanadi(self):
+        """"Kechikdi" — dars qoldirilmagan, LMS'dagi `holat` "keldi" bo'lib
+        qoladi (belgi faqat CRM'ning `DavomatIzoh`ida), lekin GET shu
+        yozuvni yana "kechikdi" deb qaytarishi kerak."""
+        javob = self._belgila("kechikdi")
+        self.assertEqual(javob.status_code, 200, javob.data)
+        yozuv = Davomat.objects.get()
+        self.assertEqual(yozuv.holat, "keldi")
+        self.assertTrue(yozuv.crm_izoh.kechikdi)
+
+        javob = self.client_.get(f"/api/davomat/?guruh={self.guruh.id}&sana=2026-03-15")
+        self.assertEqual(javob.data["talabalar"][0]["holat"], "kechikdi")
+
+    def test_sababli_lmsda_kelmadi_bolib_saqlanadi(self):
+        javob = self._belgila("sababli", izoh="Shifokorda")
+        self.assertEqual(javob.status_code, 200, javob.data)
+        yozuv = Davomat.objects.get()
+        self.assertEqual(yozuv.holat, "kelmadi")
+        self.assertTrue(yozuv.crm_izoh.sababli)
+        self.assertEqual(yozuv.crm_izoh.izoh, "Shifokorda")
+
+        javob = self.client_.get(f"/api/davomat/?guruh={self.guruh.id}&sana=2026-03-15")
+        self.assertEqual(javob.data["talabalar"][0]["holat"], "sababli")
+
+    def test_oddiy_holatga_qaytarilsa_izoh_ochadi(self):
+        """Avval "sababli" qo'yilgan, keyin oddiy "keldi"ga o'zgartirilsa —
+        eski CRM belgisi (DavomatIzoh) qolib ketmasligi kerak."""
+        self._belgila("sababli", izoh="Sababli edi")
+        javob = self._belgila("keldi")
+        self.assertEqual(javob.status_code, 200, javob.data)
+        yozuv = Davomat.objects.get()
+        self.assertEqual(yozuv.holat, "keldi")
+        self.assertFalse(hasattr(yozuv, "crm_izoh"))
+
+    def test_notogri_holat_rad_etiladi(self):
+        javob = self._belgila("nimadir_notogri")
+        self.assertEqual(javob.status_code, 200, javob.data)
+        self.assertEqual(javob.data["saqlandi"], 0)
+        self.assertEqual(Davomat.objects.count(), 0)

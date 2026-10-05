@@ -68,10 +68,18 @@ export default function Davomat({ guruhId: tashqiGuruhId }) {
     talabalarniYukla();
   }, [guruhId, sana]);
 
-  function holatQoy(talabaId, holat) {
+  function holatQoy(talabaId, holat, izoh) {
     setTalabalar((list) =>
-      list.map((t2) => (t2.id === talabaId ? { ...t2, holat } : t2))
+      list.map((t2) => (t2.id === talabaId ? { ...t2, holat, izoh: izoh ?? t2.izoh } : t2))
     );
+  }
+
+  // "Sababli" tanlanganda izoh so'raladi — admin CRM paneli bilan bir xil
+  // (`GuruhOynalari.jsx` dagi `DavomatMenyusi`).
+  function sababliTanla(talabaId) {
+    const javob = window.prompt(t("sabab_izoh"), "");
+    if (javob === null) return;
+    holatQoy(talabaId, "sababli", javob);
   }
 
   async function saqla() {
@@ -79,7 +87,7 @@ export default function Davomat({ guruhId: tashqiGuruhId }) {
     setXabar("");
     const yozuvlar = talabalar
       .filter((t2) => t2.holat)
-      .map((t2) => ({ talaba: t2.id, holat: t2.holat }));
+      .map((t2) => ({ talaba: t2.id, holat: t2.holat, izoh: t2.izoh || "" }));
     try {
       await api("/api/davomat/", {
         method: "POST",
@@ -142,6 +150,18 @@ export default function Davomat({ guruhId: tashqiGuruhId }) {
                   onClick={() => holatQoy(tl.id, "kelmadi")}
                 >
                   {t("kelmadi")}
+                </button>
+                <button
+                  className={"kechikdi" + (tl.holat === "kechikdi" ? " aktiv" : "")}
+                  onClick={() => holatQoy(tl.id, "kechikdi")}
+                >
+                  {t("kechikdi")}
+                </button>
+                <button
+                  className={"sababli" + (tl.holat === "sababli" ? " aktiv" : "")}
+                  onClick={() => sababliTanla(tl.id)}
+                >
+                  {t("sababli")}
                 </button>
               </div>
             </div>
