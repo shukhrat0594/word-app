@@ -59,3 +59,17 @@ class BuyruqlarMenyusiTest(SimpleTestCase):
             self.assertEqual({"/" + b for b, _ in royxat}, kodda, til)
             for _, tavsif in royxat:
                 self.assertLessEqual(len(tavsif), 256)
+
+
+class BuyruqTokenTest(SimpleTestCase):
+    def test_token_yoq_bolsa_jimgina_chiqadi(self):
+        """Railway'da sayt bilan bitta konteynerda: token yo'q bo'lsa xato bermasdan chiqadi."""
+        from unittest import mock
+
+        from django.core.management import call_command
+        from django.test import override_settings
+
+        with override_settings(UTMOSTPARENTSBOT_TOKEN=""), \
+                mock.patch("parentsbot.management.commands.parentsbot.Tg") as tg:
+            call_command("parentsbot")  # istisno ko'tarmaydi, cheksiz aylanmaydi
+        tg.assert_not_called()

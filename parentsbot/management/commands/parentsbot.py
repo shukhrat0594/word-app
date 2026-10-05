@@ -1,4 +1,6 @@
-"""Ota-ona botini ishga tushiradi (Railway'da alohida service): `python manage.py parentsbot`.
+"""Ota-ona botini ishga tushiradi: `python manage.py parentsbot`. Railway'da sayt bilan bitta
+konteynerda, fonda ishlaydi (`railway.json` -> startCommand). Bir vaqtda faqat BITTA nusxa
+ishlashi kerak (Telegram 409) — lokalda prod bilan birga ishga tushirilmasin.
 
 Long polling: Telegram'dan yangilanishlarni oladi va `parentsbot.bot.Bot`ga beradi. Oxirgi ko'rilgan
 yangilanish bazada saqlanadi — qayta ishga tushganda xabarlar takrorlanmaydi.
@@ -51,6 +53,11 @@ class Command(BaseCommand):
         # basicConfig'dan KEYIN: httpx URL'i (ya'ni bot tokeni) log'ga tushmasin.
         for nom in ("httpx", "httpcore"):
             logging.getLogger(nom).setLevel(logging.WARNING)
+        if not getattr(settings, "UTMOSTPARENTSBOT_TOKEN", ""):
+            # Railway'da sayt bilan bitta konteynerda ishga tushadi (railway.json): token hali
+            # qo'shilmagan bo'lsa — jimgina chiqadi, sayt bundan ta'sirlanmaydi.
+            log.warning("UTMOSTPARENTSBOT_TOKEN sozlanmagan — ota-ona boti ishga tushmadi")
+            return
         tg = Tg(settings.UTMOSTPARENTSBOT_TOKEN)
         tg.chaqir("deleteWebhook")  # polling bilan webhook to'qnashmasin
         try:
