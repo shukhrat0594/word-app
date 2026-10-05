@@ -137,11 +137,12 @@ class Bot:
     def _callback(self, cb):
         kim = cb.get("from") or {}
         data = cb.get("data") or ""
-        if kim.get("is_bot") or not kim.get("id") or not data.startswith("til:"):
+        if kim.get("is_bot") or not kim.get("id"):
             return
-        til = data[4:]
+        til = data[4:] if data.startswith("til:") else None
         if til not in matnlar.TILLAR:
-            return
+            # eski xabardagi tugma (masalan olib tashlangan "Sozlamalar") — "soat" osilib qolmasin
+            return self.tg.callback_javob(cb.get("id"))
         ab = self._abonent(kim)
         self.tg.callback_javob(cb.get("id"))
         ab.til = til

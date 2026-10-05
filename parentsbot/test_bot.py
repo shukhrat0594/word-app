@@ -15,7 +15,7 @@ class SoxtaTg:
         self.yuborilgan.append((chat_id, matn, tugmalar))
 
     def callback_javob(self, callback_id):
-        pass
+        self.javoblar = getattr(self, "javoblar", 0) + 1
 
     def oxirgi(self):
         return self.yuborilgan[-1][1] if self.yuborilgan else None
@@ -299,3 +299,12 @@ class TugmaMatniVariantlariTest(BotAsos):
         self.yubor(100, contact={"phone_number": "+998901234567", "user_id": 100})
         self.yubor(100, "ℹ Yordam")
         self.assertIn("Buyruqlar", self.tg.oxirgi())
+
+
+class EskiInlineTugmaTest(BotAsos):
+    def test_olib_tashlangan_sozlama_tugmasiga_javob_qaytadi(self):
+        self.tilgacha()
+        oldin = self.tg.javoblar
+        self.bot.qayta_ishla(tugma(100, "toifa:natija"))
+        self.assertEqual(self.tg.javoblar, oldin + 1)
+        self.assertEqual(Abonent.objects.get().til, "uz")
