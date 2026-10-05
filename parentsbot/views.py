@@ -249,7 +249,7 @@ class SozlamaView(CrmView):
         yangi = _sozlama_dict(s)
         logla(
             foydalanuvchi=request.user, harakat=FaoliyatYozuvi.Harakat.OZGARTIRISH, obyekt=s,
-            obyekt_turi="Ota-ona boti sozlamasi", obyekt_nomi="Xabar vaqtlari",
+            obyekt_turi="Ota-ona nazorati sozlamasi", obyekt_nomi="Xabar vaqtlari",
             eski_qiymatlar={k: str(v) for k, v in eski.items()}, yangi_qiymatlar={k: str(v) for k, v in yangi.items()},
         )
         return Response(yangi)

@@ -186,7 +186,7 @@ class SozlamaTest(OtabotApiAsos):
         s = ParentsBotSozlama.ol()
         self.assertEqual((s.tinch_boshi.strftime("%H:%M"), s.qarz_kunlari, s.davomat_sababli, s.natija_yoqilgan),
                          ("21:30", [0, 4], True, False))
-        self.assertTrue(FaoliyatYozuvi.objects.filter(obyekt_turi="Ota-ona boti sozlamasi").exists())
+        self.assertTrue(FaoliyatYozuvi.objects.filter(obyekt_turi="Ota-ona nazorati sozlamasi").exists())
 
     def test_notogri_qiymatlar_400(self):
         m = self.mijoz(self.owner)

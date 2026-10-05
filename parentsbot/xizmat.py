@@ -57,7 +57,7 @@ def adminlarga_bildir(sorov):
                 "turi": Bildirishnoma.Turi.OGOHLANTIRISH,
                 "sarlavha": "Ota-ona so'rovi",
                 "havola": "/crm/parentsbot",
-                "matn": "Ota-ona farzandiga ulanish uchun so'rov yubordi — CRM → Ota-ona boti bo'limida ko'ring.",
+                "matn": "Ota-ona farzandiga ulanish uchun so'rov yubordi — CRM → Ota-ona nazorati bo'limida ko'ring.",
             },
         )
 

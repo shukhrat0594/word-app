@@ -11,4 +11,4 @@ class OtabotConfig(AppConfig):
 
     default_auto_field = "django.db.models.BigAutoField"
     name = "parentsbot"
-    verbose_name = "Ota-ona boti"
+    verbose_name = "Ota-ona nazorati"

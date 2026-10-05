@@ -20,7 +20,7 @@ def _dushanba():
 
 
 class ParentsBotSozlama(models.Model):
-    """Xabarlar QACHON va NIMA yuborilishi (CRM -> Sozlamalar -> "Ota-ona boti").
+    """Xabarlar QACHON va NIMA yuborilishi (CRM -> "Ota-ona nazorati" -> Sozlamalar).
 
     Bitta yozuv (pk=1) — butun markaz uchun. Kunlar: 0=dushanba ... 6=yakshanba.
     """
@@ -47,7 +47,7 @@ class ParentsBotSozlama(models.Model):
     yangilangan = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = "Ota-ona boti sozlamasi"
+        verbose_name = "Ota-ona nazorati sozlamasi"
 
     @classmethod
     def ol(cls):
