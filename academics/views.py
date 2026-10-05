@@ -1,3 +1,5 @@
+from django.apps import apps as django_apps
+from django.db import transaction
 from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -13,6 +15,23 @@ from audit.utils import logla, maydon_diff
 from courses.models import KursTugun
 
 from .models import Davomat, Guruh, GuruhAzoligi
+
+# Teacher UI'da ruxsat etilgan to'liq holat ro'yxati — LMS'dagi
+# `Davomat.Holat` (keldi/kelmadi) + CRM'dagi "kechikdi"/"sababli" belgisi.
+DAVOMAT_HOLATLARI = ("keldi", "kechikdi", "kelmadi", "sababli")
+
+
+def _davomat_izoh_model():
+    """`DavomatIzoh` — "kechikdi"/"sababli" belgisi, LMS modeliga choice
+    qo'shmaslik uchun CRM ilovasida yashaydi (video-TZ 2026-09-28, qarang
+    crm.models.DavomatIzoh). Video-TZ 2026-10-05: o'qituvchi profilida ham
+    shu variantlar bo'lishi kerak — CRM'dagi bir xil yozuvga yoziladi.
+
+    LMS `crm`ni statik import qilmaydi (`crm.tests.IzolyatsiyaTest` —
+    CRM olib tashlansa LMS buzilmasligi kerak), shu uchun model runtime'da
+    app registridan olinadi.
+    """
+    return django_apps.get_model("crm", "DavomatIzoh")
 
 
 def _foydalanuvchi_dict(u):
@@ -442,10 +461,15 @@ class DavomatView(APIView):
         # zaxira yo'l (frontend sanani doim o'zi yuboradi), lekin noto'g'ri
         # standart qolib ketmasin.
         sana = request.query_params.get("sana") or str(timezone.localdate())
-        mavjud = {
-            d.talaba_id: d.holat
-            for d in Davomat.objects.filter(guruh=guruh, sana=sana)
-        }
+        mavjud = {}
+        for d in Davomat.objects.filter(guruh=guruh, sana=sana).select_related("crm_izoh"):
+            izoh = getattr(d, "crm_izoh", None)
+            if d.holat == Davomat.Holat.KELMADI and izoh and izoh.sababli:
+                mavjud[d.talaba_id] = "sababli"
+            elif d.holat == Davomat.Holat.KELDI and izoh and izoh.kechikdi:
+                mavjud[d.talaba_id] = "kechikdi"
+            else:
+                mavjud[d.talaba_id] = d.holat
         return Response(
             {
                 "guruh": _guruh_dict(guruh),
@@ -474,14 +498,26 @@ class DavomatView(APIView):
         for y in yozuvlar:
             talaba_id = y.get("talaba")
             holat = y.get("holat")
-            if talaba_id not in azo_idlar or holat not in Davomat.Holat.values:
+            if talaba_id not in azo_idlar or holat not in DAVOMAT_HOLATLARI:
                 continue
-            Davomat.objects.update_or_create(
-                sana=sana,
-                guruh=guruh,
-                talaba_id=talaba_id,
-                defaults={"holat": holat, "belgilagan": request.user},
-            )
+            with transaction.atomic():
+                yozuv, _ = Davomat.objects.update_or_create(
+                    sana=sana,
+                    guruh=guruh,
+                    talaba_id=talaba_id,
+                    defaults={
+                        "holat": Davomat.Holat.KELDI if holat in ("keldi", "kechikdi") else Davomat.Holat.KELMADI,
+                        "belgilagan": request.user,
+                    },
+                )
+                if holat in ("kechikdi", "sababli"):
+                    izoh_matn = (y.get("izoh") or "").strip()[:300]
+                    _davomat_izoh_model().objects.update_or_create(
+                        davomat=yozuv,
+                        defaults={"sababli": holat == "sababli", "kechikdi": holat == "kechikdi", "izoh": izoh_matn},
+                    )
+                else:
+                    _davomat_izoh_model().objects.filter(davomat=yozuv).delete()
             saqlandi += 1
 
         return Response({"saqlandi": saqlandi, "sana": sana})
