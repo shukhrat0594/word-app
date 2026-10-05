@@ -140,6 +140,55 @@ class TalabaVaLidTest(ApiAsos):
         self.assertLess(hisob.summa, NARX)  # 12-sentabrgacha proporsional
 
 
+class TalabaOtaOnaTest(ApiAsos):
+    """Talaba kartasidan ota-ona hisobi ochish (video-TZ 2026-10-05)."""
+
+    def test_yangi_ota_ona_profili_yaratiladi(self):
+        javob = self.mijoz(self.admin).post(f"/api/crm/talaba/{self.talaba.id}/ota-ona/", {
+            "amal": "yaratish", "ism": "Onasi Nilufar", "telefon": "+998901112233",
+        }, format="json")
+        self.assertEqual(javob.status_code, 201, javob.data)
+        self.talaba.refresh_from_db()
+        self.assertIsNotNone(self.talaba.ota_ona_id)
+        ota_ona = self.talaba.ota_ona
+        self.assertEqual(ota_ona.role, User.Role.PARENT)
+        self.assertTrue(ota_ona.check_password(javob.data["parol"]))
+        self.assertEqual(javob.data["username"], ota_ona.username)
+
+    def test_ikkinchi_farzand_mavjud_hisobga_ulanadi(self):
+        # Birinchi farzandga hisob ochiladi.
+        self.mijoz(self.admin).post(f"/api/crm/talaba/{self.talaba.id}/ota-ona/", {
+            "amal": "yaratish", "ism": "Otasi Alisher", "telefon": "+998901112244",
+        }, format="json")
+        self.talaba.refresh_from_db()
+        ikkinchi = User.objects.create_user(
+            username="talaba2", password="x", role=User.Role.STUDENT, markaz=self.markaz
+        )
+        javob = self.mijoz(self.admin).post(f"/api/crm/talaba/{ikkinchi.id}/ota-ona/", {
+            "amal": "ulash", "manba_talaba_id": self.talaba.id,
+        }, format="json")
+        self.assertEqual(javob.status_code, 200, javob.data)
+        ikkinchi.refresh_from_db()
+        self.assertEqual(ikkinchi.ota_ona_id, self.talaba.ota_ona_id)
+
+    def test_ota_ona_hisobi_bor_talabada_qayta_ochilmaydi(self):
+        self.talaba.ota_ona = self.ota_ona
+        self.talaba.save(update_fields=["ota_ona"])
+        javob = self.mijoz(self.admin).post(f"/api/crm/talaba/{self.talaba.id}/ota-ona/", {
+            "amal": "yaratish", "ism": "Yana biri",
+        }, format="json")
+        self.assertEqual(javob.status_code, 400)
+
+    def test_ota_onasi_yoq_talabaga_ulab_bolmaydi(self):
+        ikkinchi = User.objects.create_user(
+            username="talaba3", password="x", role=User.Role.STUDENT, markaz=self.markaz
+        )
+        javob = self.mijoz(self.admin).post(f"/api/crm/talaba/{self.talaba.id}/ota-ona/", {
+            "amal": "ulash", "manba_talaba_id": ikkinchi.id,
+        }, format="json")
+        self.assertEqual(javob.status_code, 400)
+
+
 class GuruhTest(ApiAsos):
     def test_guruh_yaratish_jadval_va_oqituvchilar(self):
         xona = Xona.objects.create(filial=self.filial, nomi="1-xona")

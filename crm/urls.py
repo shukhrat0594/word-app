@@ -73,6 +73,7 @@ urlpatterns = [
     path("talaba-qidiruv/", boshqaruv.TalabaQidiruvView.as_view(), name="talaba_qidiruv"),
     path("talaba/<int:pk>/crm/", boshqaruv.TalabaCrmView.as_view(), name="talaba_crm"),
     path("talaba/<int:pk>/sayt-hisobi/", boshqaruv.TalabaSaytHisobiView.as_view(), name="talaba_sayt_hisobi"),
+    path("talaba/<int:pk>/ota-ona/", boshqaruv.TalabaOtaOnaView.as_view(), name="talaba_ota_ona"),
 
     path("guruh-yaratish/", boshqaruv.GuruhYaratishView.as_view(), name="guruh_yaratish"),
     path("guruhlar/<int:pk>/boshqaruv/", boshqaruv.GuruhBoshqaruvView.as_view(), name="guruh_boshqaruv"),
