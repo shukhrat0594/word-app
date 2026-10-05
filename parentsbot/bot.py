@@ -2,6 +2,9 @@
 istalgan obyekt beriladi.
 
 Faqat shaxsiy chat (private) qayta ishlanadi; guruh va kanal xabarlari e'tiborsiz.
+
+Qaysi xabarlar borishini MARKAZ hal qiladi (CRM sozlamasi) — ota-onada o'chirish/to'xtatish yo'q.
+Ota-ona botni bloklasa — markazga bildirishnoma (`xizmat.bloklandi`).
 """
 
 import logging
@@ -11,9 +14,8 @@ from django.utils import timezone
 
 from . import matnlar, moslash, tugmalar, xizmat
 from .matnlar import t
-from .models import Abonent, Boglanish, ParentsBotSozlama
+from .models import Abonent, Boglanish
 from .telegram import TgXato
-from .xabarlar import TOIFALAR, toifa_yoqilgan
 
 log = logging.getLogger("parentsbot")
 
@@ -46,6 +48,9 @@ class Bot:
             log.exception("Yangilanishni qayta ishlashda xato")
 
     def _ishla(self, update):
+        azolik = update.get("my_chat_member")
+        if azolik:
+            return self._azolik(azolik)
         cb = update.get("callback_query")
         if cb:
             return self._callback(cb)
@@ -75,22 +80,33 @@ class Bot:
         if not yaratildi and (ab.ism != ism or ab.username != (kim.get("username") or "")[:100]):
             ab.ism, ab.username = ism, (kim.get("username") or "")[:100]
             ab.save(update_fields=["ism", "username"])
+        xizmat.blokdan_chiqdi(ab)  # botga yozyapti — demak bloklamagan
         return ab
+
+    def _azolik(self, m):
+        """`my_chat_member`: ota-ona botni blokladi ("kicked") yoki blokdan chiqardi ("member").
+        Telegram buni darhol yuboradi — markaz navbatdagi xabarni kutmasdan biladi."""
+        if (m.get("chat") or {}).get("type") != "private":
+            return
+        ab = Abonent.objects.filter(telegram_id=(m.get("from") or {}).get("id")).first()
+        if ab is None:
+            return
+        holat = (m.get("new_chat_member") or {}).get("status")
+        if holat == "kicked":
+            xizmat.bloklandi(ab)
+        elif holat == "member":
+            xizmat.blokdan_chiqdi(ab)
 
     def _yubor(self, ab, kalit, tugmalar=None, **q):
         self.tg.yubor(ab.telegram_id, t(ab.til, kalit, **q), tugmalar)
 
     def _menyu(self, ab):
-        """Doimiy tugmalar: ulangan (yoki to'xtatilgan) ota-onaga; hali ulanmaganga — yo'q."""
-        if not ab.faol:
-            return tugmalar.menyu(ab.til, faol=False)
+        """Doimiy tugmalar: ulangan ota-onaga; hali ulanmaganga — yo'q."""
         return tugmalar.menyu(ab.til) if xizmat.faol_farzandlar(ab) else None
 
     # ── buyruqlar ───────────────────────────────────────────────────
     def _buyruq(self, ab, buyruq):
         if buyruq == "/start":
-            ab.faol = True
-            ab.save(update_fields=["faol"])
             if ab.holat == Abonent.Holat.TIL:
                 return self._yubor(ab, "til_tanlang", TIL_TUGMALARI)
             if xizmat.faol_farzandlar(ab):
@@ -100,16 +116,8 @@ class Bot:
             return self._yubor(ab, "salom_telefon", telefon_tugmasi(ab.til))
         if buyruq == "/farzandlarim":
             return self._farzandlar(ab)
-        if buyruq == "/sozlamalar":
-            if not xizmat.faol_farzandlar(ab):
-                return self._yubor(ab, "farzand_yoq")
-            return self._yubor(ab, "sozlamalar", self._sozlama_tugmalari(ab))
         if buyruq == "/til":
             return self._yubor(ab, "til_tanlang", TIL_TUGMALARI)
-        if buyruq == "/stop":
-            ab.faol = False
-            ab.save(update_fields=["faol"])
-            return self._yubor(ab, "to_xtadi", tugmalar.menyu(ab.til, faol=False))
         if buyruq == "/yordam":
             return self._yubor(ab, "yordam", self._menyu(ab))
         self._yubor(ab, "tushunmadim")
@@ -121,28 +129,10 @@ class Bot:
         royxat = "\n".join(f"• {moslash.talaba_ismi(b)}" for b in bolalar)
         self._yubor(ab, "farzandlar", self._menyu(ab), royxat=royxat)
 
-    def _sozlama_tugmalari(self, ab):
-        """Har toifa — bitta tugma: ✅ yoqilgan, ❌ ota-ona o'chirgan, 🚫 markaz o'chirgan."""
-        sozlama = ParentsBotSozlama.ol()
-        qatorlar = []
-        for turi in TOIFALAR:
-            if not toifa_yoqilgan(sozlama, turi):
-                belgi = "🚫"
-            elif turi in (ab.toifa_ochirilgan or []):
-                belgi = "❌"
-            else:
-                belgi = "✅"
-            qatorlar.append([{"text": f"{belgi} {t(ab.til, f'toifa_{turi}')}", "callback_data": f"toifa:{turi}"}])
-        return {"inline_keyboard": qatorlar}
-
     def _callback(self, cb):
         kim = cb.get("from") or {}
         data = cb.get("data") or ""
-        if kim.get("is_bot") or not kim.get("id"):
-            return
-        if data.startswith("toifa:"):
-            return self._toifa(cb, kim, data[6:])
-        if not data.startswith("til:"):
+        if kim.get("is_bot") or not kim.get("id") or not data.startswith("til:"):
             return
         til = data[4:]
         if til not in matnlar.TILLAR:
@@ -164,32 +154,6 @@ class Bot:
         if ab.holat == Abonent.Holat.FARZAND_SANA:
             return self._yubor(ab, "farzand_sana_so")
         self._yubor(ab, "til_ozgardi", self._menyu(ab))
-
-    def _toifa(self, cb, kim, turi):
-        """Ota-ona o'zi toifani yoqadi/o'chiradi. Markaz o'chirgan toifani yoqib bo'lmaydi."""
-        if turi not in TOIFALAR:
-            return self.tg.callback_javob(cb.get("id"))  # tugmadagi "soat" belgisi osilib qolmasin
-        ab = self._abonent(kim)
-        if not xizmat.faol_farzandlar(ab):
-            self.tg.callback_javob(cb.get("id"))
-            return self._yubor(ab, "farzand_yoq")
-        if not toifa_yoqilgan(ParentsBotSozlama.ol(), turi):
-            return self.tg.callback_javob(cb.get("id"), t(ab.til, "toifa_markaz_ochirgan"))
-        ochirilgan = [x for x in (ab.toifa_ochirilgan or []) if x in TOIFALAR]
-        if turi in ochirilgan:
-            ochirilgan.remove(turi)
-        else:
-            ochirilgan.append(turi)
-        ab.toifa_ochirilgan = ochirilgan
-        ab.save(update_fields=["toifa_ochirilgan"])
-        self.tg.callback_javob(cb.get("id"))
-        xabar_id = (cb.get("message") or {}).get("message_id")
-        if xabar_id:
-            try:
-                return self.tg.tugmalarni_yangila(kim["id"], xabar_id, self._sozlama_tugmalari(ab))
-            except TgXato as xato:  # masalan xabar juda eski — yangisini yuboramiz
-                log.warning("Sozlama tugmalari yangilanmadi: %s", xato)
-        self._yubor(ab, "sozlamalar", self._sozlama_tugmalari(ab))
 
     # ── telefon ─────────────────────────────────────────────────────
     def _kontakt(self, ab, kontakt, kim):

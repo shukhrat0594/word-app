@@ -74,6 +74,50 @@ def sorov_yarat(abonent, ism, sana_matni, nomzod_idlar):
     return s
 
 
+def bloklandi(abonent):
+    """Ota-ona botni blokladi (yoki Telegram hisobi o'chirilgan): xabarlar to'xtaydi va adminlarga
+    🔔 bildirishnoma boradi — markaz ota-ona bilan boshqa yo'l bilan bog'lanadi.
+
+    Har bloklash uchun BIR marta: faqat `faol=True` -> `False` o'tishida (bir partiyada bir nechta
+    xabar 403 qaytarsa ham, bot `my_chat_member` ham yuborsa ham — bildirishnoma takrorlanmaydi).
+    Filial xodimiga faqat o'z filiali o'quvchisining ota-onasi haqida boradi.
+    """
+    from crm.filial import talaba_korinadimi
+
+    hozir = timezone.now()
+    if not Abonent.objects.filter(pk=abonent.pk, faol=True).update(faol=False, bloklangan=hozir):
+        return False
+    abonent.faol, abonent.bloklangan = False, hozir
+    bolalar = faol_farzandlar(abonent)
+    if not bolalar:
+        return True
+    kim = abonent.ism or abonent.telefon or f"Telegram {abonent.telegram_id}"
+    if abonent.telefon and abonent.ism:
+        kim = f"{abonent.ism} ({abonent.telefon})"
+    for u in adminlar():
+        korinadi = [t for t in bolalar if talaba_korinadimi(u, t.id)]
+        if not korinadi:
+            continue
+        Bildirishnoma.objects.get_or_create(
+            foydalanuvchi=u, kalit=f"parentsbot:blok:{abonent.id}:{hozir:%Y%m%d%H%M%S%f}",
+            defaults={
+                "turi": Bildirishnoma.Turi.OGOHLANTIRISH,
+                "sarlavha": "Ota-ona botni bloklab qo'ydi",
+                "havola": "/crm/parentsbot",
+                "matn": f"{kim} — {ismlar_matni(korinadi)} ota-onasi — botni bloklab qo'ydi (yoki Telegram "
+                        "hisobini o'chirdi). Unga endi xabar bormaydi: ota-ona bilan bog'laning.",
+            },
+        )
+    return True
+
+
+def blokdan_chiqdi(abonent):
+    """Ota-ona botga qayta yozdi yoki blokdan chiqardi — xabarlar yana boradi."""
+    if not abonent.faol:
+        abonent.faol, abonent.bloklangan = True, None
+        abonent.save(update_fields=["faol", "bloklangan"])
+
+
 def _yubor(tg, abonent, kalit, tugmalar_=None, **q):
     try:
         tg.yubor(abonent.telegram_id, matnlar.t(abonent.til, kalit, **q), tugmalar_)

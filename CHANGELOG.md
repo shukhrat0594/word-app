@@ -39,9 +39,10 @@ Format (qat'iy, parser shunga tayanadi):
 - Admin davomat yoki to'lovni adashib kiritib, bir necha daqiqa ichida
   tuzatsa, ota-onaga xato xabar bormaydi. Qarzni orada to'lab qo'ygan
   ota-onaga eslatma bormaydi.
-- Ota-ona botdagi "⚙️ Sozlamalar" orqali o'ziga kerak bo'lmagan
-  xabarlarni o'chira oladi (markaz o'chirgan xabarni yoqa olmaydi) yoki
-  hammasini to'xtatib qo'yadi.
+- Qaysi xabarlar borishini faqat markaz hal qiladi — ota-ona ularni
+  o'chira olmaydi. **Ota-ona botni bloklab qo'ysa, adminlarga 🔔
+  bildirishnoma keladi**, CRM'dagi ro'yxatda esa u "Botni bloklagan"
+  deb ko'rinadi — u bilan boshqa yo'l bilan bog'lanish mumkin.
 - Saytdagi 🔔 bildirishnoma bosilganda kerakli sahifa ochiladi.
 
 ## 2026-09-29 — Lidlar: qora ro'yxat va arxiv tuzatildi

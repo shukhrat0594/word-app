@@ -93,8 +93,10 @@ class Abonent(models.Model):
     til = models.CharField(max_length=2, default="uz")
     holat = models.CharField(max_length=20, choices=Holat.choices, default=Holat.TIL)
     kontekst = models.JSONField(default=dict, blank=True)  # suhbatning vaqtinchalik ma'lumoti
-    faol = models.BooleanField(default=True)  # /stop -> False: xabar yuborilmaydi
-    toifa_ochirilgan = models.JSONField(default=list, blank=True)  # ota-ona o'zi o'chirgan toifalar
+    # False — ota-ona botni bloklagan (yoki Telegram hisobi o'chirilgan): xabar yuborilmaydi.
+    # Qaysi xabarlar borishini MARKAZ hal qiladi — ota-ona o'zi o'chira olmaydi (Shuhrat, 2026-10-05).
+    faol = models.BooleanField(default=True)
+    bloklangan = models.DateTimeField(null=True, blank=True)  # qachon bloklagani (CRM'da ko'rsatiladi)
     urinishlar = models.JSONField(default=list, blank=True)  # ism bilan urinish vaqtlari (ISO)
     yaratilgan = models.DateTimeField(auto_now_add=True)
 

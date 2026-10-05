@@ -61,22 +61,16 @@ MATNLAR = {
         "uz": "Hali hech kim ulanmagan. /start ni bosing.",
         "ru": "Пока никто не подключён. Нажмите /start.",
     },
-    "to_xtadi": {
-        "uz": "Xabarlar o'chirildi. Qayta yoqish uchun /start ni bosing.",
-        "ru": "Сообщения отключены. Чтобы включить снова, нажмите /start.",
-    },
     "til_ozgardi": {"uz": "Til o'zgartirildi: o'zbekcha.", "ru": "Язык изменён: русский."},
     "yordam": {
-        "uz": "Buyruqlar:\n/farzandlarim — ulangan farzandlar\n/sozlamalar — qaysi xabarlarni olish\n"
-              "/til — tilni almashtirish\n/stop — xabarlarni to'xtatish\n/start — qayta yoqish",
-        "ru": "Команды:\n/farzandlarim — подключённые дети\n/sozlamalar — какие сообщения получать\n"
-              "/til — сменить язык\n/stop — остановить сообщения\n/start — включить снова",
+        "uz": "Buyruqlar:\n/farzandlarim — ulangan farzandlar\n/til — tilni almashtirish\n"
+              "/start — boshidan boshlash\n\nSavollar bo'lsa — markazga murojaat qiling.",
+        "ru": "Команды:\n/farzandlarim — подключённые дети\n/til — сменить язык\n"
+              "/start — начать сначала\n\nЕсли есть вопросы — обратитесь в центр.",
     },
     "tugma_farzandlar": {"uz": "👨‍👩‍👧 Farzandlarim", "ru": "👨‍👩‍👧 Мои дети"},
     "tugma_til": {"uz": "🌐 Til", "ru": "🌐 Язык"},
     "tugma_yordam": {"uz": "ℹ️ Yordam", "ru": "ℹ️ Помощь"},
-    "tugma_stop": {"uz": "⏸ Xabarlarni to'xtatish", "ru": "⏸ Остановить сообщения"},
-    "tugma_start": {"uz": "▶️ Xabarlarni qayta yoqish", "ru": "▶️ Включить сообщения"},
     # Davomat xabarlari. {kun} — "bugun" yoki "05.10.2026 kuni" (tilga qarab).
     "davomat_kelmadi": {
         "uz": "⚠️ {ism} {kun} «{guruh}» guruhida darsga kelmadi.",
@@ -114,20 +108,6 @@ MATNLAR = {
         "ru": "• Упражнения: {soni}, средний результат {foiz}%",
     },
     "natija_band": {"uz": "• {nom}: {soni} ta, band {band}", "ru": "• {nom}: {soni}, band {band}"},
-    # Ota-ona sozlamalari (/sozlamalar)
-    "sozlamalar": {
-        "uz": "⚙️ Qaysi xabarlarni olishni tanlang (bosib yoqing/o'chiring):",
-        "ru": "⚙️ Выберите, какие сообщения получать (нажмите, чтобы включить/выключить):",
-    },
-    "toifa_davomat": {"uz": "Davomat", "ru": "Посещаемость"},
-    "toifa_tolov": {"uz": "To'lovlar", "ru": "Оплаты"},
-    "toifa_qarz": {"uz": "Qarz eslatmasi", "ru": "Напоминание о долге"},
-    "toifa_natija": {"uz": "Natijalar", "ru": "Результаты"},
-    "toifa_markaz_ochirgan": {
-        "uz": "Bu xabarlarni markaz hozircha yubormaydi.",
-        "ru": "Центр пока не отправляет эти сообщения.",
-    },
-    "tugma_sozlamalar": {"uz": "⚙️ Sozlamalar", "ru": "⚙️ Настройки"},
     "tushunmadim": {
         "uz": "Tushunmadim. Buyruqlar uchun /yordam ni bosing.",
         "ru": "Не понял. Команды — /yordam.",
@@ -155,19 +135,15 @@ def t(til, kalit, **qiymatlar):
 # "/" bosilganda Telegram ko'rsatadigan buyruqlar ro'yxati (BotFather menyusi, `setMyCommands`).
 BUYRUQLAR = {
     "uz": [
-        ("start", "Boshlash / qayta yoqish"),
+        ("start", "Boshlash"),
         ("farzandlarim", "Ulangan farzandlarim"),
-        ("sozlamalar", "Qaysi xabarlarni olish"),
         ("til", "Tilni o'zgartirish"),
-        ("stop", "Xabarlarni to'xtatish"),
         ("yordam", "Buyruqlar ro'yxati"),
     ],
     "ru": [
-        ("start", "Начать / включить снова"),
+        ("start", "Начать"),
         ("farzandlarim", "Мои дети"),
-        ("sozlamalar", "Какие сообщения получать"),
         ("til", "Сменить язык"),
-        ("stop", "Остановить сообщения"),
         ("yordam", "Список команд"),
     ],
 }

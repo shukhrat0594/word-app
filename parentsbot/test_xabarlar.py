@@ -134,7 +134,7 @@ class SkanerTest(XabarAsos):
         self.yubor(minut=13)
         self.assertEqual(self.tg.yuborilgan, [])
 
-    def test_stop_dan_keyin_start_eski_davomat_yogilmaydi(self):
+    def test_blokdan_chiqqanda_eski_davomat_yogilmaydi(self):
         Abonent.objects.filter(pk=self.ota.pk).update(faol=False)
         self.belgi()
         self.skaner()
@@ -209,17 +209,10 @@ class BekorQilishTest(XabarAsos):
         self.assertEqual(Xabar.objects.get(kalit__endswith=":kelmadi").holat, "bekor")
         self.assertEqual(self.tg.yuborilgan, [])
 
-    def test_ota_ona_stop_qilsa_bekor(self):
+    def test_ota_ona_bloklasa_bekor(self):
         self.belgi()
         self.skaner()
         Abonent.objects.filter(pk=self.ota.pk).update(faol=False)
-        self.yubor(minut=6)
-        self.assertEqual(Xabar.objects.get().holat, "bekor")
-
-    def test_ota_ona_toifani_ochirgan(self):
-        Abonent.objects.filter(pk=self.ota.pk).update(toifa_ochirilgan=["davomat"])
-        self.belgi()
-        self.skaner()
         self.yubor(minut=6)
         self.assertEqual(Xabar.objects.get().holat, "bekor")
 
@@ -328,3 +321,81 @@ class XatolarTest(XabarAsos):
         self.assertEqual(self.yubor(minut=6), 1)
         self.assertEqual(len(self.tg.yuborilgan), 1)
         self.assertNotEqual(Xabar.objects.get().yuborilsin, x.yuborilsin)
+
+
+class BloklashTest(XabarAsos):
+    """Ota-ona botni bloklasa — markazga 🔔 bildirishnoma (Shuhrat, 2026-10-05)."""
+
+    def bildirishnomalar(self, user=None):
+        from accounts.models import Bildirishnoma
+
+        return Bildirishnoma.objects.filter(foydalanuvchi=user or self.owner, kalit__startswith="parentsbot:blok:")
+
+    def test_403_da_markazga_bitta_bildirishnoma(self):
+        ona_bola = User.objects.create_user(username="t_ikki", password="x", role=User.Role.STUDENT,
+                                            markaz=self.markaz)
+        Boglanish.objects.create(abonent=self.ota, talaba=ona_bola, usul="admin")
+        self.belgi()
+        self.belgi(talaba=ona_bola)
+        self.skaner()
+        self.tg.yubor = lambda *a, **k: (_ for _ in ()).throw(TgXato("sendMessage: 403 Forbidden: bot was blocked"))
+        self.yubor(minut=6)  # ikkala xabar ham 403 — bildirishnoma baribir bitta
+        b = self.bildirishnomalar().get()
+        self.assertEqual(b.havola, "/crm/parentsbot")
+        self.assertIn("bloklab", b.matn)
+        self.assertIn(self.talaba.get_full_name() or self.talaba.username, b.matn)
+        ab = Abonent.objects.get(pk=self.ota.pk)
+        self.assertFalse(ab.faol)
+        self.assertIsNotNone(ab.bloklangan)
+        self.assertFalse(self.bildirishnomalar(self.oqituvchi).exists())  # ruxsatsiz xodimga emas
+
+    def test_my_chat_member_kicked_darhol_bildiradi(self):
+        from parentsbot.bot import Bot
+
+        bot = Bot(self.tg)
+        yangilanish = {"my_chat_member": {"chat": {"type": "private", "id": 501}, "from": {"id": 501},
+                                          "new_chat_member": {"status": "kicked"}}}
+        bot.qayta_ishla(yangilanish)
+        bot.qayta_ishla(yangilanish)  # takror kelsa ham bitta bildirishnoma
+        self.assertFalse(Abonent.objects.get(pk=self.ota.pk).faol)
+        self.assertEqual(self.bildirishnomalar().count(), 1)
+        # blokdan chiqardi
+        yangilanish["my_chat_member"]["new_chat_member"]["status"] = "member"
+        bot.qayta_ishla(yangilanish)
+        ab = Abonent.objects.get(pk=self.ota.pk)
+        self.assertTrue(ab.faol)
+        self.assertIsNone(ab.bloklangan)
+
+    def test_qayta_bloklasa_yana_bildiradi(self):
+        from parentsbot import xizmat
+
+        self.assertTrue(xizmat.bloklandi(self.ota))
+        xizmat.blokdan_chiqdi(Abonent.objects.get(pk=self.ota.pk))
+        self.assertTrue(xizmat.bloklandi(Abonent.objects.get(pk=self.ota.pk)))
+        self.assertEqual(self.bildirishnomalar().count(), 2)
+
+    def test_botga_yozsa_blokdan_chiqqan_hisoblanadi(self):
+        from parentsbot import xizmat
+        from parentsbot.bot import Bot
+        from parentsbot.test_bot import xabar
+
+        xizmat.bloklandi(self.ota)
+        Bot(self.tg).qayta_ishla(xabar(501, "/farzandlarim"))
+        self.assertTrue(Abonent.objects.get(pk=self.ota.pk).faol)
+        self.assertIn("Farzandlaringiz", self.tg.oxirgi())
+
+    def test_farzandsiz_abonent_bildirmaydi(self):
+        from parentsbot import xizmat
+
+        Boglanish.objects.update(faol=False)
+        self.assertTrue(xizmat.bloklandi(self.ota))
+        self.assertFalse(self.bildirishnomalar().exists())
+
+    def test_crm_royxatida_bloklagani_korinadi(self):
+        from parentsbot import xizmat
+
+        xizmat.bloklandi(self.ota)
+        d = self.mijoz(self.owner).get("/api/crm/parentsbot/abonentlar/").data
+        self.assertEqual(len(d), 1)
+        self.assertFalse(d[0]["faol"])
+        self.assertIsNotNone(d[0]["bloklangan"])

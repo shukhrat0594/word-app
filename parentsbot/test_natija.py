@@ -110,16 +110,15 @@ class NatijaTest(NatijaAsos):
         self.yechim(8, 10, vaqt=datetime.combine(self.kun, time(19, 10), tzinfo=TOSH))
         self.assertEqual(xb.skanerla_natija(self.hozir), 0)
 
-    def test_sozlama_va_ota_ona_ochirgan(self):
+    def test_markaz_ochirgan(self):
         self.yechim(8, 10)
-        ParentsBotSozlama.ol()
         ParentsBotSozlama.objects.filter(pk=1).update(natija_yoqilgan=False)
         self.assertEqual(xb.skanerla_natija(self.hozir), 0)
-        ParentsBotSozlama.objects.filter(pk=1).update(natija_yoqilgan=True)
-        Abonent.objects.filter(pk=self.ota.pk).update(toifa_ochirilgan=["natija"])
-        xb.skanerla_natija(self.hozir)
-        xb.yubor_navbat(self.tg, self.hozir, pauza=0)
-        self.assertEqual(Xabar.objects.get().holat, "bekor")
+
+    def test_bloklagan_ota_onaga_yaratilmaydi(self):
+        self.yechim(8, 10)
+        Abonent.objects.filter(pk=self.ota.pk).update(faol=False)
+        self.assertEqual(xb.skanerla_natija(self.hozir), 0)
 
     def test_jadvalda_yoq_kun(self):
         ParentsBotSozlama.ol()

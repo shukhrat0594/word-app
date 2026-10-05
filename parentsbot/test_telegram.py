@@ -48,13 +48,13 @@ class BuyruqlarMenyusiTest(SimpleTestCase):
         tillar = [j.get("language_code") for _, j in y.chaqiruvlar]
         self.assertEqual(tillar, [None, "uz", "ru"])
         nomlar = [c["command"] for c in y.chaqiruvlar[0][1]["commands"]]
-        self.assertEqual(nomlar, ["start", "farzandlarim", "sozlamalar", "til", "stop", "yordam"])
+        self.assertEqual(nomlar, ["start", "farzandlarim", "til", "yordam"])
 
     def test_har_buyruq_botda_bor(self):
         from parentsbot.matnlar import BUYRUQLAR
 
         # menyudagi har buyruq botda ishlaydi (tushunmadim bermaydi)
-        kodda = {"/start", "/farzandlarim", "/sozlamalar", "/til", "/stop", "/yordam"}
+        kodda = {"/start", "/farzandlarim", "/til", "/yordam"}
         for til, royxat in BUYRUQLAR.items():
             self.assertEqual({"/" + b for b, _ in royxat}, kodda, til)
             for _, tavsif in royxat:

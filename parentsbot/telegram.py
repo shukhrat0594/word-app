@@ -37,7 +37,8 @@ class Tg:
     def yangilanishlar(self, offset, kutish=30):
         return self.chaqir(
             "getUpdates", offset=offset, timeout=kutish,
-            allowed_updates=["message", "callback_query"],
+            # my_chat_member — ota-ona botni bloklasa/blokdan chiqarsa darhol bilish uchun
+            allowed_updates=["message", "callback_query", "my_chat_member"],
         )
 
     def yubor(self, chat_id, matn, tugmalar=None):
@@ -55,16 +56,8 @@ class Tg:
                 self.chaqir("setMyCommands", commands=tarkib)
             self.chaqir("setMyCommands", commands=tarkib, language_code=til)
 
-    def tugmalarni_yangila(self, chat_id, message_id, tugmalar):
-        """Yuborilgan xabarning inline tugmalarini almashtiradi (yangi xabar yubormasdan)."""
-        return self.chaqir("editMessageReplyMarkup", chat_id=chat_id, message_id=message_id,
-                           reply_markup=tugmalar)
-
-    def callback_javob(self, callback_id, matn=None):
-        parametrlar = {"callback_query_id": callback_id}
-        if matn:
-            parametrlar.update(text=matn, show_alert=True)
+    def callback_javob(self, callback_id):
         try:
-            self.chaqir("answerCallbackQuery", **parametrlar)
+            self.chaqir("answerCallbackQuery", callback_query_id=callback_id)
         except TgXato:
             pass  # bosilgan tugma "soat" belgisi qolib ketmasin — xato bo'lsa ahamiyatsiz

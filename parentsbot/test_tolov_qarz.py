@@ -118,7 +118,7 @@ class TolovXabariTest(Asos):
         self.yubor(self.t0 + timedelta(minutes=13))
         self.assertEqual(self.tg.yuborilgan, [])
 
-    def test_stop_qilgan_ota_ona_start_bossa_eski_tolov_kelmaydi(self):
+    def test_blokdan_chiqqan_ota_onaga_eski_tolov_kelmaydi(self):
         Abonent.objects.filter(pk=self.ota.pk).update(faol=False)
         self.tolov()
         self.skaner()
@@ -150,14 +150,6 @@ class TolovXabariTest(Asos):
         ParentsBotSozlama.objects.filter(pk=1).update(tolov_yoqilgan=False)
         self.yubor(self.t0 + timedelta(minutes=6))
         self.assertEqual(Xabar.objects.get().holat, "bekor")
-
-    def test_ota_ona_toifani_ochirgan(self):
-        Abonent.objects.filter(pk=self.ota.pk).update(toifa_ochirilgan=["tolov"])
-        self.tolov()
-        self.skaner()
-        self.yubor(self.t0 + timedelta(minutes=6))
-        self.assertEqual(Xabar.objects.get().holat, "bekor")
-        self.assertEqual(self.tg.yuborilgan, [])
 
     def test_boshqa_talabaning_tolovi_xabar_bermaydi(self):
         from accounts.models import User

@@ -14,11 +14,8 @@ class SoxtaTg:
     def yubor(self, chat_id, matn, tugmalar=None):
         self.yuborilgan.append((chat_id, matn, tugmalar))
 
-    def callback_javob(self, callback_id, matn=None):
-        self.javoblar = getattr(self, "javoblar", []) + [matn]
-
-    def tugmalarni_yangila(self, chat_id, message_id, tugmalar):
-        self.yangilangan = getattr(self, "yangilangan", []) + [(chat_id, message_id, tugmalar)]
+    def callback_javob(self, callback_id):
+        pass
 
     def oxirgi(self):
         return self.yuborilgan[-1][1] if self.yuborilgan else None
@@ -175,13 +172,13 @@ class BuyruqlarTest(BotAsos):
         self.yubor(100, "/farzandlarim")
         self.assertIn("Aziz Karimov", self.tg.oxirgi())
 
-    def test_stop_va_qayta_start(self):
+    def test_stop_va_sozlamalar_yoq(self):
+        """Qaysi xabarlar borishini markaz hal qiladi — ota-ona o'chira olmaydi (2026-10-05)."""
         self.ulangan()
-        self.yubor(100, "/stop")
-        self.assertFalse(Abonent.objects.get().faol)
-        self.yubor(100, "/start")
+        for buyruq in ("/stop", "/sozlamalar"):
+            self.yubor(100, buyruq)
+            self.assertIn("Tushunmadim", self.tg.oxirgi())
         self.assertTrue(Abonent.objects.get().faol)
-        self.assertIn("Aziz Karimov", self.tg.oxirgi())
 
     def test_til_almashtirish(self):
         self.ulangan()
@@ -212,9 +209,7 @@ class TugmalarMenyusiTest(BotAsos):
     def test_ulangach_doimiy_menyu_chiqadi(self):
         self.ulangan()
         matnlar = self.tugma_matnlari()
-        self.assertEqual(len(matnlar), 5)
-        self.assertIn("👨‍👩‍👧 Farzandlarim", matnlar)
-        self.assertIn("⚙️ Sozlamalar", matnlar)
+        self.assertEqual(matnlar, ["👨‍👩‍👧 Farzandlarim", "🌐 Til", "ℹ️ Yordam"])
         self.assertTrue(self.tg.yuborilgan[-1][2]["is_persistent"])
 
     def test_tugma_buyruq_vazifasini_bajaradi(self):
@@ -233,14 +228,11 @@ class TugmalarMenyusiTest(BotAsos):
         self.yubor(100, "👨‍👩‍👧 Мои дети")  # ruscha tugma ham taniladi
         self.assertIn("Aziz Karimov", self.tg.oxirgi())
 
-    def test_stop_tugmasi_va_qayta_yoqish_tugmasi(self):
+    def test_eski_toxtatish_tugmasi_ishlamaydi(self):
+        # Eski menyu ota-ona telefonida qolgan bo'lishi mumkin — bosilsa ham xabarlar o'chmaydi
         self.ulangan()
         self.yubor(100, "⏸ Xabarlarni to'xtatish")
-        self.assertFalse(Abonent.objects.get().faol)
-        self.assertEqual(self.tugma_matnlari(), ["▶️ Xabarlarni qayta yoqish"])
-        self.yubor(100, "▶️ Xabarlarni qayta yoqish")
         self.assertTrue(Abonent.objects.get().faol)
-        self.assertIn("Aziz Karimov", self.tg.oxirgi())
 
     def test_ulanmagan_ota_onaga_menyu_yoq(self):
         self.tilgacha()
@@ -260,79 +252,7 @@ class TugmalarMenyusiTest(BotAsos):
         self.yubor(100, "Sevara Jorayeva")
         self.yubor(100, "03.03.2011")
         self.assertIn("Ulandi", self.tg.oxirgi())
-        self.assertEqual(len(self.tugma_matnlari()), 5)
-
-
-class SozlamalarTest(BotAsos):
-    def ulangan(self):
-        self.tilgacha()
-        self.yubor(100, contact={"phone_number": "+998901234567", "user_id": 100})
-
-    def tugma_bos(self, data, xabar_id=7):
-        u = tugma(100, data)
-        u["callback_query"]["message"] = {"message_id": xabar_id}
-        self.bot.qayta_ishla(u)
-
-    def tugmalar(self, klaviatura):
-        return {b["callback_data"]: b["text"] for qator in klaviatura["inline_keyboard"] for b in qator}
-
-    def test_sozlamalar_toifalarni_korsatadi(self):
-        self.ulangan()
-        self.yubor(100, "⚙️ Sozlamalar")
-        self.assertIn("Qaysi xabarlarni", self.tg.oxirgi())
-        t = self.tugmalar(self.tg.yuborilgan[-1][2])
-        self.assertEqual(set(t), {"toifa:davomat", "toifa:tolov", "toifa:qarz", "toifa:natija"})
-        self.assertTrue(all(v.startswith("✅") for v in t.values()))
-
-    def test_toifani_ochirish_va_qayta_yoqish(self):
-        self.ulangan()
-        self.yubor(100, "/sozlamalar")
-        self.tugma_bos("toifa:qarz")
-        self.assertEqual(Abonent.objects.get().toifa_ochirilgan, ["qarz"])
-        chat, xabar_id, klav = self.tg.yangilangan[-1]
-        self.assertEqual((chat, xabar_id), (100, 7))
-        self.assertTrue(self.tugmalar(klav)["toifa:qarz"].startswith("❌"))
-        self.tugma_bos("toifa:qarz")
-        self.assertEqual(Abonent.objects.get().toifa_ochirilgan, [])
-
-    def test_markaz_ochirgan_toifani_yoqib_bolmaydi(self):
-        from parentsbot.models import ParentsBotSozlama
-
-        self.ulangan()
-        ParentsBotSozlama.ol()
-        ParentsBotSozlama.objects.filter(pk=1).update(natija_yoqilgan=False)
-        self.yubor(100, "/sozlamalar")
-        self.assertTrue(self.tugmalar(self.tg.yuborilgan[-1][2])["toifa:natija"].startswith("🚫"))
-        self.tugma_bos("toifa:natija")
-        self.assertEqual(Abonent.objects.get().toifa_ochirilgan, [])
-        self.assertIn("markaz", self.tg.javoblar[-1].lower())
-
-    def test_ulanmagan_ota_ona_sozlama_ololmaydi(self):
-        self.tilgacha()
-        self.yubor(100, "/sozlamalar")
-        self.assertIn("Hali hech kim", self.tg.oxirgi())
-        self.tugma_bos("toifa:davomat")
-        self.assertEqual(Abonent.objects.get().toifa_ochirilgan, [])
-
-    def test_notogri_toifa_e_tiborsiz(self):
-        self.ulangan()
-        self.tugma_bos("toifa:boshqa")
-        self.assertEqual(Abonent.objects.get().toifa_ochirilgan, [])
-        self.assertEqual(len(self.tg.javoblar), 2)  # til + shu: tugma "soat"i osilib qolmaydi
-
-    def test_tugmani_yangilab_bolmasa_yangi_xabar(self):
-        from parentsbot.telegram import TgXato
-
-        self.ulangan()
-
-        def xato(*a, **k):
-            raise TgXato("editMessageReplyMarkup: 400 Bad Request: message can't be edited")
-
-        self.tg.tugmalarni_yangila = xato
-        self.tugma_bos("toifa:davomat")
-        self.assertEqual(Abonent.objects.get().toifa_ochirilgan, ["davomat"])
-        self.assertIn("Qaysi xabarlarni", self.tg.oxirgi())
-        self.assertTrue(self.tugmalar(self.tg.yuborilgan[-1][2])["toifa:davomat"].startswith("❌"))
+        self.assertEqual(len(self.tugma_matnlari()), 3)
 
 
 class TilJarayonOrtasidaTest(BotAsos):
@@ -356,12 +276,12 @@ class TugmaMatniVariantlariTest(BotAsos):
     def test_variation_selectorsiz_emoji(self):
         from parentsbot.tugmalar import tugma_buyrugi
 
-        self.assertEqual(tugma_buyrugi("\u2699 Sozlamalar"), "/sozlamalar")  # U+FE0F yo'q
-        self.assertEqual(tugma_buyrugi("\u2699\ufe0f Sozlamalar"), "/sozlamalar")
-        self.assertEqual(tugma_buyrugi("\u2139 Yordam"), "/yordam")
-        self.assertEqual(tugma_buyrugi("\u25b6 Xabarlarni qayta yoqish"), "/start")
-        self.assertEqual(tugma_buyrugi("⏸️ Xabarlarni to'xtatish"), "/stop")
+        self.assertEqual(tugma_buyrugi("ℹ Yordam"), "/yordam")  # U+FE0F yo'q
+        self.assertEqual(tugma_buyrugi("ℹ️ Yordam"), "/yordam")
+        self.assertEqual(tugma_buyrugi("🌐 Til"), "/til")
         self.assertEqual(tugma_buyrugi("👨 Мои дети"), "/farzandlarim")
+        self.assertIsNone(tugma_buyrugi("⚙️ Sozlamalar"))  # olib tashlangan
+        self.assertIsNone(tugma_buyrugi("⏸ Xabarlarni to'xtatish"))
 
     def test_oddiy_matn_tugma_emas(self):
         from parentsbot.tugmalar import tugma_buyrugi
@@ -369,8 +289,8 @@ class TugmaMatniVariantlariTest(BotAsos):
         for matn in ("Aziz Karimov", "", "⚙️", "Sozlamalar kerak", "salom"):
             self.assertIsNone(tugma_buyrugi(matn), matn)
 
-    def test_botda_sozlamalar_ochiladi(self):
+    def test_botda_emojisiz_yordam(self):
         self.tilgacha()
         self.yubor(100, contact={"phone_number": "+998901234567", "user_id": 100})
-        self.yubor(100, "\u2699 Sozlamalar")
-        self.assertIn("Qaysi xabarlarni", self.tg.oxirgi())
+        self.yubor(100, "ℹ Yordam")
+        self.assertIn("Buyruqlar", self.tg.oxirgi())

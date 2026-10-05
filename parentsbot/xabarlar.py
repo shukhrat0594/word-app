@@ -12,14 +12,14 @@ Signal ISHLATILMAYDI (CRM qoidasi) — davriy tekshiruv:
    - natija: sozlamadagi kun va soatda, oldingi yig'madan beri bajarilgan mashq/Writing/Speaking
      yig'masi. Hech narsa qilinmagan bo'lsa — xabar yo'q (spam bo'lmasin).
 2. `yubor_navbat`: vaqti kelgan xabarlarni yuboradi. Yuborishdan oldin qayta tekshiradi
-   (davomat o'zgargan, to'lov o'chirilgan, qarz to'langan, ota-ona to'xtatgan, sozlama o'chirilgan —
+   (davomat o'zgargan, to'lov o'chirilgan, qarz to'langan, ota-ona botni bloklagan, sozlama o'chirilgan —
    bekor qilinadi). Tinch soatlarda hech narsa yuborilmaydi — xabar kutadi.
 
 Eski voqealar yog'ilib ketmasin:
 - davomat va to'lov — faqat birinchi tekshiruvdan (`ParentsBotKuzatuv`) va ota-ona ulangandan
   (`Boglanish.faollashgan`) KEYIN yaratilgan yozuvlar;
-- toifa o'chirilgan yoki ota-ona /stop qilgan paytda ham davomat/to'lov xabari YARATILADI, faqat
-  yuborishda bekor qilinadi. Shunda qayta yoqilganda o'tgan voqealar bir yo'la ketmaydi;
+- markaz toifani o'chirgan yoki ota-ona botni bloklagan paytda ham davomat/to'lov xabari YARATILADI, faqat
+  yuborishda bekor qilinadi. Shunda qayta yoqilganda/blokdan chiqqanda o'tgan voqealar bir yo'la ketmaydi;
 - qarz/natija bir kundan ko'p kutib qolsa — yuborilmaydi (eskirgan).
 
 `crm.mantiq` (billing) faqat O'QILADI.
@@ -41,7 +41,7 @@ from crm.mantiq import balans, balanslarni_ol
 from crm.models import Tolov
 from exercises.models import MashqYechim
 
-from . import matnlar
+from . import matnlar, xizmat
 from .models import Boglanish, ParentsBotKuzatuv, ParentsBotSozlama, Xabar
 from .moslash import talaba_ismi
 from .telegram import TgXato
@@ -57,7 +57,6 @@ ESKIRISH_KUNLARI = 1  # qarz/natija xabari shuncha kundan ko'p kutib qolsa — b
 # Natija yig'masi soatdan shuncha keyin tuziladi: soat chegarasida topshirilgan Writing/Speaking
 # AI tekshiruvi tugab ulgursin (aks holda u bu yig'maga ham, keyingisiga ham tushmay qolardi).
 NATIJA_KUTISH = timedelta(minutes=10)
-TOIFALAR = ("davomat", "tolov", "qarz", "natija")
 # Telegram'ning bu xatolari doimiy — ota-onaga boshqa urinilmaydi.
 DOIMIY_XATOLAR = ("403", "chat not found", "user is deactivated")
 
@@ -72,7 +71,7 @@ def tinch_mi(vaqt, boshi, oxiri):
 
 
 def toifa_yoqilgan(sozlama, turi):
-    """Markaz sozlamasida shu toifa yoqilganmi (ota-ona o'zi o'chirganidan qat'i nazar)."""
+    """Markaz sozlamasida (CRM) shu toifa yoqilganmi."""
     return bool(getattr(sozlama, f"{turi}_yoqilgan", False))
 
 
@@ -92,8 +91,8 @@ def band_yaxlitla(x):
 def _boglanishlar(faqat_faol=False):
     """{talaba_id: [Boglanish, ...]} — faol bog'lanishlar (`abonent` bilan).
 
-    `faqat_faol=False` (davomat/to'lov): to'xtatgan ota-ona va nofaol o'quvchi ham kiradi — xabar
-    yaratiladi-yu, yuborishda bekor qilinadi (qayta yoqilganda eski voqealar yog'ilmasin).
+    `faqat_faol=False` (davomat/to'lov): botni bloklagan ota-ona va nofaol o'quvchi ham kiradi — xabar
+    yaratiladi-yu, yuborishda bekor qilinadi (blokdan chiqqanda eski voqealar yog'ilmasin).
     """
     q = Boglanish.objects.filter(faol=True).select_related("abonent")
     if faqat_faol:
@@ -314,9 +313,7 @@ def skanerla_hammasi(hozir=None):
 def _hali_yaroqli(x, sozlama, bugun):
     """Yuborishdan oldingi tekshiruv: bekor qilish kerakmi?"""
     ab = x.abonent
-    if not ab.faol or x.turi in (ab.toifa_ochirilgan or []):
-        return False
-    if not x.talaba.is_active or not toifa_yoqilgan(sozlama, x.turi):
+    if not ab.faol or not x.talaba.is_active or not toifa_yoqilgan(sozlama, x.turi):
         return False
     if not Boglanish.objects.filter(abonent=ab, talaba_id=x.talaba_id, faol=True).exists():
         return False
@@ -401,11 +398,10 @@ def yubor_navbat(tg, hozir=None, pauza=0.05):
                 log.warning("Telegram cheklovi (429): yuborish keyinroq davom etadi")
                 break
             if any(m in matn for m in DOIMIY_XATOLAR):  # bloklagan / hisob o'chirilgan
-                x.abonent.faol = False
-                x.abonent.save(update_fields=["faol"])
                 x.holat = Xabar.Holat.XATO
                 x.save(update_fields=["holat"])
-                log.info("Ota-onaga yetkazib bo'lmaydi (bloklagan yoki hisob yo'q): xabarlar to'xtatildi")
+                if xizmat.bloklandi(x.abonent):  # markazga 🔔 bildirishnoma (bir marta)
+                    log.info("Ota-onaga yetkazib bo'lmaydi (bloklagan yoki hisob yo'q): markazga xabar berildi")
                 continue
             x.urinish += 1
             if x.urinish >= URINISH_CHEGARASI:

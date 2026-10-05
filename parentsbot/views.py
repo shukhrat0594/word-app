@@ -58,7 +58,8 @@ def _talaba_dict(t):
 
 
 def _abonent_dict(a):
-    return {"id": a.id, "ism": a.ism, "username": a.username, "telefon": a.telefon, "til": a.til, "faol": a.faol}
+    return {"id": a.id, "ism": a.ism, "username": a.username, "telefon": a.telefon, "til": a.til, "faol": a.faol,
+            "bloklangan": a.bloklangan}
 
 
 def _sorov_dict(s, user):

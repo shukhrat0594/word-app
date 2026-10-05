@@ -144,7 +144,11 @@ function Ulanganlar() {
           {malumot.map((a) => (
             <tr key={a.id}>
               <td>{a.ism || "—"}<div className="kichik">{a.telefon}</div></td>
-              <td>{a.username ? `@${a.username}` : "—"}{!a.faol && <div className="kichik">⏸ stop</div>}</td>
+              <td>{a.username ? `@${a.username}` : "—"}{!a.faol && (
+                <div className="rang-qarzdor kichik">
+                  🚫 {t("ob_bloklagan")}{a.bloklangan ? ` · ${sana(a.bloklangan)}` : ""}
+                </div>
+              )}</td>
               <td>
                 {a.farzandlar.map((f) => (
                   <div key={f.boglanish_id} className="ob-farzand">
