@@ -51,10 +51,15 @@ class Command(BaseCommand):
             if bonus:
                 yangi.append((y.talaba_id, "kurs_mukammal", y.mashq_id, bonus, y.created_at))
 
+        # Mavjud yozuvlar BITTA so'rov bilan: buyruq har deploy'da ishlaydi, har yozuv uchun alohida
+        # `exists()` ming-minglab so'rov bo'lardi.
+        mavjud = set(XPYozuv.objects.filter(sabab__in=["test_yechildi", "kurs_mashq", "kurs_mukammal"])
+                     .values_list("talaba_id", "sabab", "manba_id"))
         yozildi = 0
         for talaba_id, sabab, manba_id, miqdor, sana in yangi:
-            if XPYozuv.objects.filter(talaba_id=talaba_id, sabab=sabab, manba_id=manba_id).exists():
+            if (talaba_id, sabab, manba_id) in mavjud:
                 continue
+            mavjud.add((talaba_id, sabab, manba_id))
             if not quruq:
                 yozuv = XPYozuv.objects.create(
                     talaba_id=talaba_id, miqdor=miqdor, sabab=sabab, manba_id=manba_id,

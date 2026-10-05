@@ -110,6 +110,15 @@ class Command(BaseCommand):
         # ichma-ich (nested) dublikat Unit yaratilishi mumkin edi.
         call_command("kunlik_mashqlarni_ishga_tushir")
 
+        # 2026-10-05: reyting qoidalari yangilandi (IELTS Reading/Listening testlari va Kurslar mashqlari
+        # endi XP beradi). Buyruq ESKI natijalar uchun XP'ni asl sanasi bilan hisoblaydi. Idempotent:
+        # bor yozuvga tegmaydi, yangi hech narsa bo'lmasa 0 yozadi — har deploy'da xavfsiz. Xato
+        # bersa ham sayt ishga tushishi to'xtamasin.
+        try:
+            call_command("xp_orqaga_hisobla")
+        except Exception as xato:  # noqa: BLE001
+            self.stdout.write(f"XP orqaga hisoblash o'tkazib yuborildi: {type(xato).__name__}")
+
         # 2026-09-07, auditda topildi: `OutstandingToken`/`BlacklistedToken`
         # jadvallari HECH QACHON tozalanmasdi — har login (chiqish/kalit
         # yangilash ham) bittadan qator qo'shadi va ular muddati o'tgandan
