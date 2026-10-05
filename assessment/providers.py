@@ -461,7 +461,15 @@ def javobni_parse_qil(raw_text):
 # ro'yxatiga qo'shgani uchun hatto foydaliroq), lekin ~20% tezroq va
 # chiqish tokenlari ~25% kam.
 GEMINI_MODEL = "gemini-3.1-flash-lite"
+# Xato qidiruvi (gap-ma-gap + auditor) uchun tez model; asosiy baholash modeli o'zgarmaydi.
+XATO_QIDIRUV_MODEL = "gemini-3.1-flash-lite"
 MAX_OUTPUT_TOKENS = 8192
+
+# Writing/Speaking BAHOLASH javobi uchun (2026-10-05): xatosi ko'p inshoda (har xatoga 3 tilda izoh + tahlil
+# 3 tilda) javob 8192 tokenga sig'maydi va JSON o'rtasida UZILIB qolardi — talaba "AI yaroqli javob
+# bermadi" xatosini ko'rardi. Fikrlovchi (thinking) modellarda fikrlash tokenlari ham shu chegaradan
+# hisoblanadi. Chegara faqat yuqori chekni belgilaydi — ishlatilmagan token uchun to'lov yo'q.
+BAHOLASH_MAX_OUTPUT_TOKENS = 24_000
 
 # Bitta AI chaqiruvi uchun timeout (millisekund — google-genai shu birlikda
 # oladi). Sinovda odatdagi javob 2-4 sekund, lekin bir marta 45.8 sekund
@@ -677,13 +685,28 @@ class GeminiProvider:
         baho["transkript"] = transkript
         return baho
 
+    def tez_nusxa(self):
+        """Qo'shimcha xato qidiruvi bosqichlari uchun TEZ model (2026-10-05): asosiy baholash
+        qimmat/sekin modelda qolsa ham, gap-ma-gap tekshiruv va auditor tez modelda ishlaydi."""
+        from .xato_qidiruv import CHAQIRUV_TIMEOUT_MS
+
+        return GeminiProvider(self.api_key, model=XATO_QIDIRUV_MODEL, timeout_ms=CHAQIRUV_TIMEOUT_MS)
+
     def writing_baholash(self, matn, savol_matni="", tur="task2", rasm_bytes=None, rasm_mime=None):
+        from .xato_qidiruv import chuqurlashtir
+
         kontent = _writing_kontent_tuz(savol_matni, tur, matn)
-        return self._generate(writing_promt_ol(tur), kontent, rasm_bytes, rasm_mime)
+        javob = self._generate(writing_promt_ol(tur), kontent, rasm_bytes, rasm_mime,
+                               max_output_tokens=BAHOLASH_MAX_OUTPUT_TOKENS)
+        # Asosiy baholash 1-2 ta xato topadi; chuqur tekshiruv HAMMASINI topadi (xato_qidiruv.py).
+        return chuqurlashtir(self.tez_nusxa(), javob, matn, savol_matni, tur, soha="writing")
 
     def speaking_matn_baholash(self, matn, savol_matni="", tur="part1"):
+        from .xato_qidiruv import chuqurlashtir
+
         kontent = _speaking_kontent_tuz(savol_matni, tur, matn)
-        return self._generate(SPEAKING_SYSTEM_PROMPT, kontent)
+        javob = self._generate(SPEAKING_SYSTEM_PROMPT, kontent, max_output_tokens=BAHOLASH_MAX_OUTPUT_TOKENS)
+        return chuqurlashtir(self.tez_nusxa(), javob, matn, savol_matni, tur, soha="speaking")
 
     def generate_json(self, system_prompt, matn, rasm_bytes=None, rasm_mime=None,
                        javob_sxemasi=None, max_tokens=None):
