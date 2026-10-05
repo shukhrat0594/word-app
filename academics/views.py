@@ -1,3 +1,4 @@
+from django.apps import apps as django_apps
 from django.db import transaction
 from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404
@@ -12,17 +13,25 @@ from audit.models import FaoliyatYozuvi
 from audit.utils import logla, maydon_diff
 
 from courses.models import KursTugun
-# `DavomatIzoh` — "kechikdi"/"sababli" belgisi, LMS modeliga choice
-# qo'shmaslik uchun CRM ilovasida (video-TZ 2026-09-28, qarang
-# crm.models.DavomatIzoh). Video-TZ 2026-10-05: o'qituvchi profilida ham
-# shu variantlar bo'lishi kerak — CRM'dagi bir xil yozuvga yoziladi.
-from crm.models import DavomatIzoh
 
 from .models import Davomat, Guruh, GuruhAzoligi
 
 # Teacher UI'da ruxsat etilgan to'liq holat ro'yxati — LMS'dagi
 # `Davomat.Holat` (keldi/kelmadi) + CRM'dagi "kechikdi"/"sababli" belgisi.
 DAVOMAT_HOLATLARI = ("keldi", "kechikdi", "kelmadi", "sababli")
+
+
+def _davomat_izoh_model():
+    """`DavomatIzoh` — "kechikdi"/"sababli" belgisi, LMS modeliga choice
+    qo'shmaslik uchun CRM ilovasida yashaydi (video-TZ 2026-09-28, qarang
+    crm.models.DavomatIzoh). Video-TZ 2026-10-05: o'qituvchi profilida ham
+    shu variantlar bo'lishi kerak — CRM'dagi bir xil yozuvga yoziladi.
+
+    LMS `crm`ni statik import qilmaydi (`crm.tests.IzolyatsiyaTest` —
+    CRM olib tashlansa LMS buzilmasligi kerak), shu uchun model runtime'da
+    app registridan olinadi.
+    """
+    return django_apps.get_model("crm", "DavomatIzoh")
 
 
 def _foydalanuvchi_dict(u):
@@ -503,12 +512,12 @@ class DavomatView(APIView):
                 )
                 if holat in ("kechikdi", "sababli"):
                     izoh_matn = (y.get("izoh") or "").strip()[:300]
-                    DavomatIzoh.objects.update_or_create(
+                    _davomat_izoh_model().objects.update_or_create(
                         davomat=yozuv,
                         defaults={"sababli": holat == "sababli", "kechikdi": holat == "kechikdi", "izoh": izoh_matn},
                     )
                 else:
-                    DavomatIzoh.objects.filter(davomat=yozuv).delete()
+                    _davomat_izoh_model().objects.filter(davomat=yozuv).delete()
             saqlandi += 1
 
         return Response({"saqlandi": saqlandi, "sana": sana})
