@@ -1805,6 +1805,10 @@ class TalabalarView(CrmView):
                     "holat": am.holat,
                     # Filial — "To'lov qo'shish" oynasida guruh yonida ko'rsatiladi.
                     "filial_id": getattr(getattr(am.azolik.guruh, "moliya", None), "filial_id", None),
+                    # Muzlatilish sababi (video-TZ): talabalar ro'yxatida ham
+                    # ko'rinsin — guruh a'zolari sahifasida allaqachon bor edi.
+                    "muzlatish_sana": am.muzlatish_sana,
+                    "muzlatish_izoh": am.muzlatish_izoh,
                 }
             )
 

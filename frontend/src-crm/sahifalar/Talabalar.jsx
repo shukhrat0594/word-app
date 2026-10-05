@@ -1360,6 +1360,13 @@ export default function Talabalar() {
                           <option key={h} value={h}>{t(`holat_${h}`)}</option>
                         ))}
                       </select>
+                      {/* Muzlatilish sababi (video-TZ) — guruh a'zolari
+                          sahifasidagi kabi shu yerda ham ko'rinsin. */}
+                      {g.holat === "muzlatilgan" && (g.muzlatish_sana || g.muzlatish_izoh) && (
+                        <div className="kichik" title={g.muzlatish_izoh}>
+                          ❄ {sana(g.muzlatish_sana)}{g.muzlatish_izoh ? ` — ${g.muzlatish_izoh}` : ""}
+                        </div>
+                      )}
                     </span>
                   ))}
                 </td>

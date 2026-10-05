@@ -442,6 +442,22 @@ class YangiRoyxatlarTest(ApiAsos):
         self.assertEqual(len(javob.data), 1)
         self.assertEqual(javob.data[0]["ism"], "muz2")
 
+    def test_talabalar_royxatida_muzlatish_sababi_korinadi(self):
+        """Video-TZ: `/talabalar/`da ham muzlatish sababi va sanasi
+        bo'lishi kerak — avval faqat guruh a'zolari sahifasida bor edi."""
+        muzlatilgan = User.objects.create_user(
+            username="muz3", password="x", role=User.Role.STUDENT, markaz=self.markaz
+        )
+        self.azolik_qosh(
+            talaba=muzlatilgan, holat=AzolikMoliya.Holat.MUZLATILGAN,
+            muzlatish_sana=date(2026, 9, 20), muzlatish_izoh="Kasal bo'lgan",
+        )
+
+        javob = self.mijoz(self.admin).get("/api/crm/talabalar/?holat=muzlatilgan")
+        guruh = javob.data[0]["guruhlar"][0]
+        self.assertEqual(guruh["muzlatish_sana"], date(2026, 9, 20))
+        self.assertEqual(guruh["muzlatish_izoh"], "Kasal bo'lgan")
+
     def test_dinamika_oylar_boyicha(self):
         Sozlama.objects.update(boshlangich_oy=date(2026, 7, 1))
         self.azolik_qosh(boshlanish=date(2026, 7, 1))
