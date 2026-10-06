@@ -18,8 +18,8 @@ export function Radar({ konikmalar }) {
     const q = [
       (konikmalar.writing_band || 0) / 9,
       (konikmalar.speaking_band || 0) / 9,
-      (konikmalar.listening_foiz || 0) / 100,
-      (konikmalar.reading_foiz || 0) / 100,
+      (konikmalar.listening_band || 0) / 9,
+      (konikmalar.reading_band || 0) / 9,
     ];
     const n = oqlar.length;
     x.strokeStyle = cssVar("--chiziq");
