@@ -38,7 +38,7 @@ from academics.models import Davomat
 from assessment.models import SpeakingTekshiruv, WritingTekshiruv
 from courses.models import KursMashqYechim
 from crm.mantiq import balans, balanslarni_ol
-from crm.models import Tolov
+from crm.models import GuruhMoliya, Tolov
 from exercises.models import MashqYechim
 
 from . import matnlar, xizmat
@@ -350,23 +350,51 @@ def _natija_matni(til, p, bugun):
     return davr, "\n".join(qatorlar)
 
 
+def _guruh_filiali(guruh):
+    """Guruhning JORIY filiali (CRM sozlamasi orqali), yoki None — sozlanmagan bo'lsa."""
+    if guruh is None:
+        return None
+    gm = GuruhMoliya.objects.filter(guruh=guruh).select_related("filial").first()
+    return gm.filial if gm else None
+
+
+def _talaba_filiali(talaba):
+    """Talabaning joriy (faol guruhi orqali aniqlangan) filiali, yoki None."""
+    gm = GuruhMoliya.objects.filter(guruh__talabalar=talaba, guruh__faol=True) \
+        .select_related("filial").order_by("guruh_id").first()
+    return gm.filial if gm else None
+
+
+def _filial_qatori(til, filial):
+    """Davomat/to'lov/qarz xabari oxiriga qo'shiladigan filial+telefon qatori.
+
+    Filial sozlanmagan yoki telefon kiritilmagan bo'lsa — qo'shilmaydi (bo'sh qator o'rniga)."""
+    if not filial or not filial.telefon:
+        return ""
+    return "\n\n" + matnlar.t(til, "filial_izoh", filial=filial.nomi, telefon=filial.telefon)
+
+
 def _matn(x, bugun):
     ab, p = x.abonent, x.payload
     ism = talaba_ismi(x.talaba)
     if x.turi == "tolov":
-        tl = Tolov.objects.get(pk=p["tolov_id"])  # joriy qiymatlar: summa tuzatilgan bo'lsa — to'g'risi
-        return matnlar.t(ab.til, "tolov_qabul", ism=ism, summa=summa_matni(tl.summa),
+        tl = Tolov.objects.select_related("guruh").get(pk=p["tolov_id"])  # joriy qiymatlar
+        matn = matnlar.t(ab.til, "tolov_qabul", ism=ism, summa=summa_matni(tl.summa),
                          sana=tl.sana.strftime("%d.%m.%Y"), guruh=tl.guruh_nomi)
+        return matn + _filial_qatori(ab.til, _guruh_filiali(tl.guruh))
     if x.turi == "qarz":
-        return matnlar.t(ab.til, "qarz_eslatma", ism=ism, summa=summa_matni(balans(x.talaba)))
+        matn = matnlar.t(ab.til, "qarz_eslatma", ism=ism, summa=summa_matni(balans(x.talaba)))
+        return matn + _filial_qatori(ab.til, _talaba_filiali(x.talaba))
     if x.turi == "natija":
         davr, qatorlar = _natija_matni(ab.til, p, bugun)
         return matnlar.t(ab.til, "natija_yigma", ism=ism, davr=davr, qatorlar=qatorlar)
     sana = date.fromisoformat(p["sana"])
-    return matnlar.t(
+    davomat = Davomat.objects.select_related("guruh").filter(pk=p.get("davomat_id")).first()
+    matn = matnlar.t(
         ab.til, f"davomat_{p['kod']}",
         ism=ism, kun=matnlar.kun_matni(ab.til, sana, bugun), guruh=p.get("guruh", ""),
     )
+    return matn + _filial_qatori(ab.til, _guruh_filiali(davomat.guruh) if davomat else None)
 
 
 def yubor_navbat(tg, hozir=None, pauza=0.05):
