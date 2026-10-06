@@ -175,6 +175,16 @@ class TolovXabariTest(Asos):
         self.assertIn("Оплата", self.tg.yuborilgan[-1][1])
         self.assertIn("300 000 сум", self.tg.yuborilgan[-1][1])
 
+    def test_filial_telefoni_xabar_oxirida(self):
+        self.filial.telefon = "+998901234567"
+        self.filial.save(update_fields=["telefon"])
+        self.tolov()
+        self.skaner()
+        self.yubor(self.t0 + timedelta(minutes=6))
+        matn = self.tg.yuborilgan[-1][1]
+        self.assertIn(self.filial.nomi, matn)
+        self.assertIn("+998901234567", matn)
+
 
 class QarzEslatmasiTest(Asos):
     def setUp(self):
@@ -194,6 +204,18 @@ class QarzEslatmasiTest(Asos):
         matn = self.tg.yuborilgan[-1][1]
         self.assertIn("500 000 so'm", matn)
         self.assertIn("qarzdorlik", matn)
+
+    def test_filial_telefoni_xabar_oxirida(self):
+        self.filial.telefon = "+998901234567"
+        self.filial.save(update_fields=["telefon"])
+        self.azolik_qosh()  # talaba guruhga biriktirilgan bo'lsin — filial shundan aniqlanadi
+        self.hisob(600000)
+        self.tolov(100000)  # balans -500 000
+        xb.skanerla_qarz(self.vaqt())
+        self.yubor(self.vaqt(minut=31))
+        matn = self.tg.yuborilgan[-1][1]
+        self.assertIn(self.filial.nomi, matn)
+        self.assertIn("+998901234567", matn)
 
     def test_boshqa_kunda_yuborilmaydi(self):
         self.hisob()

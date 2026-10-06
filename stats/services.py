@@ -5,7 +5,23 @@ from django.db.models import Avg, Count, Q
 
 from academics.models import Davomat
 from assessment.models import SpeakingTekshiruv, WritingTekshiruv
-from exercises.models import BOLIM_TURLARI, Bolim, MashqYechim
+from exercises.models import BOLIM_TURLARI, Bolim, MashqYechim, TestYechim, band_hisobla
+
+
+def _test_dinamika(talaba, bolim):
+    """Reading/Listening uchun to'liq test (ImtihonTest) band dinamikasi —
+    Writing/Speaking'dagi kabi har urinish bitta band bilan (2026-10-06)."""
+    yechimlar = TestYechim.objects.filter(talaba=talaba, test__bolim=bolim).select_related(
+        "test"
+    ).order_by("created_at")
+    return [
+        {
+            "sana": y.created_at.date(),
+            "band": float(y.band) if y.band is not None else None,
+            "test_nomi": y.test.name,
+        }
+        for y in yechimlar
+    ]
 
 
 def _bolim_statistikasi(talaba, bolim):
@@ -16,7 +32,8 @@ def _bolim_statistikasi(talaba, bolim):
     so'rovda (`.values()`) xotiraga olinadi, qolgani Python ichida."""
     yechimlar = list(
         MashqYechim.objects.filter(talaba=talaba, mashq__bolim=bolim)
-        .values("mashq__tur", "ball", "jami")
+        .order_by("created_at")
+        .values("mashq__tur", "ball", "jami", "created_at")
     )
     jami_ball = 0
     jami_savol = 0
@@ -31,10 +48,24 @@ def _bolim_statistikasi(talaba, bolim):
             "yechildi": len(tur_yechimlar),
             "foiz": round(ball / savol * 100) if savol else None,
         }
+    # Har bir bajarilgan mashq bo'yicha % natija — Dinamika (line) grafigi uchun.
+    dinamika = [
+        {
+            "sana": y["created_at"].date(),
+            "foiz": round(y["ball"] / y["jami"] * 100) if y["jami"] else None,
+        }
+        for y in yechimlar
+    ]
     return {
         "jami_yechildi": len(yechimlar),
         "ortacha_foiz": round(jami_ball / jami_savol * 100) if jami_savol else None,
+        # Ko'nikmalar diagrammasi uchun: foiz emas, IELTS band jadvali
+        # bo'yicha taxminiy band (Writing/Speaking bilan bir xil 0-9
+        # shkalada solishtirish mumkin bo'lsin).
+        "ortacha_band": band_hisobla(jami_ball, jami_savol, bolim) if jami_savol else None,
         "tur_boyicha": tur_boyicha,
+        # `dinamika` kaliti testlar bandi grafigiga ajratilgan (video IMG_2142), shuning uchun bu — `mashq_dinamika`
+        "mashq_dinamika": dinamika,
     }
 
 
@@ -61,6 +92,8 @@ def talaba_statistikasi(talaba):
 
     listening = _bolim_statistikasi(talaba, Bolim.LISTENING)
     reading = _bolim_statistikasi(talaba, Bolim.READING)
+    listening_dinamika = _test_dinamika(talaba, Bolim.LISTENING)
+    reading_dinamika = _test_dinamika(talaba, Bolim.READING)
 
     speaking = SpeakingTekshiruv.objects.filter(talaba=talaba)
     speaking_dinamika = [
@@ -83,13 +116,23 @@ def talaba_statistikasi(talaba):
             "oxirgi_band": speaking_dinamika[-1]["band"] if speaking_dinamika else None,
             "dinamika": speaking_dinamika,
         },
-        "listening": listening,
-        "reading": reading,
+        "listening": {
+            **listening,
+            "soni": len(listening_dinamika),
+            "oxirgi_band": listening_dinamika[-1]["band"] if listening_dinamika else None,
+            "dinamika": listening_dinamika,
+        },
+        "reading": {
+            **reading,
+            "soni": len(reading_dinamika),
+            "oxirgi_band": reading_dinamika[-1]["band"] if reading_dinamika else None,
+            "dinamika": reading_dinamika,
+        },
         # Ko'nikmalar diagrammasi (radar) uchun tayyor qiymatlar
         "konikmalar": {
             "writing_band": writing_agg["ortacha_band"],
-            "listening_foiz": listening["ortacha_foiz"],
-            "reading_foiz": reading["ortacha_foiz"],
+            "listening_band": listening["ortacha_band"],
+            "reading_band": reading["ortacha_band"],
             "speaking_band": speaking_agg["ortacha_band"],
         },
         "davomat": davomat,
