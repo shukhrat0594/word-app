@@ -48,7 +48,8 @@ def _bolim_statistikasi(talaba, bolim):
         # shkalada solishtirish mumkin bo'lsin).
         "ortacha_band": band_hisobla(jami_ball, jami_savol, bolim) if jami_savol else None,
         "tur_boyicha": tur_boyicha,
-        "dinamika": dinamika,
+        # `dinamika` kaliti testlar bandi grafigiga ajratilgan (video IMG_2142), shuning uchun bu — `mashq_dinamika`
+        "mashq_dinamika": dinamika,
     }
 
 

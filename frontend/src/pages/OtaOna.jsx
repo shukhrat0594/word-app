@@ -106,13 +106,13 @@ export default function OtaOna() {
             </div>
             <div className="karta">
               <h3>{t("listening_foiz")}</h3>
-              <Dinamika dinamika={stat.listening.dinamika} maydon="foiz" minQ={0} maxQ={100} qadam={25} />
+              <Dinamika dinamika={stat.listening.mashq_dinamika} maydon="foiz" minQ={0} maxQ={100} qadam={25} />
             </div>
           </div>
 
           <div className="karta">
             <h3>{t("reading_foiz")}</h3>
-            <Dinamika dinamika={stat.reading.dinamika} maydon="foiz" minQ={0} maxQ={100} qadam={25} />
+            <Dinamika dinamika={stat.reading.mashq_dinamika} maydon="foiz" minQ={0} maxQ={100} qadam={25} />
           </div>
 
           {/* 2026-08-09: ota-ona endi farzandning BARCHA mashq/test

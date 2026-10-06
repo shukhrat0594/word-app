@@ -86,7 +86,7 @@ class StatistikaDinamikaTest(TestCase):
             ball=0, jami=1, natijalar=[False],
         )
         stat = talaba_statistikasi(self.talaba)
-        self.assertEqual(len(stat["reading"]["dinamika"]), 2)
-        self.assertEqual(stat["reading"]["dinamika"][0]["foiz"], 100)
-        self.assertEqual(stat["reading"]["dinamika"][1]["foiz"], 0)
-        self.assertEqual(stat["listening"]["dinamika"], [])
+        self.assertEqual(len(stat["reading"]["mashq_dinamika"]), 2)
+        self.assertEqual(stat["reading"]["mashq_dinamika"][0]["foiz"], 100)
+        self.assertEqual(stat["reading"]["mashq_dinamika"][1]["foiz"], 0)
+        self.assertEqual(stat["listening"]["mashq_dinamika"], [])
