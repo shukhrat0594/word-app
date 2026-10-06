@@ -777,10 +777,15 @@ def gemini_provider_ol(model_kaliti):
 # Shuning uchun Task 1 gemma'dan `gemini-3.1-flash-lite`ga o'tkazildi:
 # aniqligi gemma bilan bir xil, timeout xavfi esa umuman yo'q.
 #
-# Task 2 (sof matnli insho) — `gemini-3.5-flash` QOLDI: band-7 inshoga
-# ikki marta ham roppa-rosa 7.0 berdi, flash-lite esa izchil 6.5.
+# Task 2 (sof matnli insho): 2026-08-08 da `gemini-3.5-flash` tanlangan edi —
+# band-7 inshoga ikki marta ham roppa-rosa 7.0 berdi, flash-lite esa izchil 6.5.
+# 2026-10-06: `gemini-3.5-flash-lite`ga o'tkazildi. Sabab — bepul tarif limiti:
+# 3.5-flash kuniga 20 so'rov (chuqur tekshiruv bilan ~5 insho), 3.5-flash-lite
+# esa 15 so'rov/daqiqa va kunlik chegarasi 30 dan yuqori. Xato topish o'lchovi
+# (25 ta ataylab xato): 3.5-flash-lite + chuqur tekshiruv 24/24 — 3.5-flash'ga teng.
+# Band ball sifati (6.5 vs 7.0) qayta o'lchanmagan.
 WRITING_TASK1_MODEL = "gemini-3.1-flash-lite"
-WRITING_TASK2_MODEL = "gemini-3.5-flash"
+WRITING_TASK2_MODEL = "gemini-3.5-flash-lite"
 
 # Writing so'rovlari SINXRON (talaba javobni kutib turadi), shuning uchun
 # timeout gunicorn'ning 300s chegarasidan past, lekin o'lchangan haqiqiy
