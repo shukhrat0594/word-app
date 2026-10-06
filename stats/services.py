@@ -5,7 +5,7 @@ from django.db.models import Avg, Count, Q
 
 from academics.models import Davomat
 from assessment.models import SpeakingTekshiruv, WritingTekshiruv
-from exercises.models import BOLIM_TURLARI, Bolim, MashqYechim
+from exercises.models import BOLIM_TURLARI, Bolim, MashqYechim, band_hisobla
 
 
 def _bolim_statistikasi(talaba, bolim):
@@ -34,6 +34,10 @@ def _bolim_statistikasi(talaba, bolim):
     return {
         "jami_yechildi": len(yechimlar),
         "ortacha_foiz": round(jami_ball / jami_savol * 100) if jami_savol else None,
+        # Ko'nikmalar diagrammasi uchun: foiz emas, IELTS band jadvali
+        # bo'yicha taxminiy band (Writing/Speaking bilan bir xil 0-9
+        # shkalada solishtirish mumkin bo'lsin).
+        "ortacha_band": band_hisobla(jami_ball, jami_savol, bolim) if jami_savol else None,
         "tur_boyicha": tur_boyicha,
     }
 
@@ -86,8 +90,8 @@ def talaba_statistikasi(talaba):
         # Ko'nikmalar diagrammasi (radar) uchun tayyor qiymatlar
         "konikmalar": {
             "writing_band": writing_agg["ortacha_band"],
-            "listening_foiz": listening["ortacha_foiz"],
-            "reading_foiz": reading["ortacha_foiz"],
+            "listening_band": listening["ortacha_band"],
+            "reading_band": reading["ortacha_band"],
             "speaking_band": speaking_agg["ortacha_band"],
         },
         "davomat": davomat,
