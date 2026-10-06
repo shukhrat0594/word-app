@@ -5,7 +5,23 @@ from django.db.models import Avg, Count, Q
 
 from academics.models import Davomat
 from assessment.models import SpeakingTekshiruv, WritingTekshiruv
-from exercises.models import BOLIM_TURLARI, Bolim, MashqYechim, band_hisobla
+from exercises.models import BOLIM_TURLARI, Bolim, MashqYechim, TestYechim, band_hisobla
+
+
+def _test_dinamika(talaba, bolim):
+    """Reading/Listening uchun to'liq test (ImtihonTest) band dinamikasi —
+    Writing/Speaking'dagi kabi har urinish bitta band bilan (2026-10-06)."""
+    yechimlar = TestYechim.objects.filter(talaba=talaba, test__bolim=bolim).select_related(
+        "test"
+    ).order_by("created_at")
+    return [
+        {
+            "sana": y.created_at.date(),
+            "band": float(y.band) if y.band is not None else None,
+            "test_nomi": y.test.name,
+        }
+        for y in yechimlar
+    ]
 
 
 def _bolim_statistikasi(talaba, bolim):
@@ -74,6 +90,8 @@ def talaba_statistikasi(talaba):
 
     listening = _bolim_statistikasi(talaba, Bolim.LISTENING)
     reading = _bolim_statistikasi(talaba, Bolim.READING)
+    listening_dinamika = _test_dinamika(talaba, Bolim.LISTENING)
+    reading_dinamika = _test_dinamika(talaba, Bolim.READING)
 
     speaking = SpeakingTekshiruv.objects.filter(talaba=talaba)
     speaking_dinamika = [
@@ -96,8 +114,18 @@ def talaba_statistikasi(talaba):
             "oxirgi_band": speaking_dinamika[-1]["band"] if speaking_dinamika else None,
             "dinamika": speaking_dinamika,
         },
-        "listening": listening,
-        "reading": reading,
+        "listening": {
+            **listening,
+            "soni": len(listening_dinamika),
+            "oxirgi_band": listening_dinamika[-1]["band"] if listening_dinamika else None,
+            "dinamika": listening_dinamika,
+        },
+        "reading": {
+            **reading,
+            "soni": len(reading_dinamika),
+            "oxirgi_band": reading_dinamika[-1]["band"] if reading_dinamika else None,
+            "dinamika": reading_dinamika,
+        },
         # Ko'nikmalar diagrammasi (radar) uchun tayyor qiymatlar
         "konikmalar": {
             "writing_band": writing_agg["ortacha_band"],
