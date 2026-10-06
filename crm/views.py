@@ -2048,14 +2048,19 @@ class TalabaView(CrmView):
         # holatda o'rinli (guruh ro'yxatida esa u N+1 bo'lardi, shuning
         # uchun `GuruhNatijalarView`da to'plam so'rovlar ishlatilgan).
         stat = talaba_statistikasi(talaba)
+        # `stat["davomat"]`da kechikdi/sababli endi keldi/kelmadidan ALOHIDA
+        # sanaladi (video-TZ IMG_6917.MOV) — lekin bu yerdagi % kelgan/ketgan
+        # ko'rsatkichi uchun kechikdi baribir "keldi", sababli "kelmadi"
+        # hisoblanishi kerak (aks holda kech qolgan/sababli talaba shu
+        # kunlar umuman hisobdan tushib, foiz noto'g'ri chiqadi).
         natijalar = {
             "writing_band": _yaxlit(stat["writing"]["ortacha_band"]),
             "speaking_band": _yaxlit(stat["speaking"]["ortacha_band"]),
             "listening_foiz": stat["listening"]["ortacha_foiz"],
             "reading_foiz": stat["reading"]["ortacha_foiz"],
             "mashq_soni": stat["listening"]["jami_yechildi"] + stat["reading"]["jami_yechildi"],
-            "keldi": stat["davomat"]["keldi"],
-            "kelmadi": stat["davomat"]["kelmadi"],
+            "keldi": stat["davomat"]["keldi"] + stat["davomat"]["kechikdi"],
+            "kelmadi": stat["davomat"]["kelmadi"] + stat["davomat"]["sababli"],
         }
         jami_dars = natijalar["keldi"] + natijalar["kelmadi"]
         natijalar["davomat_foizi"] = (
