@@ -69,10 +69,26 @@ export default function Dashboard() {
         </div>
       </div>
 
+      <div className="karta">
+        <h3>{t("konikmalar")}</h3>
+        <Radar konikmalar={k} />
+      </div>
+
       <div className="ikki-ustun">
         <div className="karta">
-          <h3>{t("konikmalar")}</h3>
-          <Radar konikmalar={k} />
+          <h3>Reading</h3>
+          <Dinamika dinamika={stat.reading.dinamika} />
+        </div>
+        <div className="karta">
+          <h3>Listening</h3>
+          <Dinamika dinamika={stat.listening.dinamika} />
+        </div>
+      </div>
+
+      <div className="ikki-ustun">
+        <div className="karta">
+          <h3>Speaking</h3>
+          <Dinamika dinamika={stat.speaking.dinamika} />
         </div>
         <div className="karta">
           <h3>Writing</h3>
