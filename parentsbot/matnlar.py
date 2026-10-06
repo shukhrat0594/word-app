@@ -123,6 +123,12 @@ MATNLAR = {
         "uz": "Afsuski, so'rovingizni tasdiqlab bo'lmadi. Iltimos, markazga murojaat qiling.",
         "ru": "К сожалению, запрос подтвердить не удалось. Пожалуйста, обратитесь в центр.",
     },
+    # Davomat, to'lov va qarz xabarlarining pastiga qo'shiladi: talaba qaysi filialga
+    # biriktirilgani va o'sha filial bilan bog'lanish uchun telefon raqami.
+    "filial_izoh": {
+        "uz": "🏢 Filial: {filial}\n📞 Telefon: {telefon}",
+        "ru": "🏢 Филиал: {filial}\n📞 Телефон: {telefon}",
+    },
 }
 
 

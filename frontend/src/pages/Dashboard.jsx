@@ -96,6 +96,18 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* Mashqlar natijasi % (video IMG_2141); yuqoridagi Reading/Listening — testlar bandi (IMG_2142) */}
+      <div className="ikki-ustun">
+        <div className="karta">
+          <h3>{t("reading_foiz")} %</h3>
+          <Dinamika dinamika={stat.reading.mashq_dinamika} maydon="foiz" minQ={0} maxQ={100} qadam={25} />
+        </div>
+        <div className="karta">
+          <h3>{t("listening_foiz")} %</h3>
+          <Dinamika dinamika={stat.listening.mashq_dinamika} maydon="foiz" minQ={0} maxQ={100} qadam={25} />
+        </div>
+      </div>
+
       <div className="ikki-ustun">
         <div className="karta">
           <h3>{t("nav_reyting")}{lb?.asosiy?.daraja ? ` · ${lb.asosiy.daraja.nomi}` : ""}</h3>
