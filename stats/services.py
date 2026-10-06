@@ -84,8 +84,10 @@ def talaba_statistikasi(talaba):
     writing_agg = writing.aggregate(soni=Count("id"), ortacha_band=Avg("overall_band"))
 
     davomat = Davomat.objects.filter(talaba=talaba).aggregate(
-        keldi=Count("id", filter=Q(holat="keldi")),
-        kelmadi=Count("id", filter=Q(holat="kelmadi")),
+        keldi=Count("id", filter=Q(holat="keldi") & ~Q(crm_izoh__kechikdi=True)),
+        kechikdi=Count("id", filter=Q(holat="keldi", crm_izoh__kechikdi=True)),
+        kelmadi=Count("id", filter=Q(holat="kelmadi") & ~Q(crm_izoh__sababli=True)),
+        sababli=Count("id", filter=Q(holat="kelmadi", crm_izoh__sababli=True)),
     )
 
     listening = _bolim_statistikasi(talaba, Bolim.LISTENING)

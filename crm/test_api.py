@@ -18,7 +18,7 @@ from assessment.models import WritingTekshiruv
 from crm import mantiq
 from academics.models import Davomat, Guruh
 from crm.models import (
-    AzolikMoliya, Filial, GuruhMoliya, Hisob, KursNarxi, Sozlama, Tolov, Xona,
+    AzolikMoliya, DavomatIzoh, Filial, GuruhMoliya, Hisob, KursNarxi, Sozlama, Tolov, Xona,
 )
 from crm.tests import AVGUST, NARX, SENTABR, CrmAsos, bugun_qilib
 
@@ -898,6 +898,30 @@ class TalabaNatijalariTest(ApiAsos):
         self.assertIsNone(natijalar["writing_band"])
         self.assertIsNone(natijalar["davomat_foizi"])
         self.assertEqual(natijalar["mashq_soni"], 0)
+
+    def test_kechikdi_sababli_foizdan_tushib_qolmasligi(self):
+        """Kech qolgan/sababli kelmagan kunlar `davomat_foizi` hisobidan
+        butunlay tushib qolmasligi kerak — kechikdi baribir "keldi",
+        sababli baribir "kelmadi" sifatida hisoblanadi (video-TZ
+        IMG_6917.MOV: stats.services'da kechikdi/sababli alohida
+        sanala boshlagach, shu yerda ularni qayta qo'shib hisoblash
+        kerak bo'lib qoldi)."""
+        self.azolik_qosh(boshlanish=date(2026, 9, 1))
+        kechikkan = Davomat.objects.create(
+            sana=date(2026, 9, 3), guruh=self.guruh, talaba=self.talaba,
+            holat=Davomat.Holat.KELDI,
+        )
+        DavomatIzoh.objects.create(davomat=kechikkan, kechikdi=True)
+        Davomat.objects.create(
+            sana=date(2026, 9, 4), guruh=self.guruh, talaba=self.talaba,
+            holat=Davomat.Holat.KELMADI,
+        )
+
+        javob = self.mijoz(self.admin).get(f"/api/crm/talaba/{self.talaba.id}/")
+        natijalar = javob.data["natijalar"]
+        self.assertEqual(natijalar["keldi"], 1)
+        self.assertEqual(natijalar["kelmadi"], 1)
+        self.assertEqual(natijalar["davomat_foizi"], 50)
 
 
 class TirikNomTest(ApiAsos):
