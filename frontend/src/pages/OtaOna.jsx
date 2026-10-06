@@ -110,14 +110,22 @@ export default function OtaOna() {
 
           <div className="karta">
             <h3>{t("davomat")}</h3>
-            <div className="stat-qator" style={{ gridTemplateColumns: "repeat(2, 1fr)" }}>
+            <div className="stat-qator" style={{ gridTemplateColumns: "repeat(4, 1fr)" }}>
               <div className="stat">
                 <div className="nom">{t("keldi")}</div>
                 <div className="qiymat">{stat.davomat.keldi}</div>
               </div>
               <div className="stat">
+                <div className="nom">{t("kechikdi")}</div>
+                <div className="qiymat">{stat.davomat.kechikdi}</div>
+              </div>
+              <div className="stat">
                 <div className="nom">{t("kelmadi")}</div>
                 <div className="qiymat">{stat.davomat.kelmadi}</div>
+              </div>
+              <div className="stat">
+                <div className="nom">{t("sababli")}</div>
+                <div className="qiymat">{stat.davomat.sababli}</div>
               </div>
             </div>
           </div>
