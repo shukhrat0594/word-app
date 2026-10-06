@@ -16,7 +16,8 @@ def _bolim_statistikasi(talaba, bolim):
     so'rovda (`.values()`) xotiraga olinadi, qolgani Python ichida."""
     yechimlar = list(
         MashqYechim.objects.filter(talaba=talaba, mashq__bolim=bolim)
-        .values("mashq__tur", "ball", "jami")
+        .order_by("created_at")
+        .values("mashq__tur", "ball", "jami", "created_at")
     )
     jami_ball = 0
     jami_savol = 0
@@ -31,6 +32,14 @@ def _bolim_statistikasi(talaba, bolim):
             "yechildi": len(tur_yechimlar),
             "foiz": round(ball / savol * 100) if savol else None,
         }
+    # Har bir bajarilgan mashq bo'yicha % natija — Dinamika (line) grafigi uchun.
+    dinamika = [
+        {
+            "sana": y["created_at"].date(),
+            "foiz": round(y["ball"] / y["jami"] * 100) if y["jami"] else None,
+        }
+        for y in yechimlar
+    ]
     return {
         "jami_yechildi": len(yechimlar),
         "ortacha_foiz": round(jami_ball / jami_savol * 100) if jami_savol else None,
@@ -39,6 +48,8 @@ def _bolim_statistikasi(talaba, bolim):
         # shkalada solishtirish mumkin bo'lsin).
         "ortacha_band": band_hisobla(jami_ball, jami_savol, bolim) if jami_savol else None,
         "tur_boyicha": tur_boyicha,
+        # `dinamika` kaliti testlar bandi grafigiga ajratilgan (video IMG_2142), shuning uchun bu — `mashq_dinamika`
+        "mashq_dinamika": dinamika,
     }
 
 

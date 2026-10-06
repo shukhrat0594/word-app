@@ -66,34 +66,34 @@ export function Radar({ konikmalar }) {
   return <canvas ref={ref} width={400} height={260} style={{ maxWidth: "100%" }} />;
 }
 
-export function Dinamika({ dinamika }) {
+export function Dinamika({ dinamika, maydon = "band", minQ = 3, maxQ = 9, qadam = 2 }) {
   const ref = useRef(null);
   useEffect(() => {
     const c = ref.current;
     if (!c) return;
     const x = c.getContext("2d");
     x.clearRect(0, 0, c.width, c.height);
-    const ballar = dinamika.map((d) => d.band).filter((b) => b != null);
+    const ballar = dinamika.map((d) => d[maydon]).filter((b) => b != null);
     if (ballar.length < 2) {
       x.fillStyle = cssVar("--matn-sokin");
       x.font = "600 13px Segoe UI, sans-serif";
       x.textAlign = "center";
-      x.fillText("Kamida 2 ta tekshiruv kerak", c.width / 2, c.height / 2);
+      x.fillText("Kamida 2 ta natija kerak", c.width / 2, c.height / 2);
       return;
     }
     const chap = 30,
       ost = c.height - 24,
       keng = c.width - chap - 14,
       bal = c.height - 58;
-    const minB = 3,
-      maxB = 9;
+    const minB = minQ,
+      maxB = maxQ;
     const nx = (i) => chap + (keng * i) / (ballar.length - 1);
     const ny = (b) => ost - ((b - minB) / (maxB - minB)) * bal;
     x.strokeStyle = cssVar("--chiziq");
     x.fillStyle = cssVar("--matn-sokin");
     x.font = "600 11px Segoe UI, sans-serif";
     x.textAlign = "left";
-    for (let b = minB; b <= maxB; b += 2) {
+    for (let b = minB; b <= maxB; b += qadam) {
       x.beginPath();
       x.moveTo(chap, ny(b));
       x.lineTo(c.width - 8, ny(b));
@@ -120,6 +120,6 @@ export function Dinamika({ dinamika }) {
     x.strokeStyle = cssVar("--komir");
     x.lineWidth = 2;
     x.stroke();
-  }, [dinamika]);
+  }, [dinamika, maydon, minQ, maxQ, qadam]);
   return <canvas ref={ref} width={400} height={260} style={{ maxWidth: "100%" }} />;
 }

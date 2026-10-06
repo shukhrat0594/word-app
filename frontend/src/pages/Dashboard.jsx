@@ -82,6 +82,22 @@ export default function Dashboard() {
 
       <div className="ikki-ustun">
         <div className="karta">
+          <h3>Speaking</h3>
+          <Dinamika dinamika={stat.speaking.dinamika} />
+        </div>
+        <div className="karta">
+          <h3>{t("listening_foiz")}</h3>
+          <Dinamika dinamika={stat.listening.mashq_dinamika} maydon="foiz" minQ={0} maxQ={100} qadam={25} />
+        </div>
+      </div>
+
+      <div className="karta">
+        <h3>{t("reading_foiz")}</h3>
+        <Dinamika dinamika={stat.reading.mashq_dinamika} maydon="foiz" minQ={0} maxQ={100} qadam={25} />
+      </div>
+
+      <div className="ikki-ustun">
+        <div className="karta">
           <h3>{t("nav_reyting")}{lb?.asosiy?.daraja ? ` · ${lb.asosiy.daraja.nomi}` : ""}</h3>
           {(lb?.asosiy?.top || []).slice(0, 5).map((r) => (
             <div
