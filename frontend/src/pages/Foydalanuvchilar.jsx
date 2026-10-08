@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import Avatar from "../components/Avatar";
 import { panelTanloviOl } from "../components/Layout";
@@ -683,20 +683,31 @@ export default function Foydalanuvchilar() {
   // "O'chirilganlar" — o'chira oladiganlar (owner va admin) ko'radi.
   const savatKorinadi = profil?.is_owner || profil?.role === "admin";
 
+  // Avto-qidiruvda javoblar aralash kelishi mumkin — faqat oxirgi so'rov
+  // natijasi ro'yxatga yoziladi.
+  const sorovRaqami = useRef(0);
+
   function yukla(q) {
-    const query = q !== undefined ? q : qidiruv;
+    const query = q !== undefined ? q : qidiruv.trim();
+    const raqam = ++sorovRaqami.current;
     api(`/api/foydalanuvchilar/${query ? `?q=${encodeURIComponent(query)}` : ""}`)
-      .then(setRoyxat)
+      .then((j) => {
+        if (raqam === sorovRaqami.current) setRoyxat(j);
+      })
       .catch(() => {});
   }
 
+  // 2026-10-08 (video IMG_2153): "Qidirish" tugmasini bosish shart emas —
+  // yozgan sari (300 ms to'xtalishdan keyin) ro'yxat o'zi yangilanadi.
+  // Birinchi render ham shu yerdan yuklaydi (qidiruv bo'sh).
   useEffect(() => {
-    yukla("");
-  }, []);
+    const vaqt = setTimeout(() => yukla(qidiruv.trim()), qidiruv ? 300 : 0);
+    return () => clearTimeout(vaqt);
+  }, [qidiruv]);
 
   function qidir(e) {
     e.preventDefault();
-    yukla(qidiruv);
+    yukla(qidiruv.trim());
   }
 
   async function parolOrnat(id) {
