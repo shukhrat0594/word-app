@@ -14,11 +14,21 @@ const ROLLAR = ["owner", "admin", "teacher", "student", "parent", "oddiy"];
  * qaytaradi, bu faqat oldindan tushuntirish). */
 function FarzandTanlovi({ user, talabalar, saqlash, t }) {
   const [ochiq, setOchiq] = useState(false);
+  const [qidiruv, setQidiruv] = useState("");
   const joriy = (user.farzandlar || []).map((f) => f.id);
 
   function boshqar(id, belgilanganmi) {
     saqlash(user.id, belgilanganmi ? joriy.filter((x) => x !== id) : [...joriy, id]);
   }
+
+  // Ro'yxat uzun bo'lsa bitta-bitta ochib qidirish og'ir — ism-familiya yoki
+  // telefon bo'yicha filtr (video-TZ 2026-10-08).
+  const soz = qidiruv.trim().toLowerCase();
+  const korinadigan = soz
+    ? talabalar.filter(
+        (s) => s.ism?.toLowerCase().includes(soz) || s.telefon?.toLowerCase().includes(soz)
+      )
+    : talabalar;
 
   return (
     <span style={{ position: "relative" }}>
@@ -35,8 +45,20 @@ function FarzandTanlovi({ user, talabalar, saqlash, t }) {
           }}
         >
           <div className="izoh" style={{ marginBottom: 4 }}>{t("farzand_tanlash_izoh")}</div>
+          {talabalar.length > 0 && (
+            <input
+              autoFocus
+              value={qidiruv}
+              onChange={(e) => setQidiruv(e.target.value)}
+              placeholder={t("farzand_qidirish")}
+              style={{ marginBottom: 4 }}
+            />
+          )}
           {talabalar.length === 0 && <span className="izoh">{t("talaba_yoq")}</span>}
-          {talabalar.map((s) => {
+          {talabalar.length > 0 && korinadigan.length === 0 && (
+            <span className="izoh">{t("farzand_qidiruv_topilmadi")}</span>
+          )}
+          {korinadigan.map((s) => {
             const belgilanganmi = joriy.includes(s.id);
             // Boshqa ota-onada band — bu yerda belgilab bo'lmaydi.
             const band = !belgilanganmi && s.ota_ona_id != null;
