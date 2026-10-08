@@ -1358,6 +1358,11 @@ class TalabaOtaOnaView(CrmView):
             ota_ona = talaba.ota_ona
             if not ota_ona:
                 return _xato("Bu o'quvchida ota-ona hisobi yo'q")
+            # `limit_choices_to` faqat forma darajasida — rol keyin o'zgargan
+            # (admin/owner bo'lib qolgan) hisob parolini CRM'dan tiklab
+            # bo'lmasin, aks holda bu imtiyozli hisobni egallash yo'li bo'lardi.
+            if ota_ona.role != User.Role.PARENT or ota_ona.is_superuser:
+                return _xato("Bu hisob ota-ona hisobi emas — parol bu yerdan tiklanmaydi", kod=403)
             parol = parol_yarat()
             ota_ona.set_password(parol)
             ota_ona.save(update_fields=["password"])

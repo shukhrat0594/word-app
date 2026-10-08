@@ -176,6 +176,22 @@ class TalabaOtaOnaTest(ApiAsos):
         }, format="json")
         self.assertEqual(javob.status_code, 400)
 
+    def test_roli_ozgargan_hisob_paroli_tiklanmaydi(self):
+        # Ota-ona keyin admin qilingan bo'lsa ham bog'lanish qoladi — CRM'dan
+        # uning parolini tiklash imtiyozli hisobni egallash yo'li bo'lmasin.
+        self.ota_ona.role = User.Role.ADMIN
+        self.ota_ona.save(update_fields=["role"])
+        self.talaba.ota_ona = self.ota_ona
+        self.talaba.save(update_fields=["ota_ona"])
+        eski_hash = self.ota_ona.password
+        javob = self.mijoz(self.admin).post(f"/api/crm/talaba/{self.talaba.id}/ota-ona/", {
+            "amal": "parol_tiklash",
+        }, format="json")
+        self.assertEqual(javob.status_code, 403)
+        self.ota_ona.refresh_from_db()
+        self.assertEqual(self.ota_ona.password, eski_hash)
+        self.assertFalse(Bildirishnoma.objects.filter(foydalanuvchi=self.admin).exists())
+
     def test_ikkinchi_farzand_mavjud_hisobga_ulanadi(self):
         # Birinchi farzandga hisob ochiladi.
         self.mijoz(self.admin).post(f"/api/crm/talaba/{self.talaba.id}/ota-ona/", {
