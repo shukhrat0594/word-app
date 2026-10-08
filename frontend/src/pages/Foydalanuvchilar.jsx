@@ -899,13 +899,17 @@ export default function Foydalanuvchilar() {
         )}
       </form>
 
-      <form onSubmit={qidir} style={{ marginBottom: 14 }}>
+      <form
+        onSubmit={qidir}
+        style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 14 }}
+      >
         <input
           style={{ maxWidth: 280 }}
           placeholder={t("qidirish")}
           value={qidiruv}
           onChange={(e) => setQidiruv(e.target.value)}
         />
+        <button className="tugma kichik" type="submit">{t("qidirish_tugmasi")}</button>
       </form>
 
       <div style={{ display: "grid", gap: 10 }}>
