@@ -7,6 +7,7 @@ from django.utils import timezone
 from assessment.models import SpeakingTekshiruv, WritingTekshiruv
 from courses.models import KursMashq, KursMashqYechim
 from crm.test_api import ApiAsos
+from exercises.models import ImtihonTest, TestYechim
 from parentsbot import xabarlar as xb
 from parentsbot.models import Abonent, Boglanish, ParentsBotSozlama, Xabar
 from parentsbot.test_bot import SoxtaTg
@@ -49,6 +50,12 @@ class NatijaAsos(ApiAsos):
     def writing(self, band, holat="tayyor", vaqt=None):
         w = WritingTekshiruv.objects.create(talaba=self.talaba, matn="x", overall_band=band, holat=holat)
         WritingTekshiruv.objects.filter(pk=w.pk).update(created_at=vaqt or self.ichida)
+
+    def imtihon_yechim(self, bolim, band, nomi="Cambridge 13 Test 4", vaqt=None, talaba=None):
+        test = ImtihonTest.objects.create(name=nomi, bolim=bolim, markaz=self.markaz)
+        y = TestYechim.objects.create(talaba=talaba or self.talaba, test=test, javoblar=[],
+                                       ball=8, jami=10, natijalar=[], band=band)
+        TestYechim.objects.filter(pk=y.pk).update(created_at=vaqt or self.ichida)
 
 
 class NatijaTest(NatijaAsos):
@@ -125,6 +132,17 @@ class NatijaTest(NatijaAsos):
         ParentsBotSozlama.objects.filter(pk=1).update(natija_kunlari=[(self.kun.weekday() + 1) % 7])
         self.yechim(8, 10)
         self.assertEqual(xb.skanerla_natija(self.hozir), 0)
+
+    def test_ielts_toliq_test_listening_reading_bandi(self):
+        # video-TZ 2026-10-08: IELTS to'liq testlari (Cambridge va h.k.) natijasi
+        # ham Writing/Speaking kabi band bilan ota-onaga yuborilsin.
+        self.imtihon_yechim("listening", 8.5, nomi="Cambridge 13 Test 4 Listening")
+        self.imtihon_yechim("reading", 7.0, nomi="Cambridge 13 Test 4 Reading")
+        self.assertEqual(xb.skanerla_natija(self.hozir), 1)
+        self.assertEqual(xb.yubor_navbat(self.tg, self.hozir, pauza=0), 1)
+        matn = self.tg.yuborilgan[-1][1]
+        self.assertIn("Listening: 1 ta, band 8.5", matn)
+        self.assertIn("Reading: 1 ta, band 7.0", matn)
 
     def test_speaking_va_ruscha(self):
         Abonent.objects.filter(pk=self.ota.pk).update(til="ru")

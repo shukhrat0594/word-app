@@ -19,6 +19,17 @@ Format (qat'iy, parser shunga tayanadi):
 
 ---
 
+## 2026-10-08 — Ota-ona botiga IELTS to'liq test natijalari ham qo'shildi
+
+- **Kunlik natijalar xabarida endi Listening va Reading ham bor.**
+  Avval faqat bajargan mashqlar foizi va Writing/Speaking bahosi
+  ko'rinardi — talaba IELTS to'liq testini (masalan Cambridge
+  to'plamidan) topshirsa, uning Listening/Reading bandi ota-onaga
+  bormasdi. Endi ular ham Writing/Speaking kabi alohida qator bilan
+  ko'rsatiladi.
+
+---
+
 ## 2026-10-05 — CRM: talaba kartasidan ota-ona hisobi ochish
 
 - **Talaba kartasidagi "Ota-ona hisobi" bo'limida endi profil ochish

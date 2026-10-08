@@ -9,8 +9,9 @@ Signal ISHLATILMAYDI (CRM qoidasi) — davriy tekshiruv:
    - to'lov: yangi `crm.Tolov` (faqat `turi=tolov`) — ham `KECHIKISH` bilan (o'chirilsa — bekor,
      summa tuzatilsa — TO'G'RI summa bilan yuboriladi);
    - qarz: sozlamadagi kun va soatda, balansi manfiy farzand uchun (kuniga bitta);
-   - natija: sozlamadagi kun va soatda, oldingi yig'madan beri bajarilgan mashq/Writing/Speaking
-     yig'masi. Hech narsa qilinmagan bo'lsa — xabar yo'q (spam bo'lmasin).
+   - natija: sozlamadagi kun va soatda, oldingi yig'madan beri bajarilgan mashq/Writing/Speaking/
+     IELTS to'liq test (Reading/Listening) yig'masi. Hech narsa qilinmagan bo'lsa — xabar yo'q
+     (spam bo'lmasin).
 2. `yubor_navbat`: vaqti kelgan xabarlarni yuboradi. Yuborishdan oldin qayta tekshiradi
    (davomat o'zgargan, to'lov o'chirilgan, qarz to'langan, ota-ona botni bloklagan, sozlama o'chirilgan —
    bekor qilinadi). Tinch soatlarda hech narsa yuborilmaydi — xabar kutadi.
@@ -39,7 +40,7 @@ from assessment.models import SpeakingTekshiruv, WritingTekshiruv
 from courses.models import KursMashqYechim
 from crm.mantiq import balans, balanslarni_ol
 from crm.models import GuruhMoliya, Tolov
-from exercises.models import MashqYechim
+from exercises.models import MashqYechim, TestYechim
 
 from . import matnlar, xizmat
 from .models import Boglanish, ParentsBotKuzatuv, ParentsBotSozlama, Xabar
@@ -251,7 +252,8 @@ def natija_davri(sana, kunlar, soat):
 
 
 def natijalar(talaba_idlar, boshi, oxiri):
-    """{talaba_id: {"mashq_soni", "mashq_foiz", "writing_soni", "writing_band", "speaking_soni",
+    """{talaba_id: {"mashq_soni", "mashq_foiz", "listening_soni", "listening_band",
+    "reading_soni", "reading_band", "writing_soni", "writing_band", "speaking_soni",
     "speaking_band"}} — faqat davrda biror natijasi bor talabalar. To'plam so'rovlar (N+1 yo'q),
     xuddi CRM `GuruhNatijalarView` dagidek manbalar + Kurslar mashqlari."""
     oraliq = {"talaba_id__in": talaba_idlar, "created_at__gte": boshi, "created_at__lt": oxiri}
@@ -273,6 +275,15 @@ def natijalar(talaba_idlar, boshi, oxiri):
             r = qator(q["talaba_id"])
             r[f"{nom}_soni"] = q["soni"]
             r[f"{nom}_band"] = band_yaxlitla(q["band"])
+    # IELTS to'liq testlari (Reading/Listening, masalan "Cambridge 13 Test 4") —
+    # Writing/Speaking kabi alohida band bilan (video-TZ 2026-10-08: CRM/LMS
+    # "Natijalar" ro'yxatidagi test tarixi ota-onaga ham yig'ma orqali yetib borsin).
+    for bolim in ("listening", "reading"):
+        for q in TestYechim.objects.filter(**oraliq, test__bolim=bolim, band__isnull=False) \
+                .values("talaba_id").annotate(soni=Count("id"), band=Avg("band")):
+            r = qator(q["talaba_id"])
+            r[f"{bolim}_soni"] = q["soni"]
+            r[f"{bolim}_band"] = band_yaxlitla(float(q["band"]))
     for r in natija.values():
         ball, jami = r.pop("_ball"), r.pop("_jami")
         r["mashq_foiz"] = round(ball / jami * 100) if jami else None
@@ -343,7 +354,7 @@ def _natija_matni(til, p, bugun):
     if p.get("mashq_soni"):
         kalit = "natija_mashq_foiz" if p.get("mashq_foiz") is not None else "natija_mashq"
         qatorlar.append(matnlar.t(til, kalit, soni=p["mashq_soni"], foiz=p.get("mashq_foiz")))
-    for nom in ("writing", "speaking"):
+    for nom in ("listening", "reading", "writing", "speaking"):
         if p.get(f"{nom}_soni"):
             qatorlar.append(matnlar.t(til, "natija_band", nom=nom.capitalize(), soni=p[f"{nom}_soni"],
                                       band=p[f"{nom}_band"]))
