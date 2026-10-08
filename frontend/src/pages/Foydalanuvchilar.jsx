@@ -887,7 +887,7 @@ export default function Foydalanuvchilar() {
           value={qidiruv}
           onChange={(e) => setQidiruv(e.target.value)}
         />
-        <button className="tugma ikkinchi kichik" type="submit">{t("qidirish_tugmasi")}</button>
+        <button className="tugma kichik" type="submit">{t("qidirish_tugmasi")}</button>
       </form>
 
       <div style={{ display: "grid", gap: 10 }}>
