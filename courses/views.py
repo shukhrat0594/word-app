@@ -45,6 +45,7 @@ from .models import (
     KursMashqYechim,
     KursProgress,
     KursSoz,
+    KursSozYechim,
     KursTugun,
 )
 from .soz_tarjima import ruscha_tarjima_qil
@@ -1776,6 +1777,45 @@ class KursSozlarView(APIView):
                 for s in sozlar_qs
             ]
         )
+
+
+class KursSozlarYechishView(APIView):
+    """Talaba uchun — Vocabulary mashqida tarjima javoblarini yuborish
+    (2026-10-08, video-TZ). Tekshirishning o'zi frontendda ham mumkin
+    (tarjima `/sozlar/` javobida allaqachon ochiq, qarang
+    `SozlarniYozishMashqi`), lekin natija ota-onaga yuboriladigan
+    kunlik xabar uchun ishonchli bo'lishi kerak — shuning uchun ball
+    klientdan qabul qilinmaydi, serverda qayta hisoblanadi."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        if request.user.role != User.Role.STUDENT:
+            return Response({"detail": "Faqat talaba uchun"}, status=403)
+        tugun = get_object_or_404(KursTugun, pk=pk)
+        if _talaba_tugun_qulflanganmi(request.user, tugun):
+            return Response({"detail": "Bu qism hali qulflangan"}, status=403)
+
+        javoblar = request.data.get("javoblar")
+        if not isinstance(javoblar, dict):
+            return Response({"detail": "javoblar lug'ati majburiy"}, status=400)
+
+        sozlar = list(tugun.sozlar.all())
+        if not sozlar:
+            return Response({"detail": "Bu bo'limda so'z yo'q"}, status=400)
+
+        ball = 0
+        for s in sozlar:
+            javob = str(javoblar.get(str(s.id), "")).strip().lower()
+            if not javob:
+                continue
+            if javob == s.uz.strip().lower():
+                ball += 1
+            elif s.ru and javob == s.ru.strip().lower():
+                ball += 1
+
+        KursSozYechim.objects.create(talaba=request.user, tugun=tugun, ball=ball, jami=len(sozlar))
+        return Response({"ball": ball, "jami": len(sozlar)})
 
 
 class KursSozlarRuTarjimaHolatiView(APIView):

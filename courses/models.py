@@ -401,3 +401,27 @@ class KursMashqYechim(models.Model):
     class Meta:
         verbose_name_plural = "Kurs mashq yechimlari"
         ordering = ["-created_at"]
+
+
+class KursSozYechim(models.Model):
+    """Talabaning bitta Vocabulary tuguni so'zlarini tarjima qilish
+    mashqidagi natijasi (2026-10-08, video-TZ). Tekshirishning o'zi
+    mijoz tomonida bo'lsa ham (qarang `KursSozlarYechishView`), ball
+    serverda qayta hisoblanib shu yerga yoziladi — ota-onaga
+    yuboriladigan kunlik xabar (`parentsbot.xabarlar`) shundan
+    foydalanadi."""
+
+    talaba = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="kurs_soz_yechimlari"
+    )
+    tugun = models.ForeignKey(KursTugun, on_delete=models.CASCADE, related_name="soz_yechimlari")
+    ball = models.PositiveIntegerField()
+    jami = models.PositiveIntegerField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name_plural = "Kurs so'z yechimlari"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.talaba} — {self.tugun.nomi}: {self.ball}/{self.jami}"
