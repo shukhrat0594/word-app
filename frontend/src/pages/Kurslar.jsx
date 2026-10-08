@@ -1489,14 +1489,33 @@ function MashqPaneli({ tugunId, talabaMi, oqituvchiMi, jsonKiritishKorinadi = tr
  * o'sha tilda javob beradi. Interfeys tiliga bog'lab qo'yish noto'g'ri
  * bo'lardi — ruscha interfeysdagi o'zbek talaba bilib turib xato
  * olardi. `ru` bo'sh bo'lsa (hali tarjima qilinmagan) faqat `uz`
- * tekshiriladi. */
-function SozlarniYozishMashqi({ sozlar }) {
+ * tekshiriladi.
+ *
+ * 2026-10-08 (video-TZ): talaba bo'lsa, "Tekshirish" bosilganda natija
+ * (necha ta to'g'ri) serverga ham yuboriladi — ota-onaga yuboriladigan
+ * kunlik xabarda ko'rsatish uchun (`parentsbot.xabarlar`). Ball
+ * serverda qayta hisoblanadi, bu yerdagi mijoz hisobi faqat
+ * ko'rsatish uchun. */
+function SozlarniYozishMashqi({ sozlar, tugunId, talabaMi }) {
   const { t } = useI18n();
   const [javoblar, setJavoblar] = useState(() => sozlar.map(() => ""));
   const [tekshirilganmi, setTekshirilganmi] = useState(false);
 
   function javobniQoy(i, qiymat) {
     setJavoblar((j) => j.map((x, idx) => (idx === i ? qiymat : x)));
+  }
+
+  function tekshir() {
+    setTekshirilganmi(true);
+    if (!talabaMi) return;
+    const yuborilayotgan = {};
+    sozlar.forEach((s, i) => {
+      yuborilayotgan[s.id] = javoblar[i];
+    });
+    api(`/api/kurslar/${tugunId}/sozlar/tekshirish/`, {
+      method: "POST",
+      body: { javoblar: yuborilayotgan },
+    }).catch(() => {});
   }
 
   function togriMi(i) {
@@ -1532,7 +1551,7 @@ function SozlarniYozishMashqi({ sozlar }) {
           )}
         </div>
       ))}
-      <button className="tugma ikkinchi" onClick={() => setTekshirilganmi(true)} disabled={tekshirilganmi}>
+      <button className="tugma ikkinchi" onClick={tekshir} disabled={tekshirilganmi}>
         {t("tekshirish")}
       </button>
     </div>
@@ -1544,7 +1563,7 @@ function SozlarniYozishMashqi({ sozlar }) {
  * tarjima yozib mashq qilish. O'yinlar 2026-08-21'dan buyon BU YERDA
  * emas, Unit'ning alohida "Games" bo'limida (`GamesKorinishi`) — shu
  * Unit'ning aynan shu so'zlaridan foydalanadi. */
-function VocabularyKorinishi({ tugunId, matn, adminMi }) {
+function VocabularyKorinishi({ tugunId, matn, adminMi, talabaMi }) {
   const { t } = useI18n();
   const [sozlar, setSozlar] = useState(null);
   const [tarjimaBand, setTarjimaBand] = useState(false);
@@ -1610,7 +1629,7 @@ function VocabularyKorinishi({ tugunId, matn, adminMi }) {
       {sozlar.length === 0 ? (
         <div className="izoh">{t("kurs_wordlist_yoq")}</div>
       ) : (
-        <SozlarniYozishMashqi sozlar={sozlar} />
+        <SozlarniYozishMashqi sozlar={sozlar} tugunId={tugunId} talabaMi={talabaMi} />
       )}
     </div>
   );
@@ -2174,7 +2193,7 @@ function Tugun({ tugun, chuqurlik, adminMi, talabaMi, oqituvchiMi, royxatniYangi
               ko'rsatadi, kontent esa doim kichik sobit chetdan boshlanadi. */}
           {mashqOchiq && (
             <div style={{ paddingLeft: 14 }}>
-              <VocabularyKorinishi tugunId={tugun.id} matn={tugun.matn} adminMi={adminMi} />
+              <VocabularyKorinishi tugunId={tugun.id} matn={tugun.matn} adminMi={adminMi} talabaMi={talabaMi} />
             </div>
           )}
         </div>

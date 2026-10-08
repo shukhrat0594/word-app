@@ -5,7 +5,7 @@ from django.test import SimpleTestCase
 from django.utils import timezone
 
 from assessment.models import SpeakingTekshiruv, WritingTekshiruv
-from courses.models import KursMashq, KursMashqYechim
+from courses.models import KursMashq, KursMashqYechim, KursSozYechim, KursTugun
 from crm.test_api import ApiAsos
 from exercises.models import ImtihonTest, TestYechim
 from parentsbot import xabarlar as xb
@@ -41,11 +41,17 @@ class NatijaAsos(ApiAsos):
         self.ota = Abonent.objects.create(telegram_id=501, ism="Ota", til="uz", holat="tayyor")
         Boglanish.objects.create(abonent=self.ota, talaba=self.talaba, usul="telefon")
         self.mashq = KursMashq.objects.create(tugun=self.daraja, savollar=[])
+        self.vocab = KursTugun.objects.create(markaz=self.markaz, nomi="Vocabulary", parent=self.daraja,
+                                               kalit="vocabulary")
 
     def yechim(self, ball, jami, vaqt=None, talaba=None):
         y = KursMashqYechim.objects.create(talaba=talaba or self.talaba, mashq=self.mashq, javoblar=[],
                                            ball=ball, jami=jami, natijalar=[])
         KursMashqYechim.objects.filter(pk=y.pk).update(created_at=vaqt or self.ichida)
+
+    def soz_yechim(self, ball, jami, vaqt=None, talaba=None):
+        y = KursSozYechim.objects.create(talaba=talaba or self.talaba, tugun=self.vocab, ball=ball, jami=jami)
+        KursSozYechim.objects.filter(pk=y.pk).update(created_at=vaqt or self.ichida)
 
     def writing(self, band, holat="tayyor", vaqt=None):
         w = WritingTekshiruv.objects.create(talaba=self.talaba, matn="x", overall_band=band, holat=holat)
@@ -70,6 +76,25 @@ class NatijaTest(NatijaAsos):
         self.assertIn("Mashqlar: 2 ta, o'rtacha natija 70%", matn)
         self.assertIn("Writing: 1 ta, band 6.5", matn)
         self.assertNotIn("Speaking", matn)
+
+    def test_vokabulyar_natijasi_kunlik_yigmaga_kiradi(self):
+        # Video-TZ 2026-10-08: Vocabulary mashqi natijasi ham "Mashqlar"
+        # umumiy hisobiga qo'shiladi — ota-ona botiga alohida yuboriladi
+        # deb talab qilinmagan, mavjud kunlik yig'maga qo'shiladi.
+        self.soz_yechim(2, 2)
+        self.assertEqual(xb.skanerla_natija(self.hozir), 1)
+        self.assertEqual(xb.yubor_navbat(self.tg, self.hozir, pauza=0), 1)
+        matn = self.tg.yuborilgan[-1][1]
+        self.assertIn("Mashqlar: 1 ta, o'rtacha natija 100%", matn)
+
+    def test_vokabulyar_va_boshqa_mashqlar_birga_hisoblanadi(self):
+        self.yechim(8, 10)
+        self.soz_yechim(1, 2)
+        xb.skanerla_natija(self.hozir)
+        xb.yubor_navbat(self.tg, self.hozir, pauza=0)
+        matn = self.tg.yuborilgan[-1][1]
+        # (8+1)/(10+2) = 75%
+        self.assertIn("Mashqlar: 2 ta, o'rtacha natija 75%", matn)
 
     def test_hech_narsa_qilmagan_bolsa_xabar_yoq(self):
         self.yechim(5, 10, vaqt=self.ichida - timedelta(days=2))  # davrdan tashqarida

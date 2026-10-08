@@ -37,7 +37,7 @@ from django.utils import timezone
 
 from academics.models import Davomat
 from assessment.models import SpeakingTekshiruv, WritingTekshiruv
-from courses.models import KursMashqYechim
+from courses.models import KursMashqYechim, KursSozYechim
 from crm.mantiq import balans, balanslarni_ol
 from crm.models import GuruhMoliya, Tolov
 from exercises.models import MashqYechim, TestYechim
@@ -262,7 +262,7 @@ def natijalar(talaba_idlar, boshi, oxiri):
     def qator(tid):
         return natija.setdefault(tid, {"mashq_soni": 0, "_ball": 0, "_jami": 0})
 
-    for model in (MashqYechim, KursMashqYechim):
+    for model in (MashqYechim, KursMashqYechim, KursSozYechim):
         for q in model.objects.filter(**oraliq).values("talaba_id") \
                 .annotate(soni=Count("id"), ball=Sum("ball"), jami=Sum("jami")):
             r = qator(q["talaba_id"])
