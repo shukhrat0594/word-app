@@ -5,7 +5,7 @@ from datetime import date
 from decimal import Decimal
 
 from academics.models import Guruh, GuruhAzoligi
-from accounts.models import User
+from accounts.models import Bildirishnoma, User
 from crm import mantiq
 from crm.models import (
     AzolikMoliya, CrmRol, DarsJadvali, Hisob, Lid, LidBolim, TalabaProfil, Xona, XodimProfil,
@@ -154,6 +154,27 @@ class TalabaOtaOnaTest(ApiAsos):
         self.assertEqual(ota_ona.role, User.Role.PARENT)
         self.assertTrue(ota_ona.check_password(javob.data["parol"]))
         self.assertEqual(javob.data["username"], ota_ona.username)
+        # Login/parol administratorga bildirishnoma bo'lib boradi (video-TZ IMG_2149).
+        xabar = Bildirishnoma.objects.get(foydalanuvchi=self.admin)
+        self.assertIn(ota_ona.username, xabar.matn)
+        self.assertIn(javob.data["parol"], xabar.matn)
+
+    def test_ota_ona_paroli_qayta_tiklanadi(self):
+        self.talaba.ota_ona = self.ota_ona
+        self.talaba.save(update_fields=["ota_ona"])
+        javob = self.mijoz(self.admin).post(f"/api/crm/talaba/{self.talaba.id}/ota-ona/", {
+            "amal": "parol_tiklash",
+        }, format="json")
+        self.assertEqual(javob.status_code, 200, javob.data)
+        self.ota_ona.refresh_from_db()
+        self.assertTrue(self.ota_ona.check_password(javob.data["parol"]))
+        self.assertIn(javob.data["parol"], Bildirishnoma.objects.get(foydalanuvchi=self.admin).matn)
+
+    def test_ota_onasi_yoq_talabada_parol_tiklanmaydi(self):
+        javob = self.mijoz(self.admin).post(f"/api/crm/talaba/{self.talaba.id}/ota-ona/", {
+            "amal": "parol_tiklash",
+        }, format="json")
+        self.assertEqual(javob.status_code, 400)
 
     def test_ikkinchi_farzand_mavjud_hisobga_ulanadi(self):
         # Birinchi farzandga hisob ochiladi.

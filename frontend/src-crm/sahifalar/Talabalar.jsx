@@ -571,8 +571,10 @@ function OtaOnaOynasi({ talaba, onYopish, onSaqlandi }) {
         const javob = await api(`/api/crm/talaba/${talaba.id}/ota-ona/`, {
           method: "POST", body: { amal: "yaratish", ism, telefon },
         });
+        // Kartani shu yerda yangilamaymiz: yangilash vaqtida Karta
+        // "yuklanmoqda" ko'rsatib oynani o'chirib yuborardi va login/parol
+        // ekranda ko'rinmay yo'qolardi (video-TZ IMG_2149). Yopilganda yangilanadi.
         setNatija(javob);
-        onSaqlandi();
       } else if (tanlangan) {
         await api(`/api/crm/talaba/${talaba.id}/ota-ona/`, {
           method: "POST", body: { amal: "ulash", manba_talaba_id: tanlangan.id },
@@ -597,7 +599,7 @@ function OtaOnaOynasi({ talaba, onYopish, onSaqlandi }) {
             <p className="kichik">{t("login_parol_eslatma")}</p>
             <p><b>{natija.ism}</b> — <code>{natija.username}</code> / <code>{natija.parol}</code></p>
             <div className="oyna-tugmalar">
-              <button className="tugma" type="button" onClick={onYopish}>{t("yopish")}</button>
+              <button className="tugma" type="button" onClick={() => { onYopish(); onSaqlandi(); }}>{t("yopish")}</button>
             </div>
           </>
         ) : (
@@ -699,6 +701,21 @@ function Karta({ talabaId, onOrqaga }) {
       const javob = await api(`/api/crm/talaba/${talabaId}/crm/`, { method: "PATCH", body });
       if (javob.parol) setParol(javob.parol);
       yangila();
+    } catch (e) {
+      setAmalXato(e.message);
+    }
+  }
+
+  // Ota-ona parolini qayta tiklash — yangi parol shu yerda ko'rinadi va
+  // administratorga bildirishnoma bo'lib ham boradi (video-TZ IMG_2149).
+  const [otaOnaParol, setOtaOnaParol] = useState(null);
+  async function otaOnaParolTiklash() {
+    if (!window.confirm(t("parol_tiklash_tasdiq"))) return;
+    setAmalXato("");
+    try {
+      setOtaOnaParol(await api(`/api/crm/talaba/${talabaId}/ota-ona/`, {
+        method: "POST", body: { amal: "parol_tiklash" },
+      }));
     } catch (e) {
       setAmalXato(e.message);
     }
@@ -860,7 +877,19 @@ function Karta({ talabaId, onOrqaga }) {
           <span className="kichik">{t("ota_ona_hisobi")}</span>
           <span>
             {talaba.ota_ona?.id ? (
-              `${talaba.ota_ona.ism} (${talaba.ota_ona.username})`
+              <>
+                {`${talaba.ota_ona.ism} (${talaba.ota_ona.username})`}{" "}
+                {ruxsat("talabalar.tahrirlash") && !talaba.faqat_korish && (
+                  <button className="tugma tugma-sokin" type="button" onClick={otaOnaParolTiklash}>
+                    🔑 {t("parol_tiklash")}
+                  </button>
+                )}
+                {otaOnaParol && (
+                  <p className="ogohlantirish">
+                    🔑 <code>{otaOnaParol.username}</code> / <code>{otaOnaParol.parol}</code> — {t("login_parol_eslatma")}
+                  </p>
+                )}
+              </>
             ) : ruxsat("talabalar.tahrirlash") && !talaba.faqat_korish ? (
               <button className="tugma tugma-sokin" type="button" onClick={() => setOtaOnaOyna(true)}>
                 ➕ {t("ota_ona_hisobi_yaratish")}
