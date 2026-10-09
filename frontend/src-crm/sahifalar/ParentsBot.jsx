@@ -210,6 +210,15 @@ function Sozlama() {
       <input type="checkbox" checked={forma[k]} disabled={!tahrir} onChange={(e) => o(k, e.target.checked)} /> {nom}
     </label>
   );
+  // Natija turi (2026-10-09): darhol alohida xabar / kunlik yig'mada / o'chiq
+  const Rejim = ({ k, nom }) => (
+    <label className="yonma">
+      {nom}:{" "}
+      <select value={forma[k]} disabled={!tahrir} onChange={(e) => o(k, e.target.value)}>
+        {["darhol", "yigma", "ochiq"].map((r) => <option key={r} value={r}>{t(`ob_rejim_${r}`)}</option>)}
+      </select>
+    </label>
+  );
   const Soat = ({ k }) => (
     <input type="time" value={forma[k]} disabled={!tahrir} onChange={(e) => o(k, e.target.value)} />
   );
@@ -230,6 +239,7 @@ function Sozlama() {
       <h3>{t("ob_davomat")}</h3>
       <div className="ob-qator">
         <Belgi k="davomat_yoqilgan" nom={t("faol")} />
+        <Belgi k="davomat_keldi" nom={t("ob_keldi")} />
         <Belgi k="davomat_kelmadi" nom={t("ob_kelmadi")} />
         <Belgi k="davomat_kechikdi" nom={t("ob_kechikdi")} />
         <Belgi k="davomat_sababli" nom={t("ob_sababli")} />
@@ -251,6 +261,14 @@ function Sozlama() {
         <KunTanlash qiymat={forma.natija_kunlari} disabled={!tahrir} onChange={(v) => o("natija_kunlari", v)} />
         <span>{t("ob_soat")}: <Soat k="natija_soati" /></span>
       </div>
+
+      <h3>{t("ob_natija_turlari")}</h3>
+      <div className="ob-qator">
+        <Rejim k="ielts_rejimi" nom={t("ob_ielts")} />
+        <Rejim k="ws_rejimi" nom={t("ob_ws")} />
+        <Rejim k="soz_rejimi" nom={t("ob_soz")} />
+      </div>
+      <p className="kichik">{t("ob_natija_turlari_izoh")}</p>
 
       <h3>{t("ob_tinch")}</h3>
       <div className="ob-qator">

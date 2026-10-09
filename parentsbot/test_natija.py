@@ -34,6 +34,8 @@ class NatijaAsos(ApiAsos):
     def setUp(self):
         super().setUp()
         ParentsBotSozlama.ol()  # sozlama yozuvi bo'lsin: testlardagi update() bo'shga ketmasin
+        # Yig'ma testlari: hamma natija turi "kunlik yig'mada" (2026-10-09 dan standart — "darhol")
+        ParentsBotSozlama.objects.filter(pk=1).update(ielts_rejimi="yigma", ws_rejimi="yigma", soz_rejimi="yigma")
         self.tg = SoxtaTg()
         self.kun = timezone.localdate()
         self.hozir = datetime.combine(self.kun, time(19, 30), tzinfo=TOSH)  # standart 19:00 dan keyin
@@ -78,23 +80,41 @@ class NatijaTest(NatijaAsos):
         self.assertNotIn("Speaking", matn)
 
     def test_vokabulyar_natijasi_kunlik_yigmaga_kiradi(self):
-        # Video-TZ 2026-10-08: Vocabulary mashqi natijasi ham "Mashqlar"
-        # umumiy hisobiga qo'shiladi — ota-ona botiga alohida yuboriladi
-        # deb talab qilinmagan, mavjud kunlik yig'maga qo'shiladi.
+        # Video-TZ 2026-10-08: Vocabulary natijasi kunlik yig'maga kiradi; 2026-10-09 dan — alohida qatorda
         self.soz_yechim(2, 2)
         self.assertEqual(xb.skanerla_natija(self.hozir), 1)
         self.assertEqual(xb.yubor_navbat(self.tg, self.hozir, pauza=0), 1)
         matn = self.tg.yuborilgan[-1][1]
-        self.assertIn("Mashqlar: 1 ta, o'rtacha natija 100%", matn)
+        self.assertIn("Vocabulary: 1 ta, o'rtacha natija 100%", matn)
+        self.assertNotIn("Mashqlar", matn)
 
-    def test_vokabulyar_va_boshqa_mashqlar_birga_hisoblanadi(self):
+    def test_vokabulyar_va_boshqa_mashqlar_alohida_qatorda(self):
         self.yechim(8, 10)
         self.soz_yechim(1, 2)
         xb.skanerla_natija(self.hozir)
         xb.yubor_navbat(self.tg, self.hozir, pauza=0)
         matn = self.tg.yuborilgan[-1][1]
-        # (8+1)/(10+2) = 75%
-        self.assertIn("Mashqlar: 2 ta, o'rtacha natija 75%", matn)
+        self.assertIn("Mashqlar: 1 ta, o'rtacha natija 80%", matn)
+        self.assertIn("Vocabulary: 1 ta, o'rtacha natija 50%", matn)
+
+    def test_darhol_rejimidagilar_yigmaga_kirmaydi(self):
+        # 2026-10-09: "darhol" yuborilgan natija kunlik yig'mada takrorlanmaydi
+        ParentsBotSozlama.objects.filter(pk=1).update(ielts_rejimi="darhol", ws_rejimi="ochiq", soz_rejimi="darhol")
+        self.yechim(8, 10)
+        self.soz_yechim(1, 2)
+        self.writing(6.5)
+        self.imtihon_yechim("listening", 8.5)
+        xb.skanerla_natija(self.hozir)
+        xb.yubor_navbat(self.tg, self.hozir, pauza=0)
+        matn = self.tg.yuborilgan[-1][1]
+        self.assertIn("Mashqlar: 1 ta", matn)
+        for yoq in ("Vocabulary", "Writing", "Listening"):
+            self.assertNotIn(yoq, matn)
+
+    def test_faqat_darhol_natija_bolsa_yigma_yoq(self):
+        ParentsBotSozlama.objects.filter(pk=1).update(soz_rejimi="darhol")
+        self.soz_yechim(1, 2)
+        self.assertEqual(xb.skanerla_natija(self.hozir), 0)
 
     def test_hech_narsa_qilmagan_bolsa_xabar_yoq(self):
         self.yechim(5, 10, vaqt=self.ichida - timedelta(days=2))  # davrdan tashqarida

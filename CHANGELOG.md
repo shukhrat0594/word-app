@@ -19,6 +19,22 @@ Format (qat'iy, parser shunga tayanadi):
 
 ---
 
+## 2026-10-09 — Ota-onaga "darsga keldi" va test natijalari darhol boradi
+
+- **"Darsga keldi" xabari.** Ota-ona endi farzandi darsga kelganini ham
+  bilib turadi — xuddi "kelmadi" va "kechikdi" kabi, davomat belgilangandan
+  5 daqiqa keyin. CRM → Ota-ona nazorati → Sozlamalar'da "Keldi" katagi bilan
+  o'chirib qo'yish mumkin.
+- **IELTS test, Writing/Speaking va Vocabulary natijasi — darhol.** Talaba
+  IELTS Listening/Reading testini yechsa, Writing yoki Speaking'dan bahosi
+  chiqsa yoki Kurslardagi Vocabulary mashqini bajarsa, ota-onaga 5–10 daqiqada
+  alohida xabar boradi (band yoki foiz bilan). Vocabulary'ni bir necha marta
+  tekshirsa — har unit uchun kuniga bitta xabar, oxirgi natija bilan.
+- **Har biri uchun tanlov.** Sozlamalarda har natija turi uchun "Darhol",
+  "Kunlik yig'mada" (kechki yig'ma xabarda) yoki "O'chiq" tanlanadi. Kunlik
+  yig'maning kunlari va soati avvalgidek sozlanadi; Vocabulary yig'mada endi
+  "Mashqlar"dan alohida qatorda ko'rinadi.
+
 ## 2026-10-08 — Ota-ona botiga IELTS to'liq test natijalari ham qo'shildi
 
 - **Kunlik natijalar xabarida endi Listening va Reading ham bor.**
