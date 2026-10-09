@@ -80,6 +80,10 @@ MATNLAR = {
         "uz": "⏰ {ism} {kun} «{guruh}» guruhidagi darsga kechikib keldi.",
         "ru": "⏰ {ism} {kun} опоздал(а) на занятие в группе «{guruh}».",
     },
+    "davomat_keldi": {  # 2026-10-09
+        "uz": "✅ {ism} {kun} «{guruh}» guruhida darsga keldi.",
+        "ru": "✅ {ism} {kun} пришёл(ла) на занятие в группе «{guruh}».",
+    },
     "davomat_sababli": {
         "uz": "ℹ️ {ism} {kun} «{guruh}» guruhida sababli kelmadi.",
         "ru": "ℹ️ {ism} {kun} отсутствовал(а) по уважительной причине (группа «{guruh}»).",
@@ -108,6 +112,30 @@ MATNLAR = {
         "ru": "• Упражнения: {soni}, средний результат {foiz}%",
     },
     "natija_band": {"uz": "• {nom}: {soni} ta, band {band}", "ru": "• {nom}: {soni}, band {band}"},
+    "natija_soz": {"uz": "• Vocabulary: {soni} ta", "ru": "• Vocabulary: {soni}"},
+    "natija_soz_foiz": {
+        "uz": "• Vocabulary: {soni} ta, o'rtacha natija {foiz}%",
+        "ru": "• Vocabulary: {soni}, средний результат {foiz}%",
+    },
+    # Darhol natija xabarlari (2026-10-09)
+    "band": {"uz": "band {band}", "ru": "band {band}"},
+    "ielts_natija": {
+        "uz": "📝 {ism} IELTS {bolim} testini yechdi: «{nomi}» — {natija}.",
+        "ru": "📝 {ism} решил(а) тест IELTS {bolim}: «{nomi}» — {natija}.",
+    },
+    "writing_natija": {
+        "uz": "✍️ {ism} IELTS Writing topshirdi — band {band}.",
+        "ru": "✍️ {ism} сдал(а) IELTS Writing — band {band}.",
+    },
+    "speaking_natija": {
+        "uz": "🎤 {ism} IELTS Speaking topshirdi — band {band}.",
+        "ru": "🎤 {ism} сдал(а) IELTS Speaking — band {band}.",
+    },
+    "soz_natija": {
+        "uz": "📚 {ism} Vocabulary mashqini bajardi ({nomi}): {ball}/{jami} — {foiz}%.",
+        "ru": "📚 {ism} выполнил(а) упражнение Vocabulary ({nomi}): {ball}/{jami} — {foiz}%.",
+    },
+    "soz_urinish": {"uz": "({soni} marta urindi, oxirgi natija)", "ru": "({soni} попыток, последний результат)"},
     "tushunmadim": {
         "uz": "Tushunmadim. Buyruqlar uchun /yordam ni bosing.",
         "ru": "Не понял. Команды — /yordam.",

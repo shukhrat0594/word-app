@@ -85,9 +85,10 @@ class SkanerTest(XabarAsos):
         self.yubor(minut=7)
         self.assertEqual(len(self.tg.yuborilgan), 1)
 
-    def test_keldi_xabar_bermaydi(self):
+    def test_keldi_ham_xabar_beradi(self):  # 2026-10-09 gacha "keldi" xabarsiz edi (endi — `davomat_keldi`)
+        ParentsBotKuzatuv.objects.update(keldi_boshlandi=timezone.now() - timedelta(minutes=1))
         self.belgi(holat="keldi")
-        self.assertEqual(self.skaner(), 0)
+        self.assertEqual(self.skaner(), 1)
 
     def test_filial_telefoni_xabar_oxirida(self):
         self.filial.telefon = "+998901234567"
