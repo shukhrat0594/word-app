@@ -1518,11 +1518,22 @@ function SozlarniYozishMashqi({ sozlar, tugunId, talabaMi }) {
     }).catch(() => {});
   }
 
+  // 2026-10-09 (Matn-TZ 138): tarjima "/", ",", ";" bo'yicha variantlarga
+  // bo'linadi, qavsdagi izoh, ё/е farqi va tinish belgilari hisobga
+  // olinmaydi — serverdagi `soz_javobi_togrimi` bilan bir xil.
+  function normal(m) {
+    return (m || "").toLowerCase().replace(/ё/g, "е").replace(/[.!?…:;"«»]/g, " ").split(/\s+/).filter(Boolean).join(" ");
+  }
+
   function togriMi(i) {
-    const javob = javoblar[i].trim().toLowerCase();
+    const javob = normal(javoblar[i]);
+    if (!javob) return false;
     const s = sozlar[i];
-    if (javob && s.ru && javob === s.ru.trim().toLowerCase()) return true;
-    return javob === s.uz.trim().toLowerCase();
+    return [s.uz, s.ru].filter(Boolean).some(
+      (tarjima) =>
+        normal(tarjima) === javob ||
+        tarjima.replace(/\([^)]*\)/g, " ").split(/[/,;]/).some((q) => normal(q) === javob)
+    );
   }
 
   /** Xato holatda ko'rsatiladigan to'g'ri javob — ikkala til ham

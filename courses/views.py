@@ -1,5 +1,6 @@
 import io
 import json
+import re
 import shutil
 import tempfile
 import uuid
@@ -1779,6 +1780,35 @@ class KursSozlarView(APIView):
         )
 
 
+def _soz_normal(matn):
+    """Taqqoslash uchun: kichik harf, ё→е, yakuniy tinish belgilari va
+    ortiqcha bo'shliqlarsiz."""
+    matn = str(matn or "").lower().replace("ё", "е")
+    matn = re.sub(r"[.!?…:;\"«»]", " ", matn)
+    return " ".join(matn.split())
+
+
+def soz_javobi_togrimi(javob, uz, ru=""):
+    """Vocabulary tarjima javobi to'g'rimi (2026-10-09, Matn-TZ 138).
+    Avval javob butun tarjima satriga aynan teng bo'lishi kerak edi —
+    "Приятно познакомиться" ("." siz), "ё" o'rniga "е" yoki
+    "keksa/eski" dan bittasi xato hisoblanardi. Endi tarjima "/", ","
+    va ";" bo'yicha variantlarga bo'linadi, qavsdagi izoh tashlanadi —
+    birortasiga mos kelsa to'g'ri. Frontenddagi `togriMi` bilan bir xil."""
+    javob = _soz_normal(javob)
+    if not javob:
+        return False
+    variantlar = set()
+    for tarjima in (uz, ru):
+        if not tarjima:
+            continue
+        variantlar.add(_soz_normal(tarjima))
+        for qism in re.split(r"[/,;]", re.sub(r"\([^)]*\)", " ", tarjima)):
+            variantlar.add(_soz_normal(qism))
+    variantlar.discard("")
+    return javob in variantlar
+
+
 class KursSozlarYechishView(APIView):
     """Talaba uchun — Vocabulary mashqida tarjima javoblarini yuborish
     (2026-10-08, video-TZ). Tekshirishning o'zi frontendda ham mumkin
@@ -1806,12 +1836,7 @@ class KursSozlarYechishView(APIView):
 
         ball = 0
         for s in sozlar:
-            javob = str(javoblar.get(str(s.id), "")).strip().lower()
-            if not javob:
-                continue
-            if javob == s.uz.strip().lower():
-                ball += 1
-            elif s.ru and javob == s.ru.strip().lower():
+            if soz_javobi_togrimi(javoblar.get(str(s.id), ""), s.uz, s.ru):
                 ball += 1
 
         KursSozYechim.objects.create(talaba=request.user, tugun=tugun, ball=ball, jami=len(sozlar))

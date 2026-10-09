@@ -70,6 +70,21 @@ class SozlarTekshirishTest(SozlarTekshirishAsos):
         self.assertEqual(KursSozYechim.objects.get(talaba=self.talaba).ball, 1)
         self.assertEqual(KursSozYechim.objects.get(talaba=boshqa).ball, 2)
 
+    def test_variantlar_yo_e_va_tinish_belgisi_ahamiyatsiz(self):
+        # Matn-TZ 138: "keksa/eski / старый", "Приятно познакомиться.", ё/е
+        s1 = KursSoz.objects.create(tugun=self.vocab, tartib=2, en="old", uz="keksa/eski", ru="старый")
+        s2 = KursSoz.objects.create(
+            tugun=self.vocab, tartib=3, en="Nice to meet you",
+            uz="Tanishganimdan xursandman.", ru="Приятно познакомиться.",
+        )
+        s3 = KursSoz.objects.create(tugun=self.vocab, tartib=4, en="yellow", uz="sariq", ru="жёлтый")
+        s4 = KursSoz.objects.create(tugun=self.vocab, tartib=5, en="cousin", uz="amakivachcha (qarindosh)")
+        j = self.yubor(self.talaba, {
+            str(s1.id): "eski", str(s2.id): "приятно познакомиться",
+            str(s3.id): "желтый", str(s4.id): "amakivachcha",
+        })
+        self.assertEqual(j.data["ball"], 4)
+
     def test_javoblar_royxat_bolsa_400(self):
         j = self.mijoz(self.talaba).post(
             f"/api/kurslar/{self.vocab.id}/sozlar/tekshirish/", {"javoblar": ["aeroport"]}, format="json"
