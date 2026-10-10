@@ -455,6 +455,30 @@ def _harf_va_matn_qabul(savol, qabul):
     return kengaytirilgan
 
 
+# 2026-10-10, Elementary WB Unit 2 ("Complete the words with -or or -er"):
+# kalit QO'SHIMCHA ko'rinishida saqlangan ("-er", "-or"), talaba esa
+# kitobdagidek "er" yoki to'liq so'zni ("waiter") yozadi — har qanday
+# to'g'ri javob XATO deb chiqardi. Kalitdagi boshlang'ich defis
+# ixtiyoriy qilinadi va bo'sh joydan oldingi o'zak bilan birlashgan
+# to'liq so'z ham qabul qilinadi.
+_QOSHIMCHA_KALIT = re.compile(r"^-([a-z']+)$")
+_OZAK_BOSH_JOY = re.compile(r"([A-Za-z']+)\s*_{2,}\s*$")
+
+
+def _qoshimcha_qabul(savol, qabul):
+    """Kalit "-er" bo'lsa: "er" va "<o'zak>er" (savol "wait___") ham."""
+    kengaytirilgan = set(qabul)
+    ozak = _OZAK_BOSH_JOY.search(str(savol.get("savol") or ""))
+    for t in qabul:
+        mos = _QOSHIMCHA_KALIT.match(t)
+        if not mos:
+            continue
+        kengaytirilgan.add(mos.group(1))
+        if ozak:
+            kengaytirilgan.add(_norm(ozak.group(1) + mos.group(1)))
+    return kengaytirilgan
+
+
 def javoblarni_tekshir(savollar, javoblar):
     """Talaba javoblarini tekshiradi (barcha turlar uchun yagona mexanizm).
 
@@ -512,6 +536,7 @@ def javoblarni_tekshir(savollar, javoblar):
             # kalit tomonda qo'shiladi — normalizatorda emas (izohga qara).
             qabul = set().union(*(_qabul_variantlari(t) for t in qabul))
             qabul = _harf_va_matn_qabul(savol, qabul)
+            qabul = _qoshimcha_qabul(savol, qabul)
             javob = javoblar[bosh] if bosh < len(javoblar) else ""
 
             # 2026-08-15: BITTA savol ichida BIR NECHTA bo'sh joy
