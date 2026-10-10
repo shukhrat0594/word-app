@@ -75,11 +75,45 @@ def _bolaklar_royxatlari(obj):
     return natija
 
 
+def _mashq_oraligi(bloklar):
+    """-or/-er ko'rsatmasidan keyingi bloklar — keyingi ko'rsatmagacha.
+
+    Bitta KursMashq — kitobning butun sahifasi (bir nechta mashq). Faqat
+    shu mashqning bloklari olinadi: aks holda boshqa mashqdagi "... wait
+    ___" kabi bo'sh joyning kaliti ham "er"ga almashib ketardi."""
+    for i, blok in enumerate(bloklar):
+        if not isinstance(blok, dict) or blok.get("tur") != "korsatma":
+            continue
+        if not any(KORSATMA in m.lower() for m in _matnlar(blok)):
+            continue
+        oxiri = i + 1
+        while oxiri < len(bloklar) and not (
+            isinstance(bloklar[oxiri], dict) and bloklar[oxiri].get("tur") == "korsatma"
+        ):
+            oxiri += 1
+        return bloklar[i + 1:oxiri], bloklar[:i + 1] + bloklar[oxiri:]
+    return [], bloklar
+
+
+def _band_idxlar(bloklar):
+    return {
+        b.get("savol_idx")
+        for bolaklar in _bolaklar_royxatlari(bloklar)
+        for b in bolaklar
+        if isinstance(b, dict) and b.get("bosh_joy")
+    }
+
+
 def or_er_kalitlari(mashq):
     """Bitta mashqning kalitlarini tuzatadi. Qaytaradi: o'zgargan savollar soni."""
     savollar = mashq.savollar or []
+    ichki, tashqi = _mashq_oraligi(mashq.bloklar or [])
+    # Siljigan savol_idx boshqa mashq bo'sh joyi bilan UMUMIY bo'lsa — uning
+    # kalitini buzmaslik uchun bu bo'sh joyga yangi savol ochiladi.
+    band = _band_idxlar(tashqi)
     ozgardi = 0
-    for bolaklar in _bolaklar_royxatlari(mashq.bloklar or []):
+    bloklar_ozgardi = False
+    for bolaklar in _bolaklar_royxatlari(ichki):
         oldingi = ""
         for b in bolaklar:
             if not isinstance(b, dict):
@@ -96,11 +130,19 @@ def or_er_kalitlari(mashq):
                 continue
             qosh = QOSHIMCHALAR[ozak]
             yangi = [qosh, ozak + qosh]
+            if idx in band:
+                savollar.append({"savol": ozak, "togri": yangi})
+                b["savol_idx"] = len(savollar) - 1
+                bloklar_ozgardi = True
+                ozgardi += 1
+                continue
+            band.add(idx)
             if savollar[idx].get("togri") != yangi:
                 savollar[idx]["togri"] = yangi
                 ozgardi += 1
     if ozgardi:
-        mashq.save(update_fields=["savollar"])
+        mashq.savollar = savollar
+        mashq.save(update_fields=["savollar", "bloklar"] if bloklar_ozgardi else ["savollar"])
     return ozgardi
 
 

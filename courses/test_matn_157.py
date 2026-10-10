@@ -49,6 +49,42 @@ class OrErKalitlariTest(ApiAsos):
         j = self.yubor(["or", "er", "or", "er", "er", "or", "or", "or", "er"])
         self.assertEqual(j.data["ball"], 0)
 
+    def test_sahifadagi_boshqa_mashqqa_tegmaydi(self):
+        """Bitta sahifada keyingi mashq: "I can't wait ___" — kaliti
+        "to see you" qolishi kerak (o'zak "wait" bilan tugasa ham)."""
+        self.mashq.bloklar += [
+            {"tur": "korsatma", "raqam": "3", "matn": "Write a verb from the box."},
+            {"tur": "mashq", "qatorlar": [{"bolaklar": [
+                {"matn": "I can't wait "}, {"bosh_joy": True, "savol_idx": len(SOZLAR)},
+            ]}]},
+        ]
+        self.mashq.savollar.append({"savol": "3.1", "togri": "to see you"})
+        self.mashq.save()
+        tuzat(KursTugun, KursMashq)
+        self.mashq.refresh_from_db()
+        self.assertEqual(self.mashq.savollar[len(SOZLAR)]["togri"], "to see you")
+        self.assertEqual(self.mashq.savollar[0]["togri"], ["er", "waiter"])
+
+    def test_umumiy_savol_idx_boshqa_mashqni_buzmaydi(self):
+        """Siljigan kalit: -or/-er bo'sh joyi boshqa mashq savoliga
+        (idx 0) ishora qilsa — o'sha savol kaliti saqlanadi, bo'sh joyga
+        yangi savol ochiladi."""
+        self.mashq.bloklar += [
+            {"tur": "korsatma", "raqam": "3", "matn": "Write a verb from the box."},
+            {"tur": "mashq", "qatorlar": [{"bolaklar": [
+                {"matn": "1 "}, {"bosh_joy": True, "savol_idx": 0},
+            ]}]},
+        ]
+        self.mashq.savollar[0]["togri"] = "play"
+        self.mashq.save()
+        tuzat(KursTugun, KursMashq)
+        self.mashq.refresh_from_db()
+        self.assertEqual(self.mashq.savollar[0]["togri"], "play")
+        wait = self.mashq.bloklar[1]["qatorlar"][1]["bolaklar"][1]["savol_idx"]
+        self.assertNotEqual(wait, 0)
+        self.assertEqual(self.mashq.savollar[wait]["togri"], ["er", "waiter"])
+        self.assertFalse(any(b for _, b in tuzat(KursTugun, KursMashq)))
+
     def test_idempotent(self):
         tuzat(KursTugun, KursMashq)
         hisobot = tuzat(KursTugun, KursMashq)
