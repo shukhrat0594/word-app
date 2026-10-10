@@ -23,6 +23,16 @@ class QoshimchaKalitTest(SimpleTestCase):
     def test_toliq_soz(self):
         self.assertEqual(self.natija(["waiter", "actor"]), [True, True])
 
+    def test_kop_sozli_ozak(self):
+        savollar = [{"savol": "8 police offic___", "togri": "-er"}]
+        for javob in ("er", "officer", "police officer", "Police Officer."):
+            self.assertEqual(
+                javoblarni_tekshir(savollar, [javob])["natijalar"], [True], javob
+            )
+        self.assertEqual(
+            javoblarni_tekshir(savollar, ["police officor"])["natijalar"], [False]
+        )
+
     def test_notogri_qoshimcha(self):
         self.assertEqual(self.natija(["or", "er"]), [False, False])
         self.assertEqual(self.natija(["waitor", "acter"]), [False, False])

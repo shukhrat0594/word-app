@@ -460,22 +460,28 @@ def _harf_va_matn_qabul(savol, qabul):
 # kitobdagidek "er" yoki to'liq so'zni ("waiter") yozadi — har qanday
 # to'g'ri javob XATO deb chiqardi. Kalitdagi boshlang'ich defis
 # ixtiyoriy qilinadi va bo'sh joydan oldingi o'zak bilan birlashgan
-# to'liq so'z ham qabul qilinadi.
+# to'liq so'z ham qabul qilinadi. Ko'p so'zli o'zakda ("8 police
+# offic___") oxirgi so'z ham ("officer"), butun ibora ham
+# ("police officer") to'g'ri — band raqami o'zakka kirmaydi.
 _QOSHIMCHA_KALIT = re.compile(r"^-([a-z']+)$")
-_OZAK_BOSH_JOY = re.compile(r"([A-Za-z']+)\s*_{2,}\s*$")
+_OZAK_BOSH_JOY = re.compile(r"([A-Za-z' ]*[A-Za-z'])\s*_{2,}[\s.]*$")
 
 
 def _qoshimcha_qabul(savol, qabul):
     """Kalit "-er" bo'lsa: "er" va "<o'zak>er" (savol "wait___") ham."""
     kengaytirilgan = set(qabul)
     ozak = _OZAK_BOSH_JOY.search(str(savol.get("savol") or ""))
+    ozaklar = set()
+    if ozak:
+        ibora = ozak.group(1).strip()
+        ozaklar = {ibora, ibora.split()[-1]}
     for t in qabul:
         mos = _QOSHIMCHA_KALIT.match(t)
         if not mos:
             continue
         kengaytirilgan.add(mos.group(1))
-        if ozak:
-            kengaytirilgan.add(_norm(ozak.group(1) + mos.group(1)))
+        for o in ozaklar:
+            kengaytirilgan.add(_norm(o + mos.group(1)))
     return kengaytirilgan
 
 
