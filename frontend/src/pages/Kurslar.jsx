@@ -2617,7 +2617,7 @@ function KurslarSaqlashYuklash({ daraxt, royxatniYangila }) {
   const barchaBarglar = ildizlar.flatMap(barglar);
   // Unit bo'limlari turi bo'yicha — "Student's Book" belgilansa barcha
   // Unit'lardagi Student's Book'lar tanlanadi (va h.k.).
-  const BOLIM_TURLARI = ["students_book", "workbook", "vocabulary"];
+  const BOLIM_TURLARI = ["students_book", "workbook", "vocabulary", "tests"];
   const turBarglari = (kalit) => {
     const natija = [];
     const yur = (n) => {
