@@ -102,6 +102,8 @@ class Command(BaseCommand):
         # yaratilgan Unit'larda hali yo'q) — idempotent, har deploy'da
         # xavfsiz.
         call_command("games_tugun_qoshish")
+        # 2026-10-11 (Matn-TZ 246): xuddi shunday "Tests" tuguni.
+        call_command("tests_tugun_qoshish")
         # 2026-08-17, foydalanuvchi talabi: Headway Unit'lar endi bu yerda
         # AVTOMATIK yaratilmaydi — admin ularni lokalda tayyorlab, Kurslar
         # bo'limidagi "Saqlash"/"Yuklash" (eksport/import ZIP) tugmalari
