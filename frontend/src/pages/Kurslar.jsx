@@ -1521,19 +1521,34 @@ function SozlarniYozishMashqi({ sozlar, tugunId, talabaMi }) {
   // 2026-10-09 (Matn-TZ 138): tarjima "/", ",", ";" bo'yicha variantlarga
   // bo'linadi, qavsdagi izoh, ё/е farqi va tinish belgilari hisobga
   // olinmaydi — serverdagi `soz_javobi_togrimi` bilan bir xil.
+  // 2026-10-11 (Matn-TZ 180): apostrof (‘ ’ ʻ ʼ ` ´) va tire variantlari
+  // bir xil hisoblanadi; javobdagi bir nechta variant (vergul bilan,
+  // istalgan tartibda) ham to'g'ri — har biri variantlardan biri bo'lsa.
   function normal(m) {
-    return (m || "").toLowerCase().replace(/ё/g, "е").replace(/[.!?…:;"«»]/g, " ").split(/\s+/).filter(Boolean).join(" ");
+    return (m || "")
+      .toLowerCase()
+      .replace(/ё/g, "е")
+      .replace(/[‘’ʻʼ`´]/g, "'")
+      .replace(/[–—]/g, "-")
+      .replace(/[.!?…:;"«»“”„]/g, " ")
+      .split(/\s+/)
+      .filter(Boolean)
+      .join(" ");
+  }
+
+  function qismlar(m) {
+    return (m || "").replace(/\([^)]*\)/g, " ").split(/[/,;]/).map(normal).filter(Boolean);
   }
 
   function togriMi(i) {
     const javob = normal(javoblar[i]);
     if (!javob) return false;
     const s = sozlar[i];
-    return [s.uz, s.ru].filter(Boolean).some(
-      (tarjima) =>
-        normal(tarjima) === javob ||
-        tarjima.replace(/\([^)]*\)/g, " ").split(/[/,;]/).some((q) => normal(q) === javob)
-    );
+    const javobQismlari = qismlar(javoblar[i]);
+    return [s.uz, s.ru].filter(Boolean).some((tarjima) => {
+      const variantlar = new Set([normal(tarjima), ...qismlar(tarjima)]);
+      return variantlar.has(javob) || (javobQismlari.length > 0 && javobQismlari.every((q) => variantlar.has(q)));
+    });
   }
 
   /** Xato holatda ko'rsatiladigan to'g'ri javob — ikkala til ham

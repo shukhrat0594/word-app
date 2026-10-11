@@ -1782,10 +1782,24 @@ class KursSozlarView(APIView):
 
 def _soz_normal(matn):
     """Taqqoslash uchun: kichik harf, ё→е, yakuniy tinish belgilari va
-    ortiqcha bo'shliqlarsiz."""
+    ortiqcha bo'shliqlarsiz.
+
+    2026-10-11 (Matn-TZ 180): o'zbekcha apostrof variantlari (‘ ’ ʻ ʼ `
+    ´) bitta "'" ga, tire variantlari (– —) "-" ga keltiriladi — bazada
+    "o‘qituvchi", talaba telefonida "o’qituvchi" yoki "o'qituvchi"
+    yozilsa ham to'g'ri yozilgan so'z xato hisoblanardi."""
     matn = str(matn or "").lower().replace("ё", "е")
-    matn = re.sub(r"[.!?…:;\"«»]", " ", matn)
+    matn = re.sub(r"[‘’ʻʼ`´]", "'", matn)
+    matn = re.sub(r"[–—]", "-", matn)
+    matn = re.sub(r"[.!?…:;\"«»“”„]", " ", matn)
     return " ".join(matn.split())
+
+
+def _qismlar(matn):
+    """Qavsdagi izohsiz, "/", ",", ";" bo'yicha bo'lingan normal qismlar."""
+    qismlar = {_soz_normal(q) for q in re.split(r"[/,;]", re.sub(r"\([^)]*\)", " ", str(matn or "")))}
+    qismlar.discard("")
+    return qismlar
 
 
 def soz_javobi_togrimi(javob, uz, ru=""):
@@ -1794,19 +1808,22 @@ def soz_javobi_togrimi(javob, uz, ru=""):
     "Приятно познакомиться" ("." siz), "ё" o'rniga "е" yoki
     "keksa/eski" dan bittasi xato hisoblanardi. Endi tarjima "/", ","
     va ";" bo'yicha variantlarga bo'linadi, qavsdagi izoh tashlanadi —
-    birortasiga mos kelsa to'g'ri. Frontenddagi `togriMi` bilan bir xil."""
-    javob = _soz_normal(javob)
-    if not javob:
+    birortasiga mos kelsa to'g'ri. Frontenddagi `togriMi` bilan bir xil.
+
+    2026-10-11 (Matn-TZ 180): talaba bir nechta variantni vergul bilan
+    (boshqa tartibda ham) yoki izohni qavssiz yozsa ham to'g'ri — javob
+    ham xuddi shunday qismlarga bo'linadi va HAR BIR qism shu tildagi
+    variantlardan biri bo'lishi kerak."""
+    if not _soz_normal(javob):
         return False
-    variantlar = set()
     for tarjima in (uz, ru):
         if not tarjima:
             continue
-        variantlar.add(_soz_normal(tarjima))
-        for qism in re.split(r"[/,;]", re.sub(r"\([^)]*\)", " ", tarjima)):
-            variantlar.add(_soz_normal(qism))
-    variantlar.discard("")
-    return javob in variantlar
+        variantlar = _qismlar(tarjima) | {_soz_normal(tarjima)}
+        javob_qismlari = _qismlar(javob)
+        if _soz_normal(javob) in variantlar or (javob_qismlari and javob_qismlari <= variantlar):
+            return True
+    return False
 
 
 class KursSozlarYechishView(APIView):
