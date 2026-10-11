@@ -2534,7 +2534,11 @@ function KurslarSaqlashYuklash({ daraxt, royxatniYangila }) {
   };
   // Unit ichidagi bo'limlar (Student's Book/Workbook/Vocabulary...) — eng
   // pastki qatlam, ulardan chuqurroq ko'rsatilmaydi.
-  const bolalari = (n) => (n.unit_darsi ? (n.children || []).map((b) => ({ ...b, children: [] })) : n.children || [])
+  // Games — alohida kontent emas (o'yinlar Vocabulary so'zlaridan
+  // quriladi), shuning uchun saqlash ro'yxatida ko'rsatilmaydi.
+  const bolalari = (n) => (n.unit_darsi
+    ? (n.children || []).filter((b) => b.kalit !== "games").map((b) => ({ ...b, children: [] }))
+    : n.children || [])
     .filter((b) => !b.tez_kunda);
   const barglar = (n) => {
     const b = bolalari(n);
@@ -2542,6 +2546,30 @@ function KurslarSaqlashYuklash({ daraxt, royxatniYangila }) {
   };
   const ildizlar = (daraxt.children || []).filter((n) => !n.tez_kunda);
   const barchaBarglar = ildizlar.flatMap(barglar);
+  // Unit bo'limlari turi bo'yicha — "Student's Book" belgilansa barcha
+  // Unit'lardagi Student's Book'lar tanlanadi (va h.k.).
+  const BOLIM_TURLARI = ["students_book", "workbook", "vocabulary"];
+  const turBarglari = (kalit) => {
+    const natija = [];
+    const yur = (n) => {
+      if (n.unit_darsi) {
+        bolalari(n).filter((b) => b.kalit === kalit).forEach((b) => natija.push(b.id));
+      } else {
+        bolalari(n).forEach(yur);
+      }
+    };
+    ildizlar.forEach(yur);
+    return natija;
+  };
+  const toplamHolati = (idlar) => {
+    const soni = idlar.filter((id) => tanlangan.has(id)).length;
+    return !idlar.length || soni === 0 ? "yoq" : soni === idlar.length ? "toliq" : "qisman";
+  };
+  const toplamniBelgila = (idlar, qiymat) => setTanlangan((eski) => {
+    const yangi = new Set(eski);
+    idlar.forEach((id) => (qiymat ? yangi.add(id) : yangi.delete(id)));
+    return yangi;
+  });
 
   function holat(n) {
     const b = barglar(n);
@@ -2713,15 +2741,33 @@ function KurslarSaqlashYuklash({ daraxt, royxatniYangila }) {
             <div className="blok-tasdiq-sarlavha-qator">
               <strong>{t("kurs_saqlash_sarlavha")}</strong>
             </div>
-            <label style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6, fontWeight: 600 }}>
-              <input
-                type="checkbox"
-                checked={umumiyHolat === "toliq"}
-                ref={(el) => el && (el.indeterminate = umumiyHolat === "qisman")}
-                onChange={(e) => setTanlangan(e.target.checked ? new Set(barchaBarglar) : new Set())}
-              />
-              {t("kurs_saqlash_hammasi")}
-            </label>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 18px", marginBottom: 6, fontWeight: 600 }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <input
+                  type="checkbox"
+                  checked={umumiyHolat === "toliq"}
+                  ref={(el) => el && (el.indeterminate = umumiyHolat === "qisman")}
+                  onChange={(e) => setTanlangan(e.target.checked ? new Set(barchaBarglar) : new Set())}
+                />
+                {t("kurs_saqlash_hammasi")}
+              </label>
+              {BOLIM_TURLARI.map((kalit) => {
+                const idlar = turBarglari(kalit);
+                const h = toplamHolati(idlar);
+                return (
+                  <label key={kalit} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <input
+                      type="checkbox"
+                      disabled={!idlar.length}
+                      checked={h === "toliq"}
+                      ref={(el) => el && (el.indeterminate = h === "qisman")}
+                      onChange={(e) => toplamniBelgila(idlar, e.target.checked)}
+                    />
+                    {t(`tugun_${kalit}`)}
+                  </label>
+                );
+              })}
+            </div>
             <div style={{ maxHeight: "55vh", overflowY: "auto", textAlign: "left", marginBottom: 14 }}>
               {ildizlar.map((n) => <Qator key={n.id} n={n} chuqurlik={0} />)}
             </div>
