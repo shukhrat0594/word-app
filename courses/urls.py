@@ -92,6 +92,13 @@ urlpatterns = [
         views.KursUnitTozalashView.as_view(),
         name="kurslar_unit_tozalash",
     ),
+    path("kurslar/saqlash/", views.KursTanlovSaqlashView.as_view(), name="kurslar_saqlash"),
+    path(
+        "kurslar/yuklash/tekshir/",
+        views.KursTanlovTekshirView.as_view(),
+        name="kurslar_yuklash_tekshir",
+    ),
+    path("kurslar/yuklash/", views.KursTanlovYuklashView.as_view(), name="kurslar_yuklash"),
     path(
         "kurslar/<int:pk>/eksport/",
         views.KursEksportView.as_view(),

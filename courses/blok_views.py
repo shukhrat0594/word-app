@@ -383,7 +383,7 @@ def _sozlarni_saqla(mashq_tugun, sozlar):
         return 0
     bolalar = _unit_bolimlari(mashq_tugun)
     vocab_tugun = bolalar.get("vocabulary")
-    if not vocab_tugun:
+    if not vocab_tugun or KursSoz.wordlist_bormi(vocab_tugun):
         return 0
     manba = mashq_tugun.kalit if mashq_tugun.kalit in ("students_book", "workbook") else "students_book"
     boshlangich = vocab_tugun.sozlar.count()

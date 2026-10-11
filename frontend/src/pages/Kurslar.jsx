@@ -1910,6 +1910,12 @@ function UnitTozalashTugmasi({ unitId, royxatniYangila }) {
  * yuklab olish va boshqa muhitga (masalan prod<->local) import qilish
  * (2026-08-16, foydalanuvchi talabi: "backup qilgandek yuklab olib,
  * boshqa bazaga yuklash"). */
+// 2026-10-11, foydalanuvchi qarori: qatorma-qator Saqlash/Yuklash
+// tugmalari VAQTINCHA yashirin — endi sahifa tepasidagi umumiy
+// `KurslarSaqlashYuklash` ishlatiladi. Kod o'chirilmagan; qaytarish
+// uchun shu belgini `true` qilish yetarli.
+const ESKI_SAQLASH_YUKLASH_KORINADI = false;
+
 function EksportImportTugmalari({ tugunId, royxatniYangila, toliq = false }) {
   const { t } = useI18n();
   const [eksportBand, setEksportBand] = useState(false);
@@ -2028,6 +2034,7 @@ function EksportImportTugmalari({ tugunId, royxatniYangila, toliq = false }) {
     }
   }
 
+  if (!ESKI_SAQLASH_YUKLASH_KORINADI) return null;
   return (
     <span style={{ display: "inline-flex", gap: 8, alignItems: "center" }}>
       {/* Saqlash/yuklash butun daraja uchun bir necha daqiqa davom etishi
@@ -2362,7 +2369,7 @@ function Tugun({ tugun, chuqurlik, adminMi, talabaMi, oqituvchiMi, royxatniYangi
           {/* 2026-08-16, foydalanuvchi talabi: "faqat TANLANGAN Unit"
               eksport qilinsin — shuning uchun tugma KITOB emas, Unit'ning
               O'ZI darajasida (`tugun.unit_darsi`), bir marta chiqadi. */}
-          {adminMi && tugun.unit_darsi && (
+          {adminMi && ESKI_SAQLASH_YUKLASH_KORINADI && tugun.unit_darsi && (
             <div style={{ paddingLeft: otstup + 18, display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
               <EksportImportTugmalari tugunId={tugun.id} royxatniYangila={royxatniYangila} />
             </div>
@@ -2373,7 +2380,7 @@ function Tugun({ tugun, chuqurlik, adminMi, talabaMi, oqituvchiMi, royxatniYangi
               o'chirilib, ZIPdagi holat bilan almashtiriladi (ZIPda yo'q
               Unitlar ham o'chadi), aks holda eski va yangi Unitlar
               aralashib qolardi. */}
-          {adminMi && UNIT_YARATISH_MUMKIN_DARAJALAR.has(tugun.kalit) && (
+          {adminMi && ESKI_SAQLASH_YUKLASH_KORINADI && UNIT_YARATISH_MUMKIN_DARAJALAR.has(tugun.kalit) && (
             <div style={{ paddingLeft: otstup + 18, display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
               <span className="izoh" style={{ alignSelf: "center" }}>{t("kurs_butun_daraja")}:</span>
               <EksportImportTugmalari tugunId={tugun.id} royxatniYangila={royxatniYangila} toliq />
@@ -2502,6 +2509,267 @@ function HammasiniTarjimaQilish({ onTugadi }) {
   );
 }
 
+/** Kurslar sahifasi tepasidagi umumiy Saqlash/Yuklash (2026-10-11,
+ * foydalanuvchi talabi). Saqlash — ierarxik oynada belgilanganlarni
+ * bitta ZIPga; Yuklash — fayldagi HAMMA narsani, saytda mavjudlari
+ * uchun avval "o'rniga yuklaymi?" deb so'rab (IELTS importidagi naqsh).
+ * Server tomoni — `courses/views.py`dagi `KursTanlov*View`lar. */
+function KurslarSaqlashYuklash({ daraxt, royxatniYangila }) {
+  const { t } = useI18n();
+  const [saqlashOchiq, setSaqlashOchiq] = useState(false);
+  // Belgilangan BARGLAR (oynada ko'rinadigan eng pastki tugunlar) id'lari.
+  const [tanlangan, setTanlangan] = useState(() => new Set());
+  const [ochiqlar, setOchiqlar] = useState(() => new Set());
+  const [band, setBand] = useState("");
+  const [xato, setXato] = useState("");
+  const [xabar, setXabar] = useState("");
+  // Yuklashda mavjudlar topilsa — {zip, elementlar, mavjudlar} (savol oynasi).
+  const [toqnashuv, setToqnashuv] = useState(null);
+
+  const tugunNomi = (n) => {
+    if (!n.kalit) return n.nomi;
+    const k = `tugun_${n.kalit}`;
+    const tr = t(k);
+    return tr === k ? n.nomi : tr;
+  };
+  // Unit ichidagi bo'limlar (Student's Book/Workbook/Vocabulary...) — eng
+  // pastki qatlam, ulardan chuqurroq ko'rsatilmaydi.
+  const bolalari = (n) => (n.unit_darsi ? (n.children || []).map((b) => ({ ...b, children: [] })) : n.children || [])
+    .filter((b) => !b.tez_kunda);
+  const barglar = (n) => {
+    const b = bolalari(n);
+    return b.length ? b.flatMap(barglar) : [n.id];
+  };
+  const ildizlar = (daraxt.children || []).filter((n) => !n.tez_kunda);
+  const barchaBarglar = ildizlar.flatMap(barglar);
+
+  function holat(n) {
+    const b = barglar(n);
+    const soni = b.filter((id) => tanlangan.has(id)).length;
+    return soni === 0 ? "yoq" : soni === b.length ? "toliq" : "qisman";
+  }
+  function belgila(n, qiymat) {
+    setTanlangan((eski) => {
+      const yangi = new Set(eski);
+      barglar(n).forEach((id) => (qiymat ? yangi.add(id) : yangi.delete(id)));
+      return yangi;
+    });
+  }
+  // Serverga eng yuqori TO'LIQ belgilangan tugunlar yuboriladi — butun
+  // Unit belgilansa Unit'ning o'zi (bo'limlari alohida emas).
+  function engYuqorilar(n) {
+    const h = holat(n);
+    if (h === "toliq") return [n.id];
+    if (h === "yoq") return [];
+    return bolalari(n).flatMap(engYuqorilar);
+  }
+
+  async function saqlash() {
+    const idlar = ildizlar.flatMap(engYuqorilar);
+    if (!idlar.length) return;
+    setXato("");
+    setBand(t("kurs_eksport"));
+    try {
+      await apiFayluniYuklab(`/api/kurslar/saqlash/?idlar=${idlar.join(",")}`);
+      setSaqlashOchiq(false);
+    } catch (e) {
+      setXato(e.data?.detail || e.message || t("xato_yuz_berdi"));
+    } finally {
+      setBand("");
+    }
+  }
+
+  async function faylTanlandi(e) {
+    const fayl = e.target.files[0];
+    e.target.value = "";
+    if (!fayl) return;
+    setXato("");
+    setXabar("");
+    setBand(t("kurs_import"));
+    try {
+      const { default: JSZip } = await import("jszip");
+      const zip = await JSZip.loadAsync(fayl);
+      const man = zip.file("manifest.json");
+      const manifest = man ? JSON.parse(await man.async("string")) : null;
+      if (manifest?.format !== "kurslar_tanlov") throw new Error(t("kurs_yuklash_format_xato"));
+      const { elementlar } = manifest;
+      const tekshiruv = await api("/api/kurslar/yuklash/tekshir/", {
+        method: "POST",
+        body: { elementlar: elementlar.map((el) => ({ yol: el.yol.map((y) => y.kalit), kalit: el.kalit })) },
+      });
+      const mavjudlar = elementlar.filter((el, i) => tekshiruv[i]?.mavjud);
+      // Savol faqat haqiqiy kontentli elementlar uchun — bo'lingan
+      // Fan/Daraja'ning o'zi (toliq=false) faqat nom/tartib maydonlari.
+      if (mavjudlar.some((el) => el.toliq)) {
+        setToqnashuv({ zip, elementlar, mavjudlar });
+        setBand("");
+        return;
+      }
+      await yukla(zip, elementlar, new Set());
+    } catch (e2) {
+      setXato(e2.data?.detail || e2.message || t("xato_yuz_berdi"));
+      setBand("");
+    }
+  }
+
+  /** Elementlarni bittalab yuboradi (har biri alohida, kichik so'rov —
+   * butun daraja bitta so'rovga sig'maydi). `otkazish` — saytda mavjud
+   * bo'lgani uchun tashlab ketiladiganlar. */
+  async function yukla(zip, elementlar, otkazish) {
+    const yuboriladi = elementlar.filter((el) => !otkazish.has(el));
+    let joriy = null;
+    try {
+      for (let i = 0; i < yuboriladi.length; i++) {
+        const el = yuboriladi[i];
+        joriy = el;
+        setBand(`${t("kurs_import")} — ${i + 1}/${yuboriladi.length}: ${yolMatni(el)}`);
+        const blob = await zip.file(el.fayl).async("blob");
+        const fd = new FormData();
+        fd.append("fayl", new File([blob], el.fayl.split("/").pop(), { type: "application/zip" }));
+        fd.append("yol", JSON.stringify(el.yol));
+        if (el.toliq) fd.append("toliq", "1");
+        await apiForm("/api/kurslar/yuklash/", { method: "POST", formData: fd });
+      }
+      setXabar(t("kurs_yuklash_tayyor").replace("{son}", yuboriladi.filter((el) => el.toliq).length));
+      royxatniYangila();
+    } catch (e) {
+      const tafsilot = e.data?.detail || (e.status ? `HTTP ${e.status}` : e.message) || t("xato_yuz_berdi");
+      setXato(joriy ? `${tafsilot} — ${yolMatni(joriy)}` : tafsilot);
+      royxatniYangila();
+    } finally {
+      setBand("");
+    }
+  }
+
+  function toqnashuvniHal(almashtir) {
+    const { zip, elementlar, mavjudlar } = toqnashuv;
+    setToqnashuv(null);
+    yukla(zip, elementlar, almashtir ? new Set() : new Set(mavjudlar));
+  }
+
+  const yolMatni = (el) => [...el.yol, el].map(tugunNomi).join(" › ");
+
+  function Qator({ n, chuqurlik }) {
+    const b = bolalari(n);
+    const h = holat(n);
+    const ochiq = ochiqlar.has(n.id);
+    const soni = n.mashqlar_soni || n.sozlar_soni;
+    return (
+      <>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, padding: `3px 0 3px ${chuqurlik * 20}px` }}>
+          <span
+            style={{ width: 16, cursor: b.length ? "pointer" : "default", userSelect: "none" }}
+            onClick={() => b.length && setOchiqlar((o) => {
+              const y = new Set(o);
+              y.has(n.id) ? y.delete(n.id) : y.add(n.id);
+              return y;
+            })}
+          >
+            {b.length ? (ochiq ? "▾" : "▸") : ""}
+          </span>
+          <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", flex: 1 }}>
+            <input
+              type="checkbox"
+              checked={h === "toliq"}
+              ref={(el) => el && (el.indeterminate = h === "qisman")}
+              onChange={(e) => belgila(n, e.target.checked)}
+            />
+            <span>{n.ikonka} {tugunNomi(n)}</span>
+            {soni ? <span className="izoh">({soni})</span> : null}
+          </label>
+        </div>
+        {ochiq && b.map((c) => <Qator key={c.id} n={c} chuqurlik={chuqurlik + 1} />)}
+      </>
+    );
+  }
+
+  const umumiyHolat = barchaBarglar.length && barchaBarglar.every((id) => tanlangan.has(id))
+    ? "toliq" : barchaBarglar.some((id) => tanlangan.has(id)) ? "qisman" : "yoq";
+
+  return (
+    <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 12 }}>
+      {band && <BandQoplamasi matn={band} />}
+      <button
+        type="button"
+        className="tugma ikkinchi"
+        onClick={() => {
+          setXato("");
+          setXabar("");
+          setSaqlashOchiq(true);
+        }}
+      >
+        {t("kurs_eksport")}
+      </button>
+      <label className="tugma ikkinchi" style={{ cursor: "pointer" }}>
+        {t("kurs_import")}
+        <input type="file" accept=".zip" onChange={faylTanlandi} style={{ display: "none" }} />
+      </label>
+      {xabar && <span className="izoh">✅ {xabar}</span>}
+      {xato && !saqlashOchiq && <span className="xato-xabar">{xato}</span>}
+
+      {saqlashOchiq && (
+        <div className="blok-yuklash-qoplama">
+          <div className="blok-tasdiq-karta" style={{ maxWidth: 520, width: "100%" }}>
+            <div className="blok-tasdiq-sarlavha-qator">
+              <strong>{t("kurs_saqlash_sarlavha")}</strong>
+            </div>
+            <label style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6, fontWeight: 600 }}>
+              <input
+                type="checkbox"
+                checked={umumiyHolat === "toliq"}
+                ref={(el) => el && (el.indeterminate = umumiyHolat === "qisman")}
+                onChange={(e) => setTanlangan(e.target.checked ? new Set(barchaBarglar) : new Set())}
+              />
+              {t("kurs_saqlash_hammasi")}
+            </label>
+            <div style={{ maxHeight: "55vh", overflowY: "auto", textAlign: "left", marginBottom: 14 }}>
+              {ildizlar.map((n) => <Qator key={n.id} n={n} chuqurlik={0} />)}
+            </div>
+            {xato && <div className="xato-xabar" style={{ marginBottom: 10 }}>{xato}</div>}
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+              <button type="button" className="tugma ikkinchi" onClick={() => setSaqlashOchiq(false)}>
+                {t("kurs_blok_bekor_qilish")}
+              </button>
+              <button type="button" className="tugma" disabled={!tanlangan.size || !!band} onClick={saqlash}>
+                {t("kurs_saqlash_tugma")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {toqnashuv && (
+        <div className="blok-yuklash-qoplama">
+          <div className="blok-tasdiq-karta" style={{ maxWidth: 520, width: "100%" }}>
+            <div className="blok-tasdiq-sarlavha-qator">
+              <strong>{t("kurs_yuklash_mavjud_sarlavha")}</strong>
+            </div>
+            <ul style={{ maxHeight: "40vh", overflowY: "auto", textAlign: "left", margin: "0 0 12px", paddingLeft: 20 }}>
+              {toqnashuv.mavjudlar.filter((el) => el.toliq).map((el) => (
+                <li key={el.fayl}>{yolMatni(el)}</li>
+              ))}
+            </ul>
+            <div style={{ marginBottom: 14 }}>{t("kurs_yuklash_mavjud_savol")}</div>
+            <div style={{ display: "grid", gap: 10 }}>
+              <button type="button" className="tugma" style={{ background: "#d33" }} onClick={() => toqnashuvniHal(true)}>
+                {t("kurs_yuklash_almashtir")}
+              </button>
+              {toqnashuv.mavjudlar.length < toqnashuv.elementlar.length && (
+                <button type="button" className="tugma ikkinchi" onClick={() => toqnashuvniHal(false)}>
+                  {t("kurs_yuklash_faqat_yangi")}
+                </button>
+              )}
+              <button type="button" className="tugma ikkinchi" onClick={() => setToqnashuv(null)}>
+                {t("kurs_blok_bekor_qilish")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Kurslar() {
   const { t } = useI18n();
   const { profil } = useProfil();
@@ -2537,6 +2805,7 @@ export default function Kurslar() {
   return (
     <div className="karta">
       <h3>{t("nav_kurslar")}</h3>
+      {adminMi && <KurslarSaqlashYuklash daraxt={daraxt} royxatniYangila={yukla} />}
       {adminMi && <HammasiniTarjimaQilish key={tarjimaKey} onTugadi={() => setTarjimaKey((k) => k + 1)} />}
       {daraxt.children.map((tugun) => (
         <Tugun
