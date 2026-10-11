@@ -19,6 +19,14 @@ def _dushanba():
     return [0]
 
 
+class NatijaRejimi(models.TextChoices):
+    """Natija turi ota-onaga qanday boradi (2026-10-09): o'chiq / darhol alohida xabar / kunlik yig'mada."""
+
+    OCHIQ = "ochiq", "O'chiq"
+    DARHOL = "darhol", "Darhol"
+    YIGMA = "yigma", "Kunlik yig'mada"
+
+
 class ParentsBotSozlama(models.Model):
     """Xabarlar QACHON va NIMA yuborilishi (CRM -> "Ota-ona nazorati" -> Sozlamalar).
 
@@ -29,6 +37,7 @@ class ParentsBotSozlama(models.Model):
     davomat_kelmadi = models.BooleanField(default=True)
     davomat_kechikdi = models.BooleanField(default=True)
     davomat_sababli = models.BooleanField(default=False)
+    davomat_keldi = models.BooleanField(default=True)  # 2026-10-09: "darsga keldi" ham
 
     tolov_yoqilgan = models.BooleanField(default=True)
 
@@ -39,6 +48,10 @@ class ParentsBotSozlama(models.Model):
     natija_yoqilgan = models.BooleanField(default=True)
     natija_kunlari = models.JSONField(default=_hamma_kunlar)
     natija_soati = models.TimeField(default=time(19, 0))
+    # Natija turlari (2026-10-09): har biri darhol alohida xabar yoki yuqoridagi kunlik yig'mada.
+    ielts_rejimi = models.CharField(max_length=6, choices=NatijaRejimi.choices, default=NatijaRejimi.DARHOL)
+    ws_rejimi = models.CharField(max_length=6, choices=NatijaRejimi.choices, default=NatijaRejimi.DARHOL)
+    soz_rejimi = models.CharField(max_length=6, choices=NatijaRejimi.choices, default=NatijaRejimi.DARHOL)
 
     # Tinch soatlar: shu vaqtda tushgan xabarlar kutadi va tugagach yuboriladi.
     tinch_boshi = models.TimeField(default=time(22, 0))
@@ -69,6 +82,10 @@ class ParentsBotKuzatuv(models.Model):
     # og'ir hisob-kitob qaytarilmasin.
     qarz_skanlandi = models.DateField(null=True, blank=True)
     natija_skanlandi = models.DateField(null=True, blank=True)
+    # 2026-10-09: "darsga keldi" va darhol natija xabarlari — shu paytdan keyingi yozuvlar uchun
+    # (yangi funksiya yoqilganda kechagi davomat/testlar ota-onalarga bir yo'la yog'ilmasin).
+    keldi_boshlandi = models.DateTimeField(null=True, blank=True)
+    yechim_boshlandi = models.DateTimeField(null=True, blank=True)
 
     @classmethod
     def ol(cls):
@@ -176,7 +193,7 @@ class Xabar(models.Model):
 
     abonent = models.ForeignKey(Abonent, on_delete=models.CASCADE, related_name="xabarlar")
     talaba = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="+")
-    turi = models.CharField(max_length=20)  # "davomat" | "tolov" | "qarz" | "natija"
+    turi = models.CharField(max_length=20)  # "davomat" | "tolov" | "qarz" | "natija" | "ielts" | "ws" | "soz"
     kalit = models.CharField(max_length=100)
     payload = models.JSONField(default=dict, blank=True)
     yuborilsin = models.DateTimeField(db_index=True)  # shundan oldin yuborilmaydi

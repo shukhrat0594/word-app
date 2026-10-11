@@ -22,7 +22,7 @@ from crm.permissions import CrmView
 from crm.ruxsatlar import ruxsatlar
 
 from . import xizmat
-from .models import Abonent, Boglanish, ParentsBotSozlama, Sorov
+from .models import Abonent, Boglanish, NatijaRejimi, ParentsBotSozlama, Sorov
 from .moslash import talaba_ismi
 from .telegram import Tg, TgXato
 
@@ -197,15 +197,17 @@ class BoglanishUzishView(CrmView):
 
 _VAQT = re.compile(r"^([01]?\d|2[0-3]):([0-5]\d)$")
 _BOOL_MAYDONLAR = (
-    "davomat_yoqilgan", "davomat_kelmadi", "davomat_kechikdi", "davomat_sababli",
+    "davomat_yoqilgan", "davomat_kelmadi", "davomat_kechikdi", "davomat_sababli", "davomat_keldi",
     "tolov_yoqilgan", "qarz_yoqilgan", "natija_yoqilgan",
 )
+# Natija turlari (2026-10-09): o'chiq / darhol / kunlik yig'mada
+_REJIM_MAYDONLAR = ("ielts_rejimi", "ws_rejimi", "soz_rejimi")
 _VAQT_MAYDONLAR = ("qarz_soati", "natija_soati", "tinch_boshi", "tinch_oxiri")
 _KUN_MAYDONLAR = ("qarz_kunlari", "natija_kunlari")
 
 
 def _sozlama_dict(s):
-    d = {k: getattr(s, k) for k in _BOOL_MAYDONLAR + _KUN_MAYDONLAR}
+    d = {k: getattr(s, k) for k in _BOOL_MAYDONLAR + _KUN_MAYDONLAR + _REJIM_MAYDONLAR}
     d.update({k: getattr(s, k).strftime("%H:%M") for k in _VAQT_MAYDONLAR})
     return d
 
@@ -230,6 +232,11 @@ class SozlamaView(CrmView):
             if k in request.data:
                 if not isinstance(request.data[k], bool):
                     return _xato(f"{k}: ha/yo'q bo'lsin")
+                setattr(s, k, request.data[k])
+        for k in _REJIM_MAYDONLAR:
+            if k in request.data:
+                if request.data[k] not in NatijaRejimi.values:
+                    return _xato(f"{k}: {', '.join(NatijaRejimi.values)} dan biri bo'lsin")
                 setattr(s, k, request.data[k])
         for k in _VAQT_MAYDONLAR:
             if k in request.data:

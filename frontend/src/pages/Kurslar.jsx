@@ -1489,8 +1489,14 @@ function MashqPaneli({ tugunId, talabaMi, oqituvchiMi, jsonKiritishKorinadi = tr
  * o'sha tilda javob beradi. Interfeys tiliga bog'lab qo'yish noto'g'ri
  * bo'lardi — ruscha interfeysdagi o'zbek talaba bilib turib xato
  * olardi. `ru` bo'sh bo'lsa (hali tarjima qilinmagan) faqat `uz`
- * tekshiriladi. */
-function SozlarniYozishMashqi({ sozlar }) {
+ * tekshiriladi.
+ *
+ * 2026-10-08 (video-TZ): talaba bo'lsa, "Tekshirish" bosilganda natija
+ * (necha ta to'g'ri) serverga ham yuboriladi — ota-onaga yuboriladigan
+ * kunlik xabarda ko'rsatish uchun (`parentsbot.xabarlar`). Ball
+ * serverda qayta hisoblanadi, bu yerdagi mijoz hisobi faqat
+ * ko'rsatish uchun. */
+function SozlarniYozishMashqi({ sozlar, tugunId, talabaMi }) {
   const { t } = useI18n();
   const [javoblar, setJavoblar] = useState(() => sozlar.map(() => ""));
   const [tekshirilganmi, setTekshirilganmi] = useState(false);
@@ -1499,11 +1505,50 @@ function SozlarniYozishMashqi({ sozlar }) {
     setJavoblar((j) => j.map((x, idx) => (idx === i ? qiymat : x)));
   }
 
+  function tekshir() {
+    setTekshirilganmi(true);
+    if (!talabaMi) return;
+    const yuborilayotgan = {};
+    sozlar.forEach((s, i) => {
+      yuborilayotgan[s.id] = javoblar[i];
+    });
+    api(`/api/kurslar/${tugunId}/sozlar/tekshirish/`, {
+      method: "POST",
+      body: { javoblar: yuborilayotgan },
+    }).catch(() => {});
+  }
+
+  // 2026-10-09 (Matn-TZ 138): tarjima "/", ",", ";" bo'yicha variantlarga
+  // bo'linadi, qavsdagi izoh, ё/е farqi va tinish belgilari hisobga
+  // olinmaydi — serverdagi `soz_javobi_togrimi` bilan bir xil.
+  // 2026-10-11 (Matn-TZ 180): apostrof (‘ ’ ʻ ʼ ` ´) va tire variantlari
+  // bir xil hisoblanadi; javobdagi bir nechta variant (vergul bilan,
+  // istalgan tartibda) ham to'g'ri — har biri variantlardan biri bo'lsa.
+  function normal(m) {
+    return (m || "")
+      .toLowerCase()
+      .replace(/ё/g, "е")
+      .replace(/[‘’ʻʼ`´]/g, "'")
+      .replace(/[–—]/g, "-")
+      .replace(/[.!?…:;"«»“”„]/g, " ")
+      .split(/\s+/)
+      .filter(Boolean)
+      .join(" ");
+  }
+
+  function qismlar(m) {
+    return (m || "").replace(/\([^)]*\)/g, " ").split(/[/,;]/).map(normal).filter(Boolean);
+  }
+
   function togriMi(i) {
-    const javob = javoblar[i].trim().toLowerCase();
+    const javob = normal(javoblar[i]);
+    if (!javob) return false;
     const s = sozlar[i];
-    if (javob && s.ru && javob === s.ru.trim().toLowerCase()) return true;
-    return javob === s.uz.trim().toLowerCase();
+    const javobQismlari = qismlar(javoblar[i]);
+    return [s.uz, s.ru].filter(Boolean).some((tarjima) => {
+      const variantlar = new Set([normal(tarjima), ...qismlar(tarjima)]);
+      return variantlar.has(javob) || (javobQismlari.length > 0 && javobQismlari.every((q) => variantlar.has(q)));
+    });
   }
 
   /** Xato holatda ko'rsatiladigan to'g'ri javob — ikkala til ham
@@ -1532,7 +1577,7 @@ function SozlarniYozishMashqi({ sozlar }) {
           )}
         </div>
       ))}
-      <button className="tugma ikkinchi" onClick={() => setTekshirilganmi(true)} disabled={tekshirilganmi}>
+      <button className="tugma ikkinchi" onClick={tekshir} disabled={tekshirilganmi}>
         {t("tekshirish")}
       </button>
     </div>
@@ -1544,7 +1589,7 @@ function SozlarniYozishMashqi({ sozlar }) {
  * tarjima yozib mashq qilish. O'yinlar 2026-08-21'dan buyon BU YERDA
  * emas, Unit'ning alohida "Games" bo'limida (`GamesKorinishi`) — shu
  * Unit'ning aynan shu so'zlaridan foydalanadi. */
-function VocabularyKorinishi({ tugunId, matn, adminMi }) {
+function VocabularyKorinishi({ tugunId, matn, adminMi, talabaMi }) {
   const { t } = useI18n();
   const [sozlar, setSozlar] = useState(null);
   const [tarjimaBand, setTarjimaBand] = useState(false);
@@ -1610,7 +1655,7 @@ function VocabularyKorinishi({ tugunId, matn, adminMi }) {
       {sozlar.length === 0 ? (
         <div className="izoh">{t("kurs_wordlist_yoq")}</div>
       ) : (
-        <SozlarniYozishMashqi sozlar={sozlar} />
+        <SozlarniYozishMashqi sozlar={sozlar} tugunId={tugunId} talabaMi={talabaMi} />
       )}
     </div>
   );
@@ -2181,7 +2226,7 @@ function Tugun({ tugun, chuqurlik, adminMi, talabaMi, oqituvchiMi, royxatniYangi
               ko'rsatadi, kontent esa doim kichik sobit chetdan boshlanadi. */}
           {mashqOchiq && (
             <div style={{ paddingLeft: 14 }}>
-              <VocabularyKorinishi tugunId={tugun.id} matn={tugun.matn} adminMi={adminMi} />
+              <VocabularyKorinishi tugunId={tugun.id} matn={tugun.matn} adminMi={adminMi} talabaMi={talabaMi} />
             </div>
           )}
         </div>
@@ -2223,6 +2268,30 @@ function Tugun({ tugun, chuqurlik, adminMi, talabaMi, oqituvchiMi, royxatniYangi
             </div>
           )}
         </>
+      );
+    }
+
+    if (unitBolimi === "tests") {
+      // 2026-10-11 (Matn-TZ 246): Unit bo'yicha testlar — oddiy mashqlar
+      // (variantli savollar), admin JSON orqali kiritadi.
+      return (
+        <div className="kurs-qator kurs-qator-oxirgi" style={{ display: "block" }}>
+          <div
+            style={{ paddingLeft: otstup, display: "flex", alignItems: "center", gap: 10, marginBottom: mashqOchiq ? 8 : 0, cursor: "pointer" }}
+            onClick={() => setMashqOchiq((v) => !v)}
+          >
+            <span>{mashqOchiq ? "▾" : "▸"}</span>
+            <span>{tugun.ikonka}</span>
+            <span style={{ fontWeight: 600 }}>
+              {nomi}{tugun.mashqlar_soni ? ` (${tugun.mashqlar_soni})` : ""}
+            </span>
+          </div>
+          {mashqOchiq && (
+            <div style={{ paddingLeft: 14 }}>
+              <MashqPaneli tugunId={tugun.id} talabaMi={talabaMi} oqituvchiMi={oqituvchiMi} />
+            </div>
+          )}
+        </div>
       );
     }
 

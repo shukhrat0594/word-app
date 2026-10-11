@@ -1,5 +1,6 @@
 import io
 import json
+import re
 import shutil
 import tempfile
 import uuid
@@ -45,6 +46,7 @@ from .models import (
     KursMashqYechim,
     KursProgress,
     KursSoz,
+    KursSozYechim,
     KursTugun,
 )
 from .soz_tarjima import ruscha_tarjima_qil
@@ -1986,6 +1988,86 @@ class KursSozlarView(APIView):
                 for s in sozlar_qs
             ]
         )
+
+
+def _soz_normal(matn):
+    """Taqqoslash uchun: kichik harf, ё→е, yakuniy tinish belgilari va
+    ortiqcha bo'shliqlarsiz.
+
+    2026-10-11 (Matn-TZ 180): o'zbekcha apostrof variantlari (‘ ’ ʻ ʼ `
+    ´) bitta "'" ga, tire variantlari (– —) "-" ga keltiriladi — bazada
+    "o‘qituvchi", talaba telefonida "o’qituvchi" yoki "o'qituvchi"
+    yozilsa ham to'g'ri yozilgan so'z xato hisoblanardi."""
+    matn = str(matn or "").lower().replace("ё", "е")
+    matn = re.sub(r"[‘’ʻʼ`´]", "'", matn)
+    matn = re.sub(r"[–—]", "-", matn)
+    matn = re.sub(r"[.!?…:;\"«»“”„]", " ", matn)
+    return " ".join(matn.split())
+
+
+def _qismlar(matn):
+    """Qavsdagi izohsiz, "/", ",", ";" bo'yicha bo'lingan normal qismlar."""
+    qismlar = {_soz_normal(q) for q in re.split(r"[/,;]", re.sub(r"\([^)]*\)", " ", str(matn or "")))}
+    qismlar.discard("")
+    return qismlar
+
+
+def soz_javobi_togrimi(javob, uz, ru=""):
+    """Vocabulary tarjima javobi to'g'rimi (2026-10-09, Matn-TZ 138).
+    Avval javob butun tarjima satriga aynan teng bo'lishi kerak edi —
+    "Приятно познакомиться" ("." siz), "ё" o'rniga "е" yoki
+    "keksa/eski" dan bittasi xato hisoblanardi. Endi tarjima "/", ","
+    va ";" bo'yicha variantlarga bo'linadi, qavsdagi izoh tashlanadi —
+    birortasiga mos kelsa to'g'ri. Frontenddagi `togriMi` bilan bir xil.
+
+    2026-10-11 (Matn-TZ 180): talaba bir nechta variantni vergul bilan
+    (boshqa tartibda ham) yoki izohni qavssiz yozsa ham to'g'ri — javob
+    ham xuddi shunday qismlarga bo'linadi va HAR BIR qism shu tildagi
+    variantlardan biri bo'lishi kerak."""
+    if not _soz_normal(javob):
+        return False
+    for tarjima in (uz, ru):
+        if not tarjima:
+            continue
+        variantlar = _qismlar(tarjima) | {_soz_normal(tarjima)}
+        javob_qismlari = _qismlar(javob)
+        if _soz_normal(javob) in variantlar or (javob_qismlari and javob_qismlari <= variantlar):
+            return True
+    return False
+
+
+class KursSozlarYechishView(APIView):
+    """Talaba uchun — Vocabulary mashqida tarjima javoblarini yuborish
+    (2026-10-08, video-TZ). Tekshirishning o'zi frontendda ham mumkin
+    (tarjima `/sozlar/` javobida allaqachon ochiq, qarang
+    `SozlarniYozishMashqi`), lekin natija ota-onaga yuboriladigan
+    kunlik xabar uchun ishonchli bo'lishi kerak — shuning uchun ball
+    klientdan qabul qilinmaydi, serverda qayta hisoblanadi."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        if request.user.role != User.Role.STUDENT:
+            return Response({"detail": "Faqat talaba uchun"}, status=403)
+        tugun = get_object_or_404(KursTugun, pk=pk)
+        if _talaba_tugun_qulflanganmi(request.user, tugun):
+            return Response({"detail": "Bu qism hali qulflangan"}, status=403)
+
+        javoblar = request.data.get("javoblar")
+        if not isinstance(javoblar, dict):
+            return Response({"detail": "javoblar lug'ati majburiy"}, status=400)
+
+        sozlar = list(tugun.sozlar.all())
+        if not sozlar:
+            return Response({"detail": "Bu bo'limda so'z yo'q"}, status=400)
+
+        ball = 0
+        for s in sozlar:
+            if soz_javobi_togrimi(javoblar.get(str(s.id), ""), s.uz, s.ru):
+                ball += 1
+
+        KursSozYechim.objects.create(talaba=request.user, tugun=tugun, ball=ball, jami=len(sozlar))
+        return Response({"ball": ball, "jami": len(sozlar)})
 
 
 class KursSozlarRuTarjimaHolatiView(APIView):

@@ -6,6 +6,7 @@ from django.conf import settings
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
+from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
@@ -565,8 +566,15 @@ class FoydalanuvchilarView(APIView):
             .order_by("-date_joined")
         )
         q = (request.query_params.get("q") or "").strip()
-        if q:
-            qs = qs.filter(username__icontains=q)
+        # 2026-10-08 (video IMG_2153): faqat login bo'yicha edi — endi ism,
+        # familiya yoki login. Har so'z alohida mos kelishi kerak, shunda
+        # "Nazrullayeva Fot" ham, "Fotima Naz" ham topadi.
+        for soz in q.split():
+            qs = qs.filter(
+                Q(username__icontains=soz)
+                | Q(first_name__icontains=soz)
+                | Q(last_name__icontains=soz)
+            )
         from .savat import ochirilmaydiganlar
 
         qs = list(qs[:200])

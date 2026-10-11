@@ -5,8 +5,9 @@ from django.test import SimpleTestCase
 from django.utils import timezone
 
 from assessment.models import SpeakingTekshiruv, WritingTekshiruv
-from courses.models import KursMashq, KursMashqYechim
+from courses.models import KursMashq, KursMashqYechim, KursSozYechim, KursTugun
 from crm.test_api import ApiAsos
+from exercises.models import ImtihonTest, TestYechim
 from parentsbot import xabarlar as xb
 from parentsbot.models import Abonent, Boglanish, ParentsBotSozlama, Xabar
 from parentsbot.test_bot import SoxtaTg
@@ -33,6 +34,8 @@ class NatijaAsos(ApiAsos):
     def setUp(self):
         super().setUp()
         ParentsBotSozlama.ol()  # sozlama yozuvi bo'lsin: testlardagi update() bo'shga ketmasin
+        # Yig'ma testlari: hamma natija turi "kunlik yig'mada" (2026-10-09 dan standart — "darhol")
+        ParentsBotSozlama.objects.filter(pk=1).update(ielts_rejimi="yigma", ws_rejimi="yigma", soz_rejimi="yigma")
         self.tg = SoxtaTg()
         self.kun = timezone.localdate()
         self.hozir = datetime.combine(self.kun, time(19, 30), tzinfo=TOSH)  # standart 19:00 dan keyin
@@ -40,15 +43,27 @@ class NatijaAsos(ApiAsos):
         self.ota = Abonent.objects.create(telegram_id=501, ism="Ota", til="uz", holat="tayyor")
         Boglanish.objects.create(abonent=self.ota, talaba=self.talaba, usul="telefon")
         self.mashq = KursMashq.objects.create(tugun=self.daraja, savollar=[])
+        self.vocab = KursTugun.objects.create(markaz=self.markaz, nomi="Vocabulary", parent=self.daraja,
+                                               kalit="vocabulary")
 
     def yechim(self, ball, jami, vaqt=None, talaba=None):
         y = KursMashqYechim.objects.create(talaba=talaba or self.talaba, mashq=self.mashq, javoblar=[],
                                            ball=ball, jami=jami, natijalar=[])
         KursMashqYechim.objects.filter(pk=y.pk).update(created_at=vaqt or self.ichida)
 
+    def soz_yechim(self, ball, jami, vaqt=None, talaba=None):
+        y = KursSozYechim.objects.create(talaba=talaba or self.talaba, tugun=self.vocab, ball=ball, jami=jami)
+        KursSozYechim.objects.filter(pk=y.pk).update(created_at=vaqt or self.ichida)
+
     def writing(self, band, holat="tayyor", vaqt=None):
         w = WritingTekshiruv.objects.create(talaba=self.talaba, matn="x", overall_band=band, holat=holat)
         WritingTekshiruv.objects.filter(pk=w.pk).update(created_at=vaqt or self.ichida)
+
+    def imtihon_yechim(self, bolim, band, nomi="Cambridge 13 Test 4", vaqt=None, talaba=None):
+        test = ImtihonTest.objects.create(name=nomi, bolim=bolim, markaz=self.markaz)
+        y = TestYechim.objects.create(talaba=talaba or self.talaba, test=test, javoblar=[],
+                                       ball=8, jami=10, natijalar=[], band=band)
+        TestYechim.objects.filter(pk=y.pk).update(created_at=vaqt or self.ichida)
 
 
 class NatijaTest(NatijaAsos):
@@ -63,6 +78,43 @@ class NatijaTest(NatijaAsos):
         self.assertIn("Mashqlar: 2 ta, o'rtacha natija 70%", matn)
         self.assertIn("Writing: 1 ta, band 6.5", matn)
         self.assertNotIn("Speaking", matn)
+
+    def test_vokabulyar_natijasi_kunlik_yigmaga_kiradi(self):
+        # Video-TZ 2026-10-08: Vocabulary natijasi kunlik yig'maga kiradi; 2026-10-09 dan — alohida qatorda
+        self.soz_yechim(2, 2)
+        self.assertEqual(xb.skanerla_natija(self.hozir), 1)
+        self.assertEqual(xb.yubor_navbat(self.tg, self.hozir, pauza=0), 1)
+        matn = self.tg.yuborilgan[-1][1]
+        self.assertIn("Vocabulary: 1 ta, o'rtacha natija 100%", matn)
+        self.assertNotIn("Mashqlar", matn)
+
+    def test_vokabulyar_va_boshqa_mashqlar_alohida_qatorda(self):
+        self.yechim(8, 10)
+        self.soz_yechim(1, 2)
+        xb.skanerla_natija(self.hozir)
+        xb.yubor_navbat(self.tg, self.hozir, pauza=0)
+        matn = self.tg.yuborilgan[-1][1]
+        self.assertIn("Mashqlar: 1 ta, o'rtacha natija 80%", matn)
+        self.assertIn("Vocabulary: 1 ta, o'rtacha natija 50%", matn)
+
+    def test_darhol_rejimidagilar_yigmaga_kirmaydi(self):
+        # 2026-10-09: "darhol" yuborilgan natija kunlik yig'mada takrorlanmaydi
+        ParentsBotSozlama.objects.filter(pk=1).update(ielts_rejimi="darhol", ws_rejimi="ochiq", soz_rejimi="darhol")
+        self.yechim(8, 10)
+        self.soz_yechim(1, 2)
+        self.writing(6.5)
+        self.imtihon_yechim("listening", 8.5)
+        xb.skanerla_natija(self.hozir)
+        xb.yubor_navbat(self.tg, self.hozir, pauza=0)
+        matn = self.tg.yuborilgan[-1][1]
+        self.assertIn("Mashqlar: 1 ta", matn)
+        for yoq in ("Vocabulary", "Writing", "Listening"):
+            self.assertNotIn(yoq, matn)
+
+    def test_faqat_darhol_natija_bolsa_yigma_yoq(self):
+        ParentsBotSozlama.objects.filter(pk=1).update(soz_rejimi="darhol")
+        self.soz_yechim(1, 2)
+        self.assertEqual(xb.skanerla_natija(self.hozir), 0)
 
     def test_hech_narsa_qilmagan_bolsa_xabar_yoq(self):
         self.yechim(5, 10, vaqt=self.ichida - timedelta(days=2))  # davrdan tashqarida
@@ -125,6 +177,17 @@ class NatijaTest(NatijaAsos):
         ParentsBotSozlama.objects.filter(pk=1).update(natija_kunlari=[(self.kun.weekday() + 1) % 7])
         self.yechim(8, 10)
         self.assertEqual(xb.skanerla_natija(self.hozir), 0)
+
+    def test_ielts_toliq_test_listening_reading_bandi(self):
+        # video-TZ 2026-10-08: IELTS to'liq testlari (Cambridge va h.k.) natijasi
+        # ham Writing/Speaking kabi band bilan ota-onaga yuborilsin.
+        self.imtihon_yechim("listening", 8.5, nomi="Cambridge 13 Test 4 Listening")
+        self.imtihon_yechim("reading", 7.0, nomi="Cambridge 13 Test 4 Reading")
+        self.assertEqual(xb.skanerla_natija(self.hozir), 1)
+        self.assertEqual(xb.yubor_navbat(self.tg, self.hozir, pauza=0), 1)
+        matn = self.tg.yuborilgan[-1][1]
+        self.assertIn("Listening: 1 ta, band 8.5", matn)
+        self.assertIn("Reading: 1 ta, band 7.0", matn)
 
     def test_speaking_va_ruscha(self):
         Abonent.objects.filter(pk=self.ota.pk).update(til="ru")

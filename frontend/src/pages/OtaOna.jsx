@@ -99,6 +99,22 @@ export default function OtaOna() {
             </div>
           </div>
 
+          <div className="ikki-ustun">
+            <div className="karta">
+              <h3>Speaking</h3>
+              <Dinamika dinamika={stat.speaking.dinamika} />
+            </div>
+            <div className="karta">
+              <h3>{t("listening_foiz")}</h3>
+              <Dinamika dinamika={stat.listening.mashq_dinamika} maydon="foiz" minQ={0} maxQ={100} qadam={25} />
+            </div>
+          </div>
+
+          <div className="karta">
+            <h3>{t("reading_foiz")}</h3>
+            <Dinamika dinamika={stat.reading.mashq_dinamika} maydon="foiz" minQ={0} maxQ={100} qadam={25} />
+          </div>
+
           {/* 2026-08-09: ota-ona endi farzandning BARCHA mashq/test
               natijalarini ham ko'radi (avval faqat umumiy statistika
               bor edi). Admin/teacher tomonidagi bilan BIR XIL komponent —
@@ -110,14 +126,22 @@ export default function OtaOna() {
 
           <div className="karta">
             <h3>{t("davomat")}</h3>
-            <div className="stat-qator" style={{ gridTemplateColumns: "repeat(2, 1fr)" }}>
+            <div className="stat-qator" style={{ gridTemplateColumns: "repeat(4, 1fr)" }}>
               <div className="stat">
                 <div className="nom">{t("keldi")}</div>
                 <div className="qiymat">{stat.davomat.keldi}</div>
               </div>
               <div className="stat">
+                <div className="nom">{t("kechikdi")}</div>
+                <div className="qiymat">{stat.davomat.kechikdi}</div>
+              </div>
+              <div className="stat">
                 <div className="nom">{t("kelmadi")}</div>
                 <div className="qiymat">{stat.davomat.kelmadi}</div>
+              </div>
+              <div className="stat">
+                <div className="nom">{t("sababli")}</div>
+                <div className="qiymat">{stat.davomat.sababli}</div>
               </div>
             </div>
           </div>

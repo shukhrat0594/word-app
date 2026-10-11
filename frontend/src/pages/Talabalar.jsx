@@ -117,6 +117,48 @@ function TalabaKartasi({ talaba, boshqaruvMi, t, onYopish, onSaqlandi, onNatijal
   );
 }
 
+/** Bitta talaba qatori — guruh papkasida HAM, qidiruv natijalarida HAM
+ * (2026-10-06, video-TZ) bir xil ko'rinish ishlatiladi. `tartibRaqami`
+ * ixtiyoriy — qidiruv natijasida guruh ichidagi o'rin ma'nosiz. */
+function TalabaQatori({ tl, tartibRaqami, boshqaruvMi, arxivKorish, profil, t, onKartaOchish, rasmOchir, panellarSaqla, qurilmaTiklash, qurilmaLimitOzgartir, arxivHolatiniOzgartir }) {
+  return (
+    <div className="tarix-el">
+      <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        {tartibRaqami != null && (
+          <span className="izoh" style={{ minWidth: 20, textAlign: "right" }}>{tartibRaqami}.</span>
+        )}
+        {/* Rasm ALOHIDA turadi — ismga bosilganda natijalar oynasi
+            ochiladi, rasmga bosilganda esa o'chirish oynasi; ikkisi
+            bir joyda bo'lsa bosish bir-biriga tushib ketardi. */}
+        <ProfilRasmi user={tl} ochir={boshqaruvMi ? rasmOchir : undefined} t={t} />
+        <span
+          style={{ display: "flex", gap: 8, cursor: "pointer", alignItems: "center" }}
+          onClick={() => onKartaOchish(tl)}
+          title={t("talaba_malumoti")}
+        >
+          <span>{tl.ism}</span>
+          <span className="izoh">{tl.username}</span>
+        </span>
+      </span>
+      {boshqaruvMi && (
+        <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <PanelTanlovi user={tl} saqlash={panellarSaqla} t={t} />
+          <QurilmaTiklashTugmasi user={tl} tiklash={qurilmaTiklash} t={t} />
+          {profil?.is_owner && (
+            <QurilmaLimitiBoshqaruv user={tl} ozgartir={qurilmaLimitOzgartir} t={t} />
+          )}
+          <button
+            className="tugma ikkinchi kichik"
+            onClick={() => arxivHolatiniOzgartir(tl.id, arxivKorish)}
+          >
+            {arxivKorish ? t("faollashtirish") : t("arxivlash")}
+          </button>
+        </span>
+      )}
+    </div>
+  );
+}
+
 /** Talabalar ro'yxati. Owner/admin — o'z markazidagi barcha talabalar,
  * bittalab qo'shish (2026-07-27) va Excel orqali ommaviy kiritish.
  * O'qituvchi — faqat o'z guruhlaridagi talabalar, faqat o'qish. */
@@ -143,6 +185,13 @@ export default function Talabalar() {
   // 2026-09-20 (admin talabi): "Yangi talaba" formasida darhol guruhga
   // qo'shish uchun guruhlar ro'yxati kerak.
   const [guruhlar, setGuruhlar] = useState([]);
+  // 2026-10-06 (video-TZ): ism-familiya yoki telefon raqami bo'yicha
+  // qidiruv — guruhlar ko'p bo'lganda kerakli talabani tez topish uchun.
+  // `qidiruvMatni` — inputdagi qoralama, `qidiruv` — "Qidirish" bosilgach
+  // (yoki Enter) qo'llaniladigan qiymat; shuning uchun har harfda ro'yxat
+  // sakramaydi.
+  const [qidiruvMatni, setQidiruvMatni] = useState("");
+  const [qidiruv, setQidiruv] = useState("");
 
   function yukla(arxiv = arxivKorish) {
     api(`/api/talabalar/${arxiv ? "?arxiv=1" : ""}`).then(setTalabalar).catch(() => {});
@@ -301,6 +350,32 @@ export default function Talabalar() {
     return royxat;
   }, [talabalar, t]);
 
+  // 2026-10-06 (video-TZ): qidiruv natijasi — guruh bo'linishsiz, FLAT
+  // ro'yxat (talaba qaysi guruhda ekanini bilmay ham topa olsin). Ism
+  // bo'yicha oddiy "includes", telefon bo'yicha faqat raqamlar solishtiriladi
+  // — foydalanuvchi probel/tire bilan yozsa ham ishlasin.
+  const qidiruvNatijasi = useMemo(() => {
+    const soz = qidiruv.trim().toLowerCase();
+    if (!soz || !talabalar) return null;
+    const raqamlar = soz.replace(/\D/g, "");
+    return talabalar.filter((tl) => {
+      if ((tl.ism || "").toLowerCase().includes(soz)) return true;
+      if ((tl.username || "").toLowerCase().includes(soz)) return true;
+      if (raqamlar && (tl.telefon || "").replace(/\D/g, "").includes(raqamlar)) return true;
+      return false;
+    });
+  }, [talabalar, qidiruv]);
+
+  function qidirish(e) {
+    e.preventDefault();
+    setQidiruv(qidiruvMatni);
+  }
+
+  function qidiruvniTozala() {
+    setQidiruvMatni("");
+    setQidiruv("");
+  }
+
   if (!talabalar) return <div className="yuklanmoqda">{t("yuklanmoqda")}</div>;
 
   return (
@@ -426,60 +501,93 @@ export default function Talabalar() {
         </div>
       )}
 
+      {/* Qidiruv (2026-10-06, video-TZ): ism-familiya yoki telefon raqami
+          bo'yicha — guruhlar ko'payib ketganda kerakli talabani alohida
+          qidirmasdan tez topish uchun. Alohida bo'lim, "Talabalar" ro'yxati
+          ustida. */}
       <div className="karta" style={{ marginTop: boshqaruvMi ? 16 : 0 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <h3>{arxivKorish ? t("arxivlangan_talabalar") : t("nav_talabalar")}</h3>
-          {boshqaruvMi && (
-            <button className="tugma ikkinchi kichik" onClick={() => setArxivKorish((v) => !v)}>
-              {arxivKorish ? t("faol_talabalar") : t("arxivlangan_talabalar")}
+        <h3>{t("talabalar_qidirish")}</h3>
+        <form
+          onSubmit={qidirish}
+          style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}
+        >
+          <input
+            style={{ maxWidth: 260 }}
+            placeholder={t("talaba_qidirish_placeholder")}
+            value={qidiruvMatni}
+            onChange={(e) => setQidiruvMatni(e.target.value)}
+          />
+          <button className="tugma kichik" type="submit">{t("talabalar_qidirish")}</button>
+          {qidiruv && (
+            <button className="tugma ikkinchi kichik" type="button" onClick={qidiruvniTozala}>
+              {t("qidiruv_tozalash")}
             </button>
           )}
-        </div>
-        {talabalar.length === 0 && <span className="izoh">{t("talaba_yoq")}</span>}
-        {guruhlangan.map((g) => (
-          <details className="guruh-papka" key={g.id} open>
-            <summary className="guruh-papka-sarlavha">
-              {g.nomi} <span className="izoh">({g.talabalar.length})</span>
-            </summary>
-            {g.talabalar.map((tl, i) => (
-              <div className="tarix-el" key={tl.id}>
-                <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  {/* Tartib raqami (2026-10-05, video-TZ): guruh a'zolarini
-                      bir-biridan ajratish uchun — faqat ko'rinish, ma'lumotga
-                      saqlanmaydi. */}
-                  <span className="izoh" style={{ minWidth: 20, textAlign: "right" }}>{i + 1}.</span>
-                  {/* Rasm ALOHIDA turadi — ismga bosilganda natijalar oynasi
-                      ochiladi, rasmga bosilganda esa o'chirish oynasi; ikkisi
-                      bir joyda bo'lsa bosish bir-biriga tushib ketardi. */}
-                  <ProfilRasmi user={tl} ochir={boshqaruvMi ? rasmOchir : undefined} t={t} />
-                  <span
-                    style={{ display: "flex", gap: 8, cursor: "pointer", alignItems: "center" }}
-                    onClick={() => setKartaTalaba(tl)}
-                    title={t("talaba_malumoti")}
-                  >
-                    <span>{tl.ism}</span>
-                    <span className="izoh">{tl.username}</span>
-                  </span>
-                </span>
-                {boshqaruvMi && (
-                  <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                    <PanelTanlovi user={tl} saqlash={panellarSaqla} t={t} />
-                    <QurilmaTiklashTugmasi user={tl} tiklash={qurilmaTiklash} t={t} />
-                    {profil?.is_owner && (
-                      <QurilmaLimitiBoshqaruv user={tl} ozgartir={qurilmaLimitOzgartir} t={t} />
-                    )}
-                    <button
-                      className="tugma ikkinchi kichik"
-                      onClick={() => arxivHolatiniOzgartir(tl.id, arxivKorish)}
-                    >
-                      {arxivKorish ? t("faollashtirish") : t("arxivlash")}
-                    </button>
-                  </span>
-                )}
-              </div>
+        </form>
+      </div>
+
+      <div className="karta" style={{ marginTop: 16 }}>
+        {qidiruvNatijasi ? (
+          <>
+            <h3>{t("talabalar_qidirish")}: «{qidiruv}»</h3>
+            {qidiruvNatijasi.length === 0 ? (
+              <span className="izoh">{t("qidiruv_natija_yoq")}</span>
+            ) : (
+              qidiruvNatijasi.map((tl) => (
+                <TalabaQatori
+                  key={tl.id}
+                  tl={tl}
+                  boshqaruvMi={boshqaruvMi}
+                  arxivKorish={arxivKorish}
+                  profil={profil}
+                  t={t}
+                  onKartaOchish={setKartaTalaba}
+                  rasmOchir={rasmOchir}
+                  panellarSaqla={panellarSaqla}
+                  qurilmaTiklash={qurilmaTiklash}
+                  qurilmaLimitOzgartir={qurilmaLimitOzgartir}
+                  arxivHolatiniOzgartir={arxivHolatiniOzgartir}
+                />
+              ))
+            )}
+          </>
+        ) : (
+          <>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <h3>{arxivKorish ? t("arxivlangan_talabalar") : t("nav_talabalar")}</h3>
+              {boshqaruvMi && (
+                <button className="tugma ikkinchi kichik" onClick={() => setArxivKorish((v) => !v)}>
+                  {arxivKorish ? t("faol_talabalar") : t("arxivlangan_talabalar")}
+                </button>
+              )}
+            </div>
+            {talabalar.length === 0 && <span className="izoh">{t("talaba_yoq")}</span>}
+            {guruhlangan.map((g) => (
+              <details className="guruh-papka" key={g.id} open>
+                <summary className="guruh-papka-sarlavha">
+                  {g.nomi} <span className="izoh">({g.talabalar.length})</span>
+                </summary>
+                {g.talabalar.map((tl, i) => (
+                  <TalabaQatori
+                    key={tl.id}
+                    tl={tl}
+                    tartibRaqami={i + 1}
+                    boshqaruvMi={boshqaruvMi}
+                    arxivKorish={arxivKorish}
+                    profil={profil}
+                    t={t}
+                    onKartaOchish={setKartaTalaba}
+                    rasmOchir={rasmOchir}
+                    panellarSaqla={panellarSaqla}
+                    qurilmaTiklash={qurilmaTiklash}
+                    qurilmaLimitOzgartir={qurilmaLimitOzgartir}
+                    arxivHolatiniOzgartir={arxivHolatiniOzgartir}
+                  />
+                ))}
+              </details>
             ))}
-          </details>
-        ))}
+          </>
+        )}
       </div>
 
       {kartaTalaba && (

@@ -26,7 +26,7 @@ from rest_framework.response import Response
 
 from academics.models import Davomat, Guruh, GuruhAzoligi
 from accounts.excel_import import LOGIN_QOIDASI
-from accounts.models import Markaz, User
+from accounts.models import Bildirishnoma, Markaz, User
 from accounts.permissions import owner_mi
 from audit.models import FaoliyatYozuvi
 from audit.utils import logla
@@ -1329,18 +1329,52 @@ class TalabaOtaOnaView(CrmView):
       bor) talabaning hisobini shu talabaga ham biriktiradi — bitta
       ota-onada bir nechta farzand bo'lishi mumkin (`User.ota_ona` FK,
       `related_name="farzandlar"`).
+    - {"amal": "parol_tiklash"} — biriktirilgan ota-ona hisobiga yangi parol.
+
+    Login/parol javobda bir marta qaytadi VA administratorga (amalni
+    bajargan foydalanuvchiga) bildirishnoma bo'lib boradi (video-TZ
+    IMG_2149, 2026-10-08): prod'da modal parolni ko'rsatmay yopilib
+    qolardi va login/parol hech qayerda qolmasdi.
     """
 
     pk_turi = "talaba"
     bolim = "talabalar"
 
+    @staticmethod
+    def _adminga_yubor(admin, ota_ona, parol, talaba, sarlavha):
+        Bildirishnoma.objects.create(
+            foydalanuvchi=admin, turi=Bildirishnoma.Turi.OGOHLANTIRISH,
+            kalit=f"ota-ona-parol:{ota_ona.id}:{timezone.now().isoformat()}",
+            sarlavha=f"{sarlavha}: {_ism(ota_ona)}"[:300],
+            matn=f"Farzand: {_ism(talaba)}\nLogin: {ota_ona.username}\nParol: {parol}",
+        )
+
     def post(self, request, pk):
         if xato := _ruxsatsiz(request, "talabalar.tahrirlash"):
             return xato
         talaba = get_object_or_404(User, pk=pk, role=User.Role.STUDENT)
+        amal = request.data.get("amal")
+        if amal == "parol_tiklash":
+            ota_ona = talaba.ota_ona
+            if not ota_ona:
+                return _xato("Bu o'quvchida ota-ona hisobi yo'q")
+            # `limit_choices_to` faqat forma darajasida — rol keyin o'zgargan
+            # (admin/owner bo'lib qolgan) hisob parolini CRM'dan tiklab
+            # bo'lmasin, aks holda bu imtiyozli hisobni egallash yo'li bo'lardi.
+            if ota_ona.role != User.Role.PARENT or ota_ona.is_superuser:
+                return _xato("Bu hisob ota-ona hisobi emas — parol bu yerdan tiklanmaydi", kod=403)
+            parol = parol_yarat()
+            ota_ona.set_password(parol)
+            ota_ona.save(update_fields=["password"])
+            self._adminga_yubor(request.user, ota_ona, parol, talaba, "Ota-ona paroli yangilandi")
+            logla(
+                foydalanuvchi=request.user, harakat=FaoliyatYozuvi.Harakat.OZGARTIRISH, obyekt=ota_ona,
+                obyekt_turi="Foydalanuvchi", obyekt_nomi=_ism(ota_ona),
+                yangi_qiymatlar={"parol": "tiklandi"},
+            )
+            return Response({"id": ota_ona.id, "ism": _ism(ota_ona), "username": ota_ona.username, "parol": parol})
         if talaba.ota_ona_id:
             return _xato("Bu o'quvchida ota-ona hisobi allaqachon bor")
-        amal = request.data.get("amal")
 
         if amal == "yaratish":
             ism = (request.data.get("ism") or talaba.ota_ona_ismi or "").strip()
@@ -1358,6 +1392,7 @@ class TalabaOtaOnaView(CrmView):
             ota_ona.save()
             talaba.ota_ona = ota_ona
             talaba.save(update_fields=["ota_ona"])
+            self._adminga_yubor(request.user, ota_ona, parol, talaba, "Ota-ona hisobi ochildi")
             logla(
                 foydalanuvchi=request.user, harakat=FaoliyatYozuvi.Harakat.YARATISH, obyekt=ota_ona,
                 obyekt_turi="Foydalanuvchi",
