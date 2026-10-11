@@ -2264,6 +2264,30 @@ function Tugun({ tugun, chuqurlik, adminMi, talabaMi, oqituvchiMi, royxatniYangi
       );
     }
 
+    if (unitBolimi === "tests") {
+      // 2026-10-11 (Matn-TZ 246): Unit bo'yicha testlar — oddiy mashqlar
+      // (variantli savollar), admin JSON orqali kiritadi.
+      return (
+        <div className="kurs-qator kurs-qator-oxirgi" style={{ display: "block" }}>
+          <div
+            style={{ paddingLeft: otstup, display: "flex", alignItems: "center", gap: 10, marginBottom: mashqOchiq ? 8 : 0, cursor: "pointer" }}
+            onClick={() => setMashqOchiq((v) => !v)}
+          >
+            <span>{mashqOchiq ? "▾" : "▸"}</span>
+            <span>{tugun.ikonka}</span>
+            <span style={{ fontWeight: 600 }}>
+              {nomi}{tugun.mashqlar_soni ? ` (${tugun.mashqlar_soni})` : ""}
+            </span>
+          </div>
+          {mashqOchiq && (
+            <div style={{ paddingLeft: 14 }}>
+              <MashqPaneli tugunId={tugun.id} talabaMi={talabaMi} oqituvchiMi={oqituvchiMi} />
+            </div>
+          )}
+        </div>
+      );
+    }
+
     if (kitobmi) {
       // 2026-08-19: Student's Book/Workbook endi BEVOSITA "oxirgi
       // qatlam" — mashqlar shu tugunga to'g'ridan-to'g'ri biriktiriladi
