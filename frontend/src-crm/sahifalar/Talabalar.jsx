@@ -1146,13 +1146,13 @@ function Karta({ talabaId, onOrqaga }) {
                         <button className="tugma tugma-sokin kichik-tugma" type="button" title={t("qarzdorlikni_tahrirlash")}
                                 onClick={() => setTahrirHisobi(hisob)}>✎ {t("tahrirlash")}</button>
                       )}
+                      {!hisobQatori && ruxsat("moliya.tolov_tahrirlash") && (
+                        <button className="tugma tugma-sokin kichik-tugma" type="button" title={t("tolov_tahrirlash")}
+                                onClick={() => setTahrirTolovi(x)}>✎ {t("tahrirlash")}</button>
+                      )}
                       {!hisobQatori && profil?.is_owner && (
-                        <>
-                          <button className="havola" type="button" title={t("tahrirlash")}
-                                  onClick={() => setTahrirTolovi(x)}>✎</button>
-                          <button className="havola rang-qarzdor" type="button" title={t("ochirish")}
-                                  onClick={() => tolovniOchir(x.id)}>🗑</button>
-                        </>
+                        <button className="havola rang-qarzdor" type="button" title={t("ochirish")}
+                                onClick={() => tolovniOchir(x.id)}>🗑</button>
                       )}
                     </td>
                   </tr>

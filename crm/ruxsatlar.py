@@ -46,6 +46,7 @@ RUXSAT_DARAXTI = [
     ("moliya", "Moliya", [
         ("moliya.tolov", "To'lov qabul qilish"),
         ("moliya.qaytarish", "Pul qaytarish"),
+        ("moliya.tolov_tahrirlash", "To'lovni tahrirlash"),
         ("moliya.hisob", "Qarzdorlik yozuvlari (qo'shish va tahrirlash)"),
     ]),
     ("hisobotlar", "Hisobotlar", [
