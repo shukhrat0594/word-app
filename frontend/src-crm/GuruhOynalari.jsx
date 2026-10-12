@@ -584,10 +584,16 @@ export function DavomatJadvali({ guruhId }) {
             </thead>
             <tbody>
               {talabalar.map((x, i) => (
-                <tr key={x.id} className={x.sobiq ? "sobiq-qator" : undefined}>
+                <tr key={x.id} className={x.sobiq || x.holat === "muzlatilgan" ? "sobiq-qator" : undefined}>
                   <td className="ongga kichik">{i + 1}</td>
                   <td>
                     {x.ism}
+                    {x.holat === "muzlatilgan" && (
+                      <div className="kichik" title={x.muzlatish_izoh || undefined}>
+                        ❄️ {t("holat_muzlatilgan")}{x.muzlatish_sana ? ` · ${sana(x.muzlatish_sana)}` : ""}
+                        {x.muzlatish_izoh ? ` — ${x.muzlatish_izoh}` : ""}
+                      </div>
+                    )}
                     {x.sobiq && (
                       <div className="kichik">
                         🗄 {t("arxiv")}{x.chiqqan_sana ? ` · ${sana(x.chiqqan_sana)}` : ""}

@@ -939,6 +939,13 @@ def lidlar_qs(p, user=None):
         qs = qs.filter(Q(bolim__isnull=True) | Q(bolim__doska__isnull=True))
     elif p.get("doska"):
         qs = qs.filter(bolim__doska_id=p["doska"])
+    # Bosh sahifa kartochkalari (video-TZ 2026-10-12): "Bugungi lidlar" —
+    # bugun yozilganlar, "Yangi guruhga qabul" — yig'ilayotgan guruhga
+    # navbatdagilar. Ikkalasi `KorsatkichlarView` sanog'i bilan bir xil.
+    if p.get("bugun"):
+        qs = qs.filter(created_at__date=timezone.localdate())
+    if p.get("yigilayotgan"):
+        qs = qs.filter(yigilayotgan_guruh__isnull=False)
     if p.get("manba"):
         qs = qs.filter(manba=p["manba"])
     if p.get("oqituvchi"):
@@ -1978,6 +1985,9 @@ class GuruhDavomatView(CrmView):
                 "id": a.talaba_id,
                 "ism": _ism(a.talaba),
                 "holat": am.holat if am else None,
+                # Muzlatilgan o'quvchi davomatda ajralib ko'rinsin (video-TZ IMG_6977.MOV).
+                "muzlatish_sana": am.muzlatish_sana if am else None,
+                "muzlatish_izoh": am.muzlatish_izoh if am else "",
                 "kunlar": kunlar,
                 "keldi": sum(1 for k in kunlar if k["holat"] in ("keldi", "kechikdi")),
                 "kechikdi": sum(1 for k in kunlar if k["holat"] == "kechikdi"),
