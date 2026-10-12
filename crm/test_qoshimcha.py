@@ -1,9 +1,10 @@
 """Video-TZ qayta tekshiruvi (5 soniyalik kadrlar) qo'shimchalari testlari."""
 
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from io import BytesIO
 
+from django.utils import timezone
 from openpyxl import Workbook, load_workbook
 
 from academics.models import Davomat
@@ -193,6 +194,22 @@ class IkkiSoniyaliTekshiruvTest(ApiAsos):
         self.assertEqual(m.get("/api/crm/korsatkichlar/").data["yangi_guruhga_qabul"], 1)
         m.post("/api/crm/lidlar/guruhga/", {"lid_idlar": [lid["id"]], "guruh_id": self.guruh.id}, format="json")
         self.assertIsNone(Lid.objects.get(pk=lid["id"]).yigilayotgan_guruh_id)
+
+    def test_bosh_sahifa_kartochkalari_filtri(self):
+        """"Bugungi lidlar" / "Yangi guruhga qabul" bosilganda ro'yxat
+        kartochkadagi son bilan bir xil (video-TZ 2026-10-12)."""
+        m = self.mijoz(self.admin)
+        bugungi = m.post("/api/crm/lidlar/", {"ism": "Bugun", "telefon": "901000031"}, format="json").data
+        eski = m.post("/api/crm/lidlar/", {"ism": "Eski", "telefon": "901000032"}, format="json").data
+        Lid.objects.filter(pk=eski["id"]).update(created_at=timezone.now() - timedelta(days=3))
+        m.patch(f"/api/crm/lidlar/{eski['id']}/", {"yigilayotgan_guruh_id": self.guruh.id}, format="json")
+        k = m.get("/api/crm/korsatkichlar/").data
+        bugun = [x["id"] for x in m.get("/api/crm/lidlar/?bugun=1").data]
+        self.assertEqual(bugun, [bugungi["id"]])
+        self.assertEqual(len(bugun), k["yangi_lidlar_bugun"])
+        navbat = [x["id"] for x in m.get("/api/crm/lidlar/?yigilayotgan=1").data]
+        self.assertEqual(navbat, [eski["id"]])
+        self.assertEqual(len(navbat), k["yangi_guruhga_qabul"])
 
     def test_taqvimda_davomat_va_sanoq(self):
         self.azolik_qosh(boshlanish=SENTABR)
