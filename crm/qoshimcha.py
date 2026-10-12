@@ -49,7 +49,7 @@ from .models import (
 )
 from .permissions import CrmView
 from .filial import (
-    filial_q, filial_tekshir, guruh_q, ruxsat_filiallari, tolov_filiali_q, tolov_q, umumiy_yozuv_taqiq,
+    balans_doirasi, filial_q, filial_tekshir, guruh_q, ruxsat_filiallari, tolov_filiali_q, tolov_q, umumiy_yozuv_taqiq,
     xodim_korinadimi,
 )
 from .ruxsatlar import ruxsatlar
@@ -759,6 +759,20 @@ class TolovlarHisobotiView(CrmView):
             k["summa"] += x["s"]
             k["soni"] += x["n"]
         kunlar = list(kunlar.values())
+        # Har bir to'lov alohida (video-TZ 2026-10-12): kim, qanday usulda,
+        # qancha to'lagan va hozirgi holati — balansi (qarzdorligi).
+        qatorlar = list(tolov.order_by("sana", "id").values(
+            "id", "sana", "talaba_id", "talaba_ism", "guruh_nomi", "usul", "summa", "qayta",
+        ))
+        hisob_q, tolov_doira_q = balans_doirasi(request.user, request.query_params.get("filial"))
+        balanslar = mantiq.balanslarni_ol(
+            {x["talaba_id"] for x in qatorlar if x["talaba_id"]}, hisob_q=hisob_q, tolov_q=tolov_doira_q,
+        )
+        royxat = [{
+            "id": x["id"], "sana": x["sana"], "talaba_id": x["talaba_id"], "talaba": x["talaba_ism"],
+            "guruh": x["guruh_nomi"], "usul": x["usul"], "summa": x["summa"], "qayta": x["qayta"],
+            "balans": balanslar.get(x["talaba_id"]),
+        } for x in qatorlar]
         return Response({
             "dan": dan, "gacha": gacha,
             "jami": tolov.aggregate(s=Sum("summa"))["s"] or NOL,
@@ -773,6 +787,7 @@ class TolovlarHisobotiView(CrmView):
             "qayta": sum((k["qayta_summa"] for k in kunlar), NOL),
             "qayta_soni": sum(k["qayta_soni"] for k in kunlar),
             "kunlar": kunlar,
+            "royxat": royxat,
         })
 
 

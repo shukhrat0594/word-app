@@ -164,6 +164,11 @@ class XodimVaHisobotTest(ApiAsos):
         self.assertEqual((d["birinchi"], d["qayta"]), (NARX, 2 * NARX))
         kun = d["kunlar"][0]
         self.assertEqual((kun["birinchi_soni"], kun["qayta_soni"], kun["soni"]), (1, 2, 3))
+        # Har bir to'lov alohida: o'quvchi, usul, summa, birinchi/qayta va balans.
+        self.assertEqual([(x["talaba_id"], x["qayta"]) for x in d["royxat"]],
+                         [(self.talaba.id, True), (yangi.id, False), (yangi.id, True)])
+        self.assertEqual(d["royxat"][1]["summa"], NARX)
+        self.assertEqual(d["royxat"][1]["balans"], 2 * NARX)
         r = m.get("/api/crm/hisobot/eksport/?turi=tolovlar&dan=2026-10-01&gacha=2026-10-31")
         self.assertEqual(r.status_code, 200)
 

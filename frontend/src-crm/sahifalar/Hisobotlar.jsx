@@ -10,7 +10,7 @@ import { Link, useSearchParams } from "react-router-dom";
 
 import { apiFayluniYuklab } from "../api.js";
 import { useFilial } from "../filialContext.jsx";
-import { oyNomi, oyQiymati, pul, sana } from "../format.js";
+import { balansMatn, balansSinfi, oyNomi, oyQiymati, pul, sana } from "../format.js";
 import { useI18n } from "../i18n.jsx";
 import { sorovSatri, useSorov } from "../soragich.js";
 
@@ -392,6 +392,32 @@ function DavrHisoboti({ turi }) {
                     <td className="ongga"><b>{pul(x.summa)}</b></td><td className="ongga">{x.soni}</td>
                   </tr>
                 ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="karta jadval-oram">
+            <h3>{t("tolovlar_royxati")} <span className="belgi">{d.royxat.length}</span></h3>
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th><th>{t("sana")}</th><th>{t("talaba")}</th><th>{t("guruh")}</th><th>{t("tolov_usuli")}</th>
+                  <th className="ongga">{t("summa")}</th><th>{t("turi")}</th><th className="ongga">{t("balans")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {d.royxat.map((x, i) => (
+                  <tr key={x.id}>
+                    <td>{i + 1}</td>
+                    <td className="nowrap">{sana(x.sana)}</td>
+                    <td>{x.talaba_id ? <Link className="havola" to={`/talabalar?talaba=${x.talaba_id}`}>{x.talaba}</Link> : x.talaba}</td>
+                    <td>{x.guruh || "—"}</td>
+                    <td>{x.usul ? t(`usul_${x.usul}`) : "—"}</td>
+                    <td className="ongga">{pul(x.summa)}</td>
+                    <td>{t(x.qayta ? "qayta_tolov" : "birinchi_tolov")}</td>
+                    <td className={`ongga ${x.balans != null ? balansSinfi(x.balans) : ""}`}>{x.balans == null ? "—" : balansMatn(x.balans)}</td>
+                  </tr>
+                ))}
+                {d.royxat.length === 0 && <tr><td colSpan={8} className="bosh">{t("yozuv_yoq")}</td></tr>}
               </tbody>
             </table>
           </div>
