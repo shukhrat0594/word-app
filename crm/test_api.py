@@ -658,6 +658,23 @@ class DavomatVaNatijaTest(ApiAsos):
         k2 = self.kataklar(qatorlar["talaba2"])
         self.assertEqual((k2[date(2026, 9, 3)], k2[date(2026, 9, 4)]), ("keldi", None))
 
+    def test_davomatda_muzlatilgan_korinadi(self):
+        """Video-TZ IMG_6977.MOV: davomatda muzlatilgan o'quvchi holati,
+        sanasi va sababi qaytadi."""
+        muz = User.objects.create_user(
+            username="muz_dav", password="x", role=User.Role.STUDENT, markaz=self.markaz
+        )
+        self.azolik_qosh(
+            talaba=muz, boshlanish=date(2026, 9, 1), holat=AzolikMoliya.Holat.MUZLATILGAN,
+            muzlatish_sana=date(2026, 9, 20), muzlatish_izoh="Kasal",
+        )
+        javob = self.mijoz(self.admin).get(f"/api/crm/guruhlar/{self.guruh.id}/davomat/?oy=2026-09")
+        qatorlar = {x["ism"]: x for x in javob.data["talabalar"]}
+        q = qatorlar["muz_dav"]
+        self.assertEqual((q["holat"], q["muzlatish_sana"], q["muzlatish_izoh"]),
+                         ("muzlatilgan", date(2026, 9, 20), "Kasal"))
+        self.assertIsNone(qatorlar["talaba1"]["muzlatish_sana"])
+
     def test_davomat_boshqa_oy_aralashmaydi(self):
         self.davomat_yoz(self.talaba, 3, Davomat.Holat.KELDI)
         Davomat.objects.create(
