@@ -500,15 +500,18 @@ function LidKartasi({ lidId, bolimlar, onYopish, onOzgardi, rejim = null }) {
 
 // ── Kanban ustuni ───────────────────────────────────────────────────
 
-function Ustun({ bolim, lidlar, tanlangan, setTanlangan, onOch, onTashla, onYangi, onNom, onOchir, onMenyu, ruxsat }) {
+// `qabul` — "Yangi guruhga qabul" ustuni (yig'ilayotgan guruh): sudrash,
+// yangi lid qo'shish va ustunni tahrirlash yo'q.
+function Ustun({ bolim, qabul, lidlar, tanlangan, setTanlangan, onOch, onTashla, onYangi, onNom, onOchir, onMenyu, ruxsat }) {
   // Umumiy (filialsiz) ustunni filial xodimi o'zgartirmaydi (backend ham).
   const cheklangan = useCheklangan();
   const { t } = useI18n();
   const [ustida, setUstida] = useState(false);
+  const jadval = qabul?.guruh?.jadval || [];
   return (
     <div
       className={`kanban-ustun${ustida ? " ustida" : ""}`}
-      onDragOver={(e) => { e.preventDefault(); setUstida(true); }}
+      onDragOver={(e) => { if (qabul) return; e.preventDefault(); setUstida(true); }}
       onDragLeave={() => setUstida(false)}
       onDrop={(e) => {
         e.preventDefault();
@@ -518,7 +521,7 @@ function Ustun({ bolim, lidlar, tanlangan, setTanlangan, onOch, onTashla, onYang
       }}
     >
       <div className="kanban-sarlavha">
-        <b>{bolim ? bolim.nomi : t("yangi_lidlar")}</b>
+        <b>{qabul ? `👥 ${qabul.nomi}` : bolim ? bolim.nomi : t("yangi_lidlar")}</b>
         <span className="belgi">{lidlar.length}</span>
         {bolim && ruxsat("lidlar.bolim") && !(cheklangan && !bolim.filial_id) && (
           <span className="kanban-amallar">
@@ -527,6 +530,14 @@ function Ustun({ bolim, lidlar, tanlangan, setTanlangan, onOch, onTashla, onYang
           </span>
         )}
       </div>
+      {qabul && (
+        <div className="kichik">
+          {qabul.guruh?.boshlanish_sana && <div>🚀 {t("boshlanadi")} {sana(qabul.guruh.boshlanish_sana)}</div>}
+          {jadval.length > 0 && (
+            <div>🕒 {jadval.map((j) => j.hafta_kuni_nomi.slice(0, 2)).join(", ")} {jadval[0].boshlanish_vaqti}–{jadval[0].tugash_vaqti}</div>
+          )}
+        </div>
+      )}
       <div className="kanban-kartalar">
         {lidlar.map((l) => (
           <div
@@ -569,7 +580,7 @@ function Ustun({ bolim, lidlar, tanlangan, setTanlangan, onOch, onTashla, onYang
         ))}
         {lidlar.length === 0 && <p className="kichik bosh">{t("bosh_kanban")}</p>}
       </div>
-      {ruxsat("lidlar.qoshish") && (
+      {ruxsat("lidlar.qoshish") && !qabul && (
         <button className="tugma tugma-sokin kichik-tugma" type="button" onClick={() => onYangi(bolim?.id ?? null)}>
           + {t("yangi_lid_qoshish")}
         </button>
@@ -736,8 +747,12 @@ export default function Lidlar() {
   }, [params]);
   const setOchiq = (id) => {
     setOchiqAsl(id);
-    if (!id && params.get("lid")) setParams({});
+    if (!id && params.get("lid")) setParams(filtr ? { filtr } : {});
   };
+  // Bosh sahifa kartochkasidan (video-TZ 2026-10-12): `?filtr=bugun` — bugun
+  // yozilgan lidlar, `?filtr=yigilayotgan` — yig'ilayotgan guruhlar bo'yicha
+  // alohida ustunlar (o'quvchi ismi, guruh ochilish sanasi va dars vaqti).
+  const filtr = ["bugun", "yigilayotgan"].includes(params.get("filtr")) ? params.get("filtr") : "";
   const [ochiqRejim, setOchiqRejim] = useState(null);
   // Kartochka "⋯" menyusi (video 17:24) va ko'chirish oynasi.
   const [menyu, setMenyu] = useState(null);
@@ -750,13 +765,16 @@ export default function Lidlar() {
   const [doska, setDoska] = useState("0");
   const doskalar = useSorov("/api/crm/lid-doskalar/");
   const [ustunOyna, setUstunOyna] = useState(false);
-  const guruhRoyxati = useSorov(ustunOyna ? "/api/crm/guruhlar/" : null);
+  const guruhRoyxati = useSorov(ustunOyna || filtr === "yigilayotgan" ? "/api/crm/guruhlar/" : null);
 
   const bolimlar = useSorov("/api/crm/lid-bolimlar/" + sorovSatri({ filial, doska }));
+  // Kartochka filtri hamma doskadan yig'adi — bosh sahifadagi son bilan bir xil.
   const filtrSatri = sorovSatri({
     filial, q: qidiruv, manba, arxiv: rejim === "arxiv" ? 1 : "", qora_royxat: rejim === "qora_royxat" ? 1 : "",
     oquvchi: rejim === "oquvchi" ? 1 : "",
-    doska: rejim ? "" : doska,
+    doska: rejim || filtr ? "" : doska,
+    bugun: filtr === "bugun" ? 1 : "",
+    yigilayotgan: filtr === "yigilayotgan" ? 1 : "",
   });
   const lidlar = useSorov("/api/crm/lidlar/" + filtrSatri);
   const [eksportXato, setEksportXato] = useState("");
@@ -857,7 +875,12 @@ export default function Lidlar() {
   }
 
   // Umumiy doskada ustunsiz lidlar uchun "Yangi lidlar" ustuni ham bor.
-  const ustunlar = doska === "0" || rejim ? [null, ...bolimRoyxati] : bolimRoyxati;
+  const ustunlar = doska === "0" || rejim || filtr ? [null, ...bolimRoyxati] : bolimRoyxati;
+  // "Yangi guruhga qabul": har yig'ilayotgan guruh — alohida ustun.
+  const qabulGuruhlari = [...new Set(lidRoyxati.map((l) => l.yigilayotgan_guruh_id))].map((id) => {
+    const g = (guruhRoyxati.malumot || []).find((x) => x.id === id);
+    return { id, nomi: g?.nomi || lidRoyxati.find((l) => l.yigilayotgan_guruh_id === id).yigilayotgan_guruh, guruh: g };
+  });
   // Rejimlarda lidlar HAMMA doska va filialdan keladi, ustunlar esa faqat
   // tanlangan doskaniki — ustuni ekranda yo'q lid "Yangi lidlar"da turadi,
   // yo'qolib qolmaydi (video-TZ 2026-09-29: Gor-Park'da qora ro'yxat bo'sh
@@ -927,6 +950,32 @@ export default function Lidlar() {
         <div className="xato">{lidlar.xato || bolimlar.xato || eksportXato}</div>
       )}
 
+      {filtr && (
+        <div className="filtrlar">
+          <span className="belgi">{t(filtr === "bugun" ? "k_yangi_lidlar_bugun" : "k_yangi_guruhga_qabul")}</span>
+          <button className="tugma tugma-sokin kichik-tugma" type="button" onClick={() => setParams({})}>
+            ✕ {t("filtrni_olib_tashlash")}
+          </button>
+        </div>
+      )}
+
+      {filtr === "yigilayotgan" ? (
+        <div className="kanban">
+          {qabulGuruhlari.map((q) => (
+            <Ustun
+              key={q.id}
+              qabul={q}
+              lidlar={lidRoyxati.filter((l) => l.yigilayotgan_guruh_id === q.id)}
+              tanlangan={tanlanganLar}
+              setTanlangan={setTanlanganLar}
+              onOch={setOchiq}
+              onMenyu={(lid, joy) => setMenyu({ lid, joy })}
+              ruxsat={ruxsat}
+            />
+          ))}
+          {qabulGuruhlari.length === 0 && <p className="kichik bosh">{t("bosh_kanban")}</p>}
+        </div>
+      ) : (
       <div className="kanban">
         {ustunlar.map((b) => (
           <Ustun
@@ -945,6 +994,7 @@ export default function Lidlar() {
           />
         ))}
       </div>
+      )}
 
       {rejim === "qora_royxat" && <QoraOquvchilar qidiruv={qidiruv} />}
 

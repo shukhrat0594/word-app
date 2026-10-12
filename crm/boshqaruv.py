@@ -939,6 +939,13 @@ def lidlar_qs(p, user=None):
         qs = qs.filter(Q(bolim__isnull=True) | Q(bolim__doska__isnull=True))
     elif p.get("doska"):
         qs = qs.filter(bolim__doska_id=p["doska"])
+    # Bosh sahifa kartochkalari (video-TZ 2026-10-12): "Bugungi lidlar" —
+    # bugun yozilganlar, "Yangi guruhga qabul" — yig'ilayotgan guruhga
+    # navbatdagilar. Ikkalasi `KorsatkichlarView` sanog'i bilan bir xil.
+    if p.get("bugun"):
+        qs = qs.filter(created_at__date=timezone.localdate())
+    if p.get("yigilayotgan"):
+        qs = qs.filter(yigilayotgan_guruh__isnull=False)
     if p.get("manba"):
         qs = qs.filter(manba=p["manba"])
     if p.get("oqituvchi"):
