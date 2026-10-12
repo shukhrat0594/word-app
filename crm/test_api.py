@@ -133,7 +133,20 @@ class RuxsatTest(ApiAsos):
 
     def test_tolovni_faqat_owner_tahrirlaydi(self):
         """SoffCRM'dagi qalam: summa/sana/izoh tuzatiladi, oy holati
-        qayta hisoblanadi. Admin — 403."""
+        qayta hisoblanadi. `moliya.tolov_tahrirlash` ruxsatisiz — 403
+        (video-TZ IMG_6970: ruxsati bor xodim ham tahrirlay oladi)."""
+        from crm.models import CrmRol, XodimProfil
+
+        kassir = User.objects.create_user(username="crm_kassir_t", password="x", markaz=self.markaz)
+        XodimProfil.objects.create(
+            user=kassir, lavozim="kassir",
+            rol=CrmRol.objects.create(nomi="SINOV kassir", ruxsatlar=["moliya.tolov", "talabalar"]),
+        )
+        tahrirchi = User.objects.create_user(username="crm_tahrirchi_t", password="x", markaz=self.markaz)
+        XodimProfil.objects.create(
+            user=tahrirchi, lavozim="kassir",
+            rol=CrmRol.objects.create(nomi="SINOV tahrirchi", ruxsatlar=["moliya.tolov_tahrirlash"]),
+        )
         hisob = Hisob.objects.create(
             talaba=self.talaba, talaba_ism="x", guruh=self.guruh, guruh_nomi="y",
             oy=date(2026, 9, 1), summa=NARX,
@@ -146,10 +159,14 @@ class RuxsatTest(ApiAsos):
         self.assertEqual(hisob.holat, Hisob.Holat.TOLANDI)
 
         self.assertEqual(
-            self.mijoz(self.admin).patch(
+            self.mijoz(kassir).patch(
                 f"/api/crm/tolov/{tolov.id}/", {"summa": "100000"}, format="json"
             ).status_code, 403,
         )
+        # Ruxsatli xodim tahrirlaydi, lekin o'chira olmaydi — o'chirish faqat owner'da.
+        self.assertEqual(self.mijoz(tahrirchi).patch(
+            f"/api/crm/tolov/{tolov.id}/", {"izoh": "xodim"}, format="json").status_code, 200)
+        self.assertEqual(self.mijoz(tahrirchi).delete(f"/api/crm/tolov/{tolov.id}/").status_code, 403)
         javob = self.mijoz(self.owner).patch(
             f"/api/crm/tolov/{tolov.id}/",
             {"summa": "100000", "sana": "2026-09-07", "izoh": "tuzatildi"},
@@ -657,6 +674,23 @@ class DavomatVaNatijaTest(ApiAsos):
         self.assertEqual(qatorlar["talaba1"]["kelmadi"], 1)
         k2 = self.kataklar(qatorlar["talaba2"])
         self.assertEqual((k2[date(2026, 9, 3)], k2[date(2026, 9, 4)]), ("keldi", None))
+
+    def test_davomatda_muzlatilgan_korinadi(self):
+        """Video-TZ IMG_6977.MOV: davomatda muzlatilgan o'quvchi holati,
+        sanasi va sababi qaytadi."""
+        muz = User.objects.create_user(
+            username="muz_dav", password="x", role=User.Role.STUDENT, markaz=self.markaz
+        )
+        self.azolik_qosh(
+            talaba=muz, boshlanish=date(2026, 9, 1), holat=AzolikMoliya.Holat.MUZLATILGAN,
+            muzlatish_sana=date(2026, 9, 20), muzlatish_izoh="Kasal",
+        )
+        javob = self.mijoz(self.admin).get(f"/api/crm/guruhlar/{self.guruh.id}/davomat/?oy=2026-09")
+        qatorlar = {x["ism"]: x for x in javob.data["talabalar"]}
+        q = qatorlar["muz_dav"]
+        self.assertEqual((q["holat"], q["muzlatish_sana"], q["muzlatish_izoh"]),
+                         ("muzlatilgan", date(2026, 9, 20), "Kasal"))
+        self.assertIsNone(qatorlar["talaba1"]["muzlatish_sana"])
 
     def test_davomat_boshqa_oy_aralashmaydi(self):
         self.davomat_yoz(self.talaba, 3, Davomat.Holat.KELDI)

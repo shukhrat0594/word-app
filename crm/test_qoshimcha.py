@@ -1,15 +1,16 @@
 """Video-TZ qayta tekshiruvi (5 soniyalik kadrlar) qo'shimchalari testlari."""
 
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from io import BytesIO
 
+from django.utils import timezone
 from openpyxl import Workbook, load_workbook
 
 from academics.models import Davomat
 from accounts.models import User
 from crm import mantiq
-from crm.models import GuruhdanChiqish, Hisob, Lid, LidBolim, XodimDavomat
+from crm.models import AzolikMoliya, GuruhdanChiqish, Hisob, Lid, LidBolim, Tolov, XodimDavomat
 from crm.test_api import ApiAsos
 from crm.tests import NARX, SENTABR, bugun_qilib
 
@@ -172,6 +173,28 @@ class XodimVaHisobotTest(ApiAsos):
         r = m.get("/api/crm/hisobot/eksport/?turi=tolovlar&dan=2026-10-01&gacha=2026-10-31")
         self.assertEqual(r.status_code, 200)
 
+    def test_lidlar_voronkasi(self):
+        Lid.objects.create(ism="A", telefon="1", yigilayotgan_guruh=self.guruh)
+        Lid.objects.create(ism="B", telefon="2", holat=Lid.Holat.SINOV)
+        Lid.objects.create(ism="C", telefon="3", holat=Lid.Holat.KELMADI)
+        Lid.objects.create(ism="D", telefon="4", holat=Lid.Holat.QOSHILDI, talaba=self.talaba)
+        self.azolik_qosh()  # faol — qoldi
+        for _ in range(2):
+            Tolov.objects.create(talaba=self.talaba, talaba_ism="t", guruh=self.guruh, guruh_nomi="g",
+                                 sana=date(2026, 9, 3), summa=NARX, turi=Tolov.Turi.TOLOV)
+        # Guruhga sinov a'zolik bilan qo'shilgan — hali qaror yo'q
+        sinovda = User.objects.create_user(username="t2", password="x", role=User.Role.STUDENT)
+        Lid.objects.create(ism="E", telefon="5", holat=Lid.Holat.QOSHILDI, talaba=sinovda)
+        self.azolik_qosh(talaba=sinovda, holat=AzolikMoliya.Holat.SINOV)
+        # Sinovdan keyin lidlarga qaytarilgan — `talaba` bog'liq qoladi, lekin qolmadi
+        qaytgan = User.objects.create_user(username="t3", password="x", role=User.Role.STUDENT)
+        Lid.objects.create(ism="F", telefon="6", holat=Lid.Holat.YANGI, talaba=qaytgan)
+        r = self.mijoz(self.admin).get("/api/crm/hisobot/lidlar/")
+        self.assertEqual({x["kalit"]: x["soni"] for x in r.data["voronka"]}, {
+            "trafik": 6, "naborga": 1, "sinov_chaqirildi": 5, "sinov_keldi": 4, "sinov_kelmadi": 1,
+            "yoqdi": 1, "yoqmadi": 1, "tolov_1": 1, "tolov_2": 1,
+        })
+
     def test_eslatma_tahrirlash_faqat_ozinikini(self):
         m = self.mijoz(self.admin)
         e = m.post("/api/crm/eslatmalar/", {"talaba_id": self.talaba.id, "matn": "a"}, format="json").data
@@ -194,6 +217,22 @@ class IkkiSoniyaliTekshiruvTest(ApiAsos):
         self.assertEqual(m.get("/api/crm/korsatkichlar/").data["yangi_guruhga_qabul"], 1)
         m.post("/api/crm/lidlar/guruhga/", {"lid_idlar": [lid["id"]], "guruh_id": self.guruh.id}, format="json")
         self.assertIsNone(Lid.objects.get(pk=lid["id"]).yigilayotgan_guruh_id)
+
+    def test_bosh_sahifa_kartochkalari_filtri(self):
+        """"Bugungi lidlar" / "Yangi guruhga qabul" bosilganda ro'yxat
+        kartochkadagi son bilan bir xil (video-TZ 2026-10-12)."""
+        m = self.mijoz(self.admin)
+        bugungi = m.post("/api/crm/lidlar/", {"ism": "Bugun", "telefon": "901000031"}, format="json").data
+        eski = m.post("/api/crm/lidlar/", {"ism": "Eski", "telefon": "901000032"}, format="json").data
+        Lid.objects.filter(pk=eski["id"]).update(created_at=timezone.now() - timedelta(days=3))
+        m.patch(f"/api/crm/lidlar/{eski['id']}/", {"yigilayotgan_guruh_id": self.guruh.id}, format="json")
+        k = m.get("/api/crm/korsatkichlar/").data
+        bugun = [x["id"] for x in m.get("/api/crm/lidlar/?bugun=1").data]
+        self.assertEqual(bugun, [bugungi["id"]])
+        self.assertEqual(len(bugun), k["yangi_lidlar_bugun"])
+        navbat = [x["id"] for x in m.get("/api/crm/lidlar/?yigilayotgan=1").data]
+        self.assertEqual(navbat, [eski["id"]])
+        self.assertEqual(len(navbat), k["yangi_guruhga_qabul"])
 
     def test_taqvimda_davomat_va_sanoq(self):
         self.azolik_qosh(boshlanish=SENTABR)

@@ -238,6 +238,25 @@ select {
   overflow-x: auto;
 }
 
+/* Talabalar ro'yxati: yonga surilganda ism ustuni ko'rinib turadi,
+   uzun izoh qatorni kengaytirmaydi (to'liq matn — sichqoncha ustida). */
+.talabalar-jadval th:first-child,
+.talabalar-jadval td:first-child {
+  position: sticky;
+  inset-inline-start: 0;
+  background: var(--karta);
+  z-index: 1;
+}
+/* max-width katakning (td) o'ziga qo'yilsa brauzerlar uni e'tiborsiz
+   qoldirishi mumkin (CSS'da jadval kataklari uchun aniqlanmagan) —
+   shuning uchun ichki blokka qo'yiladi. */
+.izoh-qisqa {
+  max-width: 180px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;
@@ -268,6 +287,9 @@ tfoot td {
 .ongga { text-align: end; }
 .bosh { text-align: center; color: var(--sokin); padding: 28px; }
 .ichki { background: var(--fon); white-space: normal; }
+/* Uzun matnli katak (izoh, guruh nomi) qatorga o'tadi — jadval ekranga
+   sig'sin, "Amallar" surmasdan ko'rinsin (video-TZ IMG_6970). */
+.matn-katak { white-space: normal; min-width: 140px; }
 .qator-ogoh { background: color-mix(in srgb, var(--qarzdor) 7%, transparent); }
 .qator-hisob { color: var(--sokin); }
 

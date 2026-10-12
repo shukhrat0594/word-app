@@ -198,7 +198,7 @@ function KetishHisoboti() {
   const b = new Date();
   const [dan, setDan] = useState(`${b.getFullYear()}-${String(b.getMonth() + 1).padStart(2, "0")}-01`);
   const [gacha, setGacha] = useState(b.toISOString().slice(0, 10));
-  const [f, setF] = useState({ q: "", kurs: "", guruh: "", oqituvchi: "", sabab_turi: "", chegirma: "" });
+  const [f, setF] = useState({ q: "", kurs: "", guruh: "", oqituvchi: "", sabab_turi: "", chegirma: "", muddat: "" });
   const guruhlar = useSorov("/api/crm/guruhlar/" + sorovSatri({ filial: tanlangan }));
   const parametrlar = { dan, gacha, filial: tanlangan, ...f };
   const { malumot: d, yuklanmoqda, xato } = useSorov("/api/crm/hisobot/ketganlar/" + sorovSatri(parametrlar));
@@ -306,12 +306,17 @@ function KetishHisoboti() {
                 <option value="1">{t("chegirmasi_bor")}</option>
                 <option value="0">{t("chegirmasiz")}</option>
               </select>
+              <select {...maydon("muddat")} aria-label={t("oquvchi_turi")}>
+                <option value="">{t("oquvchi_turi")}: {t("hammasi")}</option>
+                <option value="yangi">{t("yangi_oquvchi")}</option>
+                <option value="eski">{t("eski_oquvchi")}</option>
+              </select>
             </div>
             <table>
               <thead>
                 <tr>
                   <th>#</th><th>{t("talaba")}</th><th>{t("guruh")}</th><th>{t("kurs")}</th><th>{t("chegirma")}</th>
-                  <th>{t("oqituvchi")}</th><th>{t("sabab")}</th><th>{t("ketgan_sana")}</th>
+                  <th>{t("oqituvchi")}</th><th>{t("sabab")}</th><th>{t("ketgan_sana")}</th><th>{t("oqigan_muddat")}</th>
                   <th>{t("kim_chiqargan")}</th><th>{t("izoh")}</th>
                 </tr>
               </thead>
@@ -326,11 +331,15 @@ function KetishHisoboti() {
                     <td>{x.oqituvchi || "—"}</td>
                     <td>{t(`sabab_${x.sabab_turi}`)}</td>
                     <td className="nowrap">{sana(x.sana)}</td>
+                    <td className="nowrap">
+                      {x.oqigan_kun === null ? "—" : `${x.oqigan_kun} ${t("kun")}`}
+                      {x.oqigan_kun !== null && x.oqigan_kun < 30 && <> <span className="belgi">{t("yangi_oquvchi")}</span></>}
+                    </td>
                     <td>{x.kim || "—"}</td>
                     <td className="kichik" title={x.sabab}>{x.sabab || "—"}</td>
                   </tr>
                 ))}
-                {d.royxat.length === 0 && <tr><td colSpan={10} className="bosh">{t("yozuv_yoq")}</td></tr>}
+                {d.royxat.length === 0 && <tr><td colSpan={11} className="bosh">{t("yozuv_yoq")}</td></tr>}
               </tbody>
             </table>
           </div>
@@ -430,6 +439,16 @@ function DavrHisoboti({ turi }) {
             <div className="katak"><span className="kichik">{t("oquvchi_boldi")}</span><b className="rang-tolandi">{d.qoshildi}</b></div>
             <div className="katak"><span className="kichik">{t("konversiya")}</span>
               <b>{d.jami ? Math.round((d.qoshildi / d.jami) * 1000) / 10 : 0}%</b></div>
+          </div>
+          <div className="karta jadval-oram">
+            <table>
+              <thead><tr><th>№</th><th>{t("voronka_operatsiya")}</th><th className="ongga">{t("voronka_mijoz")}</th></tr></thead>
+              <tbody>
+                {d.voronka.map((x, i) => (
+                  <tr key={x.kalit}><td>{i + 1}</td><td>{t(`voronka_${x.kalit}`)}</td><td className="ongga">{x.soni}</td></tr>
+                ))}
+              </tbody>
+            </table>
           </div>
           <div className="karta jadval-oram">
             <table>
