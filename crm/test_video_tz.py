@@ -224,6 +224,25 @@ class KetishHisobotiTest(ApiAsos):
         eksport = m.get("/api/crm/hisobot/eksport/?turi=ketganlar&dan=2026-09-01&gacha=2026-09-30")
         self.assertEqual(eksport.status_code, 200)
 
+    def test_yangi_va_eski_oquvchi_filtri(self):
+        # video-TZ IMG_6971: bir oy ham o'qimay ketganlar eskilardan ajratiladi.
+        from accounts.models import User
+
+        m = self.mijoz(self.admin)
+        yol = f"/api/crm/guruhlar/{self.guruh.id}/talabalar/"
+        for i in range(2):
+            t = User.objects.create_user(username=f"m{i}", password="x", role=User.Role.STUDENT)
+            self.azolik_qosh(talaba=t)
+            m.delete(yol + f"?talaba={t.id}&sana=2026-09-1{i}&sabab_turi=narx")
+        GuruhdanChiqish.objects.filter(talaba__username="m0").update(boshlagan_sana=date(2026, 9, 1))
+        GuruhdanChiqish.objects.filter(talaba__username="m1").update(boshlagan_sana=date(2026, 5, 1))
+        asos = "/api/crm/hisobot/ketganlar/?dan=2026-09-01&gacha=2026-09-30"
+        d = m.get(asos + "&muddat=yangi").data
+        self.assertEqual(d["soni"], 2)  # kartochkalar filtrdan oldingi to'plamdan
+        self.assertEqual([x["oqigan_kun"] for x in d["royxat"]], [9])
+        d = m.get(asos + "&muddat=eski").data
+        self.assertEqual([x["oqigan_kun"] for x in d["royxat"]], [133])
+
 
 class FilialsizGuruhTest(ApiAsos):
     def test_filial_tanlanganda_sozlanmagan_guruh_ham_chiqadi(self):

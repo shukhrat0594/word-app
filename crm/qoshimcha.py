@@ -601,6 +601,21 @@ class HarakatlarTarixiView(CrmView):
 # ── Hisobotlar ───────────────────────────────────────────────────────
 
 
+YANGI_KETGAN_KUN = 30
+
+
+def _oqigan_kun(c):
+    """Guruhda necha kun o'qib ketgani (boshlagan sana noma'lum — None)."""
+    if c.boshlagan_sana and c.sana >= c.boshlagan_sana:
+        return (c.sana - c.boshlagan_sana).days
+    return None
+
+
+def _yangi_ketgan(c):
+    kun = _oqigan_kun(c)
+    return kun is not None and kun < YANGI_KETGAN_KUN
+
+
 class KetganlarHisobotiView(CrmView):
     """"Ketgan o'quvchilar hisoboti" (video-TZ 2026-09-25, SoffCRM
     "Ketish hisoboti") — davr ichida guruhdan ketganlar.
@@ -609,7 +624,8 @@ class KetganlarHisobotiView(CrmView):
     markazda qolgan). Boshqa guruhga o'tish alohida — "Guruh o'zgarishi
     (ichki migratsiya)" bo'limida.
 
-    Filtrlar: `q` (ism), `kurs`, `guruh`, `oqituvchi`, `sabab_turi`, `chegirma` (1/0).
+    Filtrlar: `q` (ism), `kurs`, `guruh`, `oqituvchi`, `sabab_turi`, `chegirma` (1/0),
+    `muddat` (yangi — 30 kundan kam o'qib ketgan / eski).
     """
 
     bolim = "hisobotlar"
@@ -641,6 +657,9 @@ class KetganlarHisobotiView(CrmView):
             royxat = [c for c in royxat if c.sabab_turi == p["sabab_turi"]]
         if p.get("chegirma") in ("0", "1"):
             royxat = [c for c in royxat if c.chegirma_bor == (p["chegirma"] == "1")]
+        if p.get("muddat") in ("yangi", "eski"):
+            # Yangi — markazda bir oy ham o'qimay ketgan (video-TZ IMG_6971).
+            royxat = [c for c in royxat if _yangi_ketgan(c) == (p["muddat"] == "yangi")]
         if (q := (p.get("q") or "").strip().lower()):
             royxat = [c for c in royxat if q in c.talaba_ism.lower()]
 
@@ -670,6 +689,7 @@ class KetganlarHisobotiView(CrmView):
                 "sana": c.sana, "sabab_turi": c.sabab_turi, "sabab_turi_nomi": nomlar.get(c.sabab_turi, c.sabab_turi),
                 "sabab": c.sabab, "chegirma_bor": c.chegirma_bor, "oylik_narx": c.oylik_narx,
                 "kim": _ism(c.kim) if c.kim_id else None,
+                "oqigan_kun": _oqigan_kun(c),
             }
 
         return Response({
