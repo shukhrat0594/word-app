@@ -268,6 +268,9 @@ tfoot td {
 .ongga { text-align: end; }
 .bosh { text-align: center; color: var(--sokin); padding: 28px; }
 .ichki { background: var(--fon); white-space: normal; }
+/* Uzun matnli katak (izoh, guruh nomi) qatorga o'tadi — jadval ekranga
+   sig'sin, "Amallar" surmasdan ko'rinsin (video-TZ IMG_6970). */
+.matn-katak { white-space: normal; min-width: 140px; }
 .qator-ogoh { background: color-mix(in srgb, var(--qarzdor) 7%, transparent); }
 .qator-hisob { color: var(--sokin); }
 

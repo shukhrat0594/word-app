@@ -40,6 +40,7 @@ from .models import (
     Filial,
     DarsMavzusi,
     GuruhdanChiqish,
+    Hisob,
     Lid,
     LidBolim,
     LidDoska,
@@ -600,6 +601,21 @@ class HarakatlarTarixiView(CrmView):
 # ── Hisobotlar ───────────────────────────────────────────────────────
 
 
+YANGI_KETGAN_KUN = 30
+
+
+def _oqigan_kun(c):
+    """Guruhda necha kun o'qib ketgani (boshlagan sana noma'lum — None)."""
+    if c.boshlagan_sana and c.sana >= c.boshlagan_sana:
+        return (c.sana - c.boshlagan_sana).days
+    return None
+
+
+def _yangi_ketgan(c):
+    kun = _oqigan_kun(c)
+    return kun is not None and kun < YANGI_KETGAN_KUN
+
+
 class KetganlarHisobotiView(CrmView):
     """"Ketgan o'quvchilar hisoboti" (video-TZ 2026-09-25, SoffCRM
     "Ketish hisoboti") — davr ichida guruhdan ketganlar.
@@ -608,7 +624,8 @@ class KetganlarHisobotiView(CrmView):
     markazda qolgan). Boshqa guruhga o'tish alohida — "Guruh o'zgarishi
     (ichki migratsiya)" bo'limida.
 
-    Filtrlar: `q` (ism), `kurs`, `guruh`, `oqituvchi`, `sabab_turi`, `chegirma` (1/0).
+    Filtrlar: `q` (ism), `kurs`, `guruh`, `oqituvchi`, `sabab_turi`, `chegirma` (1/0),
+    `muddat` (yangi — 30 kundan kam o'qib ketgan / eski).
     """
 
     bolim = "hisobotlar"
@@ -640,6 +657,9 @@ class KetganlarHisobotiView(CrmView):
             royxat = [c for c in royxat if c.sabab_turi == p["sabab_turi"]]
         if p.get("chegirma") in ("0", "1"):
             royxat = [c for c in royxat if c.chegirma_bor == (p["chegirma"] == "1")]
+        if p.get("muddat") in ("yangi", "eski"):
+            # Yangi — markazda bir oy ham o'qimay ketgan (video-TZ IMG_6971).
+            royxat = [c for c in royxat if _yangi_ketgan(c) == (p["muddat"] == "yangi")]
         if (q := (p.get("q") or "").strip().lower()):
             royxat = [c for c in royxat if q in c.talaba_ism.lower()]
 
@@ -669,6 +689,7 @@ class KetganlarHisobotiView(CrmView):
                 "sana": c.sana, "sabab_turi": c.sabab_turi, "sabab_turi_nomi": nomlar.get(c.sabab_turi, c.sabab_turi),
                 "sabab": c.sabab, "chegirma_bor": c.chegirma_bor, "oylik_narx": c.oylik_narx,
                 "kim": _ism(c.kim) if c.kim_id else None,
+                "oqigan_kun": _oqigan_kun(c),
             }
 
         return Response({
@@ -713,7 +734,41 @@ class LidlarHisobotiView(CrmView):
                 "konversiya": round(x["qoshildi"] / x["jami"] * 100, 1) if x["jami"] else 0,
             })
         holatlar = dict(Lid.Holat.choices)
+        # Voronka (video-TZ IMG_6974): Excel'dagi "Operatsiya turi / Mijoz
+        # soni" jadvali. Lid holati tarixi saqlanmaydi — bosqichlar lidning
+        # HOZIRGI holatidan: sinovga kelgan = hozir sinovda yoki o'quvchi
+        # bo'lgan. Guruhga qo'shilgan lid odatda SINOV a'zolik bilan kiradi
+        # (`LidGuruhgaView`), "lidga" qaytarilsa ham `talaba` bog'liq qoladi —
+        # shuning uchun yoqdi = faol/muzlatilgan a'zoligi yoki hisobi bor
+        # (hisob faqat faol a'zolikka ochiladi); yoqmadi = qolmagan va hozir
+        # sinov a'zoligida ham emas.
+        talabali = qs.filter(talaba__isnull=False)
+        talabalar = set(talabali.values_list("talaba_id", flat=True))
+        azoliklar = AzolikMoliya.objects.filter(azolik__talaba_id__in=talabalar)
+        qolganlar = set(Hisob.objects.filter(talaba_id__in=talabalar).values_list("talaba_id", flat=True)) | set(
+            azoliklar.filter(holat__in=(AzolikMoliya.Holat.FAOL, AzolikMoliya.Holat.MUZLATILGAN))
+            .values_list("azolik__talaba_id", flat=True))
+        sinovdagilar = set(azoliklar.filter(holat=AzolikMoliya.Holat.SINOV)
+                           .values_list("azolik__talaba_id", flat=True)) - qolganlar
+        keldi = qs.filter(Q(holat=Lid.Holat.SINOV) | Q(talaba__isnull=False)).count()
+        kelmadi = qs.filter(holat=Lid.Holat.KELMADI, talaba__isnull=True).count()
+        yoqdi = talabali.filter(talaba_id__in=qolganlar).count()
+        yoqmadi = talabali.exclude(talaba_id__in=qolganlar | sinovdagilar).count()
+        tolovlar = Counter(Tolov.objects.filter(talaba_id__in=talabalar, turi=Tolov.Turi.TOLOV)
+                           .values_list("talaba_id", flat=True))
+        voronka = [
+            ("trafik", qs.count()),
+            ("naborga", qs.filter(yigilayotgan_guruh__isnull=False).count()),
+            ("sinov_chaqirildi", keldi + kelmadi),
+            ("sinov_keldi", keldi),
+            ("sinov_kelmadi", kelmadi),
+            ("yoqdi", yoqdi),
+            ("yoqmadi", yoqmadi),
+            ("tolov_1", sum(1 for n in tolovlar.values() if n >= 1)),
+            ("tolov_2", sum(1 for n in tolovlar.values() if n >= 2)),
+        ]
         return Response({
+            "voronka": [{"kalit": k, "soni": n} for k, n in voronka],
             "dan": dan, "gacha": gacha, "jami": qs.count(),
             "qoshildi": qs.filter(talaba__isnull=False).count(),
             "manbalar": manbalar,

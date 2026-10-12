@@ -48,8 +48,8 @@ const KORSATKICHLAR = [
   ["ketganlar", "🚪", "/hisobotlar?tab=ketganlar"],
   ["oqituvchilar", "🧑‍🏫", "/xodimlar"],
   ["muzlatilgan", "❄️", "/talabalar?holat=muzlatilgan"],
-  ["yangi_lidlar_bugun", "🆕", "/lidlar"],
-  ["yangi_guruhga_qabul", "⏳", "/lidlar"],
+  ["yangi_lidlar_bugun", "🆕", "/lidlar?filtr=bugun"],
+  ["yangi_guruhga_qabul", "⏳", "/lidlar?filtr=yigilayotgan"],
 ];
 
 function yashirinOl() {
