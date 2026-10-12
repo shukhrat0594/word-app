@@ -3,8 +3,9 @@
 
 Daraxt ikki qavatli: bo'lim ("lidlar") -> amallar ("lidlar.excel").
 Backend BO'LIM darajasida tekshiradi (`CrmRuxsati`), amal kalitlari
-frontendda tugmalarni yashirish uchun. Pulni o'chirish/tuzatish kabi
-xavfli amallar baribir alohida `FaqatOwner` bilan himoyalangan.
+frontendda tugmalarni yashirish uchun. Pulni o'chirish kabi xavfli
+amallar baribir alohida `FaqatOwner` bilan himoyalangan (to'lovni
+tuzatish — `moliya.tolov_tahrirlash`, backend amal darajasida tekshiradi).
 """
 
 from accounts.models import User

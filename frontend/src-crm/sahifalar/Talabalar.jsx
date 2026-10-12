@@ -1073,7 +1073,8 @@ function Karta({ talabaId, onOrqaga }) {
           hisob-fakturalar ("Qarzdorlik") birga, ID / yaratilgan vaqt /
           amallar ustunlari, Excel, guruh va sana filtri bilan.
           Qarzdorlik qatorida "To'lov qilish", to'lov qatorida
-          tahrirlash/o'chirish (faqat owner — backend ham tekshiradi). */}
+          tahrirlash (`moliya.tolov_tahrirlash`) va o'chirish (faqat owner) —
+          backend ham tekshiradi. */}
       <div className="karta">
         <div className="karta-sarlavha">
           <h2>{t("tolov_tarixi")}</h2>
@@ -1131,8 +1132,8 @@ function Karta({ talabaId, onOrqaga }) {
                     <td className={`ongga ${x.turi === "qaytarish" ? "rang-qarzdor" : ""}`}>
                       {x.turi === "qaytarish" ? "−" : ""}{pul(x.summa)}
                     </td>
-                    <td>{x.guruh}</td>
-                    <td>{x.izoh || "—"}</td>
+                    <td className="matn-katak">{x.guruh}</td>
+                    <td className="matn-katak">{x.izoh || "—"}</td>
                     <td>{x.kim || "—"}</td>
                     <td className="nowrap">{vaqt(x.vaqt)}</td>
                     <td className="amallar">
