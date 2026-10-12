@@ -1985,6 +1985,9 @@ class GuruhDavomatView(CrmView):
                 "id": a.talaba_id,
                 "ism": _ism(a.talaba),
                 "holat": am.holat if am else None,
+                # Muzlatilgan o'quvchi davomatda ajralib ko'rinsin (video-TZ IMG_6977.MOV).
+                "muzlatish_sana": am.muzlatish_sana if am else None,
+                "muzlatish_izoh": am.muzlatish_izoh if am else "",
                 "kunlar": kunlar,
                 "keldi": sum(1 for k in kunlar if k["holat"] in ("keldi", "kechikdi")),
                 "kechikdi": sum(1 for k in kunlar if k["holat"] == "kechikdi"),
