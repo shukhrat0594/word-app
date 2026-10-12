@@ -1073,7 +1073,8 @@ function Karta({ talabaId, onOrqaga }) {
           hisob-fakturalar ("Qarzdorlik") birga, ID / yaratilgan vaqt /
           amallar ustunlari, Excel, guruh va sana filtri bilan.
           Qarzdorlik qatorida "To'lov qilish", to'lov qatorida
-          tahrirlash/o'chirish (faqat owner — backend ham tekshiradi). */}
+          tahrirlash (`moliya.tolov_tahrirlash`) va o'chirish (faqat owner) —
+          backend ham tekshiradi. */}
       <div className="karta">
         <div className="karta-sarlavha">
           <h2>{t("tolov_tarixi")}</h2>
@@ -1131,8 +1132,8 @@ function Karta({ talabaId, onOrqaga }) {
                     <td className={`ongga ${x.turi === "qaytarish" ? "rang-qarzdor" : ""}`}>
                       {x.turi === "qaytarish" ? "−" : ""}{pul(x.summa)}
                     </td>
-                    <td>{x.guruh}</td>
-                    <td>{x.izoh || "—"}</td>
+                    <td className="matn-katak">{x.guruh}</td>
+                    <td className="matn-katak">{x.izoh || "—"}</td>
                     <td>{x.kim || "—"}</td>
                     <td className="nowrap">{vaqt(x.vaqt)}</td>
                     <td className="amallar">
@@ -1146,13 +1147,13 @@ function Karta({ talabaId, onOrqaga }) {
                         <button className="tugma tugma-sokin kichik-tugma" type="button" title={t("qarzdorlikni_tahrirlash")}
                                 onClick={() => setTahrirHisobi(hisob)}>✎ {t("tahrirlash")}</button>
                       )}
+                      {!hisobQatori && ruxsat("moliya.tolov_tahrirlash") && (
+                        <button className="tugma tugma-sokin kichik-tugma" type="button" title={t("tolov_tahrirlash")}
+                                onClick={() => setTahrirTolovi(x)}>✎ {t("tahrirlash")}</button>
+                      )}
                       {!hisobQatori && profil?.is_owner && (
-                        <>
-                          <button className="havola" type="button" title={t("tahrirlash")}
-                                  onClick={() => setTahrirTolovi(x)}>✎</button>
-                          <button className="havola rang-qarzdor" type="button" title={t("ochirish")}
-                                  onClick={() => tolovniOchir(x.id)}>🗑</button>
-                        </>
+                        <button className="havola rang-qarzdor" type="button" title={t("ochirish")}
+                                onClick={() => tolovniOchir(x.id)}>🗑</button>
                       )}
                     </td>
                   </tr>

@@ -1651,6 +1651,8 @@ class TolovlarView(CrmView):
 
 class TolovDetailView(CrmView):
     """To'lov yozuvini o'chirish — FAQAT owner, audit'ga yoziladi.
+    Tahrirlash — owner va `moliya.tolov_tahrirlash` ruxsati borlar
+    (video-TZ IMG_6970: xodimda to'lovni tuzatish joyi yo'q edi).
 
     Chegirmani bekor qilish ham shu yo'l bilan: yozuv o'chgach
     `hisobni_yangila()` qayta chaqiriladi va qarz tiklanadi.
@@ -1659,12 +1661,17 @@ class TolovDetailView(CrmView):
     pk_turi = "tolov"  # filial cheklovi: `crm.filial.obyekt_tekshir`
     bolim = "moliya"
 
-    permission_classes = CrmView.permission_classes + [FaqatOwner]
+    def get_permissions(self):
+        if self.request.method == "PATCH":
+            return super().get_permissions()
+        return super().get_permissions() + [FaqatOwner()]
 
     def patch(self, request, pk):
         """Summa / sana / izohni tuzatish (SoffCRM'dagi qalam). Turi va
         talaba O'ZGARMAYDI — ular o'zgarsa bu boshqa yozuv, eskisini
         o'chirib yangisini kiritish kerak."""
+        if xato := _ruxsatsiz(request, "moliya.tolov_tahrirlash", "To'lovni tahrirlashga ruxsat yo'q"):
+            return xato
         tolov = get_object_or_404(Tolov, pk=pk)
         eski = {"summa": str(tolov.summa), "sana": str(tolov.sana), "izoh": tolov.izoh}
         try:
