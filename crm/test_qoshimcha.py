@@ -150,6 +150,29 @@ class XodimVaHisobotTest(ApiAsos):
         self.assertEqual(m.get("/api/crm/guruhlar/eksport/").status_code, 200)
         self.assertEqual(m.get("/api/crm/xodimlar/eksport/").status_code, 200)
 
+    def test_tolovlar_hisoboti_birinchi_va_qayta(self):
+        """Video-TZ 2026-10-12: sentyabrda birinchi to'lagan o'quvchining
+        oktyabrdagi to'lovi — qayta; oktyabrda ilk to'lagan — birinchi."""
+        from crm.models import Tolov
+        yangi = User.objects.create_user(username="sinov_yangi", password="x", role=self.talaba.role)
+        for talaba, sana in ((self.talaba, date(2026, 9, 5)), (self.talaba, date(2026, 10, 3)),
+                             (yangi, date(2026, 10, 3)), (yangi, date(2026, 10, 3))):
+            Tolov.objects.create(talaba=talaba, talaba_ism="SINOV", guruh=self.guruh, guruh_nomi="y",
+                                 sana=sana, summa=NARX, turi=Tolov.Turi.TOLOV)
+        m = self.mijoz(self.owner)
+        d = m.get("/api/crm/hisobot/tolovlar/?dan=2026-10-01&gacha=2026-10-31").data
+        self.assertEqual((d["birinchi_soni"], d["qayta_soni"]), (1, 2))
+        self.assertEqual((d["birinchi"], d["qayta"]), (NARX, 2 * NARX))
+        kun = d["kunlar"][0]
+        self.assertEqual((kun["birinchi_soni"], kun["qayta_soni"], kun["soni"]), (1, 2, 3))
+        # Har bir to'lov alohida: o'quvchi, usul, summa, birinchi/qayta va balans.
+        self.assertEqual([(x["talaba_id"], x["qayta"]) for x in d["royxat"]],
+                         [(self.talaba.id, True), (yangi.id, False), (yangi.id, True)])
+        self.assertEqual(d["royxat"][1]["summa"], NARX)
+        self.assertEqual(d["royxat"][1]["balans"], 2 * NARX)
+        r = m.get("/api/crm/hisobot/eksport/?turi=tolovlar&dan=2026-10-01&gacha=2026-10-31")
+        self.assertEqual(r.status_code, 200)
+
     def test_lidlar_voronkasi(self):
         Lid.objects.create(ism="A", telefon="1", yigilayotgan_guruh=self.guruh)
         Lid.objects.create(ism="B", telefon="2", holat=Lid.Holat.SINOV)

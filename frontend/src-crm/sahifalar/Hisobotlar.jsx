@@ -10,7 +10,7 @@ import { Link, useSearchParams } from "react-router-dom";
 
 import { apiFayluniYuklab } from "../api.js";
 import { useFilial } from "../filialContext.jsx";
-import { oyNomi, oyQiymati, pul, sana } from "../format.js";
+import { balansMatn, balansSinfi, oyNomi, oyQiymati, pul, sana } from "../format.js";
 import { useI18n } from "../i18n.jsx";
 import { sorovSatri, useSorov } from "../soragich.js";
 
@@ -369,6 +369,10 @@ function DavrHisoboti({ turi }) {
             <div className="katak"><span className="kichik">{t("olingan_pul")}</span><b className="rang-tolandi">{pul(d.jami)}</b></div>
             <div className="katak"><span className="kichik">{t("pul_qaytarish")}</span><b className="rang-qarzdor">{pul(d.qaytarish)}</b></div>
             <div className="katak"><span className="kichik">{t("chegirma")} / bonus</span><b>{pul(d.chegirma_bonus)}</b></div>
+            <div className="katak" title={t("birinchi_tolov_izoh")}>
+              <span className="kichik">{t("birinchi_tolov")} ({d.birinchi_soni})</span><b>{pul(d.birinchi)}</b>
+            </div>
+            <div className="katak"><span className="kichik">{t("qayta_tolov")} ({d.qayta_soni})</span><b>{pul(d.qayta)}</b></div>
           </div>
           <div className="karta jadval-oram">
             <table>
@@ -380,11 +384,49 @@ function DavrHisoboti({ turi }) {
               </tbody>
             </table>
             <table>
-              <thead><tr><th>{t("sana")}</th><th className="ongga">{t("soni")}</th><th className="ongga">{t("summa")}</th></tr></thead>
+              <thead>
+                <tr>
+                  <th>{t("sana")}</th>
+                  <th className="ongga">{t("birinchi_tolov")}</th><th className="ongga">{t("soni")}</th>
+                  <th className="ongga">{t("qayta_tolov")}</th><th className="ongga">{t("soni")}</th>
+                  <th className="ongga">{t("jami")}</th><th className="ongga">{t("soni")}</th>
+                </tr>
+              </thead>
               <tbody>
                 {d.kunlar.map((x) => (
-                  <tr key={x.sana}><td>{sana(x.sana)}</td><td className="ongga">{x.soni}</td><td className="ongga">{pul(x.summa)}</td></tr>
+                  <tr key={x.sana}>
+                    <td>{sana(x.sana)}</td>
+                    <td className="ongga">{pul(x.birinchi_summa)}</td><td className="ongga">{x.birinchi_soni}</td>
+                    <td className="ongga">{pul(x.qayta_summa)}</td><td className="ongga">{x.qayta_soni}</td>
+                    <td className="ongga"><b>{pul(x.summa)}</b></td><td className="ongga">{x.soni}</td>
+                  </tr>
                 ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="karta jadval-oram">
+            <h3>{t("tolovlar_royxati")} <span className="belgi">{d.royxat.length}</span></h3>
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th><th>{t("sana")}</th><th>{t("talaba")}</th><th>{t("guruh")}</th><th>{t("tolov_usuli")}</th>
+                  <th className="ongga">{t("summa")}</th><th>{t("turi")}</th><th className="ongga">{t("balans")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {d.royxat.map((x, i) => (
+                  <tr key={x.id}>
+                    <td>{i + 1}</td>
+                    <td className="nowrap">{sana(x.sana)}</td>
+                    <td>{x.talaba_id ? <Link className="havola" to={`/talabalar?talaba=${x.talaba_id}`}>{x.talaba}</Link> : x.talaba}</td>
+                    <td>{x.guruh || "—"}</td>
+                    <td>{x.usul ? t(`usul_${x.usul}`) : "—"}</td>
+                    <td className="ongga">{pul(x.summa)}</td>
+                    <td>{t(x.qayta ? "qayta_tolov" : "birinchi_tolov")}</td>
+                    <td className={`ongga ${x.balans != null ? balansSinfi(x.balans) : ""}`}>{x.balans == null ? "—" : balansMatn(x.balans)}</td>
+                  </tr>
+                ))}
+                {d.royxat.length === 0 && <tr><td colSpan={8} className="bosh">{t("yozuv_yoq")}</td></tr>}
               </tbody>
             </table>
           </div>
