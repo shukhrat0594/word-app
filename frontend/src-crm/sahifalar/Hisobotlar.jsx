@@ -391,6 +391,16 @@ function DavrHisoboti({ turi }) {
           </div>
           <div className="karta jadval-oram">
             <table>
+              <thead><tr><th>№</th><th>{t("voronka_operatsiya")}</th><th className="ongga">{t("voronka_mijoz")}</th></tr></thead>
+              <tbody>
+                {d.voronka.map((x, i) => (
+                  <tr key={x.kalit}><td>{i + 1}</td><td>{t(`voronka_${x.kalit}`)}</td><td className="ongga">{x.soni}</td></tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="karta jadval-oram">
+            <table>
               <thead><tr><th>{t("manba")}</th><th className="ongga">{t("jami")}</th><th className="ongga">{t("oquvchi_boldi")}</th><th className="ongga">{t("konversiya")}</th></tr></thead>
               <tbody>
                 {d.manbalar.map((x) => (

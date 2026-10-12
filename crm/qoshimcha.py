@@ -713,7 +713,29 @@ class LidlarHisobotiView(CrmView):
                 "konversiya": round(x["qoshildi"] / x["jami"] * 100, 1) if x["jami"] else 0,
             })
         holatlar = dict(Lid.Holat.choices)
+        # Voronka (video-TZ IMG_6974): Excel'dagi "Operatsiya turi / Mijoz
+        # soni" jadvali. Lid holati tarixi saqlanmaydi — bosqichlar lidning
+        # HOZIRGI holatidan: sinovga kelgan = hozir sinovda yoki o'quvchi
+        # bo'lgan; yoqdi = o'quvchi bo'ldi; yoqmadi = kelgan, lekin qolmagan.
+        talabalar = set(qs.filter(talaba__isnull=False).values_list("talaba_id", flat=True))
+        keldi = qs.filter(Q(holat=Lid.Holat.SINOV) | Q(talaba__isnull=False)).count()
+        kelmadi = qs.filter(holat=Lid.Holat.KELMADI, talaba__isnull=True).count()
+        yoqdi = len(talabalar)
+        tolovlar = Counter(Tolov.objects.filter(talaba_id__in=talabalar, turi=Tolov.Turi.TOLOV)
+                           .values_list("talaba_id", flat=True))
+        voronka = [
+            ("trafik", qs.count()),
+            ("naborga", qs.filter(yigilayotgan_guruh__isnull=False).count()),
+            ("sinov_chaqirildi", keldi + kelmadi),
+            ("sinov_keldi", keldi),
+            ("sinov_kelmadi", kelmadi),
+            ("yoqdi", yoqdi),
+            ("yoqmadi", keldi - yoqdi),
+            ("tolov_1", sum(1 for n in tolovlar.values() if n >= 1)),
+            ("tolov_2", sum(1 for n in tolovlar.values() if n >= 2)),
+        ]
         return Response({
+            "voronka": [{"kalit": k, "soni": n} for k, n in voronka],
             "dan": dan, "gacha": gacha, "jami": qs.count(),
             "qoshildi": qs.filter(talaba__isnull=False).count(),
             "manbalar": manbalar,
