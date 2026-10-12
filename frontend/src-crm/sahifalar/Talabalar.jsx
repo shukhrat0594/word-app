@@ -1345,7 +1345,7 @@ export default function Talabalar() {
       {yuklanmoqda && <p className="kichik">{t("yuklanmoqda")}</p>}
 
       <div className="karta jadval-oram">
-        <table>
+        <table className="talabalar-jadval">
           <thead>
             <tr>
               <th>{t("talaba")}</th>
@@ -1372,7 +1372,9 @@ export default function Talabalar() {
                 <td>{x.baho !== null && x.baho !== undefined ? <span className="baho-doira">{x.baho}</span> : <span className="kichik">{t("bahosi_yoq")}</span>}</td>
                 <td className="nowrap">{sana(x.keyingi_tolov)}</td>
                 <td>{x.telefon || "—"}</td>
-                <td className="kichik">{x.izoh || "—"}</td>
+                <td className="kichik">
+                  <div className="izoh-qisqa" title={x.izoh || ""}>{x.izoh || "—"}</div>
+                </td>
                 <td>
                   {x.guruhlar.map((g) => (
                     <span key={g.azolik_moliya_id} className="guruh-belgi">
