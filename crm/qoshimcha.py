@@ -13,7 +13,7 @@ from collections import Counter
 from datetime import date
 
 from django.db import transaction
-from django.db.models import Count, Q, Sum
+from django.db.models import Count, Exists, OuterRef, Q, Sum
 from django.http import Http404
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -739,7 +739,26 @@ class TolovlarHisobotiView(CrmView):
         if request.query_params.get("filial"):
             qs = qs.filter(tolov_filiali_q(request.query_params["filial"]))
         usullar = dict(Tolov.Usul.choices)
-        tolov = qs.filter(turi=Tolov.Turi.TOLOV)
+        # Birinchi to'lov (video-TZ 2026-10-12): o'quvchining BUTUN tarixidagi
+        # birinchi `tolov`i — undan oldin (sana, keyin id bo'yicha) boshqa
+        # `tolov` yo'q. Filial/davr filtrisiz qaraladi: sentyabrda to'lab,
+        # oktyabrda yana to'lagan o'quvchi oktyabrda "qayta" sanaladi.
+        oldingi = Tolov.objects.filter(
+            talaba=OuterRef("talaba"), turi=Tolov.Turi.TOLOV,
+        ).filter(Q(sana__lt=OuterRef("sana")) | Q(sana=OuterRef("sana"), id__lt=OuterRef("id")))
+        tolov = qs.filter(turi=Tolov.Turi.TOLOV).annotate(qayta=Exists(oldingi))
+        kunlar = {}
+        for x in tolov.values("sana", "qayta").annotate(s=Sum("summa"), n=Count("id")).order_by("sana"):
+            k = kunlar.setdefault(x["sana"], {
+                "sana": x["sana"], "summa": NOL, "soni": 0,
+                "birinchi_summa": NOL, "birinchi_soni": 0, "qayta_summa": NOL, "qayta_soni": 0,
+            })
+            tur = "qayta" if x["qayta"] else "birinchi"
+            k[f"{tur}_summa"] += x["s"]
+            k[f"{tur}_soni"] += x["n"]
+            k["summa"] += x["s"]
+            k["soni"] += x["n"]
+        kunlar = list(kunlar.values())
         return Response({
             "dan": dan, "gacha": gacha,
             "jami": tolov.aggregate(s=Sum("summa"))["s"] or NOL,
@@ -749,10 +768,11 @@ class TolovlarHisobotiView(CrmView):
                 {"usul": x["usul"], "nomi": usullar.get(x["usul"], x["usul"] or "—"), "summa": x["s"], "soni": x["n"]}
                 for x in tolov.values("usul").annotate(s=Sum("summa"), n=Count("id")).order_by("-s")
             ],
-            "kunlar": [
-                {"sana": x["sana"], "summa": x["s"], "soni": x["n"]}
-                for x in tolov.values("sana").annotate(s=Sum("summa"), n=Count("id")).order_by("sana")
-            ],
+            "birinchi": sum((k["birinchi_summa"] for k in kunlar), NOL),
+            "birinchi_soni": sum(k["birinchi_soni"] for k in kunlar),
+            "qayta": sum((k["qayta_summa"] for k in kunlar), NOL),
+            "qayta_soni": sum(k["qayta_soni"] for k in kunlar),
+            "kunlar": kunlar,
         })
 
 
@@ -806,8 +826,10 @@ class HisobotlarDavrView(CrmView):
             ], "lidlar_hisoboti")
         if turi == "tolovlar":
             d = TolovlarHisobotiView().get(request).data
-            return _excel("To'lovlar", ["Sana", "Summa", "Soni"], [
-                [x["sana"].strftime("%d.%m.%Y"), float(x["summa"]), x["soni"]] for x in d.get("kunlar", [])
-            ], "tolovlar_hisoboti", pul_ustunlari=(2,))
+            return _excel("To'lovlar", ["Sana", "Summa", "Soni", "Birinchi to'lov", "Soni", "Qayta to'lov", "Soni"], [
+                [x["sana"].strftime("%d.%m.%Y"), float(x["summa"]), x["soni"],
+                 float(x["birinchi_summa"]), x["birinchi_soni"], float(x["qayta_summa"]), x["qayta_soni"]]
+                for x in d.get("kunlar", [])
+            ], "tolovlar_hisoboti", pul_ustunlari=(2, 4, 6))
         return _xato("turi: ketganlar | lidlar | tolovlar")
 

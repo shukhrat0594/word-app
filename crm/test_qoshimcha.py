@@ -149,6 +149,24 @@ class XodimVaHisobotTest(ApiAsos):
         self.assertEqual(m.get("/api/crm/guruhlar/eksport/").status_code, 200)
         self.assertEqual(m.get("/api/crm/xodimlar/eksport/").status_code, 200)
 
+    def test_tolovlar_hisoboti_birinchi_va_qayta(self):
+        """Video-TZ 2026-10-12: sentyabrda birinchi to'lagan o'quvchining
+        oktyabrdagi to'lovi — qayta; oktyabrda ilk to'lagan — birinchi."""
+        from crm.models import Tolov
+        yangi = User.objects.create_user(username="sinov_yangi", password="x", role=self.talaba.role)
+        for talaba, sana in ((self.talaba, date(2026, 9, 5)), (self.talaba, date(2026, 10, 3)),
+                             (yangi, date(2026, 10, 3)), (yangi, date(2026, 10, 3))):
+            Tolov.objects.create(talaba=talaba, talaba_ism="SINOV", guruh=self.guruh, guruh_nomi="y",
+                                 sana=sana, summa=NARX, turi=Tolov.Turi.TOLOV)
+        m = self.mijoz(self.owner)
+        d = m.get("/api/crm/hisobot/tolovlar/?dan=2026-10-01&gacha=2026-10-31").data
+        self.assertEqual((d["birinchi_soni"], d["qayta_soni"]), (1, 2))
+        self.assertEqual((d["birinchi"], d["qayta"]), (NARX, 2 * NARX))
+        kun = d["kunlar"][0]
+        self.assertEqual((kun["birinchi_soni"], kun["qayta_soni"], kun["soni"]), (1, 2, 3))
+        r = m.get("/api/crm/hisobot/eksport/?turi=tolovlar&dan=2026-10-01&gacha=2026-10-31")
+        self.assertEqual(r.status_code, 200)
+
     def test_eslatma_tahrirlash_faqat_ozinikini(self):
         m = self.mijoz(self.admin)
         e = m.post("/api/crm/eslatmalar/", {"talaba_id": self.talaba.id, "matn": "a"}, format="json").data

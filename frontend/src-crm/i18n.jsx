@@ -196,6 +196,9 @@ const SATRLAR = {
 
     tolov_qilish: "To'lov qilish",
     pul_qaytarish: "Pul qaytarish",
+    birinchi_tolov: "Birinchi to'lov",
+    birinchi_tolov_izoh: "O'quvchining umrida birinchi marta qilgan to'lovi (yangi o'quvchilar)",
+    qayta_tolov: "Qayta to'lov",
     tolangan_summa: "To'langan summa",
     summa_kerak: "Summa kiriting",
     kam_summa_ogoh: "Hisoblangandan kam. Qoldiq qarz bo'lib qoladi.",
@@ -855,6 +858,9 @@ const SATRLAR = {
 
     tolov_qilish: "Внести платёж",
     pul_qaytarish: "Вернуть деньги",
+    birinchi_tolov: "Первая оплата",
+    birinchi_tolov_izoh: "Самая первая оплата ученика (новые ученики)",
+    qayta_tolov: "Повторная оплата",
     tolangan_summa: "Внесённая сумма",
     summa_kerak: "Введите сумму",
     kam_summa_ogoh: "Меньше начисленного. Остаток останется долгом.",
@@ -1514,6 +1520,9 @@ const SATRLAR = {
 
     tolov_qilish: "Record payment",
     pul_qaytarish: "Refund",
+    birinchi_tolov: "First payment",
+    birinchi_tolov_izoh: "The student's very first payment (new students)",
+    qayta_tolov: "Repeat payment",
     tolangan_summa: "Amount paid",
     summa_kerak: "Enter an amount",
     kam_summa_ogoh: "Less than charged. The remainder stays as debt.",
