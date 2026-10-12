@@ -40,6 +40,7 @@ from .models import (
     Filial,
     DarsMavzusi,
     GuruhdanChiqish,
+    Hisob,
     Lid,
     LidBolim,
     LidDoska,
@@ -733,7 +734,41 @@ class LidlarHisobotiView(CrmView):
                 "konversiya": round(x["qoshildi"] / x["jami"] * 100, 1) if x["jami"] else 0,
             })
         holatlar = dict(Lid.Holat.choices)
+        # Voronka (video-TZ IMG_6974): Excel'dagi "Operatsiya turi / Mijoz
+        # soni" jadvali. Lid holati tarixi saqlanmaydi — bosqichlar lidning
+        # HOZIRGI holatidan: sinovga kelgan = hozir sinovda yoki o'quvchi
+        # bo'lgan. Guruhga qo'shilgan lid odatda SINOV a'zolik bilan kiradi
+        # (`LidGuruhgaView`), "lidga" qaytarilsa ham `talaba` bog'liq qoladi —
+        # shuning uchun yoqdi = faol/muzlatilgan a'zoligi yoki hisobi bor
+        # (hisob faqat faol a'zolikka ochiladi); yoqmadi = qolmagan va hozir
+        # sinov a'zoligida ham emas.
+        talabali = qs.filter(talaba__isnull=False)
+        talabalar = set(talabali.values_list("talaba_id", flat=True))
+        azoliklar = AzolikMoliya.objects.filter(azolik__talaba_id__in=talabalar)
+        qolganlar = set(Hisob.objects.filter(talaba_id__in=talabalar).values_list("talaba_id", flat=True)) | set(
+            azoliklar.filter(holat__in=(AzolikMoliya.Holat.FAOL, AzolikMoliya.Holat.MUZLATILGAN))
+            .values_list("azolik__talaba_id", flat=True))
+        sinovdagilar = set(azoliklar.filter(holat=AzolikMoliya.Holat.SINOV)
+                           .values_list("azolik__talaba_id", flat=True)) - qolganlar
+        keldi = qs.filter(Q(holat=Lid.Holat.SINOV) | Q(talaba__isnull=False)).count()
+        kelmadi = qs.filter(holat=Lid.Holat.KELMADI, talaba__isnull=True).count()
+        yoqdi = talabali.filter(talaba_id__in=qolganlar).count()
+        yoqmadi = talabali.exclude(talaba_id__in=qolganlar | sinovdagilar).count()
+        tolovlar = Counter(Tolov.objects.filter(talaba_id__in=talabalar, turi=Tolov.Turi.TOLOV)
+                           .values_list("talaba_id", flat=True))
+        voronka = [
+            ("trafik", qs.count()),
+            ("naborga", qs.filter(yigilayotgan_guruh__isnull=False).count()),
+            ("sinov_chaqirildi", keldi + kelmadi),
+            ("sinov_keldi", keldi),
+            ("sinov_kelmadi", kelmadi),
+            ("yoqdi", yoqdi),
+            ("yoqmadi", yoqmadi),
+            ("tolov_1", sum(1 for n in tolovlar.values() if n >= 1)),
+            ("tolov_2", sum(1 for n in tolovlar.values() if n >= 2)),
+        ]
         return Response({
+            "voronka": [{"kalit": k, "soni": n} for k, n in voronka],
             "dan": dan, "gacha": gacha, "jami": qs.count(),
             "qoshildi": qs.filter(talaba__isnull=False).count(),
             "manbalar": manbalar,
