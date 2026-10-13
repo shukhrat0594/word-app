@@ -1662,7 +1662,10 @@ class TolovDetailView(CrmView):
     bolim = "moliya"
 
     def get_permissions(self):
-        if self.request.method == "PATCH":
+        # DELETE: bonusni `moliya.tolov_tahrirlash` egasi ham o'chira oladi
+        # (video-TZ IMG_6992: xato qo'yilgan bonusni 0 qilib bo'lmaydi),
+        # qolgan turlar — faqat owner; tekshiruv `delete()` ichida.
+        if self.request.method in ("PATCH", "DELETE"):
             return super().get_permissions()
         return super().get_permissions() + [FaqatOwner()]
 
@@ -1707,6 +1710,11 @@ class TolovDetailView(CrmView):
 
     def delete(self, request, pk):
         tolov = get_object_or_404(Tolov, pk=pk)
+        if not FaqatOwner().has_permission(request, self):
+            if tolov.turi != Tolov.Turi.BONUS:
+                return _xato(FaqatOwner.message, kod=403)
+            if xato := _ruxsatsiz(request, "moliya.tolov_tahrirlash", "Bonusni o'chirishga ruxsat yo'q"):
+                return xato
         hisob = tolov.hisob
         snapshot = {"talaba": tolov.talaba_ism, "guruh": tolov.guruh_nomi,
                     "turi": tolov.turi, "summa": str(tolov.summa), "sana": str(tolov.sana)}
