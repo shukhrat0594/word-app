@@ -131,6 +131,44 @@ class RuxsatTest(ApiAsos):
         )
         self.assertFalse(Tolov.objects.exists())
 
+    def test_bonusni_tahrirlash_ruxsati_bor_xodim_ochiradi(self):
+        """Video-TZ IMG_6992: xato qo'yilgan bonusni 0 qilib bo'lmaydi —
+        `moliya.tolov_tahrirlash` egasi BONUSni o'chira oladi; oddiy
+        to'lovni esa baribir faqat owner o'chiradi."""
+        from crm.models import CrmRol, XodimProfil
+
+        kassir = User.objects.create_user(username="crm_kassir_b", password="x", markaz=self.markaz)
+        XodimProfil.objects.create(
+            user=kassir, lavozim="kassir",
+            rol=CrmRol.objects.create(nomi="SINOV kassir b", ruxsatlar=["moliya.tolov", "talabalar"]),
+        )
+        tahrirchi = User.objects.create_user(username="crm_tahrirchi_b", password="x", markaz=self.markaz)
+        XodimProfil.objects.create(
+            user=tahrirchi, lavozim="kassir",
+            rol=CrmRol.objects.create(nomi="SINOV tahrirchi b", ruxsatlar=["moliya.tolov_tahrirlash"]),
+        )
+        hisob = Hisob.objects.create(
+            talaba=self.talaba, talaba_ism="x", guruh=self.guruh, guruh_nomi="y",
+            oy=date(2026, 9, 1), summa=NARX,
+        )
+        bonus = Tolov.objects.create(
+            talaba=self.talaba, talaba_ism="x", guruh=self.guruh, guruh_nomi="y",
+            hisob=hisob, sana=date(2026, 9, 5), summa=NARX, turi=Tolov.Turi.BONUS,
+        )
+        tolov = Tolov.objects.create(
+            talaba=self.talaba, talaba_ism="x", guruh=self.guruh, guruh_nomi="y",
+            sana=date(2026, 9, 5), summa=NARX, turi=Tolov.Turi.TOLOV,
+        )
+        mantiq.hisobni_yangila(hisob)
+        self.assertEqual(hisob.holat, Hisob.Holat.TOLANDI)
+
+        self.assertEqual(self.mijoz(kassir).delete(f"/api/crm/tolov/{bonus.id}/").status_code, 403)
+        self.assertEqual(self.mijoz(tahrirchi).delete(f"/api/crm/tolov/{tolov.id}/").status_code, 403)
+        self.assertEqual(self.mijoz(tahrirchi).delete(f"/api/crm/tolov/{bonus.id}/").status_code, 200)
+        self.assertEqual(list(Tolov.objects.values_list("id", flat=True)), [tolov.id])
+        hisob.refresh_from_db()
+        self.assertNotEqual(hisob.holat, Hisob.Holat.TOLANDI)
+
     def test_tolovni_faqat_owner_tahrirlaydi(self):
         """SoffCRM'dagi qalam: summa/sana/izoh tuzatiladi, oy holati
         qayta hisoblanadi. `moliya.tolov_tahrirlash` ruxsatisiz — 403
