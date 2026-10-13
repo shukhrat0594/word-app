@@ -73,6 +73,15 @@ def _ism(u):
     return (u.get_full_name() or u.username) if u else None
 
 
+def _muzlatilgan_kun(am, sana):
+    """O'quvchi shu kuni muzlatilganmi: holat "muzlatilgan" va sana
+    muzlatish sanasidan keyin (sana yo'q bo'lsa — har kuni). Video-TZ
+    IMG_6993.MOV: muzlatilgan kundan davomat qo'yilmasin."""
+    if not am or am.holat != "muzlatilgan":
+        return False
+    return not am.muzlatish_sana or sana >= am.muzlatish_sana
+
+
 def _telefon(qiymat):
     """Telefonni bitta ko'rinishga keltiradi: faqat raqamlar va boshida '+'.
     Qidiruv va takror tekshiruvi shu ko'rinishga tayanadi."""
@@ -1978,7 +1987,9 @@ class GuruhDavomatView(CrmView):
                     # Talaba hali qo'shilmagan kun — qulf (SoffCRM'dagi 🔒).
                     # Yozuvi BOR katak qulflanmaydi: eski ma'lumot
                     # yashirinib, lekin "keldi" soniga kirib qolmasin.
-                    "qulf": bool(boshi and s < boshi and not k),
+                    # Muzlatilgan kundan boshlab ham qulf (video-TZ IMG_6993.MOV).
+                    "qulf": not k and (bool(boshi and s < boshi) or _muzlatilgan_kun(am, s)),
+                    "muzlatilgan": _muzlatilgan_kun(am, s),
                     "kelajak": s > bugun,
                 })
             talabalar.append({
@@ -2036,7 +2047,8 @@ class GuruhDavomatView(CrmView):
             return _xato("Davomat belgilashga ruxsat yo'q", kod=403)
         guruh = get_object_or_404(Guruh, pk=pk)
         talaba = get_object_or_404(User, pk=request.data.get("talaba_id"))
-        if not GuruhAzoligi.objects.filter(guruh=guruh, talaba=talaba).exists():
+        azolik = GuruhAzoligi.objects.filter(guruh=guruh, talaba=talaba).select_related("moliya").first()
+        if azolik is None:
             return _xato("Talaba bu guruhda emas")
         try:
             sana = _sana(request.data.get("sana"), "sana")
@@ -2047,6 +2059,9 @@ class GuruhDavomatView(CrmView):
         holat = request.data.get("holat")
         if holat not in (None, "", "keldi", "kechikdi", "kelmadi", "sababli"):
             return _xato("Holat noto'g'ri")
+        # Belgini olib tashlash (holat=null) mumkin — eski xato yozuv qolmasin.
+        if holat and _muzlatilgan_kun(getattr(azolik, "moliya", None), sana):
+            return _xato("O'quvchi muzlatilgan — bu kundan davomat qo'yilmaydi")
 
         yozuv = Davomat.objects.filter(guruh=guruh, talaba=talaba, sana=sana).first()
         if not holat:
