@@ -752,8 +752,21 @@ class LidlarHisobotiView(CrmView):
             .values_list("azolik__talaba_id", flat=True))
         sinovdagilar = set(azoliklar.filter(holat=AzolikMoliya.Holat.SINOV)
                            .values_list("azolik__talaba_id", flat=True)) - qolganlar
-        keldi = qs.filter(Q(holat=Lid.Holat.SINOV) | Q(talaba__isnull=False)).count()
-        kelmadi = qs.filter(holat=Lid.Holat.KELMADI, talaba__isnull=True).count()
+        keldi_qs = qs.filter(Q(holat=Lid.Holat.SINOV) | Q(talaba__isnull=False))
+        kelmadi_qs = qs.filter(holat=Lid.Holat.KELMADI, talaba__isnull=True)
+        keldi, kelmadi = keldi_qs.count(), kelmadi_qs.count()
+
+        # Video-TZ IMG_6995: sinovga chaqirilgan/kelgan/kelmaganlar kimligi
+        # ko'rinsin — voronka qatori bosilganda ro'yxat ochiladi.
+        def lidlar(q):
+            return [{"id": x.id, "ism": x.ism, "telefon": x.telefon, "talaba_id": x.talaba_id}
+                    for x in q.order_by("ism", "id")]
+
+        keldi_r, kelmadi_r = lidlar(keldi_qs), lidlar(kelmadi_qs)
+        royxatlar = {
+            "sinov_chaqirildi": sorted(keldi_r + kelmadi_r, key=lambda x: (x["ism"], x["id"])),
+            "sinov_keldi": keldi_r, "sinov_kelmadi": kelmadi_r,
+        }
         yoqdi = talabali.filter(talaba_id__in=qolganlar).count()
         yoqmadi = talabali.exclude(talaba_id__in=qolganlar | sinovdagilar).count()
         tolovlar = Counter(Tolov.objects.filter(talaba_id__in=talabalar, turi=Tolov.Turi.TOLOV)
@@ -770,7 +783,8 @@ class LidlarHisobotiView(CrmView):
             ("tolov_2", sum(1 for n in tolovlar.values() if n >= 2)),
         ]
         return Response({
-            "voronka": [{"kalit": k, "soni": n} for k, n in voronka],
+            "voronka": [{"kalit": k, "soni": n, **({"royxat": royxatlar[k]} if k in royxatlar else {})}
+                        for k, n in voronka],
             "dan": dan, "gacha": gacha, "jami": qs.count(),
             "qoshildi": qs.filter(talaba__isnull=False).count(),
             "manbalar": manbalar,

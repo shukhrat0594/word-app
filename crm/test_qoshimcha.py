@@ -194,6 +194,10 @@ class XodimVaHisobotTest(ApiAsos):
             "trafik": 6, "naborga": 1, "sinov_chaqirildi": 5, "sinov_keldi": 4, "sinov_kelmadi": 1,
             "yoqdi": 1, "yoqmadi": 1, "tolov_1": 1, "tolov_2": 1,
         })
+        # Video-TZ IMG_6995: sinov bosqichlarida kimlar ekani ro'yxati
+        rl = {x["kalit"]: [y["ism"] for y in x["royxat"]] for x in r.data["voronka"] if "royxat" in x}
+        self.assertEqual(rl, {"sinov_chaqirildi": ["B", "C", "D", "E", "F"],
+                              "sinov_keldi": ["B", "D", "E", "F"], "sinov_kelmadi": ["C"]})
 
     def test_eslatma_tahrirlash_faqat_ozinikini(self):
         m = self.mijoz(self.admin)

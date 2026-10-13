@@ -357,6 +357,7 @@ function DavrHisoboti({ turi }) {
   const [gacha, setGacha] = useState(b.toISOString().slice(0, 10));
   const { malumot: d, yuklanmoqda, xato } = useSorov(`/api/crm/hisobot/${turi}/` + sorovSatri({ dan, gacha, filial: tanlangan }));
   const eksportTuri = ["tolovlar", "lidlar"].includes(turi) ? turi : null;
+  const [ochiq, setOchiq] = useState(null); // voronkada ro'yxati ochilgan bosqich
 
   return (
     <>
@@ -444,9 +445,34 @@ function DavrHisoboti({ turi }) {
             <table>
               <thead><tr><th>№</th><th>{t("voronka_operatsiya")}</th><th className="ongga">{t("voronka_mijoz")}</th></tr></thead>
               <tbody>
-                {d.voronka.map((x, i) => (
-                  <tr key={x.kalit}><td>{i + 1}</td><td>{t(`voronka_${x.kalit}`)}</td><td className="ongga">{x.soni}</td></tr>
-                ))}
+                {d.voronka.map((x, i) => {
+                  const bor = Array.isArray(x.royxat);
+                  return [
+                    <tr key={x.kalit} onClick={bor ? () => setOchiq(ochiq === x.kalit ? null : x.kalit) : undefined}
+                        style={bor ? { cursor: "pointer" } : undefined}>
+                      <td>{i + 1}</td>
+                      <td>{t(`voronka_${x.kalit}`)}{bor && <span className="kichik"> {ochiq === x.kalit ? "▲" : "▼"}</span>}</td>
+                      <td className="ongga">{x.soni}</td>
+                    </tr>,
+                    bor && ochiq === x.kalit && (
+                      <tr key={`${x.kalit}-r`}>
+                        <td />
+                        <td colSpan={2}>
+                          {x.royxat.length === 0 ? <span className="bosh">{t("yozuv_yoq")}</span> : (
+                            <ol>
+                              {x.royxat.map((l) => (
+                                <li key={l.id}>
+                                  {l.talaba_id ? <Link className="havola" to={`/talabalar?talaba=${l.talaba_id}`}>{l.ism}</Link> : l.ism}
+                                  {l.telefon && <span className="kichik"> · {l.telefon}</span>}
+                                </li>
+                              ))}
+                            </ol>
+                          )}
+                        </td>
+                      </tr>
+                    ),
+                  ];
+                })}
               </tbody>
             </table>
           </div>
