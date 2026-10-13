@@ -41,7 +41,13 @@ from .blok_generatsiya import (
     rasmni_kes,
     sahifani_bloklarga_ajrat,
 )
-from .kontent_generatsiya import kengaytma_turi, tabiiy_tartib_kaliti
+from .kontent_generatsiya import (
+    javob_kaliti_indeksla,
+    javob_kaliti_sahifasini_tahlil_qil,
+    kengaytma_turi,
+    savollarga_javob_kaliti_qoll,
+    tabiiy_tartib_kaliti,
+)
 from .models import (
     KursMashq,
     KursMashqRasmGuruhi,
@@ -129,6 +135,48 @@ def _jarayon_arxivi(jarayon):
         yield arxiv
 
 
+def _pdf_sahifalarini_rasmga_aylantir(pdf_bytes, kenglik=1400):
+    """PDF'ning har sahifasini JPEG'ga aylantiradi (`exercises.pdf_generatsiya`
+    dagi bilan bir xil usul, pypdfium2)."""
+    import pypdfium2 as pdfium
+
+    hujjat = pdfium.PdfDocument(pdf_bytes)
+    try:
+        rasmlar = []
+        for sahifa in hujjat:
+            en = sahifa.get_width() or 1
+            rasm = sahifa.render(scale=kenglik / en).to_pil().convert("RGB")
+            bufer = io.BytesIO()
+            rasm.save(bufer, format="JPEG", quality=88)
+            rasmlar.append(bufer.getvalue())
+        return rasmlar
+    finally:
+        hujjat.close()
+
+
+def _javob_kalitini_qoll(tugallangan):
+    """Javob kaliti sahifasi(lar)dagi javoblarni boshqa sahifalardagi
+    savollarning `togri` maydoniga yozadi (mashq_raqami+band_raqami
+    bo'yicha) — tasdiqlash oynasida admin javoblarni tayyor ko'radi."""
+    kalit_natijalari = [
+        {"turi": "javob_kaliti", "javoblar": t["javob_kaliti"]}
+        for t in tugallangan.values()
+        if t.get("javob_kaliti")
+    ]
+    indeks = javob_kaliti_indeksla(kalit_natijalari)
+    if not indeks:
+        return 0
+    qollangan = 0
+    for t in tugallangan.values():
+        for md in t.get("mashqlar") or []:
+            oldin = [s.get("togri") for s in md.get("savollar") or []]
+            savollarga_javob_kaliti_qoll(md.get("savollar") or [], indeks)
+            qollangan += sum(
+                1 for a, s in zip(oldin, md.get("savollar") or []) if a != s.get("togri")
+            )
+    return qollangan
+
+
 def _jarayon_keshini_tozala(jarayon):
     _jarayon_kesh_yoli(jarayon).unlink(missing_ok=True)
 
@@ -178,10 +226,27 @@ class KursBlokZipYuklashView(APIView):
         if not fayl:
             return Response({"detail": "zip_fayl majburiy"}, status=400)
 
+        # 2026-10-13 (Matn-TZ 289): test PDF'i — har sahifa rasmga
+        # aylantirilib, xuddi ZIP kabi blok oqimidan o'tadi. Testning
+        # javoblari PDF'ning OXIRGI sahifasida beriladi — u mashq sifatida
+        # emas, javob kaliti sifatida tahlil qilinadi (`KursBlokSahifaView`).
+        javob_kaliti_indekslari = []
         if fayl.name.lower().endswith(".pdf"):
-            return Response({"detail": "PDF qabul qilinmaydi"}, status=400)
-
-        if kengaytma_turi(fayl.name) == "rasm":
+            try:
+                rasmlar = _pdf_sahifalarini_rasmga_aylantir(fayl.read())
+            except Exception:  # noqa: BLE001 — buzuq/shifrlangan PDF
+                return Response({"detail": "PDF faylni o'qib bo'lmadi"}, status=400)
+            if not rasmlar:
+                return Response({"detail": "PDF ichida sahifa topilmadi"}, status=400)
+            bufer = io.BytesIO()
+            with zipfile.ZipFile(bufer, "w") as z:
+                for i, rasm in enumerate(rasmlar, start=1):
+                    z.writestr(f"sahifa-{i:03d}.jpg", rasm)
+            bufer.seek(0)
+            fayl = ContentFile(bufer.read(), name="pdf.zip")
+            if len(rasmlar) > 1:
+                javob_kaliti_indekslari = [len(rasmlar) - 1]
+        elif kengaytma_turi(fayl.name) == "rasm":
             bufer = io.BytesIO()
             with zipfile.ZipFile(bufer, "w") as z:
                 _, ext = os.path.splitext(fayl.name.lower())
@@ -214,6 +279,7 @@ class KursBlokZipYuklashView(APIView):
                 # HAR DOIM sahifa tartibiga mos bo'lishi kerak).
                 "band_qilingan": [],
                 "tugallangan": {},
+                "javob_kaliti_indekslari": javob_kaliti_indekslari,
             },
         )
         return Response(
@@ -683,14 +749,24 @@ class KursBlokSahifaView(APIView):
         # (`_jarayonni_yakunla`) amalga oshadi, arxiv bir marta ochilgani
         # uchun.
         mashqlar, qutilar, sozlar, xato = None, None, None, None
+        javob_kaliti = None
+        kalit_sahifasimi = indeks in (d.get("javob_kaliti_indekslari") or [])
         try:
             with _jarayon_arxivi(jarayon) as arxiv:
                 rasm_bytes = arxiv.read(nom)
-            natija_yoki_xato = _rasmni_mashqqa_aylantir(rasm_bytes)
-            if isinstance(natija_yoki_xato, Response):
-                xato = natija_yoki_xato.data.get("detail", "AI xato qaytardi")
+            if kalit_sahifasimi:
+                # Test PDF'ining oxirgi sahifasi — mashq emas, javoblar.
+                natija, xato = javob_kaliti_sahifasini_tahlil_qil(
+                    blok_provider_olish(), rasm_bytes, "image/jpeg"
+                )
+                if natija:
+                    javob_kaliti, mashqlar = natija["javoblar"], []
             else:
-                mashqlar, qutilar, sozlar = natija_yoki_xato
+                natija_yoki_xato = _rasmni_mashqqa_aylantir(rasm_bytes)
+                if isinstance(natija_yoki_xato, Response):
+                    xato = natija_yoki_xato.data.get("detail", "AI xato qaytardi")
+                else:
+                    mashqlar, qutilar, sozlar = natija_yoki_xato
         except ProviderXatosi as e:
             xato = str(e)
         except Exception as e:  # noqa: BLE001 — pastdagi izohga qarang
@@ -710,6 +786,8 @@ class KursBlokSahifaView(APIView):
                 "sozlar": sozlar,
                 "xato": xato,
             }
+            if kalit_sahifasimi:
+                yozuv["javob_kaliti"] = javob_kaliti
             d.setdefault("tugallangan", {})[str(indeks)] = yozuv
             jarayon.natijalar = d
             jarayon.ishlangan_sahifa = len(d["tugallangan"])
@@ -724,6 +802,8 @@ class KursBlokSahifaView(APIView):
                 # `KursBlokTasdiqView`da ko'rib, kerak bo'lsa tuzatib,
                 # `KursBlokTasdiqlashView`ga yuborgandagina bazaga yoziladi.
                 jarayon.holat = KursZipJarayoni.Holat.TASDIQ_KUTILMOQDA
+                _javob_kalitini_qoll(d["tugallangan"])
+                jarayon.natijalar = d
             jarayon.save(update_fields=["natijalar", "ishlangan_sahifa", "holat"])
 
         javob = {
