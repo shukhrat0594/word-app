@@ -1079,7 +1079,7 @@ function AdminMashqBoshqaruv({ tugunId, jsonKiritishKorinadi = true }) {
           {zipYuklanmoqda ? t("yuklanmoqda") : t("kurs_rasmdan_mashq_qoshish")}
           <input
             type="file"
-            accept="image/*,.zip"
+            accept="image/*,.zip,.pdf"
             onChange={faylTanlandi}
             disabled={zipYuklanmoqda}
             style={{ display: "none" }}
