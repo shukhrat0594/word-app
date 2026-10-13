@@ -1151,7 +1151,8 @@ function Karta({ talabaId, onOrqaga }) {
                         <button className="tugma tugma-sokin kichik-tugma" type="button" title={t("tolov_tahrirlash")}
                                 onClick={() => setTahrirTolovi(x)}>✎ {t("tahrirlash")}</button>
                       )}
-                      {!hisobQatori && profil?.is_owner && (
+                      {!hisobQatori && (profil?.is_owner
+                        || (x.turi === "bonus" && ruxsat("moliya.tolov_tahrirlash"))) && (
                         <button className="havola rang-qarzdor" type="button" title={t("ochirish")}
                                 onClick={() => tolovniOchir(x.id)}>🗑</button>
                       )}
@@ -1281,6 +1282,7 @@ export default function Talabalar() {
   // "Qarzdor: 2 990 000 so'm" (video 23:50) — ro'yxatdagilar qarzi yig'indisi.
   const jamiQarz = royxat.reduce((s, x) => s + Math.min(0, Number(x.balans || 0)), 0);
   const guruhVariantlari = guruhlarF.malumot || [];
+  const balansOldinda = filtr === "qarzdor";
 
   return (
     <section>
@@ -1349,12 +1351,15 @@ export default function Talabalar() {
           <thead>
             <tr>
               <th>{t("talaba")}</th>
+              {/* Qarzdorlar filtrida qarz ism yonida (video-TZ IMG_6994):
+                  oxirgi ustunni ko'rish uchun jadvalni o'ngga surmaslik. */}
+              {balansOldinda && <th className="ongga">{t("balans")}</th>}
               <th>{t("baho")}</th>
               <th>{t("keyingi_tolov_sanasi")}</th>
               <th>{t("telefon")}</th>
               <th>{t("izoh")}</th>
               <th>{t("guruhlar")} / {t("holat")}</th>
-              <th className="ongga">{t("balans")}</th>
+              {!balansOldinda && <th className="ongga">{t("balans")}</th>}
               <th className="ongga">{t("harakatlar")}</th>
             </tr>
           </thead>
@@ -1369,6 +1374,7 @@ export default function Talabalar() {
                   {/* Qarzdorlar filtrida arxivlangan, lekin qarzi qolgan o'quvchi ham chiqadi. */}
                   {x.faol === false && <span className="holat holat-kutilayotgan"> {t("arxiv")}</span>}
                 </td>
+                {balansOldinda && <td className={`ongga nowrap ${balansSinfi(x.balans)}`}>{balansMatn(x.balans)}</td>}
                 <td>{x.baho !== null && x.baho !== undefined ? <span className="baho-doira">{x.baho}</span> : <span className="kichik">{t("bahosi_yoq")}</span>}</td>
                 <td className="nowrap">{sana(x.keyingi_tolov)}</td>
                 <td>{x.telefon || "—"}</td>
@@ -1402,7 +1408,7 @@ export default function Talabalar() {
                     </span>
                   ))}
                 </td>
-                <td className={`ongga ${balansSinfi(x.balans)}`}>{balansMatn(x.balans)}</td>
+                {!balansOldinda && <td className={`ongga ${balansSinfi(x.balans)}`}>{balansMatn(x.balans)}</td>}
                 <td className="ongga">
                   {/* ⋮ menyu — SoffCRM'dagi "Harakatlar" ustuni. */}
                   <span className="harakat-oram">

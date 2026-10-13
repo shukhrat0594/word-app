@@ -28,6 +28,7 @@ from audit.models import FaoliyatYozuvi
 from . import mantiq
 from .boshqaruv import (
     _ism,
+    _muzlatilgan_kun,
     _telefon,
     _xodimlar_qs,
     davomat_holati,
@@ -228,7 +229,8 @@ class DavomatHammasiView(CrmView):
         yangi = []
         for a in GuruhAzoligi.objects.filter(guruh=guruh).select_related("moliya"):
             am = getattr(a, "moliya", None)
-            if a.talaba_id in bor or (am and am.boshlanish_sana and sana < am.boshlanish_sana):
+            if (a.talaba_id in bor or (am and am.boshlanish_sana and sana < am.boshlanish_sana)
+                    or _muzlatilgan_kun(am, sana)):
                 continue
             yangi.append(Davomat(guruh=guruh, talaba_id=a.talaba_id, sana=sana,
                                  holat=Davomat.Holat.KELDI, belgilagan=request.user))
