@@ -82,6 +82,14 @@ class TestPdfYuklashTest(ApiAsos):
         self.assertEqual([x["togri"] for x in s[1]["mashqlar"][0]["savollar"]], ["", "are"])
         self.assertEqual(s[2]["mashqlar"], [])
 
+    def test_tests_dan_boshqa_bolimda_oxirgi_sahifa_mashq(self):
+        self.tests.kalit = "students_book"
+        self.tests.save(update_fields=["kalit"])
+        j = self.yukla(_pdf(3))
+        self.assertEqual(j.status_code, 201, j.data)
+        jarayon = KursZipJarayoni.objects.get(pk=j.data["jarayon_id"])
+        self.assertEqual(jarayon.natijalar["javob_kaliti_indekslari"], [])
+
     def test_buzuq_pdf_rad_etiladi(self):
         j = self.yukla(b"%PDF-buzuq")
         self.assertEqual(j.status_code, 400)

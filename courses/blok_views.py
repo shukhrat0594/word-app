@@ -244,7 +244,10 @@ class KursBlokZipYuklashView(APIView):
                     z.writestr(f"sahifa-{i:03d}.jpg", rasm)
             bufer.seek(0)
             fayl = ContentFile(bufer.read(), name="pdf.zip")
-            if len(rasmlar) > 1:
+            # Oxirgi sahifa = javob kaliti qoidasi FAQAT "Tests" bo'limiga
+            # tegishli — boshqa bo'limda (Student's Book va h.k.) oxirgi
+            # sahifa oddiy mashq sifatida ishlanadi, jimgina yo'qolmaydi.
+            if tugun.kalit == "tests" and len(rasmlar) > 1:
                 javob_kaliti_indekslari = [len(rasmlar) - 1]
         elif kengaytma_turi(fayl.name) == "rasm":
             bufer = io.BytesIO()
