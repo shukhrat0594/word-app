@@ -1151,7 +1151,8 @@ function Karta({ talabaId, onOrqaga }) {
                         <button className="tugma tugma-sokin kichik-tugma" type="button" title={t("tolov_tahrirlash")}
                                 onClick={() => setTahrirTolovi(x)}>✎ {t("tahrirlash")}</button>
                       )}
-                      {!hisobQatori && profil?.is_owner && (
+                      {!hisobQatori && (profil?.is_owner
+                        || (x.turi === "bonus" && ruxsat("moliya.tolov_tahrirlash"))) && (
                         <button className="havola rang-qarzdor" type="button" title={t("ochirish")}
                                 onClick={() => tolovniOchir(x.id)}>🗑</button>
                       )}
