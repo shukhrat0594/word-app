@@ -433,7 +433,11 @@ def _harf_va_matn_qabul(savol, qabul):
             if idx < len(HARFLAR):
                 kengaytirilgan.add(HARFLAR[idx].lower())
         # Kalit harf bo'lsa — mos variant matnini ham qabul qilamiz.
-        if len(t) == 1 and t.upper() in HARFLAR:
+        # 2026-10-14, HAQIQIY XATO: kalit variant matnining O'ZI bo'lsa
+        # (Beginner testi: "It's ___ book." — variantlar an/a/three/two,
+        # kalit "a" artikli), u harf emas — avval "A" deb ham o'qilib,
+        # birinchi variant "an" ham to'g'ri hisoblanardi.
+        if len(t) == 1 and t.upper() in HARFLAR and t not in past_variantlar:
             idx = HARFLAR.index(t.upper())
             if idx < len(past_variantlar):
                 kengaytirilgan.add(past_variantlar[idx])
