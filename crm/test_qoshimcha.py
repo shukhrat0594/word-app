@@ -1,9 +1,10 @@
 """Video-TZ qayta tekshiruvi (5 soniyalik kadrlar) qo'shimchalari testlari."""
 
-from datetime import date
+from datetime import date, timedelta
 from decimal import Decimal
 from io import BytesIO
 
+from django.utils import timezone
 from openpyxl import Workbook, load_workbook
 
 from academics.models import Davomat
@@ -149,6 +150,29 @@ class XodimVaHisobotTest(ApiAsos):
         self.assertEqual(m.get("/api/crm/guruhlar/eksport/").status_code, 200)
         self.assertEqual(m.get("/api/crm/xodimlar/eksport/").status_code, 200)
 
+    def test_tolovlar_hisoboti_birinchi_va_qayta(self):
+        """Video-TZ 2026-10-12: sentyabrda birinchi to'lagan o'quvchining
+        oktyabrdagi to'lovi — qayta; oktyabrda ilk to'lagan — birinchi."""
+        from crm.models import Tolov
+        yangi = User.objects.create_user(username="sinov_yangi", password="x", role=self.talaba.role)
+        for talaba, sana in ((self.talaba, date(2026, 9, 5)), (self.talaba, date(2026, 10, 3)),
+                             (yangi, date(2026, 10, 3)), (yangi, date(2026, 10, 3))):
+            Tolov.objects.create(talaba=talaba, talaba_ism="SINOV", guruh=self.guruh, guruh_nomi="y",
+                                 sana=sana, summa=NARX, turi=Tolov.Turi.TOLOV)
+        m = self.mijoz(self.owner)
+        d = m.get("/api/crm/hisobot/tolovlar/?dan=2026-10-01&gacha=2026-10-31").data
+        self.assertEqual((d["birinchi_soni"], d["qayta_soni"]), (1, 2))
+        self.assertEqual((d["birinchi"], d["qayta"]), (NARX, 2 * NARX))
+        kun = d["kunlar"][0]
+        self.assertEqual((kun["birinchi_soni"], kun["qayta_soni"], kun["soni"]), (1, 2, 3))
+        # Har bir to'lov alohida: o'quvchi, usul, summa, birinchi/qayta va balans.
+        self.assertEqual([(x["talaba_id"], x["qayta"]) for x in d["royxat"]],
+                         [(self.talaba.id, True), (yangi.id, False), (yangi.id, True)])
+        self.assertEqual(d["royxat"][1]["summa"], NARX)
+        self.assertEqual(d["royxat"][1]["balans"], 2 * NARX)
+        r = m.get("/api/crm/hisobot/eksport/?turi=tolovlar&dan=2026-10-01&gacha=2026-10-31")
+        self.assertEqual(r.status_code, 200)
+
     def test_lidlar_voronkasi(self):
         Lid.objects.create(ism="A", telefon="1", yigilayotgan_guruh=self.guruh)
         Lid.objects.create(ism="B", telefon="2", holat=Lid.Holat.SINOV)
@@ -170,6 +194,10 @@ class XodimVaHisobotTest(ApiAsos):
             "trafik": 6, "naborga": 1, "sinov_chaqirildi": 5, "sinov_keldi": 4, "sinov_kelmadi": 1,
             "yoqdi": 1, "yoqmadi": 1, "tolov_1": 1, "tolov_2": 1,
         })
+        # Video-TZ IMG_6995: sinov bosqichlarida kimlar ekani ro'yxati
+        rl = {x["kalit"]: [y["ism"] for y in x["royxat"]] for x in r.data["voronka"] if "royxat" in x}
+        self.assertEqual(rl, {"sinov_chaqirildi": ["B", "C", "D", "E", "F"],
+                              "sinov_keldi": ["B", "D", "E", "F"], "sinov_kelmadi": ["C"]})
 
     def test_eslatma_tahrirlash_faqat_ozinikini(self):
         m = self.mijoz(self.admin)
@@ -193,6 +221,22 @@ class IkkiSoniyaliTekshiruvTest(ApiAsos):
         self.assertEqual(m.get("/api/crm/korsatkichlar/").data["yangi_guruhga_qabul"], 1)
         m.post("/api/crm/lidlar/guruhga/", {"lid_idlar": [lid["id"]], "guruh_id": self.guruh.id}, format="json")
         self.assertIsNone(Lid.objects.get(pk=lid["id"]).yigilayotgan_guruh_id)
+
+    def test_bosh_sahifa_kartochkalari_filtri(self):
+        """"Bugungi lidlar" / "Yangi guruhga qabul" bosilganda ro'yxat
+        kartochkadagi son bilan bir xil (video-TZ 2026-10-12)."""
+        m = self.mijoz(self.admin)
+        bugungi = m.post("/api/crm/lidlar/", {"ism": "Bugun", "telefon": "901000031"}, format="json").data
+        eski = m.post("/api/crm/lidlar/", {"ism": "Eski", "telefon": "901000032"}, format="json").data
+        Lid.objects.filter(pk=eski["id"]).update(created_at=timezone.now() - timedelta(days=3))
+        m.patch(f"/api/crm/lidlar/{eski['id']}/", {"yigilayotgan_guruh_id": self.guruh.id}, format="json")
+        k = m.get("/api/crm/korsatkichlar/").data
+        bugun = [x["id"] for x in m.get("/api/crm/lidlar/?bugun=1").data]
+        self.assertEqual(bugun, [bugungi["id"]])
+        self.assertEqual(len(bugun), k["yangi_lidlar_bugun"])
+        navbat = [x["id"] for x in m.get("/api/crm/lidlar/?yigilayotgan=1").data]
+        self.assertEqual(navbat, [eski["id"]])
+        self.assertEqual(len(navbat), k["yangi_guruhga_qabul"])
 
     def test_taqvimda_davomat_va_sanoq(self):
         self.azolik_qosh(boshlanish=SENTABR)

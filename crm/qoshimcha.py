@@ -13,7 +13,7 @@ from collections import Counter
 from datetime import date
 
 from django.db import transaction
-from django.db.models import Count, Q, Sum
+from django.db.models import Count, Exists, OuterRef, Q, Sum
 from django.http import Http404
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -28,6 +28,7 @@ from audit.models import FaoliyatYozuvi
 from . import mantiq
 from .boshqaruv import (
     _ism,
+    _muzlatilgan_kun,
     _telefon,
     _xodimlar_qs,
     davomat_holati,
@@ -50,7 +51,7 @@ from .models import (
 )
 from .permissions import CrmView
 from .filial import (
-    filial_q, filial_tekshir, guruh_q, ruxsat_filiallari, tolov_filiali_q, tolov_q, umumiy_yozuv_taqiq,
+    balans_doirasi, filial_q, filial_tekshir, guruh_q, ruxsat_filiallari, tolov_filiali_q, tolov_q, umumiy_yozuv_taqiq,
     xodim_korinadimi,
 )
 from .ruxsatlar import ruxsatlar
@@ -228,7 +229,8 @@ class DavomatHammasiView(CrmView):
         yangi = []
         for a in GuruhAzoligi.objects.filter(guruh=guruh).select_related("moliya"):
             am = getattr(a, "moliya", None)
-            if a.talaba_id in bor or (am and am.boshlanish_sana and sana < am.boshlanish_sana):
+            if (a.talaba_id in bor or (am and am.boshlanish_sana and sana < am.boshlanish_sana)
+                    or _muzlatilgan_kun(am, sana)):
                 continue
             yangi.append(Davomat(guruh=guruh, talaba_id=a.talaba_id, sana=sana,
                                  holat=Davomat.Holat.KELDI, belgilagan=request.user))
@@ -750,8 +752,21 @@ class LidlarHisobotiView(CrmView):
             .values_list("azolik__talaba_id", flat=True))
         sinovdagilar = set(azoliklar.filter(holat=AzolikMoliya.Holat.SINOV)
                            .values_list("azolik__talaba_id", flat=True)) - qolganlar
-        keldi = qs.filter(Q(holat=Lid.Holat.SINOV) | Q(talaba__isnull=False)).count()
-        kelmadi = qs.filter(holat=Lid.Holat.KELMADI, talaba__isnull=True).count()
+        keldi_qs = qs.filter(Q(holat=Lid.Holat.SINOV) | Q(talaba__isnull=False))
+        kelmadi_qs = qs.filter(holat=Lid.Holat.KELMADI, talaba__isnull=True)
+        keldi, kelmadi = keldi_qs.count(), kelmadi_qs.count()
+
+        # Video-TZ IMG_6995: sinovga chaqirilgan/kelgan/kelmaganlar kimligi
+        # ko'rinsin — voronka qatori bosilganda ro'yxat ochiladi.
+        def lidlar(q):
+            return [{"id": x.id, "ism": x.ism, "telefon": x.telefon, "talaba_id": x.talaba_id}
+                    for x in q.order_by("ism", "id")]
+
+        keldi_r, kelmadi_r = lidlar(keldi_qs), lidlar(kelmadi_qs)
+        royxatlar = {
+            "sinov_chaqirildi": sorted(keldi_r + kelmadi_r, key=lambda x: (x["ism"], x["id"])),
+            "sinov_keldi": keldi_r, "sinov_kelmadi": kelmadi_r,
+        }
         yoqdi = talabali.filter(talaba_id__in=qolganlar).count()
         yoqmadi = talabali.exclude(talaba_id__in=qolganlar | sinovdagilar).count()
         tolovlar = Counter(Tolov.objects.filter(talaba_id__in=talabalar, turi=Tolov.Turi.TOLOV)
@@ -768,7 +783,8 @@ class LidlarHisobotiView(CrmView):
             ("tolov_2", sum(1 for n in tolovlar.values() if n >= 2)),
         ]
         return Response({
-            "voronka": [{"kalit": k, "soni": n} for k, n in voronka],
+            "voronka": [{"kalit": k, "soni": n, **({"royxat": royxatlar[k]} if k in royxatlar else {})}
+                        for k, n in voronka],
             "dan": dan, "gacha": gacha, "jami": qs.count(),
             "qoshildi": qs.filter(talaba__isnull=False).count(),
             "manbalar": manbalar,
@@ -794,7 +810,40 @@ class TolovlarHisobotiView(CrmView):
         if request.query_params.get("filial"):
             qs = qs.filter(tolov_filiali_q(request.query_params["filial"]))
         usullar = dict(Tolov.Usul.choices)
-        tolov = qs.filter(turi=Tolov.Turi.TOLOV)
+        # Birinchi to'lov (video-TZ 2026-10-12): o'quvchining BUTUN tarixidagi
+        # birinchi `tolov`i — undan oldin (sana, keyin id bo'yicha) boshqa
+        # `tolov` yo'q. Filial/davr filtrisiz qaraladi: sentyabrda to'lab,
+        # oktyabrda yana to'lagan o'quvchi oktyabrda "qayta" sanaladi.
+        oldingi = Tolov.objects.filter(
+            talaba=OuterRef("talaba"), turi=Tolov.Turi.TOLOV,
+        ).filter(Q(sana__lt=OuterRef("sana")) | Q(sana=OuterRef("sana"), id__lt=OuterRef("id")))
+        tolov = qs.filter(turi=Tolov.Turi.TOLOV).annotate(qayta=Exists(oldingi))
+        kunlar = {}
+        for x in tolov.values("sana", "qayta").annotate(s=Sum("summa"), n=Count("id")).order_by("sana"):
+            k = kunlar.setdefault(x["sana"], {
+                "sana": x["sana"], "summa": NOL, "soni": 0,
+                "birinchi_summa": NOL, "birinchi_soni": 0, "qayta_summa": NOL, "qayta_soni": 0,
+            })
+            tur = "qayta" if x["qayta"] else "birinchi"
+            k[f"{tur}_summa"] += x["s"]
+            k[f"{tur}_soni"] += x["n"]
+            k["summa"] += x["s"]
+            k["soni"] += x["n"]
+        kunlar = list(kunlar.values())
+        # Har bir to'lov alohida (video-TZ 2026-10-12): kim, qanday usulda,
+        # qancha to'lagan va hozirgi holati — balansi (qarzdorligi).
+        qatorlar = list(tolov.order_by("sana", "id").values(
+            "id", "sana", "talaba_id", "talaba_ism", "guruh_nomi", "usul", "summa", "qayta",
+        ))
+        hisob_q, tolov_doira_q = balans_doirasi(request.user, request.query_params.get("filial"))
+        balanslar = mantiq.balanslarni_ol(
+            {x["talaba_id"] for x in qatorlar if x["talaba_id"]}, hisob_q=hisob_q, tolov_q=tolov_doira_q,
+        )
+        royxat = [{
+            "id": x["id"], "sana": x["sana"], "talaba_id": x["talaba_id"], "talaba": x["talaba_ism"],
+            "guruh": x["guruh_nomi"], "usul": x["usul"], "summa": x["summa"], "qayta": x["qayta"],
+            "balans": balanslar.get(x["talaba_id"]),
+        } for x in qatorlar]
         return Response({
             "dan": dan, "gacha": gacha,
             "jami": tolov.aggregate(s=Sum("summa"))["s"] or NOL,
@@ -804,10 +853,12 @@ class TolovlarHisobotiView(CrmView):
                 {"usul": x["usul"], "nomi": usullar.get(x["usul"], x["usul"] or "—"), "summa": x["s"], "soni": x["n"]}
                 for x in tolov.values("usul").annotate(s=Sum("summa"), n=Count("id")).order_by("-s")
             ],
-            "kunlar": [
-                {"sana": x["sana"], "summa": x["s"], "soni": x["n"]}
-                for x in tolov.values("sana").annotate(s=Sum("summa"), n=Count("id")).order_by("sana")
-            ],
+            "birinchi": sum((k["birinchi_summa"] for k in kunlar), NOL),
+            "birinchi_soni": sum(k["birinchi_soni"] for k in kunlar),
+            "qayta": sum((k["qayta_summa"] for k in kunlar), NOL),
+            "qayta_soni": sum(k["qayta_soni"] for k in kunlar),
+            "kunlar": kunlar,
+            "royxat": royxat,
         })
 
 
@@ -861,8 +912,10 @@ class HisobotlarDavrView(CrmView):
             ], "lidlar_hisoboti")
         if turi == "tolovlar":
             d = TolovlarHisobotiView().get(request).data
-            return _excel("To'lovlar", ["Sana", "Summa", "Soni"], [
-                [x["sana"].strftime("%d.%m.%Y"), float(x["summa"]), x["soni"]] for x in d.get("kunlar", [])
-            ], "tolovlar_hisoboti", pul_ustunlari=(2,))
+            return _excel("To'lovlar", ["Sana", "Summa", "Soni", "Birinchi to'lov", "Soni", "Qayta to'lov", "Soni"], [
+                [x["sana"].strftime("%d.%m.%Y"), float(x["summa"]), x["soni"],
+                 float(x["birinchi_summa"]), x["birinchi_soni"], float(x["qayta_summa"]), x["qayta_soni"]]
+                for x in d.get("kunlar", [])
+            ], "tolovlar_hisoboti", pul_ustunlari=(2, 4, 6))
         return _xato("turi: ketganlar | lidlar | tolovlar")
 

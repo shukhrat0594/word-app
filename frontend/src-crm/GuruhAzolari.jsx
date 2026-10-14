@@ -151,8 +151,10 @@ export default function GuruhAzolari({ guruhId, guruhNomi, onOzgardi }) {
                   ))}
                 </select>
                 {a.holat === "muzlatilgan" && (a.muzlatish_sana || a.muzlatish_izoh) && (
-                  <div className="kichik" title={a.muzlatish_izoh}>
-                    ❄ {sana(a.muzlatish_sana)}{a.muzlatish_izoh ? ` — ${a.muzlatish_izoh}` : ""}
+                  // Uzun sabab jadvalni kengaytirib, balansni ekrandan chiqarardi
+                  // (video-TZ IMG_6993.MOV) — sabab faqat sichqoncha olib kelinganda.
+                  <div className="kichik" title={a.muzlatish_izoh || undefined}>
+                    ❄ {sana(a.muzlatish_sana)}{a.muzlatish_izoh ? " ⓘ" : ""}
                   </div>
                 )}
               </td>

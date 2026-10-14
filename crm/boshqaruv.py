@@ -73,6 +73,15 @@ def _ism(u):
     return (u.get_full_name() or u.username) if u else None
 
 
+def _muzlatilgan_kun(am, sana):
+    """O'quvchi shu kuni muzlatilganmi: holat "muzlatilgan" va sana
+    muzlatish sanasidan keyin (sana yo'q bo'lsa — har kuni). Video-TZ
+    IMG_6993.MOV: muzlatilgan kundan davomat qo'yilmasin."""
+    if not am or am.holat != "muzlatilgan":
+        return False
+    return not am.muzlatish_sana or sana >= am.muzlatish_sana
+
+
 def _telefon(qiymat):
     """Telefonni bitta ko'rinishga keltiradi: faqat raqamlar va boshida '+'.
     Qidiruv va takror tekshiruvi shu ko'rinishga tayanadi."""
@@ -939,6 +948,13 @@ def lidlar_qs(p, user=None):
         qs = qs.filter(Q(bolim__isnull=True) | Q(bolim__doska__isnull=True))
     elif p.get("doska"):
         qs = qs.filter(bolim__doska_id=p["doska"])
+    # Bosh sahifa kartochkalari (video-TZ 2026-10-12): "Bugungi lidlar" —
+    # bugun yozilganlar, "Yangi guruhga qabul" — yig'ilayotgan guruhga
+    # navbatdagilar. Ikkalasi `KorsatkichlarView` sanog'i bilan bir xil.
+    if p.get("bugun"):
+        qs = qs.filter(created_at__date=timezone.localdate())
+    if p.get("yigilayotgan"):
+        qs = qs.filter(yigilayotgan_guruh__isnull=False)
     if p.get("manba"):
         qs = qs.filter(manba=p["manba"])
     if p.get("oqituvchi"):
@@ -1971,13 +1987,18 @@ class GuruhDavomatView(CrmView):
                     # Talaba hali qo'shilmagan kun — qulf (SoffCRM'dagi 🔒).
                     # Yozuvi BOR katak qulflanmaydi: eski ma'lumot
                     # yashirinib, lekin "keldi" soniga kirib qolmasin.
-                    "qulf": bool(boshi and s < boshi and not k),
+                    # Muzlatilgan kundan boshlab ham qulf (video-TZ IMG_6993.MOV).
+                    "qulf": not k and (bool(boshi and s < boshi) or _muzlatilgan_kun(am, s)),
+                    "muzlatilgan": _muzlatilgan_kun(am, s),
                     "kelajak": s > bugun,
                 })
             talabalar.append({
                 "id": a.talaba_id,
                 "ism": _ism(a.talaba),
                 "holat": am.holat if am else None,
+                # Muzlatilgan o'quvchi davomatda ajralib ko'rinsin (video-TZ IMG_6977.MOV).
+                "muzlatish_sana": am.muzlatish_sana if am else None,
+                "muzlatish_izoh": am.muzlatish_izoh if am else "",
                 "kunlar": kunlar,
                 "keldi": sum(1 for k in kunlar if k["holat"] in ("keldi", "kechikdi")),
                 "kechikdi": sum(1 for k in kunlar if k["holat"] == "kechikdi"),
@@ -2026,7 +2047,8 @@ class GuruhDavomatView(CrmView):
             return _xato("Davomat belgilashga ruxsat yo'q", kod=403)
         guruh = get_object_or_404(Guruh, pk=pk)
         talaba = get_object_or_404(User, pk=request.data.get("talaba_id"))
-        if not GuruhAzoligi.objects.filter(guruh=guruh, talaba=talaba).exists():
+        azolik = GuruhAzoligi.objects.filter(guruh=guruh, talaba=talaba).select_related("moliya").first()
+        if azolik is None:
             return _xato("Talaba bu guruhda emas")
         try:
             sana = _sana(request.data.get("sana"), "sana")
@@ -2037,6 +2059,9 @@ class GuruhDavomatView(CrmView):
         holat = request.data.get("holat")
         if holat not in (None, "", "keldi", "kechikdi", "kelmadi", "sababli"):
             return _xato("Holat noto'g'ri")
+        # Belgini olib tashlash (holat=null) mumkin — eski xato yozuv qolmasin.
+        if holat and _muzlatilgan_kun(getattr(azolik, "moliya", None), sana):
+            return _xato("O'quvchi muzlatilgan — bu kundan davomat qo'yilmaydi")
 
         yozuv = Davomat.objects.filter(guruh=guruh, talaba=talaba, sana=sana).first()
         if not holat:

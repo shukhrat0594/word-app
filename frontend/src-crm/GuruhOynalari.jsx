@@ -512,6 +512,9 @@ export function DavomatJadvali({ guruhId }) {
   const sanalar = malumot?.sanalar || [];
   const talabalar = [...(malumot?.talabalar || []), ...(malumot?.sobiqlar || [])];
   const ozgarishlar = malumot?.ozgarishlar || [];
+  // Sichqoncha olib kelinganda muzlatish sababi (video-TZ IMG_6993.MOV).
+  const muzlatishMatni = (x) => `❄️ ${t("holat_muzlatilgan")}${x.muzlatish_sana ? ` · ${sana(x.muzlatish_sana)}` : ""}`
+    + (x.muzlatish_izoh ? ` — ${x.muzlatish_izoh}` : "");
 
   return (
     <>
@@ -584,10 +587,16 @@ export function DavomatJadvali({ guruhId }) {
             </thead>
             <tbody>
               {talabalar.map((x, i) => (
-                <tr key={x.id} className={x.sobiq ? "sobiq-qator" : undefined}>
+                <tr key={x.id} className={x.sobiq || x.holat === "muzlatilgan" ? "sobiq-qator" : undefined}>
                   <td className="ongga kichik">{i + 1}</td>
-                  <td>
+                  <td title={x.holat === "muzlatilgan" ? muzlatishMatni(x) : undefined}>
                     {x.ism}
+                    {x.holat === "muzlatilgan" && (
+                      <div className="kichik">
+                        ❄️ {t("holat_muzlatilgan")}{x.muzlatish_sana ? ` · ${sana(x.muzlatish_sana)}` : ""}
+                        {x.muzlatish_izoh ? " ⓘ" : ""}
+                      </div>
+                    )}
                     {x.sobiq && (
                       <div className="kichik">
                         🗄 {t("arxiv")}{x.chiqqan_sana ? ` · ${sana(x.chiqqan_sana)}` : ""}
@@ -600,10 +609,11 @@ export function DavomatJadvali({ guruhId }) {
                         type="button"
                         className={`davomat-katak davomat-${k.holat || "yoq"}${k.qulf ? " qulf" : ""}`}
                         disabled={!tahrirlaydi || k.qulf || k.kelajak || x.sobiq}
-                        title={k.qulf ? t(x.sobiq ? "guruhdan_chiqqan" : "hali_qoshilmagan") : k.izoh || sana(k.sana)}
+                        title={k.muzlatilgan ? muzlatishMatni(x)
+                          : k.qulf ? t(x.sobiq ? "guruhdan_chiqqan" : "hali_qoshilmagan") : k.izoh || sana(k.sana)}
                         onClick={(e) => setMenyu({ talaba: x, kun: k, joy: { x: e.clientX, y: e.clientY } })}
                       >
-                        {k.qulf ? "🔒" : HOLAT_BELGI[k.holat] || "·"}
+                        {k.qulf ? (k.muzlatilgan ? "❄" : "🔒") : HOLAT_BELGI[k.holat] || "·"}
                       </button>
                     </td>
                   ))}

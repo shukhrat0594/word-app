@@ -131,6 +131,44 @@ class RuxsatTest(ApiAsos):
         )
         self.assertFalse(Tolov.objects.exists())
 
+    def test_bonusni_tahrirlash_ruxsati_bor_xodim_ochiradi(self):
+        """Video-TZ IMG_6992: xato qo'yilgan bonusni 0 qilib bo'lmaydi —
+        `moliya.tolov_tahrirlash` egasi BONUSni o'chira oladi; oddiy
+        to'lovni esa baribir faqat owner o'chiradi."""
+        from crm.models import CrmRol, XodimProfil
+
+        kassir = User.objects.create_user(username="crm_kassir_b", password="x", markaz=self.markaz)
+        XodimProfil.objects.create(
+            user=kassir, lavozim="kassir",
+            rol=CrmRol.objects.create(nomi="SINOV kassir b", ruxsatlar=["moliya.tolov", "talabalar"]),
+        )
+        tahrirchi = User.objects.create_user(username="crm_tahrirchi_b", password="x", markaz=self.markaz)
+        XodimProfil.objects.create(
+            user=tahrirchi, lavozim="kassir",
+            rol=CrmRol.objects.create(nomi="SINOV tahrirchi b", ruxsatlar=["moliya.tolov_tahrirlash"]),
+        )
+        hisob = Hisob.objects.create(
+            talaba=self.talaba, talaba_ism="x", guruh=self.guruh, guruh_nomi="y",
+            oy=date(2026, 9, 1), summa=NARX,
+        )
+        bonus = Tolov.objects.create(
+            talaba=self.talaba, talaba_ism="x", guruh=self.guruh, guruh_nomi="y",
+            hisob=hisob, sana=date(2026, 9, 5), summa=NARX, turi=Tolov.Turi.BONUS,
+        )
+        tolov = Tolov.objects.create(
+            talaba=self.talaba, talaba_ism="x", guruh=self.guruh, guruh_nomi="y",
+            sana=date(2026, 9, 5), summa=NARX, turi=Tolov.Turi.TOLOV,
+        )
+        mantiq.hisobni_yangila(hisob)
+        self.assertEqual(hisob.holat, Hisob.Holat.TOLANDI)
+
+        self.assertEqual(self.mijoz(kassir).delete(f"/api/crm/tolov/{bonus.id}/").status_code, 403)
+        self.assertEqual(self.mijoz(tahrirchi).delete(f"/api/crm/tolov/{tolov.id}/").status_code, 403)
+        self.assertEqual(self.mijoz(tahrirchi).delete(f"/api/crm/tolov/{bonus.id}/").status_code, 200)
+        self.assertEqual(list(Tolov.objects.values_list("id", flat=True)), [tolov.id])
+        hisob.refresh_from_db()
+        self.assertNotEqual(hisob.holat, Hisob.Holat.TOLANDI)
+
     def test_tolovni_faqat_owner_tahrirlaydi(self):
         """SoffCRM'dagi qalam: summa/sana/izoh tuzatiladi, oy holati
         qayta hisoblanadi. `moliya.tolov_tahrirlash` ruxsatisiz — 403
@@ -674,6 +712,23 @@ class DavomatVaNatijaTest(ApiAsos):
         self.assertEqual(qatorlar["talaba1"]["kelmadi"], 1)
         k2 = self.kataklar(qatorlar["talaba2"])
         self.assertEqual((k2[date(2026, 9, 3)], k2[date(2026, 9, 4)]), ("keldi", None))
+
+    def test_davomatda_muzlatilgan_korinadi(self):
+        """Video-TZ IMG_6977.MOV: davomatda muzlatilgan o'quvchi holati,
+        sanasi va sababi qaytadi."""
+        muz = User.objects.create_user(
+            username="muz_dav", password="x", role=User.Role.STUDENT, markaz=self.markaz
+        )
+        self.azolik_qosh(
+            talaba=muz, boshlanish=date(2026, 9, 1), holat=AzolikMoliya.Holat.MUZLATILGAN,
+            muzlatish_sana=date(2026, 9, 20), muzlatish_izoh="Kasal",
+        )
+        javob = self.mijoz(self.admin).get(f"/api/crm/guruhlar/{self.guruh.id}/davomat/?oy=2026-09")
+        qatorlar = {x["ism"]: x for x in javob.data["talabalar"]}
+        q = qatorlar["muz_dav"]
+        self.assertEqual((q["holat"], q["muzlatish_sana"], q["muzlatish_izoh"]),
+                         ("muzlatilgan", date(2026, 9, 20), "Kasal"))
+        self.assertIsNone(qatorlar["talaba1"]["muzlatish_sana"])
 
     def test_davomat_boshqa_oy_aralashmaydi(self):
         self.davomat_yoz(self.talaba, 3, Davomat.Holat.KELDI)
