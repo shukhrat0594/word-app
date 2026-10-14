@@ -1,0 +1,4974 @@
+{
+ "1": [
+  {
+   "savol": "____ does your sister do? — She is a product quality manager at IKEA.",
+   "variantlar": [
+    "What",
+    "How",
+    "Who"
+   ],
+   "togri": "What"
+  },
+  {
+   "savol": "____ is your brother? — He's fine, his ankle is healing well.",
+   "variantlar": [
+    "What",
+    "How",
+    "Who"
+   ],
+   "togri": "How"
+  },
+  {
+   "savol": "____ does your father look like? — He's quite tall with short dark hair.",
+   "variantlar": [
+    "How",
+    "What",
+    "Which"
+   ],
+   "togri": "What"
+  },
+  {
+   "savol": "____ does she look like in her family? — She's the image of her mum.",
+   "variantlar": [
+    "Who",
+    "What",
+    "How"
+   ],
+   "togri": "Who"
+  },
+  {
+   "savol": "____ size is your kitchen? — It's four metres by three.",
+   "variantlar": [
+    "How",
+    "What",
+    "Which"
+   ],
+   "togri": "What"
+  },
+  {
+   "savol": "____ floor is your flat on? — The fourth floor.",
+   "variantlar": [
+    "What colour",
+    "Which",
+    "How long"
+   ],
+   "togri": "Which"
+  },
+  {
+   "savol": "____ far is it from your home to work? — Just a ten-minute cycle ride.",
+   "variantlar": [
+    "How",
+    "What",
+    "Which"
+   ],
+   "togri": "How"
+  },
+  {
+   "savol": "____ make is your laptop? — It's an Apple MacBook.",
+   "variantlar": [
+    "How",
+    "What",
+    "Whose"
+   ],
+   "togri": "What"
+  },
+  {
+   "savol": "____ does this tablet weigh? — It's very light, under one kilo.",
+   "variantlar": [
+    "How many",
+    "How much",
+    "How long"
+   ],
+   "togri": "How much"
+  },
+  {
+   "savol": "____ is the battery life on your phone? — About ten hours.",
+   "variantlar": [
+    "How long",
+    "How far",
+    "How tall"
+   ],
+   "togri": "How long"
+  },
+  {
+   "savol": "____ car is parked in front of our house? — It's Sam's.",
+   "variantlar": [
+    "Who",
+    "Which",
+    "Whose"
+   ],
+   "togri": "Whose"
+  },
+  {
+   "savol": "____ often do you go to the gym? — Twice a week.",
+   "variantlar": [
+    "How",
+    "What",
+    "Which"
+   ],
+   "togri": "How"
+  },
+  {
+   "savol": "____ size shoes do you wear? — Size 42.",
+   "variantlar": [
+    "How",
+    "What",
+    "Which"
+   ],
+   "togri": "What"
+  },
+  {
+   "savol": "____ speed can your new car go? — Up to 200 kph.",
+   "variantlar": [
+    "How fast",
+    "What",
+    "Which"
+   ],
+   "togri": "What"
+  },
+  {
+   "savol": "____ time do you spend on social media daily? — About two hours.",
+   "variantlar": [
+    "How many",
+    "How much",
+    "How long"
+   ],
+   "togri": "How much"
+  },
+  {
+   "savol": "____ do you want for your hot drink, tea or coffee? — Coffee, please.",
+   "variantlar": [
+    "Which",
+    "Whose",
+    "How"
+   ],
+   "togri": "Which"
+  },
+  {
+   "savol": "____ coat is this hanging on the chair? — It's mine.",
+   "variantlar": [
+    "Who",
+    "Whose",
+    "Which"
+   ],
+   "togri": "Whose"
+  },
+  {
+   "savol": "Who does this blue bicycle belong ____? — It's my brother's.",
+   "variantlar": [
+    "with",
+    "for",
+    "to"
+   ],
+   "togri": "to"
+  },
+  {
+   "savol": "What did your grandfather die ____? — A heart attack.",
+   "variantlar": [
+    "of",
+    "from",
+    "with"
+   ],
+   "togri": "of"
+  },
+  {
+   "savol": "Who are you waiting ____ at the bus stop? — My friend Anna.",
+   "variantlar": [
+    "at",
+    "for",
+    "to"
+   ],
+   "togri": "for"
+  },
+  {
+   "savol": "Where did you get that stylish jacket ____? — I bought it online.",
+   "variantlar": [
+    "from",
+    "to",
+    "at"
+   ],
+   "togri": "from"
+  },
+  {
+   "savol": "Who was Mary talking ____ on the phone? — Her sister.",
+   "variantlar": [
+    "with",
+    "about",
+    "to"
+   ],
+   "togri": "to"
+  },
+  {
+   "savol": "Who is Jack in love ____? — He's crazy about Beth.",
+   "variantlar": [
+    "to",
+    "with",
+    "for"
+   ],
+   "togri": "with"
+  },
+  {
+   "savol": "What are you so angry ____? — My bank charged me an unexpected fee.",
+   "variantlar": [
+    "for",
+    "about",
+    "with"
+   ],
+   "togri": "about"
+  },
+  {
+   "savol": "What would you ____ to drink? — I'll have a Coke, please.",
+   "variantlar": [
+    "like",
+    "looking",
+    "want"
+   ],
+   "togri": "like"
+  },
+  {
+   "savol": "I find having a warm massage really ____ after a long week.",
+   "variantlar": [
+    "relaxed",
+    "relax",
+    "relaxing"
+   ],
+   "togri": "relaxing"
+  },
+  {
+   "savol": "We were all very ____ when our holiday was cancelled due to the strike.",
+   "variantlar": [
+    "disappoint",
+    "disappointed",
+    "disappointing"
+   ],
+   "togri": "disappointed"
+  },
+  {
+   "savol": "The long trek across the mountains was absolutely ____.",
+   "variantlar": [
+    "exhaust",
+    "exhausted",
+    "exhausting"
+   ],
+   "togri": "exhausting"
+  },
+  {
+   "savol": "I was ____ to hear that I had passed the difficult exam.",
+   "variantlar": [
+    "surprised",
+    "surprising",
+    "surprise"
+   ],
+   "togri": "surprised"
+  },
+  {
+   "savol": "The lesson was so ____ that half the class fell asleep.",
+   "variantlar": [
+    "bore",
+    "boring",
+    "bored"
+   ],
+   "togri": "boring"
+  },
+  {
+   "savol": "A person who works hard and stays late at the office is ____.",
+   "variantlar": [
+    "hard-working",
+    "lazy",
+    "bad-tempered"
+   ],
+   "togri": "hard-working"
+  },
+  {
+   "savol": "Someone who is very friendly and enjoys being around other people is ____.",
+   "variantlar": [
+    "sociable",
+    "shy",
+    "reserved"
+   ],
+   "togri": "sociable"
+  },
+  {
+   "savol": "If you can always depend on a friend when you need help, they are ____.",
+   "variantlar": [
+    "unreliable",
+    "moody",
+    "reliable"
+   ],
+   "togri": "reliable"
+  },
+  {
+   "savol": "Children who do not listen to their parents and misbehave are ____.",
+   "variantlar": [
+    "polite",
+    "well-behaved",
+    "badly-behaved"
+   ],
+   "togri": "badly-behaved"
+  },
+  {
+   "savol": "What is the opposite of the adjective 'generous'?",
+   "variantlar": [
+    "Honest",
+    "Mean / Selfish",
+    "Patient"
+   ],
+   "togri": "Mean / Selfish"
+  },
+  {
+   "savol": "What is the opposite of 'cheerful'?",
+   "variantlar": [
+    "Talkative",
+    "Moody / Miserable",
+    "Easy-going"
+   ],
+   "togri": "Moody / Miserable"
+  },
+  {
+   "savol": "What is the antonym of 'smart clothes'?",
+   "variantlar": [
+    "Modern clothes",
+    "Stylish clothes",
+    "Casual clothes"
+   ],
+   "togri": "Casual clothes"
+  },
+  {
+   "savol": "Which adjective best matches the noun 'views'?",
+   "variantlar": [
+    "Fresh",
+    "Stunning",
+    "Mature"
+   ],
+   "togri": "Stunning"
+  },
+  {
+   "savol": "Which adjective best matches the noun 'garden'?",
+   "variantlar": [
+    "Cloudy",
+    "Mature",
+    "Cosmopolitan"
+   ],
+   "togri": "Mature"
+  },
+  {
+   "savol": "A small, cozy traditional house in the countryside is called a ____.",
+   "variantlar": [
+    "block",
+    "cottage",
+    "flat"
+   ],
+   "togri": "cottage"
+  },
+  {
+   "savol": "My brother and I don't see eye to ____ about political matters.",
+   "variantlar": [
+    "eye",
+    "face",
+    "mind"
+   ],
+   "togri": "eye"
+  },
+  {
+   "savol": "They fight like cat and ____ almost every single day.",
+   "variantlar": [
+    "bird",
+    "dog",
+    "mouse"
+   ],
+   "togri": "dog"
+  },
+  {
+   "savol": "Which phrasal verb means 'to collect someone in a car'?",
+   "variantlar": [
+    "Set off",
+    "Pick up",
+    "Set up"
+   ],
+   "togri": "Pick up"
+  },
+  {
+   "savol": "Which phrasal verb means 'to end a romantic relationship'?",
+   "variantlar": [
+    "Split up",
+    "Get over",
+    "Settle in"
+   ],
+   "togri": "Split up"
+  },
+  {
+   "savol": "Which phrasal verb means 'to start a new business'?",
+   "variantlar": [
+    "Put up with",
+    "Set up",
+    "Cut back"
+   ],
+   "togri": "Set up"
+  },
+  {
+   "savol": "\"I just won £1,000 on the lottery!\" — \"____! That's amazing!\"",
+   "variantlar": [
+    "Bad luck",
+    "How awful",
+    "Lucky you"
+   ],
+   "togri": "Lucky you"
+  },
+  {
+   "savol": "\"My flight was cancelled due to bad weather.\" — \"What a ____!\"",
+   "variantlar": [
+    "congratulations",
+    "pleasure",
+    "pity / shame"
+   ],
+   "togri": "pity / shame"
+  },
+  {
+   "savol": "\"We are expecting a baby in May!\" — \"____! That's fantastic news!\"",
+   "variantlar": [
+    "Fair enough",
+    "What a pity",
+    "Congratulations"
+   ],
+   "togri": "Congratulations"
+  },
+  {
+   "savol": "\"I failed my driving test for the second time.\" — \"Oh dear, ____ luck!\"",
+   "variantlar": [
+    "Good",
+    "Fine",
+    "Bad"
+   ],
+   "togri": "Bad"
+  },
+  {
+   "savol": "\"Will pizza be OK for dinner tonight?\" — \"____! It's my favourite.\"",
+   "variantlar": [
+    "Brilliant / Fine",
+    "How awful",
+    "You're kidding"
+   ],
+   "togri": "Brilliant / Fine"
+  }
+ ],
+ "2": [
+  {
+   "savol": "Where ____ you born? — I was born in Hungary.",
+   "variantlar": [
+    "were",
+    "have",
+    "did"
+   ],
+   "togri": "were"
+  },
+  {
+   "savol": "What languages ____ you speak fluently?",
+   "variantlar": [
+    "have",
+    "do",
+    "are"
+   ],
+   "togri": "do"
+  },
+  {
+   "savol": "Why ____ you studying English this year?",
+   "variantlar": [
+    "have",
+    "do",
+    "are"
+   ],
+   "togri": "are"
+  },
+  {
+   "savol": "Which foreign countries ____ you been to?",
+   "variantlar": [
+    "have",
+    "did",
+    "were"
+   ],
+   "togri": "have"
+  },
+  {
+   "savol": "What ____ you learn in the last English lesson?",
+   "variantlar": [
+    "have",
+    "did",
+    "were"
+   ],
+   "togri": "did"
+  },
+  {
+   "savol": "What are you going ____ do after this class?",
+   "variantlar": [
+    "to",
+    "for",
+    "in"
+   ],
+   "togri": "to"
+  },
+  {
+   "savol": "Brazilians don't speak Spanish! They ____ Portuguese.",
+   "variantlar": [
+    "speak",
+    "are speaking",
+    "speaks"
+   ],
+   "togri": "speak"
+  },
+  {
+   "savol": "The Pope ____ in Rome, in the Vatican City.",
+   "variantlar": [
+    "lives",
+    "live",
+    "is living"
+   ],
+   "togri": "lives"
+  },
+  {
+   "savol": "Shakespeare ____ his plays in English, not in Latin.",
+   "variantlar": [
+    "has written",
+    "writes",
+    "wrote"
+   ],
+   "togri": "wrote"
+  },
+  {
+   "savol": "Look! What's ____ that strange buzzing noise over there?",
+   "variantlar": [
+    "made",
+    "make",
+    "making"
+   ],
+   "togri": "making"
+  },
+  {
+   "savol": "He's ____ Spanish really well since he moved to Madrid.",
+   "variantlar": [
+    "learning",
+    "learned",
+    "learn"
+   ],
+   "togri": "learned"
+  },
+  {
+   "savol": "Plastic's ____ from oil through industrial processes.",
+   "variantlar": [
+    "made",
+    "making",
+    "make"
+   ],
+   "togri": "made"
+  },
+  {
+   "savol": "Who's ____ eating all my chocolates from the box?",
+   "variantlar": [
+    "were",
+    "be",
+    "been"
+   ],
+   "togri": "been"
+  },
+  {
+   "savol": "What is ____ in your home country for export?",
+   "variantlar": [
+    "produce",
+    "produced",
+    "producing"
+   ],
+   "togri": "produced"
+  },
+  {
+   "savol": "What time ____ you usually get up at weekends?",
+   "variantlar": [
+    "are",
+    "do",
+    "did"
+   ],
+   "togri": "do"
+  },
+  {
+   "savol": "How long does it usually ____ you to get to class?",
+   "variantlar": [
+    "taking",
+    "take",
+    "took"
+   ],
+   "togri": "take"
+  },
+  {
+   "savol": "How long have you ____ your English teacher?",
+   "variantlar": [
+    "know",
+    "known",
+    "knew"
+   ],
+   "togri": "known"
+  },
+  {
+   "savol": "What were you doing when the teacher ____ into the classroom?",
+   "variantlar": [
+    "comes",
+    "came",
+    "was coming"
+   ],
+   "togri": "came"
+  },
+  {
+   "savol": "Is English ____ by many people in your country?",
+   "variantlar": [
+    "speak",
+    "spoken",
+    "speaking"
+   ],
+   "togri": "spoken"
+  },
+  {
+   "savol": "\"Did you have a good day at college?\" — \"Yes, I ____.\"",
+   "variantlar": [
+    "have",
+    "was",
+    "did"
+   ],
+   "togri": "did"
+  },
+  {
+   "savol": "\"Have you been shopping this afternoon?\" — \"Yes, I ____.\"",
+   "variantlar": [
+    "did",
+    "have",
+    "do"
+   ],
+   "togri": "have"
+  },
+  {
+   "savol": "\"Are you going on the trip to Wales on Saturday?\" — \"No, I ____.\"",
+   "variantlar": [
+    "haven't",
+    "don't",
+    "'m not"
+   ],
+   "togri": "'m not"
+  },
+  {
+   "savol": "\"Is it nearly break time?\" — \"Yes, it ____.\"",
+   "variantlar": [
+    "has",
+    "does",
+    "is"
+   ],
+   "togri": "is"
+  },
+  {
+   "savol": "\"Did you get those shoes you liked?\" — \"No, I ____. They didn't have my size.\"",
+   "variantlar": [
+    "don't",
+    "didn't",
+    "haven't"
+   ],
+   "togri": "didn't"
+  },
+  {
+   "savol": "\"Have you seen my mobile phone anywhere?\" — \"No, I ____.\"",
+   "variantlar": [
+    "don't",
+    "didn't",
+    "haven't"
+   ],
+   "togri": "haven't"
+  },
+  {
+   "savol": "Anne's piano playing was ____ — she didn't get a single note wrong.",
+   "variantlar": [
+    "flawless",
+    "abruptly",
+    "urgent"
+   ],
+   "togri": "flawless"
+  },
+  {
+   "savol": "After travelling around many countries, they decided to ____ in Canada.",
+   "variantlar": [
+    "drop",
+    "trace",
+    "settle"
+   ],
+   "togri": "settle"
+  },
+  {
+   "savol": "It came as a shock when the performance ended so ____.",
+   "variantlar": [
+    "silently",
+    "abruptly",
+    "flawlessly"
+   ],
+   "togri": "abruptly"
+  },
+  {
+   "savol": "Her English is excellent, but you can still hear a ____ of an accent.",
+   "variantlar": [
+    "fill",
+    "trace",
+    "stint"
+   ],
+   "togri": "trace"
+  },
+  {
+   "savol": "My grandmother is 84 years old, but she is still very ____.",
+   "variantlar": [
+    "activity",
+    "action",
+    "active"
+   ],
+   "togri": "active"
+  },
+  {
+   "savol": "Acting is not always a well-paid job for an ____.",
+   "variantlar": [
+    "actor",
+    "activity",
+    "active"
+   ],
+   "togri": "actor"
+  },
+  {
+   "savol": "We do a lot of interesting ____ in class to learn English.",
+   "variantlar": [
+    "actors",
+    "actions",
+    "activities"
+   ],
+   "togri": "activities"
+  },
+  {
+   "savol": "Please call this customer service number to ____ your new card.",
+   "variantlar": [
+    "active",
+    "activate",
+    "action"
+   ],
+   "togri": "activate"
+  },
+  {
+   "savol": "The morning road was blocked because of very heavy ____.",
+   "variantlar": [
+    "noise",
+    "wind",
+    "traffic"
+   ],
+   "togri": "traffic"
+  },
+  {
+   "savol": "Learning a foreign language will definitely ____ your life.",
+   "variantlar": [
+    "record",
+    "enrich",
+    "profit"
+   ],
+   "togri": "enrich"
+  },
+  {
+   "savol": "The company managed to make a big ____ this financial year.",
+   "variantlar": [
+    "loss",
+    "price",
+    "profit"
+   ],
+   "togri": "profit"
+  },
+  {
+   "savol": "I can't think clearly right now — I'm dying ____ a cup of coffee!",
+   "variantlar": [
+    "to",
+    "of",
+    "for"
+   ],
+   "togri": "for"
+  },
+  {
+   "savol": "The British have a poor ____ for learning foreign languages.",
+   "variantlar": [
+    "motivation",
+    "reputation",
+    "fluency"
+   ],
+   "togri": "reputation"
+  },
+  {
+   "savol": "\"Just a trim, please.\" Where would you hear this line?",
+   "variantlar": [
+    "At a restaurant",
+    "At a post office",
+    "At a hairdresser's"
+   ],
+   "togri": "At a hairdresser's"
+  },
+  {
+   "savol": "\"Is it within walking distance?\" What does this question ask?",
+   "variantlar": [
+    "If it is open",
+    "If you can walk there easily",
+    "How much it costs"
+   ],
+   "togri": "If you can walk there easily"
+  },
+  {
+   "savol": "\"I'm afraid I've locked myself out of my room.\" Where would you say this?",
+   "variantlar": [
+    "In a hotel",
+    "In a library",
+    "At a cinema"
+   ],
+   "togri": "In a hotel"
+  },
+  {
+   "savol": "\"I need to make an appointment. I've lost a filling.\" Who are you calling?",
+   "variantlar": [
+    "A dentist",
+    "A teacher",
+    "A mechanic"
+   ],
+   "togri": "A dentist"
+  },
+  {
+   "savol": "\"Is there a matinee performance today?\" Where are you?",
+   "variantlar": [
+    "At a theatre",
+    "At an airport",
+    "At a bank"
+   ],
+   "togri": "At a theatre"
+  },
+  {
+   "savol": "\"Will this parcel get there tomorrow if it goes first class?\" Where are you?",
+   "variantlar": [
+    "At a gym",
+    "At a post office",
+    "At a clothes shop"
+   ],
+   "togri": "At a post office"
+  },
+  {
+   "savol": "\"Does it come with chips?\" — \"No, you have to order them as a ____ dish.\"",
+   "variantlar": [
+    "main",
+    "side",
+    "dessert"
+   ],
+   "togri": "side"
+  },
+  {
+   "savol": "\"I've got a cold. Aatchooo!\" — \"____ you!\"",
+   "variantlar": [
+    "Same",
+    "Bless",
+    "Thank"
+   ],
+   "togri": "Bless"
+  },
+  {
+   "savol": "\"Good luck in your driving exam!\" — \"____ to you!\"",
+   "variantlar": [
+    "Equal",
+    "Like",
+    "Same"
+   ],
+   "togri": "Same"
+  },
+  {
+   "savol": "\"Could I try one of your delicious biscuits?\" — \"Sure, help ____!\"",
+   "variantlar": [
+    "yourself",
+    "you",
+    "yours"
+   ],
+   "togri": "yourself"
+  },
+  {
+   "savol": "\"I'm going on holiday to Barbados tomorrow!\" — \"____ you!\"",
+   "variantlar": [
+    "Happy",
+    "Lucky",
+    "Good"
+   ],
+   "togri": "Lucky"
+  },
+  {
+   "savol": "What is the noun form of the verb 'educate'?",
+   "variantlar": [
+    "Educator",
+    "Education",
+    "Educated"
+   ],
+   "togri": "Education"
+  }
+ ],
+ "3": [
+  {
+   "savol": "I ____ a red jacket for my sister's baby at the moment.",
+   "variantlar": [
+    "knit",
+    "am knitting",
+    "have knitted"
+   ],
+   "togri": "am knitting"
+  },
+  {
+   "savol": "Deep-sea divers ____ underwater oil wells in teams.",
+   "variantlar": [
+    "installing",
+    "are installing",
+    "install"
+   ],
+   "togri": "install"
+  },
+  {
+   "savol": "The manager is always ____ when the team loses a match.",
+   "variantlar": [
+    "blaming",
+    "blame",
+    "blamed"
+   ],
+   "togri": "blamed"
+  },
+  {
+   "savol": "I ____ my job as a football manager — it's exciting!",
+   "variantlar": [
+    "am loving",
+    "loved",
+    "love"
+   ],
+   "togri": "love"
+  },
+  {
+   "savol": "Do you ____ what the teacher is explaining right now?",
+   "variantlar": [
+    "understanding",
+    "understand",
+    "are understanding"
+   ],
+   "togri": "understand"
+  },
+  {
+   "savol": "Gary Rudd ____ married for ten years and lives near the ground.",
+   "variantlar": [
+    "has been",
+    "is",
+    "is being"
+   ],
+   "togri": "has been"
+  },
+  {
+   "savol": "I rarely ____ any DIY project around the house completely.",
+   "variantlar": [
+    "am finishing",
+    "finishing",
+    "finish"
+   ],
+   "togri": "finish"
+  },
+  {
+   "savol": "I ____ the kitchen wall right now; I've been doing it for weeks!",
+   "variantlar": [
+    "paint",
+    "painted",
+    "am painting"
+   ],
+   "togri": "am painting"
+  },
+  {
+   "savol": "Nigel ____ at the top of the table reading an annual report.",
+   "variantlar": [
+    "sits",
+    "sat",
+    "is sitting"
+   ],
+   "togri": "is sitting"
+  },
+  {
+   "savol": "He ____ a bright blue tie to the office today.",
+   "variantlar": [
+    "wears",
+    "is wearing",
+    "wear"
+   ],
+   "togri": "is wearing"
+  },
+  {
+   "savol": "Where ____ Klaus come from? — He comes from Germany.",
+   "variantlar": [
+    "does",
+    "is",
+    "has"
+   ],
+   "togri": "does"
+  },
+  {
+   "savol": "Klaus ____ on the 10 o'clock train this morning.",
+   "variantlar": [
+    "came",
+    "comes",
+    "is coming"
+   ],
+   "togri": "is coming"
+  },
+  {
+   "savol": "He ____ any children at the moment.",
+   "variantlar": [
+    "doesn't have",
+    "isn't having",
+    "don't have"
+   ],
+   "togri": "doesn't have"
+  },
+  {
+   "savol": "I ____ the dentist next Tuesday for a check-up.",
+   "variantlar": [
+    "see",
+    "saw",
+    "am seeing"
+   ],
+   "togri": "am seeing"
+  },
+  {
+   "savol": "I ____ what you mean, but I still disagree with you.",
+   "variantlar": [
+    "see",
+    "am seeing",
+    "seen"
+   ],
+   "togri": "see"
+  },
+  {
+   "savol": "I ____ about my exam tomorrow — I'm very nervous!",
+   "variantlar": [
+    "am thinking",
+    "thought",
+    "think"
+   ],
+   "togri": "am thinking"
+  },
+  {
+   "savol": "I ____ she is very clever and talented.",
+   "variantlar": [
+    "am thinking",
+    "thought",
+    "think"
+   ],
+   "togri": "think"
+  },
+  {
+   "savol": "The average British worker ____ £27,000 a year.",
+   "variantlar": [
+    "paying",
+    "is paid",
+    "pays"
+   ],
+   "togri": "is paid"
+  },
+  {
+   "savol": "Many jobs in the NHS ____ cut at the moment.",
+   "variantlar": [
+    "is being",
+    "are",
+    "are being"
+   ],
+   "togri": "are being"
+  },
+  {
+   "savol": "The workforce ____ up of 53% men and 47% women.",
+   "variantlar": [
+    "making",
+    "makes",
+    "is made"
+   ],
+   "togri": "is made"
+  },
+  {
+   "savol": "Service is not ____ in the restaurant bill.",
+   "variantlar": [
+    "included",
+    "include",
+    "including"
+   ],
+   "togri": "included"
+  },
+  {
+   "savol": "Nearly 50% of the food we buy in the UK ____ from abroad.",
+   "variantlar": [
+    "importing",
+    "imports",
+    "is imported"
+   ],
+   "togri": "is imported"
+  },
+  {
+   "savol": "The hotel is closed while the rooms ____ redecorated.",
+   "variantlar": [
+    "are",
+    "are being",
+    "is being"
+   ],
+   "togri": "are being"
+  },
+  {
+   "savol": "Footballers ____ far too much money these days.",
+   "variantlar": [
+    "is paid",
+    "are paid",
+    "pay"
+   ],
+   "togri": "are paid"
+  },
+  {
+   "savol": "Who ____ this mobile phone belong to?",
+   "variantlar": [
+    "does",
+    "is",
+    "has"
+   ],
+   "togri": "does"
+  },
+  {
+   "savol": "Dan Price took a big pay cut to give his staff a $70k ____ wage.",
+   "variantlar": [
+    "minimum",
+    "annual",
+    "maximum"
+   ],
+   "togri": "minimum"
+  },
+  {
+   "savol": "Many CEOs in big corporations are ____ for high profits.",
+   "variantlar": [
+    "grateful",
+    "greedy",
+    "patient"
+   ],
+   "togri": "greedy"
+  },
+  {
+   "savol": "Having credit card ____ can cause a lot of stress for families.",
+   "variantlar": [
+    "loan",
+    "debt",
+    "budget"
+   ],
+   "togri": "debt"
+  },
+  {
+   "savol": "Dan Price used to have a ____ lifestyle, travelling constantly.",
+   "variantlar": [
+    "rural",
+    "unkempt",
+    "jet-set"
+   ],
+   "togri": "jet-set"
+  },
+  {
+   "savol": "With his ____ hair and simple clothes, he doesn't look like a CEO.",
+   "variantlar": [
+    "dangled",
+    "unkempt",
+    "striped"
+   ],
+   "togri": "unkempt"
+  },
+  {
+   "savol": "I always sip my hot coffee slowly while reading the news. What does 'sip' mean?",
+   "variantlar": [
+    "Spoil",
+    "Pour fast",
+    "Drink in small amounts"
+   ],
+   "togri": "Drink in small amounts"
+  },
+  {
+   "savol": "Which piece of equipment is essential for cycling safely?",
+   "variantlar": [
+    "Helmet",
+    "Surfboard",
+    "Racket"
+   ],
+   "togri": "Helmet"
+  },
+  {
+   "savol": "Which equipment do you need for sewing or knitting?",
+   "variantlar": [
+    "Needle and thread",
+    "Drill",
+    "Screwdriver"
+   ],
+   "togri": "Needle and thread"
+  },
+  {
+   "savol": "Which item is used when going camping in a tent?",
+   "variantlar": [
+    "Store card",
+    "Tracksuit",
+    "Sleeping bag"
+   ],
+   "togri": "Sleeping bag"
+  },
+  {
+   "savol": "Which tool is used for doing DIY tasks at home?",
+   "variantlar": [
+    "Saddle",
+    "Screwdriver",
+    "Racket"
+   ],
+   "togri": "Screwdriver"
+  },
+  {
+   "savol": "What activity involves sitting on a saddle?",
+   "variantlar": [
+    "Horse riding",
+    "Yoga",
+    "Squash"
+   ],
+   "togri": "Horse riding"
+  },
+  {
+   "savol": "I'm bored with my routine. I think I'll ____ a new hobby like golf.",
+   "variantlar": [
+    "fill in",
+    "take up",
+    "turn off"
+   ],
+   "togri": "take up"
+  },
+  {
+   "savol": "Could you please help me ____ these children while I'm away?",
+   "variantlar": [
+    "look up",
+    "look after",
+    "try on"
+   ],
+   "togri": "look after"
+  },
+  {
+   "savol": "You need to ____ this application form before the interview.",
+   "variantlar": [
+    "find out",
+    "fill in",
+    "take off"
+   ],
+   "togri": "fill in"
+  },
+  {
+   "savol": "I must ____ these new jeans in the changing room first.",
+   "variantlar": [
+    "turn off",
+    "pick up",
+    "try on"
+   ],
+   "togri": "try on"
+  },
+  {
+   "savol": "Please ____ your dirty shoes before entering the house.",
+   "variantlar": [
+    "take off",
+    "look up",
+    "fill in"
+   ],
+   "togri": "take off"
+  },
+  {
+   "savol": "I get on very well ____ my work colleagues at the office.",
+   "variantlar": [
+    "for",
+    "with",
+    "to"
+   ],
+   "togri": "with"
+  },
+  {
+   "savol": "Can you ____ me up from the train station at 5 o'clock?",
+   "variantlar": [
+    "pick",
+    "take",
+    "find"
+   ],
+   "togri": "pick"
+  },
+  {
+   "savol": "If you don't know the word, ____ it up in the dictionary.",
+   "variantlar": [
+    "try",
+    "fill",
+    "look"
+   ],
+   "togri": "look"
+  },
+  {
+   "savol": "\"What do you think of Chicago?\" — \"It's a ____ city with amazing architecture.\"",
+   "variantlar": [
+    "rude",
+    "bad",
+    "great"
+   ],
+   "togri": "great"
+  },
+  {
+   "savol": "\"Where are you staying while in town?\" — \"At the Avenue Hotel, it's very ____ for the conference.\"",
+   "variantlar": [
+    "convenient",
+    "expensive",
+    "inconvenient"
+   ],
+   "togri": "convenient"
+  },
+  {
+   "savol": "How to soften the comment 'It's expensive'?",
+   "variantlar": [
+    "It's very cheap.",
+    "It's not expensive.",
+    "It's a bit expensive."
+   ],
+   "togri": "It's a bit expensive."
+  },
+  {
+   "savol": "How to soften 'They are rude'?",
+   "variantlar": [
+    "They aren't very friendly.",
+    "They are bad.",
+    "They are polite."
+   ],
+   "togri": "They aren't very friendly."
+  },
+  {
+   "savol": "\"I've got a cold. Aatchooo!\" — \"____ you!\"",
+   "variantlar": [
+    "Thank",
+    "Same",
+    "Bless"
+   ],
+   "togri": "Bless"
+  },
+  {
+   "savol": "What is the average annual salary for all jobs in Britain mentioned in Unit 3?",
+   "variantlar": [
+    "£27,000",
+    "£10,000",
+    "£50,000"
+   ],
+   "togri": "£27,000"
+  }
+ ],
+ "4": [
+  {
+   "savol": "Shakespeare ____ born in April 1564 in Stratford-upon-Avon.",
+   "variantlar": [
+    "had been",
+    "was being",
+    "was"
+   ],
+   "togri": "was"
+  },
+  {
+   "savol": "At that time, 200 people ____ by the plague in his hometown.",
+   "variantlar": [
+    "killed",
+    "had killed",
+    "were killed"
+   ],
+   "togri": "were killed"
+  },
+  {
+   "savol": "While Shakespeare ____ in London, his son Hamnet died.",
+   "variantlar": [
+    "was living",
+    "lived",
+    "had lived"
+   ],
+   "togri": "was living"
+  },
+  {
+   "savol": "By 1592, Shakespeare ____ a well-known actor and playwright.",
+   "variantlar": [
+    "had become",
+    "became",
+    "was becoming"
+   ],
+   "togri": "had become"
+  },
+  {
+   "savol": "The Globe Theatre ____ in 1599 by Shakespeare's acting company.",
+   "variantlar": [
+    "was built",
+    "built",
+    "had built"
+   ],
+   "togri": "was built"
+  },
+  {
+   "savol": "When we arrived at the theatre, they ____ the play.",
+   "variantlar": [
+    "have performed",
+    "were performing",
+    "perform"
+   ],
+   "togri": "were performing"
+  },
+  {
+   "savol": "When we arrived at the theatre, the play ____ already finished.",
+   "variantlar": [
+    "did",
+    "was",
+    "had"
+   ],
+   "togri": "had"
+  },
+  {
+   "savol": "When I was a child, I ____ play football with my dad every weekend.",
+   "variantlar": [
+    "was",
+    "use to",
+    "used to"
+   ],
+   "togri": "used to"
+  },
+  {
+   "savol": "What ____ you doing when you lost your smartphone yesterday?",
+   "variantlar": [
+    "did",
+    "had",
+    "were"
+   ],
+   "togri": "were"
+  },
+  {
+   "savol": "What did you do when you lost your phone? — I ____ it immediately.",
+   "variantlar": [
+    "was reporting",
+    "reported",
+    "had reported"
+   ],
+   "togri": "reported"
+  },
+  {
+   "savol": "A plane crashed because a flock of birds ____ into its engines.",
+   "variantlar": [
+    "flew",
+    "were flying",
+    "fly"
+   ],
+   "togri": "flew"
+  },
+  {
+   "savol": "Starlings ____ to the US in 1890 by Eugene Schieffelin.",
+   "variantlar": [
+    "introduced",
+    "were introduced",
+    "are introduced"
+   ],
+   "togri": "were introduced"
+  },
+  {
+   "savol": "Brigit ____ headphones when she noticed the young man on the Tube.",
+   "variantlar": [
+    "was wearing",
+    "had worn",
+    "wore"
+   ],
+   "togri": "was wearing"
+  },
+  {
+   "savol": "Brigit put the photo on social media because she ____ the young man.",
+   "variantlar": [
+    "couldn't forget",
+    "wasn't forgetting",
+    "had forgotten"
+   ],
+   "togri": "couldn't forget"
+  },
+  {
+   "savol": "Theo said that when his friend showed him the photo, he ____ it.",
+   "variantlar": [
+    "had already seen",
+    "saw",
+    "was seeing"
+   ],
+   "togri": "had already seen"
+  },
+  {
+   "savol": "Romeo and Juliet ____ first published in 1597.",
+   "variantlar": [
+    "were",
+    "was",
+    "had"
+   ],
+   "togri": "was"
+  },
+  {
+   "savol": "In Shakespeare's day, women ____ not allowed to act on stage.",
+   "variantlar": [
+    "did",
+    "were",
+    "had"
+   ],
+   "togri": "were"
+  },
+  {
+   "savol": "Jack was tired because he ____ late at the office all evening.",
+   "variantlar": [
+    "had been working",
+    "was working",
+    "works"
+   ],
+   "togri": "had been working"
+  },
+  {
+   "savol": "Jack had just pulled the driver out when the car ____.",
+   "variantlar": [
+    "exploded",
+    "was exploding",
+    "had exploded"
+   ],
+   "togri": "exploded"
+  },
+  {
+   "savol": "Mrs Balding fainted while two gardeners ____ her dog from the swans.",
+   "variantlar": [
+    "had rescued",
+    "rescued",
+    "were rescuing"
+   ],
+   "togri": "were rescuing"
+  },
+  {
+   "savol": "Shakespeare was buried in Stratford in 1616. What tense is 'was buried'?",
+   "variantlar": [
+    "Past Perfect",
+    "Past Simple passive",
+    "Past Continuous"
+   ],
+   "togri": "Past Simple passive"
+  },
+  {
+   "savol": "Our flight ____ by bad weather, so we arrived late.",
+   "variantlar": [
+    "was delaying",
+    "had been delayed",
+    "delayed"
+   ],
+   "togri": "had been delayed"
+  },
+  {
+   "savol": "____ it raining when you left the cinema last night?",
+   "variantlar": [
+    "Was",
+    "Did",
+    "Had"
+   ],
+   "togri": "Was"
+  },
+  {
+   "savol": "I couldn't understand what she was saying because she ____ an apple.",
+   "variantlar": [
+    "ate",
+    "was eating",
+    "had eaten"
+   ],
+   "togri": "was eating"
+  },
+  {
+   "savol": "We were going to get married ____ midnight on New Year's Eve.",
+   "variantlar": [
+    "in",
+    "at",
+    "on"
+   ],
+   "togri": "at"
+  },
+  {
+   "savol": "Shakespeare's father was a wealthy wool-trader. What does 'wealthy' mean?",
+   "variantlar": [
+    "Rich",
+    "Poor",
+    "Sick"
+   ],
+   "togri": "Rich"
+  },
+  {
+   "savol": "Oscar Wilde wrote the classic novel 'The Picture of ____ Gray'.",
+   "variantlar": [
+    "Henry",
+    "Dorian",
+    "Basil"
+   ],
+   "togri": "Dorian"
+  },
+  {
+   "savol": "Dorian Gray wished to sell his ____ to remain young forever.",
+   "variantlar": [
+    "fee",
+    "debt",
+    "soul"
+   ],
+   "togri": "soul"
+  },
+  {
+   "savol": "Basil Hallward was a well-known portrait ____.",
+   "variantlar": [
+    "doctor",
+    "actor",
+    "painter"
+   ],
+   "togri": "painter"
+  },
+  {
+   "savol": "Dorian ____ his former friend Alan Campbell into helping him.",
+   "variantlar": [
+    "blackmailed",
+    "congratulated",
+    "memorized"
+   ],
+   "togri": "blackmailed"
+  },
+  {
+   "savol": "In a fit of ____, Dorian stabbed his friend Basil to death.",
+   "variantlar": [
+    "cure",
+    "rage",
+    "guilt"
+   ],
+   "togri": "rage"
+  },
+  {
+   "savol": "To his horror, the portrait had become even more repulsive. What does 'repulsive' mean?",
+   "variantlar": [
+    "Young",
+    "Beautiful",
+    "Extremely ugly/disgusting"
+   ],
+   "togri": "Extremely ugly/disgusting"
+  },
+  {
+   "savol": "Eugene Schieffelin was ____ with Shakespeare's works and birds.",
+   "variantlar": [
+    "jealous",
+    "obsessed",
+    "frightened"
+   ],
+   "togri": "obsessed"
+  },
+  {
+   "savol": "The flock of starlings caused an ecological ____ in North America.",
+   "variantlar": [
+    "agreement",
+    "target",
+    "disaster"
+   ],
+   "togri": "disaster"
+  },
+  {
+   "savol": "Which pair of words are homophones (same sound, different spelling)?",
+   "variantlar": [
+    "wear / pair",
+    "threw / through",
+    "blood / food"
+   ],
+   "togri": "threw / through"
+  },
+  {
+   "savol": "What is the homophone for 'court' (where trials are held)?",
+   "variantlar": [
+    "cat",
+    "coat",
+    "caught"
+   ],
+   "togri": "caught"
+  },
+  {
+   "savol": "Complete the phrase: Congratulations on the ____ of your new baby!",
+   "variantlar": [
+    "dead",
+    "wedding",
+    "birth"
+   ],
+   "togri": "birth"
+  },
+  {
+   "savol": "Complete the sentence: My sister is getting ____ next month in London.",
+   "variantlar": [
+    "died",
+    "born",
+    "married"
+   ],
+   "togri": "married"
+  },
+  {
+   "savol": "Julius Caesar was stabbed to ____ by Brutus.",
+   "variantlar": [
+    "die",
+    "death",
+    "dying"
+   ],
+   "togri": "death"
+  },
+  {
+   "savol": "We use the preposition '____' for exact times like 8.00 and midnight.",
+   "variantlar": [
+    "at",
+    "on",
+    "in"
+   ],
+   "togri": "at"
+  },
+  {
+   "savol": "We use the preposition '____' for months and years (e.g. April, 2012).",
+   "variantlar": [
+    "at",
+    "on",
+    "in"
+   ],
+   "togri": "in"
+  },
+  {
+   "savol": "We use the preposition '____' for days and dates (e.g. Monday, August 17).",
+   "variantlar": [
+    "on",
+    "in",
+    "at"
+   ],
+   "togri": "on"
+  },
+  {
+   "savol": "\"What do you think of the new Bond film?\" — \"I think it's ____ fantastic!\"",
+   "variantlar": [
+    "absolutely",
+    "slightly",
+    "pretty"
+   ],
+   "togri": "absolutely"
+  },
+  {
+   "savol": "How do you express complete agreement with an opinion?",
+   "variantlar": [
+    "I totally agree.",
+    "I don't think so.",
+    "I'm not so sure."
+   ],
+   "togri": "I totally agree."
+  },
+  {
+   "savol": "Which phrase is used to soften a negative opinion about a movie?",
+   "variantlar": [
+    "It was completely rubbish.",
+    "I hated it.",
+    "It wasn't as good as the last one."
+   ],
+   "togri": "It wasn't as good as the last one."
+  },
+  {
+   "savol": "The moral of the story 'The Farmer and his Sons' is that hard work brings ____.",
+   "variantlar": [
+    "bad luck",
+    "illness",
+    "treasure/reward"
+   ],
+   "togri": "treasure/reward"
+  },
+  {
+   "savol": "What did the physician say about Henry King's disease in the poem?",
+   "variantlar": [
+    "Drink water.",
+    "There is no cure.",
+    "It is easy to fix."
+   ],
+   "togri": "There is no cure."
+  },
+  {
+   "savol": "What did Henry King swallow that tied itself in knots inside him?",
+   "variantlar": [
+    "Apples",
+    "String",
+    "Chocolate"
+   ],
+   "togri": "String"
+  },
+  {
+   "savol": "What kind of story begins with 'Once upon a time...'?",
+   "variantlar": [
+    "News report",
+    "Fairy story / Folk tale",
+    "Technical manual"
+   ],
+   "togri": "Fairy story / Folk tale"
+  },
+  {
+   "savol": "In 'The Picture of Dorian Gray', who was Sibyl Vane?",
+   "variantlar": [
+    "A doctor",
+    "A painter",
+    "A young Shakespearean actress"
+   ],
+   "togri": "A young Shakespearean actress"
+  }
+ ],
+ "5": [
+  {
+   "savol": "You ____ use your neighbour's Wi-Fi without asking her; it's wrong.",
+   "variantlar": [
+    "don't have to",
+    "mustn't",
+    "can"
+   ],
+   "togri": "mustn't"
+  },
+  {
+   "savol": "We ____ leave a tip if the service was awful; it's optional.",
+   "variantlar": [
+    "mustn't",
+    "shouldn't to",
+    "don't have to"
+   ],
+   "togri": "don't have to"
+  },
+  {
+   "savol": "You ____ talk during the exam; otherwise, you will be disqualified.",
+   "variantlar": [
+    "shouldn't to",
+    "don't have to",
+    "mustn't"
+   ],
+   "togri": "mustn't"
+  },
+  {
+   "savol": "I ____ get up at 6.30 a.m. anymore because I am retired.",
+   "variantlar": [
+    "mustn't",
+    "shouldn't to",
+    "don't have to"
+   ],
+   "togri": "don't have to"
+  },
+  {
+   "savol": "Children in Victorian England ____ go to school until 1880.",
+   "variantlar": [
+    "didn't have to",
+    "aren't allowed to",
+    "mustn't"
+   ],
+   "togri": "didn't have to"
+  },
+  {
+   "savol": "In 1880, all children ____ attend school until the age of 10.",
+   "variantlar": [
+    "must",
+    "have to",
+    "had to"
+   ],
+   "togri": "had to"
+  },
+  {
+   "savol": "Boys and girls ____ enter Victorian schools through different doors.",
+   "variantlar": [
+    "had to",
+    "must",
+    "have to"
+   ],
+   "togri": "had to"
+  },
+  {
+   "savol": "Children ____ talk or ask questions without permission in class.",
+   "variantlar": [
+    "must not to",
+    "didn't have to",
+    "weren't allowed to"
+   ],
+   "togri": "weren't allowed to"
+  },
+  {
+   "savol": "In Britain, you ____ buy alcohol or cigarettes until you are 18.",
+   "variantlar": [
+    "shouldn't to",
+    "can't",
+    "don't have to"
+   ],
+   "togri": "can't"
+  },
+  {
+   "savol": "Drivers ____ use a mobile phone while driving a car.",
+   "variantlar": [
+    "don't have to",
+    "can",
+    "mustn't"
+   ],
+   "togri": "mustn't"
+  },
+  {
+   "savol": "You ____ go to university classes to learn English, but it helps.",
+   "variantlar": [
+    "don't have to",
+    "mustn't",
+    "aren't allowed to"
+   ],
+   "togri": "don't have to"
+  },
+  {
+   "savol": "When I started work 30 years ago, we ____ use manual typewriters.",
+   "variantlar": [
+    "had to",
+    "have to",
+    "must"
+   ],
+   "togri": "had to"
+  },
+  {
+   "savol": "____ I leave early today? I need to catch a train.",
+   "variantlar": [
+    "Can",
+    "Have to",
+    "Must"
+   ],
+   "togri": "Can"
+  },
+  {
+   "savol": "What time ____ you have to be at work every morning?",
+   "variantlar": [
+    "are",
+    "do",
+    "have"
+   ],
+   "togri": "do"
+  },
+  {
+   "savol": "My phone is broken; do you think I ____ send it back?",
+   "variantlar": [
+    "must",
+    "should",
+    "have"
+   ],
+   "togri": "should"
+  },
+  {
+   "savol": "If you drop your phone in water, you ____ switch it off immediately.",
+   "variantlar": [
+    "can't",
+    "don't have to",
+    "must"
+   ],
+   "togri": "must"
+  },
+  {
+   "savol": "While the phone is drying in rice, you ____ keep opening the box.",
+   "variantlar": [
+    "mustn't",
+    "don't have to",
+    "should"
+   ],
+   "togri": "mustn't"
+  },
+  {
+   "savol": "You've got to help me out! What does 'have got to' mean?",
+   "variantlar": [
+    "don't have to",
+    "used to",
+    "have to"
+   ],
+   "togri": "have to"
+  },
+  {
+   "savol": "Which sentence expresses permission?",
+   "variantlar": [
+    "You must leave now.",
+    "You have to leave now.",
+    "You are allowed to leave now."
+   ],
+   "togri": "You are allowed to leave now."
+  },
+  {
+   "savol": "Which sentence expresses a strong personal obligation from the speaker?",
+   "variantlar": [
+    "I must get my hair cut today.",
+    "I have to wear a uniform at work.",
+    "I am allowed to go home."
+   ],
+   "togri": "I must get my hair cut today."
+  },
+  {
+   "savol": "'You don't have to pay to park here.' What does this mean?",
+   "variantlar": [
+    "It is illegal.",
+    "It is forbidden.",
+    "It is free."
+   ],
+   "togri": "It is free."
+  },
+  {
+   "savol": "'You mustn't park here.' What does this mean?",
+   "variantlar": [
+    "It is free.",
+    "It is optional.",
+    "It is forbidden/illegal."
+   ],
+   "togri": "It is forbidden/illegal."
+  },
+  {
+   "savol": "I couldn't go out yesterday because I ____ study for my test.",
+   "variantlar": [
+    "have to",
+    "had to",
+    "must"
+   ],
+   "togri": "had to"
+  },
+  {
+   "savol": "____ you allowed to take photos in this museum?",
+   "variantlar": [
+    "Have",
+    "Do",
+    "Are"
+   ],
+   "togri": "Are"
+  },
+  {
+   "savol": "In Singapore, you ____ buy or sell chewing gum.",
+   "variantlar": [
+    "don't have to",
+    "aren't allowed to",
+    "should"
+   ],
+   "togri": "aren't allowed to"
+  },
+  {
+   "savol": "In the philosophy lecture, what did the 'pebbles' represent?",
+   "variantlar": [
+    "Job and car",
+    "Video games and TV",
+    "Big, important things like family & health"
+   ],
+   "togri": "Big, important things like family & health"
+  },
+  {
+   "savol": "What did the 'sand' represent in the jar of pebbles story?",
+   "variantlar": [
+    "Family and friends",
+    "Health and passions",
+    "Small, unimportant stuff"
+   ],
+   "togri": "Small, unimportant stuff"
+  },
+  {
+   "savol": "Everyday jobs around the house (like cleaning or washing) are called ____.",
+   "variantlar": [
+    "lectures",
+    "priorities",
+    "chores"
+   ],
+   "togri": "chores"
+  },
+  {
+   "savol": "The class began to ____ when the professor brought out a can of beer.",
+   "variantlar": [
+    "giggle",
+    "soak",
+    "moan"
+   ],
+   "togri": "giggle"
+  },
+  {
+   "savol": "After a few minutes, the noise in the room began to ____ down.",
+   "variantlar": [
+    "turn",
+    "drop",
+    "die"
+   ],
+   "togri": "die"
+  },
+  {
+   "savol": "If you drop your phone in water, you should ____ it as fast as possible.",
+   "variantlar": [
+    "complain",
+    "ignore",
+    "rescue"
+   ],
+   "togri": "rescue"
+  },
+  {
+   "savol": "My mum brought ____ five children while working full-time.",
+   "variantlar": [
+    "over",
+    "up",
+    "off"
+   ],
+   "togri": "up"
+  },
+  {
+   "savol": "Her new business really took ____ last year and became successful.",
+   "variantlar": [
+    "off",
+    "through",
+    "up"
+   ],
+   "togri": "off"
+  },
+  {
+   "savol": "I was so tired that I dropped ____ to sleep during the movie.",
+   "variantlar": [
+    "off",
+    "up",
+    "out"
+   ],
+   "togri": "off"
+  },
+  {
+   "savol": "It took her a long time to get ____ the breakup with her boyfriend.",
+   "variantlar": [
+    "over",
+    "up",
+    "through"
+   ],
+   "togri": "over"
+  },
+  {
+   "savol": "Replace the noun with a pronoun: 'Try turning off the computer.'",
+   "variantlar": [
+    "Try turning off it.",
+    "Try turn it off.",
+    "Try turning it off."
+   ],
+   "togri": "Try turning it off."
+  },
+  {
+   "savol": "Phrasal verbs like 'look after' (take care of) are ____.",
+   "variantlar": [
+    "passive",
+    "inseparable",
+    "separable"
+   ],
+   "togri": "inseparable"
+  },
+  {
+   "savol": "'Do you get on well with your parents?' What does 'get on with' mean?",
+   "variantlar": [
+    "Travel together",
+    "Argue constantly",
+    "Have a good relationship"
+   ],
+   "togri": "Have a good relationship"
+  },
+  {
+   "savol": "I ran ____ an old school friend in the supermarket yesterday.",
+   "variantlar": [
+    "into",
+    "off",
+    "over"
+   ],
+   "togri": "into"
+  },
+  {
+   "savol": "In court, the person accused of a crime is called the ____.",
+   "variantlar": [
+    "judge",
+    "witness",
+    "defendant"
+   ],
+   "togri": "defendant"
+  },
+  {
+   "savol": "The twelve people who decide if the defendant is guilty or not guilty are the ____.",
+   "variantlar": [
+    "jury",
+    "lawyers",
+    "suspects"
+   ],
+   "togri": "jury"
+  },
+  {
+   "savol": "A person who saw the crime happen is called a ____.",
+   "variantlar": [
+    "victim",
+    "witness",
+    "judge"
+   ],
+   "togri": "witness"
+  },
+  {
+   "savol": "If the police have enough ____, they will charge the suspect with the crime.",
+   "variantlar": [
+    "sentence",
+    "divorce",
+    "evidence"
+   ],
+   "togri": "evidence"
+  },
+  {
+   "savol": "\"Would you mind moving your car?\" — \"____\"",
+   "variantlar": [
+    "Yes, I mind.",
+    "No, you can't.",
+    "Oh, sorry, I didn't realize you couldn't get out."
+   ],
+   "togri": "Oh, sorry, I didn't realize you couldn't get out."
+  },
+  {
+   "savol": "\"Is there any chance you could lend me £20?\" — \"____\"",
+   "variantlar": [
+    "Yes, go ahead.",
+    "I've only got £15. Would that be enough?",
+    "Not at all, it's stuffy."
+   ],
+   "togri": "I've only got £15. Would that be enough?"
+  },
+  {
+   "savol": "\"Would you mind if I opened the window?\" — \"____\"",
+   "variantlar": [
+    "Yes, please open it.",
+    "No, go ahead. It's very stuffy in here.",
+    "Thanks, that'd be great."
+   ],
+   "togri": "No, go ahead. It's very stuffy in here."
+  },
+  {
+   "savol": "\"Can I give you a hand with those heavy bags?\" — \"____\"",
+   "variantlar": [
+    "Sorry, I didn't know.",
+    "Thanks, that'd be great!",
+    "No, I don't want."
+   ],
+   "togri": "Thanks, that'd be great!"
+  },
+  {
+   "savol": "What is a polite way to ask for help?",
+   "variantlar": [
+    "You must help me!",
+    "Could you possibly help me?",
+    "Help me now!"
+   ],
+   "togri": "Could you possibly help me?"
+  },
+  {
+   "savol": "Most phone warranties do not cover ____ damage.",
+   "variantlar": [
+    "light",
+    "water",
+    "paper"
+   ],
+   "togri": "water"
+  },
+  {
+   "savol": "When giving instructions, which word is a time sequencer?",
+   "variantlar": [
+    "Because",
+    "First of all",
+    "Although"
+   ],
+   "togri": "First of all"
+  }
+ ],
+ "6": [
+  {
+   "savol": "Leonardo DiCaprio ____ in an eco-friendly apartment in New York since 2008.",
+   "variantlar": [
+    "has lived",
+    "lives",
+    "lived"
+   ],
+   "togri": "has lived"
+  },
+  {
+   "savol": "He ____ in Germany for a short time when he was a child.",
+   "variantlar": [
+    "lived",
+    "lives",
+    "has lived"
+   ],
+   "togri": "lived"
+  },
+  {
+   "savol": "How long ____ Victoria Pendleton been riding horses?",
+   "variantlar": [
+    "is",
+    "has",
+    "did"
+   ],
+   "togri": "has"
+  },
+  {
+   "savol": "His foundation ____ money to environmental causes for over two decades.",
+   "variantlar": [
+    "has been giving",
+    "gave",
+    "gives"
+   ],
+   "togri": "has been giving"
+  },
+  {
+   "savol": "Over $70 million ____ donated to conservation projects by his foundation.",
+   "variantlar": [
+    "has",
+    "was been",
+    "has been"
+   ],
+   "togri": "has been"
+  },
+  {
+   "savol": "Leonardo ____ nominated for an Oscar six times so far.",
+   "variantlar": [
+    "is",
+    "was",
+    "has been"
+   ],
+   "togri": "has been"
+  },
+  {
+   "savol": "His plane ____ a few minutes ago.",
+   "variantlar": [
+    "took off",
+    "has taken off",
+    "has been taking off"
+   ],
+   "togri": "took off"
+  },
+  {
+   "savol": "How many emails ____ you received today?",
+   "variantlar": [
+    "did",
+    "have",
+    "are"
+   ],
+   "togri": "have"
+  },
+  {
+   "savol": "Look at your dirty hands! You ____ fixing your bike, haven't you?",
+   "variantlar": [
+    "were",
+    "had",
+    "have been"
+   ],
+   "togri": "have been"
+  },
+  {
+   "savol": "A new CEO ____ appointed by the board of directors.",
+   "variantlar": [
+    "was being",
+    "has been",
+    "has"
+   ],
+   "togri": "has been"
+  },
+  {
+   "savol": "I ____ here since June. When did you start?",
+   "variantlar": [
+    "worked",
+    "have been working",
+    "work"
+   ],
+   "togri": "have been working"
+  },
+  {
+   "savol": "A huge snowstorm ____ hit New York, causing major delays.",
+   "variantlar": [
+    "is",
+    "was",
+    "has"
+   ],
+   "togri": "has"
+  },
+  {
+   "savol": "Over 40 centimetres of snow ____ in the past 12 hours.",
+   "variantlar": [
+    "has fallen",
+    "has been falling",
+    "fell"
+   ],
+   "togri": "has fallen"
+  },
+  {
+   "savol": "People ____ advised to stay indoors until the storm passes.",
+   "variantlar": [
+    "have been",
+    "were being",
+    "have"
+   ],
+   "togri": "have been"
+  },
+  {
+   "savol": "How long ____ you here for? — Three days. I leave tomorrow.",
+   "variantlar": [
+    "have been",
+    "are",
+    "were"
+   ],
+   "togri": "are"
+  },
+  {
+   "savol": "How long ____ you been here? — I've been here for a week.",
+   "variantlar": [
+    "were",
+    "have",
+    "are"
+   ],
+   "togri": "have"
+  },
+  {
+   "savol": "I ____ that book already; you can take it back.",
+   "variantlar": [
+    "readed",
+    "have read",
+    "have been reading"
+   ],
+   "togri": "have read"
+  },
+  {
+   "savol": "She's been ____ an interesting novel all afternoon.",
+   "variantlar": [
+    "read",
+    "reads",
+    "reading"
+   ],
+   "togri": "reading"
+  },
+  {
+   "savol": "Where's Mum? — She's ____ to the post office; she'll be back soon.",
+   "variantlar": [
+    "been",
+    "gone",
+    "went"
+   ],
+   "togri": "gone"
+  },
+  {
+   "savol": "You're home late! Where have you ____?",
+   "variantlar": [
+    "gone",
+    "went",
+    "been"
+   ],
+   "togri": "been"
+  },
+  {
+   "savol": "I've never ____ to Japan, but I'd love to go one day.",
+   "variantlar": [
+    "gone",
+    "went",
+    "been"
+   ],
+   "togri": "been"
+  },
+  {
+   "savol": "How long is it since we last ____?",
+   "variantlar": [
+    "meet",
+    "met",
+    "have met"
+   ],
+   "togri": "met"
+  },
+  {
+   "savol": "Excuse me! I haven't ____ my meal yet, please don't take the plate.",
+   "variantlar": [
+    "finished",
+    "finish",
+    "been finishing"
+   ],
+   "togri": "finished"
+  },
+  {
+   "savol": "Angela's just ____ promoted to area manager.",
+   "variantlar": [
+    "was",
+    "been",
+    "being"
+   ],
+   "togri": "been"
+  },
+  {
+   "savol": "The population of London ____ by 1.5 million in recent years.",
+   "variantlar": [
+    "rose",
+    "has risen",
+    "has been risen"
+   ],
+   "togri": "has risen"
+  },
+  {
+   "savol": "It was a clear night, and the stars were shining ____.",
+   "variantlar": [
+    "heavily",
+    "badly",
+    "brightly"
+   ],
+   "togri": "brightly"
+  },
+  {
+   "savol": "Why do you always drive so ____? Slow down!",
+   "variantlar": [
+    "fast",
+    "fastly",
+    "bright"
+   ],
+   "togri": "fast"
+  },
+  {
+   "savol": "He tries very ____, even though he is not a natural athlete.",
+   "variantlar": [
+    "fine",
+    "hard",
+    "hardly"
+   ],
+   "togri": "hard"
+  },
+  {
+   "savol": "Go ____ on, and you will see the town hall on your left.",
+   "variantlar": [
+    "rightly",
+    "straight",
+    "closely"
+   ],
+   "togri": "straight"
+  },
+  {
+   "savol": "Don't talk so ____! Everyone in the restaurant can hear you.",
+   "variantlar": [
+    "loud",
+    "softly",
+    "loudness"
+   ],
+   "togri": "loud"
+  },
+  {
+   "savol": "Dan always arrives ____; he is never on time.",
+   "variantlar": [
+    "lately",
+    "fine",
+    "late"
+   ],
+   "togri": "late"
+  },
+  {
+   "savol": "The clocks go ____ one hour in March in the UK.",
+   "variantlar": [
+    "forward",
+    "close",
+    "straight"
+   ],
+   "togri": "forward"
+  },
+  {
+   "savol": "Jadav Payeng planted thousands of tree ____ on the barren land.",
+   "variantlar": [
+    "crops",
+    "loggers",
+    "saplings"
+   ],
+   "togri": "saplings"
+  },
+  {
+   "savol": "When trees are cut down, the area becomes a ____ land where nothing grows.",
+   "variantlar": [
+    "gloomy",
+    "heartening",
+    "barren"
+   ],
+   "togri": "barren"
+  },
+  {
+   "savol": "Red ants improved the condition of the ____ so trees could survive.",
+   "variantlar": [
+    "soil",
+    "seeds",
+    "sand"
+   ],
+   "togri": "soil"
+  },
+  {
+   "savol": "People whose job is cutting down trees in forests are called ____.",
+   "variantlar": [
+    "explorers",
+    "jockeys",
+    "loggers"
+   ],
+   "togri": "loggers"
+  },
+  {
+   "savol": "Plants grown by farmers for food (like wheat or bananas) are called ____.",
+   "variantlar": [
+    "saplings",
+    "crops",
+    "seeds"
+   ],
+   "togri": "crops"
+  },
+  {
+   "savol": "To achieve or complete something successfully means to ____ it.",
+   "variantlar": [
+    "accomplish",
+    "weep",
+    "shelter"
+   ],
+   "togri": "accomplish"
+  },
+  {
+   "savol": "Ann Daniels took part in an expedition to walk to the North ____.",
+   "variantlar": [
+    "Forest",
+    "Mountain",
+    "Pole"
+   ],
+   "togri": "Pole"
+  },
+  {
+   "savol": "In extreme cold, explorers often suffer from pain and ____.",
+   "variantlar": [
+    "joy",
+    "optimism",
+    "agony"
+   ],
+   "togri": "agony"
+  },
+  {
+   "savol": "What is the ratio of humans to ants on planet Earth?",
+   "variantlar": [
+    "1 to 100",
+    "1 to 10",
+    "1 to 1.6 million"
+   ],
+   "togri": "1 to 1.6 million"
+  },
+  {
+   "savol": "How many hours does it take to hard boil an ostrich egg?",
+   "variantlar": [
+    "5 hours",
+    "1.5 hours",
+    "10 minutes"
+   ],
+   "togri": "1.5 hours"
+  },
+  {
+   "savol": "Which preposition follows 'difference'? There's a difference ____ A and B.",
+   "variantlar": [
+    "with",
+    "between",
+    "to"
+   ],
+   "togri": "between"
+  },
+  {
+   "savol": "There is an urgent need ____ more research into renewable energy.",
+   "variantlar": [
+    "in",
+    "on",
+    "for"
+   ],
+   "togri": "for"
+  },
+  {
+   "savol": "You need to improve your attitude ____ life and be more positive.",
+   "variantlar": [
+    "with",
+    "towards / to",
+    "by"
+   ],
+   "togri": "towards / to"
+  },
+  {
+   "savol": "What is the trouble ____ you? You never listen to advice!",
+   "variantlar": [
+    "on",
+    "to",
+    "with"
+   ],
+   "togri": "with"
+  },
+  {
+   "savol": "Congratulations ____ your wedding and engagement!",
+   "variantlar": [
+    "at",
+    "on",
+    "for"
+   ],
+   "togri": "on"
+  },
+  {
+   "savol": "He didn't break the glass by accident; he did it ____ purpose!",
+   "variantlar": [
+    "in",
+    "on",
+    "by"
+   ],
+   "togri": "on"
+  },
+  {
+   "savol": "We've seen a huge increase ____ sales this year.",
+   "variantlar": [
+    "on",
+    "at",
+    "in"
+   ],
+   "togri": "in"
+  },
+  {
+   "savol": "There are no rules for prepositions; you have to learn them ____ heart.",
+   "variantlar": [
+    "with",
+    "by",
+    "from"
+   ],
+   "togri": "by"
+  }
+ ],
+ "7": [
+  {
+   "savol": "I don't know how I managed ____ the exam.",
+   "variantlar": [
+    "fail",
+    "failing",
+    "to fail"
+   ],
+   "togri": "to fail"
+  },
+  {
+   "savol": "My tutors expected me ____ better than 9%.",
+   "variantlar": [
+    "to do",
+    "do",
+    "doing"
+   ],
+   "togri": "to do"
+  },
+  {
+   "savol": "The memory of that disastrous exam makes me ____.",
+   "variantlar": [
+    "shudder",
+    "to shudder",
+    "shuddering"
+   ],
+   "togri": "shudder"
+  },
+  {
+   "savol": "Biddy really hates ____ fish pie after her cookery exam.",
+   "variantlar": [
+    "make",
+    "making",
+    "to make"
+   ],
+   "togri": "making"
+  },
+  {
+   "savol": "Winston was particularly good at ____ maths and physics exams.",
+   "variantlar": [
+    "taking",
+    "take",
+    "to take"
+   ],
+   "togri": "taking"
+  },
+  {
+   "savol": "I didn't find it difficult ____ my exams at school.",
+   "variantlar": [
+    "to pass",
+    "passing",
+    "pass"
+   ],
+   "togri": "to pass"
+  },
+  {
+   "savol": "He remembered ____ the report before leaving the office.",
+   "variantlar": [
+    "emailing",
+    "email",
+    "to email"
+   ],
+   "togri": "to email"
+  },
+  {
+   "savol": "I remember ____ her for the first time at a rock concert.",
+   "variantlar": [
+    "to meet",
+    "meeting",
+    "meet"
+   ],
+   "togri": "meeting"
+  },
+  {
+   "savol": "They stopped ____ to each other after the big argument.",
+   "variantlar": [
+    "talk",
+    "talking",
+    "to talk"
+   ],
+   "togri": "talking"
+  },
+  {
+   "savol": "On their way home, they stopped ____ a coffee at a café.",
+   "variantlar": [
+    "having",
+    "to have",
+    "have"
+   ],
+   "togri": "to have"
+  },
+  {
+   "savol": "My parents made me ____ so much when I was a teenager.",
+   "variantlar": [
+    "suffer",
+    "to suffer",
+    "suffering"
+   ],
+   "togri": "suffer"
+  },
+  {
+   "savol": "I'll never forget ____ on that awful family picnic by the river.",
+   "variantlar": [
+    "going",
+    "go",
+    "to go"
+   ],
+   "togri": "going"
+  },
+  {
+   "savol": "They forced me ____ with them, even though I refused.",
+   "variantlar": [
+    "going",
+    "go",
+    "to go"
+   ],
+   "togri": "to go"
+  },
+  {
+   "savol": "I tried to persuade my mum ____ me borrow her car.",
+   "variantlar": [
+    "letting",
+    "to let",
+    "let"
+   ],
+   "togri": "to let"
+  },
+  {
+   "savol": "Did you go to the party? — No, I refused ____!",
+   "variantlar": [
+    "go",
+    "to",
+    "going"
+   ],
+   "togri": "to"
+  },
+  {
+   "savol": "Can you come to dinner next Sunday? — Oh yes, I'd love ____!",
+   "variantlar": [
+    "come",
+    "to",
+    "coming"
+   ],
+   "togri": "to"
+  },
+  {
+   "savol": "Maria asked Mark ____ the sentence for her.",
+   "variantlar": [
+    "translating",
+    "to translate",
+    "translate"
+   ],
+   "togri": "to translate"
+  },
+  {
+   "savol": "Mary reminded her son ____ a birthday card to his aunt.",
+   "variantlar": [
+    "to send",
+    "sending",
+    "send"
+   ],
+   "togri": "to send"
+  },
+  {
+   "savol": "The postman told me ____ on the dotted line.",
+   "variantlar": [
+    "to sign",
+    "signing",
+    "sign"
+   ],
+   "togri": "to sign"
+  },
+  {
+   "savol": "John invited his boss ____ to his wedding.",
+   "variantlar": [
+    "come",
+    "coming",
+    "to come"
+   ],
+   "togri": "to come"
+  },
+  {
+   "savol": "Dan offered ____ for the next round of drinks.",
+   "variantlar": [
+    "paying",
+    "pay",
+    "to pay"
+   ],
+   "togri": "to pay"
+  },
+  {
+   "savol": "Ben advised Bill ____ to his solicitor.",
+   "variantlar": [
+    "to talk",
+    "talk",
+    "talking"
+   ],
+   "togri": "to talk"
+  },
+  {
+   "savol": "He gave up ____ football after breaking his leg.",
+   "variantlar": [
+    "play",
+    "to play",
+    "playing"
+   ],
+   "togri": "playing"
+  },
+  {
+   "savol": "We are looking forward to ____ you next week.",
+   "variantlar": [
+    "to see",
+    "see",
+    "seeing"
+   ],
+   "togri": "seeing"
+  },
+  {
+   "savol": "My father let me ____ driving lessons when I was 17.",
+   "variantlar": [
+    "having",
+    "to have",
+    "have"
+   ],
+   "togri": "have"
+  },
+  {
+   "savol": "Why are my classmates giving me the cold ____?",
+   "variantlar": [
+    "shoulder",
+    "head",
+    "foot"
+   ],
+   "togri": "shoulder"
+  },
+  {
+   "savol": "We don't see eye to ____ about anything political.",
+   "variantlar": [
+    "head",
+    "eye",
+    "face"
+   ],
+   "togri": "eye"
+  },
+  {
+   "savol": "The physics lecture went straight over my ____.",
+   "variantlar": [
+    "mind",
+    "hair",
+    "head"
+   ],
+   "togri": "head"
+  },
+  {
+   "savol": "Don't waste your ____ trying to explain it to him.",
+   "variantlar": [
+    "words",
+    "time",
+    "breath"
+   ],
+   "togri": "breath"
+  },
+  {
+   "savol": "The party got completely out of ____ late at night.",
+   "variantlar": [
+    "control",
+    "hand",
+    "foot"
+   ],
+   "togri": "hand"
+  },
+  {
+   "savol": "They kicked up such a ____ when they saw the mess.",
+   "variantlar": [
+    "noise",
+    "fuss",
+    "fight"
+   ],
+   "togri": "fuss"
+  },
+  {
+   "savol": "My dad has got such a sweet ____; he eats chocolate every day.",
+   "variantlar": [
+    "tongue",
+    "tooth",
+    "mouth"
+   ],
+   "togri": "tooth"
+  },
+  {
+   "savol": "Don't worry, I was only pulling your ____!",
+   "variantlar": [
+    "leg",
+    "hand",
+    "arm"
+   ],
+   "togri": "leg"
+  },
+  {
+   "savol": "Which body part do you use to bite an apple?",
+   "variantlar": [
+    "lips",
+    "knees",
+    "teeth"
+   ],
+   "togri": "teeth"
+  },
+  {
+   "savol": "Soldiers ____ up and down during a military parade.",
+   "variantlar": [
+    "climb",
+    "march",
+    "kneel"
+   ],
+   "togri": "march"
+  },
+  {
+   "savol": "People ____ down on their knees to pray in church.",
+   "variantlar": [
+    "kneel",
+    "hug",
+    "kick"
+   ],
+   "togri": "kneel"
+  },
+  {
+   "savol": "Tim dropped ____ of university because he found it too hard.",
+   "variantlar": [
+    "out",
+    "down",
+    "off"
+   ],
+   "togri": "out"
+  },
+  {
+   "savol": "We have fallen ____ with our roommates over cleaning.",
+   "variantlar": [
+    "out",
+    "off",
+    "down"
+   ],
+   "togri": "out"
+  },
+  {
+   "savol": "If you don't hurry ____, we'll miss our flight!",
+   "variantlar": [
+    "out",
+    "off",
+    "up"
+   ],
+   "togri": "up"
+  },
+  {
+   "savol": "Please slow ____; you are driving way too fast!",
+   "variantlar": [
+    "up",
+    "out",
+    "down"
+   ],
+   "togri": "down"
+  },
+  {
+   "savol": "I need to cut ____ on the amount of sugar I eat.",
+   "variantlar": [
+    "out",
+    "down",
+    "off"
+   ],
+   "togri": "down"
+  },
+  {
+   "savol": "The fire died ____ because no one put wood on it.",
+   "variantlar": [
+    "off",
+    "out",
+    "down"
+   ],
+   "togri": "out"
+  },
+  {
+   "savol": "Look ____! The glass is going to fall off the table!",
+   "variantlar": [
+    "on",
+    "out",
+    "up"
+   ],
+   "togri": "out"
+  },
+  {
+   "savol": "____ a disaster! I dropped my phone in the toilet.",
+   "variantlar": [
+    "What",
+    "How",
+    "So"
+   ],
+   "togri": "What"
+  },
+  {
+   "savol": "____ disgusting! There is a caterpillar in my salad.",
+   "variantlar": [
+    "Such",
+    "What",
+    "How"
+   ],
+   "togri": "How"
+  },
+  {
+   "savol": "That's ____ nonsense! You shouldn't believe it.",
+   "variantlar": [
+    "how",
+    "so",
+    "such"
+   ],
+   "togri": "such"
+  },
+  {
+   "savol": "He's ____ a nice guy; everybody likes him.",
+   "variantlar": [
+    "so",
+    "such",
+    "how"
+   ],
+   "togri": "such"
+  },
+  {
+   "savol": "____ a pity you can't come to the party tonight!",
+   "variantlar": [
+    "So",
+    "What",
+    "How"
+   ],
+   "togri": "What"
+  },
+  {
+   "savol": "His lectures are ____ boring that I always fall asleep.",
+   "variantlar": [
+    "how",
+    "so",
+    "such"
+   ],
+   "togri": "so"
+  },
+  {
+   "savol": "Gordonstoun is a famous and expensive ____ school in Scotland.",
+   "variantlar": [
+    "state",
+    "nursery",
+    "boarding"
+   ],
+   "togri": "boarding"
+  }
+ ],
+ "8": [
+  {
+   "savol": "Some experts think the price of meat ____ double in the next ten years.",
+   "variantlar": [
+    "will be",
+    "is to",
+    "might"
+   ],
+   "togri": "might"
+  },
+  {
+   "savol": "Insects ____ definitely become an important part of all our diets.",
+   "variantlar": [
+    "might",
+    "will",
+    "may"
+   ],
+   "togri": "will"
+  },
+  {
+   "savol": "Don't worry, you ____ have to see bugs on your plate.",
+   "variantlar": [
+    "shan't",
+    "don't",
+    "won't"
+   ],
+   "togri": "won't"
+  },
+  {
+   "savol": "I'm visiting my sister next week, and I ____ try crispy insects!",
+   "variantlar": [
+    "'m definitely going to",
+    "will",
+    "may"
+   ],
+   "togri": "'m definitely going to"
+  },
+  {
+   "savol": "I'm sure you ____ pass your exams if you keep studying.",
+   "variantlar": [
+    "'ll",
+    "might",
+    "'re going to"
+   ],
+   "togri": "'ll"
+  },
+  {
+   "savol": "That was a terrible interview! I don't think they ____ offer me the job.",
+   "variantlar": [
+    "won't",
+    "will",
+    "may"
+   ],
+   "togri": "will"
+  },
+  {
+   "savol": "Look at those dark clouds! It ____ rain soon.",
+   "variantlar": [
+    "'s going to",
+    "might",
+    "will"
+   ],
+   "togri": "'s going to"
+  },
+  {
+   "savol": "I've got a headache. — Sit down, I ____ get you some paracetamol.",
+   "variantlar": [
+    "'m going to",
+    "'m getting",
+    "'ll"
+   ],
+   "togri": "'ll"
+  },
+  {
+   "savol": "Why are you wearing those old clothes? — Because I ____ paint the door.",
+   "variantlar": [
+    "'m painting",
+    "'m going to",
+    "'ll"
+   ],
+   "togri": "'m going to"
+  },
+  {
+   "savol": "Drive carefully! — Don't worry, I ____ call you as soon as I arrive.",
+   "variantlar": [
+    "'m going to",
+    "'ll",
+    "'m calling"
+   ],
+   "togri": "'ll"
+  },
+  {
+   "savol": "We ____ a picnic on the beach tomorrow; do you want to join us?",
+   "variantlar": [
+    "will have",
+    "have",
+    "'re having"
+   ],
+   "togri": "'re having"
+  },
+  {
+   "savol": "I'm organizing a surprise party! We ____ a special cake from the bakery.",
+   "variantlar": [
+    "'re getting",
+    "will get",
+    "get"
+   ],
+   "togri": "'re getting"
+  },
+  {
+   "savol": "My aunt and uncle ____ down on Saturday and staying in a hotel.",
+   "variantlar": [
+    "will drive",
+    "drive",
+    "are driving"
+   ],
+   "togri": "are driving"
+  },
+  {
+   "savol": "The weekend after, we ____ first class to New York!",
+   "variantlar": [
+    "fly",
+    "'re flying",
+    "will fly"
+   ],
+   "togri": "'re flying"
+  },
+  {
+   "savol": "All major car companies ____ self-driving models in the near future.",
+   "variantlar": [
+    "launched",
+    "are launching",
+    "will be launched"
+   ],
+   "togri": "are launching"
+  },
+  {
+   "savol": "Most experts agree we ____ see true driverless cars everywhere until 2030.",
+   "variantlar": [
+    "aren't",
+    "don't",
+    "won't"
+   ],
+   "togri": "won't"
+  },
+  {
+   "savol": "Self-driving cars ____ cause traffic jams if they are too cautious.",
+   "variantlar": [
+    "may",
+    "are",
+    "won't"
+   ],
+   "togri": "may"
+  },
+  {
+   "savol": "Machine intelligence ____ be the last invention humanity ever needs to make.",
+   "variantlar": [
+    "could",
+    "won't",
+    "is going"
+   ],
+   "togri": "could"
+  },
+  {
+   "savol": "Robots ____ never understand the beauty of the game the same way humans do.",
+   "variantlar": [
+    "might",
+    "will",
+    "are going to"
+   ],
+   "togri": "will"
+  },
+  {
+   "savol": "Do you think intelligent machines ____ take over many of our jobs?",
+   "variantlar": [
+    "are",
+    "will",
+    "do"
+   ],
+   "togri": "will"
+  },
+  {
+   "savol": "Are you driving to France? — We're not sure, we ____ fly this time.",
+   "variantlar": [
+    "are going to",
+    "will",
+    "might"
+   ],
+   "togri": "might"
+  },
+  {
+   "savol": "Sorry, I can't come tonight; I ____ late at the office.",
+   "variantlar": [
+    "'ll work",
+    "'m working",
+    "work"
+   ],
+   "togri": "'m working"
+  },
+  {
+   "savol": "I promise I ____ work harder nearer exam time.",
+   "variantlar": [
+    "'ll",
+    "'m going to",
+    "may"
+   ],
+   "togri": "'ll"
+  },
+  {
+   "savol": "I'm not going to have any wine tonight because I ____ everyone home.",
+   "variantlar": [
+    "'m driving",
+    "'ll drive",
+    "drive"
+   ],
+   "togri": "'m driving"
+  },
+  {
+   "savol": "We're 3-0 down, but I think we ____ still win!",
+   "variantlar": [
+    "will",
+    "are going to",
+    "could"
+   ],
+   "togri": "could"
+  },
+  {
+   "savol": "Fossil ____ like coal and gas will eventually run out.",
+   "variantlar": [
+    "fuels",
+    "turbines",
+    "reactors"
+   ],
+   "togri": "fuels"
+  },
+  {
+   "savol": "The UK has built the world's largest offshore wind ____.",
+   "variantlar": [
+    "farm",
+    "plant",
+    "panel"
+   ],
+   "togri": "farm"
+  },
+  {
+   "savol": "Solar ____ convert sunlight directly into electrical energy.",
+   "variantlar": [
+    "fuels",
+    "panels",
+    "turbines"
+   ],
+   "togri": "panels"
+  },
+  {
+   "savol": "What is the correct negative prefix for 'possible'?",
+   "variantlar": [
+    "un-",
+    "im-",
+    "dis-"
+   ],
+   "togri": "im-"
+  },
+  {
+   "savol": "Smoking in public indoor spaces is completely ____ (legal).",
+   "variantlar": [
+    "dislegal",
+    "unlegal",
+    "illegal"
+   ],
+   "togri": "illegal"
+  },
+  {
+   "savol": "The boy was knocked ____ (conscious) for 20 minutes after falling.",
+   "variantlar": [
+    "unconscious",
+    "disconscious",
+    "inconscious"
+   ],
+   "togri": "unconscious"
+  },
+  {
+   "savol": "It's an ____ (regular) verb, so you must memorize its past forms.",
+   "variantlar": [
+    "disregular",
+    "irregular",
+    "unregular"
+   ],
+   "togri": "irregular"
+  },
+  {
+   "savol": "She was very ____ (patient) with the customers and shouted at them.",
+   "variantlar": [
+    "dispatient",
+    "unpatient",
+    "impatient"
+   ],
+   "togri": "impatient"
+  },
+  {
+   "savol": "Money can't buy you real ____ (happy).",
+   "variantlar": [
+    "happiness",
+    "happyment",
+    "happyless"
+   ],
+   "togri": "happiness"
+  },
+  {
+   "savol": "Most accidents happen because people drive ____ (care).",
+   "variantlar": [
+    "carefully",
+    "carefulness",
+    "carelessly"
+   ],
+   "togri": "carelessly"
+  },
+  {
+   "savol": "I'm fed up ____ complaining about my job all the time.",
+   "variantlar": [
+    "about",
+    "with",
+    "of"
+   ],
+   "togri": "with"
+  },
+  {
+   "savol": "I've always been jealous ____ people who can sing well.",
+   "variantlar": [
+    "of",
+    "with",
+    "about"
+   ],
+   "togri": "of"
+  },
+  {
+   "savol": "I am really proud ____ your hard work and achievements.",
+   "variantlar": [
+    "with",
+    "of",
+    "for"
+   ],
+   "togri": "of"
+  },
+  {
+   "savol": "Lucy's met a nice guy, and I'm really happy ____ her.",
+   "variantlar": [
+    "about",
+    "with",
+    "for"
+   ],
+   "togri": "for"
+  },
+  {
+   "savol": "We are extremely excited ____ going on holiday to Norway.",
+   "variantlar": [
+    "for",
+    "about",
+    "with"
+   ],
+   "togri": "about"
+  },
+  {
+   "savol": "Vincent van Gogh is famous ____ painting sunflowers.",
+   "variantlar": [
+    "of",
+    "for",
+    "about"
+   ],
+   "togri": "for"
+  },
+  {
+   "savol": "Are you interested ____ learning more about renewable energy?",
+   "variantlar": [
+    "to",
+    "in",
+    "at"
+   ],
+   "togri": "in"
+  },
+  {
+   "savol": "He is guilty ____ committing the crime, according to the jury.",
+   "variantlar": [
+    "for",
+    "with",
+    "of"
+   ],
+   "togri": "of"
+  },
+  {
+   "savol": "The square was crowded ____ tourists from all over the world.",
+   "variantlar": [
+    "of",
+    "with",
+    "by"
+   ],
+   "togri": "with"
+  },
+  {
+   "savol": "I was wondering if we ____ meet on Friday evening?",
+   "variantlar": [
+    "will",
+    "could",
+    "would"
+   ],
+   "togri": "could"
+  },
+  {
+   "savol": "I'd love to go out, but Saturday evening is ____ for me.",
+   "variantlar": [
+    "out",
+    "away",
+    "off"
+   ],
+   "togri": "out"
+  },
+  {
+   "savol": "Why don't we ____ at the station and have breakfast?",
+   "variantlar": [
+    "meeting",
+    "to meet",
+    "meet"
+   ],
+   "togri": "meet"
+  },
+  {
+   "savol": "Shall we ____ it ten o'clock instead of half nine?",
+   "variantlar": [
+    "set",
+    "make",
+    "do"
+   ],
+   "togri": "make"
+  },
+  {
+   "savol": "Taylor Wilson built his own nuclear fusion ____ at age 14.",
+   "variantlar": [
+    "panel",
+    "turbine",
+    "reactor"
+   ],
+   "togri": "reactor"
+  },
+  {
+   "savol": "He didn't want to be called a shy ____ despite being a genius.",
+   "variantlar": [
+    "logger",
+    "plumber",
+    "geek"
+   ],
+   "togri": "geek"
+  }
+ ],
+ "9": [
+  {
+   "savol": "If I found £1 million in cash, I ____ take it to the police.",
+   "variantlar": [
+    "will",
+    "would",
+    "would have"
+   ],
+   "togri": "would"
+  },
+  {
+   "savol": "If the students ____ in a hurry, they might have noticed the injured man.",
+   "variantlar": [
+    "hadn't been",
+    "weren't",
+    "haven't been"
+   ],
+   "togri": "hadn't been"
+  },
+  {
+   "savol": "If I'd known you were vegetarian, I ____ cooked meat.",
+   "variantlar": [
+    "didn't",
+    "wouldn't have",
+    "won't have"
+   ],
+   "togri": "wouldn't have"
+  },
+  {
+   "savol": "If he hadn't been so rude, he ____ got the job.",
+   "variantlar": [
+    "might have",
+    "will have",
+    "has"
+   ],
+   "togri": "might have"
+  },
+  {
+   "savol": "You ____ pushed past him on the train; it was very rude.",
+   "variantlar": [
+    "couldn't have",
+    "shouldn't have",
+    "wouldn't have"
+   ],
+   "togri": "shouldn't have"
+  },
+  {
+   "savol": "If wearing a helmet had been mandatory, it ____ prevented his death.",
+   "variantlar": [
+    "will",
+    "would have",
+    "has"
+   ],
+   "togri": "would have"
+  },
+  {
+   "savol": "You're an idiot! You ____ killed someone driving like that!",
+   "variantlar": [
+    "will",
+    "should have",
+    "could have"
+   ],
+   "togri": "could have"
+  },
+  {
+   "savol": "I fell asleep on the train. — You ____ set the alarm on your phone!",
+   "variantlar": [
+    "would have",
+    "should have",
+    "might"
+   ],
+   "togri": "should have"
+  },
+  {
+   "savol": "If you ____ home earlier, you wouldn't have missed the bus.",
+   "variantlar": [
+    "had gone",
+    "went",
+    "have gone"
+   ],
+   "togri": "had gone"
+  },
+  {
+   "savol": "If I promise to do something, I ____ it.",
+   "variantlar": [
+    "did",
+    "do",
+    "would do"
+   ],
+   "togri": "do"
+  },
+  {
+   "savol": "If a friend gets in touch with me, I usually ____ straight away.",
+   "variantlar": [
+    "reply",
+    "would reply",
+    "replied"
+   ],
+   "togri": "reply"
+  },
+  {
+   "savol": "If she likes the dress, I ____ tell her it looks good.",
+   "variantlar": [
+    "would have",
+    "would",
+    "will"
+   ],
+   "togri": "will"
+  },
+  {
+   "savol": "My friends wouldn't tell me secrets if I ____ keep them.",
+   "variantlar": [
+    "don't",
+    "hadn't",
+    "didn't"
+   ],
+   "togri": "didn't"
+  },
+  {
+   "savol": "If I hadn't wanted the truth, I ____ asked your opinion.",
+   "variantlar": [
+    "won't have",
+    "wouldn't have",
+    "don't"
+   ],
+   "togri": "wouldn't have"
+  },
+  {
+   "savol": "Milk ____ off if you don't keep it in the fridge.",
+   "variantlar": [
+    "went",
+    "would go",
+    "goes"
+   ],
+   "togri": "goes"
+  },
+  {
+   "savol": "They ____ a house here if they had enough money.",
+   "variantlar": [
+    "bought",
+    "will buy",
+    "would buy"
+   ],
+   "togri": "would buy"
+  },
+  {
+   "savol": "Arsenal would have won if Chelsea ____ a late goal.",
+   "variantlar": [
+    "hadn't scored",
+    "didn't score",
+    "doesn't score"
+   ],
+   "togri": "hadn't scored"
+  },
+  {
+   "savol": "What ____ if you found a wallet with $500 in it?",
+   "variantlar": [
+    "would you do",
+    "will you do",
+    "did you do"
+   ],
+   "togri": "would you do"
+  },
+  {
+   "savol": "I ____ it to a newspaper if I didn't like the celebrity.",
+   "variantlar": [
+    "sold",
+    "will sell",
+    "would sell"
+   ],
+   "togri": "would sell"
+  },
+  {
+   "savol": "James ____ been a professional footballer, but he had a bad injury.",
+   "variantlar": [
+    "must",
+    "could have",
+    "should have"
+   ],
+   "togri": "could have"
+  },
+  {
+   "savol": "This is the house ____ has smart, modern furnishings.",
+   "variantlar": [
+    "where",
+    "which",
+    "whose"
+   ],
+   "togri": "which"
+  },
+  {
+   "savol": "There is a corner shop ____ you can buy everyday groceries.",
+   "variantlar": [
+    "which",
+    "whose",
+    "where"
+   ],
+   "togri": "where"
+  },
+  {
+   "savol": "Our neighbours are a couple ____ children often play outside.",
+   "variantlar": [
+    "who",
+    "whose",
+    "which"
+   ],
+   "togri": "whose"
+  },
+  {
+   "savol": "Best of all, there's an open fireplace ____ you can use for log fires.",
+   "variantlar": [
+    "that",
+    "whose",
+    "where"
+   ],
+   "togri": "that"
+  },
+  {
+   "savol": "Is that the girl ____ parents live at number 52?",
+   "variantlar": [
+    "whose",
+    "who",
+    "which"
+   ],
+   "togri": "whose"
+  },
+  {
+   "savol": "I'm going to ____ a nanny to look after the children while I'm at work.",
+   "variantlar": [
+    "rent",
+    "let",
+    "hire"
+   ],
+   "togri": "hire"
+  },
+  {
+   "savol": "We stayed in a lovely flat that we ____ for two weeks in Spain.",
+   "variantlar": [
+    "borrowed",
+    "rented",
+    "hired"
+   ],
+   "togri": "rented"
+  },
+  {
+   "savol": "Legoland has ____ from all over the world.",
+   "variantlar": [
+    "clients",
+    "visitors",
+    "guests"
+   ],
+   "togri": "visitors"
+  },
+  {
+   "savol": "We love having Glenna stay with us; she is such a wonderful ____.",
+   "variantlar": [
+    "visitor",
+    "host",
+    "guest"
+   ],
+   "togri": "guest"
+  },
+  {
+   "savol": "Choosing the right candidate for this job is a ____ decision.",
+   "variantlar": [
+    "heavy",
+    "harsh",
+    "difficult"
+   ],
+   "togri": "difficult"
+  },
+  {
+   "savol": "The fees at Gordonstoun school are extremely ____.",
+   "variantlar": [
+    "tall",
+    "heavy",
+    "high"
+   ],
+   "togri": "high"
+  },
+  {
+   "savol": "Thieves ____ the central bank and escaped with £50,000.",
+   "variantlar": [
+    "robbed",
+    "stole",
+    "took"
+   ],
+   "togri": "robbed"
+  },
+  {
+   "savol": "Edison ____ the electric light bulb.",
+   "variantlar": [
+    "discovered",
+    "found",
+    "invented"
+   ],
+   "togri": "invented"
+  },
+  {
+   "savol": "The drinks machine was out of ____.",
+   "variantlar": [
+    "order",
+    "job",
+    "work"
+   ],
+   "togri": "order"
+  },
+  {
+   "savol": "My mother is a fantastic ____; she makes great meals.",
+   "variantlar": [
+    "chef",
+    "cook",
+    "cooker"
+   ],
+   "togri": "cook"
+  },
+  {
+   "savol": "The ticket inspector ____ our tickets on the train.",
+   "variantlar": [
+    "tested",
+    "controlled",
+    "checked"
+   ],
+   "togri": "checked"
+  },
+  {
+   "savol": "Roma ____ Arsenal 2-1 in the cup final.",
+   "variantlar": [
+    "won",
+    "beat",
+    "gained"
+   ],
+   "togri": "beat"
+  },
+  {
+   "savol": "I need to ____ my hair before we go out.",
+   "variantlar": [
+    "wipe",
+    "wash",
+    "clean"
+   ],
+   "togri": "wash"
+  },
+  {
+   "savol": "I heard a strange ____ outside in the garden.",
+   "variantlar": [
+    "noisy",
+    "noise",
+    "voice"
+   ],
+   "togri": "noise"
+  },
+  {
+   "savol": "Can you ____ me £20 until tomorrow?",
+   "variantlar": [
+    "lend",
+    "take",
+    "borrow"
+   ],
+   "togri": "lend"
+  },
+  {
+   "savol": "May I ____ your umbrella for a few minutes?",
+   "variantlar": [
+    "borrow",
+    "lend",
+    "keep"
+   ],
+   "togri": "borrow"
+  },
+  {
+   "savol": "I was wondering if I could pay ____ credit card?",
+   "variantlar": [
+    "with",
+    "by",
+    "in"
+   ],
+   "togri": "by"
+  },
+  {
+   "savol": "He took out £100 ____ his bank account.",
+   "variantlar": [
+    "from",
+    "out",
+    "off"
+   ],
+   "togri": "from"
+  },
+  {
+   "savol": "She spends too much money ____ clothes every month.",
+   "variantlar": [
+    "for",
+    "in",
+    "on"
+   ],
+   "togri": "on"
+  },
+  {
+   "savol": "I am currently £200 ____ at the bank.",
+   "variantlar": [
+    "in fee",
+    "overdrawn",
+    "on credit"
+   ],
+   "togri": "overdrawn"
+  },
+  {
+   "savol": "That dress is beautiful, but it's completely out of my price ____.",
+   "variantlar": [
+    "limit",
+    "range",
+    "rate"
+   ],
+   "togri": "range"
+  },
+  {
+   "savol": "What is the current exchange ____ for euros to pounds?",
+   "variantlar": [
+    "fee",
+    "rate",
+    "price"
+   ],
+   "togri": "rate"
+  },
+  {
+   "savol": "Do you charge any ____ for changing foreign currency?",
+   "variantlar": [
+    "debt",
+    "fine",
+    "commission"
+   ],
+   "togri": "commission"
+  },
+  {
+   "savol": "If I bring the item back with the receipt, can I get a full ____?",
+   "variantlar": [
+    "discount",
+    "refund",
+    "change"
+   ],
+   "togri": "refund"
+  },
+  {
+   "savol": "I'm sorry, you've given me the wrong ____; I gave you a £20 note.",
+   "variantlar": [
+    "change",
+    "refund",
+    "cash"
+   ],
+   "togri": "change"
+  }
+ ],
+ "10": [
+  {
+   "savol": "Look at that man in uniform! He ____ be a soldier.",
+   "variantlar": [
+    "can't",
+    "must",
+    "might"
+   ],
+   "togri": "must"
+  },
+  {
+   "savol": "There ____ be four shelves in that picture; it's an optical illusion!",
+   "variantlar": [
+    "must",
+    "can't",
+    "might"
+   ],
+   "togri": "can't"
+  },
+  {
+   "savol": "Where is my phone? — I'm not sure, it ____ be in your bag.",
+   "variantlar": [
+    "might",
+    "can't",
+    "must"
+   ],
+   "togri": "might"
+  },
+  {
+   "savol": "He has two different eyes. He ____ looking straight at you.",
+   "variantlar": [
+    "can't",
+    "could be",
+    "must have"
+   ],
+   "togri": "could be"
+  },
+  {
+   "savol": "That girl looks so much ____ her mother.",
+   "variantlar": [
+    "similar",
+    "as",
+    "like"
+   ],
+   "togri": "like"
+  },
+  {
+   "savol": "This drawing doesn't look ____; the lines are bent.",
+   "variantlar": [
+    "like parallel",
+    "parallel",
+    "as parallel"
+   ],
+   "togri": "parallel"
+  },
+  {
+   "savol": "Sunflowers turn to follow the sun. — That ____ be true; that's their name!",
+   "variantlar": [
+    "couldn't",
+    "can't",
+    "must"
+   ],
+   "togri": "must"
+  },
+  {
+   "savol": "You ____ be hungry! We've just had a massive lunch.",
+   "variantlar": [
+    "might",
+    "can't",
+    "must"
+   ],
+   "togri": "can't"
+  },
+  {
+   "savol": "Paul's taking his umbrella because it ____ rain later.",
+   "variantlar": [
+    "might",
+    "can't",
+    "must"
+   ],
+   "togri": "might"
+  },
+  {
+   "savol": "Gary's car isn't in the drive, so he ____ be at home.",
+   "variantlar": [
+    "can't",
+    "must",
+    "could"
+   ],
+   "togri": "can't"
+  },
+  {
+   "savol": "Lara's not in class right now; she ____ be having coffee in the bar.",
+   "variantlar": [
+    "must",
+    "could",
+    "can't"
+   ],
+   "togri": "could"
+  },
+  {
+   "savol": "You got top marks in the test! — You ____ be joking!",
+   "variantlar": [
+    "might",
+    "can't",
+    "must"
+   ],
+   "togri": "must"
+  },
+  {
+   "savol": "Alex was furious because Hannah ____ forgotten her passport.",
+   "variantlar": [
+    "can't have",
+    "must have",
+    "should"
+   ],
+   "togri": "must have"
+  },
+  {
+   "savol": "The flight was delayed by four hours. They ____ been exhausted.",
+   "variantlar": [
+    "can't have",
+    "might",
+    "must have"
+   ],
+   "togri": "must have"
+  },
+  {
+   "savol": "Hannah was terrified during the flight because there ____ been severe turbulence.",
+   "variantlar": [
+    "can't have",
+    "must have",
+    "should"
+   ],
+   "togri": "must have"
+  },
+  {
+   "savol": "They ____ been in Spain because it rained every single day.",
+   "variantlar": [
+    "could",
+    "must have",
+    "can't have"
+   ],
+   "togri": "can't have"
+  },
+  {
+   "savol": "I can't find my keys! — You ____ dropped them in the street.",
+   "variantlar": [
+    "can't have",
+    "should",
+    "must have"
+   ],
+   "togri": "must have"
+  },
+  {
+   "savol": "The teacher is checking Maria's exercise. She ____ finished already!",
+   "variantlar": [
+    "must have",
+    "can't have",
+    "might"
+   ],
+   "togri": "can't have"
+  },
+  {
+   "savol": "Where is Kitty? — She's on her phone; she ____ calling her parents.",
+   "variantlar": [
+    "must have",
+    "can't",
+    "may be"
+   ],
+   "togri": "may be"
+  },
+  {
+   "savol": "Where is Leo? — He ____ doing his homework upstairs.",
+   "variantlar": [
+    "must have",
+    "must be",
+    "can't"
+   ],
+   "togri": "must be"
+  },
+  {
+   "savol": "What's that noise? — It ____ be an ambulance taking someone to hospital.",
+   "variantlar": [
+    "should",
+    "must",
+    "can't"
+   ],
+   "togri": "must"
+  },
+  {
+   "savol": "They look so sleepy; they ____ enjoyed the boring movie.",
+   "variantlar": [
+    "must have",
+    "might",
+    "can't have"
+   ],
+   "togri": "can't have"
+  },
+  {
+   "savol": "His arm is in a cast. He ____ had an accident while skiing.",
+   "variantlar": [
+    "should",
+    "can't have",
+    "must have"
+   ],
+   "togri": "must have"
+  },
+  {
+   "savol": "Moon Unit went missing in London and was found in Paris! She ____ crossed on a ferry.",
+   "variantlar": [
+    "might have",
+    "can't have",
+    "must"
+   ],
+   "togri": "might have"
+  },
+  {
+   "savol": "Marna and Sean ____ been very surprised when their lost cat was found 8 years later.",
+   "variantlar": [
+    "can't have",
+    "should",
+    "must have"
+   ],
+   "togri": "must have"
+  },
+  {
+   "savol": "We stayed in touch and built ____ a great friendship over the years.",
+   "variantlar": [
+    "off",
+    "up",
+    "out"
+   ],
+   "togri": "up"
+  },
+  {
+   "savol": "Can you put me ____ for the night while I'm in London?",
+   "variantlar": [
+    "off",
+    "up",
+    "out"
+   ],
+   "togri": "up"
+  },
+  {
+   "savol": "We made ____ a fictitious company name for the parcel.",
+   "variantlar": [
+    "up",
+    "out",
+    "off"
+   ],
+   "togri": "up"
+  },
+  {
+   "savol": "I worked it ____ — the journey in the box took 60 hours.",
+   "variantlar": [
+    "out",
+    "off",
+    "up"
+   ],
+   "togri": "out"
+  },
+  {
+   "savol": "I ended ____ buying the very first dress I tried on.",
+   "variantlar": [
+    "off",
+    "out",
+    "up"
+   ],
+   "togri": "up"
+  },
+  {
+   "savol": "I can't work ____ how to assemble this bookshelf.",
+   "variantlar": [
+    "up",
+    "off",
+    "out"
+   ],
+   "togri": "out"
+  },
+  {
+   "savol": "Don't worry, I'm sure things will work ____ well in the end.",
+   "variantlar": [
+    "up",
+    "out",
+    "off"
+   ],
+   "togri": "out"
+  },
+  {
+   "savol": "I work ____ at the local gym three times a week.",
+   "variantlar": [
+    "out",
+    "up",
+    "off"
+   ],
+   "togri": "out"
+  },
+  {
+   "savol": "Don't believe him; he made ____ that story to avoid punishment.",
+   "variantlar": [
+    "off",
+    "up",
+    "out"
+   ],
+   "togri": "up"
+  },
+  {
+   "savol": "They had a fight, but they kissed and made ____ shortly after.",
+   "variantlar": [
+    "out",
+    "off",
+    "up"
+   ],
+   "togri": "up"
+  },
+  {
+   "savol": "Eat ____ your vegetables or you won't get any dessert!",
+   "variantlar": [
+    "off",
+    "up",
+    "out"
+   ],
+   "togri": "up"
+  },
+  {
+   "savol": "We don't feel like cooking, so let's eat ____ tonight.",
+   "variantlar": [
+    "off",
+    "out",
+    "up"
+   ],
+   "togri": "out"
+  },
+  {
+   "savol": "I'm saving ____ to buy a new car next year.",
+   "variantlar": [
+    "out",
+    "off",
+    "up"
+   ],
+   "togri": "up"
+  },
+  {
+   "savol": "I need an accountant to help sort ____ my tax problems.",
+   "variantlar": [
+    "off",
+    "up",
+    "out"
+   ],
+   "togri": "out"
+  },
+  {
+   "savol": "Why don't you take ____ a new hobby like yoga?",
+   "variantlar": [
+    "up",
+    "off",
+    "out"
+   ],
+   "togri": "up"
+  },
+  {
+   "savol": "She fell ____ with her boyfriend after a stupid argument.",
+   "variantlar": [
+    "off",
+    "up",
+    "out"
+   ],
+   "togri": "out"
+  },
+  {
+   "savol": "Who came ____ with this brilliant business proposal?",
+   "variantlar": [
+    "out",
+    "up",
+    "off"
+   ],
+   "togri": "up"
+  },
+  {
+   "savol": "Have you found ____ what time the flight departs?",
+   "variantlar": [
+    "up",
+    "out",
+    "off"
+   ],
+   "togri": "out"
+  },
+  {
+   "savol": "Do you and your brother have a lot ____ common?",
+   "variantlar": [
+    "on",
+    "with",
+    "in"
+   ],
+   "togri": "in"
+  },
+  {
+   "savol": "I'm not really keen ____ horror movies.",
+   "variantlar": [
+    "in",
+    "on",
+    "at"
+   ],
+   "togri": "on"
+  },
+  {
+   "savol": "He is crazy ____ classical music and goes to concerts weekly.",
+   "variantlar": [
+    "about",
+    "on",
+    "for"
+   ],
+   "togri": "about"
+  },
+  {
+   "savol": "____, solo weddings are becoming very popular in Japan.",
+   "variantlar": [
+    "Utterly",
+    "Hardly",
+    "Apparently"
+   ],
+   "togri": "Apparently"
+  },
+  {
+   "savol": "____, I think getting married to oneself is a bit silly.",
+   "variantlar": [
+    "Clearly",
+    "Directly",
+    "Personally"
+   ],
+   "togri": "Personally"
+  },
+  {
+   "savol": "The Titanic struck an iceberg and sank on its ____ voyage.",
+   "variantlar": [
+    "virginity",
+    "firstly",
+    "maiden"
+   ],
+   "togri": "maiden"
+  },
+  {
+   "savol": "Incredibly, the ____ of the Titanic was discovered on the sea bed in 1985.",
+   "variantlar": [
+    "wreck",
+    "battle",
+    "flush"
+   ],
+   "togri": "wreck"
+  }
+ ],
+ "12": [
+  {
+   "savol": "The tramp told her that he ____ a watch, so he didn't know the time.",
+   "variantlar": [
+    "didn't have",
+    "won't have",
+    "doesn't have"
+   ],
+   "togri": "didn't have"
+  },
+  {
+   "savol": "The mayor asked where Joaquín García ____ for so many years.",
+   "variantlar": [
+    "had been working",
+    "is working",
+    "works"
+   ],
+   "togri": "had been working"
+  },
+  {
+   "savol": "García added that he ____ good use of his time by studying philosophy.",
+   "variantlar": [
+    "is making",
+    "will make",
+    "was making"
+   ],
+   "togri": "was making"
+  },
+  {
+   "savol": "The mayor told him that he ____ receive a medal for his service.",
+   "variantlar": [
+    "would not",
+    "doesn't",
+    "will not"
+   ],
+   "togri": "would not"
+  },
+  {
+   "savol": "The court ordered García ____ a fine of €27,000.",
+   "variantlar": [
+    "pay",
+    "to pay",
+    "paying"
+   ],
+   "togri": "to pay"
+  },
+  {
+   "savol": "She told me that she ____ looking for a new job.",
+   "variantlar": [
+    "will be",
+    "is",
+    "was"
+   ],
+   "togri": "was"
+  },
+  {
+   "savol": "I asked her if she ____ any job interviews yet.",
+   "variantlar": [
+    "had had",
+    "has had",
+    "have"
+   ],
+   "togri": "had had"
+  },
+  {
+   "savol": "She said she ____ for an interview the previous week.",
+   "variantlar": [
+    "has gone",
+    "had gone",
+    "went"
+   ],
+   "togri": "had gone"
+  },
+  {
+   "savol": "I asked her ____ me the official job description.",
+   "variantlar": [
+    "to show",
+    "showing",
+    "show"
+   ],
+   "togri": "to show"
+  },
+  {
+   "savol": "He asked if she'd accept the job. Here, 'd stands for ____.",
+   "variantlar": [
+    "did",
+    "had",
+    "would"
+   ],
+   "togri": "would"
+  },
+  {
+   "savol": "She asked if she'd accepted the job. Here, 'd stands for ____.",
+   "variantlar": [
+    "could",
+    "had",
+    "would"
+   ],
+   "togri": "had"
+  },
+  {
+   "savol": "Can you tell me what time ____ normally get up?",
+   "variantlar": [
+    "did you",
+    "you",
+    "do you"
+   ],
+   "togri": "you"
+  },
+  {
+   "savol": "I wonder where Angelina Jolie ____ born.",
+   "variantlar": [
+    "is",
+    "was",
+    "were"
+   ],
+   "togri": "was"
+  },
+  {
+   "savol": "I have no idea who her parents ____.",
+   "variantlar": [
+    "is",
+    "were",
+    "are"
+   ],
+   "togri": "are"
+  },
+  {
+   "savol": "Could you possibly tell me how much you ____ at your job?",
+   "variantlar": [
+    "earn",
+    "earning",
+    "do you earn"
+   ],
+   "togri": "earn"
+  },
+  {
+   "savol": "Would you mind telling me how much you ____ for that shirt?",
+   "variantlar": [
+    "paying",
+    "did you pay",
+    "paid"
+   ],
+   "togri": "paid"
+  },
+  {
+   "savol": "Do you know when the banks ____ in the evening?",
+   "variantlar": [
+    "do close",
+    "close",
+    "are closing"
+   ],
+   "togri": "close"
+  },
+  {
+   "savol": "I wonder ____ Kate is coming to the party tonight.",
+   "variantlar": [
+    "where",
+    "what",
+    "if"
+   ],
+   "togri": "if"
+  },
+  {
+   "savol": "Damian complained that the hotel ____ a construction site.",
+   "variantlar": [
+    "will be",
+    "had been",
+    "is"
+   ],
+   "togri": "had been"
+  },
+  {
+   "savol": "The travel agent told us that we ____ swim with dolphins.",
+   "variantlar": [
+    "will",
+    "can",
+    "could"
+   ],
+   "togri": "could"
+  },
+  {
+   "savol": "She asked me ____ I wanted to go out for a walk.",
+   "variantlar": [
+    "what",
+    "that",
+    "whether"
+   ],
+   "togri": "whether"
+  },
+  {
+   "savol": "The police officer told the children ____ run across the busy road.",
+   "variantlar": [
+    "not to",
+    "don't",
+    "to not"
+   ],
+   "togri": "not to"
+  },
+  {
+   "savol": "The bank manager asked her how much money she ____ to borrow.",
+   "variantlar": [
+    "does want",
+    "wants",
+    "wanted"
+   ],
+   "togri": "wanted"
+  },
+  {
+   "savol": "He wanted to know why she ____ to change her career path.",
+   "variantlar": [
+    "decides",
+    "does decide",
+    "decided"
+   ],
+   "togri": "decided"
+  },
+  {
+   "savol": "She explained that she ____ unable to finish the project due to illness.",
+   "variantlar": [
+    "will be",
+    "had been",
+    "is"
+   ],
+   "togri": "had been"
+  },
+  {
+   "savol": "My father doesn't approve ____ my new tattoo.",
+   "variantlar": [
+    "on",
+    "with",
+    "of"
+   ],
+   "togri": "of"
+  },
+  {
+   "savol": "The angry customer yelled ____ the shop assistant.",
+   "variantlar": [
+    "at",
+    "to",
+    "on"
+   ],
+   "togri": "at"
+  },
+  {
+   "savol": "He was accused ____ lying about his previous employment.",
+   "variantlar": [
+    "for",
+    "of",
+    "with"
+   ],
+   "togri": "of"
+  },
+  {
+   "savol": "I agree ____ you on most issues, but not politics.",
+   "variantlar": [
+    "for",
+    "with",
+    "to"
+   ],
+   "togri": "with"
+  },
+  {
+   "savol": "We discussed the new project ____ our regional manager.",
+   "variantlar": [
+    "with",
+    "to",
+    "about"
+   ],
+   "togri": "with"
+  },
+  {
+   "savol": "He insisted ____ paying the restaurant bill for everyone.",
+   "variantlar": [
+    "at",
+    "on",
+    "in"
+   ],
+   "togri": "on"
+  },
+  {
+   "savol": "The peaceful group of students were protesting ____ the war.",
+   "variantlar": [
+    "of",
+    "against",
+    "to"
+   ],
+   "togri": "against"
+  },
+  {
+   "savol": "He complimented his wife ____ her stylish new hairstyle.",
+   "variantlar": [
+    "on",
+    "for",
+    "with"
+   ],
+   "togri": "on"
+  },
+  {
+   "savol": "She whispered sweet words ____ his ear during the movie.",
+   "variantlar": [
+    "on",
+    "into",
+    "at"
+   ],
+   "togri": "into"
+  },
+  {
+   "savol": "The child screamed when he saw a giant spider ____ the bath.",
+   "variantlar": [
+    "at",
+    "in",
+    "on"
+   ],
+   "togri": "in"
+  },
+  {
+   "savol": "Don't worry about failing; you win some, you ____ some.",
+   "variantlar": [
+    "miss",
+    "drop",
+    "lose"
+   ],
+   "togri": "lose"
+  },
+  {
+   "savol": "Did you know that? Wow, you learn something new every ____!",
+   "variantlar": [
+    "time",
+    "week",
+    "day"
+   ],
+   "togri": "day"
+  },
+  {
+   "savol": "I left my smartphone on the bus! — It's not the end of the ____.",
+   "variantlar": [
+    "life",
+    "world",
+    "day"
+   ],
+   "togri": "world"
+  },
+  {
+   "savol": "We were both going to text each other at once. Great minds think ____!",
+   "variantlar": [
+    "alike",
+    "similar",
+    "same"
+   ],
+   "togri": "alike"
+  },
+  {
+   "savol": "I tried to reason with him, but it's like banging your head against a brick ____.",
+   "variantlar": [
+    "wall",
+    "door",
+    "floor"
+   ],
+   "togri": "wall"
+  },
+  {
+   "savol": "Pat is very sensible and practical; she has both feet on the ____.",
+   "variantlar": [
+    "ground",
+    "earth",
+    "floor"
+   ],
+   "togri": "ground"
+  },
+  {
+   "savol": "I'm exhausted from working all day! Let's call it a ____.",
+   "variantlar": [
+    "night",
+    "time",
+    "day"
+   ],
+   "togri": "day"
+  },
+  {
+   "savol": "Eugene Cernan was the last astronaut to walk on the ____.",
+   "variantlar": [
+    "moon",
+    "mars",
+    "sun"
+   ],
+   "togri": "moon"
+  },
+  {
+   "savol": "Christina Noble set up a foundation to help children in the ____ of Dublin and Vietnam.",
+   "variantlar": [
+    "offices",
+    "suburbs",
+    "slums"
+   ],
+   "togri": "slums"
+  },
+  {
+   "savol": "Giovanni left his career in law to live his dream as a Venetian ____.",
+   "variantlar": [
+    "lawyer",
+    "politician",
+    "gondolier"
+   ],
+   "togri": "gondolier"
+  },
+  {
+   "savol": "Call me later and ____ me how you did in your exam.",
+   "variantlar": [
+    "tell",
+    "say",
+    "speak"
+   ],
+   "togri": "tell"
+  },
+  {
+   "savol": "Can I ____ to you in private for a moment?",
+   "variantlar": [
+    "say",
+    "speak",
+    "tell"
+   ],
+   "togri": "speak"
+  },
+  {
+   "savol": "She ____ that she was going to be late because of traffic.",
+   "variantlar": [
+    "talked",
+    "told",
+    "said"
+   ],
+   "togri": "said"
+  },
+  {
+   "savol": "Max offered ____ give us a lift to the train station.",
+   "variantlar": [
+    "for",
+    "that",
+    "to"
+   ],
+   "togri": "to"
+  },
+  {
+   "savol": "Hannah suggested ____ outside on the patio since it was sunny.",
+   "variantlar": [
+    "eat",
+    "to eat",
+    "eating"
+   ],
+   "togri": "eating"
+  }
+ ]
+}

@@ -29,6 +29,7 @@ class Command(BaseCommand):
     # `beginner_testlari` shu klassni boshqa daraja/fixture bilan ishlatadi.
     DARAJA = "elementary"
     FIXTURE = FIXTURE
+    GRAMMAR_SONI = GRAMMAR_SONI  # Intermediate testlarida 25
 
     def add_arguments(self, parser):
         parser.add_argument("--qayta", action="store_true", help="Mavjud mashqlarni o'chirib qayta yozish")
@@ -47,6 +48,6 @@ class Command(BaseCommand):
                             continue
                         tests.mashqlar.all().delete()
                     test_mashqini_yarat(
-                        tests, savollar[:GRAMMAR_SONI], savollar[GRAMMAR_SONI:]
+                        tests, savollar[:self.GRAMMAR_SONI], savollar[self.GRAMMAR_SONI:]
                     )
                     self.stdout.write(f"Unit {raqam} > Tests: {len(savollar)} savol kiritildi")
