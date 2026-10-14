@@ -8,7 +8,8 @@ Idempotent: Tests tugunida mashq allaqachon bo'lsa — tegilmaydi."""
 from django.core.management import call_command
 from django.core.management.base import BaseCommand
 
-from courses.models import KursMashq, KursTugun
+from courses.models import KursTugun
+from courses.test_mashqi import test_mashqini_yarat
 
 # (savol, variantlar A-D, to'g'ri harf)
 GRAMMAR = [
@@ -45,10 +46,6 @@ VOCABULARY = [
     ("People live in a _____.", ["house", "bus", "phone", "sandwich"], "A"),
     ("A: Bye! B: _____!", ["See you later", "Good morning", "Hello", "Nice to meet you"], "A"),
 ]
-QISMLAR = [
-    ("PART 1: GRAMMAR (15 Questions)", GRAMMAR),
-    ("PART 2: VOCABULARY & EVERYDAY ENGLISH (15 Questions)", VOCABULARY),
-]
 
 
 def savollar(qatorlar):
@@ -73,7 +70,6 @@ class Command(BaseCommand):
         if tests.mashqlar.exists():
             self.stdout.write(f"{unit.nomi} > Tests: mashqlar allaqachon bor — tegilmadi")
             return
-        for i, (matn, qatorlar) in enumerate(QISMLAR, start=1):
-            KursMashq.objects.create(tugun=tests, tartib=i, matn=matn, savollar=savollar(qatorlar))
+        test_mashqini_yarat(tests, savollar(GRAMMAR), savollar(VOCABULARY))
         self.stdout.write(self.style.SUCCESS(
-            f"{unit.nomi} > Tests: {len(QISMLAR)} mashq, {sum(len(q) for _, q in QISMLAR)} savol kiritildi"))
+            f"{unit.nomi} > Tests: 1 mashq, {len(GRAMMAR) + len(VOCABULARY)} savol kiritildi"))

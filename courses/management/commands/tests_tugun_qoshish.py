@@ -2,11 +2,13 @@
 Unit'larga "Tests" tugunini qo'shadi (`games_tugun_qoshish` bilan bir xil
 naqsh).
 
-Idempotent: Unit'da "tests" kalitli farzand allaqachon bo'lsa — tegilmaydi."""
+Idempotent: Unit'da "tests" kalitli farzand allaqachon bo'lsa — tegilmaydi.
+2026-10-14: Tests Games'dan oldinga o'tkaziladi (pastga qarang)."""
 
 from django.core.management.base import BaseCommand
 
 from courses.models import KursTugun
+from courses.test_mashqi import test_mashqlarini_birlashtir
 
 
 class Command(BaseCommand):
@@ -32,3 +34,24 @@ class Command(BaseCommand):
             self.stdout.write(f"{unit.nomi}: Tests qo'shildi")
 
         self.stdout.write(self.style.SUCCESS(f"Tayyor: {qoshildi} ta Unit'ga Tests qo'shildi"))
+
+        # 2026-10-14, foydalanuvchi talabi: Tests Games'dan OLDIN turishi
+        # kerak. Games Tests'dan oldin turgan Unit'larda tartiblar
+        # almashtiriladi (idempotent — to'g'ri tartibdagilarga tegilmaydi).
+        almashdi = 0
+        for unit in KursTugun.objects.filter(unit_darsi=True):
+            tests = KursTugun.objects.filter(parent=unit, kalit="tests").first()
+            games = KursTugun.objects.filter(parent=unit, kalit="games").first()
+            if tests and games and games.tartib < tests.tartib:
+                tests.tartib, games.tartib = games.tartib, tests.tartib
+                tests.save(update_fields=["tartib"])
+                games.save(update_fields=["tartib"])
+                almashdi += 1
+        self.stdout.write(self.style.SUCCESS(f"Tests/Games o'rni almashdi: {almashdi} ta Unit"))
+
+        # 2026-10-14: ikki qismga (PART 1 / PART 2) bo'lingan testlar bitta
+        # mashqqa birlashtiriladi (`courses.test_mashqi`).
+        birlashdi = sum(
+            test_mashqlarini_birlashtir(t) for t in KursTugun.objects.filter(kalit="tests")
+        )
+        self.stdout.write(self.style.SUCCESS(f"Testlar bitta mashqqa birlashdi: {birlashdi} ta"))

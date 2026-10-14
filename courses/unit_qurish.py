@@ -37,7 +37,7 @@ UNIT_KITOBLARI = [("students_book", "Student's Book"), ("workbook", "Workbook")]
 
 def unit_ichki_tuzilmasini_yarat(unit):
     """Berilgan (bo'sh) Unit tuguni ostida Student's Book, Workbook,
-    umumiy Vocabulary, Games va Tests tugunlarini yaratadi — hech biri
+    umumiy Vocabulary, Tests va Games tugunlarini yaratadi — hech biri
     farzandga ega emas (barchasi "oxirgi qatlam")."""
     for i, (kitob_kalit, kitob_nomi) in enumerate(UNIT_KITOBLARI, start=1):
         KursTugun.objects.create(
@@ -48,11 +48,12 @@ def unit_ichki_tuzilmasini_yarat(unit):
         kalit="vocabulary", nomi="Vocabulary", parent=unit,
         markaz=unit.markaz, tartib=len(UNIT_KITOBLARI) + 1,
     )
+    # 2026-10-14, foydalanuvchi talabi: Tests Games'dan OLDIN turadi.
     KursTugun.objects.create(
-        kalit="games", nomi="Games", parent=unit,
+        kalit="tests", nomi="Tests", parent=unit,
         markaz=unit.markaz, tartib=len(UNIT_KITOBLARI) + 2,
     )
     KursTugun.objects.create(
-        kalit="tests", nomi="Tests", parent=unit,
+        kalit="games", nomi="Games", parent=unit,
         markaz=unit.markaz, tartib=len(UNIT_KITOBLARI) + 3,
     )

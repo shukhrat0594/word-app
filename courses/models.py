@@ -348,6 +348,12 @@ class KursSoz(models.Model):
     class Manba(models.TextChoices):
         STUDENTS_BOOK = "students_book", "Student's Book"
         WORKBOOK = "workbook", "Workbook"
+        # 2026-10-11, foydalanuvchi talabi: Headway Wordlist PDF'laridan
+        # (`Headway/Wordlist/`, `headway_wordlist_yukla` buyrug'i) kelgan
+        # so'zlar. Shu manbali so'z bor Vocabulary'ga kitob yuklashlari
+        # (AI/ZIP/blok) o'z so'zlarini QO'SHMAYDI — Wordlist ro'yxatni
+        # to'liq almashtirgan (`wordlist_bormi`).
+        WORDLIST = "wordlist", "Wordlist"
 
     tugun = models.ForeignKey(KursTugun, on_delete=models.CASCADE, related_name="sozlar")
     tartib = models.PositiveSmallIntegerField(default=0)
@@ -383,6 +389,13 @@ class KursSoz(models.Model):
 
     def __str__(self):
         return f"{self.tugun.nomi} — {self.en}"
+
+    @classmethod
+    def wordlist_bormi(cls, vocab_tugun):
+        """Vocabulary allaqachon Headway Wordlist bilan to'ldirilganmi —
+        bo'lsa kitob yuklashlari so'z qo'shmasligi kerak (dublikat va
+        aralash ro'yxat bo'lmasin)."""
+        return cls.objects.filter(tugun=vocab_tugun, manba=cls.Manba.WORDLIST).exists()
 
 
 class KursMashqYechim(models.Model):

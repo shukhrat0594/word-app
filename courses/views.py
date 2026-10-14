@@ -1051,7 +1051,8 @@ def _tugun_import_qil(daraxt, ota, markaz, zf, toliq=False, ildiz_kalitlari=None
         vocab.save(update_fields=[matn_maydoni])
         kitob_eski_ru = _eski_ru_xaritasi(vocab.sozlar.filter(manba=tugun.kalit))
         vocab.sozlar.filter(manba=tugun.kalit).delete()
-        KursSoz.objects.bulk_create([
+        # Wordlist bilan to'ldirilgan Vocabulary'ga kitob so'zlari qaytmaydi.
+        KursSoz.objects.bulk_create([] if KursSoz.wordlist_bormi(vocab) else [
             KursSoz(
                 tugun=vocab, tartib=s["tartib"], en=s["en"], uz=s["uz"],
                 ru=_ru_saqlab(s.get("ru", ""), tugun.kalit, s["en"], kitob_eski_ru),
@@ -1168,6 +1169,211 @@ class KursImportView(APIView):
             snapshot={"ota": ota.nomi},
         )
         return Response({"id": yangi_tugun.id, "nomi": yangi_tugun.nomi}, status=201)
+
+
+# === Kurslar bo'limining umumiy Saqlash/Yuklash'i (2026-10-11) ===
+# Foydalanuvchi talabi: Kurslar sahifasi tepasida "Saqlash" — ierarxik
+# oynada keraklilarini belgilab, faqat shularni bitta ZIPga saqlash;
+# "Yuklash" — tanlangan fayldagi HAMMA narsani yuklash, saytda mavjud
+# bo'lganlari uchun "o'rniga yuklaymi?" deb so'rash (IELTS testlari
+# importidagi naqsh).
+#
+# Format — "ZIP ichida ZIP" (`_bolingan_eksport` bilan bir xil sabab:
+# butun daraja yuzlab MB, bitta import so'roviga sig'maydi):
+#
+#     manifest.json      — {"format": "kurslar_tanlov", "elementlar": [...]}
+#     qismlar/NNN.zip    — har element `KursImportView` formatidagi ZIP
+#
+# Element = bitta tugun + uning ota-zanjiri (`yol`, ildiz "Kurslar"
+# tugunisiz). Tanlangan tugun ichida Unit'lar bo'lsa (Fan/Daraja), u
+# Unit'larga bo'linadi: tugunning O'ZI farzandlarsiz (`toliq=False`)
+# alohida element, har Unit esa o'z elementi. Brauzer elementlarni
+# bittalab yuboradi, server esa ota-zanjir bo'yicha joyini topadi
+# (yo'q bo'lsa yaratadi) — shuning uchun fayl istalgan bazaga tushadi.
+TANLOV_FORMAT = "kurslar_tanlov"
+
+
+def _kurslar_ildizi():
+    return KursTugun.objects.filter(parent=None).order_by("tartib", "id").first()
+
+
+def _tugun_meta(t):
+    return {
+        "kalit": t.kalit, "nomi": t.nomi, "ikonka": t.ikonka, "tartib": t.tartib,
+        "tez_kunda": t.tez_kunda, "unit_darsi": t.unit_darsi,
+    }
+
+
+def _ota_zanjiri(tugun):
+    """Ildiz ("Kurslar")dan keyingi ota-tugunlar, yuqoridan pastga."""
+    zanjir = []
+    node = tugun.parent
+    while node and node.parent_id:
+        zanjir.append(node)
+        node = node.parent
+    return list(reversed(zanjir))
+
+
+def _saqlash_elementlari(tugun):
+    """Ichida Unit bo'lgan (lekin o'zi Unit bo'lmagan) tugun bo'linadi —
+    o'zi farzandlarsiz + har farzandi alohida; qolganlari butunligicha."""
+    ichida_unit = (
+        not tugun.unit_darsi
+        and KursTugun.objects.filter(id__in=_shox_idlari(tugun), unit_darsi=True).exists()
+    )
+    if not ichida_unit:
+        return [(tugun, True)]
+    natija = [(tugun, False)]
+    for bola in tugun.children.order_by("tartib", "id"):
+        natija += _saqlash_elementlari(bola)
+    return natija
+
+
+class KursTanlovSaqlashView(APIView):
+    """GET ?idlar=1,2,3 — belgilangan tugunlarni bitta ZIPga yig'adi.
+    Frontend faqat "eng yuqori to'liq belgilangan" tugunlarni yuboradi
+    (butun Unit belgilangan bo'lsa — Unit, bo'limlari emas)."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if not _mashq_admin_mi(request.user):
+            return Response({"detail": "Faqat admin/owner uchun"}, status=403)
+        try:
+            idlar = [int(x) for x in request.query_params.get("idlar", "").split(",") if x]
+        except ValueError:
+            return Response({"detail": "idlar noto'g'ri"}, status=400)
+        tugunlar = {t.id: t for t in KursTugun.objects.filter(id__in=idlar, parent__isnull=False)}
+        tanlangan = [tugunlar[i] for i in idlar if i in tugunlar]
+        if not tanlangan:
+            return Response({"detail": "Hech narsa tanlanmagan"}, status=400)
+
+        bufer = tempfile.SpooledTemporaryFile(max_size=16 * 1024 * 1024)
+        elementlar = []
+        with zipfile.ZipFile(bufer, "w", zipfile.ZIP_STORED) as tashqi:
+            for asosiy in tanlangan:
+                for tugun, toliq in _saqlash_elementlari(asosiy):
+                    ichki = tempfile.SpooledTemporaryFile(max_size=16 * 1024 * 1024)
+                    _tugun_zip_yoz(tugun, ichki, farzandlar=toliq)
+                    nom = f"qismlar/{len(elementlar) + 1:03d}.zip"
+                    _ichki_zip_qosh(tashqi, nom, ichki)
+                    elementlar.append({
+                        "yol": [_tugun_meta(n) for n in _ota_zanjiri(tugun)],
+                        "kalit": tugun.kalit,
+                        "nomi": tugun.nomi,
+                        "unit_darsi": tugun.unit_darsi,
+                        "toliq": toliq,
+                        "fayl": nom,
+                    })
+            tashqi.writestr("manifest.json", json.dumps(
+                {"format": TANLOV_FORMAT, "elementlar": elementlar},
+                ensure_ascii=False, indent=1,
+            ))
+        bufer.seek(0)
+
+        logla(
+            foydalanuvchi=request.user,
+            harakat=FaoliyatYozuvi.Harakat.YARATISH,
+            obyekt=tanlangan[0],
+            obyekt_turi="KursTugun",
+            obyekt_nomi=f"Saqlash: {', '.join(t.nomi for t in tanlangan)}"[:250],
+            snapshot={"elementlar": len(elementlar)},
+        )
+        javob = FileResponse(bufer, content_type="application/zip")
+        javob["Content-Disposition"] = 'attachment; filename="kurslar_saqlash.zip"'
+        return javob
+
+
+def _yol_bilan_top(yol, kalit):
+    """`yol` (kalitlar zanjiri) bo'yicha tugunni topadi; yo'q bo'lsa None."""
+    node = _kurslar_ildizi()
+    for k in [*yol, kalit]:
+        if not node:
+            return None
+        node = node.children.filter(kalit=k).first()
+    return node
+
+
+def _bosh_emasmi(t):
+    return bool(
+        t.children.exists() or t.mashqlar.exists() or t.sozlar.exists()
+        or t.matn or t.matn_workbook or t.fayl
+    )
+
+
+class KursTanlovTekshirView(APIView):
+    """POST {"elementlar": [{"yol": [kalit...], "kalit": ...}]} — har
+    element uchun saytda kontentli tugun bormi (`mavjud`). Yuklashdan
+    OLDIN chaqiriladi, hech narsa o'zgartirmaydi."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        if not _mashq_admin_mi(request.user):
+            return Response({"detail": "Faqat admin/owner uchun"}, status=403)
+        elementlar = request.data.get("elementlar")
+        if not isinstance(elementlar, list):
+            return Response({"detail": "'elementlar' massiv bo'lishi kerak"}, status=400)
+        natija = []
+        for e in elementlar:
+            t = _yol_bilan_top(e.get("yol") or [], e.get("kalit"))
+            natija.append({"mavjud": bool(t and _bosh_emasmi(t))})
+        return Response(natija)
+
+
+class KursTanlovYuklashView(APIView):
+    """Bitta element: `fayl` (ichki ZIP), `yol` (ota-zanjir meta JSON),
+    `toliq`. Ota-zanjir bo'yicha joy topiladi, yo'q tugunlar yaratiladi.
+    `toliq=1` — tugun ZIPdagi holatning aynan nusxasiga aylanadi
+    (o'rniga yuklash); `toliq=0` — faqat tugunning o'z maydonlari
+    (bo'lingan Fan/Daraja), farzandlariga tegilmaydi."""
+
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request):
+        if not _mashq_admin_mi(request.user):
+            return Response({"detail": "Faqat admin/owner uchun"}, status=403)
+        fayl = request.FILES.get("fayl")
+        if not fayl:
+            return Response({"detail": "fayl majburiy"}, status=400)
+        try:
+            yol = json.loads(request.data.get("yol") or "[]")
+        except json.JSONDecodeError:
+            return Response({"detail": "yol noto'g'ri"}, status=400)
+        toliq = str(request.data.get("toliq", "")).lower() in ("1", "true", "ha")
+        ildiz = _kurslar_ildizi()
+        if not ildiz:
+            return Response({"detail": "Kurslar daraxti topilmadi"}, status=400)
+
+        try:
+            with zipfile.ZipFile(fayl) as zf, transaction.atomic():
+                daraxt = json.loads(zf.read("data.json").decode("utf-8"))
+                ota = ildiz
+                for meta in yol:
+                    bola = ota.children.filter(kalit=meta["kalit"]).first()
+                    if not bola:
+                        bola = KursTugun.objects.create(
+                            parent=ota, markaz=ildiz.markaz, kalit=meta["kalit"],
+                            nomi=meta.get("nomi") or meta["kalit"],
+                            ikonka=meta.get("ikonka", ""), tartib=meta.get("tartib", 0),
+                            tez_kunda=meta.get("tez_kunda", False),
+                            unit_darsi=meta.get("unit_darsi", False),
+                        )
+                    ota = bola
+                yangi = _tugun_import_qil(daraxt, ota, ildiz.markaz, zf, toliq=toliq)
+        except (zipfile.BadZipFile, KeyError, json.JSONDecodeError) as exc:
+            return Response({"detail": f"ZIP fayl noto'g'ri: {exc}"}, status=400)
+
+        logla(
+            foydalanuvchi=request.user,
+            harakat=FaoliyatYozuvi.Harakat.YARATISH,
+            obyekt=yangi,
+            obyekt_turi="KursTugun",
+            obyekt_nomi=f"Yuklash: {yangi.nomi}",
+            snapshot={"toliq": toliq},
+        )
+        return Response({"id": yangi.id, "nomi": yangi.nomi}, status=201)
 
 
 class KursUnitTozalashView(APIView):
@@ -1490,6 +1696,8 @@ class KursUnitYuklashView(APIView):
             vocab_tugun = bolalar.get("vocabulary")
             if not vocab_tugun:
                 return Response({"detail": "Bu Unit'da Vocabulary bo'limi topilmadi"}, status=400)
+            if KursSoz.wordlist_bormi(vocab_tugun):
+                wordlist = []
             boshlangich = vocab_tugun.sozlar.count()
             yangi_sozlar = []
             for i, s in enumerate(wordlist, start=1):
@@ -1674,6 +1882,8 @@ class KursZipYuklashView(APIView):
         if grammar_matnlari:
             setattr(vocab_tugun, matn_maydoni, "\n\n".join(grammar_matnlari))
             vocab_tugun.save(update_fields=[matn_maydoni])
+        if KursSoz.wordlist_bormi(vocab_tugun):
+            yangi_sozlar = []  # Wordlist bilan to'ldirilgan — kitob so'zlari qo'shilmaydi
         if yangi_sozlar:
             KursSoz.objects.bulk_create(yangi_sozlar)
 
