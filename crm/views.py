@@ -438,6 +438,7 @@ class KursNarxlariView(CrmView):
                     "daraja": d.nomi,
                     "fan": d.parent.nomi if d.parent_id else None,
                     "narx": getattr(d, "crm_narxi", None).narx if hasattr(d, "crm_narxi") else None,
+                    "dars_uchun": d.crm_narxi.dars_uchun if hasattr(d, "crm_narxi") else False,
                     "guruh_soni": guruh_sonlari.get(d.id, 0),
                     # 🗑 tugmasi faqat bo'sh va guruhsiz kursda (`_kurs_ochirilmasligi`).
                     "ochirsa_boladi": d.id not in band,
@@ -463,9 +464,11 @@ class KursNarxlariView(CrmView):
         if narx <= 0:
             return _xato("Narx noldan katta bo'lishi kerak")
 
-        yozuv, _ = KursNarxi.objects.update_or_create(
-            daraja=daraja, defaults={"narx": narx}
-        )
+        defaults = {"narx": narx}
+        # Bermasa — eski belgi saqlanadi (faqat narx o'zgartirilgan).
+        if "dars_uchun" in request.data:
+            defaults["dars_uchun"] = bool(request.data.get("dars_uchun"))
+        yozuv, _ = KursNarxi.objects.update_or_create(daraja=daraja, defaults=defaults)
         logla(
             foydalanuvchi=request.user,
             harakat=FaoliyatYozuvi.Harakat.OZGARTIRISH,
@@ -474,7 +477,7 @@ class KursNarxlariView(CrmView):
             obyekt_nomi=daraja.nomi,
             ozgarishlar={"narx": {"eski": None, "yangi": str(narx)}},
         )
-        return Response({"daraja_id": daraja.id, "narx": narx})
+        return Response({"daraja_id": daraja.id, "narx": narx, "dars_uchun": yozuv.dars_uchun})
 
     def post(self, request):
         """"Kurs qo'shish" (2026-09-26, Shuhrat): yangi kurs (daraja) va narxi
@@ -513,7 +516,7 @@ class KursNarxlariView(CrmView):
             if fan.children.filter(nomi__iexact=nomi).exists():
                 return _xato(f"«{fan.nomi}» fanida «{nomi}» kursi allaqachon bor — narxini jadvaldan o'zgartiring")
             daraja = _tugun_yarat(fan, nomi)
-            KursNarxi.objects.create(daraja=daraja, narx=narx)
+            KursNarxi.objects.create(daraja=daraja, narx=narx, dars_uchun=bool(request.data.get("dars_uchun")))
         logla(
             foydalanuvchi=request.user,
             harakat=FaoliyatYozuvi.Harakat.YARATISH,

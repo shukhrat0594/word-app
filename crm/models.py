@@ -69,6 +69,11 @@ class KursNarxi(models.Model):
     narx = models.DecimalField(
         max_digits=12, decimal_places=2, help_text="Oylik narx, so'm"
     )
+    # Individual kurs (TZ "To'lov algoritmi", 2026-10-14): `narx` — BIR DARS
+    # narxi, oylik summa = narx * oydagi jadval bo'yicha darslar soni.
+    dars_uchun = models.BooleanField(
+        default=False, help_text="Narx bir dars uchun (Individual kurs)"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

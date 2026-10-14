@@ -195,6 +195,70 @@ def proporsional_summa(narx: Decimal, talaba_kunlar: int, oylik_kunlar: int) -> 
     return (xom / YAXLITLASH).quantize(Decimal("1"), rounding=ROUND_HALF_UP) * YAXLITLASH
 
 
+# Yangi o'quvchining birinchi oyi shu songa bo'linadi (TZ "To'lov
+# algoritmi", 2026-10-14): 12 va undan ko'p darsga kela olsa — to'liq narx,
+# kam bo'lsa narx / 12 * darslar.
+TOLIQ_OY_DARSLARI = 12
+
+
+def dars_uchun_narxmi(guruh) -> bool:
+    """Kurs narxi BIR DARS uchun belgilanganmi (Individual kurs)."""
+    if not guruh.daraja_id:
+        return False
+    kurs_narxi = getattr(guruh.daraja, "crm_narxi", None)
+    return bool(kurs_narxi and kurs_narxi.dars_uchun)
+
+
+def markazga_yangimi(azolik_moliya: AzolikMoliya) -> bool:
+    """Talaba o'quv markaziga SHU a'zolik bilan birinchi bor kelganmi.
+
+    Boshqa guruhdan ko'chirilgan (yoki avval o'qigan) talabaning izi
+    qoladi: eski guruhdagi hisoblar, `GuruhdanChiqish` yozuvi yoki
+    oldinroq boshlangan boshqa a'zolik. Bunday talabaga "12 ga bo'lish"
+    qoidasi tegmaydi — TZ talabi.
+    """
+    from .models import GuruhdanChiqish
+
+    talaba = azolik_moliya.azolik.talaba
+    guruh = azolik_moliya.azolik.guruh
+    boshi = azolik_moliya.boshlanish_sana
+    if Hisob.objects.filter(talaba=talaba, oy__lte=boshi).exclude(guruh=guruh).exists():
+        return False
+    if GuruhdanChiqish.objects.filter(talaba=talaba, sana__lte=boshi).exists():
+        return False
+    return not (
+        AzolikMoliya.objects.filter(azolik__talaba=talaba, boshlanish_sana__lt=boshi)
+        .exclude(pk=azolik_moliya.pk)
+        .exists()
+    )
+
+
+def oylik_summa(azolik_moliya: AzolikMoliya, oy: date, narx: Decimal,
+                talaba_kunlar: int, oylik_kunlar: int) -> Decimal:
+    """Bir oylik hisob summasi — YAGONA joy (generatsiya ham, qayta
+    hisoblash ham shu yerdan).
+
+      * Individual kurs (`KursNarxi.dars_uchun`): narx * talabaning darslari.
+      * Markazga yangi kelgan talabaning birinchi oyi:
+        narx / 12 * darslar, 12 va undan ko'p bo'lsa — to'liq narx.
+        Oyda 12 tadan kam dars bo'ladigan guruhda maxraj oydagi darslar
+        soni (aks holda 1-sanada kelgan talaba ham to'liq narx to'lamasdi).
+      * Qolganlar (ko'chirilgan, chiqqan, muzlatilgan) — avvalgidek
+        proporsional.
+    """
+    guruh = azolik_moliya.azolik.guruh
+    if dars_uchun_narxmi(guruh):
+        return narx * talaba_kunlar
+    if (oy_boshi(azolik_moliya.boshlanish_sana) == oy
+            and talaba_kunlar < oylik_kunlar
+            and markazga_yangimi(azolik_moliya)):
+        maxraj = min(TOLIQ_OY_DARSLARI, oylik_kunlar)
+        if talaba_kunlar >= maxraj:
+            return narx
+        return proporsional_summa(narx, talaba_kunlar, maxraj)
+    return proporsional_summa(narx, talaba_kunlar, oylik_kunlar)
+
+
 # ── Hisob yaratish ───────────────────────────────────────────────────
 
 # `hisob_yarat` natijalari. Generatsiya AYNAN shu qiymatlarga qarab
@@ -233,7 +297,7 @@ def hisob_yarat(azolik_moliya: AzolikMoliya, oy: date) -> str:
     if not talaba_kunlar:
         return DARS_YOQ
 
-    summa = proporsional_summa(narx, len(talaba_kunlar), len(oylik_kunlar))
+    summa = oylik_summa(azolik_moliya, oy, narx, len(talaba_kunlar), len(oylik_kunlar))
 
     _, yaratildi = Hisob.objects.get_or_create(
         talaba=azolik.talaba,
@@ -537,7 +601,7 @@ def azolikni_qayta_hisobla(azolik_moliya: AzolikMoliya, oy: date | None = None) 
 
     talaba_kunlar = talaba_dars_kunlari(azolik_moliya, oy, oylik_kunlar)
 
-    hisob.summa = proporsional_summa(narx, len(talaba_kunlar), len(oylik_kunlar))
+    hisob.summa = oylik_summa(azolik_moliya, oy, narx, len(talaba_kunlar), len(oylik_kunlar))
     hisob.proporsional = len(talaba_kunlar) < len(oylik_kunlar)
     hisob.darslar_talaba = len(talaba_kunlar)
     hisob.save(update_fields=["summa", "proporsional", "darslar_talaba"])
