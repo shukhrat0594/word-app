@@ -18,7 +18,7 @@ class UnitTestsTuguniTest(TestCase):
         unit = KursTugun.objects.create(markaz=self.markaz, nomi="Unit 1", unit_darsi=True)
         unit_ichki_tuzilmasini_yarat(unit)
         kalitlar = list(unit.children.values_list("kalit", flat=True))
-        self.assertEqual(kalitlar, ["students_book", "workbook", "vocabulary", "games", "tests"])
+        self.assertEqual(kalitlar, ["students_book", "workbook", "vocabulary", "tests", "games"])
 
     def test_eski_unitga_qoshiladi_idempotent(self):
         unit = KursTugun.objects.create(markaz=self.markaz, nomi="Unit 1", unit_darsi=True)
@@ -27,7 +27,9 @@ class UnitTestsTuguniTest(TestCase):
         call_command("tests_tugun_qoshish", stdout=StringIO())
         tests = KursTugun.objects.filter(parent=unit, kalit="tests")
         self.assertEqual(tests.count(), 1)
-        self.assertEqual(tests.first().tartib, 5)
+        # 2026-10-14: Tests Games'dan oldinga o'tkaziladi (tartiblar almashadi).
+        self.assertEqual(tests.first().tartib, 4)
+        self.assertEqual(KursTugun.objects.get(parent=unit, kalit="games").tartib, 5)
 
     def test_beginner_unit1_testlari_kiritiladi(self):
         ingliz = KursTugun.objects.create(markaz=self.markaz, nomi="Ingliz tili", kalit="ingliz_tili")

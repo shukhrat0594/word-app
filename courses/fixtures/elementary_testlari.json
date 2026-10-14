@@ -138,18 +138,18 @@
   {
    "savol": "My mother's father is my ________.",
    "variantlar": [
-    "grandfather",
     "uncle",
-    "nephew"
+    "nephew",
+    "grandfather"
    ],
    "togri": "grandfather"
   },
   {
    "savol": "My mother's brother is my ________.",
    "variantlar": [
+    "niece",
     "aunt",
-    "uncle",
-    "niece"
+    "uncle"
    ],
    "togri": "uncle"
   },
@@ -165,8 +165,8 @@
   {
    "savol": "My brother's son is my ________.",
    "variantlar": [
-    "nephew",
     "niece",
+    "nephew",
     "cousin"
    ],
    "togri": "nephew"
@@ -174,8 +174,8 @@
   {
    "savol": "The opposite of an \"expensive\" restaurant is a ________ restaurant.",
    "variantlar": [
-    "cheap",
     "easy",
+    "cheap",
     "slow"
    ],
    "togri": "cheap"
@@ -183,8 +183,8 @@
   {
    "savol": "This exercise is very simple. It is not ________.",
    "variantlar": [
-    "difficult",
     "nice",
+    "difficult",
     "old"
    ],
    "togri": "difficult"
@@ -192,18 +192,18 @@
   {
    "savol": "The weather today is horrible, but yesterday it was ________.",
    "variantlar": [
+    "slow",
     "nice",
-    "expensive",
-    "slow"
+    "expensive"
    ],
    "togri": "nice"
   },
   {
    "savol": "\"How do you ________ your surname?\" — \"M-I-L-L-E-R.\"",
    "variantlar": [
-    "spell",
     "speak",
-    "talk"
+    "talk",
+    "spell"
    ],
    "togri": "spell"
   },
@@ -219,8 +219,8 @@
   {
    "savol": "\"Good afternoon! Can I ________ you?\" — \"Yes, I want a ticket.\"",
    "variantlar": [
-    "help",
     "meet",
+    "help",
     "look"
    ],
    "togri": "help"
@@ -228,35 +228,35 @@
   {
    "savol": "\"Pleased to ________ you, Mr Davis.\" — \"Nice to meet you too.\"",
    "variantlar": [
-    "meet",
+    "say",
     "spell",
-    "say"
+    "meet"
    ],
    "togri": "meet"
   },
   {
    "savol": "\"Thank goodness it's Friday! Have a good ________!\"",
    "variantlar": [
-    "weekend",
+    "morning",
     "evening",
-    "morning"
+    "weekend"
    ],
    "togri": "weekend"
   },
   {
    "savol": "\"Good night! Sleep ________!\" — \"Nigh'night!\"",
    "variantlar": [
-    "well",
+    "nice",
     "good",
-    "nice"
+    "well"
    ],
    "togri": "well"
   },
   {
    "savol": "A person who serves food and drinks in a cafe or restaurant is a ________.",
    "variantlar": [
-    "waiter",
     "lawyer",
+    "waiter",
     "journalist"
    ],
    "togri": "waiter"
@@ -264,8 +264,8 @@
   {
    "savol": "You don't need to pay money to enter the gallery because it is ________.",
    "variantlar": [
-    "free",
     "expensive",
+    "free",
     "cheap"
    ],
    "togri": "free"
@@ -2616,8 +2616,8 @@
   {
    "savol": "My brother has got short, dark hair and a ____ on his chin.",
    "variantlar": [
-    "beard",
     "suit",
+    "beard",
     "scarf"
    ],
    "togri": "beard"
@@ -2625,9 +2625,9 @@
   {
    "savol": "She is very pretty and has lovely long, ____ hair.",
    "variantlar": [
-    "curly",
+    "handsome",
     "tall",
-    "handsome"
+    "curly"
    ],
    "togri": "curly"
   },
@@ -2635,35 +2635,35 @@
    "savol": "A man who is very good-looking is often described as ____.",
    "variantlar": [
     "handsome",
-    "pretty",
-    "short"
+    "short",
+    "pretty"
    ],
    "togri": "handsome"
   },
   {
    "savol": "When it's cold outside, people wear a warm ____ over their clothes.",
    "variantlar": [
-    "T-shirt",
+    "shorts",
     "coat",
-    "shorts"
+    "T-shirt"
    ],
    "togri": "coat"
   },
   {
    "savol": "A person who has the same parents and looks exactly like their twin is an ____ twin.",
    "variantlar": [
+    "shy",
     "identical",
-    "average",
-    "shy"
+    "average"
    ],
    "togri": "identical"
   },
   {
    "savol": "The richest person in the world with billions of dollars is a ____.",
    "variantlar": [
+    "passenger",
     "dealer",
-    "billionaire",
-    "passenger"
+    "billionaire"
    ],
    "togri": "billionaire"
   },
@@ -2671,26 +2671,26 @@
    "savol": "When an animal species is in danger of dying out completely, it becomes ____.",
    "variantlar": [
     "extinct",
-    "nervous",
-    "identical"
+    "identical",
+    "nervous"
    ],
    "togri": "extinct"
   },
   {
    "savol": "\"I can't go out tonight. Sorry.\" — \"____. Maybe another time.\"",
    "variantlar": [
+    "That's great",
     "Congratulations",
-    "Never mind",
-    "That's great"
+    "Never mind"
    ],
    "togri": "Never mind"
   },
   {
    "savol": "\"Dave and I are getting married!\" — \"____ That's fantastic news!\"",
    "variantlar": [
-    "Congratulations",
     "What a pity",
-    "Don't worry"
+    "Don't worry",
+    "Congratulations"
    ],
    "togri": "Congratulations"
   },
@@ -2706,9 +2706,9 @@
   {
    "savol": "\"I forgot to call you last night! Sorry!\" — \"____ It doesn't matter.\"",
    "variantlar": [
-    "Don't worry",
+    "Sure",
     "Never",
-    "Sure"
+    "Don't worry"
    ],
    "togri": "Don't worry"
   },
@@ -2716,17 +2716,17 @@
    "savol": "What is the opposite of 'tall' when describing height?",
    "variantlar": [
     "short",
-    "young",
-    "slim"
+    "slim",
+    "young"
    ],
    "togri": "short"
   },
   {
    "savol": "What do you wear on your feet in winter to keep them warm?",
    "variantlar": [
-    "boots",
     "shorts",
-    "cap"
+    "cap",
+    "boots"
    ],
    "togri": "boots"
   },
@@ -2743,8 +2743,8 @@
    "savol": "\"My goldfish died.\" — \"Oh dear! How ____.\"",
    "variantlar": [
     "sad",
-    "happy",
-    "good"
+    "good",
+    "happy"
    ],
    "togri": "sad"
   }
@@ -2888,8 +2888,8 @@
   {
    "savol": "What's the weather like when the sun is shining brightly? It's ____.",
    "variantlar": [
-    "sunny",
     "snowy",
+    "sunny",
     "foggy"
    ],
    "togri": "sunny"
@@ -2897,17 +2897,17 @@
   {
    "savol": "When water falls from clouds in drops, the weather is ____.",
    "variantlar": [
-    "rainy",
     "dry",
-    "sunny"
+    "sunny",
+    "rainy"
    ],
    "togri": "rainy"
   },
   {
    "savol": "You need an umbrella when it is ____.",
    "variantlar": [
-    "rainy / showery",
     "hot",
+    "rainy / showery",
     "dry"
    ],
    "togri": "rainy / showery"
@@ -2915,27 +2915,27 @@
   {
    "savol": "What's the weather like when there is thunder and lightning? It's ____.",
    "variantlar": [
-    "stormy",
+    "cloudy",
     "windy",
-    "cloudy"
+    "stormy"
    ],
    "togri": "stormy"
   },
   {
    "savol": "You go to a ____ to have your hair cut.",
    "variantlar": [
-    "barber's",
     "chemist's",
-    "baker's"
+    "baker's",
+    "barber's"
    ],
    "togri": "barber's"
   },
   {
    "savol": "A place where you catch a flight to another country is an ____.",
    "variantlar": [
+    "garage",
     "airport",
-    "station",
-    "garage"
+    "station"
    ],
    "togri": "airport"
   },
@@ -2943,17 +2943,17 @@
    "savol": "A person who is not afraid of anything is sometimes described as having 'cold ____'.",
    "variantlar": [
     "blood",
-    "water",
-    "ice"
+    "ice",
+    "water"
    ],
    "togri": "blood"
   },
   {
    "savol": "\"What shall we do this afternoon?\" — \"____ go to the beach!\"",
    "variantlar": [
-    "Let's",
+    "Why",
     "Shall",
-    "Why"
+    "Let's"
    ],
    "togri": "Let's"
   },
@@ -2961,17 +2961,17 @@
    "savol": "\"What shall we do?\" — \"Why ____ we visit the new museum?\"",
    "variantlar": [
     "don't",
-    "aren't",
-    "haven't"
+    "haven't",
+    "aren't"
    ],
    "togri": "don't"
   },
   {
    "savol": "\"Shall we have a picnic?\" — \"Good ____! I'll make some sandwiches.\"",
    "variantlar": [
+    "plan",
     "idea",
-    "thought",
-    "plan"
+    "thought"
    ],
    "togri": "idea"
   },
@@ -2979,26 +2979,26 @@
    "savol": "What do you wear on your head when riding a bike to protect yourself? A safety ____.",
    "variantlar": [
     "helmet",
-    "hat",
-    "cap"
+    "cap",
+    "hat"
    ],
    "togri": "helmet"
   },
   {
    "savol": "When a building or a human tower falls down suddenly, we say it ____.",
    "variantlar": [
-    "collapses",
+    "stands",
     "rises",
-    "stands"
+    "collapses"
    ],
    "togri": "collapses"
   },
   {
    "savol": "What is the opposite of 'wet'?",
    "variantlar": [
+    "warm",
     "dry",
-    "cold",
-    "warm"
+    "cold"
    ],
    "togri": "dry"
   },
@@ -3160,8 +3160,8 @@
   {
    "savol": "You use a ____ to take photos.",
    "variantlar": [
-    "camera",
     "laptop",
+    "camera",
     "fridge"
    ],
    "togri": "camera"
@@ -3169,8 +3169,8 @@
   {
    "savol": "A machine used for washing clothes is a washing ____.",
    "variantlar": [
-    "machine",
     "cooker",
+    "machine",
     "iron"
    ],
    "togri": "machine"
@@ -3178,8 +3178,8 @@
   {
    "savol": "You keep your food cold in a ____.",
    "variantlar": [
-    "cooker",
     "fridge",
+    "cooker",
     "microwave"
    ],
    "togri": "fridge"
@@ -3187,17 +3187,17 @@
   {
    "savol": "You use an ____ to make clothes flat and smooth.",
    "variantlar": [
-    "iron",
+    "dishwasher",
     "toaster",
-    "dishwasher"
+    "iron"
    ],
    "togri": "iron"
   },
   {
    "savol": "A small piece of equipment with a specific purpose is called a ____.",
    "variantlar": [
-    "gadget",
     "furniture",
+    "gadget",
     "luggage"
    ],
    "togri": "gadget"
@@ -3205,8 +3205,8 @@
   {
    "savol": "When you travel to another country for a holiday, you go ____.",
    "variantlar": [
-    "abroad",
     "home",
+    "abroad",
     "away"
    ],
    "togri": "abroad"
@@ -3232,8 +3232,8 @@
   {
    "savol": "\"Can I try this shirt on?\" — \"Sure, the changing ____ are over there.\"",
    "variantlar": [
-    "rooms",
     "places",
+    "rooms",
     "shops"
    ],
    "togri": "rooms"
@@ -3241,9 +3241,9 @@
   {
    "savol": "\"How much does it cost?\" — \"It's twenty pounds. Here is your ____.\"",
    "variantlar": [
-    "receipt",
+    "card",
     "ticket",
-    "card"
+    "receipt"
    ],
    "togri": "receipt"
   },
@@ -3251,25 +3251,25 @@
    "savol": "What is the opposite of 'noisy'?",
    "variantlar": [
     "quiet",
-    "crowded",
-    "dirty"
+    "dirty",
+    "crowded"
    ],
    "togri": "quiet"
   },
   {
    "savol": "What is the opposite of 'cheap'?",
    "variantlar": [
-    "expensive",
+    "tall",
     "modern",
-    "tall"
+    "expensive"
    ],
    "togri": "expensive"
   },
   {
    "savol": "A machine that cooks food very quickly using waves is a ____.",
    "variantlar": [
-    "microwave",
     "toaster",
+    "microwave",
     "cooker"
    ],
    "togri": "microwave"
@@ -3277,8 +3277,8 @@
   {
    "savol": "\"Can I help you?\" — \"No thanks, I'm just ____.\"",
    "variantlar": [
-    "looking",
     "seeing",
+    "looking",
     "buying"
    ],
    "togri": "looking"
@@ -3286,8 +3286,8 @@
   {
    "savol": "A long journey, especially by sea or in space, is a ____.",
    "variantlar": [
-    "voyage",
     "walk",
+    "voyage",
     "run"
    ],
    "togri": "voyage"

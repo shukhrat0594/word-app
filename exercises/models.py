@@ -430,7 +430,9 @@ def _harf_va_matn_qabul(savol, qabul):
         # Kalit to'liq matn bo'lsa — mos harfni ham qabul qilamiz.
         if t in past_variantlar:
             idx = past_variantlar.index(t)
-            if idx < len(HARFLAR):
+            # Harf boshqa variantning MATNI bo'lsa qo'shilmaydi (Beginner
+            # U8: some/any/a, kalit "some" — "a" harfi = noto'g'ri "a" varianti).
+            if idx < len(HARFLAR) and HARFLAR[idx].lower() not in past_variantlar:
                 kengaytirilgan.add(HARFLAR[idx].lower())
         # Kalit harf bo'lsa — mos variant matnini ham qabul qilamiz.
         # 2026-10-14, HAQIQIY XATO: kalit variant matnining O'ZI bo'lsa

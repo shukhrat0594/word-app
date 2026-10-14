@@ -121,7 +121,9 @@ function RasmMashqi({ rasmUrl, savollar, idxlar, javoblar, javobniQoy, natija })
 /** Talaba uchun — bitta mashqqa javob yozish va natija ko'rish.
  * `raqam` (2026-07-27) — "raqamlangan mashqlar" talabi bo'yicha har bir
  * mashq tartib raqami bilan ko'rsatiladi. */
-function TalabaMashqi({ mashq, raqam, javoblarOchiq }) {
+/** `hammasiShart` (2026-10-14, Tests bo'limi uchun) — "Tekshirish" faqat
+ * HAMMA savolga javob berilgandan keyin bosiladi. */
+function TalabaMashqi({ mashq, raqam, javoblarOchiq, hammasiShart = false }) {
   const { t } = useI18n();
   const [javoblar, setJavoblar] = useState(
     mashq.savollar.map((s) => (javoblarOchiq ? s.togri || "" : "")),
@@ -168,6 +170,11 @@ function TalabaMashqi({ mashq, raqam, javoblarOchiq }) {
   function javobniQoy(idx, qiymat) {
     setJavoblar((j) => j.map((x, i) => (i === idx ? qiymat : x)));
   }
+
+  const qolganSoni = javoblar.filter((j) =>
+    Array.isArray(j) ? !j.some((x) => String(x).trim()) : !String(j ?? "").trim(),
+  ).length;
+  const hammasiBelgilangan = qolganSoni === 0;
 
   async function tekshir() {
     setXato("");
@@ -284,9 +291,20 @@ function TalabaMashqi({ mashq, raqam, javoblarOchiq }) {
             // Tekshirish tugmasi chiqmaydi (backend javob yuborishni
             // faqat TALABAGA ruxsat beradi).
             !javoblarOchiq && (
-              <button className="tugma ikkinchi" onClick={tekshir} disabled={yuklanmoqda}>
-                {yuklanmoqda ? t("tekshirilmoqda") : t("tekshirish")}
-              </button>
+              <>
+                <button
+                  className="tugma ikkinchi"
+                  onClick={tekshir}
+                  disabled={yuklanmoqda || (hammasiShart && !hammasiBelgilangan)}
+                >
+                  {yuklanmoqda ? t("tekshirilmoqda") : t("tekshirish")}
+                </button>
+                {hammasiShart && !hammasiBelgilangan && (
+                  <div className="izoh">
+                    {t("kurs_hammasini_belgilang").replace("{son}", qolganSoni)}
+                  </div>
+                )}
+              </>
             )
           ) : (
             <div className="izoh">
@@ -1396,7 +1414,7 @@ function AdminMashqBoshqaruv({ tugunId, jsonKiritishKorinadi = true }) {
  * yerda faqat `talabaMi` tekshirilardi — o'qituvchi ADMIN paneliga
  * yuborilar, u esa backendda 403 qaytarar va xato `catch(() => {})` bilan
  * yutilib, o'qituvchiga BO'SH panel ko'rinardi. */
-function MashqPaneli({ tugunId, talabaMi, oqituvchiMi, jsonKiritishKorinadi = true }) {
+function MashqPaneli({ tugunId, talabaMi, oqituvchiMi, jsonKiritishKorinadi = true, hammasiShart = false }) {
   const korinishMi = talabaMi || oqituvchiMi;
   const { t } = useI18n();
   const [mashqlar, setMashqlar] = useState(null);
@@ -1468,7 +1486,7 @@ function MashqPaneli({ tugunId, talabaMi, oqituvchiMi, jsonKiritishKorinadi = tr
     if (m.bloklar?.length) {
       bloklar.push(<BlokMashqi key={m.id} mashq={m} raqam={raqam} javoblarOchiq={oqituvchiMi} />);
     } else {
-      bloklar.push(<TalabaMashqi key={m.id} mashq={m} raqam={raqam} javoblarOchiq={oqituvchiMi} />);
+      bloklar.push(<TalabaMashqi key={m.id} mashq={m} raqam={raqam} javoblarOchiq={oqituvchiMi} hammasiShart={hammasiShart} />);
     }
     raqam += 1;
   }
@@ -2288,7 +2306,7 @@ function Tugun({ tugun, chuqurlik, adminMi, talabaMi, oqituvchiMi, royxatniYangi
           </div>
           {mashqOchiq && (
             <div style={{ paddingLeft: 14 }}>
-              <MashqPaneli tugunId={tugun.id} talabaMi={talabaMi} oqituvchiMi={oqituvchiMi} />
+              <MashqPaneli tugunId={tugun.id} talabaMi={talabaMi} oqituvchiMi={oqituvchiMi} hammasiShart />
             </div>
           )}
         </div>

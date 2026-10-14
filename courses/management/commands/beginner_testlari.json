@@ -994,7 +994,7 @@
     [
      "a",
      "an",
-     "some",
+     "many",
      "the"
     ],
     "B"
@@ -2429,53 +2429,53 @@
     "Do you _____ tennis at the weekend?",
     [
      "play",
-     "go",
-     "do"
+     "do",
+     "go"
     ],
     "A"
    ],
    [
     "Last summer we went _____ in the mountains.",
     [
-     "walking",
      "golf",
-     "cards"
+     "cards",
+     "walking"
     ],
-    "A"
+    "C"
    ],
    [
     "In winter, a lot of tourists go _____ in the Alps.",
     [
+     "rugby",
      "skiing",
-     "tennis",
-     "rugby"
+     "tennis"
     ],
-    "A"
+    "B"
    ],
    [
     "My father loves fishing. He often goes _____ by the lake.",
     [
-     "fishing",
      "swimming",
-     "cycling"
+     "cycling",
+     "fishing"
     ],
-    "A"
+    "C"
    ],
    [
     "On Saturday night, my friends and I stayed at home and played _____.",
     [
-     "cards",
      "swimming",
-     "canoeing"
+     "canoeing",
+     "cards"
     ],
-    "A"
+    "C"
    ],
    [
     "Last year they went on holiday and stayed in a small wooden _____.",
     [
      "cabin",
-     "hotel",
-     "museum"
+     "museum",
+     "hotel"
     ],
     "A"
    ],
@@ -2483,28 +2483,28 @@
     "During our holiday in Paris, we went _____ and visited famous monuments.",
     [
      "sightseeing",
-     "camping",
-     "windsurfing"
+     "windsurfing",
+     "camping"
     ],
     "A"
    ],
    [
     "We want to relax on the _____ and swim in the sea.",
     [
-     "beach",
      "castle",
+     "beach",
      "cathedral"
     ],
-    "A"
+    "B"
    ],
    [
     "\"Can I have a _____ of the city centre, please?\"",
     [
+     "ticket",
      "map",
-     "tour",
-     "ticket"
+     "tour"
     ],
-    "A"
+    "B"
    ],
    [
     "\"Can you _____ me where we are on the map?\"",
@@ -2518,47 +2518,47 @@
    [
     "\"We want to go on a bus _____ of the city.\"",
     [
-     "tour",
      "travel",
+     "tour",
      "walk"
     ],
-    "A"
+    "B"
    ],
    [
     "\"What time _____ the museum open?\"",
     [
+     "did",
      "does",
-     "is",
-     "did"
+     "is"
     ],
-    "A"
+    "B"
    ],
    [
     "\"The museum opens at 10.00 and _____ at 5.30.\"",
     [
      "closes",
-     "finishes",
-     "stops"
+     "stops",
+     "finishes"
     ],
     "A"
    ],
    [
     "\"How _____ is it to get in?\" — \"It's £15 for adults.\"",
     [
+     "cost",
      "much",
-     "many",
-     "cost"
+     "many"
     ],
-    "A"
+    "B"
    ],
    [
     "\"Is the British Museum far from here?\" — \"No, it's _____ 100 metres.\"",
     [
+     "abouts",
      "only",
-     "far",
-     "abouts"
+     "far"
     ],
-    "A"
+    "B"
    ]
   ]
  ],
@@ -2705,55 +2705,55 @@
     "A _____ can mend cars when they break down.",
     [
      "mechanic",
-     "pilot",
-     "musician"
+     "musician",
+     "pilot"
     ],
     "A"
    ],
    [
     "An _____ designs beautiful buildings.",
     [
-     "architect",
      "interpreter",
+     "architect",
      "athlete"
     ],
-    "A"
+    "B"
    ],
    [
     "You can use your smartphone to _____ a text message to a friend.",
     [
      "send",
-     "play",
-     "watch"
+     "watch",
+     "play"
     ],
     "A"
    ],
    [
     "I often _____ videos and films on my phone.",
     [
-     "watch",
      "listen",
-     "read"
+     "read",
+     "watch"
     ],
-    "A"
+    "C"
    ],
    [
     "You can use a satnav app to find _____ on the Internet.",
     [
-     "directions",
      "bills",
-     "chess"
+     "chess",
+     "directions"
     ],
-    "A"
+    "C"
    ],
    [
     "A Ferrari is a very _____ car.",
     [
-     "expensive",
      "fresh",
+     "expensive",
      "delicious"
     ],
-    "A"
+    "B"
    ],
    [
     "We can't go for a walk today because it's cold and _____.",
@@ -2767,20 +2767,20 @@
    [
     "I love drinking _____ orange juice in the morning.",
     [
-     "fresh",
+     "dangerous",
      "busy",
-     "dangerous"
+     "fresh"
     ],
-    "A"
+    "C"
    ],
    [
     "Motor racing is a _____ sport.",
     [
-     "dangerous",
+     "warm",
      "delicious",
-     "warm"
+     "dangerous"
     ],
-    "A"
+    "C"
    ],
    [
     "New York is a big, busy, and _____ city.",
@@ -2795,28 +2795,28 @@
     "\"Excuse me! Can you help me? I'm _____.\"",
     [
      "lost",
-     "late",
-     "wrong"
+     "wrong",
+     "late"
     ],
     "A"
    ],
    [
     "\"I'm so sorry I'm late! I missed the _____.\"",
     [
-     "bus",
      "internet",
+     "bus",
      "machine"
     ],
-    "A"
+    "B"
    ],
    [
     "\"I can't find my car _____ anywhere!\"",
     [
-     "keys",
+     "bags",
      "doors",
-     "bags"
+     "keys"
     ],
-    "A"
+    "C"
    ],
    [
     "\"There's something _____ with my computer. I can't get on the Internet.\"",
@@ -2830,11 +2830,11 @@
    [
     "\"The washing machine doesn't _____.\"",
     [
+     "turn",
      "work",
-     "do",
-     "turn"
+     "do"
     ],
-    "A"
+    "B"
    ]
   ]
  ],
@@ -2980,11 +2980,11 @@
    [
     "You can buy aspirin and shampoo at a _____.",
     [
-     "chemist's",
      "post office",
-     "newsagent's"
+     "newsagent's",
+     "chemist's"
     ],
-    "A"
+    "C"
    ],
    [
     "You can buy stamps and send a parcel at a _____.",
@@ -3007,11 +3007,11 @@
    [
     "\"Are you ready to _____?\" — \"Yes. I'd like the vegetable soup to start.\"",
     [
+     "cook",
      "order",
-     "buy",
-     "cook"
+     "buy"
     ],
-    "A"
+    "B"
    ],
    [
     "The soup of the day is served with a starter, and then you have the _____.",
@@ -3025,83 +3025,83 @@
    [
     "For dessert, I'd like chocolate cake or _____ and ice cream.",
     [
-     "apple pie",
+     "green salad",
      "garlic bread",
-     "green salad"
+     "apple pie"
     ],
-    "A"
+    "C"
    ],
    [
     "You can see a sign that says _____ on a door when you can't go in.",
     [
      "Private",
-     "Exit",
-     "Entrance"
+     "Entrance",
+     "Exit"
     ],
     "A"
    ],
    [
     "A sign that says _____ means the machine or appliance doesn't work.",
     [
-     "Out of order",
      "Sale",
+     "Out of order",
      "Reserved"
     ],
-    "A"
+    "B"
    ],
    [
     "If a door says _____, you need to pull it toward you to open it.",
     [
-     "Pull",
+     "Open",
      "Push",
-     "Open"
+     "Pull"
     ],
-    "A"
+    "C"
    ],
    [
     "You see a sign saying _____ where you need to stand and wait in line.",
     [
-     "Queue here",
+     "Closed",
      "No entry",
-     "Closed"
+     "Queue here"
     ],
-    "A"
+    "C"
    ],
    [
     "Paris, London, and Tokyo are wonderful cities with many excellent _____.",
     [
      "restaurants",
-     "chemists",
-     "post offices"
+     "post offices",
+     "chemists"
     ],
     "A"
    ],
    [
     "In the morning for breakfast, some people like toast with butter and _____.",
     [
-     "jam",
+     "goulash",
      "soup",
-     "goulash"
+     "jam"
     ],
-    "A"
+    "C"
    ],
    [
-    "A bottle of _____ water can be still or sparkling.",
+    "A bottle of _____ can be still or sparkling.",
     [
-     "water",
      "milk",
+     "water",
      "juice"
     ],
-    "A"
+    "B"
    ],
    [
     "\"Would you like anything _____?\" — \"No, thank you. That's everything.\"",
     [
-     "else",
      "more",
-     "other"
+     "other",
+     "else"
     ],
-    "A"
+    "C"
    ],
    [
     "A _____ is a small amount of food eaten between meals or quickly.",
@@ -3256,74 +3256,74 @@
    [
     "In sports, you wear _____ on your feet when you go running.",
     [
-     "trainers",
      "boots",
+     "trainers",
      "socks"
     ],
-    "A"
+    "B"
    ],
    [
     "When it is cold, people often wear a warm _____ around their neck.",
     [
-     "scarf",
+     "tie",
      "suit",
-     "tie"
+     "scarf"
     ],
-    "A"
+    "C"
    ],
    [
     "Men often wear a _____ and tie for formal work in an office.",
     [
      "suit",
-     "dress",
-     "skirt"
+     "skirt",
+     "dress"
     ],
     "A"
    ],
    [
     "Grass is green, and the sky on a clear day is _____.",
     [
-     "blue",
      "yellow",
+     "blue",
      "grey"
     ],
-    "A"
+    "B"
    ],
    [
     "What is the opposite of the verb buy?",
     [
-     "sell",
      "pay",
-     "win"
+     "win",
+     "sell"
     ],
-    "A"
+    "C"
    ],
    [
     "What is the opposite of get up?",
     [
-     "go to bed",
      "wake up",
-     "leave"
+     "leave",
+     "go to bed"
     ],
-    "A"
+    "C"
    ],
    [
     "It was very cold outside, so Tom _____ a warm jumper.",
     [
-     "put on",
      "took off",
-     "opened"
+     "opened",
+     "put on"
     ],
-    "A"
+    "C"
    ],
    [
     "Please don't ask me any more questions. I can't _____ them.",
     [
-     "answer",
      "remember",
-     "finish"
+     "finish",
+     "answer"
     ],
-    "A"
+    "C"
    ],
    [
     "John's team always loses. They never _____ a match.",
@@ -3337,45 +3337,45 @@
    [
     "\"What's the matter?\" — \"I'm _____. Can I have a glass of water?\"",
     [
+     "cold",
      "thirsty",
-     "hungry",
-     "cold"
+     "hungry"
     ],
-    "A"
+    "B"
    ],
    [
     "\"What's the matter?\" — \"I have a bad _____. I need some aspirin.\"",
     [
-     "headache",
+     "angry",
      "cold",
-     "angry"
+     "headache"
     ],
-    "A"
+    "C"
    ],
    [
     "She didn't eat breakfast this morning, so now she is very _____.",
     [
      "hungry",
-     "bored",
-     "hot"
+     "hot",
+     "bored"
     ],
     "A"
    ],
    [
     "He didn't sleep well last night, so he feels _____ today.",
     [
-     "tired",
      "worried",
+     "tired",
      "cold"
     ],
-    "A"
+    "B"
    ],
    [
     "Atchoo! I can't stop sneezing because I have _____.",
     [
      "a cold",
-     "cold",
-     "angry"
+     "angry",
+     "cold"
     ],
     "A"
    ],
@@ -3541,38 +3541,38 @@
    [
     "On safari in Africa, people usually travel in a 4x4 _____.",
     [
-     "jeep",
+     "tram",
      "bus",
-     "tram"
+     "jeep"
     ],
-    "A"
+    "C"
    ],
    [
     "You can use your computer to _____ bills online.",
     [
-     "pay",
+     "play",
      "do",
-     "play"
+     "pay"
     ],
-    "A"
+    "C"
    ],
    [
     "At the weekend, I love going _____ with my friends.",
     [
-     "cycling",
      "cards",
-     "photo"
+     "photo",
+     "cycling"
     ],
-    "A"
+    "C"
    ],
    [
     "Mike is on _____ in Spain at the moment.",
     [
+     "hotel",
      "holiday",
-     "work",
-     "hotel"
+     "work"
     ],
-    "A"
+    "B"
    ],
    [
     "I usually travel to work _____ car.",
@@ -3586,65 +3586,65 @@
    [
     "Annie is married _____ Lee.",
     [
-     "with",
      "to",
+     "with",
      "for"
     ],
-    "B"
+    "A"
    ],
    [
     "\"Good luck in the exam!\" — \"Thanks. I'll do my _____.\"",
     [
+     "good",
      "best",
-     "well",
-     "good"
+     "well"
     ],
-    "A"
+    "B"
    ],
    [
     "\"Oh no! I broke the glass!\" — \"Don't worry. It doesn't _____.\"",
     [
+     "mind",
      "matter",
-     "problem",
-     "mind"
+     "problem"
     ],
-    "A"
+    "B"
    ],
    [
     "\"Have a good weekend!\" — \"Thanks! _____ to you!\"",
     [
-     "Same",
      "Same time",
-     "Like"
+     "Like",
+     "Same"
     ],
-    "A"
+    "C"
    ],
    [
     "\"Goodbye! Drive _____!\" — \"Thanks! I'll text you when I arrive.\"",
     [
+     "slow",
      "carefully",
-     "fast",
-     "slow"
+     "fast"
     ],
-    "A"
+    "B"
    ],
    [
     "\"I have a present for you.\" — \"Thank you! That's so _____ of you!\"",
     [
-     "kind",
      "nice",
-     "pleasure"
+     "pleasure",
+     "kind"
     ],
-    "A"
+    "C"
    ],
    [
     "\"Thank you for everything!\" — \"It was a _____. We enjoyed having you.\"",
     [
-     "pleasure",
+     "welcome",
      "happy",
-     "welcome"
+     "pleasure"
     ],
-    "A"
+    "C"
    ],
    [
     "A person who writes news articles for a newspaper or website is a _____.",
@@ -3658,11 +3658,11 @@
    [
     "Spring, summer, autumn, and winter are the four _____ of the year.",
     [
+     "days",
      "seasons",
-     "months",
-     "days"
+     "months"
     ],
-    "A"
+    "B"
    ]
   ]
  ]
