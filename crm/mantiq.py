@@ -213,22 +213,24 @@ def markazga_yangimi(azolik_moliya: AzolikMoliya) -> bool:
     """Talaba o'quv markaziga SHU a'zolik bilan birinchi bor kelganmi.
 
     Boshqa guruhdan ko'chirilgan (yoki avval o'qigan) talabaning izi
-    qoladi: eski guruhdagi hisoblar, `GuruhdanChiqish` yozuvi yoki
-    oldinroq boshlangan boshqa a'zolik. Bunday talabaga "12 ga bo'lish"
-    qoidasi tegmaydi — TZ talabi.
-    """
-    from .models import GuruhdanChiqish
+    qoladi: eski guruhdagi hisoblar yoki oldinroq boshlangan boshqa
+    (sinov emas) a'zolik. Bunday talabaga "12 ga bo'lish" qoidasi
+    tegmaydi — TZ talabi.
 
+    `GuruhdanChiqish` ATAYLAB hisobga olinmaydi: sinov darsidan keyin
+    boshqa guruhga ko'chirilgan (yoki lidga qaytib, keyin kelgan) talaba
+    ham chiqish yozuvi qoldiradi, lekin u markazda hali o'qimagan — sinov
+    pullik emas, hisobi yo'q.
+    """
     talaba = azolik_moliya.azolik.talaba
     guruh = azolik_moliya.azolik.guruh
     boshi = azolik_moliya.boshlanish_sana
     if Hisob.objects.filter(talaba=talaba, oy__lte=boshi).exclude(guruh=guruh).exists():
         return False
-    if GuruhdanChiqish.objects.filter(talaba=talaba, sana__lte=boshi).exists():
-        return False
     return not (
         AzolikMoliya.objects.filter(azolik__talaba=talaba, boshlanish_sana__lt=boshi)
         .exclude(pk=azolik_moliya.pk)
+        .exclude(holat=AzolikMoliya.Holat.SINOV)
         .exists()
     )
 

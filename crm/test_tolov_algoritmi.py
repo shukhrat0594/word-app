@@ -10,7 +10,7 @@ from decimal import Decimal
 from academics.models import Guruh, GuruhAzoligi
 from accounts.models import User
 from crm import mantiq
-from crm.models import AzolikMoliya, DarsJadvali, GuruhMoliya, Hisob, KursNarxi, Sozlama
+from crm.models import AzolikMoliya, DarsJadvali, GuruhdanChiqish, GuruhMoliya, Hisob, KursNarxi, Sozlama
 from crm.tests import CrmAsos, bugun_qilib
 
 OKTABR = date(2026, 10, 1)
@@ -52,6 +52,17 @@ class TolovAlgoritmiTest(CrmAsos):
         with bugun_qilib(date(2026, 10, 20)):
             mantiq.hisoblarni_generatsiya_qil()
         self.assertEqual(Hisob.objects.get(guruh=self.guruh, oy=OKTABR).summa, Decimal("332000"))
+
+    def test_sinovdan_keyin_kochirilgan_yangi_talaba_12_ga_bolinadi(self):
+        """Sinov darsi boshqa guruhda bo'lib, keyin bu guruhga ko'chirilgan
+        talaba markazda hali o'qimagan (hisobi yo'q) — u ham yangi."""
+        eski = Guruh.objects.create(name="Sinov guruhi", markaz=self.markaz, daraja=self.daraja)
+        GuruhdanChiqish.objects.create(talaba=self.talaba, talaba_ism="t", guruh=eski, guruh_nomi="Sinov guruhi",
+                                       sana=date(2026, 10, 10), sabab_turi=GuruhdanChiqish.SababTuri.KOCHIRILDI)
+        self.azolik_qosh(boshlanish=date(2026, 10, 14))
+        with bugun_qilib(date(2026, 10, 20)):
+            mantiq.hisoblarni_generatsiya_qil()
+        self.assertEqual(Hisob.objects.get(guruh=self.guruh, oy=OKTABR).summa, Decimal("360000"))
 
     def test_individual_kurs_dars_soniga_kopaytiriladi(self):
         """1 dars 150 000, oktabrda 13 dars -> 1 950 000."""
