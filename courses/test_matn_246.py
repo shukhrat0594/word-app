@@ -39,8 +39,8 @@ class UnitTestsTuguniTest(TestCase):
         call_command("beginner_unit1_testlari", stdout=StringIO())
         call_command("beginner_unit1_testlari", stdout=StringIO())
         mashqlar = list(KursTugun.objects.get(parent=unit, kalit="tests").mashqlar.all())
-        self.assertEqual(len(mashqlar), 2)
-        savollar = mashqlar[0].savollar + mashqlar[1].savollar
+        self.assertEqual(len(mashqlar), 1)
+        savollar = mashqlar[0].savollar
         self.assertEqual(len(savollar), 30)
         # PDF'dagi ANSWER KEY
         kalit = "ABCCABCBBCACBCCBACBABCABBBDBAA"

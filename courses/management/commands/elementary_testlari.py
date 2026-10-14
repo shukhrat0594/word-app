@@ -15,15 +15,13 @@ from django.core.management import call_command
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
-from courses.models import KursMashq, KursTugun
+from courses.models import KursTugun
+from courses.test_mashqi import test_mashqini_yarat
 
 FIXTURE = Path(__file__).resolve().parents[2] / "fixtures" / "elementary_testlari.json"
-# Part 1 har doim 1-15 savol, Part 2 — qolgani (odatda 15; Beginner U3
-# faylida 20-savol yo'q, shuning uchun 14).
-QISMLAR = [
-    ("PART 1: GRAMMAR", slice(0, 15)),
-    ("PART 2: VOCABULARY & EVERYDAY ENGLISH", slice(15, None)),
-]
+# Part 1 (Grammar) har doim 1-15 savol, Part 2 — qolgani. Ikkalasi BITTA
+# mashqda (`courses.test_mashqi`).
+GRAMMAR_SONI = 15
 
 
 class Command(BaseCommand):
@@ -48,10 +46,7 @@ class Command(BaseCommand):
                             self.stdout.write(f"Unit {raqam} > Tests: mashqlar bor — tegilmadi")
                             continue
                         tests.mashqlar.all().delete()
-                    for i, (matn, qism) in enumerate(QISMLAR, start=1):
-                        qism_savollari = savollar[qism]
-                        KursMashq.objects.create(
-                            tugun=tests, tartib=i, savollar=qism_savollari,
-                            matn=f"{matn} ({len(qism_savollari)} Questions)",
-                        )
+                    test_mashqini_yarat(
+                        tests, savollar[:GRAMMAR_SONI], savollar[GRAMMAR_SONI:]
+                    )
                     self.stdout.write(f"Unit {raqam} > Tests: {len(savollar)} savol kiritildi")

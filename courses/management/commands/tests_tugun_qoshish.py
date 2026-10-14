@@ -8,6 +8,7 @@ Idempotent: Unit'da "tests" kalitli farzand allaqachon bo'lsa — tegilmaydi.
 from django.core.management.base import BaseCommand
 
 from courses.models import KursTugun
+from courses.test_mashqi import test_mashqlarini_birlashtir
 
 
 class Command(BaseCommand):
@@ -47,3 +48,10 @@ class Command(BaseCommand):
                 games.save(update_fields=["tartib"])
                 almashdi += 1
         self.stdout.write(self.style.SUCCESS(f"Tests/Games o'rni almashdi: {almashdi} ta Unit"))
+
+        # 2026-10-14: ikki qismga (PART 1 / PART 2) bo'lingan testlar bitta
+        # mashqqa birlashtiriladi (`courses.test_mashqi`).
+        birlashdi = sum(
+            test_mashqlarini_birlashtir(t) for t in KursTugun.objects.filter(kalit="tests")
+        )
+        self.stdout.write(self.style.SUCCESS(f"Testlar bitta mashqqa birlashdi: {birlashdi} ta"))

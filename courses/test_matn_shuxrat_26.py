@@ -31,8 +31,8 @@ class BeginnerTestlariTest(TestCase):
         self.assertEqual(self.mashqlar(1), [])
         for n in range(2, 15):
             mashqlar = self.mashqlar(n)
-            self.assertEqual(len(mashqlar), 2, n)
-            savollar = mashqlar[0].savollar + mashqlar[1].savollar
+            self.assertEqual(len(mashqlar), 1, n)
+            savollar = mashqlar[0].savollar
             self.assertEqual(len(savollar), 29 if n == 3 else 30, n)
             for s in savollar:
                 self.assertIn(s["togri"], s["variantlar"])
@@ -41,8 +41,8 @@ class BeginnerTestlariTest(TestCase):
         call_command("beginner_testlari", stdout=StringIO())
         u2 = self.mashqlar(2)
         self.assertEqual(u2[0].savollar[0]["togri"], "is")
-        self.assertEqual(u2[1].savollar[14]["togri"], "Italy")
+        self.assertEqual(u2[0].savollar[29]["togri"], "Italy")
         u7 = self.mashqlar(7)
         self.assertEqual(u7[0].savollar[14]["togri"], "does Annie")
         u14 = self.mashqlar(14)
-        self.assertEqual(u14[1].savollar[6]["togri"], "to")
+        self.assertEqual(u14[0].savollar[21]["togri"], "to")

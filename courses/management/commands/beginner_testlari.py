@@ -15,12 +15,12 @@ from pathlib import Path
 from django.core.management import call_command
 from django.core.management.base import BaseCommand
 
-from courses.models import KursMashq, KursTugun
+from courses.models import KursTugun
+from courses.test_mashqi import test_mashqini_yarat
 
 from .beginner_unit1_testlari import savollar
 
 MALUMOT = Path(__file__).with_name("beginner_testlari.json")
-QISM_NOMLARI = ["PART 1: GRAMMAR", "PART 2: VOCABULARY & EVERYDAY ENGLISH"]
 
 
 class Command(BaseCommand):
@@ -41,8 +41,6 @@ class Command(BaseCommand):
             if tests.mashqlar.exists():
                 self.stdout.write(f"{unit.nomi} > Tests: mashqlar allaqachon bor — tegilmadi")
                 continue
-            for i, (nom, qatorlar) in enumerate(zip(QISM_NOMLARI, qismlar), start=1):
-                KursMashq.objects.create(tugun=tests, tartib=i, matn=f"{nom} ({len(qatorlar)} Questions)",
-                                         savollar=savollar(qatorlar))
+            test_mashqini_yarat(tests, savollar(qismlar[0]), savollar(qismlar[1]))
             self.stdout.write(self.style.SUCCESS(
-                f"{unit.nomi} > Tests: {len(qismlar)} mashq, {sum(len(q) for q in qismlar)} savol kiritildi"))
+                f"{unit.nomi} > Tests: 1 mashq, {sum(len(q) for q in qismlar)} savol kiritildi"))
