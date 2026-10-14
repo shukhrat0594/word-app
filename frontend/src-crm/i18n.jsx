@@ -214,6 +214,8 @@ const SATRLAR = {
     chegirma_qilish: "Chegirma qilish",
 
     kurs_narxlari: "Kurs narxlari",
+    dars_uchun_narx: "1 dars uchun",
+    dars_uchun_narx_izoh: "Individual kurs: oylik summa = 1 dars narxi × oydagi darslar soni",
     daraja: "Daraja",
     fan: "Fan",
     guruh_soni: "Guruhlar",
@@ -892,6 +894,8 @@ const SATRLAR = {
     chegirma_qilish: "Сделать скидку",
 
     kurs_narxlari: "Цены курсов",
+    dars_uchun_narx: "За 1 урок",
+    dars_uchun_narx_izoh: "Индивидуальный курс: сумма за месяц = цена урока × число уроков в месяце",
     daraja: "Уровень",
     fan: "Предмет",
     guruh_soni: "Групп",
@@ -1572,6 +1576,8 @@ const SATRLAR = {
     chegirma_qilish: "Apply discount",
 
     kurs_narxlari: "Course prices",
+    dars_uchun_narx: "Per lesson",
+    dars_uchun_narx_izoh: "Individual course: monthly amount = lesson price × lessons in the month",
     daraja: "Level",
     fan: "Subject",
     guruh_soni: "Groups",

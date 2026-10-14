@@ -123,6 +123,7 @@ function OchirishTasdigi({ qator, onYopish, onTasdiq }) {
 function NarxQatori({ qator, onSaqlandi }) {
   const { t } = useI18n();
   const [narx, setNarx] = useState(qator.narx ?? "");
+  const [darsUchun, setDarsUchun] = useState(!!qator.dars_uchun);
   const [holat, setHolat] = useState("");
   // Kurs narxi butun markazga ta'sir qiladi — filialga bog'langan xodim faqat ko'radi.
   const cheklangan = useCheklangan();
@@ -137,7 +138,7 @@ function NarxQatori({ qator, onSaqlandi }) {
     try {
       await api("/api/crm/kurs-narxlari/", {
         method: "PUT",
-        body: { daraja_id: qator.daraja_id, narx: narx === "" ? null : String(narx) },
+        body: { daraja_id: qator.daraja_id, narx: narx === "" ? null : String(narx), dars_uchun: darsUchun },
       });
       setHolat(t("saqlandi"));
       onSaqlandi();
@@ -187,6 +188,11 @@ function NarxQatori({ qator, onSaqlandi }) {
           onChange={(e) => setNarx(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && saqla()}
         />
+        {/* Individual kurs (TZ "To'lov algoritmi"): narx — 1 dars uchun. */}
+        <label className="kichik nowrap" title={t("dars_uchun_narx_izoh")}>
+          <input type="checkbox" checked={darsUchun} disabled={cheklangan}
+                 onChange={(e) => setDarsUchun(e.target.checked)} /> {t("dars_uchun_narx")}
+        </label>
       </td>
       <td className="nowrap">
         {!cheklangan && (
