@@ -650,7 +650,8 @@ class KetganlarHisobotiView(CrmView):
             hammasi = hammasi.filter(guruh__oqituvchi_id=p["oqituvchi"])
 
         kochganlar = list(hammasi.filter(sabab_turi=GuruhdanChiqish.SababTuri.KOCHIRILDI))
-        ketganlar = hammasi.exclude(sabab_turi__in=GuruhdanChiqish.KETMAGAN_TURLAR)
+        # Lidlarga qaytarilganlar ham ketgan emas — ular lidlar ro'yxatida (video-TZ IMG_7020).
+        ketganlar = hammasi.exclude(sabab_turi__in=(*GuruhdanChiqish.KETMAGAN_TURLAR, GuruhdanChiqish.SababTuri.LIDGA))
         # Kartochkalar va grafiklar — ro'yxat filtrlaridan (qidiruv, sabab,
         # chegirma) OLDINGI to'plamdan: filtr faqat pastdagi jadvalni toraytiradi.
         umumiy = list(ketganlar)
