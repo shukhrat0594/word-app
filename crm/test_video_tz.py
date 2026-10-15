@@ -98,6 +98,14 @@ class TalabaAmaliTest(ApiAsos):
         self.assertIn("lidlarga qaytarildi", LidTarix.objects.get(lid=lid).matn)
         self.assertEqual(GuruhdanChiqish.objects.get().sabab_turi, "lidga")
 
+    def test_lidga_qaytarilgan_ketganlar_royxatida_yoq(self):
+        with bugun(date(2026, 9, 20)):
+            self.m.post(self.yol, {"amal": "lidga", "talaba_id": self.talaba.id, "sana": "2026-09-18"},
+                        format="json")
+            h = self.m.get("/api/crm/hisobot/ketganlar/?dan=2026-09-01&gacha=2026-09-30").data
+        self.assertEqual(GuruhdanChiqish.objects.get().sabab_turi, "lidga")
+        self.assertEqual((h["soni"], h["royxat"]), (0, []))
+
     def test_lidga_qaytarish_lid_bolmasa_yaratadi(self):
         j = self.m.post(self.yol, {"amal": "lidga", "talaba_id": self.talaba.id}, format="json")
         lid = Lid.objects.get(pk=j.data["lid_id"])
