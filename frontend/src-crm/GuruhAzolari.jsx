@@ -139,7 +139,11 @@ export default function GuruhAzolari({ guruhId, guruhNomi, onOzgardi }) {
             <tr key={a.id}>
               <td className="ongga kichik">{i + 1}</td>
               {/* Ism — o'quvchi kartasiga (video-TZ 2026-09-25, SoffCRM'dagidek). */}
-              <td><Link className="havola" to={`/talabalar?talaba=${a.talaba_id}`}>{a.talaba}</Link></td>
+              {/* Muzlatilgan o'quvchi ismiga sichqoncha olib kelinganda — izoh
+                  (video-TZ IMG_7018.MOV, Davomat va Lidlardagidek). */}
+              <td title={a.holat === "muzlatilgan" && a.muzlatish_izoh ? a.muzlatish_izoh : undefined}>
+                <Link className="havola" to={`/talabalar?talaba=${a.talaba_id}`}>{a.talaba}</Link>
+              </td>
               <td>{a.telefon || "—"}</td>
               <td>
                 {/* Sinov va muzlatilgan talabaga hisob OCHILMAYDI —

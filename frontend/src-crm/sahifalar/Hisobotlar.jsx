@@ -297,7 +297,7 @@ function KetishHisoboti() {
               </select>
               <select {...maydon("sabab_turi")} aria-label={t("sabab")}>
                 <option value="">{t("sabab")}: {t("hammasi")}</option>
-                {["narx", "natija", "oqituvchi", "dars_jadvali", "joylashuv", "boshqa", "lidga"].map((k) => (
+                {["narx", "natija", "oqituvchi", "dars_jadvali", "joylashuv", "boshqa"].map((k) => (
                   <option key={k} value={k}>{t(`sabab_${k}`)}</option>
                 ))}
               </select>

@@ -338,6 +338,31 @@ class DarsKochirishTest(ApiAsos):
             self.assertEqual(m.post(self.yol, {"turi": "kochirish", "asl_sana": "2026-09-17",
                                                "yangi_sana": "2026-09-21"}, format="json").status_code, 400)
 
+    def test_darssiz_kundagi_davomat_dars_kuniga_tuzatiladi(self):
+        """Video-TZ IMG_7021.MOV: davomat darsi yo'q kunga (9-sentabr, chorshanba)
+        tushib qolgan — o'tgan dars kuniga (10-sentabr) o'tkaziladi, jadval o'zgarmaydi."""
+        Davomat.objects.create(guruh=self.guruh, talaba=self.talaba, sana=date(2026, 9, 9), holat="keldi")
+        m = self.mijoz(self.admin)
+        with bugun_qilib(date(2026, 9, 12)):
+            jadval = m.get(f"/api/crm/guruhlar/{self.guruh.id}/davomat/?oy=2026-09").data
+            self.assertEqual(jadval["jadvaldan_tashqari"], [date(2026, 9, 9)])
+            # Dars kuni bo'lmagan sanaga emas
+            self.assertEqual(m.post(self.yol, {"turi": "kochirish", "asl_sana": "2026-09-09",
+                                               "yangi_sana": "2026-09-15"}, format="json").status_code, 400)
+            # Kelajakdagi dars kuniga emas (14-sentabr — dushanba)
+            self.assertEqual(m.post(self.yol, {"turi": "kochirish", "asl_sana": "2026-09-09",
+                                               "yangi_sana": "2026-09-14"}, format="json").status_code, 400)
+            javob = m.post(self.yol, {"turi": "kochirish", "asl_sana": "2026-09-09",
+                                      "yangi_sana": "2026-09-10"}, format="json")
+            self.assertEqual(javob.status_code, 200, javob.data)
+            self.assertEqual(Davomat.objects.get(guruh=self.guruh).sana, date(2026, 9, 10))
+            self.assertFalse(self.guruh.crm_dars_ozgarishlari.exists())
+            self.assertEqual(m.get(f"/api/crm/guruhlar/{self.guruh.id}/davomat/?oy=2026-09").data["jadvaldan_tashqari"], [])
+            # Dars kunida o'z davomati bo'lsa — ustidan yozilmaydi.
+            Davomat.objects.create(guruh=self.guruh, talaba=self.talaba, sana=date(2026, 9, 9), holat="keldi")
+            self.assertEqual(m.post(self.yol, {"turi": "kochirish", "asl_sana": "2026-09-09",
+                                               "yangi_sana": "2026-09-10"}, format="json").status_code, 400)
+
 
 class BoshlanishUnitiTest(Yordamchi):
     """Guruh a'zolari jadvalidagi "Boshlanish uniti" — LMS `GuruhAzoligi`ga yoziladi."""
