@@ -230,6 +230,7 @@ const SATRLAR = {
     lavozim_roli_izoh: "Bu lavozimning standart roli: rolsiz shu lavozimdagi hamma xodimga shu ruxsatlar beriladi. Nomi o'zgarmaydi, faqat ruxsatlari.",
     arxivdagilar: "Arxivdagilar",
     kochirish_sana_izoh: "O'tgan kunlar, darsi bor kunlar va guruh tugaganidan keyingi kunlar tanlanmaydi.",
+    sana_tuzatish_izoh: "Bu kunda guruhning darsi yo'q. Davomat, mavzu va baholar tanlangan dars kuniga (o'tgan kun ham bo'ladi) o'tkaziladi.",
     narx_yoq: "Narx belgilanmagan",
 
     dars_kunlari: "Dars kunlari",
@@ -910,6 +911,7 @@ const SATRLAR = {
     lavozim_roli_izoh: "Стандартная роль должности: сотрудники этой должности без особой роли получают эти права. Название не меняется — только права.",
     arxivdagilar: "В архиве",
     kochirish_sana_izoh: "Нельзя выбрать прошедшие дни, дни с уроком и дни после окончания группы.",
+    sana_tuzatish_izoh: "В этот день у группы нет урока. Посещаемость, темы и оценки будут перенесены на выбранный день урока (можно и прошедший).",
     narx_yoq: "Цена не указана",
 
     dars_kunlari: "Дни занятий",
@@ -1592,6 +1594,7 @@ const SATRLAR = {
     lavozim_roli_izoh: "Default role of this position: staff in this position without a custom role get these permissions. Only permissions can be edited.",
     arxivdagilar: "Archived",
     kochirish_sana_izoh: "Past days, days with a lesson and days after the group ends cannot be chosen.",
+    sana_tuzatish_izoh: "The group has no lesson on this day. Attendance, topics and grades will move to the chosen lesson day (past days allowed).",
     narx_yoq: "No price set",
 
     dars_kunlari: "Class days",

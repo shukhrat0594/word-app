@@ -1959,7 +1959,8 @@ class GuruhDavomatView(CrmView):
             Davomat.objects.filter(guruh=guruh, sana__gte=oy, sana__lte=mantiq.oy_oxiri(oy))
             .select_related("crm_izoh")
         )
-        sanalar = sorted(guruh_dars_sanalari(guruh, oy) | {y.sana for y in yozuvlar})
+        dars_sanalari = guruh_dars_sanalari(guruh, oy)
+        sanalar = sorted(dars_sanalari | {y.sana for y in yozuvlar})
         katak = {}
         for y in yozuvlar:
             izoh = getattr(y, "crm_izoh", None)
@@ -2038,6 +2039,8 @@ class GuruhDavomatView(CrmView):
                     "sababli": sum(1 for k in kunlar if k["holat"] == "sababli"),
                 })
         return Response({"oy": oy, "sanalar": sanalar, "talabalar": talabalar, "ozgarishlar": ozgarishlar,
+                         # Darsi yo'q kunga tushib qolgan davomat sanalari (video-TZ IMG_7021.MOV).
+                         "jadvaldan_tashqari": [s for s in sanalar if s not in dars_sanalari],
                          "sobiqlar": sobiqlar, "sobiqlar_soni": len(sobiq_idlar)})
 
     def post(self, request, pk):
@@ -2136,6 +2139,9 @@ class DarsOzgarishlariView(CrmView):
             tugash = _vaqt(request.data["tugash_vaqti"], "tugash_vaqti") if request.data.get("tugash_vaqti") else None
         except ValueError as e:
             return _xato(str(e))
+        if (turi == "kochirish" and asl not in guruh_dars_sanalari(guruh, mantiq.oy_boshi(asl))
+                and any(m.objects.filter(guruh=guruh, sana=asl).exists() for m in (Davomat, DarsMavzusi, DarsBahosi))):
+            return self._sana_tuzat(request, guruh, asl, yangi)
         if turi in ("kochirish", "bekor") and asl not in guruh_dars_sanalari(guruh, mantiq.oy_boshi(asl)):
             return _xato("Tanlangan kunda bu guruhning darsi yo'q")
         if boshlanish and tugash and tugash <= boshlanish:
@@ -2172,6 +2178,23 @@ class DarsOzgarishlariView(CrmView):
               obyekt_turi="CRM Dars o'zgarishi", obyekt_nomi=guruh.name,
               snapshot={k: str(v) for k, v in _ozgarish_dict(oz).items()})
         return Response(_ozgarish_dict(oz), status=201)
+
+    def _sana_tuzat(self, request, guruh, asl, yangi):
+        """Video-TZ IMG_7021.MOV: davomat darsi yo'q kunga (9-, 14-) tushib
+        qolgan — uni guruhning haqiqiy dars kuniga o'tkazish. Jadval
+        o'zgarmaydi (DarsOzgarish yaratilmaydi), faqat yozuvlar sanasi
+        tuzatiladi; shuning uchun o'tgan dars kuni ham tanlanadi."""
+        if yangi not in guruh_dars_sanalari(guruh, mantiq.oy_boshi(yangi)):
+            return _xato(f"{yangi:%d.%m.%Y} kuni bu guruhning darsi yo'q — dars kunini tanlang")
+        try:
+            with transaction.atomic():
+                _dars_yozuvlarini_kochir(guruh, asl, yangi)
+        except ValueError as e:
+            return _xato(str(e))
+        logla(foydalanuvchi=request.user, harakat=FaoliyatYozuvi.Harakat.OZGARTIRISH, obyekt=guruh,
+              obyekt_turi="CRM Davomat sanasi tuzatildi", obyekt_nomi=guruh.name,
+              snapshot={"asl_sana": str(asl), "yangi_sana": str(yangi)})
+        return Response({"tuzatildi": True, "asl_sana": asl, "yangi_sana": yangi})
 
 
 class DarsOzgarishDetailView(CrmView):

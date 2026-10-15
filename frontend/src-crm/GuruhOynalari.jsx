@@ -512,6 +512,8 @@ export function DavomatJadvali({ guruhId }) {
   const sanalar = malumot?.sanalar || [];
   const talabalar = [...(malumot?.talabalar || []), ...(malumot?.sobiqlar || [])];
   const ozgarishlar = malumot?.ozgarishlar || [];
+  // Darsi yo'q kunga tushib qolgan davomat — sanasini tuzatish mumkin (video-TZ IMG_7021.MOV).
+  const tashqari = malumot?.jadvaldan_tashqari || [];
   // Sichqoncha olib kelinganda muzlatish sababi (video-TZ IMG_6993.MOV).
   const muzlatishMatni = (x) => `❄️ ${t("holat_muzlatilgan")}${x.muzlatish_sana ? ` · ${sana(x.muzlatish_sana)}` : ""}`
     + (x.muzlatish_izoh ? ` — ${x.muzlatish_izoh}` : "");
@@ -573,7 +575,7 @@ export function DavomatJadvali({ guruhId }) {
                   return (
                     <th key={s} className="markazga" title={sana(s) + (oz ? ` · ${oz.turi_nomi}` : "")}>
                       {ruxsat("guruhlar.dars_kochirish") ? (
-                        <button className="havola" type="button" onClick={() => setKochirish({ turi: "kochirish", asl_sana: s })}>
+                        <button className="havola" type="button" onClick={() => setKochirish({ turi: "kochirish", asl_sana: s, tashqari: tashqari.includes(s) })}>
                           {String(s).slice(8, 10)}
                         </button>
                       ) : String(s).slice(8, 10)}
@@ -670,6 +672,8 @@ function DarsKochirishOynasi({ guruhId, boshlangich, onYopish, onSaqlandi }) {
     boshlanish_vaqti: "", tugash_vaqti: "", izoh: "",
   });
   const [xato, setXato] = useState("");
+  // Darssiz kundagi davomatni dars kuniga o'tkazish — o'tgan kun ham tanlanadi.
+  const tuzatish = boshlangich.tashqari && f.turi === "kochirish" && f.asl_sana === boshlangich.asl_sana;
   const qiymat = (k) => ({ value: f[k], onChange: (e) => setF((x) => ({ ...x, [k]: e.target.value })) });
 
   async function saqla() {
@@ -701,9 +705,10 @@ function DarsKochirishOynasi({ guruhId, boshlangich, onYopish, onSaqlandi }) {
           <>
             {/* Ko'chirishda o'tgan kun tanlanmaydi (backend ham tekshiradi). */}
             <label>{t("yangi_sana")}
-              <input type="date" {...qiymat("yangi_sana")} min={f.turi === "kochirish" ? bugun() : undefined} />
+              <input type="date" {...qiymat("yangi_sana")}
+                     min={f.turi === "kochirish" && !tuzatish ? bugun() : undefined} />
             </label>
-            <p className="kichik">{t("kochirish_sana_izoh")}</p>
+            <p className="kichik">{t(tuzatish ? "sana_tuzatish_izoh" : "kochirish_sana_izoh")}</p>
             <div className="ikki-ustun">
               <label>{t("boshlanish_vaqti")}<input type="time" {...qiymat("boshlanish_vaqti")} /></label>
               <label>{t("tugash_vaqti")}<input type="time" {...qiymat("tugash_vaqti")} /></label>
