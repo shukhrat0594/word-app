@@ -706,7 +706,8 @@ function DarsKochirishOynasi({ guruhId, boshlangich, onYopish, onSaqlandi }) {
             {/* Ko'chirishda o'tgan kun tanlanmaydi (backend ham tekshiradi). */}
             <label>{t("yangi_sana")}
               <input type="date" {...qiymat("yangi_sana")}
-                     min={f.turi === "kochirish" && !tuzatish ? bugun() : undefined} />
+                     min={f.turi === "kochirish" && !tuzatish ? bugun() : undefined}
+                     max={tuzatish ? bugun() : undefined} />
             </label>
             <p className="kichik">{t(tuzatish ? "sana_tuzatish_izoh" : "kochirish_sana_izoh")}</p>
             <div className="ikki-ustun">

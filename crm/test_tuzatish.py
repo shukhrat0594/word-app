@@ -349,6 +349,9 @@ class DarsKochirishTest(ApiAsos):
             # Dars kuni bo'lmagan sanaga emas
             self.assertEqual(m.post(self.yol, {"turi": "kochirish", "asl_sana": "2026-09-09",
                                                "yangi_sana": "2026-09-15"}, format="json").status_code, 400)
+            # Kelajakdagi dars kuniga emas (14-sentabr — dushanba)
+            self.assertEqual(m.post(self.yol, {"turi": "kochirish", "asl_sana": "2026-09-09",
+                                               "yangi_sana": "2026-09-14"}, format="json").status_code, 400)
             javob = m.post(self.yol, {"turi": "kochirish", "asl_sana": "2026-09-09",
                                       "yangi_sana": "2026-09-10"}, format="json")
             self.assertEqual(javob.status_code, 200, javob.data)

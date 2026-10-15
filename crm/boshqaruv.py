@@ -2186,6 +2186,9 @@ class DarsOzgarishlariView(CrmView):
         tuzatiladi; shuning uchun o'tgan dars kuni ham tanlanadi."""
         if yangi not in guruh_dars_sanalari(guruh, mantiq.oy_boshi(yangi)):
             return _xato(f"{yangi:%d.%m.%Y} kuni bu guruhning darsi yo'q — dars kunini tanlang")
+        # Kelajak kataklari qulf — u yerga o'tgan davomatni tuzatib bo'lmay qoladi.
+        if yangi > timezone.localdate():
+            return _xato("Davomatni kelajakdagi darsga o'tkazib bo'lmaydi")
         try:
             with transaction.atomic():
                 _dars_yozuvlarini_kochir(guruh, asl, yangi)
