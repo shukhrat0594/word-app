@@ -754,7 +754,6 @@ class LidlarHisobotiView(CrmView):
                            .values_list("azolik__talaba_id", flat=True)) - qolganlar
         keldi_qs = qs.filter(Q(holat=Lid.Holat.SINOV) | Q(talaba__isnull=False))
         kelmadi_qs = qs.filter(holat=Lid.Holat.KELMADI, talaba__isnull=True)
-        keldi, kelmadi = keldi_qs.count(), kelmadi_qs.count()
 
         # Video-TZ IMG_6995: sinovga chaqirilgan/kelgan/kelmaganlar kimligi
         # ko'rinsin — voronka qatori bosilganda ro'yxat ochiladi.
@@ -763,28 +762,33 @@ class LidlarHisobotiView(CrmView):
                     for x in q.order_by("ism", "id")]
 
         keldi_r, kelmadi_r = lidlar(keldi_qs), lidlar(kelmadi_qs)
-        royxatlar = {
-            "sinov_chaqirildi": sorted(keldi_r + kelmadi_r, key=lambda x: (x["ism"], x["id"])),
-            "sinov_keldi": keldi_r, "sinov_kelmadi": kelmadi_r,
-        }
-        yoqdi = talabali.filter(talaba_id__in=qolganlar).count()
-        yoqmadi = talabali.exclude(talaba_id__in=qolganlar | sinovdagilar).count()
         tolovlar = Counter(Tolov.objects.filter(talaba_id__in=talabalar, turi=Tolov.Turi.TOLOV)
                            .values_list("talaba_id", flat=True))
-        voronka = [
-            ("trafik", qs.count()),
-            ("naborga", qs.filter(yigilayotgan_guruh__isnull=False).count()),
-            ("sinov_chaqirildi", keldi + kelmadi),
-            ("sinov_keldi", keldi),
-            ("sinov_kelmadi", kelmadi),
-            ("yoqdi", yoqdi),
-            ("yoqmadi", yoqmadi),
-            ("tolov_1", sum(1 for n in tolovlar.values() if n >= 1)),
-            ("tolov_2", sum(1 for n in tolovlar.values() if n >= 2)),
-        ]
+        # Video-TZ IMG_7022: har bir voronka qatorida kimlar ekani ko'rinsin.
+        # Bitta talabaga bir nechta lid bog'liq bo'lsa, to'lov qatorlarida
+        # talaba bir marta sanaladi (avvalgidek) — ro'yxatda birinchi lidi.
+        def tolovchilar(n):
+            ids = {t for t, k in tolovlar.items() if k >= n}
+            royxat, korilgan = [], set()
+            for x in lidlar(talabali.filter(talaba_id__in=ids)):
+                if x["talaba_id"] not in korilgan:
+                    korilgan.add(x["talaba_id"])
+                    royxat.append(x)
+            return royxat
+        royxatlar = {
+            "trafik": lidlar(qs),
+            "naborga": lidlar(qs.filter(yigilayotgan_guruh__isnull=False)),
+            "sinov_chaqirildi": sorted(keldi_r + kelmadi_r, key=lambda x: (x["ism"], x["id"])),
+            "sinov_keldi": keldi_r, "sinov_kelmadi": kelmadi_r,
+            "yoqdi": lidlar(talabali.filter(talaba_id__in=qolganlar)),
+            "yoqmadi": lidlar(talabali.exclude(talaba_id__in=qolganlar | sinovdagilar)),
+            "tolov_1": tolovchilar(1),
+            "tolov_2": tolovchilar(2),
+        }
+        voronka = ["trafik", "naborga", "sinov_chaqirildi", "sinov_keldi", "sinov_kelmadi",
+                   "yoqdi", "yoqmadi", "tolov_1", "tolov_2"]
         return Response({
-            "voronka": [{"kalit": k, "soni": n, **({"royxat": royxatlar[k]} if k in royxatlar else {})}
-                        for k, n in voronka],
+            "voronka": [{"kalit": k, "soni": len(royxatlar[k]), "royxat": royxatlar[k]} for k in voronka],
             "dan": dan, "gacha": gacha, "jami": qs.count(),
             "qoshildi": qs.filter(talaba__isnull=False).count(),
             "manbalar": manbalar,

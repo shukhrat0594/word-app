@@ -195,9 +195,12 @@ class XodimVaHisobotTest(ApiAsos):
             "yoqdi": 1, "yoqmadi": 1, "tolov_1": 1, "tolov_2": 1,
         })
         # Video-TZ IMG_6995: sinov bosqichlarida kimlar ekani ro'yxati
-        rl = {x["kalit"]: [y["ism"] for y in x["royxat"]] for x in r.data["voronka"] if "royxat" in x}
-        self.assertEqual(rl, {"sinov_chaqirildi": ["B", "C", "D", "E", "F"],
-                              "sinov_keldi": ["B", "D", "E", "F"], "sinov_kelmadi": ["C"]})
+        # Video-TZ IMG_7022: endi har bir qatorda ro'yxat bor
+        rl = {x["kalit"]: [y["ism"] for y in x["royxat"]] for x in r.data["voronka"]}
+        self.assertEqual(rl, {"trafik": ["A", "B", "C", "D", "E", "F"], "naborga": ["A"],
+                              "sinov_chaqirildi": ["B", "C", "D", "E", "F"],
+                              "sinov_keldi": ["B", "D", "E", "F"], "sinov_kelmadi": ["C"],
+                              "yoqdi": ["D"], "yoqmadi": ["F"], "tolov_1": ["D"], "tolov_2": ["D"]})
 
     def test_eslatma_tahrirlash_faqat_ozinikini(self):
         m = self.mijoz(self.admin)
