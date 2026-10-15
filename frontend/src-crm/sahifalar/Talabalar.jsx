@@ -1366,7 +1366,7 @@ export default function Talabalar() {
           <tbody>
             {royxat.map((x) => (
               <tr key={x.id}>
-                <td>
+                <td className="matn-katak">
                   <button className="havola" type="button" onClick={() => setOchilgan(x.id)}>
                     {x.ism}
                   </button>
@@ -1381,7 +1381,9 @@ export default function Talabalar() {
                 <td className="kichik">
                   <div className="izoh-qisqa" title={x.izoh || ""}>{x.izoh || "—"}</div>
                 </td>
-                <td>
+                {/* Guruh nomi qatorga o'tadi — Balans/Harakatlar ro'yxat
+                    oxirigacha surmasdan ko'rinsin (video-TZ IMG_7017). */}
+                <td className="matn-katak">
                   {x.guruhlar.map((g) => (
                     <span key={g.azolik_moliya_id} className="guruh-belgi">
                       {g.guruh}
