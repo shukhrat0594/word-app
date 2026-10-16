@@ -1364,9 +1364,12 @@ export default function Talabalar() {
             </tr>
           </thead>
           <tbody>
-            {royxat.map((x) => (
+            {royxat.map((x, i) => (
               <tr key={x.id}>
                 <td className="matn-katak">
+                  {/* Tartib raqami ism oldida (video-TZ IMG_2202): birinchi ustun
+                      sticky, shuning uchun alohida "#" ustuni ochilmadi. */}
+                  <span className="kichik">{i + 1}.</span>{" "}
                   <button className="havola" type="button" onClick={() => setOchilgan(x.id)}>
                     {x.ism}
                   </button>

@@ -180,6 +180,7 @@ const SATRLAR = {
     bonus: "Bonus",
     qaytarilgan: "Qaytarilgan",
     qarz: "Qarz",
+    oy_qarzi: "Shu oy qarzi",
     yigilish: "Yig'ilish",
 
     barcha_holatlar: "Barcha holatlar",
@@ -292,6 +293,7 @@ const SATRLAR = {
     ob_ielts: "IELTS test (Listening/Reading)",
     ob_ws: "Writing / Speaking",
     ob_soz: "Vocabulary (Kurslar)",
+    ob_test: "Unit testlari (Kurslar)",
     ob_rejim_darhol: "Darhol",
     ob_rejim_yigma: "Kunlik yig'mada",
     ob_rejim_ochiq: "O'chiq",
@@ -861,6 +863,7 @@ const SATRLAR = {
     bonus: "Бонус",
     qaytarilgan: "Возвращено",
     qarz: "Долг",
+    oy_qarzi: "Долг за месяц",
     yigilish: "Собираемость",
 
     barcha_holatlar: "Все статусы",
@@ -973,6 +976,7 @@ const SATRLAR = {
     ob_ielts: "Тест IELTS (Listening/Reading)",
     ob_ws: "Writing / Speaking",
     ob_soz: "Vocabulary (Курсы)",
+    ob_test: "Тесты юнитов (Курсы)",
     ob_rejim_darhol: "Сразу",
     ob_rejim_yigma: "В сводке",
     ob_rejim_ochiq: "Выключено",
@@ -1544,6 +1548,7 @@ const SATRLAR = {
     bonus: "Bonus",
     qaytarilgan: "Refunded",
     qarz: "Debt",
+    oy_qarzi: "Debt this month",
     yigilish: "Collection",
 
     barcha_holatlar: "All statuses",
@@ -1656,6 +1661,7 @@ const SATRLAR = {
     ob_ielts: "IELTS test (Listening/Reading)",
     ob_ws: "Writing / Speaking",
     ob_soz: "Vocabulary (Courses)",
+    ob_test: "Unit tests (Courses)",
     ob_rejim_darhol: "Instantly",
     ob_rejim_yigma: "In digest",
     ob_rejim_ochiq: "Off",

@@ -138,11 +138,12 @@ function Ulanganlar() {
       {amalXato && <div className="xato">{amalXato}</div>}
       <table>
         <thead>
-          <tr><th>{t("ob_ota_ona")}</th><th>Telegram</th><th>{t("ob_farzandlar")}</th><th /></tr>
+          <tr><th>№</th><th>{t("ob_ota_ona")}</th><th>Telegram</th><th>{t("ob_farzandlar")}</th><th /></tr>
         </thead>
         <tbody>
-          {malumot.map((a) => (
+          {malumot.map((a, i) => (
             <tr key={a.id}>
+              <td>{i + 1}</td>
               <td>{a.ism || "—"}<div className="kichik">{a.telefon}</div></td>
               <td>{a.username ? `@${a.username}` : "—"}{!a.faol && (
                 <div className="rang-qarzdor kichik">
@@ -267,6 +268,7 @@ function Sozlama() {
         <Rejim k="ielts_rejimi" nom={t("ob_ielts")} />
         <Rejim k="ws_rejimi" nom={t("ob_ws")} />
         <Rejim k="soz_rejimi" nom={t("ob_soz")} />
+        <Rejim k="test_rejimi" nom={t("ob_test")} />
       </div>
       <p className="kichik">{t("ob_natija_turlari_izoh")}</p>
 

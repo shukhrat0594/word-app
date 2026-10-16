@@ -149,6 +149,10 @@ MATNLAR = {
         "uz": "📚 {ism} Vocabulary mashqini bajardi ({nomi}): {ball}/{jami} — {foiz}%.",
         "ru": "📚 {ism} выполнил(а) упражнение Vocabulary ({nomi}): {ball}/{jami} — {foiz}%.",
     },
+    "test_natija": {
+        "uz": "✅ {ism} {nomi} testini yechdi: {ball}/{jami} to'g'ri — {foiz}%.",
+        "ru": "✅ {ism} решил(а) тест {nomi}: {ball}/{jami} верно — {foiz}%.",
+    },
     "soz_urinish": {"uz": "({soni} marta urindi, oxirgi natija)", "ru": "({soni} попыток, последний результат)"},
     "tushunmadim": {
         "uz": "Tushunmadim. Buyruqlar uchun /yordam ni bosing.",
