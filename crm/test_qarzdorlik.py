@@ -46,8 +46,30 @@ class QarzdorlikTest(ApiAsos):
         royxat = m.get(f"/api/crm/talabalar/?qarzdor=1&{f}").data
         # Ikkala joy har doim bir xil sonni va summani ko'rsatadi.
         self.assertEqual(k["qarzdorlar"], len(royxat))
-        self.assertEqual(k["qolgan_qarz"], -sum((x["balans"] for x in royxat), Decimal(0)))
-        return k["qarzdorlar"], k["qolgan_qarz"], royxat
+        self.assertEqual(k["jami_qarz"], -sum((x["balans"] for x in royxat), Decimal(0)))
+        return k["qarzdorlar"], k["jami_qarz"], royxat
+
+    def test_tepadagi_karta_joriy_oy_pastdagi_jami(self):
+        """Video-TZ 2026-10-16: "Qolgan qarz" — faqat joriy (sentabr) oy,
+        "jami_qarz" — barcha oylar; `?qarzli=1` — kim, qaysi oy uchun qarzdor."""
+        self.hisob(AVGUST)
+        self.tolov(self.hisob(SENTABR), NARX - 100000)
+        m = self.mijoz(self.owner)
+        k = m.get("/api/crm/korsatkichlar/").data
+        self.assertEqual(k["qolgan_qarz"], 100000)
+        self.assertEqual(k["jami_qarz"], NARX + 100000)
+        d = m.get("/api/crm/hisoblar/?qarzli=1").data
+        self.assertEqual(sorted(str(x["oy"]) for x in d), [str(AVGUST), str(SENTABR)])
+        self.assertEqual(sum((x["qoldiq"] for x in d), Decimal(0)), NARX + 100000)
+        # Excel ham shu filtr bilan (avval `holat=qarzli` bo'sh varaq berardi);
+        # to'langan iyul hisobi tushmaydi.
+        self.tolov(self.hisob(date(2026, 7, 1)), NARX)
+        from io import BytesIO
+
+        from openpyxl import load_workbook
+
+        kitob = load_workbook(BytesIO(m.get("/api/crm/eksport/?qarzli=1").content))
+        self.assertEqual(kitob["Qarzdorlar"].max_row - 1, 2)
 
     def test_boshqa_oyga_ortiqcha_tolangan_pul_qarz_emas(self):
         """Avgustga 2 oylik pul — sentabr hisobi "ochiq", lekin balans 0: qarzdor emas."""

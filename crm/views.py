@@ -1378,6 +1378,10 @@ class HisoblarView(CrmView):
             qs = qs.filter(filial_id=request.query_params["filial"])
         if request.query_params.get("holat"):
             qs = qs.filter(holat=request.query_params["holat"])
+        # Bosh sahifadagi qarz kartalaridan: to'lanmagan va qisman to'langan
+        # hisoblar (kim, qaysi oy uchun qarzdor).
+        if request.query_params.get("qarzli"):
+            qs = qs.filter(holat__in=[Hisob.Holat.QARZDOR, Hisob.Holat.QISMAN])
         qidiruv = (request.query_params.get("q") or "").strip()
         if qidiruv:
             # Qidiruv AVVALO LMS'dagi tirik maydonlar bo'yicha: admin
@@ -2398,6 +2402,8 @@ class EksportView(CrmView):
             tolovlar_qs = tolovlar_qs.filter(tolov_filiali_q(filial_id))
         if request.query_params.get("holat"):
             hisoblar_qs = hisoblar_qs.filter(holat=request.query_params["holat"])
+        if request.query_params.get("qarzli"):
+            hisoblar_qs = hisoblar_qs.filter(holat__in=[Hisob.Holat.QARZDOR, Hisob.Holat.QISMAN])
         # Talaba kartasidagi "Excel" — faqat shu talabaning yozuvlari.
         if request.query_params.get("talaba"):
             hisoblar_qs = hisoblar_qs.filter(talaba_id=request.query_params["talaba"])
