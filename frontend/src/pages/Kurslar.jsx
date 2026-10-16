@@ -2164,6 +2164,23 @@ function Tugun({ tugun, chuqurlik, adminMi, talabaMi, oqituvchiMi, royxatniYangi
   const [faylXato, setFaylXato] = useState("");
   const [yuklanmoqda, setYuklanmoqda] = useState(false);
   const [tugallandimi, setTugallandimi] = useState(tugun.tugallandimi);
+  const [testOchiq, setTestOchiq] = useState(!!tugun.test_ochiq);
+
+  async function testniAlmashtir() {
+    setFaylXato("");
+    setYuklanmoqda(true);
+    try {
+      const res = await api(`/api/kurslar/${tugun.id}/test-boshlash/`, {
+        method: "POST",
+        body: { ochiq: !testOchiq },
+      });
+      setTestOchiq(res.test_ochiq);
+    } catch (e) {
+      setFaylXato(e.data?.detail || t("xato_yuz_berdi"));
+    } finally {
+      setYuklanmoqda(false);
+    }
+  }
 
   const otstup = 14 + chuqurlik * 20;
   // Bo'lim turi KALIT bo'yicha aniqlanadi (2026-07-28) — nomi endi
@@ -2304,7 +2321,23 @@ function Tugun({ tugun, chuqurlik, adminMi, talabaMi, oqituvchiMi, royxatniYangi
             <span style={{ fontWeight: 600 }}>
               {nomi}{tugun.mashqlar_soni ? ` (${tugun.mashqlar_soni})` : ""}
             </span>
+            {/* Video-TZ 2026-10-16: test talabalarga faqat o'qituvchi/admin
+                shu tugmani bosgandan keyin ko'rinadi (yechib bo'lgach yana
+                yopiladi — backend `_talabaga_test_yopiqmi`). */}
+            {(adminMi || oqituvchiMi) && (
+              <button
+                className={testOchiq ? "tugma ikkinchi" : "tugma"}
+                disabled={yuklanmoqda}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  testniAlmashtir();
+                }}
+              >
+                {testOchiq ? t("kurs_testni_yopish") : t("kurs_testni_boshlash")}
+              </button>
+            )}
           </div>
+          {faylXato && <div className="xato-xabar" style={{ paddingLeft: otstup }}>{faylXato}</div>}
           {mashqOchiq && (
             <div style={{ paddingLeft: 14 }}>
               <MashqPaneli tugunId={tugun.id} talabaMi={talabaMi} oqituvchiMi={oqituvchiMi} testMi />

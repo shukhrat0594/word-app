@@ -180,6 +180,11 @@ urlpatterns = [
         name="kurslar_audio_zip",
     ),
     path(
+        "kurslar/<int:pk>/test-boshlash/",
+        views.KursTestBoshlashView.as_view(),
+        name="kurslar_test_boshlash",
+    ),
+    path(
         "kurslar/mashq/<int:pk>/yechish/",
         views.KursMashqYechishView.as_view(),
         name="kurslar_mashq_yechish",
