@@ -147,6 +147,7 @@ export default function Guruhlar() {
         <table>
           <thead>
             <tr>
+              <th>#</th>
               <th>{t("guruh")}</th>
               <th>{t("daraja")}</th>
               {/* O'qituvchi — SAYT ma'lumoti (`academics.Guruh.oqituvchi`).
@@ -163,9 +164,10 @@ export default function Guruhlar() {
             </tr>
           </thead>
           <tbody>
-            {guruhlar.map((g) => (
+            {guruhlar.map((g, i) => (
               <Fragment key={g.id}>
                 <tr className={g.sozlangan ? "" : "qator-ogoh"}>
+                  <td>{i + 1}</td>
                   <td>
                     {/* ▸ — shu yerda yoyish; nom — alohida guruh sahifasi. */}
                     <button className="havola" type="button" aria-label={t("yoyish")}
@@ -202,7 +204,7 @@ export default function Guruhlar() {
                 </tr>
                 {ochilgan === g.id && (
                   <tr>
-                    <td colSpan={10} className="ichki">
+                    <td colSpan={11} className="ichki">
                       {/* Tezkor amallar — SoffCRM kartasidagi ikonkalar qatori. */}
                       <div className="tezkor-amallar">
                         {ruxsat("guruhlar.tahrirlash") && (
@@ -245,7 +247,7 @@ export default function Guruhlar() {
               </Fragment>
             ))}
             {!yuklanmoqda && guruhlar.length === 0 && (
-              <tr><td colSpan={10} className="bosh">{t("yozuv_yoq")}</td></tr>
+              <tr><td colSpan={11} className="bosh">{t("yozuv_yoq")}</td></tr>
             )}
           </tbody>
         </table>
