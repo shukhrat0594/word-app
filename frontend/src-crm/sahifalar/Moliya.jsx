@@ -49,11 +49,10 @@ function Qarzdorlar({ oy, setOy }) {
   const [qaytarishHisobi, setQaytarishHisobi] = useState(null);
   const [qolda, setQolda] = useState(false);
 
+  // "qarzli" — backendda alohida parametr; Excel ham shu filtr bilan.
+  const holatFiltri = { holat: holat === "qarzli" ? "" : holat, qarzli: holat === "qarzli" ? 1 : "" };
   const yol =
-    "/api/crm/hisoblar/" + sorovSatri({
-      oy, filial: tanlangan, q: qidiruv,
-      holat: holat === "qarzli" ? "" : holat, qarzli: holat === "qarzli" ? 1 : "",
-    });
+    "/api/crm/hisoblar/" + sorovSatri({ oy, filial: tanlangan, q: qidiruv, ...holatFiltri });
   const { malumot, yuklanmoqda, xato, yangila } = useSorov(yol);
   const qatorlar = malumot || [];
   const jamiQoldiq = qatorlar.reduce((s, q) => s + Math.max(Number(q.qoldiq) || 0, 0), 0);
@@ -83,7 +82,7 @@ function Qarzdorlar({ oy, setOy }) {
         <button
           className="tugma tugma-sokin"
           type="button"
-          onClick={() => apiFayluniYuklab("/api/crm/eksport/" + sorovSatri({ oy, filial: tanlangan, holat }))}
+          onClick={() => apiFayluniYuklab("/api/crm/eksport/" + sorovSatri({ oy, filial: tanlangan, ...holatFiltri }))}
         >
           ⬇ Excel
         </button>

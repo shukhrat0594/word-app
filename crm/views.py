@@ -2402,6 +2402,8 @@ class EksportView(CrmView):
             tolovlar_qs = tolovlar_qs.filter(tolov_filiali_q(filial_id))
         if request.query_params.get("holat"):
             hisoblar_qs = hisoblar_qs.filter(holat=request.query_params["holat"])
+        if request.query_params.get("qarzli"):
+            hisoblar_qs = hisoblar_qs.filter(holat__in=[Hisob.Holat.QARZDOR, Hisob.Holat.QISMAN])
         # Talaba kartasidagi "Excel" — faqat shu talabaning yozuvlari.
         if request.query_params.get("talaba"):
             hisoblar_qs = hisoblar_qs.filter(talaba_id=request.query_params["talaba"])

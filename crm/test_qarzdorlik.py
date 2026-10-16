@@ -61,6 +61,15 @@ class QarzdorlikTest(ApiAsos):
         d = m.get("/api/crm/hisoblar/?qarzli=1").data
         self.assertEqual(sorted(str(x["oy"]) for x in d), [str(AVGUST), str(SENTABR)])
         self.assertEqual(sum((x["qoldiq"] for x in d), Decimal(0)), NARX + 100000)
+        # Excel ham shu filtr bilan (avval `holat=qarzli` bo'sh varaq berardi);
+        # to'langan iyul hisobi tushmaydi.
+        self.tolov(self.hisob(date(2026, 7, 1)), NARX)
+        from io import BytesIO
+
+        from openpyxl import load_workbook
+
+        kitob = load_workbook(BytesIO(m.get("/api/crm/eksport/?qarzli=1").content))
+        self.assertEqual(kitob["Qarzdorlar"].max_row - 1, 2)
 
     def test_boshqa_oyga_ortiqcha_tolangan_pul_qarz_emas(self):
         """Avgustga 2 oylik pul — sentabr hisobi "ochiq", lekin balans 0: qarzdor emas."""
