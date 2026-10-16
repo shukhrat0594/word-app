@@ -22,12 +22,12 @@ const MENYU = [
   // Narxlar ATAYLAB alohida band (Shuhrat talabi 2026-09-14): u
   // hisobot emas, SOZLAMA — bir marta kiritiladi va butun tizimga
   // ta'sir qiladi, shuning uchun ko'rinadigan joyda turishi kerak.
-  { yol: "narxlar", kalit: "narxlar", ikon: "🏷️", ruxsat: "sozlamalar" },
+  { yol: "narxlar", kalit: "narxlar", ikon: "🏷️", ruxsat: "narxlar" },
   { yol: "hisobotlar", kalit: "hisobotlar", ikon: "📊", ruxsat: "hisobotlar" },
   { yol: "xodimlar", kalit: "xodimlar", ikon: "🧑‍🏫", ruxsat: "xodimlar" },
   { yol: "sozlamalar", kalit: "sozlamalar", ikon: "⚙️", ruxsat: "sozlamalar" },
   { yol: "parentsbot", kalit: "parentsbot", ikon: "👪", ruxsat: "parentsbot" },
-  { yol: "harakatlar", kalit: "harakatlar_tarixi", ikon: "🕘", ruxsat: "sozlamalar" },
+  { yol: "harakatlar", kalit: "harakatlar_tarixi", ikon: "🕘", ruxsat: "harakatlar" },
 ];
 
 // Sarlavhadagi tezkor qidiruv — istalgan CRM sahifasidan o'quvchini

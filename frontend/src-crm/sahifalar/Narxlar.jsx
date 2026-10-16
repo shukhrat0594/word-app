@@ -128,7 +128,7 @@ function NarxQatori({ qator, onSaqlandi }) {
   // Kurs narxi butun markazga ta'sir qiladi — filialga bog'langan xodim faqat ko'radi.
   const cheklangan = useCheklangan();
   const ruxsat = useRuxsat();
-  const boshqaradi = !cheklangan && ruxsat("sozlamalar.narxlar");
+  const boshqaradi = !cheklangan && ruxsat("narxlar.tahrirlash");
   // ✎ — kurs NOMINI tahrirlash (narx esa shu qatorda turibdi).
   const [nomi, setNomi] = useState(null);
   const [ochirish, setOchirish] = useState(false);
@@ -244,7 +244,7 @@ export default function Narxlar() {
       <div className="karta-sarlavha">
         <h1>{t("kurs_narxlari")}</h1>
         {/* Kurs butun markazga tegishli — filialga bog'langan xodim qo'sha olmaydi (backend ham). */}
-        {ruxsat("sozlamalar.narxlar") && !cheklangan && (
+        {ruxsat("narxlar.tahrirlash") && !cheklangan && (
           <button className="tugma" type="button" onClick={() => setQoshish(true)}>+ {t("kurs_qoshish")}</button>
         )}
       </div>
