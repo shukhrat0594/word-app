@@ -415,7 +415,7 @@ def _darajalar_qs():
 
 
 class KursNarxlariView(CrmView):
-    bolim = "sozlamalar"
+    bolim = "narxlar"
     oqish_ochiq = True
 
     def get(self, request):
@@ -448,7 +448,7 @@ class KursNarxlariView(CrmView):
         )
 
     def put(self, request):
-        if xato := _ruxsatsiz(request, "sozlamalar.narxlar") or _markaz_sozlamasi_taqiq(request):
+        if xato := _ruxsatsiz(request, "narxlar.tahrirlash") or _markaz_sozlamasi_taqiq(request):
             return xato
         daraja = get_object_or_404(KursTugun, pk=request.data.get("daraja_id"))
         xom = request.data.get("narx")
@@ -490,7 +490,7 @@ class KursNarxlariView(CrmView):
         darslar saytdagi Kurslar bo'limida qo'shilgach belgini u yerda olib
         tashlash kifoya.
         """
-        if xato := _ruxsatsiz(request, "sozlamalar.narxlar") or _markaz_sozlamasi_taqiq(request):
+        if xato := _ruxsatsiz(request, "narxlar.tahrirlash") or _markaz_sozlamasi_taqiq(request):
             return xato
         nomi = (request.data.get("nomi") or "").strip()[:200]
         if not nomi:
@@ -567,10 +567,10 @@ class KursDetailView(CrmView):
     o'chirish guruhlarni kurssiz (va narxsiz — hisobsiz) qoldirardi.
     """
 
-    bolim = "sozlamalar"
+    bolim = "narxlar"
 
     def _kurs(self, request, pk):
-        if xato := _ruxsatsiz(request, "sozlamalar.narxlar") or _markaz_sozlamasi_taqiq(request):
+        if xato := _ruxsatsiz(request, "narxlar.tahrirlash") or _markaz_sozlamasi_taqiq(request):
             return None, xato
         # Faqat daraja qatlami — unit yoki fan emas.
         return get_object_or_404(_darajalar_qs(), pk=pk), None

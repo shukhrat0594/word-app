@@ -26,12 +26,12 @@ class RolKengaytirishTest(Yordamchi):
     hamma ruxsatni ololmasin."""
 
     def test_narxlar_ruxsati_rolni_tahrirlay_olmaydi(self):
-        rol = CrmRol.objects.create(nomi="Narxchi", ruxsatlar=["sozlamalar.narxlar"])
+        rol = CrmRol.objects.create(nomi="Narxchi", ruxsatlar=["narxlar.tahrirlash"])
         m = self.mijoz(self.xodim("narxchi", rol=rol))
         javob = m.patch(f"/api/crm/rollar/{rol.id}/", {"ruxsatlar": ["moliya", "xodimlar"]}, format="json")
         self.assertEqual(javob.status_code, 403)
         rol.refresh_from_db()
-        self.assertEqual(rol.ruxsatlar, ["sozlamalar.narxlar"])
+        self.assertEqual(rol.ruxsatlar, ["narxlar.tahrirlash"])
         self.assertEqual(m.delete(f"/api/crm/rollar/{rol.id}/").status_code, 403)
 
     def test_rollar_ruxsati_bilan_tahrirlanadi(self):
@@ -40,6 +40,43 @@ class RolKengaytirishTest(Yordamchi):
         m = self.mijoz(self.xodim("rolchi", rol=rol))
         javob = m.patch(f"/api/crm/rollar/{boshqa.id}/", {"ruxsatlar": ["lidlar", "hisobotlar"]}, format="json")
         self.assertEqual(javob.status_code, 200, javob.data)
+
+
+class AlohidaBolimlarTest(Yordamchi):
+    """Video-TZ 2026-10-16: "Kurs narxlari" va "Harakatlar tarixi" rol
+    oynasida alohida bo'lim — Sozlamalar ruxsatisiz beriladi."""
+
+    def test_daraxtda_menyudagi_bolimlar_bor(self):
+        from crm.ruxsatlar import BOLIMLAR
+
+        for k in ("narxlar", "harakatlar", "parentsbot"):
+            self.assertIn(k, BOLIMLAR)
+
+    def test_harakatlar_alohida_ruxsat(self):
+        rol = CrmRol.objects.create(nomi="Auditor", ruxsatlar=["harakatlar.korish"])
+        m = self.mijoz(self.xodim("auditor", rol=rol))
+        self.assertEqual(m.get("/api/crm/harakatlar/").status_code, 200)
+        sozlamachi = CrmRol.objects.create(nomi="Sozlamachi", ruxsatlar=["sozlamalar.filiallar"])
+        m2 = self.mijoz(self.xodim("sozlamachi", rol=sozlamachi))
+        self.assertEqual(m2.get("/api/crm/harakatlar/").status_code, 403)
+
+    def test_migratsiya_eski_huquqni_saqlaydi(self):
+        """Faqat Filiallar ruxsati bor rol avval menyuda Kurs narxlari va
+        Harakatlar tarixini ko'rardi — ko'rish qoladi, tahrirlash berilmaydi."""
+        import importlib
+
+        from django.apps import apps
+
+        m = importlib.import_module("crm.migrations.0016_narxlar_harakatlar_bolimlari")
+        filialchi = CrmRol.objects.create(nomi="Filialchi", ruxsatlar=["sozlamalar.filiallar"])
+        narxchi = CrmRol.objects.create(nomi="Narxchi", ruxsatlar=["sozlamalar.narxlar"])
+        kassa = CrmRol.objects.create(nomi="Kassa", ruxsatlar=["moliya.tolov"])
+        m.kochir(apps, None)
+        for r in (filialchi, narxchi, kassa):
+            r.refresh_from_db()
+        self.assertEqual(sorted(filialchi.ruxsatlar), ["harakatlar.korish", "narxlar.korish", "sozlamalar.filiallar"])
+        self.assertEqual(sorted(narxchi.ruxsatlar), ["harakatlar.korish", "narxlar.korish", "narxlar.tahrirlash"])
+        self.assertEqual(kassa.ruxsatlar, ["moliya.tolov"])
 
 
 class RolAmalKalitiTest(Yordamchi):

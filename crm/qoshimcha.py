@@ -571,7 +571,7 @@ class HarakatlarTarixiView(CrmView):
     """Sozlamalar -> "Harakatlar tarixi": CRM'dagi o'zgarishlar audit
     jurnali (kim, qachon, nima). Faqat o'qish."""
 
-    bolim = "sozlamalar"
+    bolim = "harakatlar"
 
     def get(self, request):
         qs = FaoliyatYozuvi.objects.filter(

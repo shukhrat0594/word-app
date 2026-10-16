@@ -62,8 +62,17 @@ RUXSAT_DARAXTI = [
     ]),
     ("sozlamalar", "Sozlamalar", [
         ("sozlamalar.filiallar", "Filiallar va xonalar"),
-        ("sozlamalar.narxlar", "Kurs narxlari"),
         ("sozlamalar.rollar", "Rollar"),
+    ]),
+    # Menyudagi alohida bo'limlar (video-TZ, 2026-10-16): avval Sozlamalar
+    # ichida edi va rol oynasida ko'rinmasdi. Migratsiya 0016 eski
+    # `sozlamalar.narxlar` kalitini ko'chiradi.
+    ("narxlar", "Kurs narxlari", [
+        ("narxlar.korish", "Ko'rish"),
+        ("narxlar.tahrirlash", "Narx va kurslarni tahrirlash"),
+    ]),
+    ("harakatlar", "Harakatlar tarixi", [
+        ("harakatlar.korish", "Ko'rish"),
     ]),
     # Ota-ona boti (2026-10-04): so'rovlarni ko'rib chiqish va ulash; xabar vaqtlari sozlamasi.
     ("parentsbot", "Ota-ona nazorati", [
