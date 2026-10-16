@@ -67,7 +67,7 @@ YECHIM_YOSHI = timedelta(days=1)
 # Vocabulary'ni talaba ketma-ket bir necha marta tekshiradi — oxirgi urinish ham kirsin deb biroz kutiladi.
 SOZ_KUTISH = timedelta(minutes=10)
 # Natija turi -> sozlamadagi rejim maydoni (o'chiq / darhol / kunlik yig'mada).
-REJIM_MAYDONLARI = {"ielts": "ielts_rejimi", "ws": "ws_rejimi", "soz": "soz_rejimi"}
+REJIM_MAYDONLARI = {"ielts": "ielts_rejimi", "ws": "ws_rejimi", "soz": "soz_rejimi", "test": "test_rejimi"}
 # Telegram'ning bu xatolari doimiy — ota-onaga boshqa urinilmaydi.
 DOIMIY_XATOLAR = ("403", "chat not found", "user is deactivated")
 
@@ -292,7 +292,10 @@ def natijalar(talaba_idlar, boshi, oxiri, rejimlar=None):
         return natija.setdefault(tid, {"mashq_soni": 0, "_ball": 0, "_jami": 0})
 
     for model in (MashqYechim, KursMashqYechim):
-        for q in model.objects.filter(**oraliq).values("talaba_id") \
+        qs = model.objects.filter(**oraliq)
+        if model is KursMashqYechim and not yigmada("test"):  # Unit "Tests" darhol yuborilgan
+            qs = qs.exclude(mashq__tugun__kalit="tests")
+        for q in qs.values("talaba_id") \
                 .annotate(soni=Count("id"), ball=Sum("ball"), jami=Sum("jami")):
             r = qator(q["talaba_id"])
             r["mashq_soni"] += q["soni"]
@@ -383,6 +386,10 @@ def skanerla_yechim(hozir=None):
         sana = timezone.localdate(y.created_at).isoformat()
         qosh(y.talaba_id, y.created_at, "soz", f"soz:{y.talaba_id}:{y.tugun_id}:{sana}", hozir + SOZ_KUTISH,
              {"tugun_id": y.tugun_id, "sana": sana})
+    # Video-TZ 2026-10-16: Kurslar Unit "Tests" — har yechim uchun natija (to'g'ri javoblar soni va foizi)
+    for y in KursMashqYechim.objects.filter(**oraliq, mashq__tugun__kalit="tests") \
+            .only("id", "talaba_id", "created_at"):
+        qosh(y.talaba_id, y.created_at, "test", f"test:{y.id}", hozir + KECHIKISH, {"id": y.id})
     return _navbatga(nomzodlar)
 
 
@@ -423,6 +430,8 @@ def _hali_yaroqli(x, sozlama, bugun):
                                     overall_band__isnull=False).exists()
     if x.turi == "soz":
         return _soz_yechimlari(x.talaba_id, x.payload).exists()
+    if x.turi == "test":
+        return KursMashqYechim.objects.filter(pk=x.payload.get("id"), talaba_id=x.talaba_id).exists()
     if x.turi in ("qarz", "natija"):
         if (bugun - date.fromisoformat(x.payload["sana"])).days > ESKIRISH_KUNLARI:
             return False  # bot uzoq to'xtab qolgan — eskirgan eslatma yuborilmaydi
@@ -508,6 +517,13 @@ def _matn(x, bugun):
         if len(urinishlar) > 1:
             matn += " " + matnlar.t(ab.til, "soz_urinish", soni=len(urinishlar))
         return matn
+    if x.turi == "test":
+        y = KursMashqYechim.objects.select_related("mashq__tugun__parent__parent").get(pk=p["id"])
+        unit = y.mashq.tugun.parent or y.mashq.tugun  # "Unit 1 — Hello!" (Tests tuguni Unit ichida)
+        daraja = unit.parent.nomi + " " if unit.parent else ""  # "Beginner"
+        foiz = round(y.ball / y.jami * 100) if y.jami else 0
+        return matnlar.t(ab.til, "test_natija", ism=ism, nomi=f"{daraja}{unit.nomi}", ball=y.ball, jami=y.jami,
+                         foiz=foiz)
     sana = date.fromisoformat(p["sana"])
     davomat = Davomat.objects.select_related("guruh").filter(pk=p.get("davomat_id")).first()
     matn = matnlar.t(

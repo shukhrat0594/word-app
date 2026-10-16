@@ -201,7 +201,7 @@ _BOOL_MAYDONLAR = (
     "tolov_yoqilgan", "qarz_yoqilgan", "natija_yoqilgan",
 )
 # Natija turlari (2026-10-09): o'chiq / darhol / kunlik yig'mada
-_REJIM_MAYDONLAR = ("ielts_rejimi", "ws_rejimi", "soz_rejimi")
+_REJIM_MAYDONLAR = ("ielts_rejimi", "ws_rejimi", "soz_rejimi", "test_rejimi")
 _VAQT_MAYDONLAR = ("qarz_soati", "natija_soati", "tinch_boshi", "tinch_oxiri")
 _KUN_MAYDONLAR = ("qarz_kunlari", "natija_kunlari")
 
