@@ -198,12 +198,12 @@ class BoglanishUzishView(CrmView):
 _VAQT = re.compile(r"^([01]?\d|2[0-3]):([0-5]\d)$")
 _BOOL_MAYDONLAR = (
     "davomat_yoqilgan", "davomat_kelmadi", "davomat_kechikdi", "davomat_sababli", "davomat_keldi",
-    "tolov_yoqilgan", "qarz_yoqilgan", "natija_yoqilgan",
+    "tolov_yoqilgan", "qarz_yoqilgan", "natija_yoqilgan", "faollik_yoqilgan",
 )
 # Natija turlari (2026-10-09): o'chiq / darhol / kunlik yig'mada
 _REJIM_MAYDONLAR = ("ielts_rejimi", "ws_rejimi", "soz_rejimi", "test_rejimi")
-_VAQT_MAYDONLAR = ("qarz_soati", "natija_soati", "tinch_boshi", "tinch_oxiri")
-_KUN_MAYDONLAR = ("qarz_kunlari", "natija_kunlari")
+_VAQT_MAYDONLAR = ("qarz_soati", "natija_soati", "faollik_soati", "tinch_boshi", "tinch_oxiri")
+_KUN_MAYDONLAR = ("qarz_kunlari", "natija_kunlari", "faollik_kunlari")
 
 
 def _sozlama_dict(s):

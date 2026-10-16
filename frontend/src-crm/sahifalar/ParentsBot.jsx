@@ -263,6 +263,14 @@ function Sozlama() {
         <span>{t("ob_soat")}: <Soat k="natija_soati" /></span>
       </div>
 
+      <h3>{t("ob_faollik")}</h3>
+      <div className="ob-qator">
+        <Belgi k="faollik_yoqilgan" nom={t("faol")} />
+        <KunTanlash qiymat={forma.faollik_kunlari} disabled={!tahrir} onChange={(v) => o("faollik_kunlari", v)} />
+        <span>{t("ob_soat")}: <Soat k="faollik_soati" /></span>
+      </div>
+      <p className="kichik">{t("ob_faollik_izoh")}</p>
+
       <h3>{t("ob_natija_turlari")}</h3>
       <div className="ob-qator">
         <Rejim k="ielts_rejimi" nom={t("ob_ielts")} />
