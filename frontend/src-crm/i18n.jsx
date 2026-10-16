@@ -180,6 +180,7 @@ const SATRLAR = {
     bonus: "Bonus",
     qaytarilgan: "Qaytarilgan",
     qarz: "Qarz",
+    oy_qarzi: "Shu oy qarzi",
     yigilish: "Yig'ilish",
 
     barcha_holatlar: "Barcha holatlar",
@@ -861,6 +862,7 @@ const SATRLAR = {
     bonus: "Бонус",
     qaytarilgan: "Возвращено",
     qarz: "Долг",
+    oy_qarzi: "Долг за месяц",
     yigilish: "Собираемость",
 
     barcha_holatlar: "Все статусы",
@@ -1544,6 +1546,7 @@ const SATRLAR = {
     bonus: "Bonus",
     qaytarilgan: "Refunded",
     qarz: "Debt",
+    oy_qarzi: "Debt this month",
     yigilish: "Collection",
 
     barcha_holatlar: "All statuses",
