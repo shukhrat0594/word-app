@@ -116,6 +116,8 @@ class Bot:
             return self._yubor(ab, "salom_telefon", telefon_tugmasi(ab.til))
         if buyruq == "/farzandlarim":
             return self._farzandlar(ab)
+        if buyruq == "/ustozlar":
+            return self._ustozlar(ab)
         if buyruq == "/til":
             return self._yubor(ab, "til_tanlang", TIL_TUGMALARI)
         if buyruq == "/yordam":
@@ -133,6 +135,23 @@ class Bot:
             return self._yubor(ab, "farzand_yoq")
         royxat = "\n".join(f"• {moslash.talaba_ismi(b)}" for b in bolalar)
         self._yubor(ab, "farzandlar", self._menyu(ab), royxat=royxat)
+
+    def _ustozlar(self, ab):
+        """Farzand o'qiyotgan faol guruhlar ustozining ismi va telefoni (faqat ulangan farzandlar)."""
+        bolalar = xizmat.faol_farzandlar(ab)
+        if not bolalar:
+            return self._yubor(ab, "farzand_yoq")
+        qatorlar = []
+        for b in bolalar:
+            for g in b.talaba_guruhlari.filter(faol=True).select_related("oqituvchi").order_by("name"):
+                u = g.oqituvchi
+                qatorlar.append(t(
+                    ab.til, "ustoz_qatori", farzand=moslash.talaba_ismi(b), guruh=g.name,
+                    ustoz=moslash.talaba_ismi(u) if u else t(ab.til, "ustoz_yoq"),
+                    telefon=(u.telefon if u else "") or t(ab.til, "telefon_yoq")))
+        if not qatorlar:
+            return self._yubor(ab, "ustoz_guruh_yoq", self._menyu(ab))
+        self._yubor(ab, "ustozlar", self._menyu(ab), royxat="\n".join(qatorlar))
 
     def _callback(self, cb):
         kim = cb.get("from") or {}

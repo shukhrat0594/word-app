@@ -11,6 +11,7 @@ from .matnlar import t
 # kalit -> (tugma kaliti, mos buyruq)
 _TUGMALAR = {
     "farzandlar": "/farzandlarim",
+    "ustozlar": "/ustozlar",
     "til": "/til",
     "yordam": "/yordam",
 }
@@ -18,10 +19,10 @@ TILLAR = ("uz", "ru")
 
 
 def menyu(til):
-    """ReplyKeyboardMarkup: [Farzandlarim] [Til | Yordam]. Xabarlarni o'chirish/to'xtatish tugmasi
-    yo'q — qaysi xabarlar borishini markaz hal qiladi."""
+    """ReplyKeyboardMarkup: [Farzandlarim | Ustozlar] [Til | Yordam]. Xabarlarni o'chirish/to'xtatish
+    tugmasi yo'q — qaysi xabarlar borishini markaz hal qiladi."""
     qatorlar = [
-        [t(til, "tugma_farzandlar")],
+        [t(til, "tugma_farzandlar"), t(til, "tugma_ustozlar")],
         [t(til, "tugma_til"), t(til, "tugma_yordam")],
     ]
     return {
