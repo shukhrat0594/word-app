@@ -267,6 +267,7 @@ function Sozlama() {
         <Rejim k="ielts_rejimi" nom={t("ob_ielts")} />
         <Rejim k="ws_rejimi" nom={t("ob_ws")} />
         <Rejim k="soz_rejimi" nom={t("ob_soz")} />
+        <Rejim k="test_rejimi" nom={t("ob_test")} />
       </div>
       <p className="kichik">{t("ob_natija_turlari_izoh")}</p>
 
