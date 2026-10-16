@@ -40,7 +40,9 @@ function Katak({ sarlavha, qiymat, sinf, ikon, havola }) {
 const KORSATKICHLAR = [
   ["faol_lidlar", "🎯", "/lidlar"],
   ["guruhlar", "📚", "/guruhlar"],
-  ["qolgan_qarz", "⚠️", "/talabalar?filtr=qarzdor", "pul"],
+  // "Qolgan qarz" — faqat JORIY OY qarzi (video-TZ 2026-10-16); bosilganda
+  // shu oyning qarzdorlari (kim, qaysi oy, qancha) ochiladi.
+  ["qolgan_qarz", "⚠️", "/moliya?tab=qarzdorlar&qarzli=1", "pul"],
   ["qarzdorlar", "🔻", "/talabalar?filtr=qarzdor"],
   ["faol_talabalar", "👤", "/talabalar?holat=faol"],
   ["jami_guruhdagi", "👥", "/talabalar"],
@@ -60,9 +62,8 @@ function yashirinOl() {
   }
 }
 
-function Korsatkichlar({ filial, yangilash }) {
+function Korsatkichlar({ malumot, xato }) {
   const { t } = useI18n();
-  const { malumot, xato } = useSorov("/api/crm/korsatkichlar/" + sorovSatri({ filial, _: yangilash || "" }));
   const [yashirin, setYashirinAsl] = useState(yashirinOl);
   function setYashirin(q) {
     setYashirinAsl(q);
@@ -120,6 +121,9 @@ export default function BoshSahifa() {
     ? "/api/crm/hisobot/" + sorovSatri({ oy, filial: tanlangan, _: yangilash || "" }) : null);
 
   const jami = hisobot.malumot?.jami;
+  // Kartochkalar va pastdagi "Jami qarzdorlik" — bitta so'rovdan.
+  const korsatkich = useSorov("/api/crm/korsatkichlar/" + sorovSatri({ filial: tanlangan, _: yangilash || "" }));
+  const jamiQarz = korsatkich.malumot?.jami_qarz;
 
   return (
     <section>
@@ -131,7 +135,7 @@ export default function BoshSahifa() {
       </div>
 
       {/* Umumiy holat — SoffCRM'dagi kartochkalar. */}
-      <Korsatkichlar filial={tanlangan} yangilash={yangilash} />
+      <Korsatkichlar malumot={korsatkich.malumot} xato={korsatkich.xato} />
 
       <VaqtiKelganEslatmalar />
 
@@ -149,9 +153,14 @@ export default function BoshSahifa() {
           <Katak sarlavha={t("chegirma")} qiymat={pul(jami?.chegirma)} />
           {/* Bonus ham qarzni kamaytiradi — ko'rinmasa "Hisoblangan − Olingan −
               Chegirma" Qarz'ga teng chiqmasdi (video-TZ 2026-10-16). "Shu oy
-              qarzi" — tanlangan oy; tepadagi "Qolgan qarzlar" — barcha oylar balansi. */}
+              qarzi" — tanlangan oy; tepadagi "Qolgan qarz" — joriy oy;
+              "Jami qarzdorlik" — barcha oylar balansi (video-TZ 2026-10-16). */}
           <Katak sarlavha={t("bonus")} qiymat={pul(jami?.bonus)} />
-          <Katak sarlavha={t("oy_qarzi")}qiymat={pul(jami?.qarz)} sinf="rang-qarzdor" />
+          <Katak sarlavha={t("oy_qarzi")} qiymat={pul(jami?.qarz)} sinf="rang-qarzdor" />
+          {jamiQarz !== null && jamiQarz !== undefined && (
+            <Katak sarlavha={t("jami_qarzdorlik")} qiymat={pul(jamiQarz)} sinf="rang-qarzdor"
+              havola="/moliya?tab=qarzdorlar&qarzli=1&oy=hammasi" />
+          )}
           <Katak sarlavha={t("yigilish")} qiymat={`${jami?.yigilish_foizi ?? 0}%`} />
         </div>
       </div>

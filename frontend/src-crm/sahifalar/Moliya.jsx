@@ -38,25 +38,36 @@ function Holat({ qiymat }) {
 // ── Qarzdorlar ──────────────────────────────────────────────────────
 
 function Qarzdorlar({ oy, setOy }) {
-  const { t } = useI18n();
+  const { t, til } = useI18n();
   const { tanlangan } = useFilial();
-  const [holat, setHolat] = useState("");
+  const [params] = useSearchParams();
+  // Bosh sahifadagi qarz kartalaridan (`?qarzli=1`) — to'lanmagan va qisman
+  // to'langanlar birga: kim, qaysi oy uchun, qancha qarz (video-TZ 2026-10-16).
+  const [holat, setHolat] = useState(() => (params.get("qarzli") ? "qarzli" : ""));
   const [qidiruv, setQidiruv] = useState("");
   const [tolovHisobi, setTolovHisobi] = useState(null);
   const [qaytarishHisobi, setQaytarishHisobi] = useState(null);
   const [qolda, setQolda] = useState(false);
 
   const yol =
-    "/api/crm/hisoblar/" + sorovSatri({ oy, filial: tanlangan, holat, q: qidiruv });
+    "/api/crm/hisoblar/" + sorovSatri({
+      oy, filial: tanlangan, q: qidiruv,
+      holat: holat === "qarzli" ? "" : holat, qarzli: holat === "qarzli" ? 1 : "",
+    });
   const { malumot, yuklanmoqda, xato, yangila } = useSorov(yol);
   const qatorlar = malumot || [];
+  const jamiQoldiq = qatorlar.reduce((s, q) => s + Math.max(Number(q.qoldiq) || 0, 0), 0);
 
   return (
     <>
       <div className="filtrlar">
-        <OyTanlash oy={oy} setOy={setOy} />
+        {oy ? <OyTanlash oy={oy} setOy={setOy} /> : <b>{t("barcha_oylar")}</b>}
+        <button className="tugma tugma-sokin" type="button" onClick={() => setOy(oy ? "" : joriyOy())}>
+          {oy ? t("barcha_oylar") : oyNomi(joriyOy(), til)}
+        </button>
         <select value={holat} onChange={(e) => setHolat(e.target.value)}>
           <option value="">{t("barcha_holatlar")}</option>
+          <option value="qarzli">{t("holat_qarzdor")} + {t("holat_qisman")}</option>
           <option value="qarzdor">{t("holat_qarzdor")}</option>
           <option value="qisman">{t("holat_qisman")}</option>
           <option value="tolandi">{t("holat_tolandi")}</option>
@@ -80,12 +91,16 @@ function Qarzdorlar({ oy, setOy }) {
 
       {xato && <div className="xato">{xato}</div>}
       {yuklanmoqda && <p className="kichik">{t("yuklanmoqda")}</p>}
+      {holat === "qarzli" && !yuklanmoqda && (
+        <p>{t("jami_qarzdorlik")}: <b className="rang-qarzdor">{pul(jamiQoldiq)}</b> · {qatorlar.length}</p>
+      )}
 
       <div className="jadval-oram">
         <table>
           <thead>
             <tr>
               <th>{t("talaba")}</th>
+              <th>{t("oy")}</th>
               <th>{t("guruh")}</th>
               <th>{t("filial")}</th>
               <th className="ongga">{t("hisoblangan")}</th>
@@ -100,6 +115,7 @@ function Qarzdorlar({ oy, setOy }) {
             {qatorlar.map((q) => (
               <tr key={q.id}>
                 <td>{q.talaba}</td>
+                <td>{oyNomi(String(q.oy).slice(0, 7), til)}</td>
                 <td>{q.guruh}</td>
                 <td>{q.filial || "—"}</td>
                 <td className="ongga">
@@ -128,7 +144,7 @@ function Qarzdorlar({ oy, setOy }) {
               </tr>
             ))}
             {!yuklanmoqda && qatorlar.length === 0 && (
-              <tr><td colSpan={9} className="bosh">{t("yozuv_yoq")}</td></tr>
+              <tr><td colSpan={10} className="bosh">{t("yozuv_yoq")}</td></tr>
             )}
           </tbody>
         </table>
@@ -347,7 +363,8 @@ export default function Moliya() {
   // Oy tanlovi Qarzdorlar va Hisobot tablari orasida UMUMIY: admin
   // odatda bitta oy ustida ishlaydi va tab almashtirganda qaytadan
   // tanlashi zerikarli bo'lardi.
-  const [oy, setOy] = useState(joriyOy());
+  // `?oy=hammasi` — bosh sahifadagi "Jami qarzdorlik" kartasidan: barcha oylar.
+  const [oy, setOy] = useState(() => (params.get("oy") === "hammasi" ? "" : joriyOy()));
   const [tolovQoshish, setTolovQoshish] = useState(false);
   // To'lov saqlangach ochiq tab qayta yuklansin — `key` orqali.
   const [yangilash, setYangilash] = useState(0);
@@ -376,7 +393,7 @@ export default function Moliya() {
       <div className="karta" key={yangilash}>
         {tab === "qarzdorlar" && <Qarzdorlar oy={oy} setOy={setOy} />}
         {tab === "tolovlar" && <Tolovlar />}
-        {tab === "hisobot" && <Hisobot oy={oy} setOy={setOy} />}
+        {tab === "hisobot" && <Hisobot oy={oy || joriyOy()} setOy={setOy} />}
       </div>
 
       {tolovQoshish && (

@@ -64,7 +64,7 @@ from .filial import (
 )
 from .permissions import CrmView
 from .ruxsatlar import BARCHA_KALITLAR, RUXSAT_DARAXTI, _kengaytir, lms_roli, ruxsatlar, sayt_menyusini_toraytir
-from .views import _guruh_dict, _oy, _ruxsatsiz, _sana, _son, _vaqt, _xato, jadvalni_tekshir
+from .views import _guruh_dict, _hisobot_qatorlari, _oy, _ruxsatsiz, _sana, _son, _vaqt, _xato, jadvalni_tekshir
 
 NOL = Decimal("0")
 
@@ -2458,7 +2458,12 @@ class KorsatkichlarView(CrmView):
         return Response({
             "faol_lidlar": ruxsat("bosh_sahifa.faol_lidlar", lidlar.count()),
             "guruhlar": guruhlar.count(),
-            "qolgan_qarz": ruxsat("bosh_sahifa.qarzdorlar", qarz_qs["summa"]),
+            # Video-TZ (2026-10-16, Shuhrat): tepadagi karta — FAQAT joriy oy
+            # qarzi (Moliya xulosasidagi oy qarzi bilan bir qoida), pastdagi
+            # "Jami qarzdorlik" — barcha oylar balansi bo'yicha.
+            "qolgan_qarz": ruxsat("bosh_sahifa.qarzdorlar", sum(
+                (q["qarz"] for q in _hisobot_qatorlari(oy=oy, filial_id=filial, user=u)), NOL)),
+            "jami_qarz": ruxsat("bosh_sahifa.qarzdorlar", qarz_qs["summa"]),
             "qarzdorlar": ruxsat("bosh_sahifa.qarzdorlar", qarz_qs["soni"]),
             "faol_talabalar": ruxsat("bosh_sahifa.faol_talabalar", len(faol_talaba_idlar)),
             "jami_guruhdagi": azoliklar.values("azolik__talaba_id").distinct().count(),

@@ -1378,6 +1378,10 @@ class HisoblarView(CrmView):
             qs = qs.filter(filial_id=request.query_params["filial"])
         if request.query_params.get("holat"):
             qs = qs.filter(holat=request.query_params["holat"])
+        # Bosh sahifadagi qarz kartalaridan: to'lanmagan va qisman to'langan
+        # hisoblar (kim, qaysi oy uchun qarzdor).
+        if request.query_params.get("qarzli"):
+            qs = qs.filter(holat__in=[Hisob.Holat.QARZDOR, Hisob.Holat.QISMAN])
         qidiruv = (request.query_params.get("q") or "").strip()
         if qidiruv:
             # Qidiruv AVVALO LMS'dagi tirik maydonlar bo'yicha: admin
