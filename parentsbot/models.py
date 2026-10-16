@@ -55,6 +55,11 @@ class ParentsBotSozlama(models.Model):
     # Video-TZ 2026-10-16: Kurslar Unit "Tests" natijasi (nechta to'g'ri, necha foiz)
     test_rejimi = models.CharField(max_length=6, choices=NatijaRejimi.choices, default=NatijaRejimi.DARHOL)
 
+    # Video-TZ 2026-10-16: farzand o'quv saytiga bir sutkadan ortiq kirmagan (vazifa qilmagan) — ota-onaga xabar
+    faollik_yoqilgan = models.BooleanField(default=True)
+    faollik_kunlari = models.JSONField(default=_hamma_kunlar)
+    faollik_soati = models.TimeField(default=time(18, 0))
+
     # Tinch soatlar: shu vaqtda tushgan xabarlar kutadi va tugagach yuboriladi.
     tinch_boshi = models.TimeField(default=time(22, 0))
     tinch_oxiri = models.TimeField(default=time(8, 0))
@@ -84,6 +89,7 @@ class ParentsBotKuzatuv(models.Model):
     # og'ir hisob-kitob qaytarilmasin.
     qarz_skanlandi = models.DateField(null=True, blank=True)
     natija_skanlandi = models.DateField(null=True, blank=True)
+    faollik_skanlandi = models.DateField(null=True, blank=True)
     # 2026-10-09: "darsga keldi" va darhol natija xabarlari — shu paytdan keyingi yozuvlar uchun
     # (yangi funksiya yoqilganda kechagi davomat/testlar ota-onalarga bir yo'la yog'ilmasin).
     keldi_boshlandi = models.DateTimeField(null=True, blank=True)
@@ -195,7 +201,7 @@ class Xabar(models.Model):
 
     abonent = models.ForeignKey(Abonent, on_delete=models.CASCADE, related_name="xabarlar")
     talaba = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="+")
-    turi = models.CharField(max_length=20)  # "davomat" | "tolov" | "qarz" | "natija" | "ielts" | "ws" | "soz"
+    turi = models.CharField(max_length=20)  # "davomat" | "tolov" | "qarz" | "natija" | "ielts" | "ws" | "soz" | "faollik"
     kalit = models.CharField(max_length=100)
     payload = models.JSONField(default=dict, blank=True)
     yuborilsin = models.DateTimeField(db_index=True)  # shundan oldin yuborilmaydi

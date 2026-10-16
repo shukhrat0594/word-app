@@ -66,6 +66,8 @@ NATIJA_KUTISH = timedelta(minutes=10)
 YECHIM_YOSHI = timedelta(days=1)
 # Vocabulary'ni talaba ketma-ket bir necha marta tekshiradi — oxirgi urinish ham kirsin deb biroz kutiladi.
 SOZ_KUTISH = timedelta(minutes=10)
+# Video-TZ 2026-10-16: shuncha vaqt o'quv saytiga kirmagan farzand ota-onasiga ogohlantirish boradi.
+FAOLLIK_CHEGARASI = timedelta(days=1)
 # Natija turi -> sozlamadagi rejim maydoni (o'chiq / darhol / kunlik yig'mada).
 REJIM_MAYDONLARI = {"ielts": "ielts_rejimi", "ws": "ws_rejimi", "soz": "soz_rejimi", "test": "test_rejimi"}
 # Telegram'ning bu xatolari doimiy — ota-onaga boshqa urinilmaydi.
@@ -112,7 +114,7 @@ def _boglanishlar(faqat_faol=False):
     `faqat_faol=False` (davomat/to'lov): botni bloklagan ota-ona va nofaol o'quvchi ham kiradi — xabar
     yaratiladi-yu, yuborishda bekor qilinadi (blokdan chiqqanda eski voqealar yog'ilmasin).
     """
-    q = Boglanish.objects.filter(faol=True).select_related("abonent")
+    q = Boglanish.objects.filter(faol=True).select_related("abonent", "talaba")
     if faqat_faol:
         q = q.filter(abonent__faol=True, talaba__is_active=True)
     xarita = {}
@@ -401,15 +403,58 @@ def _soz_yechimlari(talaba_id, p):
                                         created_at__date=date.fromisoformat(p["sana"])).order_by("-created_at")
 
 
+# ── saytga kirmaslik (Video-TZ 2026-10-16) ─────────────────────────
+
+def oxirgi_kirish(talaba):
+    """Talabaning o'quv saytidagi oxirgi faolligi yoki None (hech kirmagan). `last_login` JWT'da
+    yangilanmaydi — asosiy manba `oxirgi_faollik` (har API so'rovida, daqiqada bir marta)."""
+    vaqtlar = [v for v in (talaba.last_login, talaba.oxirgi_faollik) if v]
+    return max(vaqtlar) if vaqtlar else None
+
+
+def _faolmas_mi(talaba, hozir):
+    """Bir sutkadan ortiq saytga kirmagan (yoki umuman kirmagan) — hisob ochilganiga ham sutkadan oshgan bo'lsa."""
+    chegara = hozir - FAOLLIK_CHEGARASI
+    oxirgi = oxirgi_kirish(talaba)
+    return oxirgi < chegara if oxirgi else talaba.date_joined < chegara
+
+
+def skanerla_faollik(hozir=None):
+    """Sozlamadagi kunlarda, `faollik_soati`dan keyin, kuniga BIR marta: so'nggi sutkada o'quv saytiga
+    kirmagan (demak uy vazifasini bajarmagan) farzandlar ota-onasiga ogohlantirish."""
+    hozir = hozir or timezone.now()
+    sozlama = ParentsBotSozlama.ol()
+    if not sozlama.faollik_yoqilgan:
+        return 0
+    sana = _jadval_vaqti(hozir, sozlama.faollik_kunlari, sozlama.faollik_soati)
+    kuzatuv = ParentsBotKuzatuv.ol()
+    if sana is None or kuzatuv.faollik_skanlandi == sana:
+        return 0
+    xarita = _boglanishlar(faqat_faol=True)
+    nomzodlar = []
+    for bglar in xarita.values():
+        talaba = bglar[0].talaba
+        if not _faolmas_mi(talaba, hozir):
+            continue
+        oxirgi = oxirgi_kirish(talaba)
+        payload = {"sana": sana.isoformat(), "oxirgi": timezone.localdate(oxirgi).isoformat() if oxirgi else None}
+        for bg in bglar:
+            nomzodlar.append((bg.abonent, talaba.id, "faollik", f"faollik:{talaba.id}:{sana.isoformat()}", hozir,
+                              payload))
+    yangi = _navbatga(nomzodlar)
+    ParentsBotKuzatuv.objects.filter(pk=kuzatuv.pk).update(faollik_skanlandi=sana)
+    return yangi
+
+
 def skanerla_hammasi(hozir=None):
     hozir = hozir or timezone.now()
     return sum(f(hozir) for f in (skanerla_davomat, skanerla_tolov, skanerla_qarz, skanerla_natija,
-                                  skanerla_yechim))
+                                  skanerla_yechim, skanerla_faollik))
 
 
 # ── yuborish ───────────────────────────────────────────────────────
 
-def _hali_yaroqli(x, sozlama, bugun):
+def _hali_yaroqli(x, sozlama, bugun, hozir=None):
     """Yuborishdan oldingi tekshiruv: bekor qilish kerakmi?"""
     ab = x.abonent
     if not ab.faol or not x.talaba.is_active or not toifa_yoqilgan(sozlama, x.turi):
@@ -434,11 +479,13 @@ def _hali_yaroqli(x, sozlama, bugun):
         return _soz_yechimlari(x.talaba_id, x.payload).exists()
     if x.turi == "test":
         return KursMashqYechim.objects.filter(pk=x.payload.get("id"), talaba_id=x.talaba_id).exists()
-    if x.turi in ("qarz", "natija"):
+    if x.turi in ("qarz", "natija", "faollik"):
         if (bugun - date.fromisoformat(x.payload["sana"])).days > ESKIRISH_KUNLARI:
             return False  # bot uzoq to'xtab qolgan — eskirgan eslatma yuborilmaydi
         if x.turi == "qarz":
             return balans(x.talaba) <= -1  # orada to'lagan bo'lsa — bekor
+        if x.turi == "faollik":
+            return _faolmas_mi(x.talaba, hozir or timezone.now())  # orada saytga kirgan bo'lsa — bekor
     return True
 
 
@@ -497,6 +544,10 @@ def _matn(x, bugun):
     if x.turi == "qarz":
         matn = matnlar.t(ab.til, "qarz_eslatma", ism=ism, summa=summa_matni(balans(x.talaba)))
         return matn + _filial_qatori(ab.til, _talaba_filiali(x.talaba))
+    if x.turi == "faollik":
+        if not p.get("oxirgi"):
+            return matnlar.t(ab.til, "faollik_hech", ism=ism)
+        return matnlar.t(ab.til, "faollik", ism=ism, sana=date.fromisoformat(p["oxirgi"]).strftime("%d.%m.%Y"))
     if x.turi == "natija":
         davr, qatorlar = _natija_matni(ab.til, p, bugun)
         return matnlar.t(ab.til, "natija_yigma", ism=ism, davr=davr, qatorlar=qatorlar)
@@ -546,7 +597,7 @@ def yubor_navbat(tg, hozir=None, pauza=0.05):
     navbat = Xabar.objects.filter(holat=Xabar.Holat.KUTILMOQDA, yuborilsin__lte=hozir) \
         .select_related("abonent", "talaba")[:100]
     for x in navbat:
-        if not _hali_yaroqli(x, sozlama, bugun):
+        if not _hali_yaroqli(x, sozlama, bugun, hozir):
             x.holat = Xabar.Holat.BEKOR
             x.save(update_fields=["holat"])
             continue
