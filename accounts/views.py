@@ -1131,7 +1131,7 @@ class FoydalanuvchiNatijalariView(APIView):
             return Response({"detail": "Ruxsat yo'q"}, status=403)
 
         from assessment.models import SpeakingTekshiruv, WritingTekshiruv
-        from courses.models import KursMashqYechim
+        from courses.models import KursMashqYechim, KursSozYechim
         from exercises.models import MashqYechim, TestYechim
 
         natijalar = []
@@ -1172,6 +1172,12 @@ class FoydalanuvchiNatijalariView(APIView):
                 "turi": "kurslar", "id": y.id, "nomi": nomi,
                 "ball": y.ball, "jami": y.jami, "sana": y.created_at,
                 "javoblar": y.javoblar, "natijalar": y.natijalar,
+            })
+        # Video-TZ 2026-10-16: Vocabulary (so'z tarjimasi) natijalari ham tarixda.
+        for y in KursSozYechim.objects.filter(talaba=talaba).select_related("tugun")[:100]:
+            natijalar.append({
+                "turi": "vocabulary", "id": y.id, "nomi": y.tugun.nomi,
+                "ball": y.ball, "jami": y.jami, "sana": y.created_at,
             })
 
         natijalar.sort(key=lambda n: n["sana"], reverse=True)

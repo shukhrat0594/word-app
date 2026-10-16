@@ -293,10 +293,12 @@ def natijalar(talaba_idlar, boshi, oxiri, rejimlar=None):
     def qator(tid):
         return natija.setdefault(tid, {"mashq_soni": 0, "_ball": 0, "_jami": 0})
 
-    for model in (MashqYechim, KursMashqYechim):
-        qs = model.objects.filter(**oraliq)
-        if model is KursMashqYechim and not yigmada("test"):  # Unit "Tests" darhol yuborilgan
-            qs = qs.exclude(mashq__tugun__kalit="tests")
+    # Video-TZ 2026-10-16: Kurslardan faqat Tests bo'limi mashqlari — Student's Book/Workbook
+    # mashqlari ota-onaga yuborilmaydi (ular faqat profil tarixida ko'rinadi).
+    querysetlar = [MashqYechim.objects.filter(**oraliq)]
+    if yigmada("test"):  # aks holda Unit "Tests" darhol yuborilgan
+        querysetlar.append(KursMashqYechim.objects.filter(**oraliq, mashq__tugun__kalit="tests"))
+    for qs in querysetlar:
         for q in qs.values("talaba_id") \
                 .annotate(soni=Count("id"), ball=Sum("ball"), jami=Sum("jami")):
             r = qator(q["talaba_id"])

@@ -35,14 +35,18 @@ class NatijaAsos(ApiAsos):
         super().setUp()
         ParentsBotSozlama.ol()  # sozlama yozuvi bo'lsin: testlardagi update() bo'shga ketmasin
         # Yig'ma testlari: hamma natija turi "kunlik yig'mada" (2026-10-09 dan standart — "darhol")
-        ParentsBotSozlama.objects.filter(pk=1).update(ielts_rejimi="yigma", ws_rejimi="yigma", soz_rejimi="yigma")
+        ParentsBotSozlama.objects.filter(pk=1).update(ielts_rejimi="yigma", ws_rejimi="yigma", soz_rejimi="yigma",
+                                                      test_rejimi="yigma")
         self.tg = SoxtaTg()
         self.kun = timezone.localdate()
         self.hozir = datetime.combine(self.kun, time(19, 30), tzinfo=TOSH)  # standart 19:00 dan keyin
         self.ichida = datetime.combine(self.kun, time(15, 0), tzinfo=TOSH)  # davr ichida
         self.ota = Abonent.objects.create(telegram_id=501, ism="Ota", til="uz", holat="tayyor")
         Boglanish.objects.create(abonent=self.ota, talaba=self.talaba, usul="telefon")
-        self.mashq = KursMashq.objects.create(tugun=self.daraja, savollar=[])
+        # Video-TZ 2026-10-16: ota-onaga Kurslardan faqat Tests bo'limi mashqlari boradi
+        self.tests = KursTugun.objects.create(markaz=self.markaz, nomi="SINOV Tests", parent=self.daraja,
+                                              kalit="tests")
+        self.mashq = KursMashq.objects.create(tugun=self.tests, savollar=[])
         self.vocab = KursTugun.objects.create(markaz=self.markaz, nomi="Vocabulary", parent=self.daraja,
                                                kalit="vocabulary")
 
@@ -78,6 +82,30 @@ class NatijaTest(NatijaAsos):
         self.assertIn("Mashqlar: 2 ta, o'rtacha natija 70%", matn)
         self.assertIn("Writing: 1 ta, band 6.5", matn)
         self.assertNotIn("Speaking", matn)
+
+    def test_students_book_va_workbook_mashqlari_yuborilmaydi(self):
+        # Video-TZ 2026-10-16: Student's Book/Workbook natijalari ota-onaga bormaydi
+        for kalit in ("students_book", "workbook"):
+            tugun = KursTugun.objects.create(markaz=self.markaz, nomi=f"SINOV {kalit}", parent=self.daraja,
+                                             kalit=kalit)
+            mashq = KursMashq.objects.create(tugun=tugun, savollar=[])
+            y = KursMashqYechim.objects.create(talaba=self.talaba, mashq=mashq, javoblar=[], ball=5, jami=10,
+                                               natijalar=[])
+            KursMashqYechim.objects.filter(pk=y.pk).update(created_at=self.ichida)
+        self.assertEqual(xb.skanerla_natija(self.hozir), 0)
+        self.yechim(8, 10)
+        self.soz_yechim(1, 2)
+        self.assertEqual(xb.natijalar([self.talaba.id], self.ichida - timedelta(hours=1),
+                                      self.hozir)[self.talaba.id]["mashq_soni"], 1)
+
+    def test_profil_tarixida_vocabulary_va_mashqlar(self):
+        # Video-TZ 2026-10-16: profil tarixida Vocabulary ham, Kurslar mashqlari ham ko'rinadi
+        self.yechim(8, 10)
+        self.soz_yechim(1, 2)
+        r = self.mijoz(self.talaba).get(f"/api/foydalanuvchilar/{self.talaba.id}/natijalar/")
+        self.assertEqual(r.status_code, 200)
+        turlar = sorted(n["turi"] for n in r.data["natijalar"])
+        self.assertEqual(turlar, ["kurslar", "vocabulary"])
 
     def test_vokabulyar_natijasi_kunlik_yigmaga_kiradi(self):
         # Video-TZ 2026-10-08: Vocabulary natijasi kunlik yig'maga kiradi; 2026-10-09 dan — alohida qatorda
