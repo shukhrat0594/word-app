@@ -63,12 +63,26 @@ MATNLAR = {
     },
     "til_ozgardi": {"uz": "Til o'zgartirildi: o'zbekcha.", "ru": "Язык изменён: русский."},
     "yordam": {
-        "uz": "Buyruqlar:\n/farzandlarim — ulangan farzandlar\n/til — tilni almashtirish\n"
-              "/start — boshidan boshlash\n\nSavollar bo'lsa — markazga murojaat qiling.",
-        "ru": "Команды:\n/farzandlarim — подключённые дети\n/til — сменить язык\n"
+        "uz": "Buyruqlar:\n/farzandlarim — ulangan farzandlar\n/ustozlar — guruh ustozlari va telefoni\n"
+              "/til — tilni almashtirish\n/start — boshidan boshlash\n\nSavollar bo'lsa — markazga murojaat qiling.",
+        "ru": "Команды:\n/farzandlarim — подключённые дети\n/ustozlar — учителя групп и их телефоны\n"
+              "/til — сменить язык\n"
               "/start — начать сначала\n\nЕсли есть вопросы — обратитесь в центр.",
     },
     "tugma_farzandlar": {"uz": "👨‍👩‍👧 Farzandlarim", "ru": "👨‍👩‍👧 Мои дети"},
+    "tugma_ustozlar": {"uz": "👩‍🏫 Ustozlar", "ru": "👩‍🏫 Учителя"},
+    # "Ustozlar" tugmasi (2026-10-16): farzand o'qiyotgan faol guruhlar ustozining ismi va telefoni.
+    "ustozlar": {"uz": "Ustozlar:\n{royxat}", "ru": "Учителя:\n{royxat}"},
+    "ustoz_qatori": {
+        "uz": "• {farzand} — «{guruh}»: {ustoz}, 📞 {telefon}",
+        "ru": "• {farzand} — «{guruh}»: {ustoz}, 📞 {telefon}",
+    },
+    "ustoz_yoq": {"uz": "biriktirilmagan", "ru": "не назначен"},
+    "telefon_yoq": {"uz": "ko'rsatilmagan", "ru": "не указан"},
+    "ustoz_guruh_yoq": {
+        "uz": "Farzandingiz hozir hech qaysi guruhda o'qimayapti. Savol bo'lsa — markazga murojaat qiling.",
+        "ru": "Ваш ребёнок сейчас не состоит ни в одной группе. Если есть вопросы — обратитесь в центр.",
+    },
     "tugma_til": {"uz": "🌐 Til", "ru": "🌐 Язык"},
     "tugma_yordam": {"uz": "ℹ️ Yordam", "ru": "ℹ️ Помощь"},
     # Davomat xabarlari. {kun} — "bugun" yoki "05.10.2026 kuni" (tilga qarab).
@@ -135,6 +149,10 @@ MATNLAR = {
         "uz": "📚 {ism} Vocabulary mashqini bajardi ({nomi}): {ball}/{jami} — {foiz}%.",
         "ru": "📚 {ism} выполнил(а) упражнение Vocabulary ({nomi}): {ball}/{jami} — {foiz}%.",
     },
+    "test_natija": {
+        "uz": "✅ {ism} {nomi} testini yechdi: {ball}/{jami} to'g'ri — {foiz}%.",
+        "ru": "✅ {ism} решил(а) тест {nomi}: {ball}/{jami} верно — {foiz}%.",
+    },
     "soz_urinish": {"uz": "({soni} marta urindi, oxirgi natija)", "ru": "({soni} попыток, последний результат)"},
     "tushunmadim": {
         "uz": "Tushunmadim. Buyruqlar uchun /yordam ni bosing.",
@@ -171,12 +189,14 @@ BUYRUQLAR = {
     "uz": [
         ("start", "Boshlash"),
         ("farzandlarim", "Ulangan farzandlarim"),
+        ("ustozlar", "Ustozlar va telefoni"),
         ("til", "Tilni o'zgartirish"),
         ("yordam", "Buyruqlar ro'yxati"),
     ],
     "ru": [
         ("start", "Начать"),
         ("farzandlarim", "Мои дети"),
+        ("ustozlar", "Учителя и телефоны"),
         ("til", "Сменить язык"),
         ("yordam", "Список команд"),
     ],

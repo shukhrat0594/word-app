@@ -51,6 +51,15 @@ class KursTugun(models.Model):
             "qulflangan bo'ladi."
         ),
     )
+    test_ochilgan = models.DateTimeField(
+        null=True, blank=True,
+        help_text=(
+            "Faqat Unit'ning 'Tests' bo'limi uchun (video-TZ 2026-10-16): "
+            "o'qituvchi/admin 'Testni boshlash'ni bosgan vaqt. Bo'sh bo'lsa "
+            "test talabalarga ko'rinmaydi; ochilgandan keyin talaba yechib "
+            "bo'lgach unga yana ko'rinmay qoladi."
+        ),
+    )
     fayl = models.FileField(
         upload_to="kurslar/fayllar/", blank=True,
         help_text="Faqat oxirgi qatlam (farzandsiz) tugunlarda ishlatiladi",
