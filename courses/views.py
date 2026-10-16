@@ -11,6 +11,7 @@ from django.db import transaction
 from django.db.models import Count
 from django.http import FileResponse, HttpResponse
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -149,14 +150,22 @@ def _unit_otildimi(user, unit_tugun, yechim_map):
     2026-08-14: `yechim_map` ({mashq_id: (ball, jami)}) chaqiruvchi
     tomonidan BITTA so'rovda oldindan tayyorlanadi — avval har mashq
     uchun alohida `KursMashqYechim` so'rovi berilardi (N+1), endi
-    xotiradan o'qiladi."""
-    mashqlar = list(KursMashq.objects.filter(tugun_id__in=_shox_idlari(unit_tugun)))
+    xotiradan o'qiladi.
+
+    Video-TZ 2026-10-16: "Tests" mashqlari talabaga faqat o'qituvchi
+    ochganda ko'rinadi — yechilmagani Unit'ni to'smaydi (yechilgani
+    ballga qo'shiladi)."""
+    mashqlar = list(
+        KursMashq.objects.filter(tugun_id__in=_shox_idlari(unit_tugun)).select_related("tugun")
+    )
     if not mashqlar:
         return False
     jami_ball = 0
     jami_savol = 0
     for m in mashqlar:
         yechim = yechim_map.get(m.id)
+        if not yechim and m.tugun.kalit == "tests":
+            continue
         if not yechim:
             return False
         ball, jami = yechim
@@ -251,6 +260,23 @@ def _talaba_tugun_qulflanganmi(user, tugun):
     return _unit_qulflanganmi(user, unit, _yechim_map_ol(user))
 
 
+def _talabaga_test_yopiqmi(user, tugun):
+    """Video-TZ 2026-10-16: Unit'ning "Tests" bo'limi talabaga faqat
+    o'qituvchi/admin "Testni boshlash"ni bosgandan keyin ko'rinadi va
+    talaba shu ochilishdan beri barcha test mashqlarini yechib bo'lgach
+    yana yopiladi. O'qituvchi/admin/owner uchun doim ochiq."""
+    if user.role != User.Role.STUDENT or tugun.kalit != "tests":
+        return False
+    if tugun.test_ochilgan is None:
+        return True
+    jami = KursMashq.objects.filter(tugun=tugun).count()
+    yechilgan = (
+        KursMashqYechim.objects.filter(talaba=user, mashq__tugun=tugun, created_at__gte=tugun.test_ochilgan)
+        .values("mashq_id").distinct().count()
+    )
+    return jami > 0 and yechilgan >= jami
+
+
 def _mashqlar_sonini_hisobla(tugun):
     """Unit ro'yxatida ko'rsatiladigan "Mashqlar (N)" soni (2026-07-29).
 
@@ -314,9 +340,13 @@ def _tugun_dict(tugun, user, bolalar_keshi, tugatgan_idlar, sozlar_soni_map, yec
             natija["sozlar_soni"] = sozlar_soni
         if user.role == User.Role.STUDENT:
             natija["tugallandimi"] = tugun.id in tugatgan_idlar
+        elif tugun.kalit == "tests":
+            natija["test_ochiq"] = tugun.test_ochilgan is not None
     else:
         children = []
         for b in bolalar:
+            if _talabaga_test_yopiqmi(user, b):
+                continue
             b_qulflangan = _unit_qulflanganmi(user, b, yechim_map) if b.unit_darsi else False
             children.append(
                 _tugun_dict(b, user, bolalar_keshi, tugatgan_idlar, sozlar_soni_map, yechim_map, b_qulflangan)
@@ -2725,6 +2755,8 @@ class KursMashqRoyxatiView(APIView):
         tugun = get_object_or_404(KursTugun, pk=pk)
         if _talaba_tugun_qulflanganmi(request.user, tugun):
             return Response({"detail": "Bu qism hali qulflangan"}, status=403)
+        if _talabaga_test_yopiqmi(request.user, tugun):
+            return Response({"detail": "Test hozir yopiq"}, status=403)
         # Talabaga javoblar YUBORILMAYDI, o'qituvchi/admin/owner esa
         # darsda tushuntirishi uchun to'g'ri javoblarni ko'radi.
         tayyorla = (
@@ -2735,6 +2767,32 @@ class KursMashqRoyxatiView(APIView):
         return Response(
             [tayyorla(m) for m in tugun.mashqlar.prefetch_related("audiolar", "rasmlar")]
         )
+
+
+class KursTestBoshlashView(APIView):
+    """O'qituvchi/admin/owner uchun — Unit'ning "Tests" bo'limini barcha
+    talabalarga ochish (`ochiq: true`) yoki yopish (video-TZ 2026-10-16)."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        if not (_mashq_admin_mi(request.user) or request.user.role == User.Role.TEACHER):
+            return Response({"detail": "Faqat o'qituvchi/admin uchun"}, status=403)
+        tugun = get_object_or_404(KursTugun, pk=pk)
+        if tugun.kalit != "tests":
+            return Response({"detail": "Faqat Tests bo'limi uchun"}, status=400)
+        ochiq = bool(request.data.get("ochiq", True))
+        tugun.test_ochilgan = timezone.now() if ochiq else None
+        tugun.save(update_fields=["test_ochilgan"])
+        logla(
+            foydalanuvchi=request.user,
+            harakat=FaoliyatYozuvi.Harakat.OZGARTIRISH,
+            obyekt=tugun,
+            obyekt_turi="KursTugun",
+            obyekt_nomi=f"{tugun.parent.nomi if tugun.parent else ''} > {tugun.nomi}",
+            ozgarishlar={"test_ochiq": {"eski": "—", "yangi": "ha" if ochiq else "yo'q"}},
+        )
+        return Response({"test_ochiq": ochiq})
 
 
 class KursMashqYechishView(APIView):
@@ -2748,6 +2806,8 @@ class KursMashqYechishView(APIView):
         mashq = get_object_or_404(KursMashq, pk=pk)
         if _talaba_tugun_qulflanganmi(request.user, mashq.tugun):
             return Response({"detail": "Bu qism hali qulflangan"}, status=403)
+        if _talabaga_test_yopiqmi(request.user, mashq.tugun):
+            return Response({"detail": "Test hozir yopiq"}, status=403)
 
         javoblar = request.data.get("javoblar")
         if not isinstance(javoblar, list):
