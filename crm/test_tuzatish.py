@@ -60,6 +60,24 @@ class AlohidaBolimlarTest(Yordamchi):
         m2 = self.mijoz(self.xodim("sozlamachi", rol=sozlamachi))
         self.assertEqual(m2.get("/api/crm/harakatlar/").status_code, 403)
 
+    def test_migratsiya_eski_huquqni_saqlaydi(self):
+        """Faqat Filiallar ruxsati bor rol avval menyuda Kurs narxlari va
+        Harakatlar tarixini ko'rardi — ko'rish qoladi, tahrirlash berilmaydi."""
+        import importlib
+
+        from django.apps import apps
+
+        m = importlib.import_module("crm.migrations.0016_narxlar_harakatlar_bolimlari")
+        filialchi = CrmRol.objects.create(nomi="Filialchi", ruxsatlar=["sozlamalar.filiallar"])
+        narxchi = CrmRol.objects.create(nomi="Narxchi", ruxsatlar=["sozlamalar.narxlar"])
+        kassa = CrmRol.objects.create(nomi="Kassa", ruxsatlar=["moliya.tolov"])
+        m.kochir(apps, None)
+        for r in (filialchi, narxchi, kassa):
+            r.refresh_from_db()
+        self.assertEqual(sorted(filialchi.ruxsatlar), ["harakatlar.korish", "narxlar.korish", "sozlamalar.filiallar"])
+        self.assertEqual(sorted(narxchi.ruxsatlar), ["harakatlar.korish", "narxlar.korish", "narxlar.tahrirlash"])
+        self.assertEqual(kassa.ruxsatlar, ["moliya.tolov"])
+
 
 class RolAmalKalitiTest(Yordamchi):
     """Bitta amal berilsa, bo'limning hamma amali berilmasin: bo'lim kaliti
