@@ -62,3 +62,22 @@ class TestBoshlashTest(ApiAsos):
 
     def test_talaba_boshlay_olmaydi(self):
         self.assertEqual(self.boshla(self.talaba).status_code, 403)
+
+    def test_yopiq_test_keyingi_unitni_qulflamaydi(self):
+        # Tests yopiq bo'lsa talaba uni yecha olmaydi — 60% qoidasi uni
+        # kutib, keyingi Unit'ni abadiy qulflab qo'ymasligi kerak.
+        unit1 = KursTugun.objects.create(
+            markaz=self.markaz, nomi="Unit 1", parent=self.daraja, unit_darsi=True, tartib=0,
+        )
+        unit2 = KursTugun.objects.create(
+            markaz=self.markaz, nomi="Unit 2", parent=self.daraja, unit_darsi=True, tartib=1,
+        )
+        sb = KursTugun.objects.create(markaz=self.markaz, nomi="SB", parent=unit1, tartib=0)
+        oddiy = KursMashq.objects.create(
+            tugun=sb, savollar=[{"savol": "1", "variantlar": ["a", "b"], "togri": "a"}],
+        )
+        self.test.parent = unit1
+        self.test.save(update_fields=["parent"])
+        self.mijoz(self.talaba).post(f"/api/kurslar/mashq/{oddiy.id}/yechish/", {"javoblar": ["a"]}, format="json")
+        j = self.mijoz(self.talaba).get(f"/api/kurslar/{unit2.id}/mashqlar/")
+        self.assertNotEqual(j.status_code, 403, j.data)

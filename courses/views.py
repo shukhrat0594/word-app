@@ -150,14 +150,22 @@ def _unit_otildimi(user, unit_tugun, yechim_map):
     2026-08-14: `yechim_map` ({mashq_id: (ball, jami)}) chaqiruvchi
     tomonidan BITTA so'rovda oldindan tayyorlanadi — avval har mashq
     uchun alohida `KursMashqYechim` so'rovi berilardi (N+1), endi
-    xotiradan o'qiladi."""
-    mashqlar = list(KursMashq.objects.filter(tugun_id__in=_shox_idlari(unit_tugun)))
+    xotiradan o'qiladi.
+
+    Video-TZ 2026-10-16: "Tests" mashqlari talabaga faqat o'qituvchi
+    ochganda ko'rinadi — yechilmagani Unit'ni to'smaydi (yechilgani
+    ballga qo'shiladi)."""
+    mashqlar = list(
+        KursMashq.objects.filter(tugun_id__in=_shox_idlari(unit_tugun)).select_related("tugun")
+    )
     if not mashqlar:
         return False
     jami_ball = 0
     jami_savol = 0
     for m in mashqlar:
         yechim = yechim_map.get(m.id)
+        if not yechim and m.tugun.kalit == "tests":
+            continue
         if not yechim:
             return False
         ball, jami = yechim
