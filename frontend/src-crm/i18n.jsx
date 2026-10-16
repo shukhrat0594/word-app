@@ -289,6 +289,9 @@ const SATRLAR = {
     ob_tolov: "To'lov xabari",
     ob_qarz: "Qarz eslatmasi",
     ob_natija: "Natijalar yig'masi",
+    ob_faollik: "Saytga kirmaganlik",
+    ob_faollik_izoh: "O'quvchi o'quv saytiga bir kundan ortiq kirmasa (vazifa qilmasa) — tanlangan kun va soatda "
+      + "ota-onasiga ogohlantirish.",
     ob_natija_turlari: "Test va mashq natijalari",
     ob_natija_turlari_izoh: "«Darhol» — talaba yechgach 5–10 daqiqada alohida xabar. «Kunlik yig'mada» — "
       + "yuqoridagi kun va soatdagi yig'ma xabarda (yig'ma yoqilgan bo'lishi kerak).",
@@ -974,6 +977,9 @@ const SATRLAR = {
     ob_tolov: "Сообщения об оплате",
     ob_qarz: "Напоминание о долге",
     ob_natija: "Сводка результатов",
+    ob_faollik: "Не заходит на сайт",
+    ob_faollik_izoh: "Если ученик больше суток не заходит на учебный сайт (не делает задания) — в выбранные дни "
+      + "и время родителю уходит предупреждение.",
     ob_natija_turlari: "Результаты тестов и упражнений",
     ob_natija_turlari_izoh: "«Сразу» — отдельное сообщение через 5–10 минут после решения. «В сводке» — "
       + "в сводке в указанные выше дни и время (сводка должна быть включена).",
@@ -1661,6 +1667,9 @@ const SATRLAR = {
     ob_tolov: "Payment messages",
     ob_qarz: "Debt reminder",
     ob_natija: "Results digest",
+    ob_faollik: "Site inactivity",
+    ob_faollik_izoh: "If a student hasn't visited the learning site for over a day (no homework) — the parent gets "
+      + "a warning on the selected days and time.",
     ob_natija_turlari: "Test and exercise results",
     ob_natija_turlari_izoh: "“Instantly” — a separate message 5–10 minutes after the student finishes. "
       + "“In digest” — in the digest on the days and time above (the digest must be on).",

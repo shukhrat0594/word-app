@@ -85,6 +85,7 @@ const TURI_KALIT = {
   writing: "nav_writing",
   speaking: "nav_speaking",
   kurslar: "nav_kurslar",
+  vocabulary: "tugun_vocabulary",
 };
 
 /** Bitta talabaning BARCHA mashq/test natijalari (2026-08-05) — owner

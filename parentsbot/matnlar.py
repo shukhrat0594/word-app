@@ -113,6 +113,17 @@ MATNLAR = {
         "ru": "💳 Напоминание: на счёте {ism} задолженность {summa} сум. Пожалуйста, произведите оплату. "
               "Если есть вопросы — обратитесь в центр.",
     },
+    # Saytga kirmaslik (Video-TZ 2026-10-16)
+    "faollik": {
+        "uz": "⚠️ {ism} bir kundan ortiq o'quv saytiga kirmadi (oxirgi marta {sana}) — "
+              "uy vazifalari va mashqlar bajarilmayapti.",
+        "ru": "⚠️ {ism} больше суток не заходил(а) на учебный сайт (последний раз {sana}) — "
+              "домашние задания и упражнения не выполняются.",
+    },
+    "faollik_hech": {
+        "uz": "⚠️ {ism} hali o'quv saytiga umuman kirmagan — uy vazifalari va mashqlar bajarilmayapti.",
+        "ru": "⚠️ {ism} ещё ни разу не заходил(а) на учебный сайт — домашние задания и упражнения не выполняются.",
+    },
     # Natijalar yig'masi. {davr} — "kunlik" (so'nggi 24 soat) yoki "01.10–05.10 kunlardagi".
     "natija_yigma": {
         "uz": "📊 {ism}: {davr} natijalar\n{qatorlar}",
