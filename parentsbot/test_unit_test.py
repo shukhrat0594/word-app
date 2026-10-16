@@ -18,6 +18,10 @@ class UnitTestNatijaTest(NatijaAsos):
         unit = KursTugun.objects.create(markaz=self.markaz, nomi="Unit 1 — Hello!", parent=self.daraja)
         tests = KursTugun.objects.create(markaz=self.markaz, nomi="Tests", parent=unit, kalit="tests")
         self.test_mashq = KursMashq.objects.create(tugun=tests, savollar=[])
+        # Oddiy mashq — Workbook'da (Video-TZ 2026-10-16: u ota-onaga umuman bormaydi)
+        wb = KursTugun.objects.create(markaz=self.markaz, nomi="Workbook", parent=unit, kalit="workbook")
+        self.mashq = KursMashq.objects.create(tugun=wb, savollar=[])
+        ParentsBotSozlama.objects.filter(pk=1).update(test_rejimi="darhol")
         self.t0 = timezone.now()
         Boglanish.objects.update(faollashgan=self.t0 - timedelta(days=1))
         xb.skanerla_yechim(self.t0 - timedelta(hours=2))  # boshlanish vaqti
@@ -56,8 +60,8 @@ class UnitTestNatijaTest(NatijaAsos):
 
     def test_darholda_yigmaga_kirmaydi_yigmada_kiradi(self):
         self.unit_test(8, 10, vaqt=self.ichida)
-        self.yechim(6, 10)
+        self.yechim(6, 10)  # Workbook — yig'maga ham kirmaydi
+        self.assertNotIn(self.talaba.id, xb.natijalar([self.talaba.id], self.ichida - timedelta(hours=1),
+                                                      self.hozir, {"test": "darhol"}))
         self.assertEqual(xb.natijalar([self.talaba.id], self.ichida - timedelta(hours=1), self.hozir,
-                                      {"test": "darhol"})[self.talaba.id]["mashq_soni"], 1)
-        self.assertEqual(xb.natijalar([self.talaba.id], self.ichida - timedelta(hours=1), self.hozir,
-                                      {"test": "yigma"})[self.talaba.id]["mashq_soni"], 2)
+                                      {"test": "yigma"})[self.talaba.id]["mashq_soni"], 1)
