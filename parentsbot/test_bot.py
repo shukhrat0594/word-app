@@ -209,7 +209,7 @@ class TugmalarMenyusiTest(BotAsos):
     def test_ulangach_doimiy_menyu_chiqadi(self):
         self.ulangan()
         matnlar = self.tugma_matnlari()
-        self.assertEqual(matnlar, ["👨‍👩‍👧 Farzandlarim", "🌐 Til", "ℹ️ Yordam"])
+        self.assertEqual(matnlar, ["👨‍👩‍👧 Farzandlarim", "👩‍🏫 Ustozlar", "🌐 Til", "ℹ️ Yordam"])
         self.assertTrue(self.tg.yuborilgan[-1][2]["is_persistent"])
 
     def test_tugma_buyruq_vazifasini_bajaradi(self):
@@ -234,10 +234,10 @@ class TugmalarMenyusiTest(BotAsos):
         self.yubor(100, "⏸ Xabarlarni to'xtatish")
         self.assertTrue(Abonent.objects.get().faol)
         # javob bilan YANGI menyu keladi — telefondagi eski tugmalar almashadi
-        self.assertEqual(self.tugma_matnlari(), ["👨‍👩‍👧 Farzandlarim", "🌐 Til", "ℹ️ Yordam"])
+        self.assertEqual(self.tugma_matnlari(), ["👨‍👩‍👧 Farzandlarim", "👩‍🏫 Ustozlar", "🌐 Til", "ℹ️ Yordam"])
         self.yubor(100, "⚙️ Sozlamalar")
         self.assertIn("Tushunmadim", self.tg.oxirgi())
-        self.assertEqual(len(self.tugma_matnlari()), 3)
+        self.assertEqual(len(self.tugma_matnlari()), 4)
 
     def test_ulanmagan_ota_onaga_menyu_yoq(self):
         self.tilgacha()
@@ -257,7 +257,47 @@ class TugmalarMenyusiTest(BotAsos):
         self.yubor(100, "Sevara Jorayeva")
         self.yubor(100, "03.03.2011")
         self.assertIn("Ulandi", self.tg.oxirgi())
-        self.assertEqual(len(self.tugma_matnlari()), 3)
+        self.assertEqual(len(self.tugma_matnlari()), 4)
+
+
+class UstozlarTest(BotAsos):
+    def setUp(self):
+        super().setUp()
+        from academics.models import Guruh
+        from accounts.models import Markaz
+        markaz = Markaz.objects.create(name="SINOV markaz")
+        self.ustoz = User.objects.create_user(
+            username="ustoz", password="x", role=User.Role.TEACHER, first_name="Dilnoza",
+            last_name="Aliyeva", telefon="+998 90 555 66 77")
+        self.g = Guruh.objects.create(name="SINOV IELTS", markaz=markaz, oqituvchi=self.ustoz)
+        self.g.talabalar.add(self.t1)
+        arxiv = Guruh.objects.create(name="SINOV eski", markaz=markaz, oqituvchi=self.ustoz, faol=False)
+        arxiv.talabalar.add(self.t1)
+        self.tilgacha()
+        self.yubor(100, contact={"phone_number": "+998901234567", "user_id": 100})
+
+    def test_tugma_ustoz_ismi_va_telefonini_beradi(self):
+        self.yubor(100, "👩‍🏫 Ustozlar")
+        javob = self.tg.oxirgi()
+        self.assertIn("SINOV IELTS", javob)
+        self.assertIn("Dilnoza Aliyeva", javob)
+        self.assertIn("+998 90 555 66 77", javob)
+        self.assertNotIn("SINOV eski", javob)  # arxivlangan guruh ko'rinmaydi
+
+    def test_ustoz_biriktirilmagan_guruh(self):
+        self.g.oqituvchi = None
+        self.g.save()
+        self.yubor(100, "/ustozlar")
+        self.assertIn("biriktirilmagan", self.tg.oxirgi())
+
+    def test_guruhsiz_farzand(self):
+        self.g.talabalar.remove(self.t1)
+        self.yubor(100, "/ustozlar")
+        self.assertIn("hech qaysi guruhda", self.tg.oxirgi())
+
+    def test_ulanmagan_ota_ona_ustozni_kormaydi(self):
+        self.yubor(200, "/ustozlar")
+        self.assertNotIn("Dilnoza", self.tg.oxirgi())
 
 
 class TilJarayonOrtasidaTest(BotAsos):
