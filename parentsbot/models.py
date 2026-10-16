@@ -52,6 +52,8 @@ class ParentsBotSozlama(models.Model):
     ielts_rejimi = models.CharField(max_length=6, choices=NatijaRejimi.choices, default=NatijaRejimi.DARHOL)
     ws_rejimi = models.CharField(max_length=6, choices=NatijaRejimi.choices, default=NatijaRejimi.DARHOL)
     soz_rejimi = models.CharField(max_length=6, choices=NatijaRejimi.choices, default=NatijaRejimi.DARHOL)
+    # Video-TZ 2026-10-16: Kurslar Unit "Tests" natijasi (nechta to'g'ri, necha foiz)
+    test_rejimi = models.CharField(max_length=6, choices=NatijaRejimi.choices, default=NatijaRejimi.DARHOL)
 
     # Tinch soatlar: shu vaqtda tushgan xabarlar kutadi va tugagach yuboriladi.
     tinch_boshi = models.TimeField(default=time(22, 0))

@@ -147,7 +147,11 @@ export default function BoshSahifa() {
           <Katak sarlavha={t("hisoblangan")} qiymat={pul(jami?.hisoblangan)} />
           <Katak sarlavha={t("olingan_pul")} qiymat={pul(jami?.olingan)} sinf="rang-tolandi" />
           <Katak sarlavha={t("chegirma")} qiymat={pul(jami?.chegirma)} />
-          <Katak sarlavha={t("qarz")} qiymat={pul(jami?.qarz)} sinf="rang-qarzdor" />
+          {/* Bonus ham qarzni kamaytiradi — ko'rinmasa "Hisoblangan − Olingan −
+              Chegirma" Qarz'ga teng chiqmasdi (video-TZ 2026-10-16). "Shu oy
+              qarzi" — tanlangan oy; tepadagi "Qolgan qarzlar" — barcha oylar balansi. */}
+          <Katak sarlavha={t("bonus")} qiymat={pul(jami?.bonus)} />
+          <Katak sarlavha={t("oy_qarzi")}qiymat={pul(jami?.qarz)} sinf="rang-qarzdor" />
           <Katak sarlavha={t("yigilish")} qiymat={`${jami?.yigilish_foizi ?? 0}%`} />
         </div>
       </div>
