@@ -178,15 +178,15 @@ export default function OtaOna() {
                       : t("qarz_yoq")}
                 </div>
                 <div className="qiymat" style={{ color: stat.tolov.qarz > 0 ? "#d33" : undefined }}>
-                  {(stat.tolov.qarz || stat.tolov.balans).toLocaleString("ru-RU")} so'm
+                  {(stat.tolov.qarz || stat.tolov.balans).toLocaleString("ru-RU")} {t("som")}
                 </div>
               </div>
             </div>
             <div className="karta">
               <h3>{t("ustozlar")}</h3>
               {stat.ustozlar.length === 0 && <span className="izoh">{t("ustoz_yoq")}</span>}
-              {stat.ustozlar.map((u) => (
-                <div key={u.guruh} style={{ marginBottom: 8 }}>
+              {stat.ustozlar.map((u, i) => (
+                <div key={i}style={{ marginBottom: 8 }}>
                   <b>{u.ism || t("ustoz_yoq")}</b> <span className="izoh">({u.guruh})</span>
                   {u.telefon && (
                     <div>
