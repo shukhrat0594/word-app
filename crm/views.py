@@ -1540,7 +1540,7 @@ class TolovlarView(CrmView):
             except ValueError as e:
                 return _xato(str(e))
         if request.query_params.get("filial"):
-            qs = qs.filter(hisob__filial_id=request.query_params["filial"])
+            qs = qs.filter(tolov_filiali_q(request.query_params["filial"]))
         if request.query_params.get("guruh"):
             qs = qs.filter(guruh_id=request.query_params["guruh"])
         if request.query_params.get("talaba"):
