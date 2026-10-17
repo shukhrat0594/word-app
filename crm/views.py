@@ -2321,6 +2321,15 @@ def _hisobot_qatorlari(oy=None, filial_id=None, user=None):
             qaytarilgan=Sum("summa", filter=Q(turi=Tolov.Turi.QAYTARISH), default=NOL),
         )
     }
+    # Qarz — har o'quvchining to'lanmagan qoldig'i yig'indisi (Video-TZ
+    # IMG_2210): guruhda birovning ortiqcha to'lovi boshqaning qarzini
+    # yemasligi kerak. Qoida `hisoblar/?qarzli=1` ro'yxati bilan bir xil.
+    qarzlar = {}
+    for h in hisoblar.filter(holat__in=[Hisob.Holat.QARZDOR, Hisob.Holat.QISMAN]).annotate(
+        yopilgan=Sum("tolovlar__summa", filter=Q(tolovlar__turi__in=Tolov.YOPUVCHI_TURLAR), default=NOL)
+    ):
+        kalit = (h.filial_id, h.guruh_id)
+        qarzlar[kalit] = qarzlar.get(kalit, NOL) + max(h.summa - h.yopilgan, NOL)
     filial_nomlari = dict(Filial.objects.values_list("id", "nomi"))
 
     qatorlar = []
@@ -2342,7 +2351,7 @@ def _hisobot_qatorlari(oy=None, filial_id=None, user=None):
                 "chegirma": chegirma,
                 "bonus": bonus,
                 "qaytarilgan": p.get("qaytarilgan", NOL),
-                "qarz": jami - olingan - chegirma - bonus,
+                "qarz": qarzlar.get(kalit, NOL),
                 # Yig'ilish foizi — HAQIQIY pul bo'yicha (chegirma
                 # qo'shilmaydi), aks holda ko'rsatkich soxta yaxshi chiqardi.
                 "yigilish_foizi": round(float(olingan / jami * 100), 1) if jami else 0.0,
@@ -2350,25 +2359,6 @@ def _hisobot_qatorlari(oy=None, filial_id=None, user=None):
         )
     qatorlar.sort(key=lambda x: (x["filial"], x["guruh"]))
     return qatorlar
-
-
-def _oy_qarzi(oy=None, filial_id=None, user=None):
-    """"Shu oy qarzi" — har o'quvchining to'lanmagan qoldig'i yig'indisi.
-
-    Video-TZ (IMG_2210, 2026-10-17): guruh yig'indisida bir o'quvchining
-    ortiqcha to'lovi boshqalarning qarzini yeb qo'yardi — karta ro'yxatdan
-    (`hisoblar/?qarzli=1`) kam chiqardi. Endi ro'yxat bilan bir qoida.
-    """
-    hisoblar = Hisob.objects.filter(filial_q(user, "filial")) if user else Hisob.objects.all()
-    hisoblar = hisoblar.filter(holat__in=[Hisob.Holat.QARZDOR, Hisob.Holat.QISMAN])
-    if oy:
-        hisoblar = hisoblar.filter(oy=oy)
-    if filial_id:
-        hisoblar = hisoblar.filter(filial_id=filial_id)
-    hisoblar = hisoblar.annotate(
-        yopilgan=Sum("tolovlar__summa", filter=Q(tolovlar__turi__in=Tolov.YOPUVCHI_TURLAR), default=NOL)
-    )
-    return sum((max(h.summa - h.yopilgan, NOL) for h in hisoblar), NOL)
 
 
 class HisobotView(CrmView):
@@ -2381,14 +2371,12 @@ class HisobotView(CrmView):
                 oy = _oy(request.query_params["oy"])
             except ValueError as e:
                 return _xato(str(e))
-        filial_id = request.query_params.get("filial")
-        qatorlar = _hisobot_qatorlari(oy=oy, filial_id=filial_id, user=request.user)
+        qatorlar = _hisobot_qatorlari(oy=oy, filial_id=request.query_params.get("filial"), user=request.user)
 
         jami = {
             kalit: sum((q[kalit] for q in qatorlar), NOL)
-            for kalit in ("hisoblangan", "olingan", "chegirma", "bonus", "qaytarilgan")
+            for kalit in ("hisoblangan", "olingan", "chegirma", "bonus", "qaytarilgan", "qarz")
         }
-        jami["qarz"] = _oy_qarzi(oy=oy, filial_id=filial_id, user=request.user)
         jami["yigilish_foizi"] = (
             round(float(jami["olingan"] / jami["hisoblangan"] * 100), 1)
             if jami["hisoblangan"]

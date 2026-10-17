@@ -81,7 +81,10 @@ class QarzdorlikTest(ApiAsos):
         self.talaba = User.objects.create(username="sinov_b", role=ikkinchi.role, markaz=self.markaz)
         self.hisob(SENTABR)
         m = self.mijoz(self.owner)
-        self.assertEqual(m.get(f"/api/crm/hisobot/?oy={SENTABR:%Y-%m}").data["jami"]["qarz"], NARX)
+        hisobot = m.get(f"/api/crm/hisobot/?oy={SENTABR:%Y-%m}").data
+        self.assertEqual(hisobot["jami"]["qarz"], NARX)
+        # Guruh qatori ham shu qoida bilan — jami qator ustunlar yig'indisiga teng.
+        self.assertEqual([q["qarz"] for q in hisobot["qatorlar"]], [NARX])
         self.assertEqual(m.get("/api/crm/korsatkichlar/").data["qolgan_qarz"], NARX)
         d = m.get(f"/api/crm/hisoblar/?qarzli=1&oy={SENTABR:%Y-%m}").data
         self.assertEqual(sum((x["qoldiq"] for x in d), Decimal(0)), NARX)
