@@ -1711,15 +1711,21 @@ class TalabalarView(APIView):
         # FAQAT admin/owner'ga (`accounts/models.py` izohi). O'qituvchi
         # ro'yxatida ular bo'lmaydi — 2026-09-17 tekshiruvda topildi:
         # avval telefon o'qituvchiga ham ketardi.
+        # 2026-10-17 (video-TZ): o'qituvchi o'z guruhidagi talabaning
+        # telefoni, ota-onasining ismi va telefonini ko'radi (bog'lanish
+        # uchun). Qolgan shaxsiy maydonlar hamon faqat admin/owner'ga.
         boshqaruv = owner_mi(u) or u.role == User.Role.ADMIN
 
         def shaxsiy(t):
-            if not boshqaruv:
-                return {}
-            return {
+            aloqa = {
                 "telefon": t.telefon,
                 "ota_ona_telefon": t.ota_ona_telefon,
                 "ota_ona_ismi": t.ota_ona_ismi,
+            }
+            if not boshqaruv:
+                return aloqa
+            return {
+                **aloqa,
                 "tugilgan_sana": t.tugilgan_sana,
                 "manba": t.manba,
                 "izoh": t.izoh,
