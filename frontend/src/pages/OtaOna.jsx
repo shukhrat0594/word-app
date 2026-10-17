@@ -74,13 +74,14 @@ export default function OtaOna() {
                 </small>
               </div>
             </div>
-            {/* Video-TZ IMG_2216: o'rtacha natija testlar + mashqlardan (radar bilan bir xil) */}
+            {/* Video-TZ IMG_2216: o'rtacha band radar bilan bir xil — test bo'lsa testlardan,
+                bo'lmasa mashqlardan; son ham shu manbaniki */}
             <div className="stat">
               <div className="nom">Listening band</div>
               <div className="qiymat">
                 {stat.konikmalar.listening_band ?? "—"}{" "}
                 <small>
-                  {stat.listening.soni + stat.listening.jami_yechildi} {t("tekshiruv")}
+                  {stat.listening.soni || stat.listening.jami_yechildi} {t("tekshiruv")}
                 </small>
               </div>
             </div>
@@ -89,7 +90,7 @@ export default function OtaOna() {
               <div className="qiymat">
                 {stat.konikmalar.reading_band ?? "—"}{" "}
                 <small>
-                  {stat.reading.soni + stat.reading.jami_yechildi} {t("tekshiruv")}
+                  {stat.reading.soni || stat.reading.jami_yechildi} {t("tekshiruv")}
                 </small>
               </div>
             </div>
