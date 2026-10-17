@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { api, apiForm } from "../api";
 import { useI18n } from "../i18n";
 import { useProfil } from "../profilContext";
@@ -200,6 +201,19 @@ export default function Talabalar() {
   useEffect(() => {
     yukla(arxivKorish);
   }, [arxivKorish]);
+
+  // 2026-10-17 (video-TZ): guruh sahifasida talaba ismiga bosilganda
+  // `?talaba=<id>` bilan shu yerga keladi — ro'yxat yuklangach uning
+  // kartasi (profili) darhol ochiladi, keyin parametr olib tashlanadi.
+  const [searchParams, setSearchParams] = useSearchParams();
+  useEffect(() => {
+    const id = searchParams.get("talaba");
+    if (!id || !talabalar) return;
+    const topilgan = talabalar.find((x) => String(x.id) === id);
+    if (topilgan) setKartaTalaba(topilgan);
+    setSearchParams({}, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [talabalar, searchParams]);
 
   useEffect(() => {
     if (boshqaruvMi) {
