@@ -231,3 +231,49 @@ class UnitTestlarDinamikaTest(TestCase):
         unitlar = talaba_statistikasi(self.talaba)["unit_testlar"]
         self.assertEqual([u["foiz"] for u in unitlar], [50, 100])
         self.assertEqual(unitlar[0]["unit"], "Unit 2 — Work")
+
+
+class FarzandTolovVaUstozTest(TestCase):
+    """Video-TZ IMG_2217: ota-ona farzandning qarzini va ustoz telefonini ko'radi."""
+
+    def setUp(self):
+        Hisob = django_apps.get_model("crm", "Hisob")
+        Tolov = django_apps.get_model("crm", "Tolov")
+        self.markaz = Markaz.objects.create(name="Utmost")
+        self.ota = User.objects.create_user(
+            username="ota", password=PAROL, role=User.Role.PARENT, markaz=self.markaz
+        )
+        self.talaba = User.objects.create_user(
+            username="talaba", password=PAROL, role=User.Role.STUDENT, markaz=self.markaz,
+            ota_ona=self.ota,
+        )
+        oqituvchi = User.objects.create_user(
+            username="ustoz", password=PAROL, role=User.Role.TEACHER, markaz=self.markaz,
+            first_name="Ali", last_name="Valiyev", telefon="+998901112233",
+        )
+        guruh = Guruh.objects.create(name="A1", markaz=self.markaz, oqituvchi=oqituvchi)
+        guruh.talabalar.add(self.talaba)
+        arxiv = Guruh.objects.create(name="Eski", markaz=self.markaz, oqituvchi=oqituvchi, faol=False)
+        arxiv.talabalar.add(self.talaba)
+        Hisob.objects.create(
+            talaba=self.talaba, talaba_ism="t", guruh=guruh, guruh_nomi="A1",
+            oy="2026-10-01", summa=600000,
+        )
+        Tolov.objects.create(
+            talaba=self.talaba, talaba_ism="t", guruh=guruh, guruh_nomi="A1",
+            sana="2026-10-05", summa=200000,
+        )
+
+    def test_qarz_va_ustoz(self):
+        from rest_framework.test import APIClient
+
+        client = APIClient()
+        client.force_authenticate(self.ota)
+        javob = client.get(f"/api/farzandlar/{self.talaba.id}/statistika/")
+        self.assertEqual(javob.status_code, 200, javob.content)
+        data = javob.json()
+        self.assertEqual(data["tolov"], {"balans": -400000, "qarz": 400000})
+        self.assertEqual(
+            data["ustozlar"],
+            [{"guruh": "A1", "ism": "Ali Valiyev", "telefon": "+998901112233"}],
+        )

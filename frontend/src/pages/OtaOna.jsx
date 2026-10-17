@@ -164,6 +164,39 @@ export default function OtaOna() {
               </div>
             </div>
           </div>
+
+          {/* Video-TZ IMG_2217: to'lov/qarz holati va guruh ustozlari */}
+          <div className="ikki-ustun">
+            <div className="karta">
+              <h3>{t("tolov_holati")}</h3>
+              <div className="stat">
+                <div className="nom">
+                  {stat.tolov.qarz > 0
+                    ? t("qarzdorlik")
+                    : stat.tolov.balans > 0
+                      ? t("oldindan_tolangan")
+                      : t("qarz_yoq")}
+                </div>
+                <div className="qiymat" style={{ color: stat.tolov.qarz > 0 ? "#d33" : undefined }}>
+                  {(stat.tolov.qarz || stat.tolov.balans).toLocaleString("ru-RU")} {t("som")}
+                </div>
+              </div>
+            </div>
+            <div className="karta">
+              <h3>{t("ustozlar")}</h3>
+              {stat.ustozlar.length === 0 && <span className="izoh">{t("ustoz_yoq")}</span>}
+              {stat.ustozlar.map((u, i) => (
+                <div key={i}style={{ marginBottom: 8 }}>
+                  <b>{u.ism || t("ustoz_yoq")}</b> <span className="izoh">({u.guruh})</span>
+                  {u.telefon && (
+                    <div>
+                      <a href={`tel:${u.telefon}`}>{u.telefon}</a>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
         </>
       )}
     </>
