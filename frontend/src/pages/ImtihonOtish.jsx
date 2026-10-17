@@ -439,9 +439,19 @@ function matnniBoslarGaAjrat(matn, javoblar, javobniQoy, natija, uchrashSoni, ko
           value={qiymat}
           onChange={(e) => javobniQoy(idx, e.target.value, kopKatakcha ? sub : undefined)}
         />
+        {(!kopKatakcha || sub === 0) && <TogriJavob natija={natija} idx={idx} />}
       </span>
     );
   });
+}
+
+/** Natija tekshirilgach XATO javob yonida asl to'g'ri javob (2026-10-17,
+ * video-TZ). Backend `togri_javoblar` qaytarmasa yoki kalit bo'sh bo'lsa —
+ * hech narsa chiqmaydi. */
+function TogriJavob({ natija, idx }) {
+  const matn = natija?.togri_javoblar?.[idx];
+  if (!natija || natija.natijalar[idx] || !matn) return null;
+  return <span className="togri-javob">→ {matn}</span>;
 }
 
 /** Variantlar qutisi — MA'LUMOTNOMA (asl kitobdagi "list of words A-F"
@@ -686,7 +696,8 @@ function SozBankiBloki({ blok, javoblar, javobniQoy, natija, t }) {
               >
                 {i + 1}. {javoblar[i] || t("javob_yozing")}
                 {natija && <span className={`natija-belgi ${holat}`}>{natija.natijalar[i] ? "✓" : "✗"}</span>}
-              </span>{" "}
+              </span>
+              <TogriJavob natija={natija} idx={i} />{" "}
             </span>
           );
         })}
@@ -813,6 +824,7 @@ function MoslashtirishBloki({ blok, javoblar, javobniQoy, natija, t }) {
                   {javoblar[i] || t("imtihon_javobni_tashlang")}
                 </span>
                 {natija && <span className={`natija-belgi ${holat}`}>{natija.natijalar[i] ? "✓" : "✗"}</span>}
+                <TogriJavob natija={natija} idx={i} />
               </span>
             </div>
           );
@@ -880,6 +892,7 @@ function RasmSavollari({ rasmUrl, sarlavha, savollar, boshIdx, javoblar, javobni
             value={javoblar[i] || ""}
             onChange={(e) => javobniQoy(i, e.target.value)}
             placeholder={`${i + 1}`}
+            title={natija && !natija.natijalar[i] ? natija.togri_javoblar?.[i] || undefined : undefined}
           />
         );
       })}
@@ -927,6 +940,11 @@ function KopJavobBloki({ blok, javoblar, javobniQoy, natija, t }) {
             {idxlar.filter((i) => natija.natijalar[i]).length}/{soni}
           </span>
         )}
+        {natija && idxlar.some((i) => !natija.natijalar[i]) && natija.togri_javoblar && (
+          <span className="togri-javob">
+            → {idxlar.map((i) => natija.togri_javoblar[i]).filter(Boolean).join(", ")}
+          </span>
+        )}
       </div>
       <div className="izoh" style={{ marginBottom: 6 }}>
         {t("kop_javob_izoh").replace("{n}", soni)}
@@ -962,6 +980,7 @@ function OddiySavolBloki({ blok, javoblar, javobniQoy, natija, t }) {
             {natija.natijalar[i] ? "✓" : "✗"}
           </span>
         )}
+        <TogriJavob natija={natija} idx={i} />
       </div>
       {s.variantlar && s.variantlar.length > 0 && s.tur !== "map_labelling" ? (
         s.variantlar.map((v, vi, variantlar) => (
