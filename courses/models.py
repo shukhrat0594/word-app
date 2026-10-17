@@ -51,15 +51,6 @@ class KursTugun(models.Model):
             "qulflangan bo'ladi."
         ),
     )
-    test_ochilgan = models.DateTimeField(
-        null=True, blank=True,
-        help_text=(
-            "Faqat Unit'ning 'Tests' bo'limi uchun (video-TZ 2026-10-16): "
-            "o'qituvchi/admin 'Testni boshlash'ni bosgan vaqt. Bo'sh bo'lsa "
-            "test talabalarga ko'rinmaydi; ochilgandan keyin talaba yechib "
-            "bo'lgach unga yana ko'rinmay qoladi."
-        ),
-    )
     fayl = models.FileField(
         upload_to="kurslar/fayllar/", blank=True,
         help_text="Faqat oxirgi qatlam (farzandsiz) tugunlarda ishlatiladi",
@@ -110,6 +101,24 @@ class KursProgress(models.Model):
         verbose_name_plural = "Kurs progresslari"
         constraints = [
             models.UniqueConstraint(fields=["talaba", "tugun"], name="kurs_progress_unikal")
+        ]
+
+
+class KursTestOchilishi(models.Model):
+    """Unit'ning 'Tests' bo'limi qaysi guruhga ochilgani (video-TZ
+    2026-10-17). Avval `KursTugun.test_ochilgan` testni markazdagi BARCHA
+    talabalarga ochardi; endi o'qituvchi "Testni boshlash"da o'z guruhini
+    tanlaydi va test faqat shu guruh talabalariga ko'rinadi. Talaba
+    `ochilgan` vaqtidan beri barcha test mashqlarini yechib bo'lgach
+    unga yana yopiladi. Yozuv yo'q — guruhga yopiq."""
+
+    tugun = models.ForeignKey(KursTugun, on_delete=models.CASCADE, related_name="test_ochilishlari")
+    guruh = models.ForeignKey("academics.Guruh", on_delete=models.CASCADE, related_name="test_ochilishlari")
+    ochilgan = models.DateTimeField()
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["tugun", "guruh"], name="kurs_test_ochilishi_unikal")
         ]
 
 
