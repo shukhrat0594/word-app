@@ -182,29 +182,45 @@ function Qarzdorlar({ oy, setOy }) {
 // ── To'lovlar tarixi ────────────────────────────────────────────────
 
 function Tolovlar() {
-  const { t } = useI18n();
+  const { t, til } = useI18n();
+  const { tanlangan } = useFilial();
+  const [params] = useSearchParams();
   const [dan, setDan] = useState(`${joriyOy()}-01`);
   const [gacha, setGacha] = useState(new Date().toISOString().slice(0, 10));
-  const [turi, setTuri] = useState("");
+  const [turi, setTuri] = useState(() => params.get("turi") || "");
+  // Bosh sahifadagi Olingan pul / Chegirma / Bonus kataklaridan
+  // (`?hisob_oyi=YYYY-MM`) — o'sha oy hisoblari bo'yicha, kataqdagi raqam
+  // bilan bir xil sanaladi (video-TZ 2026-10-17).
+  const [hisobOyi, setHisobOyi] = useState(() => params.get("hisob_oyi") || "");
   // Standart — FAQAT to'lovlar (2026-09-17, admin talabi: "faqat to'lov
   // qilgan o'quvchilar ro'yxati"). Hisob-fakturalar belgi bilan qo'shiladi.
   const [hisoblarBilan, setHisoblarBilan] = useState(false);
 
-  const yol = "/api/crm/tolov/" + sorovSatri({ dan, gacha, turi, hisoblar: hisoblarBilan ? 1 : "" });
+  const davr = hisobOyi ? { oy: hisobOyi, filial: tanlangan } : { dan, gacha };
+  const yol = "/api/crm/tolov/" + sorovSatri({ ...davr, turi, hisoblar: hisoblarBilan && !hisobOyi ? 1 : "" });
   const { malumot, yuklanmoqda, xato } = useSorov(yol);
   const qatorlar = malumot || [];
 
   return (
     <>
       <div className="filtrlar">
-        <label className="yonma">
-          {t("dan")}
-          <input type="date" value={dan} onChange={(e) => setDan(e.target.value)} />
-        </label>
-        <label className="yonma">
-          {t("gacha")}
-          <input type="date" value={gacha} onChange={(e) => setGacha(e.target.value)} />
-        </label>
+        {hisobOyi ? (
+          <>
+            <b>{t("qaysi_oy")}: {oyNomi(hisobOyi, til)}</b>
+            <button className="tugma tugma-sokin" type="button" onClick={() => setHisobOyi("")}>✕</button>
+          </>
+        ) : (
+          <>
+            <label className="yonma">
+              {t("dan")}
+              <input type="date" value={dan} onChange={(e) => setDan(e.target.value)} />
+            </label>
+            <label className="yonma">
+              {t("gacha")}
+              <input type="date" value={gacha} onChange={(e) => setGacha(e.target.value)} />
+            </label>
+          </>
+        )}
         <select value={turi} onChange={(e) => setTuri(e.target.value)}>
           <option value="">{t("barcha_turlar")}</option>
           <option value="tolov">{t("turi_tolov")}</option>
@@ -363,7 +379,12 @@ export default function Moliya() {
   // odatda bitta oy ustida ishlaydi va tab almashtirganda qaytadan
   // tanlashi zerikarli bo'lardi.
   // `?oy=hammasi` — bosh sahifadagi "Jami qarzdorlik" kartasidan: barcha oylar.
-  const [oy, setOy] = useState(() => (params.get("oy") === "hammasi" ? "" : joriyOy()));
+  // `?oy=YYYY-MM` — bosh sahifadagi Hisoblangan / Shu oy qarzi kataklaridan.
+  const [oy, setOy] = useState(() => {
+    const p = params.get("oy");
+    if (p === "hammasi") return "";
+    return /^\d{4}-\d{2}$/.test(p || "") ? p : joriyOy();
+  });
   const [tolovQoshish, setTolovQoshish] = useState(false);
   // To'lov saqlangach ochiq tab qayta yuklansin — `key` orqali.
   const [yangilash, setYangilash] = useState(0);
