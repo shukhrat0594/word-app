@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, apiBlobUrl } from "../api";
 import { AUDIO_HIMOYA, faqatBittaAudioIjro } from "../audio";
+import { Dinamika } from "./Grafiklar";
 import { useI18n } from "../i18n";
 import { xatoniAjrat } from "../xatoUtils";
 
@@ -116,7 +117,14 @@ export default function NatijalarRoyxati({ talabaId }) {
 
   return (
     <div>
-      {royxat.length === 0 && <span className="izoh">{t("tarix_yoq")}</span>}
+      {/* Unit testlari progressi — ustoz, ota-ona, profil (video IMG_2212) */}
+      {malumot.unit_testlar?.length > 0 && (
+        <div style={{ marginBottom: 16 }}>
+          <h3>{t("unit_testlar_foiz")}</h3>
+          <Dinamika dinamika={malumot.unit_testlar} maydon="foiz" minQ={0} maxQ={100} qadam={25} />
+        </div>
+      )}
+      {royxat.length === 0 &&<span className="izoh">{t("tarix_yoq")}</span>}
       {royxat.map((y) => {
         const kalit = `${y.turi}-${y.id}`;
         const ochiqmi = ochiqId === kalit;

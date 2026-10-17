@@ -1181,9 +1181,13 @@ class FoydalanuvchiNatijalariView(APIView):
             })
 
         natijalar.sort(key=lambda n: n["sana"], reverse=True)
+        from stats.services import unit_test_dinamika
+
         return Response({
             "talaba": {"id": talaba.id, "ism": talaba.get_full_name() or talaba.username},
             "natijalar": natijalar[:200],
+            # Video-TZ IMG_2212: Unit testlari grafigi (ustoz/ota-ona/profil)
+            "unit_testlar": unit_test_dinamika(talaba),
         })
 
 
