@@ -71,6 +71,24 @@ class QarzdorlikTest(ApiAsos):
         kitob = load_workbook(BytesIO(m.get("/api/crm/eksport/?qarzli=1").content))
         self.assertEqual(kitob["Qarzdorlar"].max_row - 1, 2)
 
+    def test_oy_qarzi_ortiqcha_tolov_boshqa_qarzni_yemaydi(self):
+        """Video-TZ IMG_2210: bir guruhda A 100 000 ortiqcha to'lagan, B to'lamagan —
+        "Shu oy qarzi" B ning to'liq qarzi, ro'yxat yig'indisi bilan teng."""
+        self.tolov(self.hisob(SENTABR), NARX + 100000)
+        ikkinchi = self.talaba
+        from accounts.models import User
+
+        self.talaba = User.objects.create(username="sinov_b", role=ikkinchi.role, markaz=self.markaz)
+        self.hisob(SENTABR)
+        m = self.mijoz(self.owner)
+        hisobot = m.get(f"/api/crm/hisobot/?oy={SENTABR:%Y-%m}").data
+        self.assertEqual(hisobot["jami"]["qarz"], NARX)
+        # Guruh qatori ham shu qoida bilan — jami qator ustunlar yig'indisiga teng.
+        self.assertEqual([q["qarz"] for q in hisobot["qatorlar"]], [NARX])
+        self.assertEqual(m.get("/api/crm/korsatkichlar/").data["qolgan_qarz"], NARX)
+        d = m.get(f"/api/crm/hisoblar/?qarzli=1&oy={SENTABR:%Y-%m}").data
+        self.assertEqual(sum((x["qoldiq"] for x in d), Decimal(0)), NARX)
+
     def test_boshqa_oyga_ortiqcha_tolangan_pul_qarz_emas(self):
         """Avgustga 2 oylik pul — sentabr hisobi "ochiq", lekin balans 0: qarzdor emas."""
         avgust = self.hisob(AVGUST)
