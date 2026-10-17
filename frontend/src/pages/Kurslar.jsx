@@ -2165,16 +2165,37 @@ function Tugun({ tugun, chuqurlik, adminMi, talabaMi, oqituvchiMi, royxatniYangi
   const [yuklanmoqda, setYuklanmoqda] = useState(false);
   const [tugallandimi, setTugallandimi] = useState(tugun.tugallandimi);
   const [testOchiq, setTestOchiq] = useState(!!tugun.test_ochiq);
+  // Video-TZ 2026-10-17: test guruh bo'yicha ochiladi — `null` bo'lsa
+  // guruhlar ro'yxati yopiq, aks holda [{id, nomi, ochiq}].
+  const [testGuruhlari, setTestGuruhlari] = useState(null);
 
-  async function testniAlmashtir() {
+  async function testGuruhlariniOch() {
+    if (testGuruhlari) {
+      setTestGuruhlari(null);
+      return;
+    }
+    setFaylXato("");
+    setYuklanmoqda(true);
+    try {
+      setTestGuruhlari(await api(`/api/kurslar/${tugun.id}/test-boshlash/`));
+    } catch (e) {
+      setFaylXato(e.data?.detail || t("xato_yuz_berdi"));
+    } finally {
+      setYuklanmoqda(false);
+    }
+  }
+
+  async function testniAlmashtir(guruh) {
     setFaylXato("");
     setYuklanmoqda(true);
     try {
       const res = await api(`/api/kurslar/${tugun.id}/test-boshlash/`, {
         method: "POST",
-        body: { ochiq: !testOchiq },
+        body: { guruh: guruh.id, ochiq: !guruh.ochiq },
       });
-      setTestOchiq(res.test_ochiq);
+      const yangi = testGuruhlari.map((g) => (g.id === res.guruh ? { ...g, ochiq: res.ochiq } : g));
+      setTestGuruhlari(yangi);
+      setTestOchiq(yangi.some((g) => g.ochiq));
     } catch (e) {
       setFaylXato(e.data?.detail || t("xato_yuz_berdi"));
     } finally {
@@ -2323,20 +2344,39 @@ function Tugun({ tugun, chuqurlik, adminMi, talabaMi, oqituvchiMi, royxatniYangi
             </span>
             {/* Video-TZ 2026-10-16: test talabalarga faqat o'qituvchi/admin
                 shu tugmani bosgandan keyin ko'rinadi (yechib bo'lgach yana
-                yopiladi — backend `_talabaga_test_yopiqmi`). */}
+                yopiladi — backend `_talabaga_test_yopiqmi`). 2026-10-17:
+                tugma guruhlar ro'yxatini ochadi — test faqat tanlangan
+                guruh talabalariga ochiladi. */}
             {(adminMi || oqituvchiMi) && (
               <button
                 className={testOchiq ? "tugma ikkinchi" : "tugma"}
                 disabled={yuklanmoqda}
                 onClick={(e) => {
                   e.stopPropagation();
-                  testniAlmashtir();
+                  testGuruhlariniOch();
                 }}
               >
-                {testOchiq ? t("kurs_testni_yopish") : t("kurs_testni_boshlash")}
+                {t("kurs_testni_boshlash")}
               </button>
             )}
           </div>
+          {testGuruhlari && (
+            <div style={{ paddingLeft: otstup + 24, display: "flex", flexDirection: "column", gap: 6, margin: "6px 0" }}>
+              {testGuruhlari.length === 0 && <span className="izoh">{t("kurs_test_guruh_yoq")}</span>}
+              {testGuruhlari.map((g) => (
+                <div key={g.id} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span>{g.nomi}</span>
+                  <button
+                    className={g.ochiq ? "tugma ikkinchi" : "tugma"}
+                    disabled={yuklanmoqda}
+                    onClick={() => testniAlmashtir(g)}
+                  >
+                    {g.ochiq ? t("kurs_testni_yopish") : t("kurs_testni_boshlash")}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
           {faylXato && <div className="xato-xabar" style={{ paddingLeft: otstup }}>{faylXato}</div>}
           {mashqOchiq && (
             <div style={{ paddingLeft: 14 }}>
