@@ -16,5 +16,5 @@ class TogriJavoblarMatniTest(SimpleTestCase):
         ]
         self.assertEqual(
             _togri_javoblar_matni(savollar),
-            ["TRUE", "film / movie", "", "", ""],
+            [["TRUE"], ["film", "movie"], [], [], []],
         )

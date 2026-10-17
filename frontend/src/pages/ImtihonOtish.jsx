@@ -439,17 +439,26 @@ function matnniBoslarGaAjrat(matn, javoblar, javobniQoy, natija, uchrashSoni, ko
           value={qiymat}
           onChange={(e) => javobniQoy(idx, e.target.value, kopKatakcha ? sub : undefined)}
         />
-        {(!kopKatakcha || sub === 0) && <TogriJavob natija={natija} idx={idx} />}
+        {/* Ko'p katakchada to'g'ri javob OXIRGI katakdan keyin va ", " bilan —
+            kalitdagi so'zlarning HAMMASI kerak, muqobil emas. */}
+        {(!kopKatakcha || sub === uchrashSoni[idx] - 1) && (
+          <TogriJavob natija={natija} idx={idx} ajratgich={kopKatakcha ? ", " : undefined} />
+        )}
       </span>
     );
   });
 }
 
 /** Natija tekshirilgach XATO javob yonida asl to'g'ri javob (2026-10-17,
- * video-TZ). Backend `togri_javoblar` qaytarmasa yoki kalit bo'sh bo'lsa —
- * hech narsa chiqmaydi. */
-function TogriJavob({ natija, idx }) {
-  const matn = natija?.togri_javoblar?.[idx];
+ * video-TZ). `togri_javoblar[idx]` — qiymatlar ro'yxati; odatda ular
+ * muqobil variantlar (" / "). Backend `togri_javoblar` qaytarmasa yoki
+ * kalit bo'sh bo'lsa — hech narsa chiqmaydi. */
+function togriJavobMatni(natija, idx, ajratgich = " / ") {
+  return (natija?.togri_javoblar?.[idx] || []).join(ajratgich);
+}
+
+function TogriJavob({ natija, idx, ajratgich }) {
+  const matn = togriJavobMatni(natija, idx, ajratgich);
   if (!natija || natija.natijalar[idx] || !matn) return null;
   return <span className="togri-javob">→ {matn}</span>;
 }
@@ -892,7 +901,7 @@ function RasmSavollari({ rasmUrl, sarlavha, savollar, boshIdx, javoblar, javobni
             value={javoblar[i] || ""}
             onChange={(e) => javobniQoy(i, e.target.value)}
             placeholder={`${i + 1}`}
-            title={natija && !natija.natijalar[i] ? natija.togri_javoblar?.[i] || undefined : undefined}
+            title={natija && !natija.natijalar[i] ? togriJavobMatni(natija, i) || undefined : undefined}
           />
         );
       })}
@@ -940,9 +949,10 @@ function KopJavobBloki({ blok, javoblar, javobniQoy, natija, t }) {
             {idxlar.filter((i) => natija.natijalar[i]).length}/{soni}
           </span>
         )}
-        {natija && idxlar.some((i) => !natija.natijalar[i]) && natija.togri_javoblar && (
+        {natija && idxlar.some((i) => !natija.natijalar[i]) &&
+          idxlar.some((i) => togriJavobMatni(natija, i)) && (
           <span className="togri-javob">
-            → {idxlar.map((i) => natija.togri_javoblar[i]).filter(Boolean).join(", ")}
+            → {idxlar.map((i) => togriJavobMatni(natija, i)).filter(Boolean).join(", ")}
           </span>
         )}
       </div>

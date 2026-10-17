@@ -2225,14 +2225,16 @@ def _yechilayotgan_testni_ol(user, pk):
 
 
 def _togri_javoblar_matni(savollar):
-    """Har savol uchun ko'rsatiladigan to'g'ri javob matni (savollar
-    tartibida). Bir nechta qabul qilinadigan variant " / " bilan
-    birlashtiriladi; "erkin" yoki kaliti kiritilmagan savolda — bo'sh satr."""
+    """Har savol uchun ko'rsatiladigan to'g'ri javob qiymatlari ro'yxati
+    (savollar tartibida); "erkin" yoki kaliti kiritilmagan savolda — bo'sh
+    ro'yxat. Satrga birlashtirish frontendda: oddiy savolda ro'yxat —
+    muqobil variantlar (" / "), ko'p katakchali savolda esa HAMMASI kerak
+    (", ") — bu farqni faqat frontend biladi."""
     natija = []
     for savol in savollar:
         togri = "" if savol.get("erkin") else savol.get("togri", "")
         qiymatlar = togri if isinstance(togri, list) else [togri]
-        natija.append(" / ".join(str(x).strip() for x in qiymatlar if str(x).strip()))
+        natija.append([str(x).strip() for x in qiymatlar if str(x).strip()])
     return natija
 
 
