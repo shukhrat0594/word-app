@@ -24,6 +24,26 @@ def _test_dinamika(talaba, bolim):
     ]
 
 
+def unit_test_dinamika(talaba):
+    """Kurslar > Unit > Tests mashqlari natijasi % — har urinish bitta nuqta
+    (video-TZ IMG_2212: o'quvchi, ustoz va ota-ona progressni grafikda ko'radi)."""
+    from courses.models import KursMashqYechim
+
+    yechimlar = (
+        KursMashqYechim.objects.filter(talaba=talaba, mashq__tugun__kalit="tests")
+        .order_by("created_at")
+        .values("ball", "jami", "created_at", "mashq__tugun__parent__nomi")
+    )
+    return [
+        {
+            "sana": y["created_at"].date(),
+            "foiz": round(y["ball"] / y["jami"] * 100) if y["jami"] else None,
+            "unit": y["mashq__tugun__parent__nomi"],
+        }
+        for y in yechimlar
+    ]
+
+
 def _bolim_statistikasi(talaba, bolim):
     """L yoki R bo'limi: jami yechilgan, o'rtacha foiz, har tur bo'yicha.
 
@@ -136,4 +156,5 @@ def talaba_statistikasi(talaba):
             "speaking_band": speaking_agg["ortacha_band"],
         },
         "davomat": davomat,
+        "unit_testlar": unit_test_dinamika(talaba),
     }

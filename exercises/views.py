@@ -2224,6 +2224,20 @@ def _yechilayotgan_testni_ol(user, pk):
     return test, None
 
 
+def _togri_javoblar_matni(savollar):
+    """Har savol uchun ko'rsatiladigan to'g'ri javob qiymatlari ro'yxati
+    (savollar tartibida); "erkin" yoki kaliti kiritilmagan savolda — bo'sh
+    ro'yxat. Satrga birlashtirish frontendda: oddiy savolda ro'yxat —
+    muqobil variantlar (" / "), ko'p katakchali savolda esa HAMMASI kerak
+    (", ") — bu farqni faqat frontend biladi."""
+    natija = []
+    for savol in savollar:
+        togri = "" if savol.get("erkin") else savol.get("togri", "")
+        qiymatlar = togri if isinstance(togri, list) else [togri]
+        natija.append([str(x).strip() for x in qiymatlar if str(x).strip()])
+    return natija
+
+
 class ImtihonYechishView(APIView):
     """Butun testga javob yuborish — flat ro'yxat, barcha qismlar bo'yicha
     uzluksiz tartibda. Kunlik limitga bog'liq emas (mustaqil, cheklovsiz)."""
@@ -2263,6 +2277,9 @@ class ImtihonYechishView(APIView):
                 "ball": natija["ball"],
                 "jami": natija["jami"],
                 "natijalar": natija["natijalar"],
+                # 2026-10-17, video-TZ: natija tekshirilganda xato javob
+                # yonida asl to'g'ri javob ham ko'rsatilsin.
+                "togri_javoblar": _togri_javoblar_matni(barcha_savollar),
                 "band": band,
                 "mock": mock_natija,
             }

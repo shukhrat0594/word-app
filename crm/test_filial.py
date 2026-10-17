@@ -70,6 +70,18 @@ class RoyxatlarTest(FilialAsos):
         self.assertNotIn(self.tolov_b.id, [t["id"] for t in m.get("/api/crm/tolov/").data])
         self.assertIn(self.tolov_b.id, [t["id"] for t in self.mijoz(self.admin_b).get("/api/crm/tolov/").data])
 
+    def test_tolovlar_filial_tanlovi(self):
+        """`/tolov/?filial=` — `tolov_q` qoidasi: hisobsiz to'lov (avans)
+        guruh filiali bo'yicha; `oy` bilan — shu oy hisoblari (bosh sahifa)."""
+        avans_b = Tolov.objects.create(
+            talaba=self.tb, talaba_ism="B", guruh=self.gb, guruh_nomi="B guruh",
+            sana=date(2026, 9, 6), summa=Decimal("50000"), turi=Tolov.Turi.TOLOV)
+        m = self.mijoz(self.owner)
+        ids = lambda url: {t["id"] for t in m.get(url).data}  # noqa: E731
+        self.assertEqual(ids(f"/api/crm/tolov/?filial={self.fb.id}"), {self.tolov_b.id, avans_b.id})
+        self.assertEqual(ids(f"/api/crm/tolov/?filial={self.fb.id}&oy=2026-09"), {self.tolov_b.id})
+        self.assertEqual(ids(f"/api/crm/tolov/?filial={self.filial.id}&oy=2026-09"), set())
+
     def test_filtr_boshqa_filial_bilan_bosh(self):
         """`?filial=B` yuborilsa ham — bo'sh (cheklov filtr ustiga qo'yiladi)."""
         m = self.mijoz(self.admin_a)
