@@ -2321,6 +2321,15 @@ def _hisobot_qatorlari(oy=None, filial_id=None, user=None):
             qaytarilgan=Sum("summa", filter=Q(turi=Tolov.Turi.QAYTARISH), default=NOL),
         )
     }
+    # Qarz — har o'quvchining to'lanmagan qoldig'i yig'indisi (Video-TZ
+    # IMG_2210): guruhda birovning ortiqcha to'lovi boshqaning qarzini
+    # yemasligi kerak. Qoida `hisoblar/?qarzli=1` ro'yxati bilan bir xil.
+    qarzlar = {}
+    for h in hisoblar.filter(holat__in=[Hisob.Holat.QARZDOR, Hisob.Holat.QISMAN]).annotate(
+        yopilgan=Sum("tolovlar__summa", filter=Q(tolovlar__turi__in=Tolov.YOPUVCHI_TURLAR), default=NOL)
+    ):
+        kalit = (h.filial_id, h.guruh_id)
+        qarzlar[kalit] = qarzlar.get(kalit, NOL) + max(h.summa - h.yopilgan, NOL)
     filial_nomlari = dict(Filial.objects.values_list("id", "nomi"))
 
     qatorlar = []
@@ -2342,7 +2351,7 @@ def _hisobot_qatorlari(oy=None, filial_id=None, user=None):
                 "chegirma": chegirma,
                 "bonus": bonus,
                 "qaytarilgan": p.get("qaytarilgan", NOL),
-                "qarz": jami - olingan - chegirma - bonus,
+                "qarz": qarzlar.get(kalit, NOL),
                 # Yig'ilish foizi — HAQIQIY pul bo'yicha (chegirma
                 # qo'shilmaydi), aks holda ko'rsatkich soxta yaxshi chiqardi.
                 "yigilish_foizi": round(float(olingan / jami * 100), 1) if jami else 0.0,
