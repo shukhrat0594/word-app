@@ -94,6 +94,23 @@ class TestBoshlashTest(ApiAsos):
         j = self.mijoz(self.admin).get(f"/api/kurslar/{self.test.id}/test-boshlash/")
         self.assertEqual({g["id"] for g in j.data}, {self.guruh.id, ikkinchi.id})
 
+    def test_markazsiz_owner_guruhni_tanlay_oladi(self):
+        # Owner markazga bog'liq emas — `markaz` bo'sh bo'lsa ham test
+        # tuguni markazining guruhlari chiqishi kerak.
+        User.objects.filter(pk=self.owner.pk).update(markaz=None)
+        self.owner.refresh_from_db()
+        j = self.mijoz(self.owner).get(f"/api/kurslar/{self.test.id}/test-boshlash/")
+        self.assertEqual([g["id"] for g in j.data], [self.guruh.id])
+        self.assertEqual(self.boshla(self.owner).status_code, 200)
+        self.assertTrue(self.daraxtda(self.talaba))
+
+    def test_arxivlangan_guruhga_ochilgan_test_yopiladi(self):
+        # Arxivlangan guruh ro'yxatda chiqmaydi — undagi ochilishni yopib
+        # bo'lmaydi, shuning uchun talabaga ham ko'rinmasligi kerak.
+        self.boshla(self.oqituvchi)
+        Guruh.objects.filter(pk=self.guruh.pk).update(faol=False)
+        self.assertFalse(self.daraxtda(self.talaba))
+
     def test_yopiq_test_keyingi_unitni_qulflamaydi(self):
         # Tests yopiq bo'lsa talaba uni yecha olmaydi — 60% qoidasi uni
         # kutib, keyingi Unit'ni abadiy qulflab qo'ymasligi kerak.

@@ -271,7 +271,7 @@ def _talabaga_test_yopiqmi(user, tugun):
     if user.role != User.Role.STUDENT or tugun.kalit != "tests":
         return False
     ochilish = (
-        KursTestOchilishi.objects.filter(tugun=tugun, guruh__guruhazoligi__talaba=user)
+        KursTestOchilishi.objects.filter(tugun=tugun, guruh__faol=True, guruh__guruhazoligi__talaba=user)
         .order_by("-ochilgan").first()
     )
     if ochilish is None:
@@ -284,15 +284,20 @@ def _talabaga_test_yopiqmi(user, tugun):
     return jami > 0 and yechilgan >= jami
 
 
-def _test_guruhlari(user):
+def _test_guruhlari(user, tugun):
     """"Testni boshlash"da tanlanadigan guruhlar (video-TZ 2026-10-17):
-    o'qituvchiga — faqat o'z guruhlari, admin/owner'ga — markazning
-    barcha faol guruhlari."""
+    o'qituvchiga — faqat o'z guruhlari, admin'ga — markazining barcha faol
+    guruhlari, owner'ga — test tuguni markazining barcha faol guruhlari
+    (owner markazga bog'liq emas, uning `markaz`i bo'sh bo'lishi mumkin)."""
     from academics.models import Guruh
 
-    guruhlar = Guruh.objects.filter(faol=True, markaz=user.markaz)
-    if user.role == User.Role.TEACHER:
+    guruhlar = Guruh.objects.filter(faol=True)
+    if owner_mi(user):
+        guruhlar = guruhlar.filter(markaz_id=tugun.markaz_id)
+    elif user.role == User.Role.TEACHER:
         guruhlar = guruhlar.filter(oqituvchi=user)
+    else:
+        guruhlar = guruhlar.filter(markaz_id=user.markaz_id)
     return guruhlar.order_by("name")
 
 
@@ -360,7 +365,7 @@ def _tugun_dict(tugun, user, bolalar_keshi, tugatgan_idlar, sozlar_soni_map, yec
         if user.role == User.Role.STUDENT:
             natija["tugallandimi"] = tugun.id in tugatgan_idlar
         elif tugun.kalit == "tests":
-            natija["test_ochiq"] = tugun.test_ochilishlari.filter(guruh__in=_test_guruhlari(user)).exists()
+            natija["test_ochiq"] = tugun.test_ochilishlari.filter(guruh__in=_test_guruhlari(user, tugun)).exists()
     else:
         children = []
         for b in bolalar:
@@ -2810,14 +2815,14 @@ class KursTestBoshlashView(APIView):
             return xato
         ochiqlar = set(tugun.test_ochilishlari.values_list("guruh_id", flat=True))
         return Response(
-            [{"id": g.id, "nomi": g.name, "ochiq": g.id in ochiqlar} for g in _test_guruhlari(request.user)]
+            [{"id": g.id, "nomi": g.name, "ochiq": g.id in ochiqlar} for g in _test_guruhlari(request.user, tugun)]
         )
 
     def post(self, request, pk):
         tugun, xato = self._tugun(request, pk)
         if xato:
             return xato
-        guruh = _test_guruhlari(request.user).filter(pk=request.data.get("guruh")).first()
+        guruh = _test_guruhlari(request.user, tugun).filter(pk=request.data.get("guruh")).first()
         if guruh is None:
             return Response({"detail": "Guruhni tanlang"}, status=400)
         ochiq = bool(request.data.get("ochiq", True))
