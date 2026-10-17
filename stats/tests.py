@@ -141,6 +141,21 @@ class ReadingListeningDinamikaTest(TestCase):
         self.assertEqual(stat["listening"]["soni"], 2)
         self.assertEqual(stat["listening"]["oxirgi_band"], 8.0)
 
+    def test_konikmalar_test_bandlari_ortachasi(self):
+        """Video-TZ IMG_2216: faqat to'liq test yechilgan bo'lsa ham radar
+        (va ota-ona kartasi) bo'sh qolmasin — testlar bandi o'rtachasi."""
+        TestYechim.objects.create(
+            talaba=self.talaba, test=self.test_l, javoblar={}, ball=20, jami=40,
+            natijalar={}, band="6.0",
+        )
+        TestYechim.objects.create(
+            talaba=self.talaba, test=self.test_l, javoblar={}, ball=35, jami=40,
+            natijalar={}, band="7.5",
+        )
+        stat = talaba_statistikasi(self.talaba)
+        self.assertEqual(stat["konikmalar"]["listening_band"], 7.0)
+        self.assertIsNone(stat["konikmalar"]["reading_band"])
+
     def test_hech_narsa_yechilmagan_bolsa_bosh(self):
         stat = talaba_statistikasi(self.talaba)
         self.assertEqual(stat["reading"]["dinamika"], [])

@@ -74,11 +74,13 @@ export function Dinamika({ dinamika, maydon = "band", minQ = 3, maxQ = 9, qadam 
     const x = c.getContext("2d");
     x.clearRect(0, 0, c.width, c.height);
     const ballar = dinamika.map((d) => d[maydon]).filter((b) => b != null);
-    if (ballar.length < 2) {
+    // Video-TZ IMG_2216: bitta natija ham grafikda nuqta bo'lib ko'rinsin
+    // (avval "Kamida 2 ta natija kerak" chiqib, yagona test yashirinardi).
+    if (ballar.length === 0) {
       x.fillStyle = cssVar("--matn-sokin");
       x.font = "600 13px Segoe UI, sans-serif";
       x.textAlign = "center";
-      x.fillText("Kamida 2 ta natija kerak", c.width / 2, c.height / 2);
+      x.fillText("Hali natija yo'q", c.width / 2, c.height / 2);
       return;
     }
     const chap = 30,
@@ -87,7 +89,7 @@ export function Dinamika({ dinamika, maydon = "band", minQ = 3, maxQ = 9, qadam 
       bal = c.height - 58;
     const minB = minQ,
       maxB = maxQ;
-    const nx = (i) => chap + (keng * i) / (ballar.length - 1);
+    const nx = (i) => (ballar.length === 1 ? chap + keng / 2 : chap + (keng * i) / (ballar.length - 1));
     const ny = (b) => ost - ((b - minB) / (maxB - minB)) * bal;
     x.strokeStyle = cssVar("--chiziq");
     x.fillStyle = cssVar("--matn-sokin");

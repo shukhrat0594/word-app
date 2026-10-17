@@ -74,16 +74,24 @@ export default function OtaOna() {
                 </small>
               </div>
             </div>
+            {/* Video-TZ IMG_2216: o'rtacha band radar bilan bir xil — test bo'lsa testlardan,
+                bo'lmasa mashqlardan; son ham shu manbaniki */}
             <div className="stat">
-              <div className="nom">{t("listening_foiz")}</div>
+              <div className="nom">Listening band</div>
               <div className="qiymat">
-                {stat.listening.ortacha_foiz != null ? `${stat.listening.ortacha_foiz}%` : "—"}
+                {stat.konikmalar.listening_band ?? "—"}{" "}
+                <small>
+                  {stat.listening.soni || stat.listening.jami_yechildi} {t("tekshiruv")}
+                </small>
               </div>
             </div>
             <div className="stat">
-              <div className="nom">{t("reading_foiz")}</div>
+              <div className="nom">Reading band</div>
               <div className="qiymat">
-                {stat.reading.ortacha_foiz != null ? `${stat.reading.ortacha_foiz}%` : "—"}
+                {stat.konikmalar.reading_band ?? "—"}{" "}
+                <small>
+                  {stat.reading.soni || stat.reading.jami_yechildi} {t("tekshiruv")}
+                </small>
               </div>
             </div>
           </div>
@@ -105,13 +113,24 @@ export default function OtaOna() {
               <Dinamika dinamika={stat.speaking.dinamika} />
             </div>
             <div className="karta">
-              <h3>{t("listening_foiz")}</h3>
+              <h3>Listening</h3>
+              <Dinamika dinamika={stat.listening.dinamika} />
+            </div>
+          </div>
+
+          <div className="ikki-ustun">
+            <div className="karta">
+              <h3>Reading</h3>
+              <Dinamika dinamika={stat.reading.dinamika} />
+            </div>
+            <div className="karta">
+              <h3>{t("listening_foiz")} %</h3>
               <Dinamika dinamika={stat.listening.mashq_dinamika} maydon="foiz" minQ={0} maxQ={100} qadam={25} />
             </div>
           </div>
 
           <div className="karta">
-            <h3>{t("reading_foiz")}</h3>
+            <h3>{t("reading_foiz")} %</h3>
             <Dinamika dinamika={stat.reading.mashq_dinamika} maydon="foiz" minQ={0} maxQ={100} qadam={25} />
           </div>
 
