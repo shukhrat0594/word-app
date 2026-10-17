@@ -226,6 +226,8 @@ class User(AbstractUser):
     bio = models.TextField(blank=True, max_length=500, help_text="'O'zim haqimda' — qisqa erkin matn")
     # SHAXSIY — faqat admin/owner ko'radigan ro'yxatlarda chiqariladi,
     # boshqa (masalan o'qituvchi/guruh) endpoint'larga QO'SHILMAYDI.
+    # Istisno (2026-10-17, video-TZ): `TalabalarView` o'qituvchiga o'z
+    # guruhidagi talabaning telefon/ota_ona_telefon/ota_ona_ismi'ni beradi.
     telefon = models.CharField(max_length=20, blank=True)
     ota_ona_telefon = models.CharField(max_length=20, blank=True, help_text="Ota-ona/vasiy telefon raqami")
     # 2026-09-20, admin (Umida) talabi: telefon raqami yonida KIM ekani
