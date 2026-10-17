@@ -288,6 +288,7 @@ a.logo:hover .logo-nom { color: var(--sariq); }
 .natija-belgi { font-weight: 700; margin-left: 8px; }
 .natija-belgi.togri { color: var(--yaxshi); }
 .natija-belgi.notogri { color: var(--xato); }
+.togri-javob { margin-left: 6px; color: #15803d; font-weight: 600; font-size: 0.9em; }
 .si-belgi { color: var(--si-rang); font-weight: 600; font-size: 12.5px; }
 
 /* ==== To'liq imtihon (IELTS full test) ==== */
