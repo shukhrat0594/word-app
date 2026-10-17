@@ -103,6 +103,19 @@ def talaba_statistikasi(talaba):
     ]
     speaking_agg = speaking.aggregate(soni=Count("id"), ortacha_band=Avg("overall_band"))
 
+    def _konikma_band(mashq, test_dinamika):
+        # Video-TZ IMG_2216: ota-ona sahifasida to'liq test (Cambridge)
+        # natijalari radarda ham, yuqoridagi kartada ham ko'rinmasdi — faqat
+        # mashqlar hisoblanardi. Test bo'lsa — barcha test bandlari o'rtachasi,
+        # bo'lmasa — mashqlar bo'yicha taxminiy band.
+        bandlar = [d["band"] for d in test_dinamika if d["band"] is not None]
+        if bandlar:
+            return round(sum(bandlar) / len(bandlar) * 2) / 2
+        return mashq["ortacha_band"]
+
+    listening_band = _konikma_band(listening, listening_dinamika)
+    reading_band = _konikma_band(reading, reading_dinamika)
+
     return {
         "writing": {
             "soni": writing_agg["soni"],
@@ -131,8 +144,8 @@ def talaba_statistikasi(talaba):
         # Ko'nikmalar diagrammasi (radar) uchun tayyor qiymatlar
         "konikmalar": {
             "writing_band": writing_agg["ortacha_band"],
-            "listening_band": listening["ortacha_band"],
-            "reading_band": reading["ortacha_band"],
+            "listening_band": listening_band,
+            "reading_band": reading_band,
             "speaking_band": speaking_agg["ortacha_band"],
         },
         "davomat": davomat,
