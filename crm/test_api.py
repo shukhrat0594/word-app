@@ -270,6 +270,15 @@ class OqimTest(ApiAsos):
         self.assertEqual(hisobot["jami"]["qarz"], Decimal("0"))
         self.assertAlmostEqual(hisobot["jami"]["yigilish_foizi"], 60.6, places=1)
 
+        # Bosh sahifa kataklaridan: hisob oyi bo'yicha to'lovlar ro'yxati
+        # hisobotdagi raqam bilan bir xil (video-TZ 2026-10-17).
+        royxat = mijoz.get("/api/crm/tolov/?oy=2026-09&turi=tolov").data
+        self.assertEqual(sum(Decimal(str(q["summa"])) for q in royxat), Decimal("400000"))
+        royxat = mijoz.get("/api/crm/tolov/?oy=2026-09&turi=chegirma").data
+        self.assertEqual([Decimal(str(q["summa"])) for q in royxat], [Decimal("260000")])
+        self.assertEqual(mijoz.get("/api/crm/tolov/?oy=2026-10").data, [])
+        self.assertEqual(mijoz.get("/api/crm/tolov/?oy=xato").status_code, 400)
+
     def test_boshqa_talabaning_hisobiga_tolov_rad_etiladi(self):
         """hisob_id boshqa talabaniki bo'lsa — 400. Aks holda to'lov bir
         talabaga yozilib, boshqasining oyi to'langan bo'lib qolardi."""

@@ -1,7 +1,10 @@
 """Video-TZ 2026-10-16: Unit'ning "Tests" bo'limi talabaga faqat
 o'qituvchi/admin "Testni boshlash"ni bosgandan keyin ko'rinadi, talaba
-yechib bo'lgach yana yopiladi."""
+yechib bo'lgach yana yopiladi. 2026-10-17: test guruh bo'yicha ochiladi —
+faqat tanlangan guruh talabalariga ko'rinadi."""
 
+from academics.models import Guruh, GuruhAzoligi
+from accounts.models import User
 from courses.models import KursMashq, KursTugun
 from crm.test_api import ApiAsos
 
@@ -21,14 +24,19 @@ class TestBoshlashTest(ApiAsos):
         self.mashq = KursMashq.objects.create(
             tugun=self.test, savollar=[{"savol": "1", "variantlar": ["a", "b"], "togri": "a"}],
         )
+        Guruh.objects.filter(pk=self.guruh.pk).update(oqituvchi=self.oqituvchi)
+        GuruhAzoligi.objects.create(guruh=self.guruh, talaba=self.talaba)
 
     def daraxtda(self, user):
         j = self.mijoz(user).get("/api/kurslar/daraxt/")
         self.assertEqual(j.status_code, 200)
         return self.test.id in set(_idlar(j.data))
 
-    def boshla(self, user, ochiq=True):
-        return self.mijoz(user).post(f"/api/kurslar/{self.test.id}/test-boshlash/", {"ochiq": ochiq}, format="json")
+    def boshla(self, user, ochiq=True, guruh=None):
+        return self.mijoz(user).post(
+            f"/api/kurslar/{self.test.id}/test-boshlash/",
+            {"ochiq": ochiq, "guruh": (guruh or self.guruh).id}, format="json",
+        )
 
     def yubor(self):
         return self.mijoz(self.talaba).post(
@@ -57,11 +65,51 @@ class TestBoshlashTest(ApiAsos):
 
     def test_yopish(self):
         self.boshla(self.admin)
-        self.assertEqual(self.boshla(self.admin, ochiq=False).data, {"test_ochiq": False})
+        self.assertEqual(self.boshla(self.admin, ochiq=False).data, {"guruh": self.guruh.id, "ochiq": False})
         self.assertFalse(self.daraxtda(self.talaba))
 
     def test_talaba_boshlay_olmaydi(self):
         self.assertEqual(self.boshla(self.talaba).status_code, 403)
+
+    def test_boshqa_guruh_talabasiga_korinmaydi(self):
+        begona = User.objects.create_user(
+            username="begona_talaba", password="x", role=User.Role.STUDENT, markaz=self.markaz
+        )
+        ikkinchi = Guruh.objects.create(name="SINOV boshqa guruh", markaz=self.markaz)
+        GuruhAzoligi.objects.create(guruh=ikkinchi, talaba=begona)
+        self.boshla(self.oqituvchi)
+        self.assertTrue(self.daraxtda(self.talaba))
+        self.assertFalse(self.daraxtda(begona))
+        self.assertEqual(self.mijoz(begona).get(f"/api/kurslar/{self.test.id}/mashqlar/").status_code, 403)
+
+    def test_oqituvchi_faqat_oz_guruhini_tanlaydi(self):
+        ikkinchi = Guruh.objects.create(name="SINOV boshqa guruh", markaz=self.markaz)
+        j = self.mijoz(self.oqituvchi).get(f"/api/kurslar/{self.test.id}/test-boshlash/")
+        self.assertEqual([g["id"] for g in j.data], [self.guruh.id])
+        self.assertEqual(self.boshla(self.oqituvchi, guruh=ikkinchi).status_code, 400)
+        self.boshla(self.oqituvchi)
+        j = self.mijoz(self.oqituvchi).get(f"/api/kurslar/{self.test.id}/test-boshlash/")
+        self.assertTrue(j.data[0]["ochiq"])
+        # Admin markazning barcha guruhlarini ko'radi.
+        j = self.mijoz(self.admin).get(f"/api/kurslar/{self.test.id}/test-boshlash/")
+        self.assertEqual({g["id"] for g in j.data}, {self.guruh.id, ikkinchi.id})
+
+    def test_markazsiz_owner_guruhni_tanlay_oladi(self):
+        # Owner markazga bog'liq emas — `markaz` bo'sh bo'lsa ham test
+        # tuguni markazining guruhlari chiqishi kerak.
+        User.objects.filter(pk=self.owner.pk).update(markaz=None)
+        self.owner.refresh_from_db()
+        j = self.mijoz(self.owner).get(f"/api/kurslar/{self.test.id}/test-boshlash/")
+        self.assertEqual([g["id"] for g in j.data], [self.guruh.id])
+        self.assertEqual(self.boshla(self.owner).status_code, 200)
+        self.assertTrue(self.daraxtda(self.talaba))
+
+    def test_arxivlangan_guruhga_ochilgan_test_yopiladi(self):
+        # Arxivlangan guruh ro'yxatda chiqmaydi — undagi ochilishni yopib
+        # bo'lmaydi, shuning uchun talabaga ham ko'rinmasligi kerak.
+        self.boshla(self.oqituvchi)
+        Guruh.objects.filter(pk=self.guruh.pk).update(faol=False)
+        self.assertFalse(self.daraxtda(self.talaba))
 
     def test_yopiq_test_keyingi_unitni_qulflamaydi(self):
         # Tests yopiq bo'lsa talaba uni yecha olmaydi — 60% qoidasi uni

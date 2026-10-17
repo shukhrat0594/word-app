@@ -108,6 +108,12 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* Kurslar > Unit > Tests natijasi % (video IMG_2212) */}
+      <div className="karta">
+        <h3>{t("unit_testlar_foiz")}</h3>
+        <Dinamika dinamika={stat.unit_testlar} maydon="foiz" minQ={0} maxQ={100} qadam={25} />
+      </div>
+
       <div className="ikki-ustun">
         <div className="karta">
           <h3>{t("nav_reyting")}{lb?.asosiy?.daraja ? ` · ${lb.asosiy.daraja.nomi}` : ""}</h3>

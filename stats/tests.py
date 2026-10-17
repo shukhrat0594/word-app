@@ -202,3 +202,32 @@ class DavomatStatistikasiTest(TestCase):
             stat["davomat"],
             {"keldi": 1, "kechikdi": 1, "kelmadi": 1, "sababli": 1},
         )
+
+
+class UnitTestlarDinamikaTest(TestCase):
+    """Kurslar > Unit > Tests natijasi grafigi (video-TZ IMG_2212.MOV): faqat
+    'tests' tugunidagi mashqlar, foizda, Unit nomi bilan; Workbook kirmaydi."""
+
+    def setUp(self):
+        from courses.models import KursMashq, KursTugun
+
+        self.markaz = Markaz.objects.create(name="Test markaz")
+        self.talaba = User.objects.create_user(
+            username="talaba1", password="x", role=User.Role.STUDENT, markaz=self.markaz
+        )
+        unit = KursTugun.objects.create(markaz=self.markaz, nomi="Unit 2 — Work")
+        tests = KursTugun.objects.create(markaz=self.markaz, nomi="Tests", parent=unit, kalit="tests")
+        wb = KursTugun.objects.create(markaz=self.markaz, nomi="Workbook", parent=unit, kalit="workbook")
+        self.test_mashq = KursMashq.objects.create(tugun=tests, savollar=[])
+        self.wb_mashq = KursMashq.objects.create(tugun=wb, savollar=[])
+
+    def test_faqat_tests_foizda(self):
+        from courses.models import KursMashqYechim
+
+        for mashq, ball in ((self.test_mashq, 15), (self.wb_mashq, 5), (self.test_mashq, 30)):
+            KursMashqYechim.objects.create(
+                talaba=self.talaba, mashq=mashq, javoblar={}, ball=ball, jami=30, natijalar=[]
+            )
+        unitlar = talaba_statistikasi(self.talaba)["unit_testlar"]
+        self.assertEqual([u["foiz"] for u in unitlar], [50, 100])
+        self.assertEqual(unitlar[0]["unit"], "Unit 2 — Work")

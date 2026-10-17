@@ -48,6 +48,7 @@ from .models import (
     KursProgress,
     KursSoz,
     KursSozYechim,
+    KursTestOchilishi,
     KursTugun,
 )
 from .soz_tarjima import ruscha_tarjima_qil
@@ -264,17 +265,40 @@ def _talabaga_test_yopiqmi(user, tugun):
     """Video-TZ 2026-10-16: Unit'ning "Tests" bo'limi talabaga faqat
     o'qituvchi/admin "Testni boshlash"ni bosgandan keyin ko'rinadi va
     talaba shu ochilishdan beri barcha test mashqlarini yechib bo'lgach
-    yana yopiladi. O'qituvchi/admin/owner uchun doim ochiq."""
+    yana yopiladi. 2026-10-17: ochilish GURUH bo'yicha — talaba faqat
+    o'zi a'zo bo'lgan guruhga ochilgan testni ko'radi.
+    O'qituvchi/admin/owner uchun doim ochiq."""
     if user.role != User.Role.STUDENT or tugun.kalit != "tests":
         return False
-    if tugun.test_ochilgan is None:
+    ochilish = (
+        KursTestOchilishi.objects.filter(tugun=tugun, guruh__faol=True, guruh__guruhazoligi__talaba=user)
+        .order_by("-ochilgan").first()
+    )
+    if ochilish is None:
         return True
     jami = KursMashq.objects.filter(tugun=tugun).count()
     yechilgan = (
-        KursMashqYechim.objects.filter(talaba=user, mashq__tugun=tugun, created_at__gte=tugun.test_ochilgan)
+        KursMashqYechim.objects.filter(talaba=user, mashq__tugun=tugun, created_at__gte=ochilish.ochilgan)
         .values("mashq_id").distinct().count()
     )
     return jami > 0 and yechilgan >= jami
+
+
+def _test_guruhlari(user, tugun):
+    """"Testni boshlash"da tanlanadigan guruhlar (video-TZ 2026-10-17):
+    o'qituvchiga — faqat o'z guruhlari, admin'ga — markazining barcha faol
+    guruhlari, owner'ga — test tuguni markazining barcha faol guruhlari
+    (owner markazga bog'liq emas, uning `markaz`i bo'sh bo'lishi mumkin)."""
+    from academics.models import Guruh
+
+    guruhlar = Guruh.objects.filter(faol=True)
+    if owner_mi(user):
+        guruhlar = guruhlar.filter(markaz_id=tugun.markaz_id)
+    elif user.role == User.Role.TEACHER:
+        guruhlar = guruhlar.filter(oqituvchi=user)
+    else:
+        guruhlar = guruhlar.filter(markaz_id=user.markaz_id)
+    return guruhlar.order_by("name")
 
 
 def _mashqlar_sonini_hisobla(tugun):
@@ -341,7 +365,7 @@ def _tugun_dict(tugun, user, bolalar_keshi, tugatgan_idlar, sozlar_soni_map, yec
         if user.role == User.Role.STUDENT:
             natija["tugallandimi"] = tugun.id in tugatgan_idlar
         elif tugun.kalit == "tests":
-            natija["test_ochiq"] = tugun.test_ochilgan is not None
+            natija["test_ochiq"] = tugun.test_ochilishlari.filter(guruh__in=_test_guruhlari(user, tugun)).exists()
     else:
         children = []
         for b in bolalar:
@@ -2770,29 +2794,53 @@ class KursMashqRoyxatiView(APIView):
 
 
 class KursTestBoshlashView(APIView):
-    """O'qituvchi/admin/owner uchun — Unit'ning "Tests" bo'limini barcha
-    talabalarga ochish (`ochiq: true`) yoki yopish (video-TZ 2026-10-16)."""
+    """O'qituvchi/admin/owner uchun — Unit'ning "Tests" bo'limini tanlangan
+    GURUH talabalariga ochish (`ochiq: true`) yoki yopish (video-TZ
+    2026-10-16; guruh bo'yicha — 2026-10-17). GET — tanlash uchun
+    guruhlar ro'yxati va har biriga test ochiqmi."""
 
     permission_classes = [IsAuthenticated]
 
-    def post(self, request, pk):
+    def _tugun(self, request, pk):
         if not (_mashq_admin_mi(request.user) or request.user.role == User.Role.TEACHER):
-            return Response({"detail": "Faqat o'qituvchi/admin uchun"}, status=403)
+            return None, Response({"detail": "Faqat o'qituvchi/admin uchun"}, status=403)
         tugun = get_object_or_404(KursTugun, pk=pk)
         if tugun.kalit != "tests":
-            return Response({"detail": "Faqat Tests bo'limi uchun"}, status=400)
+            return None, Response({"detail": "Faqat Tests bo'limi uchun"}, status=400)
+        return tugun, None
+
+    def get(self, request, pk):
+        tugun, xato = self._tugun(request, pk)
+        if xato:
+            return xato
+        ochiqlar = set(tugun.test_ochilishlari.values_list("guruh_id", flat=True))
+        return Response(
+            [{"id": g.id, "nomi": g.name, "ochiq": g.id in ochiqlar} for g in _test_guruhlari(request.user, tugun)]
+        )
+
+    def post(self, request, pk):
+        tugun, xato = self._tugun(request, pk)
+        if xato:
+            return xato
+        guruh = _test_guruhlari(request.user, tugun).filter(pk=request.data.get("guruh")).first()
+        if guruh is None:
+            return Response({"detail": "Guruhni tanlang"}, status=400)
         ochiq = bool(request.data.get("ochiq", True))
-        tugun.test_ochilgan = timezone.now() if ochiq else None
-        tugun.save(update_fields=["test_ochilgan"])
+        if ochiq:
+            KursTestOchilishi.objects.update_or_create(
+                tugun=tugun, guruh=guruh, defaults={"ochilgan": timezone.now()}
+            )
+        else:
+            KursTestOchilishi.objects.filter(tugun=tugun, guruh=guruh).delete()
         logla(
             foydalanuvchi=request.user,
             harakat=FaoliyatYozuvi.Harakat.OZGARTIRISH,
             obyekt=tugun,
             obyekt_turi="KursTugun",
             obyekt_nomi=f"{tugun.parent.nomi if tugun.parent else ''} > {tugun.nomi}",
-            ozgarishlar={"test_ochiq": {"eski": "—", "yangi": "ha" if ochiq else "yo'q"}},
+            ozgarishlar={f"test_ochiq ({guruh.name})": {"eski": "—", "yangi": "ha" if ochiq else "yo'q"}},
         )
-        return Response({"test_ochiq": ochiq})
+        return Response({"guruh": guruh.id, "ochiq": ochiq})
 
 
 class KursMashqYechishView(APIView):

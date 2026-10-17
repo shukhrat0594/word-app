@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { api } from "../api";
 import XatolikHolati from "../components/XatolikHolati";
 import { useI18n } from "../i18n";
@@ -487,7 +488,11 @@ export default function Guruhlar() {
             {tanlangan.talabalar.map((tl) => (
               <div key={tl.id} style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <ProfilRasmi user={tl} t={t} />
-                {tl.ism}
+                {/* 2026-10-17 (video-TZ): ismga bosilganda talaba profili
+                    (Talabalar sahifasidagi karta) ochiladi. */}
+                <Link to={`/talabalar?talaba=${tl.id}`} title={t("talaba_malumoti")}>
+                  {tl.ism}
+                </Link>
               </div>
             ))}
           </div>
