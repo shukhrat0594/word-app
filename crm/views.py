@@ -1532,6 +1532,15 @@ class TolovlarView(CrmView):
             qs = qs.filter(sana__gte=dan)
         if gacha:
             qs = qs.filter(sana__lte=gacha)
+        # `oy` — HISOB oyi bo'yicha (Hisobot "Olingan pul"i bilan bir xil
+        # sanash): bosh sahifadagi Moliya kataklaridan (video-TZ 2026-10-17).
+        if request.query_params.get("oy"):
+            try:
+                qs = qs.filter(hisob__oy=_oy(request.query_params["oy"]))
+            except ValueError as e:
+                return _xato(str(e))
+        if request.query_params.get("filial"):
+            qs = qs.filter(tolov_filiali_q(request.query_params["filial"]))
         if request.query_params.get("guruh"):
             qs = qs.filter(guruh_id=request.query_params["guruh"])
         if request.query_params.get("talaba"):

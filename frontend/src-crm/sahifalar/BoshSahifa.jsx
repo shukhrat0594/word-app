@@ -148,15 +148,22 @@ export default function BoshSahifa() {
         </div>
         {hisobot.xato && <div className="xato">{hisobot.xato}</div>}
         <div className="kataklar">
-          <Katak sarlavha={t("hisoblangan")} qiymat={pul(jami?.hisoblangan)} />
-          <Katak sarlavha={t("olingan_pul")} qiymat={pul(jami?.olingan)} sinf="rang-tolandi" />
-          <Katak sarlavha={t("chegirma")} qiymat={pul(jami?.chegirma)} />
+          {/* Har katak bosiladi — kimga qancha hisoblangan, kimdan qancha
+              olingan, chegirma/bonus kimga, kim qancha qarz (video-TZ 2026-10-17). */}
+          <Katak sarlavha={t("hisoblangan")} qiymat={pul(jami?.hisoblangan)}
+            havola={`/moliya?tab=qarzdorlar&oy=${oy}`} />
+          <Katak sarlavha={t("olingan_pul")} qiymat={pul(jami?.olingan)} sinf="rang-tolandi"
+            havola={`/moliya?tab=tolovlar&turi=tolov&hisob_oyi=${oy}`} />
+          <Katak sarlavha={t("chegirma")} qiymat={pul(jami?.chegirma)}
+            havola={`/moliya?tab=tolovlar&turi=chegirma&hisob_oyi=${oy}`} />
           {/* Bonus ham qarzni kamaytiradi — ko'rinmasa "Hisoblangan − Olingan −
               Chegirma" Qarz'ga teng chiqmasdi (video-TZ 2026-10-16). "Shu oy
               qarzi" — tanlangan oy; tepadagi "Qolgan qarz" — joriy oy;
               "Jami qarzdorlik" — barcha oylar balansi (video-TZ 2026-10-16). */}
-          <Katak sarlavha={t("bonus")} qiymat={pul(jami?.bonus)} />
-          <Katak sarlavha={t("oy_qarzi")} qiymat={pul(jami?.qarz)} sinf="rang-qarzdor" />
+          <Katak sarlavha={t("bonus")} qiymat={pul(jami?.bonus)}
+            havola={`/moliya?tab=tolovlar&turi=bonus&hisob_oyi=${oy}`} />
+          <Katak sarlavha={t("oy_qarzi")} qiymat={pul(jami?.qarz)} sinf="rang-qarzdor"
+            havola={`/moliya?tab=qarzdorlar&qarzli=1&oy=${oy}`} />
           {jamiQarz !== null && jamiQarz !== undefined && (
             <Katak sarlavha={t("jami_qarzdorlik")} qiymat={pul(jamiQarz)} sinf="rang-qarzdor"
               havola="/moliya?tab=qarzdorlar&qarzli=1&oy=hammasi" />
