@@ -63,8 +63,9 @@ def adminlarga_bildir(sorov):
 
 
 def sorov_yarat(abonent, ism, sana_matni, nomzod_idlar):
-    """Bir xil kutilayotgan so'rov takrorlanmaydi: bor bo'lsa — yangilanadi."""
-    s = abonent.sorovlar.filter(holat=Sorov.Holat.KUTILMOQDA).first()
+    """Bir xil kutilayotgan so'rov takrorlanmaydi: bor bo'lsa — yangilanadi. Matn-TZ 397: boshqa
+    farzand uchun so'rov — alohida (aks holda ikkinchi farzand birinchisining so'rovini o'chirardi)."""
+    s = abonent.sorovlar.filter(holat=Sorov.Holat.KUTILMOQDA, farzand_ismi__iexact=ism).first()
     if s:
         s.farzand_ismi, s.tugilgan_sana, s.nomzodlar = ism, sana_matni, nomzod_idlar
         s.save(update_fields=["farzand_ismi", "tugilgan_sana", "nomzodlar"])

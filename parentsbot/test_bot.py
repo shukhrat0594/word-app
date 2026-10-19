@@ -291,6 +291,16 @@ class FarzandQoshishTest(BotAsos):
         self.assertIn("Sevara", self.tg.oxirgi())
         self.assertEqual(Boglanish.objects.filter(faol=True).count(), 2)
 
+    def test_topilmagan_ikki_farzand_ikki_sorov(self):
+        # ikkinchi farzand so'rovi birinchisini almashtirib yubormasin
+        self.ulangan()
+        for ism in ("Mavjud Emas", "Boshqa Bola"):
+            self.yubor(100, "/farzand_qosh")
+            self.yubor(100, ism)
+            self.yubor(100, "01.01.2015")
+        self.assertEqual(sorted(Sorov.objects.values_list("farzand_ismi", flat=True)),
+                         ["Boshqa Bola", "Mavjud Emas"])
+
     def test_ulanmagan_ota_ona_oddiy_startga(self):
         self.tilgacha()
         self.yubor(100, "/farzand_qosh")
