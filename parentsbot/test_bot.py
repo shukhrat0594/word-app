@@ -6,6 +6,8 @@ from accounts.models import Bildirishnoma, User
 from parentsbot.bot import Bot
 from parentsbot.models import Abonent, Boglanish, Sorov
 
+MENYU = ["👨‍👩‍👧 Farzandlarim", "👩‍🏫 Ustozlar", "➕ Farzand qo'shish", "🌐 Til", "ℹ️ Yordam"]
+
 
 class SoxtaTg:
     def __init__(self):
@@ -209,7 +211,7 @@ class TugmalarMenyusiTest(BotAsos):
     def test_ulangach_doimiy_menyu_chiqadi(self):
         self.ulangan()
         matnlar = self.tugma_matnlari()
-        self.assertEqual(matnlar, ["👨‍👩‍👧 Farzandlarim", "👩‍🏫 Ustozlar", "🌐 Til", "ℹ️ Yordam"])
+        self.assertEqual(matnlar, MENYU)
         self.assertTrue(self.tg.yuborilgan[-1][2]["is_persistent"])
 
     def test_tugma_buyruq_vazifasini_bajaradi(self):
@@ -234,10 +236,10 @@ class TugmalarMenyusiTest(BotAsos):
         self.yubor(100, "⏸ Xabarlarni to'xtatish")
         self.assertTrue(Abonent.objects.get().faol)
         # javob bilan YANGI menyu keladi — telefondagi eski tugmalar almashadi
-        self.assertEqual(self.tugma_matnlari(), ["👨‍👩‍👧 Farzandlarim", "👩‍🏫 Ustozlar", "🌐 Til", "ℹ️ Yordam"])
+        self.assertEqual(self.tugma_matnlari(), MENYU)
         self.yubor(100, "⚙️ Sozlamalar")
         self.assertIn("Tushunmadim", self.tg.oxirgi())
-        self.assertEqual(len(self.tugma_matnlari()), 4)
+        self.assertEqual(len(self.tugma_matnlari()), len(MENYU))
 
     def test_ulanmagan_ota_onaga_menyu_yoq(self):
         self.tilgacha()
@@ -257,7 +259,52 @@ class TugmalarMenyusiTest(BotAsos):
         self.yubor(100, "Sevara Jorayeva")
         self.yubor(100, "03.03.2011")
         self.assertIn("Ulandi", self.tg.oxirgi())
-        self.assertEqual(len(self.tugma_matnlari()), 4)
+        self.assertEqual(len(self.tugma_matnlari()), len(MENYU))
+
+
+class FarzandQoshishTest(BotAsos):
+    """Matn-TZ 397: ota-ona bittadan ortiq farzandini ulay oladi."""
+
+    def ulangan(self):
+        self.tilgacha()
+        self.yubor(100, contact={"phone_number": "+998901234567", "user_id": 100})  # Aziz ulanadi
+
+    def test_ikkinchi_farzand_ism_va_sana_bilan(self):
+        self.ulangan()
+        self.yubor(100, "➕ Farzand qo'shish")
+        self.assertIn("ism-familiya", self.tg.oxirgi())
+        self.yubor(100, "Sevara Jorayeva")
+        self.yubor(100, "03.03.2011")
+        self.assertIn("Sevara", self.tg.oxirgi())
+        self.assertEqual(set(Boglanish.objects.filter(faol=True).values_list("talaba", flat=True)),
+                         {self.t1.id, self.t2.id})
+        self.yubor(100, "/farzandlarim")
+        self.assertIn("Aziz", self.tg.oxirgi())
+        self.assertIn("Sevara", self.tg.oxirgi())
+
+    def test_telefon_boyicha_yangi_moslik_darhol_ulanadi(self):
+        self.ulangan()
+        self.t2.ota_ona_telefon = "+998901234567"
+        self.t2.save(update_fields=["ota_ona_telefon"])
+        self.yubor(100, "/farzand_qosh")
+        self.assertIn("Ulandi", self.tg.oxirgi())
+        self.assertIn("Sevara", self.tg.oxirgi())
+        self.assertEqual(Boglanish.objects.filter(faol=True).count(), 2)
+
+    def test_topilmagan_ikki_farzand_ikki_sorov(self):
+        # ikkinchi farzand so'rovi birinchisini almashtirib yubormasin
+        self.ulangan()
+        for ism in ("Mavjud Emas", "Boshqa Bola"):
+            self.yubor(100, "/farzand_qosh")
+            self.yubor(100, ism)
+            self.yubor(100, "01.01.2015")
+        self.assertEqual(sorted(Sorov.objects.values_list("farzand_ismi", flat=True)),
+                         ["Boshqa Bola", "Mavjud Emas"])
+
+    def test_ulanmagan_ota_ona_oddiy_startga(self):
+        self.tilgacha()
+        self.yubor(100, "/farzand_qosh")
+        self.assertIn("telefon", self.tg.oxirgi().lower())
 
 
 class UstozlarTest(BotAsos):

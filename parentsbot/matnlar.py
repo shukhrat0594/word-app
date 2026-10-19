@@ -63,9 +63,9 @@ MATNLAR = {
     },
     "til_ozgardi": {"uz": "Til o'zgartirildi: o'zbekcha.", "ru": "Язык изменён: русский."},
     "yordam": {
-        "uz": "Buyruqlar:\n/farzandlarim — ulangan farzandlar\n/ustozlar — guruh ustozlari va telefoni\n"
+        "uz": "Buyruqlar:\n/farzandlarim — ulangan farzandlar\n/farzand_qosh — yana farzand qo'shish\n/ustozlar — guruh ustozlari va telefoni\n"
               "/til — tilni almashtirish\n/start — boshidan boshlash\n\nSavollar bo'lsa — markazga murojaat qiling.",
-        "ru": "Команды:\n/farzandlarim — подключённые дети\n/ustozlar — учителя групп и их телефоны\n"
+        "ru": "Команды:\n/farzandlarim — подключённые дети\n/farzand_qosh — добавить ещё ребёнка\n/ustozlar — учителя групп и их телефоны\n"
               "/til — сменить язык\n"
               "/start — начать сначала\n\nЕсли есть вопросы — обратитесь в центр.",
     },
@@ -82,6 +82,12 @@ MATNLAR = {
     "ustoz_guruh_yoq": {
         "uz": "Farzandingiz hozir hech qaysi guruhda o'qimayapti. Savol bo'lsa — markazga murojaat qiling.",
         "ru": "Ваш ребёнок сейчас не состоит ни в одной группе. Если есть вопросы — обратитесь в центр.",
+    },
+    # Matn-TZ 397: bitta ota-onaga bir nechta farzand — ulangandan keyin ham yana qo'shish mumkin.
+    "tugma_farzand_qosh": {"uz": "➕ Farzand qo'shish", "ru": "➕ Добавить ребёнка"},
+    "farzand_qosh_so": {
+        "uz": "Qo'shmoqchi bo'lgan farzandingizning ism-familiyasini yozing (masalan: Aziz Karimov).",
+        "ru": "Напишите имя и фамилию ребёнка, которого хотите добавить (например: Aziz Karimov).",
     },
     "tugma_til": {"uz": "🌐 Til", "ru": "🌐 Язык"},
     "tugma_yordam": {"uz": "ℹ️ Yordam", "ru": "ℹ️ Помощь"},
@@ -200,6 +206,7 @@ BUYRUQLAR = {
     "uz": [
         ("start", "Boshlash"),
         ("farzandlarim", "Ulangan farzandlarim"),
+        ("farzand_qosh", "Farzand qo'shish"),
         ("ustozlar", "Ustozlar va telefoni"),
         ("til", "Tilni o'zgartirish"),
         ("yordam", "Buyruqlar ro'yxati"),
@@ -207,6 +214,7 @@ BUYRUQLAR = {
     "ru": [
         ("start", "Начать"),
         ("farzandlarim", "Мои дети"),
+        ("farzand_qosh", "Добавить ребёнка"),
         ("ustozlar", "Учителя и телефоны"),
         ("til", "Сменить язык"),
         ("yordam", "Список команд"),

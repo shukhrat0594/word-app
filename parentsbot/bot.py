@@ -118,6 +118,8 @@ class Bot:
             return self._farzandlar(ab)
         if buyruq == "/ustozlar":
             return self._ustozlar(ab)
+        if buyruq == "/farzand_qosh":
+            return self._farzand_qosh(ab)
         if buyruq == "/til":
             return self._yubor(ab, "til_tanlang", TIL_TUGMALARI)
         if buyruq == "/yordam":
@@ -135,6 +137,18 @@ class Bot:
             return self._yubor(ab, "farzand_yoq")
         royxat = "\n".join(f"• {moslash.talaba_ismi(b)}" for b in bolalar)
         self._yubor(ab, "farzandlar", self._menyu(ab), royxat=royxat)
+
+    def _farzand_qosh(self, ab):
+        """Matn-TZ 397: allaqachon ulangan ota-ona yana farzand qo'shadi. Avval telefon bo'yicha
+        yangi mosliklar (CRM'da keyin yozilgan aka-uka) ulanadi; qolganini — ism va sana bilan."""
+        if not xizmat.faol_farzandlar(ab):
+            return self._buyruq(ab, "/start")  # hali hech kim ulanmagan — oddiy ulanish
+        yangi = xizmat.ulash(ab, moslash.telefon_boyicha(ab.telefon), Boglanish.Usul.TELEFON) if ab.telefon else []
+        if yangi:
+            return self._yubor(ab, "ulandi", self._menyu(ab), ismlar=xizmat.ismlar_matni(yangi))
+        ab.holat = Abonent.Holat.FARZAND_ISM
+        ab.save(update_fields=["holat"])
+        self._yubor(ab, "farzand_qosh_so")
 
     def _ustozlar(self, ab):
         """Farzand o'qiyotgan faol guruhlar ustozining ismi va telefoni (faqat ulangan farzandlar)."""
