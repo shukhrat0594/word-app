@@ -356,6 +356,8 @@ def hisoblarni_generatsiya_qil() -> dict:
     joriy_oy = oy_boshi(timezone.localdate())
     boshlangich_oy = sozlama_ol().boshlangich_oy
 
+    _moliyasiz_azoliklarni_och()
+
     azoliklar = (
         AzolikMoliya.objects.filter(
             holat=AzolikMoliya.Holat.FAOL,
@@ -410,6 +412,28 @@ def hisoblarni_generatsiya_qil() -> dict:
             natija["xatolar"].append({"azolik_moliya_id": azolik_moliya.pk, "xato": str(xato)})
 
     return natija
+
+
+def _moliyasiz_azoliklarni_och() -> None:
+    """LMS'da guruhga qo'shilgan, lekin `AzolikMoliya`si hali yo'q
+    a'zoliklarga yozuv ochadi (TZ 414/417).
+
+    Avval yozuv faqat CRM'da guruh a'zolari ro'yxati ochilganda paydo
+    bo'lardi (`GuruhAzoliklariView`). Shungacha oy o'rtasida qo'shilgan
+    talabaga hisob ochilmas, bosh sahifadagi "Hisoblangan" esa faqat oy
+    boshidagi talabalarni ko'rsatardi. `boshlanish_sana` — a'zolik
+    yaratilgan kun, o'sha view'dagi qoida bilan bir xil.
+    """
+    from academics.models import GuruhAzoligi
+
+    yangilar = GuruhAzoligi.objects.filter(moliya__isnull=True, guruh__faol=True)
+    AzolikMoliya.objects.bulk_create(
+        [
+            AzolikMoliya(azolik=a, boshlanish_sana=timezone.localtime(a.created_at).date())
+            for a in yangilar.only("id", "created_at")
+        ],
+        ignore_conflicts=True,
+    )
 
 
 def _boshlash_oyi(azolik_moliya: AzolikMoliya, boshlangich_oy: date) -> date:
@@ -608,3 +632,28 @@ def azolikni_qayta_hisobla(azolik_moliya: AzolikMoliya, oy: date | None = None) 
     hisob.darslar_talaba = len(talaba_kunlar)
     hisob.save(update_fields=["summa", "proporsional", "darslar_talaba"])
     return hisobni_yangila(hisob)
+
+
+def faollashtirilganda(azolik_moliya: AzolikMoliya) -> None:
+    """Sinovdan faolga o'tganda — hisob yangi boshlanish sanasidan qayta
+    ochilishi uchun (video-TZ IMG_7058).
+
+    Talaba shu guruhda avval bo'lib chiqqan bo'lsa, o'sha oyning hisobi
+    qoladi (chiqishda 0 gacha qisqargan, "to'landi"). Generatsiya uni
+    `get_or_create` bilan "mavjud" deb o'tkazib yuborardi — qarzdorlik
+    hisoblanmasdi. Ichida to'lov bo'lmagan bunday hisoblar qayta
+    hisoblanadi; watermark tushiriladi, yetishmagan oylar ochilsin.
+    """
+    azolik_moliya.oxirgi_hisob_oy = None
+    azolik_moliya.save(update_fields=["oxirgi_hisob_oy"])
+    hisoblar = Hisob.objects.filter(
+        talaba=azolik_moliya.azolik.talaba, guruh=azolik_moliya.azolik.guruh,
+        oy__gte=oy_boshi(azolik_moliya.boshlanish_sana), holat=Hisob.Holat.TOLANDI, qolda=False,
+    ).exclude(tolovlar__turi__in=Tolov.YOPUVCHI_TURLAR)
+    for hisob in hisoblar:
+        # `azolikni_qayta_hisobla` to'langan oyga tegmaydi — bu oyda pul yo'q.
+        hisob.holat = Hisob.Holat.QARZDOR
+        hisob.save(update_fields=["holat"])
+        # Narx/jadval yo'q bo'lsa `azolikni_qayta_hisobla` summaga tegmay
+        # qaytadi — holat summaga qarab qaytarilsin (0 so'm "qarzdor" emas).
+        hisobni_yangila(azolikni_qayta_hisobla(azolik_moliya, hisob.oy))
