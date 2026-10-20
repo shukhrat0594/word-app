@@ -16,6 +16,7 @@ import MarkazSozlash from "./pages/MarkazSozlash";
 import Markazlar from "./pages/Markazlar";
 import Oyinlar from "./pages/Oyinlar";
 import Profil from "./pages/Profil";
+import SpeakingTrainer from "./pages/SpeakingTrainer";
 import Talabalar from "./pages/Talabalar";
 import Xodimlar from "./pages/Xodimlar";
 
@@ -51,6 +52,7 @@ export default function App() {
             <Route path="mashqlar-boshqarish" element={<MashqlarBoshqarish />} />
             <Route path="ielts-boshqarish" element={<ImtihonBoshqarish manba="admin" />} />
             <Route path="ai-mashqlari" element={<ImtihonBoshqarish manba="ai" />} />
+            <Route path="speaking-trainer" element={<SpeakingTrainer />} />
             <Route path="kurslar" element={<Kurslar />} />
             <Route path="reyting" element={<Leaderboard />} />
             <Route path="oyinlar" element={<Oyinlar />} />
