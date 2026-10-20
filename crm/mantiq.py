@@ -630,4 +630,6 @@ def faollashtirilganda(azolik_moliya: AzolikMoliya) -> None:
         # `azolikni_qayta_hisobla` to'langan oyga tegmaydi — bu oyda pul yo'q.
         hisob.holat = Hisob.Holat.QARZDOR
         hisob.save(update_fields=["holat"])
-        azolikni_qayta_hisobla(azolik_moliya, hisob.oy)
+        # Narx/jadval yo'q bo'lsa `azolikni_qayta_hisobla` summaga tegmay
+        # qaytadi — holat summaga qarab qaytarilsin (0 so'm "qarzdor" emas).
+        hisobni_yangila(azolikni_qayta_hisobla(azolik_moliya, hisob.oy))

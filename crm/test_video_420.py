@@ -45,6 +45,13 @@ class KechagiSanaBilanFaollashtirishTest(ApiAsos):
             self.mijoz(self.admin).get("/api/crm/hisoblar/")
         self.assertGreater(Hisob.objects.get(talaba=self.talaba, oy=OKTABR).summa, 0)
 
+    def test_jadvalsiz_guruhda_0_som_qarzdor_bolib_qolmaydi(self):
+        am = self.qayta_qoshilgan()
+        self.guruh.crm_jadval.all().delete()
+        self.faollashtir(am, "2026-10-19")
+        hisob = Hisob.objects.get(talaba=self.talaba, oy=OKTABR)
+        self.assertEqual((hisob.summa, hisob.holat), (0, Hisob.Holat.TOLANDI))
+
     def test_oddiy_holat(self):
         am = self.azolik_qosh(boshlanish=BUGUN, holat="sinov")
         self.faollashtir(am, "2026-10-19")
