@@ -126,16 +126,18 @@ def _yubor(tg, abonent, kalit, tugmalar_=None, **q):
         log.warning("Ota-onaga xabar yuborilmadi (so'rov qarori)")
 
 
-def sorovni_hal_qil(sorov, amal, kim, tg, talaba=None):
-    """Admin qarori: "ulash" (talaba bilan) yoki "rad". Ota-onaga Telegram'da xabar boradi.
+def sorovni_hal_qil(sorov, amal, kim, tg, talabalar=()):
+    """Admin qarori: "ulash" (bir yoki bir nechta talaba bilan — bir ota-onaning farzandlari,
+    video-TZ 2026-10-20) yoki "rad". Ota-onaga Telegram'da xabar boradi.
     ValueError — so'rov allaqachon hal qilingan yoki talaba noto'g'ri."""
     if sorov.holat != Sorov.Holat.KUTILMOQDA:
         raise ValueError("Bu so'rov allaqachon ko'rib chiqilgan")
+    talabalar = list(talabalar)
     if amal == "ulash":
-        if talaba is None or talaba.role != User.Role.STUDENT or not talaba.is_active:
+        if not talabalar or any(t.role != User.Role.STUDENT or not t.is_active for t in talabalar):
             raise ValueError("O'quvchini tanlang")
-        ulash(sorov.abonent, [talaba], Boglanish.Usul.ADMIN, kim=kim)
-        sorov.holat, sorov.talaba = Sorov.Holat.ULANDI, talaba
+        ulash(sorov.abonent, talabalar, Boglanish.Usul.ADMIN, kim=kim)
+        sorov.holat, sorov.talaba = Sorov.Holat.ULANDI, talabalar[0]
     elif amal == "rad":
         sorov.holat = Sorov.Holat.RAD
     else:
@@ -144,7 +146,7 @@ def sorovni_hal_qil(sorov, amal, kim, tg, talaba=None):
     sorov.save(update_fields=["holat", "talaba", "hal_qilgan", "hal_vaqti"])
     if tg is not None:
         if amal == "ulash":
-            _yubor(tg, sorov.abonent, "admin_ulandi", tugmalar.menyu(sorov.abonent.til), ismlar=talaba_ismi(talaba))
+            _yubor(tg, sorov.abonent, "admin_ulandi", tugmalar.menyu(sorov.abonent.til), ismlar=ismlar_matni(talabalar))
         else:
             _yubor(tg, sorov.abonent, "admin_rad")
     return sorov

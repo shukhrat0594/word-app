@@ -59,6 +59,26 @@ class SorovlarTest(OtabotApiAsos):
         self.assertIn("Sevara Jorayeva", self.tg.yuborilgan[-1][1])
         self.assertTrue(FaoliyatYozuvi.objects.filter(obyekt_turi="Ota-ona so'rovi").exists())
 
+    def test_bir_nechta_farzandni_ulash(self):
+        ikkinchi = User.objects.create_user(username="laylo", password="x", role=User.Role.STUDENT,
+                                            first_name="Laylo", last_name="Jorayeva")
+        j = self.mijoz(self.owner).post(YOL + f"sorovlar/{self.sorov.id}/hal/",
+                                        {"amal": "ulash", "talaba_idlar": [self.t.id, ikkinchi.id]}, format="json")
+        self.assertEqual(j.status_code, 200, j.data)
+        self.assertEqual(set(Boglanish.objects.values_list("talaba_id", flat=True)), {self.t.id, ikkinchi.id})
+        self.sorov.refresh_from_db()
+        self.assertEqual((self.sorov.holat, self.sorov.talaba), ("ulandi", self.t))
+        self.assertIn("Sevara Jorayeva", self.tg.yuborilgan[-1][1])
+        self.assertIn("Laylo Jorayeva", self.tg.yuborilgan[-1][1])
+
+    def test_royxatda_notogri_talaba_bolsa_hech_kim_ulanmaydi(self):
+        j = self.mijoz(self.owner).post(YOL + f"sorovlar/{self.sorov.id}/hal/",
+                                        {"amal": "ulash", "talaba_idlar": [self.t.id, self.owner.id]}, format="json")
+        self.assertEqual(j.status_code, 404)
+        self.assertEqual(Boglanish.objects.count(), 0)
+        self.assertEqual(self.mijoz(self.owner).post(YOL + f"sorovlar/{self.sorov.id}/hal/",
+                                                     {"amal": "ulash", "talaba_idlar": []}, format="json").status_code, 404)
+
     def test_rad(self):
         j = self.mijoz(self.owner).post(YOL + f"sorovlar/{self.sorov.id}/hal/", {"amal": "rad"}, format="json")
         self.assertEqual(j.status_code, 200, j.data)
