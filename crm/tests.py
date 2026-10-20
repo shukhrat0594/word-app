@@ -157,6 +157,21 @@ class ProporsionalTest(CrmAsos):
 
 
 class GeneratsiyaTest(CrmAsos):
+    def test_lmsda_qoshilgan_talabaga_ham_hisob_ochiladi(self):
+        """TZ 414/417: oy o'rtasida LMS'da qo'shilgan talaba (AzolikMoliya
+        hali yo'q) ham "Hisoblangan"ga tushishi kerak."""
+        azolik = GuruhAzoligi.objects.create(guruh=self.guruh, talaba=self.talaba)
+        GuruhAzoligi.objects.filter(pk=azolik.pk).update(
+            created_at=date(2026, 9, 17).isoformat() + "T09:00:00+05:00"
+        )
+        with bugun_qilib(date(2026, 9, 30)):
+            mantiq.hisoblarni_generatsiya_qil()
+            mantiq.hisoblarni_generatsiya_qil()
+
+        self.assertEqual(AzolikMoliya.objects.get(azolik=azolik).boshlanish_sana, date(2026, 9, 17))
+        hisob = Hisob.objects.get(oy=SENTABR)
+        self.assertEqual(hisob.darslar_talaba, 6)
+
     def test_idempotent(self):
         self.azolik_qosh()
         with bugun_qilib(date(2026, 9, 30)):
