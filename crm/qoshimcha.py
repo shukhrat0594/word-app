@@ -443,6 +443,7 @@ class GuruhFaollashtirishView(CrmView):
             if sana:
                 am.boshlanish_sana = sana
             am.save(update_fields=["holat", "boshlanish_sana"] if sana else ["holat"])
+            mantiq.faollashtirilganda(am)
             soni += 1
         return Response({"faollashtirildi": soni})
 

@@ -1336,6 +1336,8 @@ class AzolikView(CrmView):
         # holat `arxiv`/`muzlatilgan` bo'lgach u bu a'zolikni ko'rmaydi.
         if am.holat in (AzolikMoliya.Holat.ARXIV, AzolikMoliya.Holat.MUZLATILGAN):
             mantiq.azolikni_qayta_hisobla(am)
+        elif eski_holat == AzolikMoliya.Holat.SINOV and am.holat == AzolikMoliya.Holat.FAOL:
+            mantiq.faollashtirilganda(am)
 
         am.refresh_from_db()
         yangi = _azolik_dict(am)

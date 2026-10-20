@@ -608,3 +608,26 @@ def azolikni_qayta_hisobla(azolik_moliya: AzolikMoliya, oy: date | None = None) 
     hisob.darslar_talaba = len(talaba_kunlar)
     hisob.save(update_fields=["summa", "proporsional", "darslar_talaba"])
     return hisobni_yangila(hisob)
+
+
+def faollashtirilganda(azolik_moliya: AzolikMoliya) -> None:
+    """Sinovdan faolga o'tganda — hisob yangi boshlanish sanasidan qayta
+    ochilishi uchun (video-TZ IMG_7058).
+
+    Talaba shu guruhda avval bo'lib chiqqan bo'lsa, o'sha oyning hisobi
+    qoladi (chiqishda 0 gacha qisqargan, "to'landi"). Generatsiya uni
+    `get_or_create` bilan "mavjud" deb o'tkazib yuborardi — qarzdorlik
+    hisoblanmasdi. Ichida to'lov bo'lmagan bunday hisoblar qayta
+    hisoblanadi; watermark tushiriladi, yetishmagan oylar ochilsin.
+    """
+    azolik_moliya.oxirgi_hisob_oy = None
+    azolik_moliya.save(update_fields=["oxirgi_hisob_oy"])
+    hisoblar = Hisob.objects.filter(
+        talaba=azolik_moliya.azolik.talaba, guruh=azolik_moliya.azolik.guruh,
+        oy__gte=oy_boshi(azolik_moliya.boshlanish_sana), holat=Hisob.Holat.TOLANDI, qolda=False,
+    ).exclude(tolovlar__turi__in=Tolov.YOPUVCHI_TURLAR)
+    for hisob in hisoblar:
+        # `azolikni_qayta_hisobla` to'langan oyga tegmaydi — bu oyda pul yo'q.
+        hisob.holat = Hisob.Holat.QARZDOR
+        hisob.save(update_fields=["holat"])
+        azolikni_qayta_hisobla(azolik_moliya, hisob.oy)
