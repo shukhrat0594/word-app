@@ -425,6 +425,52 @@ def _speaking_kontent_tuz(savol_matni, tur, matn):
     )
 
 
+# AI Speaking Trainer (2026-10-20, TZ 421) — prompt TZ'dan AYNAN ko'chirilgan.
+SPEAKING_TRAINER_PROMPT = """Act as an interactive English Speaking Coach for students of various levels.
+
+SETUP & INITIAL STEP:
+First, ask me: "What is your English level? (e.g., Beginner, Elementary, Pre-Intermediate, Intermediate, Upper-Intermediate, Advanced)".
+Wait for my response before moving to the exercise.
+
+RULES FOR THE EXERCISE:
+1. QUESTION GENERATION:
+   - Once I provide my English level, generate ONLY ONE engaging speaking question written in clear English.
+   - Adjust the vocabulary, grammar complexity, and topic strictly according to my specified level.
+   - For example:
+     * Beginner (A1): Simple daily routines, family, hobbies using basic present simple tense.
+     * Pre-Intermediate (A2-B1): Past experiences, future plans, opinions on simple everyday topics.
+     * Upper-Intermediate/Advanced (B2-C1): Complex abstract concepts, debates, multi-layered opinion questions.
+   - Present the question in text format so I can read it.
+
+2. STUDENT RESPONSE:
+   - I will answer your question orally using Voice Mode (or audio speech-to-text).
+
+3. ANALYSIS & FEEDBACK (STRICT LANGUAGE REQUIREMENT):
+   - After receiving my spoken answer, analyze my fluency, grammar, vocabulary, and sentence structure.
+   - Provide comprehensive feedback written strictly in UZBEK and RUSSIAN (do not give the main feedback in English).
+
+   Structure your feedback clearly using this template:
+
+   📌 [UZBEK FEEDBACK / OʻZBEKChA TAHLIL]
+   - 🌟 Kuchli tomonlar: (Oʻquvchi nimani toʻgʻri va yaxshi aytdi)
+   - 🛠 Tuzatishlar: (Grammatik yoki soʻz qoʻllashdagi xatolar va ularning toʻgʻri varianti)
+   - 💡 Yaxshiroq variant: (Oʻquvchining fikrini yanada chiroyli ifodalash uchun namuna gap)
+
+   📌 [RUSSIAN FEEDBACK / АНАЛИЗ НА РУССКОМ]
+   - 🌟 Сильные стороны: (Что студенту удалось сказать правильно и хорошо)
+   - 🛠 Исправления: (Грамматические и лексические ошибки и их правильные варианты)
+   - 💡 Улучшенный вариант: (Пример того, как можно выразить эту мысль более грамотно)
+
+4. NEXT QUESTION:
+   - After providing the feedback, present the NEXT single written question adapted to my level to continue our practice.
+
+Start now by asking me my English level."""
+
+# Suhbatni boshlash uchun birinchi "foydalanuvchi" xabari (Gemini birinchi
+# navbatni user'dan kutadi) — talabaga ko'rsatilmaydi.
+TRAINER_BOSHLASH = "Start."
+
+
 def javobni_parse_qil(raw_text):
     """AI javobidan JSON ajratadi (```json ... ``` o'ramini olib tashlab).
 
@@ -684,6 +730,41 @@ class GeminiProvider:
         baho = self.speaking_matn_baholash(transkript, savol_matni=savol_matni, tur=tur)
         baho["transkript"] = transkript
         return baho
+
+    def trainer_javob(self, xabarlar):
+        """AI Speaking Trainer (2026-10-20, TZ 421): suhbat tarixi
+        (`[{"rol": "user"|"model", "matn": ...}]`) -> murabbiyning keyingi
+        javobi (sof matn, JSON emas). Holat saqlanmaydi — tarixni frontend
+        har safar to'liq yuboradi."""
+        from google import genai
+        from google.genai import types
+
+        client = genai.Client(
+            api_key=self.api_key,
+            http_options=types.HttpOptions(timeout=self.timeout_ms),
+        )
+        contents = [
+            types.Content(role=x["rol"], parts=[types.Part(text=x["matn"])])
+            for x in xabarlar
+        ]
+        try:
+            response = _chaqir_qayta_urinib(lambda: client.models.generate_content(
+                model=self.model,
+                contents=contents,
+                config=types.GenerateContentConfig(
+                    system_instruction=SPEAKING_TRAINER_PROMPT,
+                    max_output_tokens=MAX_OUTPUT_TOKENS,
+                ),
+            ))
+        except Exception as e:
+            if _limit_xatosimi(e):
+                raise ProviderXatosi(
+                    "AI kunlik so'rov limiti tugadi — birozdan so'ng qayta urinib ko'ring"
+                ) from e
+            raise
+        if not response.text or not response.text.strip():
+            raise ProviderXatosi("AI bo'sh javob qaytardi — qayta urinib ko'ring")
+        return response.text.strip()
 
     def tez_nusxa(self):
         """Qo'shimcha xato qidiruvi bosqichlari uchun TEZ model (2026-10-05): asosiy baholash

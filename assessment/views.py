@@ -324,6 +324,66 @@ class SpeakingAudioView(APIView):
         )
 
 
+TRAINER_MAX_XABAR = 60
+TRAINER_MAX_BELGI = 8000
+
+
+class SpeakingTrainerView(APIView):
+    """AI Speaking Trainer (2026-10-20, TZ 421) — murabbiy bilan suhbat.
+
+    Holat serverda saqlanmaydi: frontend butun suhbat tarixini
+    (`xabarlar` — JSON satr: `[{"rol": "user"|"model", "matn": ...}]`)
+    har safar yuboradi. Talaba javobini ovoz bilan (`audio`) yoki matn
+    bilan beradi; audio avval transkripsiya qilinib, tarixga qo'shiladi.
+    Tarix bo'sh bo'lsa — suhbat boshlanadi (AI darajani so'raydi)."""
+
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request):
+        import json
+
+        from .providers import TRAINER_BOSHLASH
+
+        try:
+            xabarlar = json.loads(request.data.get("xabarlar") or "[]")
+        except (TypeError, ValueError):
+            return Response({"detail": "xabarlar noto'g'ri formatda"}, status=400)
+        if not isinstance(xabarlar, list) or len(xabarlar) > TRAINER_MAX_XABAR:
+            return Response({"detail": "Suhbat juda uzun — yangi suhbat boshlang"}, status=400)
+        tozalangan = []
+        for x in xabarlar:
+            if (
+                not isinstance(x, dict)
+                or x.get("rol") not in ("user", "model")
+                or not isinstance(x.get("matn"), str)
+                or not x["matn"].strip()
+            ):
+                return Response({"detail": "xabarlar noto'g'ri formatda"}, status=400)
+            tozalangan.append({"rol": x["rol"], "matn": x["matn"][:TRAINER_MAX_BELGI]})
+
+        try:
+            kalit = getattr(settings, "GEMINI_API_KEY", "")
+            if not kalit:
+                raise ProviderXatosi("Platforma GEMINI_API_KEY sozlanmagan (.env)")
+            provider = GeminiProvider(kalit, model=GEMINI_MODEL)
+            transkript = None
+            audio = request.FILES.get("audio")
+            if audio:
+                transkript = provider.audio_transkripsiya_qil(
+                    audio.read(), audio.content_type or "audio/webm"
+                )
+                tozalangan.append({"rol": "user", "matn": transkript[:TRAINER_MAX_BELGI]})
+            if not tozalangan or tozalangan[0]["rol"] != "user":
+                tozalangan.insert(0, {"rol": "user", "matn": TRAINER_BOSHLASH})
+            javob = provider.trainer_javob(tozalangan)
+        except ProviderXatosi as e:
+            return Response({"detail": str(e)}, status=502)
+        except Exception as e:
+            return ai_xatosi_javobi(e, f"Speaking trainer (talaba id={request.user.id})")
+        return Response({"javob": javob, "transkript": transkript})
+
+
 def speaking_audio_yoli(tekshiruv):
     """Speaking yozuvining audio havolasi — yoki `None`.
 
