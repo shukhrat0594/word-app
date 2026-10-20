@@ -118,7 +118,7 @@ class TalabaQidiruvView(CrmView):
 
 
 class SorovHalView(CrmView):
-    """Admin qarori: {"amal": "ulash", "talaba_id": 12} yoki {"amal": "rad"}."""
+    """Admin qarori: {"amal": "ulash", "talaba_idlar": [12, 15]} yoki {"amal": "rad"}."""
 
     bolim = "parentsbot"
 
@@ -130,11 +130,23 @@ class SorovHalView(CrmView):
         except Sorov.DoesNotExist:
             return _xato("So'rov topilmadi", 404)
         amal = request.data.get("amal")
-        talaba = None
+        talabalar = []
         if amal == "ulash":
-            talaba = User.objects.filter(pk=request.data.get("talaba_id"), role=User.Role.STUDENT).first()
-            if talaba is None or not _korinadi(request.user, talaba.id):
+            # Bir ota-onaning bir nechta farzandi bo'lishi mumkin: "talaba_idlar" ro'yxati
+            # (eski "talaba_id" ham qabul qilinadi)
+            idlar = request.data.get("talaba_idlar")
+            if not isinstance(idlar, list):
+                idlar = [request.data.get("talaba_id")]
+            try:
+                idlar = list(dict.fromkeys(int(i) for i in idlar))
+            except (TypeError, ValueError):
+                return _xato("O'quvchi topilmadi", 404)
+            talabalar = list(User.objects.filter(pk__in=idlar, role=User.Role.STUDENT))
+            if not idlar or len(talabalar) != len(idlar) or not all(
+                _korinadi(request.user, t.id) for t in talabalar
+            ):
                 return _xato("O'quvchi topilmadi", 404)  # boshqa filialniki ham "topilmadi"
+            talabalar.sort(key=lambda t: idlar.index(t.id))
         elif cheklanganmi(request.user) and not any(
             _korinadi(request.user, i) for i in sorov.nomzodlar
         ):
@@ -144,13 +156,13 @@ class SorovHalView(CrmView):
         except TgXato:
             tg = None
         try:
-            xizmat.sorovni_hal_qil(sorov, amal, request.user, tg, talaba=talaba)
+            xizmat.sorovni_hal_qil(sorov, amal, request.user, tg, talabalar=talabalar)
         except ValueError as e:
             return _xato(str(e), 400)
         logla(
             foydalanuvchi=request.user, harakat=FaoliyatYozuvi.Harakat.OZGARTIRISH, obyekt=sorov,
             obyekt_turi="Ota-ona so'rovi", obyekt_nomi=f"{sorov.abonent.ism or sorov.abonent.telegram_id}",
-            yangi_qiymatlar={"holat": sorov.holat, "talaba": talaba_ismi(talaba) if talaba else ""},
+            yangi_qiymatlar={"holat": sorov.holat, "talaba": ", ".join(talaba_ismi(t) for t in talabalar)},
         )
         return Response(_sorov_dict(sorov, request.user))
 
