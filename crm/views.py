@@ -738,6 +738,7 @@ def _toqnashuv_bormi(guruh, hafta_kuni, boshlanish, tugash, xona_id):
             hafta_kuni=hafta_kuni,
             boshlanish_vaqti__lt=tugash,
             tugash_vaqti__gt=boshlanish,
+            guruh__faol=True,  # arxivdagi guruh xonani band qilmaydi
         )
         .exclude(guruh=guruh)
         .select_related("guruh", "xona")
