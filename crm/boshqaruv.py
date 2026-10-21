@@ -64,7 +64,9 @@ from .filial import (
 )
 from .permissions import CrmView
 from .ruxsatlar import BARCHA_KALITLAR, RUXSAT_DARAXTI, _kengaytir, lms_roli, ruxsatlar, sayt_menyusini_toraytir
-from .views import _guruh_dict, _hisobot_qatorlari, _oy, _ruxsatsiz, _sana, _son, _vaqt, _xato, jadvalni_tekshir
+from .views import (
+    _guruh_dict, _hisobot_qatorlari, _oy, _ruxsatsiz, _sana, _son, _toqnashuv_bormi, _vaqt, _xato, jadvalni_tekshir,
+)
 
 NOL = Decimal("0")
 
@@ -1634,6 +1636,25 @@ class GuruhYaratishView(CrmView):
         return Response(_guruh_toliq(guruh), status=201)
 
 
+def _arxivdan_qaytishda_xona_tekshir(guruh, user):
+    """Arxivdagi guruh xonani band qilmaydi — u arxivda turganda xonasiga
+    boshqa guruh qo'yilgan bo'lishi mumkin. Qaytarishda to'qnashuv bo'lsa,
+    xato beramiz (aks holda bir xonada ikki dars bo'lib qoladi)."""
+    for dars in guruh.crm_jadval.filter(xona__isnull=False).select_related("xona"):
+        raqib = _toqnashuv_bormi(guruh, dars.hafta_kuni, dars.boshlanish_vaqti, dars.tugash_vaqti, dars.xona_id)
+        if raqib is None:
+            continue
+        if not filial_korinadimi(user, getattr(getattr(raqib.guruh, "moliya", None), "filial_id", None)):
+            raise ValueError(
+                f"Arxivdan qaytarib bo'lmaydi — {dars.xona.nomi}: {raqib.get_hafta_kuni_display()} shu vaqtda band"
+            )
+        raise ValueError(
+            f"Arxivdan qaytarib bo'lmaydi — {dars.xona.nomi}: {raqib.get_hafta_kuni_display()} "
+            f"{raqib.boshlanish_vaqti:%H:%M}-{raqib.tugash_vaqti:%H:%M} da "
+            f"«{raqib.guruh.name}» guruhi dars qilyapti. Avval jadvalni o'zgartiring."
+        )
+
+
 class GuruhBoshqaruvView(CrmView):
     """Guruhni tahrirlash (nom, kurs, o'qituvchilar) va arxivlash."""
 
@@ -1659,6 +1680,8 @@ class GuruhBoshqaruvView(CrmView):
                 if "daraja_id" in data or "fan_id" in data:
                     guruh.fan, guruh.daraja = _fan_daraja(data)
                 if "faol" in data:
+                    if bool(data["faol"]) and not guruh.faol:
+                        _arxivdan_qaytishda_xona_tekshir(guruh, request.user)
                     guruh.faol = bool(data["faol"])
                 guruh.save()
                 if "oqituvchilar" in data:

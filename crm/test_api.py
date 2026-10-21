@@ -621,6 +621,38 @@ class XonaVaSetkaTest(ApiAsos):
         javob = self.jadval_yubor(self.ikkinchi_guruh, 0, "10:30", "12:00", self.xona.id)
         self.assertEqual(javob.status_code, 200)
 
+    def test_arxivdagi_guruh_xonani_band_qilmaydi(self):
+        """Video-TZ: arxivlangan guruhning eski jadvali yangi guruhga
+        xonani berishga xalaqit bermasin."""
+        self.jadval_yubor(self.guruh, 0, "16:00", "17:30", self.xona.id)
+        self.guruh.faol = False
+        self.guruh.save(update_fields=["faol"])
+        javob = self.jadval_yubor(self.ikkinchi_guruh, 0, "16:00", "17:30", self.xona.id)
+        self.assertEqual(javob.status_code, 200)
+
+    def test_arxivdan_qaytarishda_xona_toqnashuvi_rad(self):
+        """Arxivdagi guruh xonasini yangi guruh oldi — eski guruhni arxivdan
+        qaytarish bir xonada ikki dars qilib qo'ymasin."""
+        self.jadval_yubor(self.guruh, 0, "16:00", "17:30", self.xona.id)
+        self.guruh.faol = False
+        self.guruh.save(update_fields=["faol"])
+        self.jadval_yubor(self.ikkinchi_guruh, 0, "16:00", "17:30", self.xona.id)
+        javob = self.mijoz(self.admin).patch(
+            f"/api/crm/guruhlar/{self.guruh.id}/boshqaruv/", {"faol": True}, format="json"
+        )
+        self.assertEqual(javob.status_code, 400)
+        self.assertIn("Ikkinchi guruh", javob.data["detail"])
+        self.guruh.refresh_from_db()
+        self.assertFalse(self.guruh.faol)
+        # Xona bo'sh bo'lsa — arxivdan qaytariladi
+        self.ikkinchi_guruh.crm_jadval.all().delete()
+        javob = self.mijoz(self.admin).patch(
+            f"/api/crm/guruhlar/{self.guruh.id}/boshqaruv/", {"faol": True}, format="json"
+        )
+        self.assertEqual(javob.status_code, 200)
+        self.guruh.refresh_from_db()
+        self.assertTrue(self.guruh.faol)
+
     def test_boshqa_kunda_toqnashuv_yoq(self):
         self.jadval_yubor(self.guruh, 0, "14:00", "15:30", self.xona.id)
         javob = self.jadval_yubor(self.ikkinchi_guruh, 1, "14:00", "15:30", self.xona.id)
