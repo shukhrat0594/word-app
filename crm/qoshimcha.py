@@ -648,6 +648,10 @@ class KetganlarHisobotiView(CrmView):
             dan, gacha = _davr(request)
         except ValueError as e:
             return _xato(str(e))
+        # Bosh sahifa orqali kirganda pul (yo'qotilgan daromad, oylik narx) —
+        # faqat bosh sahifadagi moliya ko'rsatkichlari ruxsati bilan.
+        r = ruxsatlar(request.user)
+        pul_korinadi = "hisobotlar" in r or "bosh_sahifa.moliya" in r
         p = request.query_params
         hammasi = GuruhdanChiqish.objects.filter(sana__range=(dan, gacha)).filter(
             filial_q(request.user, "filial")).select_related("kim", "filial", "guruh__daraja", "guruh__oqituvchi")
@@ -701,7 +705,8 @@ class KetganlarHisobotiView(CrmView):
                 "oqituvchi": _ism(g.oqituvchi) if g and g.oqituvchi_id else None,
                 "filial": c.filial.nomi if c.filial_id else None, "boshlagan_sana": c.boshlagan_sana,
                 "sana": c.sana, "sabab_turi": c.sabab_turi, "sabab_turi_nomi": nomlar.get(c.sabab_turi, c.sabab_turi),
-                "sabab": c.sabab, "chegirma_bor": c.chegirma_bor, "oylik_narx": c.oylik_narx,
+                "sabab": c.sabab, "chegirma_bor": c.chegirma_bor,
+                "oylik_narx": c.oylik_narx if pul_korinadi else None,
                 "kim": _ism(c.kim) if c.kim_id else None,
                 "oqigan_kun": _oqigan_kun(c),
             }
@@ -710,7 +715,7 @@ class KetganlarHisobotiView(CrmView):
             "dan": dan, "gacha": gacha,
             "soni": soni,
             "koeffitsient": round(soni / (hozir_soni + soni) * 100, 2) if soni else 0.0,
-            "yoqotilgan_daromad": sum((c.oylik_narx or 0) for c in umumiy),
+            "yoqotilgan_daromad": sum((c.oylik_narx or 0) for c in umumiy) if pul_korinadi else None,
             "ortacha_umr_oy": round(sum(umrlar) / len(umrlar) / 30, 1) if umrlar else None,
             "dinamika": [{"sana": k, "soni": v} for k, v in sorted(kunlar.items())],
             "sabablar": [{"sabab_turi": k, "nomi": nomlar.get(k, k), "soni": v} for k, v in sabablar.most_common()],

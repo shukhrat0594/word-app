@@ -49,6 +49,12 @@ class RollarRuxsatTest(ApiAsos):
         m = self.mijoz(self.xodim("boshqa", rol))
         self.assertEqual(m.get("/api/crm/hisobot/ketganlar/?dan=2026-09-01&gacha=2026-09-30").status_code, 200)
         self.assertEqual(m.get("/api/crm/hisobot/").status_code, 403)  # qolgan hisobotlar yopiq
+        # Bosh sahifadan moliya ko'rsatkichlari berilmagan bo'lsa — pul yashirin.
+        rol3 = CrmRol.objects.create(nomi="SINOV qisman", ruxsatlar=["bosh_sahifa.faol_lidlar"])
+        r3 = self.mijoz(self.xodim("kassir", rol3)).get("/api/crm/hisobot/ketganlar/?dan=2026-09-01&gacha=2026-09-30")
+        self.assertEqual(r3.status_code, 200)
+        self.assertIsNone(r3.data["yoqotilgan_daromad"])
+        self.assertIsNotNone(m.get("/api/crm/hisobot/ketganlar/?dan=2026-09-01&gacha=2026-09-30").data["yoqotilgan_daromad"])
         # Bosh sahifa ruxsati yo'q xodimga — yopiq.
         rol2 = CrmRol.objects.create(nomi="SINOV lid", ruxsatlar=["lidlar"])
         m2 = self.mijoz(self.xodim("marketolog", rol2))
