@@ -6,7 +6,7 @@
 
 import { useState } from "react";
 
-import { api, qurilmaIdOl, tokenlarniSaqla } from "./api.js";
+import { api, qurilmaBelgilari, qurilmaIdOl, tokenlarniSaqla } from "./api.js";
 import { useI18n } from "./i18n.jsx";
 
 export default function Kirish({ onKirdi }) {
@@ -23,9 +23,15 @@ export default function Kirish({ onKirdi }) {
     try {
       const javob = await api("/api/token/", {
         method: "POST",
-        // `qurilma_id` — hisobni bo'lishmaslik nazorati uchun, LMS bilan
-        // bir xil kalit (`accounts.views.XodimLoginView`).
-        body: { username: login, password: parol, qurilma_id: qurilmaIdOl() },
+        // `qurilma_id` va `qurilma_belgilari` — hisobni bo'lishmaslik nazorati
+        // uchun, LMS bilan bir xil (`accounts/qurilmalar.py`). Rad etilsa,
+        // server `detail`da sababini yozadi — u shu yerda ko'rsatiladi.
+        body: {
+          username: login,
+          password: parol,
+          qurilma_id: qurilmaIdOl(),
+          qurilma_belgilari: await qurilmaBelgilari(),
+        },
       });
       tokenlarniSaqla(javob);
       await onKirdi();

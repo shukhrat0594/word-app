@@ -4,13 +4,13 @@ mashqida har qanday to'g'ri javob noto'g'ri deb ko'rsatilardi —
 
 from courses.elementary_tuzatish import tuzat
 from courses.models import KursMashq, KursTugun
-from crm.test_api import ApiAsos
+from courses.test_asos import KursApiAsos
 
 SOZLAR = ["wait", "act", "hairdress", "profess", "doct", "manag",
           "police offic", "interpret", "film direct"]
 
 
-class OrErKalitlariTest(ApiAsos):
+class OrErKalitlariTest(KursApiAsos):
     def setUp(self):
         super().setUp()
         self.tugun = KursTugun.objects.create(

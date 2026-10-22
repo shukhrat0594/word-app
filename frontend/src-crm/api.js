@@ -24,12 +24,9 @@ export function tokenOl() {
   return localStorage.getItem("access");
 }
 
-export function tokenlarniSaqla({ access, refresh, qurilma_id }) {
+export function tokenlarniSaqla({ access, refresh }) {
   localStorage.setItem("access", access);
   if (refresh) localStorage.setItem("refresh", refresh);
-  // Server qurilmani cookie orqali tanisa, o'zining ID'sini qaytaradi —
-  // localStorage tozalangan bo'lsa ham shu qurilma "yangi" bo'lib qolmasin.
-  if (qurilma_id) localStorage.setItem("qurilma_id", qurilma_id);
 }
 
 export function tokenlarniTozala() {
@@ -47,6 +44,34 @@ export function qurilmaIdOl() {
     localStorage.setItem("qurilma_id", id);
   }
   return id;
+}
+
+// 2026-10-20: brauzer belgilari — tarix tozalanib ID yo'qolsa ham shu
+// qurilmani tanish uchun (backend: `accounts/qurilmalar.py`). `src/api.js`dagi
+// bilan BIR XIL bo'lishi shart: aks holda LMS va CRM bitta qurilmani ikki xil ko'radi.
+export async function qurilmaBelgilari() {
+  const b = {
+    ekran: [screen.width, screen.height],
+    dpr: window.devicePixelRatio,
+    yadro: navigator.hardwareConcurrency,
+    xotira: navigator.deviceMemory,
+    teginish: navigator.maxTouchPoints,
+    vaqt: Intl.DateTimeFormat().resolvedOptions().timeZone,
+  };
+  try {
+    const gl = document.createElement("canvas").getContext("webgl");
+    const k = gl && gl.getExtension("WEBGL_debug_renderer_info");
+    if (k) b.gpu = gl.getParameter(k.UNMASKED_RENDERER_WEBGL);
+  } catch {
+    // video karta nomisiz ham ishlaydi
+  }
+  try {
+    const h = await navigator.userAgentData?.getHighEntropyValues?.(["model"]);
+    if (h?.model) b.model = h.model;
+  } catch {
+    // faqat Chromium brauzerlarida bor
+  }
+  return b;
 }
 
 /** Serverga "chiqdim" deb aytadi — refresh kalit darhol bekor qilinadi.

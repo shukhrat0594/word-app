@@ -5,10 +5,10 @@ ota-onaga yuboriladigan kunlik natija xabarida ishlatiladi (qarang
 
 from accounts.models import User
 from courses.models import KursSoz, KursSozYechim, KursTugun
-from crm.test_api import ApiAsos
+from courses.test_asos import KursApiAsos
 
 
-class SozlarTekshirishAsos(ApiAsos):
+class SozlarTekshirishAsos(KursApiAsos):
     def setUp(self):
         super().setUp()
         self.unit = KursTugun.objects.create(

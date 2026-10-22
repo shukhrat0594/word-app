@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { api, tokenlarniSaqla, qurilmaIdOl } from "../api";
+import { api, tokenlarniSaqla, qurilmaIdOl, qurilmaBelgilari } from "../api";
 import { useI18n } from "../i18n";
 import IjtimoiyPanel from "../components/IjtimoiyPanel";
 import { useProfil } from "../profilContext";
@@ -39,6 +39,21 @@ export default function Login() {
   const [band, setBand] = useState(false);
   const [xodimForma, setXodimForma] = useState(false);
 
+  // 2026-10-20: admin qurilmani o'chirgani/almashtirgani uchun chiqarilgan
+  // bo'lsa (`api.js: chiqishSababiniYoz`) — sababi bir marta aytiladi.
+  useEffect(() => {
+    try {
+      if (sessionStorage.getItem("chiqish_sababi") === "qurilma") {
+        sessionStorage.removeItem("chiqish_sababi");
+        setXodimForma(true);
+        setXato(t("login_qurilma_ochirildi"));
+      }
+    } catch {
+      // sessionStorage yopiq — xabarsiz davom etadi
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   async function xodimKirish(e) {
     e.preventDefault();
     setXato("");
@@ -46,7 +61,12 @@ export default function Login() {
     try {
       const data = await api("/api/token/", {
         method: "POST",
-        body: { username: login, password: parol, qurilma_id: qurilmaIdOl() },
+        body: {
+          username: login,
+          password: parol,
+          qurilma_id: qurilmaIdOl(),
+          qurilma_belgilari: await qurilmaBelgilari(),
+        },
       });
       tokenlarniSaqla(data);
       await yangila();
@@ -55,10 +75,19 @@ export default function Login() {
       // 2026-08-15: Railway ko'chirish davrida owner'dan boshqa hech kim
       // kira olmaydigan holat — backend `kod: "kirish_cheklangan"` bilan
       // 403 qaytaradi, alohida tushunarli xabar ko'rsatiladi.
-      if (e?.data?.kod === "kirish_cheklangan") {
+      const d = e?.data;
+      if (d?.kod === "kirish_cheklangan") {
         setXato(t("login_kirish_cheklangan"));
+      } else if (d?.kod === "qurilma_mos_emas") {
+        // 2026-10-20: ruxsat etilgan qurilma nomi ko'rsatiladi — ko'pincha
+        // o'quvchi saytni boshqa brauzerda (masalan Telegram ichida) ochgan bo'ladi.
+        setXato(
+          d.sorov === "rad"
+            ? t("login_qurilma_rad")
+            : t("login_qurilma_xato").replace("{nomlar}", (d.ruxsat_etilgan || []).join(", ") || "—")
+        );
       } else {
-        setXato(e?.data?.kod === "qurilma_mos_emas" ? t("login_qurilma_xato") : t("login_xato"));
+        setXato(t("login_xato"));
       }
     } finally {
       setBand(false);

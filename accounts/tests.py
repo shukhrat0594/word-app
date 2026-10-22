@@ -46,6 +46,23 @@ def _owner_yarat(username, parol=PAROL):
     return owner
 
 
+def qurilmali_kalit(user, qid="qurilma-sinov"):
+    """Test uchun kalit: foydalanuvchiga qurilma bog'lab, `qid` belgili
+    refresh-kalit qaytaradi. 2026-10-20 dan beri belgisiz kalit owner'dan
+    boshqalar uchun rad etiladi (`accounts/authentication.py`)."""
+    from django.utils import timezone
+    from rest_framework_simplejwt.tokens import RefreshToken
+
+    from .qurilmalar import idlar, yangi_yozuv
+
+    if not user.is_superuser and qid not in idlar(user):
+        user.qurilmalar = [*(user.qurilmalar or []), yangi_yozuv(qid, {}, timezone.now())]
+        User.objects.filter(pk=user.pk).update(qurilmalar=user.qurilmalar)
+    kalit = RefreshToken.for_user(user)
+    kalit["qid"] = qid
+    return kalit
+
+
 def _kirish(client, username, parol, qurilma="qurilma-sinov"):
     """Login qilib, kalitni klientga o'rnatadi. Kalitni qaytaradi."""
     javob = client.post(

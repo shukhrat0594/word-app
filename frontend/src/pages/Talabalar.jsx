@@ -121,7 +121,7 @@ function TalabaKartasi({ talaba, boshqaruvMi, t, onYopish, onSaqlandi, onNatijal
 /** Bitta talaba qatori — guruh papkasida HAM, qidiruv natijalarida HAM
  * (2026-10-06, video-TZ) bir xil ko'rinish ishlatiladi. `tartibRaqami`
  * ixtiyoriy — qidiruv natijasida guruh ichidagi o'rin ma'nosiz. */
-function TalabaQatori({ tl, tartibRaqami, boshqaruvMi, arxivKorish, profil, t, onKartaOchish, rasmOchir, panellarSaqla, qurilmaTiklash, qurilmaLimitOzgartir, arxivHolatiniOzgartir }) {
+function TalabaQatori({ tl, tartibRaqami, boshqaruvMi, arxivKorish, t, onKartaOchish, rasmOchir, panellarSaqla, qurilmaTiklash, qurilmaYangila, arxivHolatiniOzgartir }) {
   return (
     <div className="tarix-el">
       <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -145,9 +145,7 @@ function TalabaQatori({ tl, tartibRaqami, boshqaruvMi, arxivKorish, profil, t, o
         <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <PanelTanlovi user={tl} saqlash={panellarSaqla} t={t} />
           <QurilmaTiklashTugmasi user={tl} tiklash={qurilmaTiklash} t={t} />
-          {profil?.is_owner && (
-            <QurilmaLimitiBoshqaruv user={tl} ozgartir={qurilmaLimitOzgartir} t={t} />
-          )}
+          <QurilmaLimitiBoshqaruv user={tl} yangila={qurilmaYangila} t={t} />
           <button
             className="tugma ikkinchi kichik"
             onClick={() => arxivHolatiniOzgartir(tl.id, arxivKorish)}
@@ -263,17 +261,6 @@ export default function Talabalar() {
     try {
       await api(`/api/foydalanuvchilar/${id}/qurilma-tiklash/`, { method: "POST", body: { izoh } });
       setXabar(t("qurilma_tiklash_muvaffaqiyatli"));
-      yukla();
-    } catch (e) {
-      setXato(e.data?.detail || t("xato_yuz_berdi"));
-    }
-  }
-
-  /** "Qurilma limiti" o'zgartirish — faqat owner. */
-  async function qurilmaLimitOzgartir(id, limit) {
-    setXato("");
-    try {
-      await api(`/api/foydalanuvchilar/${id}/qurilma-limit/`, { method: "POST", body: { limit } });
       yukla();
     } catch (e) {
       setXato(e.data?.detail || t("xato_yuz_berdi"));
@@ -553,13 +540,12 @@ export default function Talabalar() {
                   tl={tl}
                   boshqaruvMi={boshqaruvMi}
                   arxivKorish={arxivKorish}
-                  profil={profil}
                   t={t}
                   onKartaOchish={setKartaTalaba}
                   rasmOchir={rasmOchir}
                   panellarSaqla={panellarSaqla}
                   qurilmaTiklash={qurilmaTiklash}
-                  qurilmaLimitOzgartir={qurilmaLimitOzgartir}
+                  qurilmaYangila={yukla}
                   arxivHolatiniOzgartir={arxivHolatiniOzgartir}
                 />
               ))
@@ -588,13 +574,12 @@ export default function Talabalar() {
                     tartibRaqami={i + 1}
                     boshqaruvMi={boshqaruvMi}
                     arxivKorish={arxivKorish}
-                    profil={profil}
                     t={t}
                     onKartaOchish={setKartaTalaba}
                     rasmOchir={rasmOchir}
                     panellarSaqla={panellarSaqla}
                     qurilmaTiklash={qurilmaTiklash}
-                    qurilmaLimitOzgartir={qurilmaLimitOzgartir}
+                    qurilmaYangila={yukla}
                     arxivHolatiniOzgartir={arxivHolatiniOzgartir}
                   />
                 ))}

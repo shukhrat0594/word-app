@@ -20,12 +20,9 @@ export function tokenOl() {
   return localStorage.getItem("access");
 }
 
-export function tokenlarniSaqla({ access, refresh, qurilma_id }) {
+export function tokenlarniSaqla({ access, refresh }) {
   localStorage.setItem("access", access);
   if (refresh) localStorage.setItem("refresh", refresh);
-  // Server qurilmani cookie orqali tanisa, o'zining ID'sini qaytaradi —
-  // localStorage tozalangan bo'lsa ham shu qurilma "yangi" bo'lib qolmasin.
-  if (qurilma_id) localStorage.setItem("qurilma_id", qurilma_id);
 }
 
 export function tokenlarniTozala() {
@@ -75,6 +72,35 @@ export function qurilmaIdOl() {
   return id;
 }
 
+// 2026-10-20: brauzer belgilari — tarix tozalanib ID yo'qolsa ham shu
+// qurilmani tanish uchun (backend: `accounts/qurilmalar.py`). Har login'da
+// qurilmaning o'zidan o'qiladi, hech qayerda saqlanmaydi. Model faqat Android
+// Chromium brauzerlarida keladi; o'qib bo'lmagan belgi shunchaki yuborilmaydi.
+export async function qurilmaBelgilari() {
+  const b = {
+    ekran: [screen.width, screen.height],
+    dpr: window.devicePixelRatio,
+    yadro: navigator.hardwareConcurrency,
+    xotira: navigator.deviceMemory,
+    teginish: navigator.maxTouchPoints,
+    vaqt: Intl.DateTimeFormat().resolvedOptions().timeZone,
+  };
+  try {
+    const gl = document.createElement("canvas").getContext("webgl");
+    const k = gl && gl.getExtension("WEBGL_debug_renderer_info");
+    if (k) b.gpu = gl.getParameter(k.UNMASKED_RENDERER_WEBGL);
+  } catch {
+    // video karta nomisiz ham ishlaydi
+  }
+  try {
+    const h = await navigator.userAgentData?.getHighEntropyValues?.(["model"]);
+    if (h?.model) b.model = h.model;
+  } catch {
+    // faqat Chromium brauzerlarida bor
+  }
+  return b;
+}
+
 // 2026-07-30 bug: PARALLEL_SAHIFA_SONI kabi bir vaqtda bir nechta so'rov
 // ketganda, access token muddati tugagan payt HAMMASI bir vaqtda 401 oladi
 // va har biri MUSTAQIL refresh chaqirardi — backendda ROTATE_REFRESH_TOKENS +
@@ -117,6 +143,16 @@ async function refreshQil() {
   return refreshVadasi;
 }
 
+// 2026-10-20: admin qurilmani o'chirgan/almashtirgan bo'lsa — kirish oynasi sababini aytadi.
+async function chiqishSababiniYoz(res) {
+  const sabab = await res.clone().json().catch(() => null);
+  try {
+    if (sabab?.kod === "qurilma_ochirildi") sessionStorage.setItem("chiqish_sababi", "qurilma");
+  } catch {
+    // sessionStorage yopiq bo'lsa ham chiqish davom etadi
+  }
+}
+
 export async function api(yol, options = {}) {
   const sorov = () =>
     fetch(apiManzil(yol), {
@@ -134,6 +170,7 @@ export async function api(yol, options = {}) {
     res = await sorov();
   }
   if (res.status === 401) {
+    await chiqishSababiniYoz(res);
     tokenlarniTozala();
     window.location.href = "/login";
     throw new Error("401");
@@ -183,6 +220,7 @@ export async function apiFayluniYuklab(yol) {
     res = await sorov();
   }
   if (res.status === 401) {
+    await chiqishSababiniYoz(res);
     tokenlarniTozala();
     window.location.href = "/login";
     throw new Error("401");
@@ -245,6 +283,7 @@ export async function apiForm(yol, { method = "POST", formData } = {}) {
     res = await sorov();
   }
   if (res.status === 401) {
+    await chiqishSababiniYoz(res);
     tokenlarniTozala();
     window.location.href = "/login";
     throw new Error("401");

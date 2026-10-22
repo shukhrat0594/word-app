@@ -11,7 +11,7 @@ from django.test import override_settings
 from PIL import Image
 
 from courses.models import KursTugun, KursZipJarayoni
-from crm.test_api import ApiAsos
+from courses.test_asos import KursApiAsos
 
 TMP_MEDIA = tempfile.mkdtemp()
 
@@ -34,7 +34,7 @@ def _mashq(raqam):
 
 
 @override_settings(MEDIA_ROOT=TMP_MEDIA)
-class TestPdfYuklashTest(ApiAsos):
+class TestPdfYuklashTest(KursApiAsos):
     @classmethod
     def tearDownClass(cls):
         super().tearDownClass()

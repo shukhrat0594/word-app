@@ -106,8 +106,14 @@ class RolAmalKalitiTest(Yordamchi):
         self.assertNotIn("lidlar.bolim", r)
 
     def test_bolim_kaliti_hali_ham_hamma_amalni_beradi(self):
+        from crm.ruxsatlar import RUXSAT_DARAXTI
+
         rol = self.rol_saqla(["moliya"])
-        self.assertEqual(rol.ruxsatlar, ["moliya.hisob", "moliya.qaytarish", "moliya.tolov"])
+        # Kutilgan ro'yxat daraxtdan: bo'limga yangi amal qo'shilsa (2026-10-12
+        # `moliya.tolov_tahrirlash`) u ham bo'lim kalitiga kiradi — `_kengaytir`.
+        amallar = next(bolalar for kalit, _, bolalar in RUXSAT_DARAXTI if kalit == "moliya")
+        self.assertEqual(rol.ruxsatlar, sorted(k for k, _ in amallar))
+        self.assertIn("moliya.tolov_tahrirlash", rol.ruxsatlar)
 
     def test_amalni_olib_tashlash_ishlaydi(self):
         rol = self.rol_saqla(["lidlar"])

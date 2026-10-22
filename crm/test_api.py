@@ -11,9 +11,8 @@ from decimal import Decimal
 
 from django.test import override_settings
 from rest_framework.test import APIClient
-from rest_framework_simplejwt.tokens import RefreshToken
-
 from accounts.models import User
+from accounts.tests import qurilmali_kalit
 from assessment.models import WritingTekshiruv
 from crm import mantiq
 from academics.models import Davomat, Guruh
@@ -43,7 +42,7 @@ class ApiAsos(CrmAsos):
     def mijoz(self, user=None):
         client = APIClient()
         if user is not None:
-            token = str(RefreshToken.for_user(user).access_token)
+            token = str(qurilmali_kalit(user).access_token)
             client.credentials(HTTP_AUTHORIZATION=f"Bearer {token}")
         return client
 
