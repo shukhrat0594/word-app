@@ -543,6 +543,7 @@ URINISHLAR = 2
 # chegarasiga yaqinlashib qolardi.
 VAQTINCHALIK_URINISHLAR = 2
 VAQTINCHALIK_KUTISH_SONIYA = 2
+AI_BAND_XABARI = "AI xizmati hozir juda band — bir necha soniyadan so'ng qayta urinib ko'ring"
 
 
 def _vaqtinchalik_xatomi(e):
@@ -698,7 +699,8 @@ class GeminiProvider:
             http_options=types.HttpOptions(timeout=self.timeout_ms),
         )
         try:
-            response = client.models.generate_content(
+            # TZ 434: 503 UNAVAILABLE (model band) — o'tkinchi, qayta uriladi
+            response = _chaqir_qayta_urinib(lambda: client.models.generate_content(
                 model=self.model,
                 contents=[
                     types.Part.from_bytes(data=audio_bytes, mime_type=audio_mime),
@@ -706,12 +708,14 @@ class GeminiProvider:
                     "Return ONLY the raw transcript text, with no extra "
                     "commentary, labels, or formatting.",
                 ],
-            )
+            ))
         except Exception as e:
             if _limit_xatosimi(e):
                 raise ProviderXatosi(
                     "AI kunlik so'rov limiti tugadi — birozdan so'ng qayta urinib ko'ring"
                 ) from e
+            if _vaqtinchalik_xatomi(e):
+                raise ProviderXatosi(AI_BAND_XABARI) from e
             raise ProviderXatosi(f"Audio'ni transkripsiya qilishda xato: {e}") from e
         if not response.text or not response.text.strip():
             raise ProviderXatosi("AI audio'dan matn ajrata olmadi (ovoz tushunarsiz yoki bo'sh)")
@@ -761,6 +765,8 @@ class GeminiProvider:
                 raise ProviderXatosi(
                     "AI kunlik so'rov limiti tugadi — birozdan so'ng qayta urinib ko'ring"
                 ) from e
+            if _vaqtinchalik_xatomi(e):
+                raise ProviderXatosi(AI_BAND_XABARI) from e
             raise
         if not response.text or not response.text.strip():
             raise ProviderXatosi("AI bo'sh javob qaytardi — qayta urinib ko'ring")
