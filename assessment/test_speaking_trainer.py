@@ -9,7 +9,9 @@ from rest_framework.test import APIClient
 
 from accounts.models import Markaz, User
 
-from .providers import SPEAKING_TRAINER_PROMPT, TRAINER_BOSHLASH, GeminiProvider
+from .providers import (
+    AI_BAND_XABARI, SPEAKING_TRAINER_PROMPT, TRAINER_BOSHLASH, GeminiProvider, ProviderXatosi,
+)
 
 URL = "/api/speaking/trainer/"
 
@@ -54,6 +56,30 @@ class SpeakingTrainerTest(TestCase):
 
     def test_buzuq_json_rad(self):
         self.assertEqual(self.c.post(URL, {"xabarlar": "{buzuq"}).status_code, 400)
+
+    def test_transkripsiya_503_qayta_urinadi(self):
+        """TZ 434: 503 UNAVAILABLE (model band) — qayta uriladi."""
+        xato = Exception("503 UNAVAILABLE. high demand")
+        xato.code = 503
+        javob = mock.Mock(text=" Intermediate ")
+        client = mock.Mock()
+        client.models.generate_content.side_effect = [xato, javob]
+        with mock.patch("google.genai.Client", return_value=client), \
+                mock.patch("assessment.providers.time.sleep"):
+            matn = GeminiProvider("sinov-kalit").audio_transkripsiya_qil(b"RIFFsinov")
+        self.assertEqual(matn, "Intermediate")
+        self.assertEqual(client.models.generate_content.call_count, 2)
+
+    def test_transkripsiya_503_tushunarli_xabar(self):
+        xato = Exception("503 UNAVAILABLE. high demand")
+        xato.code = 503
+        client = mock.Mock()
+        client.models.generate_content.side_effect = xato
+        with mock.patch("google.genai.Client", return_value=client), \
+                mock.patch("assessment.providers.time.sleep"):
+            with self.assertRaises(ProviderXatosi) as ctx:
+                GeminiProvider("sinov-kalit").audio_transkripsiya_qil(b"RIFFsinov")
+        self.assertEqual(str(ctx.exception), AI_BAND_XABARI)
 
     def test_prompt_tz_bilan(self):
         self.assertTrue(SPEAKING_TRAINER_PROMPT.startswith("Act as an interactive English Speaking Coach"))
