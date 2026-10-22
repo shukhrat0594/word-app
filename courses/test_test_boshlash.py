@@ -6,7 +6,7 @@ faqat tanlangan guruh talabalariga ko'rinadi."""
 from academics.models import Guruh, GuruhAzoligi
 from accounts.models import User
 from courses.models import KursMashq, KursTugun
-from crm.test_api import ApiAsos
+from courses.test_asos import KursApiAsos
 
 
 def _idlar(tugun):
@@ -15,7 +15,7 @@ def _idlar(tugun):
         yield from _idlar(b)
 
 
-class TestBoshlashTest(ApiAsos):
+class TestBoshlashTest(KursApiAsos):
     def setUp(self):
         super().setUp()
         self.test = KursTugun.objects.create(
