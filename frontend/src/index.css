@@ -353,6 +353,12 @@ a.logo:hover .logo-nom { color: var(--sariq); }
 }
 .imtihon-part-tab .raqamlar button.javob-berilgan { background: var(--sariq); border-color: var(--sariq); color: var(--komir); }
 
+/* Writing: topshiriq (grafik) chapda, insho maydoni o'ngda; tor ekranda ustma-ust */
+.writing-yonma-yon { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; align-items: start; }
+.writing-yonma-yon > .karta { margin-bottom: 0 !important; }
+.writing-yonma-yon textarea { min-height: 420px; }
+@media (max-width: 900px) { .writing-yonma-yon { grid-template-columns: minmax(0, 1fr); } }
+
 /* Vaqt tugaganda: hali natija kelmagan (submit/tekshirish ketmoqda)
    oraliqda barcha input/tugmalar bloklansin — F5/VAQT TUGASHI ishi
    (2026-08-15). */
