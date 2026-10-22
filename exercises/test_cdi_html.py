@@ -157,6 +157,39 @@ class UmumiyAudioTest(TestCase):
         test = ImtihonTest.objects.get(name="CDI Listening — Library visit")
         self.assertEqual((test.qismlar.count(), len(self.kalitlar(test))), (2, 1))
 
+    def eski_usulda_test(self, nusxalar):
+        """2026-10-22 gacha bo'lgandek: har qismga alohida saqlangan audio."""
+        from django.core.files.base import ContentFile
+
+        from exercises.models import TestQismi
+
+        test = ImtihonTest.objects.create(name="Eski", bolim="listening", markaz=Markaz.objects.first())
+        for i, (nom, baytlar) in enumerate(nusxalar, start=1):
+            q = TestQismi.objects.create(test=test, tartib=i, savollar=[])
+            q.audio_fayl.save(nom, ContentFile(baytlar), save=True)
+        return test
+
+    def birlashtir(self):
+        import importlib
+
+        from django.apps import apps
+
+        importlib.import_module("exercises.migrations.0017_umumiy_audio_birlashtir").birlashtir(apps, None)
+
+    def test_migratsiya_mavjud_nusxalarni_birlashtiradi(self):
+        # Shuhrat: "mavjud test ham shunaqa ishlasin" — prod'dagi testni qayta yuklamasdan.
+        test = self.eski_usulda_test([("yozuv.mp3", b"bir xil audio")] * 4)
+        self.assertEqual(len(self.kalitlar(test)), 4)
+        self.birlashtir()
+        self.assertEqual(len(self.kalitlar(test)), 1)
+
+    def test_migratsiya_har_xil_yozuvlarga_tegmaydi(self):
+        har_xil = self.eski_usulda_test([("Track 1.mp3", b"a"), ("Track 2.mp3", b"b")])
+        hajmi_boshqa = self.eski_usulda_test([("yozuv.mp3", b"aaa"), ("yozuv.mp3", b"bbbb")])
+        self.birlashtir()
+        self.assertEqual(len(self.kalitlar(har_xil)), 2)
+        self.assertEqual(len(self.kalitlar(hajmi_boshqa)), 2)
+
     def test_zip_va_eksport_import_bitta_fayl(self):
         bufer = io.BytesIO()
         with zipfile.ZipFile(bufer, "w") as zf:
