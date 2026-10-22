@@ -447,10 +447,16 @@ def _fayllarni_taqsimla(qismlar, fayllar, maydon, birini_hammaga_bering=False):
         return
 
     if birini_hammaga_bering and len(nomlar) == 1:
+        # Bitta uzluksiz yozuv — fayl BIR MARTA saqlanadi, qolgan qismlar
+        # o'sha faylga ulanadi (bir xil `audio_kalit`). 2026-10-22 gacha har
+        # qismga alohida nusxa yozilardi: frontend ularni har xil audio deb,
+        # yozuvni har qismda boshidan boshlardi va 4 marta yuklardi.
         nom = nomlar[0]
-        malumot = fayllar[nom]
-        for qism in bosh_qismlar:
-            setattr(qism, maydon, ContentFile(malumot, name=nom))
+        birinchi, *qolganlar = bosh_qismlar
+        setattr(birinchi, maydon, ContentFile(fayllar[nom], name=nom))
+        birinchi.save()
+        for qism in qolganlar:
+            setattr(qism, maydon, getattr(birinchi, maydon).name)
             qism.save()
         return
 
@@ -909,6 +915,10 @@ class ImtihonImportView(APIView):
                 # ZIPdagi holat bilan aralashib ketardi (savollar ikki
                 # barobar, media mos kelmay qolardi).
                 test.qismlar.all().delete()
+                # ZIPdagi bitta fayl bir necha qismda bo'lsa (masalan butun
+                # Listening yozuvi to'rtala qismda) — bir marta saqlanadi,
+                # qolganlari o'sha faylga ulanadi (`_fayllarni_taqsimla` izohi).
+                saqlangan = {}
                 for i, q in enumerate(data.get("qismlar") or [], start=1):
                     qism = TestQismi(
                         test=test,
@@ -924,6 +934,9 @@ class ImtihonImportView(APIView):
                         kalit = q.get(maydon)
                         if not kalit:
                             continue
+                        if kalit in saqlangan:
+                            setattr(qism, maydon, saqlangan[kalit])
+                            continue
                         try:
                             tarkib = zf.read(kalit)
                         except KeyError:
@@ -931,6 +944,7 @@ class ImtihonImportView(APIView):
                         getattr(qism, maydon).save(
                             kalit.rsplit("/", 1)[-1], ContentFile(tarkib), save=False
                         )
+                        saqlangan[kalit] = getattr(qism, maydon).name
                     qism.save()
 
         logla(
