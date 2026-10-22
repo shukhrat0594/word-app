@@ -197,6 +197,8 @@ function RolOynasi({ rol, onYopish, onSaqlandi }) {
     return s;
   });
   const [ochiq, setOchiq] = useState(null);
+  const dashboard = daraxt.find((b) => b.kalit === "bosh_sahifa");
+  const [rolTab, setRolTab] = useState("dashboard");
   const [xato, setXato] = useState("");
   const [band, setBand] = useState(false);
 
@@ -238,8 +240,47 @@ function RolOynasi({ rol, onYopish, onSaqlandi }) {
           </label>
         </div>
         <h3>{t("joriy_ruxsatlar")}</h3>
+        {/* Bosh sahifa (Dashboard) — alohida tab: har kartochka/bo'lim
+            ochiq ro'yxat bo'lib ko'rinadi (TZ #490, 2026-10-22). */}
+        <div className="tablar">
+          {["dashboard", "bolimlar"].map((x) => (
+            <button key={x} type="button" className={rolTab === x ? "tab faol" : "tab"} onClick={() => setRolTab(x)}>
+              {t(`rol_tab_${x}`)}
+            </button>
+          ))}
+        </div>
+        {rolTab === "dashboard" && dashboard && (() => {
+          const bolaKalitlari = dashboard.bolalar.map((x) => x.kalit);
+          const nechta = bolaKalitlari.filter((k) => tanlangan.has(k)).length;
+          const hammasi = nechta === bolaKalitlari.length;
+          return (
+            <div className="ruxsat-daraxt">
+              <div className="ruxsat-bolim">
+                <div className="ruxsat-bolim-bosh">
+                  <label className="yonma">
+                    <input type="checkbox" checked={hammasi}
+                           ref={(el) => { if (el) el.indeterminate = nechta > 0 && !hammasi; }}
+                           onChange={(e) => almashtir(bolaKalitlari, e.target.checked)} />
+                    <b>{t("hammasi")}</b>
+                  </label>
+                  <span className="kichik">{nechta} {t("ta_korinadi")}</span>
+                </div>
+                <div className="ruxsat-bolalar">
+                  {dashboard.bolalar.map((x) => (
+                    <label key={x.kalit} className="yonma">
+                      <input type="checkbox" checked={tanlangan.has(x.kalit)}
+                             onChange={(e) => almashtir([x.kalit], e.target.checked)} />
+                      {x.nomi}
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+        {rolTab === "bolimlar" && (
         <div className="ruxsat-daraxt">
-          {daraxt.map((b) => {
+          {daraxt.filter((b) => b !== dashboard).map((b) => {
             const bolaKalitlari = b.bolalar.map((x) => x.kalit);
             const nechta = bolaKalitlari.filter((k) => tanlangan.has(k)).length;
             const hammasi = nechta === bolaKalitlari.length;
@@ -272,6 +313,7 @@ function RolOynasi({ rol, onYopish, onSaqlandi }) {
             );
           })}
         </div>
+        )}
         <p className="kichik">{t("jami")}: {bolimSoni} {t("ta_bolim")}, {komponentSoni} {t("ta_komponent")}</p>
         {xato && <div className="xato">{xato}</div>}
         <div className="oyna-tugmalar">
