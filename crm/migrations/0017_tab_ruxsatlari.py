@@ -9,9 +9,12 @@ from django.db import migrations
 YANGI = {
     "bosh_sahifa": ["bosh_sahifa.ketganlar"],
     "moliya": ["moliya.qarzdorlar", "moliya.tolovlar", "moliya.hisobot"],
-    "hisobotlar": ["hisobotlar.tolovlar", "hisobotlar.lidlar", "hisobotlar.ketganlar", "hisobotlar.bitiruvchilar"],
+    # `hisobotlar.dinamika` avval ham bor edi, lekin tekshirilmasdi — endi
+    # tab unga bog'landi, shuning uchun u ham beriladi (orqaga qaytarilmaydi).
+    "hisobotlar": ["hisobotlar.dinamika", "hisobotlar.tolovlar", "hisobotlar.lidlar", "hisobotlar.ketganlar",
+                   "hisobotlar.bitiruvchilar"],
 }
-HAMMASI = {k for v in YANGI.values() for k in v}
+HAMMASI = {k for v in YANGI.values() for k in v} - {"hisobotlar.dinamika"}
 
 
 def _bolimli(royxat, bolim):

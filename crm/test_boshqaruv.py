@@ -86,7 +86,8 @@ class RollarRuxsatTest(ApiAsos):
         mig.kochir(apps, None)
         eski.refresh_from_db()
         boshqa.refresh_from_db()
-        for k in ("moliya.qarzdorlar", "moliya.tolovlar", "moliya.hisobot", "hisobotlar.ketganlar"):
+        for k in ("moliya.qarzdorlar", "moliya.tolovlar", "moliya.hisobot", "hisobotlar.ketganlar",
+                  "hisobotlar.dinamika"):
             self.assertIn(k, eski.ruxsatlar)
         self.assertNotIn("bosh_sahifa.ketganlar", eski.ruxsatlar)
         self.assertEqual(boshqa.ruxsatlar, ["lidlar.excel"])
