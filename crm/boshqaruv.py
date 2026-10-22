@@ -2480,25 +2480,29 @@ class KorsatkichlarView(CrmView):
 
         return Response({
             "faol_lidlar": ruxsat("bosh_sahifa.faol_lidlar", lidlar.count()),
-            "guruhlar": guruhlar.count(),
+            "guruhlar": ruxsat("bosh_sahifa.guruhlar", guruhlar.count()),
             # Video-TZ (2026-10-16, Shuhrat): tepadagi karta — FAQAT joriy oy
             # qarzi (Moliya xulosasidagi oy qarzi bilan bir qoida), pastdagi
             # "Jami qarzdorlik" — barcha oylar balansi bo'yicha.
-            "qolgan_qarz": ruxsat("bosh_sahifa.qarzdorlar", sum(
+            "qolgan_qarz": ruxsat("bosh_sahifa.joriy_oy_qarzi", sum(
                 (q["qarz"] for q in _hisobot_qatorlari(oy=oy, filial_id=filial, user=u)), NOL)),
             "jami_qarz": ruxsat("bosh_sahifa.qarzdorlar", qarz_qs["summa"]),
             "qarzdorlar": ruxsat("bosh_sahifa.qarzdorlar", qarz_qs["soni"]),
             "faol_talabalar": ruxsat("bosh_sahifa.faol_talabalar", len(faol_talaba_idlar)),
-            "jami_guruhdagi": azoliklar.values("azolik__talaba_id").distinct().count(),
-            "sinov_darsida": azoliklar.filter(holat=AzolikMoliya.Holat.SINOV).count(),
+            "jami_guruhdagi": ruxsat("bosh_sahifa.jami_guruhdagi",
+                                     azoliklar.values("azolik__talaba_id").distinct().count()),
+            "sinov_darsida": ruxsat("bosh_sahifa.sinov_darsida",
+                                    azoliklar.filter(holat=AzolikMoliya.Holat.SINOV).count()),
             "ketganlar": ruxsat("bosh_sahifa.ketganlar", oy_ketgan.count()),
-            "oqituvchilar": oqituvchilar.count(),
-            "yangi_lidlar_bugun": ruxsat("bosh_sahifa.faol_lidlar", lidlar.filter(created_at__date=bugun).count()),
+            "oqituvchilar": ruxsat("bosh_sahifa.oqituvchilar", oqituvchilar.count()),
+            "yangi_lidlar_bugun": ruxsat("bosh_sahifa.yangi_lidlar_bugun",
+                                         lidlar.filter(created_at__date=bugun).count()),
             # SoffCRM "Yangi guruhga qabul" — yig'ilayotgan guruhlarga navbatdagi lidlar.
             "yangi_guruhga_qabul": ruxsat(
-                "bosh_sahifa.faol_lidlar", lidlar.filter(yigilayotgan_guruh__isnull=False).count()
+                "bosh_sahifa.yangi_guruhga_qabul", lidlar.filter(yigilayotgan_guruh__isnull=False).count()
             ),
-            "muzlatilgan": azoliklar.filter(holat=AzolikMoliya.Holat.MUZLATILGAN).count(),
+            "muzlatilgan": ruxsat("bosh_sahifa.muzlatilgan",
+                                  azoliklar.filter(holat=AzolikMoliya.Holat.MUZLATILGAN).count()),
             "tushum": tushum,
             "markaz_foydaliligi": foydalilik,
         })

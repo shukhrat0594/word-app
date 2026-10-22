@@ -117,8 +117,10 @@ export default function BoshSahifa() {
 
   // Har bo'lim o'z ruxsatiga bo'ysunadi (video-TZ): kassir moliyani,
   // marketolog faqat lid sonlarini ko'radi. Ruxsatsiz so'rov yuborilmaydi.
-  const hisobot = useSorov(ruxsat("hisobotlar")
-    ? "/api/crm/hisobot/" + sorovSatri({ oy, filial: tanlangan, _: yangilash || "" }) : null);
+  // Moliya bloki — alohida `bosh_sahifa.moliya` ruxsati ham kerak (TZ #490).
+  const moliyaKorinadi = ruxsat("hisobotlar") && ruxsat("bosh_sahifa.moliya");
+  const hisobot = useSorov(moliyaKorinadi
+    ?"/api/crm/hisobot/" + sorovSatri({ oy, filial: tanlangan, _: yangilash || "" }) : null);
 
   const jami = hisobot.malumot?.jami;
   // Kartochkalar va pastdagi "Jami qarzdorlik" — bitta so'rovdan.
@@ -140,7 +142,7 @@ export default function BoshSahifa() {
       <VaqtiKelganEslatmalar />
 
       {/* Moliya — alohida bo'lim (2026-09-20, admin talabi). */}
-      {ruxsat("hisobotlar") && (
+      {moliyaKorinadi && (
       <div className="karta">
         <div className="karta-sarlavha">
           <h2>{t("moliya_xulosasi")} — {oyNomi(oy, til)}</h2>

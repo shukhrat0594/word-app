@@ -13,14 +13,24 @@ from accounts.permissions import owner_mi
 
 # (kalit, nomi, [(kichik_kalit, nomi), ...]) — tartib interfeysdagi tartib.
 RUXSAT_DARAXTI = [
+    # Har kartochka va bo'lim alohida (TZ #490, 2026-10-22): rol oynasida
+    # alohida "Bosh sahifa" tabida; migratsiya 0018 mavjud rollarga beradi.
     ("bosh_sahifa", "Bosh sahifa", [
         ("bosh_sahifa.faol_lidlar", "Faol lidlar"),
-        ("bosh_sahifa.faol_talabalar", "Faol talabalar"),
-        ("bosh_sahifa.markaz_foydaliligi", "Markaz foydaliligi"),
+        ("bosh_sahifa.guruhlar", "Guruhlar"),
+        ("bosh_sahifa.joriy_oy_qarzi", "Joriy oy qarzi"),
         ("bosh_sahifa.qarzdorlar", "Qarzdorlar"),
-        ("bosh_sahifa.moliya", "Moliya ko'rsatkichlari"),
-        ("bosh_sahifa.dars_jadvali", "Dars jadvali"),
+        ("bosh_sahifa.faol_talabalar", "Faol talabalar"),
+        ("bosh_sahifa.jami_guruhdagi", "Jami guruhdagi o'quvchilar"),
+        ("bosh_sahifa.sinov_darsida", "Sinov darsida"),
         ("bosh_sahifa.ketganlar", "Shu oy ketganlar"),
+        ("bosh_sahifa.oqituvchilar", "O'qituvchilar"),
+        ("bosh_sahifa.muzlatilgan", "Muzlatilgan"),
+        ("bosh_sahifa.yangi_lidlar_bugun", "Bugungi lidlar"),
+        ("bosh_sahifa.yangi_guruhga_qabul", "Yangi guruhga qabul"),
+        ("bosh_sahifa.markaz_foydaliligi", "Markaz foydaliligi"),
+        ("bosh_sahifa.moliya", "Moliya bo'limi"),
+        ("bosh_sahifa.dars_jadvali", "Dars jadvali"),
     ]),
     ("lidlar", "Lidlar", [
         ("lidlar.qoshish", "Yangi qo'shish"),
