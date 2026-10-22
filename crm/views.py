@@ -313,6 +313,18 @@ def _tolov_dict(t):
     }
 
 
+def _balansi_qarzlilar(hisoblar, balanslar):
+    """`?qarzli=1` — faqat balansi MANFIY o'quvchilarning hisoblari.
+
+    Matn-TZ #465 (2026-10-22): to'liq chegirmali (tekin o'qiydigan)
+    o'quvchining chegirmasi oyga bog'lanmagan bo'lsa, oy hisobi "qarzdor"
+    bo'lib qolardi, balansi esa 0 — ro'yxatga va "Jami qarzdorlik"ka
+    soxta qarz tushardi. Qoida bosh sahifa bilan bir xil
+    (`boshqaruv.mantiq_qarzdorlar`: balans < 0 — qarzdor). Talabasi
+    o'chirilgan hisob (balansi yo'q) qoladi."""
+    return [h for h in hisoblar if not h.talaba_id or balanslar.get(h.talaba_id, NOL) < 0]
+
+
 def _tolangan_bilan(qs):
     """`Hisob` so'roviga "to'langan" ustunini qo'shadi — N+1'dan qochish."""
     return qs.annotate(
@@ -1403,6 +1415,8 @@ class HisoblarView(CrmView):
         hisoblar = list(qs[:1000])
         balanslar = mantiq.balanslarni_ol({h.talaba_id for h in hisoblar if h.talaba_id},
                                           *balans_doirasi(request.user, request.query_params.get("filial")))
+        if request.query_params.get("qarzli"):
+            hisoblar = _balansi_qarzlilar(hisoblar, balanslar)
         return Response(
             [
                 _hisob_dict(h, tolangan=h.tolangan, balans=balanslar.get(h.talaba_id))
@@ -2430,8 +2444,13 @@ class EksportView(CrmView):
             hisoblar_qs = hisoblar_qs.filter(talaba_id=request.query_params["talaba"])
             tolovlar_qs = tolovlar_qs.filter(talaba_id=request.query_params["talaba"])
 
+        hisoblar = list(hisoblar_qs[:5000])
+        if request.query_params.get("qarzli"):
+            balanslar = mantiq.balanslarni_ol({h.talaba_id for h in hisoblar if h.talaba_id},
+                                              *balans_doirasi(request.user, filial_id))
+            hisoblar = _balansi_qarzlilar(hisoblar, balanslar)
         kitob = eksport.qarzdorlar_kitobi(
-            hisoblar=[_hisob_dict(h, tolangan=h.tolangan) for h in hisoblar_qs[:5000]],
+            hisoblar=[_hisob_dict(h, tolangan=h.tolangan) for h in hisoblar],
             hisobot_qatorlari=_hisobot_qatorlari(oy=oy, filial_id=filial_id, user=request.user),
             tolovlar=[_tolov_dict(t) for t in tolovlar_qs[:5000]],
         )
