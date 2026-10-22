@@ -633,13 +633,14 @@ class KetganlarHisobotiView(CrmView):
     Bosh sahifadagi "Shu oy ketganlar" kartochkasi shu hisobotga olib
     boradi — kartochkani ko'rgan (`bosh_sahifa`) xodim "Hisobotlar"
     ruxsati bo'lmasa ham ro'yxatni ko'radi (TZ #441, 2026-10-22).
+    Kartochka va tablar alohida ruxsat (TZ #477).
     """
 
-    bolim = "hisobotlar"
+    bolim = "hisobotlar.ketganlar"
 
     def check_permissions(self, request):
         # Mehmonda `ruxsatlar()` bo'sh — autentifikatsiya baribir talab qilinadi.
-        if request.method == "GET" and "bosh_sahifa" in ruxsatlar(request.user):
+        if request.method == "GET" and "bosh_sahifa.ketganlar" in ruxsatlar(request.user):
             return
         super().check_permissions(request)
 
@@ -734,7 +735,7 @@ class LidlarHisobotiView(CrmView):
     """"Lidlar hisoboti" — davrda kelgan lidlar manba va holat bo'yicha,
     nechtasi o'quvchiga aylangani (konversiya)."""
 
-    bolim = "hisobotlar"
+    bolim = "hisobotlar.lidlar"
 
     def get(self, request):
         try:
@@ -820,7 +821,7 @@ class TolovlarHisobotiView(CrmView):
     """"To'lovlar hisoboti" — davrdagi to'lovlar to'lov usuli va kun
     bo'yicha, qaytarishlar alohida."""
 
-    bolim = "hisobotlar"
+    bolim = "hisobotlar.tolovlar"
 
     def get(self, request):
         try:
@@ -887,7 +888,7 @@ class BitiruvchilarHisobotiView(CrmView):
     """"Bitiruvchilar hisoboti" — davrda tugagan guruhlar va ularning
     o'quvchilari."""
 
-    bolim = "hisobotlar"
+    bolim = "hisobotlar.bitiruvchilar"
 
     def get(self, request):
         try:
@@ -916,6 +917,9 @@ class HisobotlarDavrView(CrmView):
 
     def get(self, request):
         turi = request.query_params.get("turi")
+        # Tab ruxsati yo'q bo'lsa — uning Excel'i ham yo'q (TZ #477).
+        if turi in ("ketganlar", "lidlar", "tolovlar") and f"hisobotlar.{turi}" not in ruxsatlar(request.user):
+            return _xato("Bu hisobotga ruxsat yo'q", kod=403)
         if turi == "ketganlar":
             d = KetganlarHisobotiView().get(request).data
             return _excel("Ketganlar", ["O'quvchi", "Guruh", "Kurs", "O'qituvchi", "Filial", "Chegirma", "Boshlagan",
