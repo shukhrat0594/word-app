@@ -415,6 +415,9 @@ export default function ImtihonYozGap({ bolim, manba = "admin", testId, mockYech
               ⏱ {t("vaqt_tugadi_yuborilmoqda")}
             </div>
           )}
+          {/* Foydalanuvchi talabi (2026-10-22): Writing'da grafik chapda,
+              insho maydoni o'ngda yonma-yon (javob yozilayotganda). */}
+          <div className={bolim === "writing" && !qismNatija ? "writing-yonma-yon" : ""}>
           <div className="karta" style={{ marginBottom: 14 }}>
             <h4>{qism.sarlavha || TASK_NOMI[qism.tur]}</h4>
             <div className="mashq-passage">{haqiqiyMatnniOl(qism.matn)}</div>
@@ -491,6 +494,7 @@ export default function ImtihonYozGap({ bolim, manba = "admin", testId, mockYech
               {xato && <div className="xato-xabar" style={{ marginTop: 10 }}>{xato}</div>}
             </div>
           )}
+          </div>
         </div>
         {/* Vaqt tugab (Mock ichida) avtomatik yakunlangach — imtihon
             oynasi bloklanadi, "Keyingisi" (30s) oynasi ochiladi
