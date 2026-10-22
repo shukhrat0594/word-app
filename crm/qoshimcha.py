@@ -629,9 +629,19 @@ class KetganlarHisobotiView(CrmView):
 
     Filtrlar: `q` (ism), `kurs`, `guruh`, `oqituvchi`, `sabab_turi`, `chegirma` (1/0),
     `muddat` (yangi — 30 kundan kam o'qib ketgan / eski).
+
+    Bosh sahifadagi "Shu oy ketganlar" kartochkasi shu hisobotga olib
+    boradi — kartochkani ko'rgan (`bosh_sahifa`) xodim "Hisobotlar"
+    ruxsati bo'lmasa ham ro'yxatni ko'radi (TZ #441, 2026-10-22).
     """
 
     bolim = "hisobotlar"
+
+    def check_permissions(self, request):
+        # Mehmonda `ruxsatlar()` bo'sh — autentifikatsiya baribir talab qilinadi.
+        if request.method == "GET" and "bosh_sahifa" in ruxsatlar(request.user):
+            return
+        super().check_permissions(request)
 
     def get(self, request):
         try:

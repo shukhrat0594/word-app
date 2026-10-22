@@ -43,6 +43,17 @@ class RollarRuxsatTest(ApiAsos):
         self.assertIn("lidlar.excel", men)  # bo'lim berilsa — amallari ham
         self.assertNotIn("hisobotlar.excel", men)  # faqat bitta amal berilgan
 
+    def test_bosh_sahifadan_ketganlar_hisoboti_ochiladi(self):
+        # TZ #441: "Shu oy ketganlar" kartochkasi — "Hisobotlar" ruxsatisiz ham ochiladi.
+        rol = CrmRol.objects.create(nomi="SINOV admin", ruxsatlar=["bosh_sahifa", "lidlar"])
+        m = self.mijoz(self.xodim("boshqa", rol))
+        self.assertEqual(m.get("/api/crm/hisobot/ketganlar/?dan=2026-09-01&gacha=2026-09-30").status_code, 200)
+        self.assertEqual(m.get("/api/crm/hisobot/").status_code, 403)  # qolgan hisobotlar yopiq
+        # Bosh sahifa ruxsati yo'q xodimga — yopiq.
+        rol2 = CrmRol.objects.create(nomi="SINOV lid", ruxsatlar=["lidlar"])
+        m2 = self.mijoz(self.xodim("marketolog", rol2))
+        self.assertEqual(m2.get("/api/crm/hisobot/ketganlar/?dan=2026-09-01&gacha=2026-09-30").status_code, 403)
+
     def test_oqituvchi_crmga_kirmaydi(self):
         self.assertEqual(self.mijoz(self.xodim("oqituvchi")).get("/api/crm/men/").status_code, 403)
 
