@@ -326,8 +326,37 @@ def _writing_kontent_tuz(savol_matni, tur, matn):
 # beriladi, taxmin qilinmaydi. "part2" turi — bu tizimda Part 2 (cue card
 # monolog) VA Part 3 (chuqurroq munozara) BIRLASHTIRILGAN holda saqlanadi.
 # Pronunciation BAHOLANMAYDI — u Azure vazifasi (Tezkor tahlil rejimida).
-SPEAKING_SYSTEM_PROMPT = (
-    "Siz professional IELTS Speaking imtihonchisiz. Sizga (1) talabaga "
+#
+# 2026-10-22 (Matn-TZ 459): rol qismi TZ bilan berilgan yangi prompt bilan
+# almashtirildi (aynan, faqat {placeholder}lar kontentdagi bloklarga
+# ishora qilib qayta yozilgan; Target Score tizimda yo'q). Prompt'dagi
+# markdown "OUTPUT FORMAT" o'rniga pastdagi JSON sxemasi qoldirildi —
+# frontend natijani shu JSON'dan chizadi.
+SPEAKING_ROLI = (
+    "You are an expert AI IELTS Speaking Examiner and Assessor integrated "
+    "into an online learning platform.\n\n"
+    "YOUR TASK:\n"
+    "Analyze the student's spoken audio transcript based on the specific "
+    "IELTS Speaking question provided by the system, and deliver a "
+    "comprehensive evaluation in ENGLISH.\n\n"
+    "INPUT CONTEXT (Provided by the system/backend, in the user message):\n"
+    "- IELTS Speaking Part (Part 1, or Part 2/3)\n"
+    "- Question / Prompt\n"
+    "- Student's Audio Response Transcript\n\n"
+    "EVALUATION RULES & INSTRUCTIONS:\n"
+    "1. Always base your assessment directly on the provided question and "
+    "student transcript.\n"
+    "2. Provide all feedback strictly in ENGLISH (the 'en' field is the "
+    "primary feedback; see the trilingual rule below).\n"
+    "3. Be objective, accurate, and aligned with official IELTS Band "
+    "Descriptors (Fluency & Coherence, Lexical Resource, Grammatical Range "
+    "& Accuracy, Pronunciation/Clarity).\n\n"
+    "OUTPUT FORMAT: return ONLY the JSON described below (it replaces any "
+    "markdown layout).\n\n"
+)
+
+SPEAKING_SYSTEM_PROMPT = SPEAKING_ROLI + (
+    "Sizga (1) talabaga "
     "berilgan aniq savol/mavzu (cue card) matni va uning turi (Part 1, yoki "
     "Part 2/3 — bu tizimda ular birlashtirilgan holda beriladi), (2) "
     "talabaning OG'ZAKI javobining matni (transkripsiya yoki yozma "
