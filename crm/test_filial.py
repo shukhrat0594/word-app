@@ -5,6 +5,7 @@ xodim — cheklovsiz; filiali yo'q ma'lumot hammaga ko'rinadi."""
 from datetime import date
 from decimal import Decimal
 
+from django.db.models import Sum
 from django.test import TransactionTestCase, override_settings
 from django.urls import reverse
 
@@ -373,7 +374,10 @@ class IkkiFilialliTalabaTest(FilialAsos):
     def test_karta_boshqa_filial_tolovini_korsatmaydi_balans_umumiy_belgi_bilan(self):
         d = self.mijoz(self.admin_a).get(f"/api/crm/talaba/{self.tb.id}/").data
         self.assertNotIn(self.tolov_b.id, [t["id"] for t in d["tolovlar"]])
-        self.assertEqual(d["balans_jami"], Decimal("-560000"))  # umumiy (qaror)
+        # A guruhdagi a'zolik saytda qo'shilgan — unga ham hisob ochiladi (TZ 414/417).
+        a_hisob = Hisob.objects.filter(talaba=self.tb, guruh=self.guruh).aggregate(s=Sum("summa"))["s"]
+        self.assertTrue(a_hisob)
+        self.assertEqual(d["balans_jami"], Decimal("-560000") - a_hisob)  # umumiy (qaror)
         self.assertTrue(d["boshqa_filialda"])
         self.assertFalse(self.mijoz(self.owner).get(f"/api/crm/talaba/{self.tb.id}/").data["boshqa_filialda"])
 

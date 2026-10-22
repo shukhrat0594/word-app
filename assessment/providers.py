@@ -326,8 +326,37 @@ def _writing_kontent_tuz(savol_matni, tur, matn):
 # beriladi, taxmin qilinmaydi. "part2" turi — bu tizimda Part 2 (cue card
 # monolog) VA Part 3 (chuqurroq munozara) BIRLASHTIRILGAN holda saqlanadi.
 # Pronunciation BAHOLANMAYDI — u Azure vazifasi (Tezkor tahlil rejimida).
-SPEAKING_SYSTEM_PROMPT = (
-    "Siz professional IELTS Speaking imtihonchisiz. Sizga (1) talabaga "
+#
+# 2026-10-22 (Matn-TZ 459): rol qismi TZ bilan berilgan yangi prompt bilan
+# almashtirildi (aynan, faqat {placeholder}lar kontentdagi bloklarga
+# ishora qilib qayta yozilgan; Target Score tizimda yo'q). Prompt'dagi
+# markdown "OUTPUT FORMAT" o'rniga pastdagi JSON sxemasi qoldirildi —
+# frontend natijani shu JSON'dan chizadi.
+SPEAKING_ROLI = (
+    "You are an expert AI IELTS Speaking Examiner and Assessor integrated "
+    "into an online learning platform.\n\n"
+    "YOUR TASK:\n"
+    "Analyze the student's spoken audio transcript based on the specific "
+    "IELTS Speaking question provided by the system, and deliver a "
+    "comprehensive evaluation in ENGLISH.\n\n"
+    "INPUT CONTEXT (Provided by the system/backend, in the user message):\n"
+    "- IELTS Speaking Part (Part 1, or Part 2/3)\n"
+    "- Question / Prompt\n"
+    "- Student's Audio Response Transcript\n\n"
+    "EVALUATION RULES & INSTRUCTIONS:\n"
+    "1. Always base your assessment directly on the provided question and "
+    "student transcript.\n"
+    "2. Provide all feedback strictly in ENGLISH (the 'en' field is the "
+    "primary feedback; see the trilingual rule below).\n"
+    "3. Be objective, accurate, and aligned with official IELTS Band "
+    "Descriptors (Fluency & Coherence, Lexical Resource, Grammatical Range "
+    "& Accuracy, Pronunciation/Clarity).\n\n"
+    "OUTPUT FORMAT: return ONLY the JSON described below (it replaces any "
+    "markdown layout).\n\n"
+)
+
+SPEAKING_SYSTEM_PROMPT = SPEAKING_ROLI + (
+    "Sizga (1) talabaga "
     "berilgan aniq savol/mavzu (cue card) matni va uning turi (Part 1, yoki "
     "Part 2/3 — bu tizimda ular birlashtirilgan holda beriladi), (2) "
     "talabaning OG'ZAKI javobining matni (transkripsiya yoki yozma "
@@ -425,6 +454,52 @@ def _speaking_kontent_tuz(savol_matni, tur, matn):
     )
 
 
+# AI Speaking Trainer (2026-10-20, TZ 421) — prompt TZ'dan AYNAN ko'chirilgan.
+SPEAKING_TRAINER_PROMPT = """Act as an interactive English Speaking Coach for students of various levels.
+
+SETUP & INITIAL STEP:
+First, ask me: "What is your English level? (e.g., Beginner, Elementary, Pre-Intermediate, Intermediate, Upper-Intermediate, Advanced)".
+Wait for my response before moving to the exercise.
+
+RULES FOR THE EXERCISE:
+1. QUESTION GENERATION:
+   - Once I provide my English level, generate ONLY ONE engaging speaking question written in clear English.
+   - Adjust the vocabulary, grammar complexity, and topic strictly according to my specified level.
+   - For example:
+     * Beginner (A1): Simple daily routines, family, hobbies using basic present simple tense.
+     * Pre-Intermediate (A2-B1): Past experiences, future plans, opinions on simple everyday topics.
+     * Upper-Intermediate/Advanced (B2-C1): Complex abstract concepts, debates, multi-layered opinion questions.
+   - Present the question in text format so I can read it.
+
+2. STUDENT RESPONSE:
+   - I will answer your question orally using Voice Mode (or audio speech-to-text).
+
+3. ANALYSIS & FEEDBACK (STRICT LANGUAGE REQUIREMENT):
+   - After receiving my spoken answer, analyze my fluency, grammar, vocabulary, and sentence structure.
+   - Provide comprehensive feedback written strictly in UZBEK and RUSSIAN (do not give the main feedback in English).
+
+   Structure your feedback clearly using this template:
+
+   📌 [UZBEK FEEDBACK / OʻZBEKChA TAHLIL]
+   - 🌟 Kuchli tomonlar: (Oʻquvchi nimani toʻgʻri va yaxshi aytdi)
+   - 🛠 Tuzatishlar: (Grammatik yoki soʻz qoʻllashdagi xatolar va ularning toʻgʻri varianti)
+   - 💡 Yaxshiroq variant: (Oʻquvchining fikrini yanada chiroyli ifodalash uchun namuna gap)
+
+   📌 [RUSSIAN FEEDBACK / АНАЛИЗ НА РУССКОМ]
+   - 🌟 Сильные стороны: (Что студенту удалось сказать правильно и хорошо)
+   - 🛠 Исправления: (Грамматические и лексические ошибки и их правильные варианты)
+   - 💡 Улучшенный вариант: (Пример того, как можно выразить эту мысль более грамотно)
+
+4. NEXT QUESTION:
+   - After providing the feedback, present the NEXT single written question adapted to my level to continue our practice.
+
+Start now by asking me my English level."""
+
+# Suhbatni boshlash uchun birinchi "foydalanuvchi" xabari (Gemini birinchi
+# navbatni user'dan kutadi) — talabaga ko'rsatilmaydi.
+TRAINER_BOSHLASH = "Start."
+
+
 def javobni_parse_qil(raw_text):
     """AI javobidan JSON ajratadi (```json ... ``` o'ramini olib tashlab).
 
@@ -497,6 +572,7 @@ URINISHLAR = 2
 # chegarasiga yaqinlashib qolardi.
 VAQTINCHALIK_URINISHLAR = 2
 VAQTINCHALIK_KUTISH_SONIYA = 2
+AI_BAND_XABARI = "AI xizmati hozir juda band — bir necha soniyadan so'ng qayta urinib ko'ring"
 
 
 def _vaqtinchalik_xatomi(e):
@@ -652,7 +728,8 @@ class GeminiProvider:
             http_options=types.HttpOptions(timeout=self.timeout_ms),
         )
         try:
-            response = client.models.generate_content(
+            # TZ 434: 503 UNAVAILABLE (model band) — o'tkinchi, qayta uriladi
+            response = _chaqir_qayta_urinib(lambda: client.models.generate_content(
                 model=self.model,
                 contents=[
                     types.Part.from_bytes(data=audio_bytes, mime_type=audio_mime),
@@ -660,12 +737,14 @@ class GeminiProvider:
                     "Return ONLY the raw transcript text, with no extra "
                     "commentary, labels, or formatting.",
                 ],
-            )
+            ))
         except Exception as e:
             if _limit_xatosimi(e):
                 raise ProviderXatosi(
                     "AI kunlik so'rov limiti tugadi — birozdan so'ng qayta urinib ko'ring"
                 ) from e
+            if _vaqtinchalik_xatomi(e):
+                raise ProviderXatosi(AI_BAND_XABARI) from e
             raise ProviderXatosi(f"Audio'ni transkripsiya qilishda xato: {e}") from e
         if not response.text or not response.text.strip():
             raise ProviderXatosi("AI audio'dan matn ajrata olmadi (ovoz tushunarsiz yoki bo'sh)")
@@ -684,6 +763,43 @@ class GeminiProvider:
         baho = self.speaking_matn_baholash(transkript, savol_matni=savol_matni, tur=tur)
         baho["transkript"] = transkript
         return baho
+
+    def trainer_javob(self, xabarlar):
+        """AI Speaking Trainer (2026-10-20, TZ 421): suhbat tarixi
+        (`[{"rol": "user"|"model", "matn": ...}]`) -> murabbiyning keyingi
+        javobi (sof matn, JSON emas). Holat saqlanmaydi — tarixni frontend
+        har safar to'liq yuboradi."""
+        from google import genai
+        from google.genai import types
+
+        client = genai.Client(
+            api_key=self.api_key,
+            http_options=types.HttpOptions(timeout=self.timeout_ms),
+        )
+        contents = [
+            types.Content(role=x["rol"], parts=[types.Part(text=x["matn"])])
+            for x in xabarlar
+        ]
+        try:
+            response = _chaqir_qayta_urinib(lambda: client.models.generate_content(
+                model=self.model,
+                contents=contents,
+                config=types.GenerateContentConfig(
+                    system_instruction=SPEAKING_TRAINER_PROMPT,
+                    max_output_tokens=MAX_OUTPUT_TOKENS,
+                ),
+            ))
+        except Exception as e:
+            if _limit_xatosimi(e):
+                raise ProviderXatosi(
+                    "AI kunlik so'rov limiti tugadi — birozdan so'ng qayta urinib ko'ring"
+                ) from e
+            if _vaqtinchalik_xatomi(e):
+                raise ProviderXatosi(AI_BAND_XABARI) from e
+            raise
+        if not response.text or not response.text.strip():
+            raise ProviderXatosi("AI bo'sh javob qaytardi — qayta urinib ko'ring")
+        return response.text.strip()
 
     def tez_nusxa(self):
         """Qo'shimcha xato qidiruvi bosqichlari uchun TEZ model (2026-10-05): asosiy baholash

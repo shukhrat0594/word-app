@@ -230,9 +230,11 @@ function KetishHisoboti() {
               <span className="kichik">{t("ketish_koeffitsienti")}</span><b className="rang-qarzdor">{d.koeffitsient}%</b>
             </div>
             <div className="katak"><span className="kichik">{t("ketganlar_soni")}</span><b>{d.soni}</b></div>
-            <div className="katak" title={t("yoqotilgan_daromad_izoh")}>
-              <span className="kichik">{t("yoqotilgan_daromad")}</span><b className="rang-qarzdor">{pul(d.yoqotilgan_daromad)}</b>
-            </div>
+            {d.yoqotilgan_daromad !== null && (
+              <div className="katak" title={t("yoqotilgan_daromad_izoh")}>
+                <span className="kichik">{t("yoqotilgan_daromad")}</span><b className="rang-qarzdor">{pul(d.yoqotilgan_daromad)}</b>
+              </div>
+            )}
             <div className="katak" title={t("ortacha_umr_izoh")}>
               <span className="kichik">{t("ortacha_umr")}</span>
               <b>{d.ortacha_umr_oy !== null ? `${d.ortacha_umr_oy} ${t("oy")}` : "—"}</b>

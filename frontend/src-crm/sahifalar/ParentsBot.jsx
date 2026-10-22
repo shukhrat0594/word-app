@@ -26,7 +26,11 @@ function TalabaQatori({ x }) {
 
 function SorovKartasi({ s, onHal, ruxsatUlash }) {
   const { t } = useI18n();
-  const [tanlangan, setTanlangan] = useState(s.nomzodlar.length === 1 ? s.nomzodlar[0].id : null);
+  // Bir ota-onaning bir nechta farzandi bo'lishi mumkin — bir nechtasini belgilash mumkin
+  // (qidiruvdan belgilanganlar qidiruv o'zgarganda ham ro'yxatda ko'rinib turishi uchun obyekt saqlanadi)
+  const [tanlangan, setTanlangan] = useState(s.nomzodlar.length === 1 ? [s.nomzodlar[0]] : []);
+  const belgilanganmi = (id) => tanlangan.some((y) => y.id === id);
+  const almashtir = (x) => setTanlangan((v) => (v.some((y) => y.id === x.id) ? v.filter((y) => y.id !== x.id) : [...v, x]));
   const [qidiruv, setQidiruv] = useState("");
   const [topilgan, setTopilgan] = useState([]);
   const [xato, setXato] = useState("");
@@ -51,7 +55,7 @@ function SorovKartasi({ s, onHal, ruxsatUlash }) {
     setBand(true);
     try {
       await api(`/api/crm/parentsbot/sorovlar/${s.id}/hal/`, {
-        method: "POST", body: amal === "ulash" ? { amal, talaba_id: tanlangan } : { amal },
+        method: "POST", body: amal === "ulash" ? { amal, talaba_idlar: tanlangan.map((y) => y.id) } : { amal },
       });
       onHal();
     } catch (e) {
@@ -61,7 +65,8 @@ function SorovKartasi({ s, onHal, ruxsatUlash }) {
     }
   }
 
-  const royxat = [...s.nomzodlar, ...topilgan.filter((x) => !s.nomzodlar.some((n) => n.id === x.id))];
+  const royxat = [...s.nomzodlar];
+  for (const x of [...tanlangan, ...topilgan]) if (!royxat.some((n) => n.id === x.id)) royxat.push(x);
   return (
     <div className="karta ob-sorov">
       <div className="ob-sorov-bosh">
@@ -79,7 +84,7 @@ function SorovKartasi({ s, onHal, ruxsatUlash }) {
       {royxat.length === 0 && <p className="kichik">{t("ob_nomzod_yoq")}</p>}
       {royxat.map((x) => (
         <label key={x.id} className="yonma ob-nomzod">
-          <input type="radio" name={`s${s.id}`} checked={tanlangan === x.id} onChange={() => setTanlangan(x.id)} />
+          <input type="checkbox" checked={belgilanganmi(x.id)} onChange={() => almashtir(x)} />
           <TalabaQatori x={x} />
         </label>
       ))}
@@ -92,7 +97,7 @@ function SorovKartasi({ s, onHal, ruxsatUlash }) {
           <button className="tugma tugma-sokin" type="button" disabled={band} onClick={() => hal("rad")}>
             {t("ob_rad")}
           </button>
-          <button className="tugma" type="button" disabled={band || !tanlangan} onClick={() => hal("ulash")}>
+          <button className="tugma" type="button" disabled={band || !tanlangan.length} onClick={() => hal("ulash")}>
             {t("ob_ulash")}
           </button>
         </div>

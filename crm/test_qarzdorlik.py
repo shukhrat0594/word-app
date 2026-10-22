@@ -97,6 +97,23 @@ class QarzdorlikTest(ApiAsos):
         soni, summa, _ = self.ikkalasi()
         self.assertEqual((soni, summa), (0, 0))
 
+    def test_tekin_oquvchi_qarzlilar_royxatida_yoq(self):
+        """Matn-TZ #465: to'liq chegirma oyga bog'lanmagan — sentabr hisobi
+        "qarzdor", balans 0. "Qarzdor + Qisman" ro'yxatida va Excel'da yo'q."""
+        self.hisob(SENTABR)
+        Tolov.objects.create(talaba=self.talaba, talaba_ism="T", guruh=self.guruh, guruh_nomi="G",
+                             sana=date(2026, 9, 5), summa=NARX, turi=Tolov.Turi.CHEGIRMA)
+        m = self.mijoz(self.owner)
+        self.assertEqual(m.get("/api/crm/hisoblar/?qarzli=1").data, [])
+        # Holat filtri o'zgarmagan: barcha holatlarda hisob ko'rinadi.
+        self.assertEqual(len(m.get("/api/crm/hisoblar/").data), 1)
+        from io import BytesIO
+
+        from openpyxl import load_workbook
+
+        kitob = load_workbook(BytesIO(m.get("/api/crm/eksport/?qarzli=1").content))
+        self.assertEqual(kitob["Qarzdorlar"].max_row - 1, 0)
+
     def test_ortiqcha_tolagan_balansi_musbat(self):
         self.tolov(self.hisob(SENTABR), NARX + 100000)
         d = self.mijoz(self.owner).get("/api/crm/talabalar/").data
