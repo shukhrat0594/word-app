@@ -12,6 +12,7 @@ import { apiFayluniYuklab } from "../api.js";
 import { useFilial } from "../filialContext.jsx";
 import { balansMatn, balansSinfi, oyNomi, oyQiymati, pul, sana } from "../format.js";
 import { useI18n } from "../i18n.jsx";
+import { useRuxsat } from "../profilContext.jsx";
 import { sorovSatri, useSorov } from "../soragich.js";
 
 const ORALIQLAR = [6, 12, 24];
@@ -517,18 +518,23 @@ export default function Hisobotlar() {
   const { t } = useI18n();
   // `?tab=ketganlar` — bosh sahifadagi "Shu oy ketganlar" kartochkasidan.
   const [params] = useSearchParams();
-  const [tab, setTab] = useState(() => (HISOBOT_TABLARI.includes(params.get("tab")) ? params.get("tab") : "dinamika"));
+  // Har tab rol oynasida alohida yoqiladi (TZ #477). "Ketganlar" bosh
+  // sahifa kartochkasidan ham ochiladi (`bosh_sahifa.ketganlar`).
+  const ruxsat = useRuxsat();
+  const tablar = HISOBOT_TABLARI.filter((x) => ruxsat(`hisobotlar.${x}`)
+    || (x === "ketganlar" && params.get("tab") === x && ruxsat("bosh_sahifa.ketganlar")));
+  const [tab, setTab] = useState(() => (tablar.includes(params.get("tab")) ? params.get("tab") : tablar[0]));
   return (
     <section>
       <h1>{t("hisobotlar")}</h1>
       <div className="tablar">
-        {HISOBOT_TABLARI.map((x) => (
+        {tablar.map((x) => (
           <button key={x} type="button" className={tab === x ? "tab faol" : "tab"} onClick={() => setTab(x)}>
             {t(`hisobot_${x}`)}
           </button>
         ))}
       </div>
-      {tab === "dinamika" ? <Dinamika /> : tab === "ketganlar" ? <KetishHisoboti /> : <DavrHisoboti key={tab} turi={tab} />}
+      {!tab ? null : tab === "dinamika" ? <Dinamika /> : tab === "ketganlar" ? <KetishHisoboti /> : <DavrHisoboti key={tab} turi={tab} />}
     </section>
   );
 }

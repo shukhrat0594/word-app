@@ -8,6 +8,7 @@ import TolovQoshishOynasi from "../TolovQoshishOynasi.jsx";
 import { useFilial } from "../filialContext.jsx";
 import { balansMatn, balansSinfi, joriyOy, oyNomi, pul, sana, siljit } from "../format.js";
 import { useI18n } from "../i18n.jsx";
+import { useRuxsat } from "../profilContext.jsx";
 import { sorovSatri, useSorov } from "../soragich.js";
 import HisobQoshishOynasi from "../HisobQoshishOynasi.jsx";
 import QaytarishOynasi from "../QaytarishOynasi.jsx";
@@ -372,8 +373,12 @@ export default function Moliya() {
   // bo'limida to'lov qilganlar ro'yxati"). Qarzdorlar bosh sahifada ham
   // bor; `?tab=qarzdorlar` bilan to'g'ridan-to'g'ri ochiladi.
   const [params] = useSearchParams();
+  // Har tab rol oynasida alohida yoqiladi (TZ #477).
+  const ruxsat = useRuxsat();
+  const tablar = TABLAR.filter((x) => ruxsat(`moliya.${x}`));
   const [tab, setTab] = useState(() =>
-    TABLAR.includes(params.get("tab")) ? params.get("tab") : "tolovlar"
+    tablar.includes(params.get("tab")) ? params.get("tab")
+      : tablar.includes("tolovlar") ? "tolovlar" : tablar[0]
   );
   // Oy tanlovi Qarzdorlar va Hisobot tablari orasida UMUMIY: admin
   // odatda bitta oy ustida ishlaydi va tab almashtirganda qaytadan
@@ -398,7 +403,7 @@ export default function Moliya() {
         </button>
       </div>
       <div className="tablar">
-        {TABLAR.map((x) => (
+        {tablar.map((x) => (
           <button
             key={x}
             type="button"

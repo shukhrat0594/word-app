@@ -2491,7 +2491,7 @@ class KorsatkichlarView(CrmView):
             "faol_talabalar": ruxsat("bosh_sahifa.faol_talabalar", len(faol_talaba_idlar)),
             "jami_guruhdagi": azoliklar.values("azolik__talaba_id").distinct().count(),
             "sinov_darsida": azoliklar.filter(holat=AzolikMoliya.Holat.SINOV).count(),
-            "ketganlar": oy_ketgan.count(),
+            "ketganlar": ruxsat("bosh_sahifa.ketganlar", oy_ketgan.count()),
             "oqituvchilar": oqituvchilar.count(),
             "yangi_lidlar_bugun": ruxsat("bosh_sahifa.faol_lidlar", lidlar.filter(created_at__date=bugun).count()),
             # SoffCRM "Yangi guruhga qabul" — yig'ilayotgan guruhlarga navbatdagi lidlar.

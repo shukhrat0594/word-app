@@ -1972,7 +1972,7 @@ class HisobotDinamikaView(CrmView):
     "shu oyda kim qarzdor", ikkinchisi "yig'ilish yaxshilanyaptimi".
     """
 
-    bolim = "hisobotlar"
+    bolim = "hisobotlar.dinamika"
 
     ENG_KOP_OY = 24
 

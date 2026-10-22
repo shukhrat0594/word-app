@@ -20,6 +20,7 @@ RUXSAT_DARAXTI = [
         ("bosh_sahifa.qarzdorlar", "Qarzdorlar"),
         ("bosh_sahifa.moliya", "Moliya ko'rsatkichlari"),
         ("bosh_sahifa.dars_jadvali", "Dars jadvali"),
+        ("bosh_sahifa.ketganlar", "Shu oy ketganlar"),
     ]),
     ("lidlar", "Lidlar", [
         ("lidlar.qoshish", "Yangi qo'shish"),
@@ -44,7 +45,12 @@ RUXSAT_DARAXTI = [
         ("talabalar.qora_royxat", "Qora ro'yxat"),
         ("talabalar.excel", "Excel"),
     ]),
+    # Tablarni ko'rish (TZ #477, 2026-10-22): har tab alohida yoqiladi;
+    # migratsiya 0017 mavjud rollarga beradi.
     ("moliya", "Moliya", [
+        ("moliya.qarzdorlar", "Qarzdorlar tabi"),
+        ("moliya.tolovlar", "To'lovlar tabi"),
+        ("moliya.hisobot", "Hisobot tabi"),
         ("moliya.tolov", "To'lov qabul qilish"),
         ("moliya.qaytarish", "Pul qaytarish"),
         ("moliya.tolov_tahrirlash", "To'lovni tahrirlash"),
@@ -53,6 +59,10 @@ RUXSAT_DARAXTI = [
     ("hisobotlar", "Hisobotlar", [
         ("hisobotlar.moliya", "Moliyaviy hisobot"),
         ("hisobotlar.dinamika", "Dinamika"),
+        ("hisobotlar.tolovlar", "To'lovlar hisoboti"),
+        ("hisobotlar.lidlar", "Lidlar hisoboti"),
+        ("hisobotlar.ketganlar", "Ketgan o'quvchilar"),
+        ("hisobotlar.bitiruvchilar", "Bitiruvchilar"),
         ("hisobotlar.excel", "Excel"),
     ]),
     ("xodimlar", "Xodimlar", [

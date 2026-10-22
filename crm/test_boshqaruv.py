@@ -50,7 +50,7 @@ class RollarRuxsatTest(ApiAsos):
         self.assertEqual(m.get("/api/crm/hisobot/ketganlar/?dan=2026-09-01&gacha=2026-09-30").status_code, 200)
         self.assertEqual(m.get("/api/crm/hisobot/").status_code, 403)  # qolgan hisobotlar yopiq
         # Bosh sahifadan moliya ko'rsatkichlari berilmagan bo'lsa — pul yashirin.
-        rol3 = CrmRol.objects.create(nomi="SINOV qisman", ruxsatlar=["bosh_sahifa.faol_lidlar"])
+        rol3 = CrmRol.objects.create(nomi="SINOV qisman", ruxsatlar=["bosh_sahifa.ketganlar"])
         r3 = self.mijoz(self.xodim("kassir", rol3)).get("/api/crm/hisobot/ketganlar/?dan=2026-09-01&gacha=2026-09-30")
         self.assertEqual(r3.status_code, 200)
         self.assertIsNone(r3.data["yoqotilgan_daromad"])
@@ -59,6 +59,37 @@ class RollarRuxsatTest(ApiAsos):
         rol2 = CrmRol.objects.create(nomi="SINOV lid", ruxsatlar=["lidlar"])
         m2 = self.mijoz(self.xodim("marketolog", rol2))
         self.assertEqual(m2.get("/api/crm/hisobot/ketganlar/?dan=2026-09-01&gacha=2026-09-30").status_code, 403)
+
+    def test_hisobot_tablari_va_ketganlar_kartochkasi_alohida(self):
+        # TZ #477: har hisobot tabi va "Shu oy ketganlar" kartochkasi — alohida ruxsat.
+        rol = CrmRol.objects.create(nomi="SINOV tab", ruxsatlar=["hisobotlar.lidlar", "bosh_sahifa.faol_lidlar"])
+        m = self.mijoz(self.xodim("boshqa", rol))
+        davr = "?dan=2026-09-01&gacha=2026-09-30"
+        self.assertEqual(m.get("/api/crm/hisobot/lidlar/" + davr).status_code, 200)
+        self.assertEqual(m.get("/api/crm/hisobot/tolovlar/" + davr).status_code, 403)
+        self.assertEqual(m.get("/api/crm/hisobot/bitiruvchilar/" + davr).status_code, 403)
+        self.assertEqual(m.get("/api/crm/hisobot/ketganlar/" + davr).status_code, 403)
+        self.assertEqual(m.get("/api/crm/hisobot/dinamika/").status_code, 403)
+        self.assertEqual(m.get("/api/crm/hisobot/eksport/" + davr + "&turi=tolovlar").status_code, 403)
+        k = m.get("/api/crm/korsatkichlar/").data
+        self.assertIsNone(k["ketganlar"])
+        self.assertIsNotNone(k["faol_lidlar"])
+
+    def test_tab_ruxsatlari_migratsiyasi(self):
+        from importlib import import_module
+
+        from django.apps import apps
+
+        mig = import_module("crm.migrations.0017_tab_ruxsatlari")
+        eski = CrmRol.objects.create(nomi="SINOV eski", ruxsatlar=["moliya.tolov", "hisobotlar.moliya"])
+        boshqa = CrmRol.objects.create(nomi="SINOV boshqa", ruxsatlar=["lidlar.excel"])
+        mig.kochir(apps, None)
+        eski.refresh_from_db()
+        boshqa.refresh_from_db()
+        for k in ("moliya.qarzdorlar", "moliya.tolovlar", "moliya.hisobot", "hisobotlar.ketganlar"):
+            self.assertIn(k, eski.ruxsatlar)
+        self.assertNotIn("bosh_sahifa.ketganlar", eski.ruxsatlar)
+        self.assertEqual(boshqa.ruxsatlar, ["lidlar.excel"])
 
     def test_oqituvchi_crmga_kirmaydi(self):
         self.assertEqual(self.mijoz(self.xodim("oqituvchi")).get("/api/crm/men/").status_code, 403)
