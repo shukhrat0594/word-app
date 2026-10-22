@@ -92,6 +92,36 @@ class RollarRuxsatTest(ApiAsos):
         self.assertNotIn("bosh_sahifa.ketganlar", eski.ruxsatlar)
         self.assertEqual(boshqa.ruxsatlar, ["lidlar.excel"])
 
+    def test_bosh_sahifa_kartochkalari_alohida(self):
+        # TZ #490: har kartochka — alohida ruxsat.
+        rol = CrmRol.objects.create(nomi="SINOV dashboard", ruxsatlar=["bosh_sahifa.guruhlar", "bosh_sahifa.muzlatilgan"])
+        k = self.mijoz(self.xodim("boshqa", rol)).get("/api/crm/korsatkichlar/").data
+        self.assertIsNotNone(k["guruhlar"])
+        self.assertIsNotNone(k["muzlatilgan"])
+        for yopiq in ("faol_lidlar", "yangi_lidlar_bugun", "yangi_guruhga_qabul", "qolgan_qarz", "oqituvchilar",
+                      "jami_guruhdagi", "sinov_darsida", "faol_talabalar"):
+            self.assertIsNone(k[yopiq], yopiq)
+
+    def test_bosh_sahifa_kartochkalari_migratsiyasi(self):
+        from importlib import import_module
+
+        from django.apps import apps
+
+        mig = import_module("crm.migrations.0018_bosh_sahifa_kartochkalari")
+        eski = CrmRol.objects.create(nomi="SINOV eski", ruxsatlar=["bosh_sahifa.faol_lidlar", "hisobotlar.moliya"])
+        qarz = CrmRol.objects.create(nomi="SINOV qarz", ruxsatlar=["bosh_sahifa.qarzdorlar"])
+        boshqa = CrmRol.objects.create(nomi="SINOV boshqa", ruxsatlar=["lidlar.excel"])
+        mig.kochir(apps, None)
+        for r in (eski, qarz, boshqa):
+            r.refresh_from_db()
+        for kalit in ("bosh_sahifa.guruhlar", "bosh_sahifa.oqituvchilar", "bosh_sahifa.yangi_lidlar_bugun",
+                      "bosh_sahifa.yangi_guruhga_qabul", "bosh_sahifa.moliya"):
+            self.assertIn(kalit, eski.ruxsatlar)
+        self.assertNotIn("bosh_sahifa.joriy_oy_qarzi", eski.ruxsatlar)
+        self.assertIn("bosh_sahifa.joriy_oy_qarzi", qarz.ruxsatlar)
+        self.assertNotIn("bosh_sahifa.moliya", qarz.ruxsatlar)
+        self.assertEqual(boshqa.ruxsatlar, ["lidlar.excel"])
+
     def test_oqituvchi_crmga_kirmaydi(self):
         self.assertEqual(self.mijoz(self.xodim("oqituvchi")).get("/api/crm/men/").status_code, 403)
 
