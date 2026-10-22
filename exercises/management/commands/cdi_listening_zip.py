@@ -3,10 +3,13 @@
     python manage.py cdi_listening_zip "Full Listening CDI.html" audio.mp3 --chiqish test.zip
     python manage.py cdi_listening_zip ... --bazaga   # lokal bazada darhol yaratadi
 
-ZIP admin panelida "IELTS testlari -> ZIP yuklash" orqali yuklanadi (deploy shart
-emas): ichida test.json va bitta audio — u testning hamma qismlariga ulanadi
-(`_test_yarat`). Test "private" yaratiladi — admin tekshirib, keyin ochadi.
-O'girish qoidalari: `exercises/cdi_html.py`."""
+ZIP admin panelida yuklanadi (deploy shart emas) — IKKI yo'l bilan ham:
+"IELTS testlari -> Listening -> ZIP" (`ImtihonZipBoshqaruvView`) va test
+"Import"i (`ImtihonImportView`). Shuning uchun ichida eksport formatidagi
+`data.json` (turi=ielts_test) va audio — papkasiz, TEPADA: `files/` ichida
+bo'lsa ZIP yuklash uni "ko'p testli arxiv" deb o'qib, rad etardi. Audio
+testning hamma qismlariga bitta fayl bo'lib ulanadi. Test "private"
+yaratiladi — admin tekshirib, keyin ochadi. O'girish: `exercises/cdi_html.py`."""
 
 import json
 import zipfile
@@ -52,7 +55,29 @@ class Command(BaseCommand):
             return
 
         zip_yol = Path(chiqish) if chiqish else html_yol.with_suffix(".zip")
-        with zipfile.ZipFile(zip_yol, "w", zipfile.ZIP_DEFLATED) as zf:
-            zf.writestr("test.json", json.dumps(test, ensure_ascii=False, indent=1))
-            zf.write(audio_yol, audio_yol.name)
+        zip_yoz(test, audio_yol, zip_yol)
         self.stdout.write(self.style.SUCCESS(f"ZIP: {zip_yol} — «{test['name']}», {jami} savol"))
+
+
+def zip_yoz(test, audio_yol, zip_yol):
+    """Eksport formatidagi ZIP: `data.json` + audio (tepada). Qismlar maydonlari
+    `_test_eksport_qil` bilan bir xil — import ham, ZIP yuklash ham o'qiydi."""
+    from exercises.models import Manba
+    from exercises.views import IMTIHON_EKSPORT_TURI
+
+    data = {
+        "versiya": 1,
+        "turi": IMTIHON_EKSPORT_TURI,
+        "name": test["name"],
+        "bolim": test["bolim"],
+        "manba": Manba.ADMIN,
+        "korinish": test["korinish"],
+        "papka": None,
+        "qismlar": [
+            {**q, "matn": "", "tur": "", "maxsus_format": None, "audio_fayl": audio_yol.name, "rasm": None}
+            for q in test["qismlar"]
+        ],
+    }
+    with zipfile.ZipFile(zip_yol, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("data.json", json.dumps(data, ensure_ascii=False, indent=1))
+        zf.write(audio_yol, audio_yol.name)

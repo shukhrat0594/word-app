@@ -128,6 +128,35 @@ class UmumiyAudioTest(TestCase):
     def kalitlar(self, test):
         return {q.audio_fayl.name for q in test.qismlar.all()}
 
+    def buyruq_zipi(self):
+        from pathlib import Path
+
+        from exercises.management.commands.cdi_listening_zip import zip_yoz
+
+        papka = Path(self.media)
+        audio = papka / "yozuv.mp3"
+        audio.write_bytes(b"ID3 sinov audio")
+        zip_yol = papka / "t.zip"
+        zip_yoz(html_dan_test(HTML), audio, zip_yol)
+        return zip_yol.read_bytes()
+
+    def test_buyruq_zipi_ikkala_yol_bilan_yuklanadi(self):
+        # Shuhrat ZIP'ni "Import" orqali yukladi — "data.json topilmadi" chiqdi (2026-10-22).
+        baytlar = self.buyruq_zipi()
+        j = self.admin.post("/api/imtihon/testlar-import/",
+                            {"fayl": SimpleUploadedFile("t.zip", baytlar)}, format="multipart")
+        self.assertIn(j.status_code, (200, 201), getattr(j, "data", j))
+        test = ImtihonTest.objects.get(name="CDI Listening — Library visit")
+        self.assertEqual((test.korinish, test.qismlar.count(), len(self.kalitlar(test))), ("private", 2, 1))
+        self.assertEqual(sum(len(q.savollar) for q in test.qismlar.all()), 8)
+        test.delete()
+
+        j = self.admin.post("/api/imtihon/testlar-boshqaruv-zip/",
+                            {"zip_fayl": SimpleUploadedFile("t.zip", baytlar)}, format="multipart")
+        self.assertEqual(j.status_code, 201, getattr(j, "data", j))
+        test = ImtihonTest.objects.get(name="CDI Listening — Library visit")
+        self.assertEqual((test.qismlar.count(), len(self.kalitlar(test))), (2, 1))
+
     def test_zip_va_eksport_import_bitta_fayl(self):
         bufer = io.BytesIO()
         with zipfile.ZipFile(bufer, "w") as zf:
