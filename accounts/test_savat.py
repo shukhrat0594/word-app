@@ -10,10 +10,9 @@ from datetime import date, timedelta
 from django.test import TestCase
 from django.utils import timezone
 from rest_framework.test import APIClient
-from rest_framework_simplejwt.tokens import RefreshToken
-
 from academics.models import Davomat, Guruh, GuruhAzoligi
 from accounts.models import Markaz, OchirilganFoydalanuvchi, User
+from accounts.tests import qurilmali_kalit
 from accounts.savat import muddati_otganlarni_tozala
 
 
@@ -35,7 +34,7 @@ class SavatTest(TestCase):
 
     def mijoz(self, user):
         c = APIClient()
-        c.credentials(HTTP_AUTHORIZATION=f"Bearer {RefreshToken.for_user(user).access_token}")
+        c.credentials(HTTP_AUTHORIZATION=f"Bearer {qurilmali_kalit(user).access_token}")
         return c
 
     def ochir(self, user, kim=None):

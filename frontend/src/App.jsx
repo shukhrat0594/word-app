@@ -4,6 +4,7 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import Layout, { NAMUNAVIY_MASHQLAR_OCHIQ } from "./components/Layout";
 import BoshSahifa from "./pages/BoshSahifa";
 import Foydalanuvchilar from "./pages/Foydalanuvchilar";
+import QurilmaSorovlari from "./pages/QurilmaSorovlari";
 import Guruhlar from "./pages/Guruhlar";
 import Hisobotlar from "./pages/Hisobotlar";
 import ImtihonBoshqarish from "./pages/ImtihonBoshqarish";
@@ -68,6 +69,7 @@ export default function App() {
             <Route path="talabalar" element={<Talabalar />} />
             <Route path="markaz-sozlash" element={<MarkazSozlash />} />
             <Route path="foydalanuvchilar" element={<Foydalanuvchilar />} />
+            <Route path="qurilma-sorovlari" element={<QurilmaSorovlari />} />
             <Route path="profil" element={<Profil />} />
           </Route>
         </Routes>

@@ -19,6 +19,25 @@ Format (qat'iy, parser shunga tayanadi):
 
 ---
 
+## 2026-10-22 — Qurilma limiti yangilandi: telefon tarixni tozalasa ham taniladi
+
+- **Hamma bir marta qayta kiradi.** Eski qurilma yozuvlari o'chirildi,
+  limitlar o'z holicha qoldi. Har kimning yangilanishdan keyin birinchi
+  kirgan qurilmasi 1-qurilma bo'ladi. Kerakli o'quvchilarga limitni admin
+  qaytadan beradi.
+- **Tarix tozalansa ham telefon taniladi.** Sayt endi telefon/kompyuter
+  belgilarini (model, ekran, video karta) ham eslab qoladi. Brauzer tarixi
+  tozalangan o'sha telefon jim kiradi. Bir xil modeldagi ikki telefonni
+  sayt farqlay olmaydi — bunday holat jurnalda ko'rinadi.
+- **Limitdan oshganda xabar adminga keladi.** "Yangi qurilmadan kirishga
+  urinish" — bitta xabar, takroriy urinishlar xabarni ko'paytirmaydi.
+  Xabar bosilganda: "o'rniga ruxsat berish", "limitni oshirish" yoki
+  "rad etish". O'quvchi ekranida ruxsat etilgan qurilma nomi chiqadi.
+- **Qurilmalar oynasi.** Talabalar va Xodimlar ro'yxatida "Qurilmalar"
+  tugmasi: qurilma nomlari, oxirgi faollik, bittasini o'chirish, limitni
+  kiritish (endi admin ham), jurnal. O'chirilgan qurilma darhol chiqadi.
+- **60 kun ishlatilmagan qurilma** ro'yxatdan o'zi chiqadi.
+
 ## 2026-10-09 — Ota-onaga "darsga keldi" va test natijalari darhol boradi
 
 - **"Darsga keldi" xabari.** Ota-ona endi farzandi darsga kelganini ham

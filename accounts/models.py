@@ -3,6 +3,7 @@ from django.contrib.auth.models import AbstractUser
 import datetime
 
 from django.db import models
+from django.utils import timezone
 
 
 class Markaz(models.Model):
@@ -186,16 +187,11 @@ class User(AbstractUser):
     qurilmalar = models.JSONField(
         default=list, blank=True,
         help_text=(
-            "Hisobni boshqalar bilan bo'lishmaslik uchun (2026-08-12, "
-            "2026-08-13'da ko'p-qurilmali qilib kengaytirildi) — "
-            "OWNER'dan boshqa har bir foydalanuvchi FAQAT shu ro'yxatdagi "
-            "qurilmalardan (frontend localStorage'dagi tasodifiy ID'lar) "
-            "kira oladi. Yangi qurilma `qurilma_limiti`ga yetmagunча "
-            "AVTOMATIK qo'shiladi (keyingi login), limit to'lgach rad "
-            "etiladi. Bo'sh ro'yxat = hali hech qaysi qurilmaga "
-            "bog'lanmagan. Faqat owner/admin 'Qurilmani tiklash' orqali "
-            "TO'LIQ tozalay oladi (limitga tegmasdan) — "
-            "`XodimLoginView`/`QurilmaTiklashView`ga qarang."
+            "Ruxsat etilgan qurilmalar (OWNER'dan boshqa hamma uchun): "
+            "{id, k, nom, belgilar, qoshilgan, oxirgi} yozuvlari. `id` — "
+            "brauzer ID'si (localStorage), `belgilar` — brauzer tarixi "
+            "tozalansa ham qurilmani tanish uchun (2026-10-20). Mantiq: "
+            "`accounts/qurilmalar.py`."
         ),
     )
     # 2026-09-03, foydalanuvchi talabi ("Aktiv foydalanuvchilar" bo'limi):
@@ -211,10 +207,9 @@ class User(AbstractUser):
     qurilma_limiti = models.PositiveSmallIntegerField(
         default=1,
         help_text=(
-            "2026-08-13 — nechta qurilmadan bir vaqtda kirish mumkinligi "
-            "(standart 1). Hozircha FAQAT owner o'zgartira oladi "
-            "(`QurilmaLimitiView`) — kelajakda adminga ham berilishi "
-            "mumkin (foydalanuvchi qarori)."
+            "Nechta qurilmadan bir vaqtda kirish mumkinligi (standart 1). "
+            "Owner va admin kiritadi, oraliq cheklovi yo'q (Shuhrat, "
+            "2026-10-20) — `QurilmaLimitiView`."
         ),
     )
 
@@ -302,6 +297,41 @@ class Bildirishnoma(models.Model):
 
     def __str__(self):
         return f"{self.foydalanuvchi.username} — {self.sarlavha}"
+
+
+class QurilmaSorovi(models.Model):
+    """Ruxsat etilmagan qurilmadan kirish urinishi va uning taqdiri
+    (2026-10-20). Bir qurilmaga BITTA kutilayotgan so'rov — takroriy
+    urinishlar `urinishlar`ga qo'shiladi, adminga qayta xabar ketmaydi.
+    `AVTO` — belgilar bo'yicha avtomatik tanilib almashtirilgan qurilma
+    (jurnal uchun). Mantiq: `accounts/qurilmalar.py`."""
+
+    class Holat(models.TextChoices):
+        KUTILMOQDA = "kutilmoqda", "Kutilmoqda"
+        RUXSAT = "ruxsat", "Ruxsat berildi"
+        RAD = "rad", "Rad etildi"
+        AVTO = "avto", "Avtomatik tanildi"
+
+    foydalanuvchi = models.ForeignKey(User, on_delete=models.CASCADE, related_name="qurilma_sorovlari")
+    qid = models.CharField(max_length=64)
+    nom = models.CharField(max_length=200, blank=True)
+    belgilar = models.JSONField(default=dict, blank=True)
+    holat = models.CharField(max_length=12, choices=Holat.choices, default=Holat.KUTILMOQDA, db_index=True)
+    urinishlar = models.PositiveIntegerField(default=1)
+    yaratilgan = models.DateTimeField(auto_now_add=True)
+    oxirgi_urinish = models.DateTimeField(default=timezone.now)
+    # Qaysi qurilma o'rniga ruxsat berilgan (bo'sh — limit oshirilgan yoki joy bo'shagan).
+    almashtirilgan_nom = models.CharField(max_length=200, blank=True)
+    hal_qildi = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    hal_vaqti = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-yaratilgan", "-id"]
+        indexes = [models.Index(fields=["foydalanuvchi", "qid"], name="qurilma_sorovi_qid")]
+        verbose_name_plural = "Qurilma so'rovlari"
+
+    def __str__(self):
+        return f"{self.foydalanuvchi.username} — {self.nom} ({self.holat})"
 
 
 class Zaxira(models.Model):

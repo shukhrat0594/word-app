@@ -1,8 +1,6 @@
-import re
 import datetime
 import math
 
-from django.conf import settings
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
@@ -20,6 +18,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from audit.models import FaoliyatYozuvi, LoginHistory
 from audit.utils import logla, maydon_diff
 
+from . import qurilmalar as qurilma_mantiq
 from .authentication import asl_owner_mi
 from .models import Bildirishnoma, Markaz, User
 # `birlamchi_owner_mi` 2026-08-09 da ishlatilmay qoldi — u FAQAT rol
@@ -27,6 +26,7 @@ from .models import Bildirishnoma, Markaz, User
 # o'zgartiradi"), u esa endi yopiq. Funksiya `permissions.py`da qoldi.
 from .permissions import natijalarni_korish_ruxsati, owner_mi
 from .relizlar import relizlarni_sinxronla
+from .seans_views import kalitlarni_bekor_qil
 
 
 def _parolni_tekshir(parol, user=None):
@@ -581,6 +581,7 @@ class FoydalanuvchilarView(APIView):
         # CRM o'quvchilari — "O'chirish" ularni o'chirmaydi, faqat saytga
         # kirishini yopadi; ogohlantirish oynasi shuni oldindan aytadi.
         crm_talabalari = ochirilmaydiganlar(u.id for u in qs if u.role == User.Role.STUDENT)
+        kutayotganlar = qurilma_mantiq.kutayotganlar()
         return Response(
             [
                 {
@@ -596,10 +597,11 @@ class FoydalanuvchilarView(APIView):
                     # 2026-08-12: qiymatning o'zi emas, faqat "bor/yo'q" —
                     # "Qurilmani tiklash" tugmasini ko'rsatish/berkitish uchun.
                     "qurilma_bormi": bool(u.qurilmalar),
-                    # 2026-08-13: limit tahrirlash (owner-only) va
-                    # hozir nechta qurilma band ekanini ko'rsatish uchun.
+                    # 2026-08-13: limit va hozir nechta qurilma band ekani;
+                    # 2026-10-20: kutilayotgan qurilma so'rovi belgisi.
                     "qurilma_limiti": u.qurilma_limiti,
                     "qurilmalar_soni": len(u.qurilmalar),
+                    "qurilma_sorovi_bor": u.id in kutayotganlar,
                     # 2026-08-14 — owner ko'radi (shaxsiylari ham).
                     "bio": u.bio,
                     "telefon": u.telefon,
@@ -992,6 +994,9 @@ class QurilmaTiklashView(APIView):
             return Response({"detail": "Bu foydalanuvchida qurilma qulfi yo'q"}, status=400)
         user.qurilmalar = []
         user.save(update_fields=["qurilmalar"])
+        # 2026-10-20: tozalangan qurilmalar darhol chiqarib yuboriladi
+        # (kirish kalitlari ham `authentication.py`da qurilma ro'yxatiga qarab rad etiladi).
+        kalitlarni_bekor_qil(user.pk)
 
         Bildirishnoma.objects.create(
             foydalanuvchi=user,
@@ -1014,29 +1019,27 @@ class QurilmaTiklashView(APIView):
 
 
 class QurilmaLimitiView(APIView):
-    """Owner uchun (2026-08-13, foydalanuvchi qarori: "hozircha bundan
-    huquq faqat ownerda bo'lsin, keyinchalik adminga ham berish imkoni
-    bilan" — shuning uchun bu yerda FAQAT `owner_mi` tekshiriladi,
-    admin emas, lekin kod tuzilishi keyin adminga ochish oson bo'lsin
-    deb `QurilmaTiklashView`bilan bir xil naqshda yozildi) —
-    foydalanuvchining ruxsat etilgan qurilmalar sonini (`qurilma_limiti`)
-    o'zgartiradi.
+    """Foydalanuvchining ruxsat etilgan qurilmalar sonini (`qurilma_limiti`)
+    o'zgartiradi. 2026-10-20 (Shuhrat): owner VA admin kiritadi, oraliq
+    cheklovi yo'q (faqat kamida 1; yuqori chegara — maydonning o'zi).
 
     Ro'yxatni (`qurilmalar`) TOZALAMAYDI — limit oshirilsa, bloklangan
     foydalanuvchi hech qanday qo'shimcha harakatsiz, keyingi login
-    urinishida AVTOMATIK kira oladi (`_qurilma_tekshir`)."""
+    urinishida AVTOMATIK kira oladi (`qurilmalar.kirishni_tekshir`)."""
 
     permission_classes = [IsAuthenticated]
 
     def post(self, request, pk):
         u = request.user
-        if not owner_mi(u):
-            return Response({"detail": "Faqat owner uchun"}, status=403)
+        if not (owner_mi(u) or u.role == User.Role.ADMIN):
+            return Response({"detail": "Faqat owner/admin uchun"}, status=403)
         user = get_object_or_404(User, pk=pk)
+        if user.is_superuser and not owner_mi(u):
+            return Response({"detail": "Owner'ning qurilmasiga tega olmaysiz"}, status=403)
 
         limit = request.data.get("limit")
-        if not isinstance(limit, int) or limit < 1 or limit > 20:
-            return Response({"detail": "limit 1 dan 20 gacha butun son bo'lishi kerak"}, status=400)
+        if not isinstance(limit, int) or isinstance(limit, bool) or limit < 1 or limit > 32767:
+            return Response({"detail": "Limit 1 yoki undan katta butun son bo'lishi kerak"}, status=400)
 
         eski = user.qurilma_limiti
         user.qurilma_limiti = limit
@@ -1508,6 +1511,7 @@ class XodimlarView(APIView):
         oqituvchilar = User.objects.filter(
             markaz_id=markaz_id, role=User.Role.TEACHER, is_active=not arxiv
         )
+        kutayotganlar = qurilma_mantiq.kutayotganlar()
         return Response(
             [
                 {
@@ -1520,6 +1524,7 @@ class XodimlarView(APIView):
                     "qurilma_bormi": bool(u.qurilmalar),
                     "qurilma_limiti": u.qurilma_limiti,
                     "qurilmalar_soni": len(u.qurilmalar),
+                    "qurilma_sorovi_bor": u.id in kutayotganlar,
                     "bio": u.bio,
                     "telefon": u.telefon,
                     "ota_ona_telefon": u.ota_ona_telefon,
@@ -1736,6 +1741,7 @@ class TalabalarView(APIView):
                 "admin_maydonlari": t.admin_maydonlari,
             }
 
+        kutayotganlar = qurilma_mantiq.kutayotganlar() if boshqaruv else set()
         return Response(
             [
                 {
@@ -1758,6 +1764,7 @@ class TalabalarView(APIView):
                     "qurilma_bormi": bool(t.qurilmalar),
                     "qurilma_limiti": t.qurilma_limiti,
                     "qurilmalar_soni": len(t.qurilmalar),
+                    "qurilma_sorovi_bor": t.id in kutayotganlar,
                     "bio": t.bio,
                     **shaxsiy(t),
                 }
@@ -2151,16 +2158,12 @@ class XodimLoginView(TokenObtainPairView):
     throttling qo'shilgan (login urinishlar soni cheklanadi).
 
     2026-08-12: hisobni boshqalar bilan bo'lishmaslik uchun — OWNER'dan
-    boshqa har bir foydalanuvchi FAQAT `qurilmalar` ro'yxatidagi (eng
-    ko'pi bilan `qurilma_limiti` ta, standart 1) qurilmalardan kira
-    oladi. Frontend har login so'rovida `qurilma_id` yuboradi
-    (localStorage'da saqlangan tasodifiy ID). Parol TO'G'RI bo'lsa-da,
-    yangi qurilma limitdan oshsa token BERILMAYDI (javob 403'ga
-    almashtiriladi). Ro'yxat limitga yetmagan bo'lsa — kelgan ID
-    AVTOMATIK qo'shiladi, qo'shimcha tasdiq shart emas (2026-08-13:
-    owner qurilma limitini oshirsa, foydalanuvchi qayta urinib
-    avtomatik kira oladi — alohida "ruxsat berish" tugmasi kerak
-    emas)."""
+    boshqa har bir foydalanuvchi FAQAT ruxsat etilgan qurilmalardan
+    (`qurilma_limiti` ta, standart 1) kira oladi. Frontend har login
+    so'rovida `qurilma_id` (localStorage'dagi tasodifiy ID) va
+    `qurilma_belgilari`ni yuboradi; parol TO'G'RI bo'lsa-da, qurilma
+    ruxsat etilmasa token BERILMAYDI (403). Tekshiruv tartibi —
+    `accounts/qurilmalar.py: kirishni_tekshir`."""
 
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = "login"
@@ -2184,12 +2187,16 @@ class XodimLoginView(TokenObtainPairView):
                              "kod": "kirish_cheklangan"},
                             status=403,
                         )
-                    qurilma_javobi = _qurilma_tekshir(request, user)
-                    if qurilma_javobi is not None:
-                        _berilmagan_kalitni_ochir(javob)
-                        return qurilma_javobi
-                    if qurilma_id := getattr(request, "_qurilma_id", None):
-                        _qurilma_cookiesini_ber(javob, qurilma_id)
+                    qid, rad_javobi = _qurilma_tekshir(request, user)
+                    _berilmagan_kalitni_ochir(javob)
+                    if rad_javobi is not None:
+                        return rad_javobi
+                    # 2026-10-20: kalitga qurilma belgisi (`qid`) qo'yiladi —
+                    # qurilma o'chirilsa yoki almashtirilsa, u keyingi
+                    # so'rovdayoq chiqarib yuboriladi (`authentication.py`).
+                    kalit = RefreshToken.for_user(user)
+                    kalit["qid"] = qid
+                    javob.data = {"refresh": str(kalit), "access": str(kalit.access_token)}
                 LoginHistory.objects.create(foydalanuvchi=user, rol=user.role)
         return javob
 
@@ -2235,87 +2242,28 @@ def _berilmagan_kalitni_ochir(javob):
         pass
 
 
-QURILMA_COOKIE = "qurilma"
-_QURILMA_ID_NAMUNA = re.compile(r"^[A-Za-z0-9-]{1,64}$")
-
-
-def _qurilma_idsi_tozala(xom):
-    """Kelgan qurilma ID'si: faqat harf/raqam/chiziqcha, 1-64 belgi
-    (cookie va ro'yxatga begona qiymat tushmasin). Yaroqsiz bo'lsa — ''."""
-    xom = (xom or "").strip() if isinstance(xom, str) else ""
-    return xom if _QURILMA_ID_NAMUNA.match(xom) else ""
-
-
-def _qurilma_cookiesini_ber(javob, qurilma_id):
-    """Qurilma ID'sini serverdan HttpOnly cookie qilib beradi va javobda
-    qaytaradi (frontend localStorage'ni tiklashi uchun)."""
-    javob.data["qurilma_id"] = qurilma_id
-    javob.set_cookie(
-        QURILMA_COOKIE, qurilma_id,
-        max_age=365 * 24 * 3600, httponly=True, samesite="Lax", secure=not settings.DEBUG, path="/",
-    )
-
-
 def _qurilma_tekshir(request, user):
-    """OWNER bo'lmagan foydalanuvchi uchun qurilma cheklovi — mos kelmasa
-    403 Response qaytaradi (login rad etiladi), mos kelsa/ro'yxatga yangi
-    qo'shilsa None qaytaradi (davom etaveradi).
-
-    2026-08-14: `select_for_update()` bilan qatorni qulflab qayta o'qiymiz
-    — parallel (bir vaqtdagi) ikkita login urinishi limitni chetlab
-    o'tishining oldini olish uchun (avval check-then-act race condition
-    bor edi: ikkala so'rov ham "hali joy bor" deb o'qib, ikkalasi ham
-    qo'shilib ketishi mumkin edi)."""
-    # Qurilma ID ikki joydan keladi: so'rov tanasi (localStorage) va server
-    # bergan cookie. Foydalanuvchi brauzer tarixini/`localStorage`ni
-    # tozalasa ham cookie qoladi (Safari 7 kunda localStorage'ni o'zi
-    # o'chiradi, server cookie'siga tegmaydi) — shuning uchun qurilma
-    # "boshqa" bo'lib qolmaydi. Ikkalasi ham yo'qolsa (hammasi tozalangan) —
-    # yangi qurilma, eskicha.
-    tana_id = _qurilma_idsi_tozala(request.data.get("qurilma_id"))
-    cookie_id = _qurilma_idsi_tozala(request.COOKIES.get(QURILMA_COOKIE))
-    if not tana_id and not cookie_id:
-        return Response(
+    """OWNER bo'lmagan foydalanuvchi uchun qurilma cheklovi (mantiq —
+    `accounts/qurilmalar.py`). Qaytaradi: (qid, None) — kiradi;
+    (None, Response) — login rad etiladi."""
+    qid = qurilma_mantiq.id_tozala(request.data.get("qurilma_id"))
+    if not qid:
+        return None, Response(
             {"detail": "Qurilma identifikatori yuborilmadi", "kod": "qurilma_id_yoq"},
             status=400,
         )
-
-    with transaction.atomic():
-        user = User.objects.select_for_update().get(pk=user.pk)
-        taniganlar = [x for x in (cookie_id, tana_id) if x and x in user.qurilmalar]
-        if taniganlar:
-            request._qurilma_id = taniganlar[0]
-            return None
-        yangi = cookie_id or tana_id
-        if len(user.qurilmalar) < user.qurilma_limiti:
-            user.qurilmalar = [*user.qurilmalar, yangi]
-            user.save(update_fields=["qurilmalar"])
-            request._qurilma_id = yangi
-            return None
-
-    for admin in User.objects.filter(role=User.Role.ADMIN) | User.objects.filter(is_superuser=True):
-        Bildirishnoma.objects.create(
-            foydalanuvchi=admin,
-            turi=Bildirishnoma.Turi.OGOHLANTIRISH,
-            kalit=f"ogohlantirish:qurilma:{user.id}:{timezone.now().isoformat()}"[:200],
-            sarlavha="Boshqa qurilmadan kirishga urinish",
-            matn=(
-                f"Foydalanuvchi {user.username} ruxsat etilgan "
-                f"{user.qurilma_limiti} ta qurilmadan tashqari yana 1 ta "
-                "qurilmadan kirishga urindi. Agar bu haqiqatan shu "
-                "foydalanuvchi bo'lsa (yangi telefon/kompyuter), 'Qurilma "
-                "limiti'ni oshiring — keyingi urinishda avtomatik kiradi. "
-                "Yoki 'Qurilmani tiklash' orqali eski qurilmalarni tozalab, "
-                "qaytadan boshlang."
-            ),
-        )
-    return Response(
-        {
-            "detail": "Bu hisob boshqa qurilmada faollashtirilgan. Administratorga murojaat qiling.",
-            "kod": "qurilma_mos_emas",
-        },
-        status=403,
+    belgilar = qurilma_mantiq.belgilarni_tozala(
+        request.data.get("qurilma_belgilari"), request.META.get("HTTP_USER_AGENT", "")
     )
+    kirdi, rad = qurilma_mantiq.kirishni_tekshir(user, qid, belgilar)
+    if kirdi:
+        return qid, None
+    matn = (
+        "Administrator bu qurilmaga ruxsat bermadi."
+        if rad["sorov"] == "rad"
+        else "Bu hisob boshqa qurilmada ochiq. Administratorga xabar yuborildi — ruxsat berilgach qayta kiring."
+    )
+    return None, Response({"detail": matn, "kod": "qurilma_mos_emas", **rad}, status=403)
 
 
 class GoogleLoginView(APIView):

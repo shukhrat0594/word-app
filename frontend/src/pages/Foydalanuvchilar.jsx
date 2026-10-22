@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import Avatar from "../components/Avatar";
 import { panelTanloviOl } from "../components/Layout";
+import QurilmalarPaneli from "../components/QurilmalarPaneli";
 import { useI18n } from "../i18n";
 import { useProfil } from "../profilContext";
 
@@ -238,51 +239,56 @@ export function QurilmaTiklashTugmasi({ user, tiklash, t }) {
   );
 }
 
-/** "Qurilma limiti" boshqaruvi (2026-08-13, foydalanuvchi talabi) —
- * FAQAT owner uchun (adminga keyinchalik berilishi mumkin, hozircha
- * yo'q). Standart 1 — necha ta qurilmadan bir vaqtda kirish mumkinligi.
- * Limit oshirilsa, bloklangan foydalanuvchi HECH QANDAY qo'shimcha
- * harakatsiz, keyingi login urinishida avtomatik kiradi
- * (`_qurilma_tekshir` backend'da). */
-export function QurilmaLimitiBoshqaruv({ user, ozgartir, t }) {
-  const [band, setBand] = useState(false);
+/** "Qurilmalar" tugmasi (2026-10-20; 2026-08-13 dagi owner'ning +/− limit
+ * boshqaruvi o'rniga) — owner VA admin uchun. Bosilganda qurilmalar oynasi
+ * ochiladi: limit (admin o'zi kiritadi), qurilmalar ro'yxati, kutilayotgan
+ * so'rovlar va jurnal (`QurilmalarPaneli`). Kutilayotgan so'rov bo'lsa — "!". */
+export function QurilmaLimitiBoshqaruv({ user, yangila, t }) {
+  const [ochiq, setOchiq] = useState(false);
+  const [ozgardi, setOzgardi] = useState(false);
 
   if (user.is_owner || user.qurilma_limiti === undefined) return null;
 
-  async function ozgar(yangi) {
-    if (yangi < 1 || band) return;
-    setBand(true);
-    try {
-      await ozgartir(user.id, yangi);
-    } finally {
-      setBand(false);
-    }
+  function yop() {
+    setOchiq(false);
+    if (ozgardi) yangila?.();
+    setOzgardi(false);
   }
 
   return (
-    <span
-      style={{ display: "flex", alignItems: "center", gap: 4 }}
-      title={t("qurilma_limiti_izoh")}
-    >
-      <span className="izoh">{t("qurilma_limiti")}:</span>
+    <>
       <button
         type="button"
         className="tugma ikkinchi kichik"
-        onClick={() => ozgar(user.qurilma_limiti - 1)}
-        disabled={band || user.qurilma_limiti <= 1}
+        onClick={() => setOchiq(true)}
+        title={t("qurilma_limiti_izoh")}
+        style={user.qurilma_sorovi_bor ? { borderColor: "var(--ogoh)", color: "var(--ogoh)" } : undefined}
       >
-        −
+        {t("qurilmalar")}: {user.qurilmalar_soni ?? 0}/{user.qurilma_limiti}
+        {user.qurilma_sorovi_bor && " !"}
       </button>
-      <strong>{user.qurilmalar_soni ?? 0}/{user.qurilma_limiti}</strong>
-      <button
-        type="button"
-        className="tugma ikkinchi kichik"
-        onClick={() => ozgar(user.qurilma_limiti + 1)}
-        disabled={band}
-      >
-        +
-      </button>
-    </span>
+      {ochiq && (
+        <div
+          onClick={yop}
+          style={{
+            position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)",
+            display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2000,
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="karta"
+            style={{ maxWidth: 560, width: "92%", maxHeight: "85vh", overflowY: "auto", display: "grid", gap: 12 }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+              <h3 style={{ margin: 0 }}>{t("qurilmalar")} — {user.ism || user.username}</h3>
+              <button type="button" className="tugma ikkinchi kichik" onClick={yop}>{t("yopish")}</button>
+            </div>
+            <QurilmalarPaneli userId={user.id} onOzgardi={() => setOzgardi(true)} />
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -778,18 +784,6 @@ export default function Foydalanuvchilar() {
     }
   }
 
-  /** "Qurilma limiti" o'zgartirish — faqat owner (`QurilmaLimitiBoshqaruv`
-   * izohiga qarang). */
-  async function qurilmaLimitOzgartir(id, limit) {
-    setXabar((x) => ({ ...x, [id]: "" }));
-    try {
-      await api(`/api/foydalanuvchilar/${id}/qurilma-limit/`, { method: "POST", body: { limit } });
-      yukla();
-    } catch (e) {
-      setXabar((x) => ({ ...x, [id]: e.data?.detail || t("xato_yuz_berdi") }));
-    }
-  }
-
   async function yangiYarat(e) {
     e.preventDefault();
     setYangiXato("");
@@ -970,7 +964,7 @@ export default function Foydalanuvchilar() {
                 <PanelTanlovi user={u} saqlash={panellarSaqla} t={t} />
               )}
               <QurilmaTiklashTugmasi user={u} tiklash={qurilmaTiklash} t={t} />
-              <QurilmaLimitiBoshqaruv user={u} ozgartir={qurilmaLimitOzgartir} t={t} />
+              <QurilmaLimitiBoshqaruv user={u} yangila={yukla} t={t} />
               {!u.is_owner && u.id !== profil?.id && (
                 <button
                   className="tugma ikkinchi"
