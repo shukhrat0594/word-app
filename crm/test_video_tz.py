@@ -97,6 +97,15 @@ class TalabaAmaliTest(ApiAsos):
         h = self.m.get("/api/crm/hisobot/bitiruvchilar/?dan=2026-10-01&gacha=2026-10-31").data
         self.assertEqual(h["guruhlar"], [])
 
+    def test_bitiruvchilar_ismi_bir_xil_ikki_talaba(self):
+        # Ismi bir xil, lekin boshqa-boshqa o'quvchilar — ikkalasi ham chiqadi.
+        for t in (self.talaba, self.admin):
+            GuruhdanChiqish.objects.create(
+                talaba=t, talaba_ism="Ali Valiyev", guruh=self.guruh, guruh_nomi=self.guruh.name,
+                filial=self.filial, sana=date(2026, 9, 18), sabab_turi=GuruhdanChiqish.SababTuri.BITIRDI)
+        h = self.m.get("/api/crm/hisobot/bitiruvchilar/?dan=2026-09-01&gacha=2026-09-30").data
+        self.assertEqual(h["guruhlar"][0]["talabalar"], ["Ali Valiyev", "Ali Valiyev"])
+
     def test_lidga_qaytarish_mavjud_lidni_qayta_ochadi(self):
         lid = Lid.objects.create(ism="Talaba", telefon="901112233", talaba=self.talaba, arxiv=True,
                                  holat=Lid.Holat.QOSHILDI, arxiv_sabab="kelmadi")

@@ -902,8 +902,13 @@ class BitiruvchilarHisobotiView(CrmView):
             "moliya", "oqituvchi", "daraja"
         )
         natija = {}
+        # Takror tekshiruvi talaba ID bo'yicha: ismi bir xil ikki o'quvchi
+        # bittaga qo'shilib ketmasin.
+        bor = set()
         for g in guruhlar:
-            talabalar = [_ism(a.talaba) for a in GuruhAzoligi.objects.filter(guruh=g).select_related("talaba")]
+            azolar = list(GuruhAzoligi.objects.filter(guruh=g).select_related("talaba"))
+            bor.update((g.id, a.talaba_id) for a in azolar)
+            talabalar = [_ism(a.talaba) for a in azolar]
             natija[g.id] = {
                 "guruh_id": g.id, "guruh": g.name, "kurs": g.daraja.nomi if g.daraja_id else None,
                 "oqituvchi": _ism(g.oqituvchi) if g.oqituvchi_id else None,
@@ -923,7 +928,9 @@ class BitiruvchilarHisobotiView(CrmView):
                     "oqituvchi": _ism(g.oqituvchi) if g and g.oqituvchi_id else None,
                     "tugash_sana": c.sana, "talabalar": [],
                 }
-            if c.talaba_ism not in natija[kalit]["talabalar"]:
+            belgi = (kalit, c.talaba_id or f"ism:{c.talaba_ism}")
+            if belgi not in bor:
+                bor.add(belgi)
                 natija[kalit]["talabalar"].append(c.talaba_ism)
         return Response({"dan": dan, "gacha": gacha, "guruhlar": list(natija.values())})
 
