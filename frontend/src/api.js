@@ -63,11 +63,41 @@ export async function serverdaChiqish() {
 // localStorage'da — brauzer o'zgarsa yoki kesh tozalansa yangi ID
 // generatsiya bo'ladi (bu ATAYLAB shunday: "boshqa qurilma" aynan shu
 // orqali aniqlanadi).
+// 2026-10-23 bug (video IMG_7101): eski Android WebView / ilova ichidagi
+// brauzerlarda `crypto.randomUUID` yo'q — xato login'ni so'rov ketmasdan
+// to'xtatib, o'quvchiga "Login yoki parol noto'g'ri" ko'rsatardi. Endi ID
+// har qanday brauzerda yasaladi; localStorage yopiq bo'lsa ham login ishlaydi.
+let xotiradagiQurilmaId = null;
+
+function yangiQurilmaId() {
+  try {
+    if (crypto?.randomUUID) return crypto.randomUUID();
+  } catch {
+    // pastdagi usullar
+  }
+  try {
+    const baytlar = crypto.getRandomValues(new Uint8Array(16));
+    return Array.from(baytlar, (b) => b.toString(16).padStart(2, "0")).join("");
+  } catch {
+    return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+  }
+}
+
 export function qurilmaIdOl() {
-  let id = localStorage.getItem("qurilma_id");
+  let id = null;
+  try {
+    id = localStorage.getItem("qurilma_id");
+  } catch {
+    // localStorage yopiq
+  }
   if (!id) {
-    id = crypto.randomUUID();
-    localStorage.setItem("qurilma_id", id);
+    id = xotiradagiQurilmaId || yangiQurilmaId();
+    xotiradagiQurilmaId = id;
+    try {
+      localStorage.setItem("qurilma_id", id);
+    } catch {
+      // saqlab bo'lmasa — shu sahifa davomida xotiradagi ID ishlatiladi
+    }
   }
   return id;
 }
@@ -165,11 +195,15 @@ export async function api(yol, options = {}) {
       body: options.body ? JSON.stringify(options.body) : undefined,
     });
 
+  // 2026-10-23 bug (video IMG_7101): login so'rovida 401 — bu "parol
+  // noto'g'ri" degani, seans tugagani emas. Avval sahifa /login'ga qayta
+  // yuklanib, xato xabari ko'rinmay qolardi — endi xato Login.jsx'ga qaytadi.
+  const loginSorovi = yol === "/api/token/";
   let res = await sorov();
-  if (res.status === 401 && (await refreshQil())) {
+  if (!loginSorovi && res.status === 401 && (await refreshQil())) {
     res = await sorov();
   }
-  if (res.status === 401) {
+  if (!loginSorovi && res.status === 401) {
     await chiqishSababiniYoz(res);
     tokenlarniTozala();
     window.location.href = "/login";

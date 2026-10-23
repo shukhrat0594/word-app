@@ -86,6 +86,12 @@ export default function Login() {
             ? t("login_qurilma_rad")
             : t("login_qurilma_xato").replace("{nomlar}", (d.ruxsat_etilgan || []).join(", ") || "—")
         );
+      } else if (e?.status === 429) {
+        setXato(t("login_kop_urinish"));
+      } else if (d?.kod === "qurilma_id_yoq" || !e?.status) {
+        // 2026-10-23: qurilma ID'si yuborilmagan yoki so'rov umuman ketmagan
+        // (internet / brauzer xatosi) — bu parol xatosi emas.
+        setXato(t("login_ulanish_xato"));
       } else {
         setXato(t("login_xato"));
       }

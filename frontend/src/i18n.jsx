@@ -255,6 +255,8 @@ const LUGAT = {
     yoki_xodim: "yoki login/parol bilan",
     login_sarlavha: "Ingliz tilini SI yordamida o'rganing",
     login_xato: "Login yoki parol noto'g'ri",
+    login_kop_urinish: "Juda ko'p urinish bo'ldi. Bir necha daqiqadan keyin qayta urinib ko'ring.",
+    login_ulanish_xato: "Kirib bo'lmadi: brauzer yoki internet xatosi. Sahifani yangilab qayta urinib ko'ring yoki saytni Chrome'da oching.",
     login_qurilma_xato:
       "Bu hisob boshqa qurilmada ochiq: {nomlar}. Agar bu sizning qurilmangiz bo'lsa, saytni o'sha brauzerda oching. Administratorga xabar yuborildi — ruxsat berilgach qayta kiring.",
     login_qurilma_rad: "Administrator bu qurilmadan kirishga ruxsat bermadi.",
@@ -1132,6 +1134,8 @@ const LUGAT = {
     yoki_xodim: "или по логину/паролю",
     login_sarlavha: "Изучайте английский с ИИ",
     login_xato: "Неверный логин или пароль",
+    login_kop_urinish: "Слишком много попыток. Попробуйте снова через несколько минут.",
+    login_ulanish_xato: "Не удалось войти: ошибка браузера или интернета. Обновите страницу и попробуйте снова или откройте сайт в Chrome.",
     login_qurilma_xato:
       "Этот аккаунт открыт на другом устройстве: {nomlar}. Если это ваше устройство, откройте сайт в том же браузере. Администратор уведомлён — войдите снова после его разрешения.",
     login_qurilma_rad: "Администратор не разрешил вход с этого устройства.",
@@ -2009,6 +2013,8 @@ const LUGAT = {
     yoki_xodim: "or with login/password",
     login_sarlavha: "Learn English with AI",
     login_xato: "Wrong login or password",
+    login_kop_urinish: "Too many attempts. Please try again in a few minutes.",
+    login_ulanish_xato: "Could not log in: browser or connection error. Refresh the page and try again, or open the site in Chrome.",
     login_qurilma_xato:
       "This account is open on another device: {nomlar}. If that is your device, open the site in the same browser. The administrator has been notified — log in again once access is granted.",
     login_qurilma_rad: "The administrator did not allow login from this device.",
