@@ -2423,8 +2423,10 @@ class KorsatkichlarView(CrmView):
         # "To'lovi yaqin" kartochkasi olib tashlandi (video-TZ 2026-09-28: "kerak emas").
 
         # Bitirgan va boshqa guruhga o'tgan "ketgan" emas (markazda qolgan).
+        # Lidga qaytarilganlar ham — "Ketgan o'quvchilar" hisoboti bilan bir xil (video-TZ IMG_7097).
         oy_ketgan = GuruhdanChiqish.objects.filter(sana__gte=oy, sana__lte=bugun).filter(
-            filial_q(u, "filial")).exclude(sabab_turi__in=GuruhdanChiqish.KETMAGAN_TURLAR)
+            filial_q(u, "filial")).exclude(
+            sabab_turi__in=(*GuruhdanChiqish.KETMAGAN_TURLAR, GuruhdanChiqish.SababTuri.LIDGA))
         if filial:
             oy_ketgan = oy_ketgan.filter(filial_id=filial)
 
