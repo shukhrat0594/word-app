@@ -85,6 +85,18 @@ class TalabaAmaliTest(ApiAsos):
         self.assertEqual(h["soni"], 0)
         self.assertEqual(h["bitirganlar"], 1)
 
+    def test_bitirdi_bitiruvchilar_hisobotida(self):
+        # Video-TZ IMG_7100: guruhdan "bitirdi" bilan chiqqan — Bitiruvchilarda.
+        with bugun(date(2026, 9, 20)):
+            self.m.post(self.yol, {"amal": "bitirdi", "talaba_id": self.talaba.id, "sana": "2026-09-18"},
+                        format="json")
+        h = self.m.get("/api/crm/hisobot/bitiruvchilar/?dan=2026-09-01&gacha=2026-09-30").data
+        self.assertEqual(len(h["guruhlar"]), 1)
+        self.assertEqual(h["guruhlar"][0]["guruh_id"], self.guruh.id)
+        self.assertEqual(len(h["guruhlar"][0]["talabalar"]), 1)
+        h = self.m.get("/api/crm/hisobot/bitiruvchilar/?dan=2026-10-01&gacha=2026-10-31").data
+        self.assertEqual(h["guruhlar"], [])
+
     def test_lidga_qaytarish_mavjud_lidni_qayta_ochadi(self):
         lid = Lid.objects.create(ism="Talaba", telefon="901112233", talaba=self.talaba, arxiv=True,
                                  holat=Lid.Holat.QOSHILDI, arxiv_sabab="kelmadi")

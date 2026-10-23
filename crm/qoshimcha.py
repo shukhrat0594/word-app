@@ -886,7 +886,9 @@ class TolovlarHisobotiView(CrmView):
 
 class BitiruvchilarHisobotiView(CrmView):
     """"Bitiruvchilar hisoboti" — davrda tugagan guruhlar va ularning
-    o'quvchilari."""
+    o'quvchilari + davrda guruhdan "Kursni bitirdi" deb chiqarilganlar
+    (video-TZ IMG_7100: ular a'zolikdan o'chadi va avval hisobotga
+    tushmasdi)."""
 
     bolim = "hisobotlar.bitiruvchilar"
 
@@ -899,15 +901,31 @@ class BitiruvchilarHisobotiView(CrmView):
             guruh_q(request.user)).select_related(
             "moliya", "oqituvchi", "daraja"
         )
-        natija = []
+        natija = {}
         for g in guruhlar:
             talabalar = [_ism(a.talaba) for a in GuruhAzoligi.objects.filter(guruh=g).select_related("talaba")]
-            natija.append({
+            natija[g.id] = {
                 "guruh_id": g.id, "guruh": g.name, "kurs": g.daraja.nomi if g.daraja_id else None,
                 "oqituvchi": _ism(g.oqituvchi) if g.oqituvchi_id else None,
                 "tugash_sana": g.moliya.tugash_sana, "talabalar": talabalar,
-            })
-        return Response({"dan": dan, "gacha": gacha, "guruhlar": natija})
+            }
+        bitirganlar = GuruhdanChiqish.objects.filter(
+            sabab_turi=GuruhdanChiqish.SababTuri.BITIRDI, sana__range=(dan, gacha),
+        ).filter(filial_q(request.user, "filial")).select_related(
+            "guruh__daraja", "guruh__oqituvchi").order_by("sana", "id")
+        for c in bitirganlar:
+            kalit = c.guruh_id or f"nom:{c.guruh_nomi}"
+            if kalit not in natija:
+                g = c.guruh
+                natija[kalit] = {
+                    "guruh_id": kalit, "guruh": c.guruh_nomi,
+                    "kurs": g.daraja.nomi if g and g.daraja_id else None,
+                    "oqituvchi": _ism(g.oqituvchi) if g and g.oqituvchi_id else None,
+                    "tugash_sana": c.sana, "talabalar": [],
+                }
+            if c.talaba_ism not in natija[kalit]["talabalar"]:
+                natija[kalit]["talabalar"].append(c.talaba_ism)
+        return Response({"dan": dan, "gacha": gacha, "guruhlar": list(natija.values())})
 
 
 class HisobotlarDavrView(CrmView):
