@@ -195,11 +195,15 @@ export async function api(yol, options = {}) {
       body: options.body ? JSON.stringify(options.body) : undefined,
     });
 
+  // 2026-10-23 bug (video IMG_7101): login so'rovida 401 — bu "parol
+  // noto'g'ri" degani, seans tugagani emas. Avval sahifa /login'ga qayta
+  // yuklanib, xato xabari ko'rinmay qolardi — endi xato Login.jsx'ga qaytadi.
+  const loginSorovi = yol === "/api/token/";
   let res = await sorov();
-  if (res.status === 401 && (await refreshQil())) {
+  if (!loginSorovi && res.status === 401 && (await refreshQil())) {
     res = await sorov();
   }
-  if (res.status === 401) {
+  if (!loginSorovi && res.status === 401) {
     await chiqishSababiniYoz(res);
     tokenlarniTozala();
     window.location.href = "/login";
