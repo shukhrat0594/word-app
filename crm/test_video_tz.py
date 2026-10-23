@@ -103,8 +103,11 @@ class TalabaAmaliTest(ApiAsos):
             self.m.post(self.yol, {"amal": "lidga", "talaba_id": self.talaba.id, "sana": "2026-09-18"},
                         format="json")
             h = self.m.get("/api/crm/hisobot/ketganlar/?dan=2026-09-01&gacha=2026-09-30").data
+            k = self.mijoz(self.owner).get("/api/crm/korsatkichlar/").data
         self.assertEqual(GuruhdanChiqish.objects.get().sabab_turi, "lidga")
         self.assertEqual((h["soni"], h["royxat"]), (0, []))
+        # video-TZ IMG_7097: bosh sahifadagi "Shu oy ketganlar" hisobot bilan bir xil.
+        self.assertEqual(k["ketganlar"], 0)
 
     def test_lidga_qaytarish_lid_bolmasa_yaratadi(self):
         j = self.m.post(self.yol, {"amal": "lidga", "talaba_id": self.talaba.id}, format="json")
