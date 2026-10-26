@@ -114,6 +114,22 @@ class QarzdorlikTest(ApiAsos):
         kitob = load_workbook(BytesIO(m.get("/api/crm/eksport/?qarzli=1").content))
         self.assertEqual(kitob["Qarzdorlar"].max_row - 1, 0)
 
+    def test_ochirilgan_talaba_hisobi_qarzlilar_royxatida_yoq(self):
+        """Matn-TZ #577: talaba LMS'dan o'chirilgan — hisobi talabasiz
+        (balansi yo'q) qoladi. "Qarzdor + Qisman" va Excel'da chiqmaydi."""
+        self.hisob(SENTABR)
+        m = self.mijoz(self.owner)
+        self.assertEqual(len(m.get("/api/crm/hisoblar/?qarzli=1").data), 1)
+        self.talaba.delete()
+        self.assertEqual(m.get("/api/crm/hisoblar/?qarzli=1").data, [])
+        self.assertEqual(len(m.get("/api/crm/hisoblar/").data), 1)
+        from io import BytesIO
+
+        from openpyxl import load_workbook
+
+        kitob = load_workbook(BytesIO(m.get("/api/crm/eksport/?qarzli=1").content))
+        self.assertEqual(kitob["Qarzdorlar"].max_row - 1, 0)
+
     def test_ortiqcha_tolagan_balansi_musbat(self):
         self.tolov(self.hisob(SENTABR), NARX + 100000)
         d = self.mijoz(self.owner).get("/api/crm/talabalar/").data
