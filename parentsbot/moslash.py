@@ -80,9 +80,9 @@ def telefon_boyicha(telefon):
     if not kalit:
         return []
     topildi = []
-    for t in _talabalar().select_related("ota_ona"):
-        if telefon_kaliti(t.ota_ona_telefon) == kalit or (
-            t.ota_ona_id and telefon_kaliti(t.ota_ona.telefon) == kalit
+    for t in _talabalar().prefetch_related("ota_onalar"):
+        if telefon_kaliti(t.ota_ona_telefon) == kalit or any(
+            telefon_kaliti(o.telefon) == kalit for o in t.ota_onalar.all()
         ):
             topildi.append(t)
     return topildi

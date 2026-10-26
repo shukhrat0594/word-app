@@ -108,8 +108,7 @@ class SpeakingAudioHavolasiTest(TestCase):
         begona_ota = User.objects.create_user(
             username="begona_ota", password=PAROL, role=User.Role.PARENT
         )
-        self.talaba.ota_ona = ota_ona
-        self.talaba.save(update_fields=["ota_ona"])
+        self.talaba.ota_onalar.add(ota_ona)
 
         self.assertEqual(_kirish("ota", "q4").get(self.yol).status_code, 200)
         self.assertEqual(_kirish("begona_ota", "q5").get(self.yol).status_code, 404)

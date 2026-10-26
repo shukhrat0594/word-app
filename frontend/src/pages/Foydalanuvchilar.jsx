@@ -9,10 +9,8 @@ import { useProfil } from "../profilContext";
 const ROLLAR = ["owner", "admin", "teacher", "student", "parent", "oddiy"];
 
 /** Ota-onaga farzand(lar) biriktirish (2026-08-09). Bitta ota-onada bir
- * nechta farzand bo'lishi mumkin, lekin bitta bola FAQAT bitta
- * ota-onaga — shuning uchun boshqa ota-onaga biriktirilgan talaba
- * ro'yxatda ko'rinadi, lekin BELGILAB BO'LMAYDI (backend ham 400
- * qaytaradi, bu faqat oldindan tushuntirish). */
+ * nechta farzand, 2026-10-26 dan bitta bolada ham bir nechta ota-ona
+ * (otasi, onasi) bo'lishi mumkin — "band" talaba yo'q. */
 function FarzandTanlovi({ user, talabalar, saqlash, t }) {
   const [ochiq, setOchiq] = useState(false);
   const [qidiruv, setQidiruv] = useState("");
@@ -61,18 +59,11 @@ function FarzandTanlovi({ user, talabalar, saqlash, t }) {
           )}
           {korinadigan.map((s) => {
             const belgilanganmi = joriy.includes(s.id);
-            // Boshqa ota-onada band — bu yerda belgilab bo'lmaydi.
-            const band = !belgilanganmi && s.ota_ona_id != null;
             return (
-              <label
-                key={s.id}
-                style={{ display: "flex", alignItems: "center", gap: 6, opacity: band ? 0.45 : 1 }}
-                title={band ? t("farzand_tanlash_izoh") : ""}
-              >
+              <label key={s.id} style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <input
                   type="checkbox"
                   checked={belgilanganmi}
-                  disabled={band}
                   onChange={() => boshqar(s.id, belgilanganmi)}
                 />
                 {s.ism}

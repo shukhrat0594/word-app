@@ -245,8 +245,8 @@ class FarzandTolovVaUstozTest(TestCase):
         )
         self.talaba = User.objects.create_user(
             username="talaba", password=PAROL, role=User.Role.STUDENT, markaz=self.markaz,
-            ota_ona=self.ota,
         )
+        self.talaba.ota_onalar.add(self.ota)
         oqituvchi = User.objects.create_user(
             username="ustoz", password=PAROL, role=User.Role.TEACHER, markaz=self.markaz,
             first_name="Ali", last_name="Valiyev", telefon="+998901112233",

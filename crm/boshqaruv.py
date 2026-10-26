@@ -1345,8 +1345,8 @@ class TalabaOtaOnaView(CrmView):
     - {"amal": "yaratish"} — yangi ota-ona hisobi yaratib shu talabaga biriktiradi;
     - {"amal": "ulash", "manba_talaba_id": N} — boshqa (ota-onasi allaqachon
       bor) talabaning hisobini shu talabaga ham biriktiradi — bitta
-      ota-onada bir nechta farzand bo'lishi mumkin (`User.ota_ona` FK,
-      `related_name="farzandlar"`).
+      ota-onada bir nechta farzand, bitta bolada bir nechta ota-ona bo'lishi
+      mumkin (`User.ota_onalar` M2M, `related_name="farzandlar"`).
     - {"amal": "parol_tiklash"} — biriktirilgan ota-ona hisobiga yangi parol.
 
     Login/parol javobda bir marta qaytadi VA administratorga (amalni
@@ -1373,7 +1373,12 @@ class TalabaOtaOnaView(CrmView):
         talaba = get_object_or_404(User, pk=pk, role=User.Role.STUDENT)
         amal = request.data.get("amal")
         if amal == "parol_tiklash":
-            ota_ona = talaba.ota_ona
+            # 2026-10-26: bolada bir nechta ota-ona bo'lishi mumkin —
+            # `ota_ona_id` berilsa o'sha, aks holda birinchisi.
+            ota_onalar = talaba.ota_onalar.order_by("id")
+            if request.data.get("ota_ona_id"):
+                ota_onalar = ota_onalar.filter(pk=request.data.get("ota_ona_id"))
+            ota_ona = ota_onalar.first()
             if not ota_ona:
                 return _xato("Bu o'quvchida ota-ona hisobi yo'q")
             # `limit_choices_to` faqat forma darajasida — rol keyin o'zgargan
@@ -1391,8 +1396,6 @@ class TalabaOtaOnaView(CrmView):
                 yangi_qiymatlar={"parol": "tiklandi"},
             )
             return Response({"id": ota_ona.id, "ism": _ism(ota_ona), "username": ota_ona.username, "parol": parol})
-        if talaba.ota_ona_id:
-            return _xato("Bu o'quvchida ota-ona hisobi allaqachon bor")
 
         if amal == "yaratish":
             ism = (request.data.get("ism") or talaba.ota_ona_ismi or "").strip()
@@ -1408,8 +1411,7 @@ class TalabaOtaOnaView(CrmView):
             ota_ona = User(username=login, first_name=ism[:150], role=User.Role.PARENT, telefon=telefon)
             ota_ona.set_password(parol)
             ota_ona.save()
-            talaba.ota_ona = ota_ona
-            talaba.save(update_fields=["ota_ona"])
+            talaba.ota_onalar.add(ota_ona)
             self._adminga_yubor(request.user, ota_ona, parol, talaba, "Ota-ona hisobi ochildi")
             logla(
                 foydalanuvchi=request.user, harakat=FaoliyatYozuvi.Harakat.YARATISH, obyekt=ota_ona,
@@ -1426,16 +1428,17 @@ class TalabaOtaOnaView(CrmView):
             )
             if not talaba_korinadimi(request.user, manba.id):
                 return _xato("O'quvchi topilmadi", kod=404)
-            if not manba.ota_ona_id:
+            manba_ota_onalari = list(manba.ota_onalar.all())
+            if not manba_ota_onalari:
                 return _xato("Tanlangan o'quvchida ota-ona hisobi yo'q")
-            talaba.ota_ona = manba.ota_ona
-            talaba.save(update_fields=["ota_ona"])
+            talaba.ota_onalar.add(*manba_ota_onalari)
+            birinchi = manba_ota_onalari[0]
             logla(
                 foydalanuvchi=request.user, harakat=FaoliyatYozuvi.Harakat.OZGARTIRISH, obyekt=talaba,
                 obyekt_turi="Talaba", obyekt_nomi=_ism(talaba),
-                yangi_qiymatlar={"ota_ona": _ism(manba.ota_ona)},
+                yangi_qiymatlar={"ota_ona": ", ".join(_ism(o) for o in manba_ota_onalari)},
             )
-            return Response({"id": manba.ota_ona.id, "ism": _ism(manba.ota_ona), "username": manba.ota_ona.username})
+            return Response({"id": birinchi.id, "ism": _ism(birinchi), "username": birinchi.username})
 
         return _xato("amal: yaratish yoki ulash")
 
@@ -2552,7 +2555,7 @@ class TalabaQidiruvView(CrmView):
         # `?ota_ona_bor=1` — faqat ota-ona hisobi allaqachon bor talabalar
         # (talaba kartasida "boshqa farzandga ulash" qidiruvi uchun).
         if request.query_params.get("ota_ona_bor"):
-            qs = qs.filter(ota_ona__isnull=False)
+            qs = qs.filter(ota_onalar__isnull=False).distinct()
         return Response([
             {
                 "id": u.id, "ism": _ism(u), "telefon": u.telefon, "username": u.username,
