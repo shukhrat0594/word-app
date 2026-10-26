@@ -167,14 +167,17 @@ class User(AbstractUser):
     # `related_name="farzandlar"` ATAYLAB eski nom bilan: `parent
     # .farzandlar.all()` avvalgidek ishlaydi, shuning uchun mavjud kod
     # (`stats/views.py`) tegilmadi.
-    ota_ona = models.ForeignKey(
+    #
+    # 2026-10-26 (Matn-TZ 580): qoida bekor qilindi — bitta bolani 2 va
+    # undan ortiq ota-onaga (otasi ham, onasi ham) biriktirish kerak.
+    # Bog'lanish yana ko'p-ko'pga, lekin maydon bolaning o'zida turadi.
+    ota_onalar = models.ManyToManyField(
         "self",
-        on_delete=models.SET_NULL,
-        null=True,
+        symmetrical=False,
         blank=True,
         related_name="farzandlar",
         limit_choices_to={"role": "parent"},
-        help_text="Faqat 'Talaba' roli uchun — kuzatuvchi ota-ona (bitta)",
+        help_text="Faqat 'Talaba' roli uchun — kuzatuvchi ota-onalar (bir nechta bo'lishi mumkin)",
     )
     rasm = models.ImageField(
         upload_to="foydalanuvchi_rasm/", blank=True,

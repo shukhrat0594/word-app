@@ -227,9 +227,7 @@ class TalabaOtaOnaTest(ApiAsos):
             "amal": "yaratish", "ism": "Onasi Nilufar", "telefon": "+998901112233",
         }, format="json")
         self.assertEqual(javob.status_code, 201, javob.data)
-        self.talaba.refresh_from_db()
-        self.assertIsNotNone(self.talaba.ota_ona_id)
-        ota_ona = self.talaba.ota_ona
+        ota_ona = self.talaba.ota_onalar.get()
         self.assertEqual(ota_ona.role, User.Role.PARENT)
         self.assertTrue(ota_ona.check_password(javob.data["parol"]))
         self.assertEqual(javob.data["username"], ota_ona.username)
@@ -239,8 +237,7 @@ class TalabaOtaOnaTest(ApiAsos):
         self.assertIn(javob.data["parol"], xabar.matn)
 
     def test_ota_ona_paroli_qayta_tiklanadi(self):
-        self.talaba.ota_ona = self.ota_ona
-        self.talaba.save(update_fields=["ota_ona"])
+        self.talaba.ota_onalar.add(self.ota_ona)
         javob = self.mijoz(self.admin).post(f"/api/crm/talaba/{self.talaba.id}/ota-ona/", {
             "amal": "parol_tiklash",
         }, format="json")
@@ -248,6 +245,16 @@ class TalabaOtaOnaTest(ApiAsos):
         self.ota_ona.refresh_from_db()
         self.assertTrue(self.ota_ona.check_password(javob.data["parol"]))
         self.assertIn(javob.data["parol"], Bildirishnoma.objects.get(foydalanuvchi=self.admin).matn)
+
+    def test_ota_ona_id_bilan_aynan_shu_ota_ona_paroli_tiklanadi(self):
+        ikkinchi = User.objects.create_user(username="onasi2", password="x", role=User.Role.PARENT)
+        self.talaba.ota_onalar.add(self.ota_ona, ikkinchi)
+        yol = f"/api/crm/talaba/{self.talaba.id}/ota-ona/"
+        javob = self.mijoz(self.admin).post(yol, {"amal": "parol_tiklash", "ota_ona_id": ikkinchi.id}, format="json")
+        self.assertEqual(javob.status_code, 200, javob.data)
+        self.assertEqual(javob.data["id"], ikkinchi.id)
+        javob = self.mijoz(self.admin).post(yol, {"amal": "parol_tiklash", "ota_ona_id": "abc"}, format="json")
+        self.assertEqual(javob.status_code, 400)
 
     def test_ota_onasi_yoq_talabada_parol_tiklanmaydi(self):
         javob = self.mijoz(self.admin).post(f"/api/crm/talaba/{self.talaba.id}/ota-ona/", {
@@ -260,8 +267,7 @@ class TalabaOtaOnaTest(ApiAsos):
         # uning parolini tiklash imtiyozli hisobni egallash yo'li bo'lmasin.
         self.ota_ona.role = User.Role.ADMIN
         self.ota_ona.save(update_fields=["role"])
-        self.talaba.ota_ona = self.ota_ona
-        self.talaba.save(update_fields=["ota_ona"])
+        self.talaba.ota_onalar.add(self.ota_ona)
         eski_hash = self.ota_ona.password
         javob = self.mijoz(self.admin).post(f"/api/crm/talaba/{self.talaba.id}/ota-ona/", {
             "amal": "parol_tiklash",
@@ -284,16 +290,16 @@ class TalabaOtaOnaTest(ApiAsos):
             "amal": "ulash", "manba_talaba_id": self.talaba.id,
         }, format="json")
         self.assertEqual(javob.status_code, 200, javob.data)
-        ikkinchi.refresh_from_db()
-        self.assertEqual(ikkinchi.ota_ona_id, self.talaba.ota_ona_id)
+        self.assertEqual(set(ikkinchi.ota_onalar.all()), set(self.talaba.ota_onalar.all()))
 
-    def test_ota_ona_hisobi_bor_talabada_qayta_ochilmaydi(self):
-        self.talaba.ota_ona = self.ota_ona
-        self.talaba.save(update_fields=["ota_ona"])
+    def test_ota_onasi_bor_talabaga_ikkinchi_ota_ona_qoshiladi(self):
+        # 2026-10-26 (Matn-TZ 580): otasi ham, onasi ham biriktiriladi.
+        self.talaba.ota_onalar.add(self.ota_ona)
         javob = self.mijoz(self.admin).post(f"/api/crm/talaba/{self.talaba.id}/ota-ona/", {
             "amal": "yaratish", "ism": "Yana biri",
         }, format="json")
-        self.assertEqual(javob.status_code, 400)
+        self.assertEqual(javob.status_code, 201, javob.data)
+        self.assertEqual(self.talaba.ota_onalar.count(), 2)
 
     def test_ota_onasi_yoq_talabaga_ulab_bolmaydi(self):
         ikkinchi = User.objects.create_user(

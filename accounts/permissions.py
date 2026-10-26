@@ -40,7 +40,7 @@ def natijalarni_korish_ruxsati(koruvchi, talaba):
 
         return Guruh.objects.filter(oqituvchi=koruvchi, talabalar=talaba).exists()
     if koruvchi.role == User.Role.PARENT:
-        return talaba.ota_ona_id == koruvchi.pk
+        return talaba.ota_onalar.filter(pk=koruvchi.pk).exists()
     return False
 
 
