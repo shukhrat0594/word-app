@@ -384,6 +384,42 @@ class SpeakingTrainerView(APIView):
         return Response({"javob": javob, "transkript": transkript})
 
 
+GRAMMAR_COACH_MAX_BELGI = 1000
+
+
+class GrammarCoachView(APIView):
+    """AI Grammar Coach (2026-10-26, TZ 613) — talaba grammatika mavzusi
+    nomini yoki inglizcha gapni yozadi, AI (Speaking Trainer bilan bir xil
+    Gemini modeli) tanlangan tilda (`til`: Uzbek/Russian/English)
+    tushuntirish va 3 savollik mini-test qaytaradi. Holat saqlanmaydi."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        from .providers import GRAMMAR_COACH_TILLARI
+
+        matn = request.data.get("matn")
+        til = request.data.get("til")
+        if not isinstance(matn, str) or not matn.strip():
+            return Response({"detail": "Mavzu yoki gapni kiriting"}, status=400)
+        if len(matn) > GRAMMAR_COACH_MAX_BELGI:
+            return Response({"detail": "Matn juda uzun — qisqaroq yozing"}, status=400)
+        if til not in GRAMMAR_COACH_TILLARI:
+            return Response({"detail": "Tushuntirish tili noto'g'ri"}, status=400)
+
+        try:
+            kalit = getattr(settings, "GEMINI_API_KEY", "")
+            if not kalit:
+                raise ProviderXatosi("Platforma GEMINI_API_KEY sozlanmagan (.env)")
+            provider = GeminiProvider(kalit, model=GEMINI_MODEL)
+            javob = provider.grammar_coach_javob(matn.strip(), til)
+        except ProviderXatosi as e:
+            return Response({"detail": str(e)}, status=502)
+        except Exception as e:
+            return ai_xatosi_javobi(e, f"Grammar coach (talaba id={request.user.id})")
+        return Response({"javob": javob})
+
+
 def speaking_audio_yoli(tekshiruv):
     """Speaking yozuvining audio havolasi — yoki `None`.
 
