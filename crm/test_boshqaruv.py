@@ -246,6 +246,16 @@ class TalabaOtaOnaTest(ApiAsos):
         self.assertTrue(self.ota_ona.check_password(javob.data["parol"]))
         self.assertIn(javob.data["parol"], Bildirishnoma.objects.get(foydalanuvchi=self.admin).matn)
 
+    def test_ota_ona_id_bilan_aynan_shu_ota_ona_paroli_tiklanadi(self):
+        ikkinchi = User.objects.create_user(username="onasi2", password="x", role=User.Role.PARENT)
+        self.talaba.ota_onalar.add(self.ota_ona, ikkinchi)
+        yol = f"/api/crm/talaba/{self.talaba.id}/ota-ona/"
+        javob = self.mijoz(self.admin).post(yol, {"amal": "parol_tiklash", "ota_ona_id": ikkinchi.id}, format="json")
+        self.assertEqual(javob.status_code, 200, javob.data)
+        self.assertEqual(javob.data["id"], ikkinchi.id)
+        javob = self.mijoz(self.admin).post(yol, {"amal": "parol_tiklash", "ota_ona_id": "abc"}, format="json")
+        self.assertEqual(javob.status_code, 400)
+
     def test_ota_onasi_yoq_talabada_parol_tiklanmaydi(self):
         javob = self.mijoz(self.admin).post(f"/api/crm/talaba/{self.talaba.id}/ota-ona/", {
             "amal": "parol_tiklash",

@@ -1377,7 +1377,10 @@ class TalabaOtaOnaView(CrmView):
             # `ota_ona_id` berilsa o'sha, aks holda birinchisi.
             ota_onalar = talaba.ota_onalar.order_by("id")
             if request.data.get("ota_ona_id"):
-                ota_onalar = ota_onalar.filter(pk=request.data.get("ota_ona_id"))
+                try:
+                    ota_onalar = ota_onalar.filter(pk=int(request.data.get("ota_ona_id")))
+                except (TypeError, ValueError):
+                    return _xato("ota_ona_id — son bo'lishi kerak")
             ota_ona = ota_onalar.first()
             if not ota_ona:
                 return _xato("Bu o'quvchida ota-ona hisobi yo'q")
