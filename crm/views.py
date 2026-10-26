@@ -320,9 +320,12 @@ def _balansi_qarzlilar(hisoblar, balanslar):
     o'quvchining chegirmasi oyga bog'lanmagan bo'lsa, oy hisobi "qarzdor"
     bo'lib qolardi, balansi esa 0 — ro'yxatga va "Jami qarzdorlik"ka
     soxta qarz tushardi. Qoida bosh sahifa bilan bir xil
-    (`boshqaruv.mantiq_qarzdorlar`: balans < 0 — qarzdor). Talabasi
-    o'chirilgan hisob (balansi yo'q) qoladi."""
-    return [h for h in hisoblar if not h.talaba_id or balanslar.get(h.talaba_id, NOL) < 0]
+    (`boshqaruv.mantiq_qarzdorlar`: balans < 0 — qarzdor).
+
+    Matn-TZ #577: talabasi LMS'da o'chirilgan hisob (`talaba` SET_NULL,
+    balansi yo'q) ham chiqmaydi — u yashil "0" bilan ro'yxatda va "Jami
+    qarzdorlik"da qolardi; bosh sahifa ham uni qarzga qo'shmaydi."""
+    return [h for h in hisoblar if h.talaba_id and balanslar.get(h.talaba_id, NOL) < 0]
 
 
 def _tolangan_bilan(qs):
