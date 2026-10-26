@@ -613,9 +613,8 @@ class FoydalanuvchilarView(APIView):
                         {"id": f.id, "ism": f.get_full_name() or f.username}
                         for f in u.farzandlar.all()
                     ] if u.role == User.Role.PARENT else [],
-                    # Talaba uchun — allaqachon biriktirilganmi (frontend
-                    # band talabani belgilashga ruxsat bermasligi uchun).
-                    "ota_ona_id": u.ota_ona_id,
+                    # 2026-10-26: `ota_ona_id` olib tashlandi — bola endi bir
+                    # nechta ota-onaga biriktiriladi, "band" holati yo'q.
                     "crm_talaba": u.id in crm_talabalari,
                 }
                 for u in qs
@@ -745,10 +744,9 @@ class FoydalanuvchiFarzandlarView(APIView):
     talabi). Avval buni FAQAT Django admin panelida qilish mumkin edi,
     ya'ni ilovadan ota-ona yaratilsa ham unga bola bog'lab bo'lmasdi.
 
-    QOIDA: bitta ota-onada bir NECHTA farzand bo'lishi mumkin, lekin
-    bitta bola FAQAT BITTA ota-onaga biriktiriladi. Cheklov modelda
-    (`User.ota_ona` FK) — bu yerda faqat tushunarli xato beriladi,
-    aks holda boshqa ota-onaning bolasi jimgina tortib olinardi.
+    2026-10-26 (Matn-TZ 580): bitta bola endi bir NECHTA ota-onaga
+    (otasi ham, onasi ham) biriktiriladi (`User.ota_onalar` M2M) —
+    boshqa ota-onaga biriktirilgan bola ham tanlanadi, u yerdan uzilmaydi.
 
     Body: {"farzandlar": [talaba_id, ...]} — TO'LIQ ro'yxat (ro'yxatda
     yo'q, lekin avval biriktirilgan bolalar uzib qo'yiladi)."""
@@ -776,20 +774,9 @@ class FoydalanuvchiFarzandlarView(APIView):
                 status=400,
             )
 
-        band = [
-            t for t in talabalar
-            if t.ota_ona_id is not None and t.ota_ona_id != ota_ona.pk
-        ]
-        if band:
-            nomlar = ", ".join(f"{t.get_full_name() or t.username}" for t in band)
-            return Response(
-                {"detail": f"Bu talaba(lar) allaqachon boshqa ota-onaga biriktirilgan: {nomlar}"},
-                status=400,
-            )
-
-        # Ro'yxatdan chiqarilganlarni uzamiz, keyin yangilarini bog'laymiz.
-        User.objects.filter(ota_ona=ota_ona).exclude(pk__in=idlar).update(ota_ona=None)
-        User.objects.filter(pk__in=idlar).update(ota_ona=ota_ona)
+        # To'liq ro'yxat bilan almashtiramiz: chiqarilganlar faqat SHU
+        # ota-onadan uziladi, boshqa ota-onalar bog'lanishi tegilmaydi.
+        ota_ona.farzandlar.set(talabalar)
 
         logla(
             foydalanuvchi=u,
@@ -821,7 +808,7 @@ def _rasm_korish_ruxsati(request_user, target_user):
     if request_user.role == User.Role.TEACHER:
         return Guruh.objects.filter(oqituvchi=request_user, talabalar=target_user).exists()
     if request_user.role == User.Role.PARENT:
-        return target_user.ota_ona_id == request_user.pk
+        return target_user.ota_onalar.filter(pk=request_user.pk).exists()
     return Guruh.objects.filter(talabalar=request_user).filter(talabalar=target_user).exists()
 
 

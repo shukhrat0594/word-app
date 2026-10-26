@@ -71,7 +71,7 @@ class BazaBilanTest(TestCase):
 
     def test_ota_ona_hisobi_telefoni(self):
         ota = User.objects.create_user(username="ota", password="x", role=User.Role.PARENT, telefon="+998 93 111 22 33")
-        User.objects.filter(pk=self.t3.pk).update(ota_ona=ota)
+        self.t3.ota_onalar.add(ota)
         self.assertEqual([t.username for t in m.telefon_boyicha("931112233")], ["sevara"])
 
     def test_aniq_moslik_ism_va_sana(self):

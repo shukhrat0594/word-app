@@ -65,8 +65,8 @@ Commit izohlarida halol yozilgan, hali tuzatilmagan:
   uchun `apiBlobUrl`, profil rasmi uchun tayyor
   `frontend/src/components/Avatar.jsx`. `mediaManzil` faqat markaz
   logosi uchun (u lokal diskda, ochiq).
-- **Ota-ona ↔ farzand**: `farzandlar` M2M YO'Q. Bolaning o'zida
-  `ota_ona` FK (bitta bola = bitta ota-ona, DB darajasida).
+- **Ota-ona ↔ farzand**: bolaning o'zida `ota_onalar` M2M (2026-10-26
+  dan bitta bolada bir nechta ota-ona bo'lishi mumkin; avval `ota_ona` FK).
   `related_name="farzandlar"` ataylab eski nom bilan —
   `parent.farzandlar.all()` ishlaydi.
 

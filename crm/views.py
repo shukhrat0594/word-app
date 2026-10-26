@@ -2114,6 +2114,10 @@ class TalabaView(CrmView):
         natijalar["davomat_foizi"] = (
             round(natijalar["keldi"] / jami_dars * 100) if jami_dars else None
         )
+        ota_onalar = [
+            {"id": o.id, "ism": o.get_full_name() or o.username, "username": o.username}
+            for o in talaba.ota_onalar.order_by("id")
+        ]
 
         return Response(
             {
@@ -2142,11 +2146,10 @@ class TalabaView(CrmView):
                 "crm": _talaba_profil_dict(talaba),
                 # SoffCRM "Ilova holati" o'rnida — saytdan foydalanadimi.
                 "sayt": _sayt_holati(talaba),
-                "ota_ona": {
-                    "id": talaba.ota_ona_id,
-                    "ism": (talaba.ota_ona.get_full_name() or talaba.ota_ona.username) if talaba.ota_ona_id else None,
-                    "username": talaba.ota_ona.username if talaba.ota_ona_id else None,
-                },
+                # 2026-10-26: bolada bir nechta ota-ona bo'lishi mumkin.
+                # `ota_ona` — birinchisi (eski format), `ota_onalar` — hammasi.
+                "ota_ona": ota_onalar[0] if ota_onalar else {"id": None, "ism": None, "username": None},
+                "ota_onalar": ota_onalar,
                 "ortacha_baho": _yaxlit(talaba.crm_baholar.aggregate(o=Avg("ball"))["o"]),
                 "natijalar": natijalar,
                 "guruhlar": guruhlar,

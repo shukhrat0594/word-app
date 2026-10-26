@@ -878,7 +878,8 @@ function Karta({ talabaId, onOrqaga }) {
           <span>
             {talaba.ota_ona?.id ? (
               <>
-                {`${talaba.ota_ona.ism} (${talaba.ota_ona.username})`}{" "}
+                {(talaba.ota_onalar?.length ? talaba.ota_onalar : [talaba.ota_ona])
+                  .map((o) => `${o.ism} (${o.username})`).join(", ")}{" "}
                 {ruxsat("talabalar.tahrirlash") && !talaba.faqat_korish && (
                   <button className="tugma tugma-sokin" type="button" onClick={otaOnaParolTiklash}>
                     🔑 {t("parol_tiklash")}

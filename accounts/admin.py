@@ -17,10 +17,12 @@ class UserAdmin(BaseUserAdmin):
     list_filter = ("role", "markaz", "is_staff", "is_superuser")
     # 2026-08-09: `farzandlar` M2M o'rniga bolaning o'zidagi `ota_ona` FK
     # (bitta bola = bitta ota-ona). Shuning uchun bu yerda ota-onani
-    # TALABA sahifasida tanlanadi, `filter_horizontal` esa kerak emas.
+    # TALABA sahifasida tanlanadi. 2026-10-26: bir nechta ota-ona
+    # (`ota_onalar` M2M) — shuning uchun `filter_horizontal`.
     fieldsets = BaseUserAdmin.fieldsets + (
-        ("LMS", {"fields": ("role", "markaz", "ota_ona", "rasm")}),
+        ("LMS", {"fields": ("role", "markaz", "ota_onalar", "rasm")}),
     )
+    filter_horizontal = BaseUserAdmin.filter_horizontal + ("ota_onalar",)
     add_fieldsets = BaseUserAdmin.add_fieldsets + (
         ("LMS", {"fields": ("role", "markaz")}),
     )
