@@ -29,6 +29,7 @@ urlpatterns = [
         views.SpeakingTrainerView.as_view(),
         name="speaking_trainer",
     ),
+    path("grammar/coach/", views.GrammarCoachView.as_view(), name="grammar_coach"),
     path("speaking/tarix/", views.SpeakingTarixView.as_view(), name="speaking_tarix"),
     # Speaking yozuvining audiosi — autentifikatsiyalangan oqim (B3.2,
     # 2026-09-07). Avval tarix javobida xom /media/ havolasi qaytardi.

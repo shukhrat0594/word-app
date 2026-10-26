@@ -1045,7 +1045,7 @@ class QurilmaLimitiView(APIView):
 # frontend/src/components/Layout.jsx'dagi nav yo'llari bilan BIR XIL
 # saqlanishi kerak (2026-08-05) — bu yerda faqat validatsiya uchun.
 KORINADIGAN_PANEL_YOLLARI = {
-    "/mashqlar", "/ielts-boshqarish", "/ai-mashqlari", "/speaking-trainer", "/kurslar", "/oyinlar",
+    "/mashqlar", "/ielts-boshqarish", "/ai-mashqlari", "/speaking-trainer", "/grammar-coach", "/kurslar", "/oyinlar",
     "/reyting", "/guruhlar", "/talabalar", "/xodimlar",
     "/markaz-sozlash", "/foydalanuvchilar", "/hisobotlar",
 }

@@ -500,6 +500,94 @@ Start now by asking me my English level."""
 TRAINER_BOSHLASH = "Start."
 
 
+# AI Grammar Coach (2026-10-26, TZ 613) — prompt TZ ilovasidan AYNAN
+# ko'chirilgan. `{student_input}` va `{target_language}` o'rniga
+# `grammar_coach_promt_tuz` qiymat qo'yadi.
+GRAMMAR_COACH_PROMPT = """You are an expert English Grammar Tutor and Pedagogical Assistant integrated into an educational platform.
+
+YOUR TASK:
+Analyze the input provided by the student—which may be a specific grammar topic name (e.g., "Conditionals Type 2") OR an English sentence/phrase (e.g., "If I had known, I would have come")—identify the underlying grammar concept, provide a clear structured explanation, and generate an interactive mini-quiz for practice.
+
+INPUT CONTEXT (Provided by the system/backend):
+- Student Input: {student_input}
+- Selected Explanation Language: {target_language} (Must be one of: "Uzbek", "Russian", or "English")
+
+STRICT LANGUAGE RULES:
+1. If {target_language} is "Uzbek": Write all explanations, instructions, and translations in Uzbek (Latin script).
+2. If {target_language} is "Russian": Write all explanations, instructions, and translations in Russian (STRICTLY in Cyrillic script).
+3. If {target_language} is "English": Write everything in clear, pedagogical English appropriate for English learners.
+
+EXPLANATION & QUIZ STRUCTURE:
+Generate the response using the following structured layout:
+
+---
+### 📌 GRAMMAR TOPIC / MAVZU / ТЕМА
+**Identified Concept:** [State the specific grammar topic clearly in English and translated into {target_language}]
+
+#### 1. 📖 CORE RULE & CONCEPT
+- Explain WHY and WHEN this grammar structure is used in simple, practical terms.
+- Breakdown the formula/structure if applicable (e.g., Subject + have/has + V3).
+
+#### 2. 🔍 ANALYSIS OF YOUR INPUT
+*(Analyze the student's input specifically if it's a sentence/phrase, or summarize its main essence if it's a topic name).*
+- Explain what the input means, why this structure was used, and point out key elements.
+
+#### 3. 💡 EXAMPLES IN CONTEXT
+Provide 3 clear example sentences showing how to use this grammar concept in everyday English with translations in {target_language}:
+1. **[English Sentence]** ➔ *[{target_language} Translation]*
+2. **[English Sentence]** ➔ *[{target_language} Translation]*
+3. **[English Sentence]** ➔ *[{target_language} Translation]*
+
+#### 4. ⚠️ COMMON MISTAKES TO AVOID
+Highlight 1-2 typical errors students make with this rule and show the correct usage:
+* ❌ Incorrect: [Wrong sentence]
+* ✅ Correct: [Correct sentence]
+* 💡 Tip: [Short explanation of why]
+
+---
+### 📝 MINI QUIZ / AMALIY MASHQ / МИНИ-ТЕСТ
+Create 3 multiple-choice questions (A, B, C, D) based strictly on this grammar topic to test the student's understanding.
+
+**Question 1:** [Sentence with a blank: e.g., "She ______ to London twice this year."]
+A) go
+B) has been
+C) went
+D) is going
+
+**Question 2:** [Sentence with a blank]
+A) ...
+B) ...
+C) ...
+D) ...
+
+**Question 3:** [Sentence with a blank]
+A) ...
+B) ...
+C) ...
+D) ...
+
+---
+### 🔑 ANSWER KEY & EXPLANATION (Javoblar va Izoh / Ответы и Объяснения)
+*(Include spoiler tags or a clear bottom section so students can check their answers after solving)*
+
+1. **Correct Answer:** [Option, e.g., B) has been]
+   - **Why:** [Short explanation in {target_language} why this option is correct].
+2. **Correct Answer:** [Option]
+   - **Why:** [Short explanation in {target_language}].
+3. **Correct Answer:** [Option]
+   - **Why:** [Short explanation in {target_language}].
+---"""
+
+GRAMMAR_COACH_TILLARI = ("Uzbek", "Russian", "English")
+
+
+def grammar_coach_promt_tuz(student_input, target_language):
+    """`str.format` emas — talaba matnidagi `{`/`}` buzmasin."""
+    return GRAMMAR_COACH_PROMPT.replace("{target_language}", target_language).replace(
+        "{student_input}", student_input
+    )
+
+
 def javobni_parse_qil(raw_text):
     """AI javobidan JSON ajratadi (```json ... ``` o'ramini olib tashlab).
 
@@ -786,6 +874,37 @@ class GeminiProvider:
                 contents=contents,
                 config=types.GenerateContentConfig(
                     system_instruction=SPEAKING_TRAINER_PROMPT,
+                    max_output_tokens=MAX_OUTPUT_TOKENS,
+                ),
+            ))
+        except Exception as e:
+            if _limit_xatosimi(e):
+                raise ProviderXatosi(
+                    "AI kunlik so'rov limiti tugadi — birozdan so'ng qayta urinib ko'ring"
+                ) from e
+            if _vaqtinchalik_xatomi(e):
+                raise ProviderXatosi(AI_BAND_XABARI) from e
+            raise
+        if not response.text or not response.text.strip():
+            raise ProviderXatosi("AI bo'sh javob qaytardi — qayta urinib ko'ring")
+        return response.text.strip()
+
+    def grammar_coach_javob(self, student_input, target_language):
+        """AI Grammar Coach (2026-10-26, TZ 613): mavzu nomi yoki gap ->
+        tushuntirish + mini-test (sof matn, Markdown). Bitta so'rov, tarix yo'q."""
+        from google import genai
+        from google.genai import types
+
+        client = genai.Client(
+            api_key=self.api_key,
+            http_options=types.HttpOptions(timeout=self.timeout_ms),
+        )
+        try:
+            response = _chaqir_qayta_urinib(lambda: client.models.generate_content(
+                model=self.model,
+                contents=student_input,
+                config=types.GenerateContentConfig(
+                    system_instruction=grammar_coach_promt_tuz(student_input, target_language),
                     max_output_tokens=MAX_OUTPUT_TOKENS,
                 ),
             ))

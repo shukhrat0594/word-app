@@ -24,6 +24,7 @@ const PANELLAR = {
   "/ielts-boshqarish": { ikon: "🎓", kalit: "nav_ielts_boshqarish" },
   "/ai-mashqlari": { ikon: "🤖", kalit: "nav_ai_mashqlari" },
   "/speaking-trainer": { ikon: "🎙", kalit: "nav_speaking_trainer" },
+  "/grammar-coach": { ikon: "📘", kalit: "nav_grammar_coach" },
   "/kurslar": { ikon: "📚", kalit: "nav_kurslar" },
   "/oyinlar": { ikon: "🎮", kalit: "nav_oyinlar" },
   "/reyting": { ikon: "🏆", kalit: "nav_reyting" },
@@ -67,6 +68,7 @@ const TALABA_PANELLARI = [
   "/ielts-boshqarish",
   "/ai-mashqlari",
   "/speaking-trainer",
+  "/grammar-coach",
   "/kurslar",
   "/oyinlar",
   "/reyting",
@@ -87,7 +89,7 @@ export const ROL_PANELLARI = {
   owner: [
     "/", "/hisobotlar", "/guruhlar", "/reyting", "/talabalar", "/xodimlar",
     "/kurslar", "/ielts-boshqarish",
-    "/ai-mashqlari", "/speaking-trainer", "/oyinlar", "/foydalanuvchilar", "/markaz-sozlash",
+    "/ai-mashqlari", "/speaking-trainer", "/grammar-coach", "/oyinlar", "/foydalanuvchilar", "/markaz-sozlash",
   ],
   // 2026-07-21: "Mashqlar boshqarish" (bo'lim o'zi ham yopiq), "Davomat"
   // (endi faqat o'qituvchida — u belgilaydi; hisoboti "Hisobotlar"ga
