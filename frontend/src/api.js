@@ -174,10 +174,14 @@ async function refreshQil() {
 }
 
 // 2026-10-20: admin qurilmani o'chirgan/almashtirgan bo'lsa — kirish oynasi sababini aytadi.
+// 2026-10-26: talaba boshqa qurilmasidan kirgan bo'lsa (bir paytda bitta qurilma) — alohida xabar.
+const CHIQISH_SABABLARI = { qurilma_ochirildi: "qurilma", boshqa_qurilmada: "boshqa_qurilma" };
+
 async function chiqishSababiniYoz(res) {
   const sabab = await res.clone().json().catch(() => null);
   try {
-    if (sabab?.kod === "qurilma_ochirildi") sessionStorage.setItem("chiqish_sababi", "qurilma");
+    const kod = CHIQISH_SABABLARI[sabab?.kod];
+    if (kod) sessionStorage.setItem("chiqish_sababi", kod);
   } catch {
     // sessionStorage yopiq bo'lsa ham chiqish davom etadi
   }

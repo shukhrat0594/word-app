@@ -19,6 +19,27 @@ Format (qat'iy, parser shunga tayanadi):
 
 ---
 
+## 2026-10-26 — Qurilma limiti: bitta telefondagi brauzerlar endi bir-birini chiqarmaydi
+
+- **Chrome va Telegram — bitta qurilma.** O'quvchi saytni bitta telefonda
+  Chrome'dan ham, Telegram'dagi havoladan ham ochsa, ikkalasi birga ishlaydi.
+  Avval ular bir-birini navbat bilan chiqarib yuborardi va o'quvchi har safar
+  «Вход с этого устройства закрыт» xabarini ko'rardi. Limitdagi joy band
+  bo'lmaydi, admin hech narsa qilmaydi.
+- **Yangi qurilma eskisini chiqarmaydi.** Limitdan tashqari qurilmadan kirib
+  bo'lmaydi, adminga xabar keladi — ruxsat etilgan qurilma esa ishlashda davom
+  etadi.
+- **Bir paytda bitta qurilma.** Bir nechta ruxsat etilgan qurilmasi bor
+  o'quvchi boshqa qurilmasidan kirsa, oldingisi yopiladi (ruxsat etilganligicha
+  qoladi). O'qituvchi va adminlarga bu tegishli emas.
+- **Bloklangan qurilmani blokdan chiqarish.** Admin rad etgan qurilma 24 soat
+  bloklanadi. Endi Qurilmalar oynasida «Blokdan chiqarish» tugmasi bor: so'rov
+  yana kutilayotganlarga qaytadi va admin qaror qiladi.
+- **Qurilmalar oynasi.** Har qurilma ostida uning brauzerlari va qaysi biri
+  hozir ochiqligi ko'rinadi. Jurnalda «Boshqa brauzer qo'shildi» yozuvi.
+- Qurilma o'chirilganda boshqa qurilmalardagi seanslar ham yopilib qolardi —
+  tuzatildi. Hech kim qayta kirishi shart emas.
+
 ## 2026-10-22 — Qurilma limiti yangilandi: telefon tarixni tozalasa ham taniladi
 
 - **Hamma bir marta qayta kiradi.** Eski qurilma yozuvlari o'chirildi,

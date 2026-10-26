@@ -191,12 +191,18 @@ class User(AbstractUser):
         default=list, blank=True,
         help_text=(
             "Ruxsat etilgan qurilmalar (OWNER'dan boshqa hamma uchun): "
-            "{id, k, nom, belgilar, qoshilgan, oxirgi} yozuvlari. `id` — "
-            "brauzer ID'si (localStorage), `belgilar` — brauzer tarixi "
-            "tozalansa ham qurilmani tanish uchun (2026-10-20). Mantiq: "
-            "`accounts/qurilmalar.py`."
+            "{k, nom, qoshilgan, oxirgi, brauzerlar: [{id, brauzer, belgilar, "
+            "qoshilgan, oxirgi}]} yozuvlari. Bitta qurilmada bir nechta "
+            "brauzer (2026-10-26). `id` — brauzer ID'si (localStorage), "
+            "`belgilar` — brauzer tarixi tozalansa ham qurilmani tanish uchun. "
+            "Mantiq: `accounts/qurilmalar.py`."
         ),
     )
+    # 2026-10-26 (Shuhrat): bir nechta ruxsat etilgan qurilmasi bor talaba
+    # bir paytda faqat bittasidan kiradi — oxirgi login qilingan qurilma
+    # kaliti (`qurilmalar[].k`). Bo'sh — hali belgilanmagan, hech kim
+    # chiqarilmaydi. Mantiq: `accounts/qurilmalar.py: kalit_xatosi`.
+    faol_qurilma = models.CharField(max_length=32, blank=True, default="")
     # 2026-09-03, foydalanuvchi talabi ("Aktiv foydalanuvchilar" bo'limi):
     # kim hozir saytda va kimning seansi QOLIB KETGAN — shuni ajratish
     # uchun. Yangilanish autentifikatsiya bosqichida bo'ladi
@@ -210,9 +216,9 @@ class User(AbstractUser):
     qurilma_limiti = models.PositiveSmallIntegerField(
         default=1,
         help_text=(
-            "Nechta qurilmadan bir vaqtda kirish mumkinligi (standart 1). "
-            "Owner va admin kiritadi, oraliq cheklovi yo'q (Shuhrat, "
-            "2026-10-20) — `QurilmaLimitiView`."
+            "Nechta qurilmadan kirish mumkinligi (standart 1; talaba bir "
+            "paytda faqat bittasidan kiradi). Owner va admin kiritadi, "
+            "oraliq cheklovi yo'q (Shuhrat, 2026-10-20) — `QurilmaLimitiView`."
         ),
     )
 
@@ -306,14 +312,16 @@ class QurilmaSorovi(models.Model):
     """Ruxsat etilmagan qurilmadan kirish urinishi va uning taqdiri
     (2026-10-20). Bir qurilmaga BITTA kutilayotgan so'rov — takroriy
     urinishlar `urinishlar`ga qo'shiladi, adminga qayta xabar ketmaydi.
-    `AVTO` — belgilar bo'yicha avtomatik tanilib almashtirilgan qurilma
-    (jurnal uchun). Mantiq: `accounts/qurilmalar.py`."""
+    `AVTO` — belgilar bo'yicha avtomatik tanilib almashtirilgan brauzer,
+    `BRAUZER` — ruxsat etilgan qurilmaga qo'shilgan boshqa brauzer (ikkalasi
+    jurnal uchun). Mantiq: `accounts/qurilmalar.py`."""
 
     class Holat(models.TextChoices):
         KUTILMOQDA = "kutilmoqda", "Kutilmoqda"
         RUXSAT = "ruxsat", "Ruxsat berildi"
         RAD = "rad", "Rad etildi"
         AVTO = "avto", "Avtomatik tanildi"
+        BRAUZER = "brauzer", "Boshqa brauzer qo'shildi"
 
     foydalanuvchi = models.ForeignKey(User, on_delete=models.CASCADE, related_name="qurilma_sorovlari")
     qid = models.CharField(max_length=64)

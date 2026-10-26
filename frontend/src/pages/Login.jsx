@@ -39,14 +39,18 @@ export default function Login() {
   const [band, setBand] = useState(false);
   const [xodimForma, setXodimForma] = useState(false);
 
-  // 2026-10-20: admin qurilmani o'chirgani/almashtirgani uchun chiqarilgan
-  // bo'lsa (`api.js: chiqishSababiniYoz`) — sababi bir marta aytiladi.
+  // 2026-10-20: admin qurilmani o'chirgani/almashtirgani yoki (2026-10-26)
+  // talaba boshqa qurilmasidan kirgani uchun chiqarilgan bo'lsa
+  // (`api.js: chiqishSababiniYoz`) — sababi bir marta aytiladi.
   useEffect(() => {
     try {
-      if (sessionStorage.getItem("chiqish_sababi") === "qurilma") {
+      const xabar = { qurilma: "login_qurilma_ochirildi", boshqa_qurilma: "login_boshqa_qurilmada" }[
+        sessionStorage.getItem("chiqish_sababi")
+      ];
+      if (xabar) {
         sessionStorage.removeItem("chiqish_sababi");
         setXodimForma(true);
-        setXato(t("login_qurilma_ochirildi"));
+        setXato(t(xabar));
       }
     } catch {
       // sessionStorage yopiq — xabarsiz davom etadi

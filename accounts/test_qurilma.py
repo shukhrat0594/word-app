@@ -64,7 +64,9 @@ class BelgilarTest(SimpleTestCase):
         self.assertFalse(q.mos_keladimi({}, a))
 
 
-class QurilmaKirishTest(DrosselsizTest):
+class QurilmaAsos(DrosselsizTest):
+    """Qurilma testlari uchun umumiy foydalanuvchilar va yordamchilar (testlarsiz)."""
+
     def setUp(self):
         super().setUp()
         self.talaba = User.objects.create_user(username="talaba", password=PAROL, role=User.Role.STUDENT)
@@ -89,6 +91,16 @@ class QurilmaKirishTest(DrosselsizTest):
         self.talaba.refresh_from_db()
         return q.royxat(self.talaba)
 
+    def sorov_yarat(self):
+        self.kirish("tel-1")
+        self.kirish("nout-1", NOUTBUK, UA_WINDOWS)
+        return QurilmaSorovi.objects.get(foydalanuvchi=self.talaba, holat=QurilmaSorovi.Holat.KUTILMOQDA)
+
+    def qaror(self, sorov, **tana):
+        return self.admin_klient.post(f"/api/qurilma-sorovlari/{sorov.pk}/qaror/", tana, format="json")
+
+
+class QurilmaKirishTest(QurilmaAsos):
     # ── Kirish ──
 
     def test_birinchi_qurilma_nomi_bilan_yoziladi(self):
@@ -97,7 +109,8 @@ class QurilmaKirishTest(DrosselsizTest):
         self.assertNotIn("qurilma_id", j.data)  # cookie davri tugadi
         self.assertNotIn("qurilma", j.cookies)
         [d] = self.royxat()
-        self.assertEqual((d["id"], d["nom"]), ("tel-1", "Android · Chrome · SM-A515F"))
+        self.assertEqual((d["id"], d["nom"]), ("tel-1", "Android · SM-A515F"))
+        self.assertEqual([b["brauzer"] for b in d["brauzerlar"]], ["Chrome"])
         self.assertEqual(self.profil(j).status_code, 200)
         self.assertEqual(self.kirish("tel-1").status_code, 200)
         self.assertEqual(len(self.royxat()), 1)
@@ -122,7 +135,7 @@ class QurilmaKirishTest(DrosselsizTest):
         self.kirish("tel-1")
         self.assertEqual(self.kirish("tel-1", belgilar={}).status_code, 200)
         self.assertEqual(self.royxat()[0]["belgilar"]["gpu"], "Mali-G72")
-        self.assertEqual(self.royxat()[0]["nom"], "Android · Chrome · SM-A515F")
+        self.assertEqual(self.royxat()[0]["nom"], "Android · SM-A515F")
         self.assertEqual(self.kirish("tel-2").status_code, 200)  # tarix tozalandi — baribir tanildi
 
     def test_begona_qurilma_rad_va_adminga_bitta_xabar(self):
@@ -130,7 +143,7 @@ class QurilmaKirishTest(DrosselsizTest):
         j = self.kirish("nout-1", NOUTBUK, UA_WINDOWS)
         self.assertEqual(j.status_code, 403)
         self.assertEqual(j.data["kod"], "qurilma_mos_emas")
-        self.assertEqual(j.data["ruxsat_etilgan"], ["Android · Chrome · SM-A515F"])
+        self.assertEqual(j.data["ruxsat_etilgan"], ["Android · SM-A515F"])  # qurilma nomi — brauzersiz
         self.assertEqual(j.data["sorov"], "kutilmoqda")
         self.kirish("nout-1", NOUTBUK, UA_WINDOWS)
         self.kirish("nout-1", NOUTBUK, UA_WINDOWS)
@@ -165,7 +178,7 @@ class QurilmaKirishTest(DrosselsizTest):
     def test_60_kun_kirilmagan_qurilma_ochadi(self):
         self.kirish("nout-1", NOUTBUK, UA_WINDOWS)
         royxat = self.royxat()
-        royxat[0]["oxirgi"] = (timezone.now() - timedelta(days=61)).isoformat()
+        royxat[0]["brauzerlar"][0]["oxirgi"] = (timezone.now() - timedelta(days=61)).isoformat()
         User.objects.filter(pk=self.talaba.pk).update(qurilmalar=royxat)
         self.assertEqual(self.kirish("tel-1").status_code, 200)
         self.assertEqual([d["id"] for d in self.royxat()], ["tel-1"])
@@ -188,7 +201,7 @@ class QurilmaKirishTest(DrosselsizTest):
     def test_refresh_oxirgi_vaqtni_yozadi(self):
         j = self.kirish("tel-1")
         royxat = self.royxat()
-        royxat[0]["oxirgi"] = (timezone.now() - timedelta(days=3)).isoformat()
+        royxat[0]["brauzerlar"][0]["oxirgi"] = (timezone.now() - timedelta(days=3)).isoformat()
         User.objects.filter(pk=self.talaba.pk).update(qurilmalar=royxat)
         r = APIClient().post("/api/token/refresh/", {"refresh": j.data["refresh"]}, format="json")
         self.assertEqual(r.status_code, 200, r.data)
@@ -197,14 +210,6 @@ class QurilmaKirishTest(DrosselsizTest):
 
     # ── Admin ──
 
-    def sorov_yarat(self):
-        self.kirish("tel-1")
-        self.kirish("nout-1", NOUTBUK, UA_WINDOWS)
-        return QurilmaSorovi.objects.get(foydalanuvchi=self.talaba, holat=QurilmaSorovi.Holat.KUTILMOQDA)
-
-    def qaror(self, sorov, **tana):
-        return self.admin_klient.post(f"/api/qurilma-sorovlari/{sorov.pk}/qaror/", tana, format="json")
-
     def test_almashtirish_eski_qurilmani_darhol_chiqaradi(self):
         eski = self.kirish("tel-1")
         self.kirish("nout-1", NOUTBUK, UA_WINDOWS)
@@ -212,9 +217,9 @@ class QurilmaKirishTest(DrosselsizTest):
         k = self.royxat()[0]["k"]
         r = self.qaror(s, amal="almashtir", k=k)
         self.assertEqual(r.status_code, 200, r.data)
-        self.assertEqual([d["nom"] for d in r.data["qurilmalar"]], ["Windows · Chrome"])
+        self.assertEqual([d["nom"] for d in r.data["qurilmalar"]], ["Windows"])
         self.assertEqual(r.data["oy_almashtirishlari"], 1)
-        self.assertEqual(r.data["jurnal"][0]["almashtirilgan_nom"], "Android · Chrome · SM-A515F")
+        self.assertEqual(r.data["jurnal"][0]["almashtirilgan_nom"], "Android · SM-A515F")
         self.assertEqual(self.profil(eski).status_code, 401)
         self.assertEqual(self.kirish("nout-1", NOUTBUK, UA_WINDOWS).status_code, 200)
         self.assertEqual(self.qaror(s, amal="rad").status_code, 400)  # allaqachon hal qilingan
@@ -252,7 +257,8 @@ class QurilmaKirishTest(DrosselsizTest):
         self.kirish("tel-1")
         r = self.admin_klient.get(f"/api/foydalanuvchilar/{self.talaba.pk}/qurilmalar/")
         self.assertEqual(r.status_code, 200)
-        self.assertEqual(set(r.data["qurilmalar"][0]), {"k", "nom", "qoshilgan", "oxirgi"})
+        self.assertEqual(set(r.data["qurilmalar"][0]), {"k", "nom", "qoshilgan", "oxirgi", "faol", "brauzerlar"})
+        self.assertEqual(r.data["qurilmalar"][0]["brauzerlar"][0]["nom"], "Chrome")
         self.assertNotIn("tel-1", str(r.data))
 
     def test_sorovlar_royxati_va_ruxsatlar(self):
@@ -282,3 +288,163 @@ class QurilmaKirishTest(DrosselsizTest):
                                    {"izoh": "yangi telefon"}, format="json")
         self.assertEqual(r.status_code, 204)
         self.assertEqual(self.profil(j).status_code, 401)
+
+
+UA_TELEGRAM = ("Mozilla/5.0 (Linux; Android 10; SM-A515F Build/QP1A.190711.020; wv) AppleWebKit/537.36 "
+               "(KHTML, like Gecko) Version/4.0 Chrome/141.0 Mobile Safari/537.36 Telegram-Android/11.9.0")
+
+
+class KopBrauzerTest(QurilmaAsos):
+    """2026-10-26 (Shuhrat qoidasi): bitta telefondagi brauzerlar bitta qurilma,
+    yangi qurilma eskisini chiqarmaydi, talaba bir paytda bitta qurilmadan kiradi,
+    admin bloklangan qurilmani blokdan chiqaradi. Guruhdagi 531/534/540 shikoyatlari:
+    Chrome va Telegram brauzeri bir-birini navbat bilan chiqarardi."""
+
+    def yangila(self, javob):
+        return APIClient().post("/api/token/refresh/", {"refresh": javob.data["refresh"]}, format="json")
+
+    def panel(self):
+        return self.admin_klient.get(f"/api/foydalanuvchilar/{self.talaba.pk}/qurilmalar/").data
+
+    def test_bitta_telefondagi_brauzerlar_birga_ishlaydi(self):
+        chrome = self.kirish("chrome-1")
+        telegram = self.kirish("telegram-1", ua=UA_TELEGRAM)
+        self.assertEqual(telegram.status_code, 200, telegram.data)
+        self.assertEqual(self.profil(chrome).status_code, 200)
+        self.assertEqual(self.profil(telegram).status_code, 200)
+        self.assertEqual(self.kirish("chrome-1").status_code, 200)
+        self.assertEqual(self.profil(telegram).status_code, 200)  # Chrome qayta kirsa ham Telegram qoladi
+        [d] = self.royxat()
+        self.assertEqual([b["brauzer"] for b in d["brauzerlar"]], ["Chrome", "Telegram"])
+        p = self.panel()
+        self.assertEqual(p["jurnal"][0]["holat"], QurilmaSorovi.Holat.BRAUZER)
+        self.assertEqual(p["oy_almashtirishlari"], 0)  # boshqa brauzer — almashtirish emas
+        self.assertFalse(Bildirishnoma.objects.filter(kalit__startswith="qurilma-sorov:").exists())
+
+    def test_telegram_bosh_joyni_egallamaydi(self):
+        self.talaba.qurilma_limiti = 2
+        self.talaba.save(update_fields=["qurilma_limiti"])
+        self.kirish("chrome-1")
+        self.kirish("telegram-1", ua=UA_TELEGRAM)
+        self.assertEqual(len(self.royxat()), 1)
+        self.assertEqual(self.kirish("nout-1", NOUTBUK, UA_WINDOWS).status_code, 200)
+        self.assertEqual([d["nom"] for d in self.royxat()], ["Android · SM-A515F", "Windows"])
+
+    def test_tozalangan_chrome_telegramga_tegmaydi(self):
+        eski = self.kirish("chrome-1")
+        telegram = self.kirish("telegram-1", ua=UA_TELEGRAM)
+        self.assertEqual(self.kirish("chrome-2").status_code, 200)  # tarix tozalandi, limit to'la
+        r = self.profil(eski)
+        self.assertEqual((r.status_code, r.data["kod"]), (401, "qurilma_ochirildi"))
+        self.assertEqual(self.profil(telegram).status_code, 200)
+        [d] = self.royxat()
+        self.assertEqual({b["id"] for b in d["brauzerlar"]}, {"chrome-2", "telegram-1"})
+
+    def test_bir_paytda_bitta_qurilma(self):
+        self.talaba.qurilma_limiti = 2
+        self.talaba.save(update_fields=["qurilma_limiti"])
+        tel = self.kirish("tel-1")
+        nout = self.kirish("nout-1", NOUTBUK, UA_WINDOWS)
+        r = self.profil(tel)
+        self.assertEqual((r.status_code, r.data["kod"]), (401, "boshqa_qurilmada"))
+        r = self.yangila(tel)
+        self.assertEqual((r.status_code, r.data["kod"]), (401, "boshqa_qurilmada"))
+        self.assertEqual(len(self.royxat()), 2)  # telefon ruxsat etilganligicha qoladi
+        self.assertEqual([x["faol"] for x in self.panel()["qurilmalar"]], [False, True])
+        tel2 = self.kirish("tel-1")
+        self.assertEqual(tel2.status_code, 200)
+        self.assertEqual(self.profil(tel2).status_code, 200)
+        r = self.profil(nout)
+        self.assertEqual((r.status_code, r.data["kod"]), (401, "boshqa_qurilmada"))
+
+    def test_xodimga_bir_paytda_bitta_tegishli_emas(self):
+        oqituvchi = User.objects.create_user(username="oq", password=PAROL, role=User.Role.TEACHER, qurilma_limiti=2)
+        tel = self.kirish("tel-1", username="oq")
+        nout = self.kirish("nout-1", NOUTBUK, UA_WINDOWS, username="oq")
+        self.assertEqual(self.profil(tel).status_code, 200)
+        self.assertEqual(self.profil(nout).status_code, 200)
+        oqituvchi.refresh_from_db()
+        self.assertEqual(oqituvchi.faol_qurilma, "")
+
+    def test_limitdan_tashqari_qurilma_ruxsat_etilganini_chiqarmaydi(self):
+        tel = self.kirish("tel-1")
+        self.assertEqual(self.kirish("nout-1", NOUTBUK, UA_WINDOWS).status_code, 403)
+        self.assertEqual(self.profil(tel).status_code, 200)
+
+    def test_eski_shakldagi_yozuv_oqiladi_hech_kim_chiqmaydi(self):
+        # 2026-10-26 gacha yozilgan bitta brauzerli yozuv — deploydan keyin ham ishlaydi.
+        from rest_framework_simplejwt.tokens import RefreshToken
+
+        belgilar = q.belgilarni_tozala(TELEFON, UA_ANDROID)
+        hozir = timezone.now().isoformat()
+        User.objects.filter(pk=self.talaba.pk).update(qurilmalar=[{
+            "id": "eski-1", "k": "abc123", "nom": "Android · Chrome · SM-A515F",
+            "belgilar": belgilar, "qoshilgan": hozir, "oxirgi": hozir,
+        }])
+        kalit = RefreshToken.for_user(self.talaba)
+        kalit["qid"] = "eski-1"
+        c = APIClient()
+        c.credentials(HTTP_AUTHORIZATION=f"Bearer {kalit.access_token}")
+        self.assertEqual(c.get("/api/profil/").status_code, 200)
+        self.assertEqual(self.kirish("telegram-1", ua=UA_TELEGRAM).status_code, 200)  # shu qurilmaga qo'shildi
+        self.assertEqual(c.get("/api/profil/").status_code, 200)
+        [d] = self.royxat()
+        self.assertEqual((d["k"], d["nom"], [b["id"] for b in d["brauzerlar"]]),
+                         ("abc123", "Android · SM-A515F", ["eski-1", "telegram-1"]))
+
+    def test_login_kaliti_bazaga_qurilma_belgisi_bilan_yoziladi(self):
+        from rest_framework_simplejwt.state import token_backend
+        from rest_framework_simplejwt.token_blacklist.models import OutstandingToken
+
+        self.kirish("tel-1")
+        [kalit] = OutstandingToken.objects.filter(user=self.talaba)
+        self.assertEqual(token_backend.decode(kalit.token, verify=False)["qid"], "tel-1")
+
+    def test_qurilma_almashsa_boshqa_qurilma_seansi_qoladi(self):
+        # 2026-10-26 gacha `TOKEN_BACKEND` xatosi tufayli foydalanuvchining HAMMA
+        # seanslari yopilardi. `on_commit` bajarilmasa testda bu ko'rinmaydi.
+        oqituvchi = User.objects.create_user(username="oq", password=PAROL, role=User.Role.TEACHER, qurilma_limiti=2)
+        tel = self.kirish("tel-1", username="oq")
+        nout = self.kirish("nout-1", NOUTBUK, UA_WINDOWS, username="oq")
+        with self.captureOnCommitCallbacks(execute=True):
+            tel2 = self.kirish("tel-2", username="oq")  # tarix tozalandi, joy yo'q
+        self.assertEqual(tel2.status_code, 200)
+        self.assertEqual(self.yangila(nout).status_code, 200)
+        self.assertEqual(self.yangila(tel2).status_code, 200)
+        self.assertEqual(self.yangila(tel).status_code, 401)
+        k = next(d["k"] for d in q.royxat(User.objects.get(pk=oqituvchi.pk)) if d["nom"] == "Windows")
+        with self.captureOnCommitCallbacks(execute=True):
+            self.admin_klient.post(f"/api/foydalanuvchilar/{oqituvchi.pk}/qurilmalar/",
+                                   {"amal": "ochir", "k": k}, format="json")
+        self.assertEqual(self.profil(tel2).status_code, 200)
+
+    def test_qurilma_ochirilsa_barcha_brauzerlari_chiqadi(self):
+        chrome = self.kirish("chrome-1")
+        with self.captureOnCommitCallbacks(execute=True):
+            telegram = self.kirish("telegram-1", ua=UA_TELEGRAM)
+        k = self.royxat()[0]["k"]
+        with self.captureOnCommitCallbacks(execute=True):
+            self.admin_klient.post(f"/api/foydalanuvchilar/{self.talaba.pk}/qurilmalar/",
+                                   {"amal": "ochir", "k": k}, format="json")
+        for j in (chrome, telegram):
+            self.assertEqual(self.profil(j).status_code, 401)
+            self.assertEqual(self.yangila(j).status_code, 401)
+
+    def test_bloklangan_qurilmani_blokdan_chiqarish(self):
+        s = self.sorov_yarat()
+        self.assertEqual(self.qaror(s, amal="rad").status_code, 200)
+        self.assertEqual(self.kirish("nout-1", NOUTBUK, UA_WINDOWS).data["sorov"], "rad")
+        self.assertEqual([b["id"] for b in self.panel()["bloklangan"]], [s.pk])
+        r = self.qaror(s, amal="blokdan_chiqar")
+        self.assertEqual(r.status_code, 200, r.data)
+        self.assertEqual((r.data["bloklangan"], [x["id"] for x in r.data["sorovlar"]]), ([], [s.pk]))
+        self.assertEqual(self.kirish("nout-1", NOUTBUK, UA_WINDOWS).data["sorov"], "kutilmoqda")
+        self.assertEqual(self.qaror(s, amal="blokdan_chiqar").status_code, 400)  # endi bloklanmagan
+        self.assertEqual(self.qaror(s, amal="limit").status_code, 200)
+        self.assertEqual(self.kirish("nout-1", NOUTBUK, UA_WINDOWS).status_code, 200)
+
+    def test_24_soatdan_keyin_bloklanganlar_royxatida_yoq(self):
+        s = self.sorov_yarat()
+        self.qaror(s, amal="rad")
+        QurilmaSorovi.objects.filter(pk=s.pk).update(hal_vaqti=timezone.now() - timedelta(hours=25))
+        self.assertEqual(self.panel()["bloklangan"], [])

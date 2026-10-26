@@ -12,6 +12,8 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
+from rest_framework_simplejwt.settings import api_settings
+from rest_framework_simplejwt.token_blacklist.models import OutstandingToken
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 
@@ -504,8 +506,6 @@ class SaytHolatiView(APIView):
     def _aktiv_foydalanuvchilar_soni(self):
         """Amaldagi (muddati o'tmagan va bekor qilinmagan) refresh
         tokenga ega, owner bo'lmagan foydalanuvchilar soni."""
-        from rest_framework_simplejwt.token_blacklist.models import OutstandingToken
-
         return (
             OutstandingToken.objects.filter(
                 expires_at__gt=timezone.now(),
@@ -2183,6 +2183,11 @@ class XodimLoginView(TokenObtainPairView):
                     # so'rovdayoq chiqarib yuboriladi (`authentication.py`).
                     kalit = RefreshToken.for_user(user)
                     kalit["qid"] = qid
+                    # 2026-10-26: `for_user` kalitni bazaga `qid`siz yozib
+                    # bo'ladi — usiz qurilma seanslarini yopishda bu kalit
+                    # "kimniki noma'lum" bo'lib, boshqa qurilma o'chirilganda
+                    # ham bekor qilinardi (`qurilmalar.qurilma_kalitlarini_bekor_qil`).
+                    OutstandingToken.objects.filter(jti=kalit[api_settings.JTI_CLAIM]).update(token=str(kalit))
                     javob.data = {"refresh": str(kalit), "access": str(kalit.access_token)}
                 LoginHistory.objects.create(foydalanuvchi=user, rol=user.role)
         return javob
@@ -2218,10 +2223,6 @@ def _berilmagan_kalitni_ochir(javob):
     if not xom:
         return
     try:
-        from rest_framework_simplejwt.settings import api_settings
-        from rest_framework_simplejwt.token_blacklist.models import OutstandingToken
-        from rest_framework_simplejwt.tokens import RefreshToken
-
         jti = RefreshToken(xom).payload.get(api_settings.JTI_CLAIM)
         if jti:
             OutstandingToken.objects.filter(jti=jti).delete()
