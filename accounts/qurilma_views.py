@@ -53,16 +53,24 @@ def _sorov_json(s):
 
 def _qurilmalar_json(user):
     sorovlar = list(user.qurilma_sorovlari.select_related("hal_qildi")[:30])
+    yozuvlar = qurilma_mantiq.royxat(user)
+    # "Hozir ochiq" — faqat bir paytda bitta qurilma qoidasi tegishli bo'lganlarga.
+    faol = user.faol_qurilma if qurilma_mantiq.bir_paytda_bitta(user) else ""
     return {
         "foydalanuvchi": {"id": user.id, "ism": _kim(user), "username": user.username, "rol": user.role},
         "owner": user.is_superuser,
         "limit": user.qurilma_limiti,
         # Brauzer ID'si ham, belgilar ham tashqariga BERILMAYDI — faqat nom va vaqtlar.
         "qurilmalar": [
-            {"k": d.get("k"), "nom": d.get("nom"), "qoshilgan": d.get("qoshilgan"), "oxirgi": d.get("oxirgi")}
-            for d in qurilma_mantiq.royxat(user)
+            {
+                "k": d.get("k"), "nom": d.get("nom"), "qoshilgan": d.get("qoshilgan"), "oxirgi": d.get("oxirgi"),
+                "faol": bool(faol) and d.get("k") == faol,
+                "brauzerlar": [{"nom": b.get("brauzer", ""), "oxirgi": b.get("oxirgi")} for b in d["brauzerlar"]],
+            }
+            for d in yozuvlar
         ],
         "sorovlar": [_sorov_json(s) for s in sorovlar if s.holat == QurilmaSorovi.Holat.KUTILMOQDA],
+        "bloklangan": [_sorov_json(s) for s in qurilma_mantiq.bloklanganlar(sorovlar)],
         "jurnal": [_sorov_json(s) for s in sorovlar if s.holat != QurilmaSorovi.Holat.KUTILMOQDA][:10],
         "oy_almashtirishlari": qurilma_mantiq.oy_almashtirishlari(user),
     }
@@ -119,7 +127,8 @@ class QurilmaSorovlariView(APIView):
 
 
 class QurilmaSoroviQarorView(APIView):
-    """POST {amal: "almashtir", k} | {amal: "limit"} | {amal: "rad"} — admin qarori."""
+    """POST {amal: "almashtir", k} | {amal: "limit"} | {amal: "rad"} — admin qarori;
+    {amal: "blokdan_chiqar"} — rad etilgan qurilma so'rovi yana kutilayotganlarga qaytadi."""
 
     permission_classes = [IsAuthenticated]
 
@@ -130,7 +139,10 @@ class QurilmaSoroviQarorView(APIView):
             return xato
         amal = request.data.get("amal")
         try:
-            sorov = qurilma_mantiq.sorovni_hal_qil(sorov, amal, request.user, kalit=request.data.get("k"))
+            if amal == "blokdan_chiqar":
+                sorov = qurilma_mantiq.blokdan_chiqar(sorov)
+            else:
+                sorov = qurilma_mantiq.sorovni_hal_qil(sorov, amal, request.user, kalit=request.data.get("k"))
         except qurilma_mantiq.QarorXatosi as e:
             return Response({"detail": str(e)}, status=400)
         logla(
@@ -146,9 +158,10 @@ class QurilmaSoroviQarorView(APIView):
 
 
 class QurilmaliTokenRefreshView(TokenRefreshView):
-    """Kalit yangilash — kalitdagi qurilma (`qid`) ro'yxatda bo'lmasa rad
-    etiladi (admin o'chirgan/almashtirgan yoki 2026-10-20 dan oldingi belgisiz
-    kalit — hamma bir marta qayta kiradi). Muvaffaqiyatda qurilmaning "oxirgi
+    """Kalit yangilash — kalitdagi brauzer (`qid`) ro'yxatda bo'lmasa (admin
+    o'chirgan/almashtirgan yoki 2026-10-20 dan oldingi belgisiz kalit) yoki
+    talaba boshqa qurilmasidan kirgan bo'lsa rad etiladi — `authentication.py`
+    bilan bir xil `kalit_xatosi`. Muvaffaqiyatda qurilmaning "oxirgi
     faolligi" yoziladi — usiz faol qurilma 60 kunda "eskirgan" bo'lib qolardi."""
 
     def post(self, request, *args, **kwargs):
@@ -159,12 +172,10 @@ class QurilmaliTokenRefreshView(TokenRefreshView):
             payload = {}  # yaroqsiz kalit — standart javobni ota-klass beradi
         user_id, qid = payload.get(api_settings.USER_ID_CLAIM), payload.get("qid")
         if user_id:
-            user = User.objects.filter(pk=user_id).only("id", "is_superuser", "qurilmalar").first()
-            if user is not None and not user.is_superuser and (not qid or qid not in qurilma_mantiq.idlar(user)):
-                return Response(
-                    {"detail": "Bu qurilmadan kirish yopildi — qayta kiring", "kod": "qurilma_ochirildi"},
-                    status=401,
-                )
+            user = User.objects.filter(pk=user_id).only(
+                "id", "is_superuser", "role", "faol_qurilma", "qurilmalar").first()
+            if user is not None and not user.is_superuser and (xato := qurilma_mantiq.kalit_xatosi(user, qid)):
+                return Response(xato, status=401)
         javob = super().post(request, *args, **kwargs)
         if javob.status_code == 200 and user_id and qid:
             qurilma_mantiq.faollikni_yoz(user_id, qid)

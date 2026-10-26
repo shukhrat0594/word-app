@@ -61,7 +61,12 @@ export default function QurilmalarPaneli({ userId, onOzgardi }) {
   if (m.owner) return <p className="izoh">{t("qurilma_owner_cheklovsiz")}</p>;
 
   const limitSon = Number(limit);
-  const holatNomi = { ruxsat: t("qurilma_holat_ruxsat"), rad: t("qurilma_holat_rad"), avto: t("qurilma_holat_avto") };
+  const holatNomi = {
+    ruxsat: t("qurilma_holat_ruxsat"),
+    rad: t("qurilma_holat_rad"),
+    avto: t("qurilma_holat_avto"),
+    brauzer: t("qurilma_holat_brauzer"),
+  };
 
   return (
     <div style={{ display: "grid", gap: 14 }}>
@@ -97,8 +102,16 @@ export default function QurilmalarPaneli({ userId, onOzgardi }) {
               <div key={q.k} style={{ display: "flex", gap: 8, alignItems: "center", justifyContent: "space-between", flexWrap: "wrap" }}>
                 <span style={{ minWidth: 0 }}>
                   {i + 1}. {q.nom}
+                  {q.faol && <span className="chip bor" style={{ marginLeft: 6 }}>{t("qurilma_hozir_ochiq")}</span>}
                   <span className="izoh" style={{ display: "block" }}>
                     {t("qurilma_qoshilgan")}: {vaqt(q.qoshilgan)} · {t("qurilma_oxirgi")}: {vaqt(q.oxirgi)}
+                  </span>
+                  {/* 2026-10-26: bitta qurilmadagi brauzerlar (Chrome, Telegram...) — birga ochiq turadi */}
+                  <span className="izoh" style={{ display: "block" }}>
+                    {t("qurilma_brauzerlar")}:{" "}
+                    {q.brauzerlar
+                      .map((b) => `${b.nom || t("qurilma_brauzer_nomalum")} (${vaqt(b.oxirgi)})`)
+                      .join(", ")}
                   </span>
                 </span>
                 <button type="button" className="tugma ikkinchi kichik" onClick={() => ochir(q)} disabled={band}>
@@ -145,6 +158,31 @@ export default function QurilmalarPaneli({ userId, onOzgardi }) {
           </div>
         </div>
       ))}
+
+      {/* 2026-10-26 (Shuhrat): rad etilgan qurilma 24 soat bloklanadi — admin
+          blokdan chiqarsa, so'rov yana kutilayotganlarga qaytadi va yuqoridagi
+          qaror tugmalari bilan hal qilinadi. */}
+      {m.bloklangan.length > 0 && (
+        <div>
+          <strong>{t("qurilma_bloklangan")}</strong>
+          <div style={{ display: "grid", gap: 6, marginTop: 6 }}>
+            {m.bloklangan.map((s) => (
+              <div key={s.id} style={{ display: "flex", gap: 8, alignItems: "center", justifyContent: "space-between", flexWrap: "wrap" }}>
+                <span style={{ minWidth: 0 }}>
+                  {s.nom}
+                  <span className="izoh" style={{ display: "block" }}>
+                    {t("qurilma_holat_rad")}: {vaqt(s.hal_vaqti)}
+                    {s.hal_qildi && ` — ${s.hal_qildi}`}
+                  </span>
+                </span>
+                <button type="button" className="tugma ikkinchi kichik" onClick={() => qaror(s, "blokdan_chiqar")} disabled={band}>
+                  {t("qurilma_blokdan_chiqar")}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {m.jurnal.length > 0 && (
         <div>
