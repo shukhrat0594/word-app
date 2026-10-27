@@ -169,6 +169,9 @@ function yangiPanellar(tl, yol, berish) {
   const bormi = hozirgi.includes(yol);
   if (bormi === berish) return undefined; // o'zgarish yo'q
   const yangi = berish ? [...hozirgi, yol] : hozirgi.filter((y) => y !== yol);
+  // Oxirgi bo'limni olib bo'lmaydi: backend bo'sh ro'yxatni "cheklovsiz"
+  // (null) deb saqlaydi — talabaga aksincha HAMMA bo'lim ochilib ketardi.
+  if (yangi.length === 0) return undefined;
   return yangi.length === tanlov.length ? null : yangi;
 }
 
