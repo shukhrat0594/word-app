@@ -4,7 +4,8 @@ import QurilmalarPaneli from "../components/QurilmalarPaneli";
 import { useI18n } from "../i18n";
 
 /** Qurilma so'rovlari (2026-10-20) — ruxsat etilmagan qurilmadan kirishga
- * urinishlar. Admin bildirishnomasi shu sahifaga olib keladi. Har
+ * urinishlar va bloklangan qurilmalar (2026-10-27: hamma foydalanuvchilar
+ * bo'yicha, blokdan chiqarish shu yerdan). Admin bildirishnomasi shu sahifaga olib keladi. Har
  * foydalanuvchi uchun bitta `QurilmalarPaneli` (qarorlar shu yerda). */
 export default function QurilmaSorovlari() {
   const { t } = useI18n();
