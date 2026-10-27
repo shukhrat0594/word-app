@@ -19,6 +19,16 @@ Format (qat'iy, parser shunga tayanadi):
 
 ---
 
+## 2026-10-27 — Qurilmani bloklash
+
+- **«Bloklash» tugmasi.** Qurilmalar oynasida har qurilmaning «O'chirish»
+  tugmasi yonida endi «Bloklash» bor. Bloklangan qurilma darhol chiqarib
+  yuboriladi va limitda joy bo'lsa ham qayta kira olmaydi — shu telefonning
+  boshqa brauzeridan ham. Blok muddatsiz: admin «Blokdan chiqarish»ni bosguncha
+  amal qiladi.
+- **«Bloklangan qurilmalar» bo'limi doim ko'rinadi.** Qurilmalar ro'yxati
+  ostida; bloklangan qurilma bo'lmasa «Bloklangan qurilma yo'q» deb yozadi.
+
 ## 2026-10-27 — Bloklangan qurilmalar bitta sahifada
 
 - **Hamma bloklangan qurilmalar bir joyda.** «Qurilma so'rovlari» sahifasida

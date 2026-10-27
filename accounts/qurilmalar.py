@@ -429,6 +429,14 @@ def kirishni_tekshir(user, qid, belgilar, hozir=None):
             _kirdi(user, yozuvlar, qurilma)
             return True, None
 
+        # Admin bloklagan qurilma (o'sha brauzer yoki belgilari mos boshqasi) limitda
+        # joy bo'lsa ham kirmaydi — aks holda bloklash o'chirishdan farq qilmasdi.
+        if any(s.qid == qid or mos_keladimi(belgilar, s.belgilar)
+               for s in QurilmaSorovi.objects.filter(foydalanuvchi=user, holat=QurilmaSorovi.Holat.BLOK)):
+            if eskilar_ochdi:
+                _saqla(user, yozuvlar)
+            return False, {"ruxsat_etilgan": [d["nom"] for d in yozuvlar], "sorov": "rad"}
+
         moslar = [d for d in yozuvlar if any(mos_keladimi(belgilar, b.get("belgilar")) for b in d["brauzerlar"])]
         qurilma = moslar[0] if len(moslar) == 1 else None
         yangi = _brauzer(qid, belgilar, hozir)
@@ -515,6 +523,22 @@ def qurilmani_ochir(user, kalit):
     return d
 
 
+def qurilmani_blokla(user, kalit, kim, hozir=None):
+    """Qurilmani o'chiradi (seanslari yopiladi) va bloklaydi: u admin blokdan
+    chiqarguncha kira olmaydi va so'rov ham yubormaydi (Shuhrat, 2026-10-27).
+    Qaytaradi: bloklash yozuvi (`QurilmaSorovi`, holat BLOK) yoki None."""
+    hozir = hozir or timezone.now()
+    with transaction.atomic():
+        d = qurilmani_ochir(user, kalit)
+        if d is None:
+            return None
+        b = d["brauzerlar"][0]
+        return QurilmaSorovi.objects.create(
+            foydalanuvchi=user, qid=b["id"], nom=d.get("nom", ""), belgilar=b.get("belgilar") or {},
+            holat=QurilmaSorovi.Holat.BLOK, hal_qildi=kim, hal_vaqti=hozir, oxirgi_urinish=hozir,
+        )
+
+
 class QarorXatosi(ValueError):
     """Admin qarorini bajarib bo'lmaydi — matni foydalanuvchiga ko'rsatiladi."""
 
@@ -557,10 +581,12 @@ def sorovni_hal_qil(sorov, amal, kim, kalit=None, hozir=None):
 
 def bloklanganlar(sorovlar, hozir=None):
     """Hozir bloklangan qurilmalar — 24 soat ichida rad etilgan so'rovlar
-    (shu vaqt ichida o'sha qurilma yangi so'rov ham yubora olmaydi)."""
+    (shu vaqt ichida o'sha qurilma yangi so'rov ham yubora olmaydi) va admin
+    bloklagan qurilmalar (muddatsiz)."""
     hozir = hozir or timezone.now()
     return [s for s in sorovlar
-            if s.holat == QurilmaSorovi.Holat.RAD and s.hal_vaqti and hozir - s.hal_vaqti < RAD_AMAL_QILADI]
+            if s.holat == QurilmaSorovi.Holat.BLOK
+            or (s.holat == QurilmaSorovi.Holat.RAD and s.hal_vaqti and hozir - s.hal_vaqti < RAD_AMAL_QILADI)]
 
 
 def blokdan_chiqar(sorov):
@@ -569,7 +595,7 @@ def blokdan_chiqar(sorov):
     (Shuhrat, 2026-10-26). Qaytaradi: yangilangan so'rov."""
     with transaction.atomic():
         sorov = QurilmaSorovi.objects.select_for_update().get(pk=sorov.pk)
-        if sorov.holat != QurilmaSorovi.Holat.RAD:
+        if sorov.holat not in (QurilmaSorovi.Holat.RAD, QurilmaSorovi.Holat.BLOK):
             raise QarorXatosi("Bu qurilma bloklanmagan — sahifani yangilang")
         if QurilmaSorovi.objects.filter(foydalanuvchi_id=sorov.foydalanuvchi_id, qid=sorov.qid,
                                         holat=QurilmaSorovi.Holat.KUTILMOQDA).exists():
