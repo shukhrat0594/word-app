@@ -23,6 +23,8 @@ export default function GrammarCoach() {
   // Follow-up chat (TZ 640): tushuntirishdan keyingi savol-javoblar
   const [suhbat, setSuhbat] = useState([]);
   const [savol, setSavol] = useState("");
+  // Tushuntirish olingan asl kiritma — keyin maydon tahrirlansa ham kontekst o'zgarmasin
+  const [mavzu, setMavzu] = useState("");
 
   async function sora() {
     const m = matn.trim();
@@ -32,6 +34,7 @@ export default function GrammarCoach() {
     try {
       const res = await api("/api/grammar/coach/", { method: "POST", body: { matn: m, til } });
       setJavob(res.javob);
+      setMavzu(m);
       setSuhbat([]);
       setSavol("");
     } catch (e) {
@@ -45,7 +48,7 @@ export default function GrammarCoach() {
     const s = savol.trim();
     if (!s || !javob || yuklanmoqda) return;
     const kontekst = [
-      `Student Input: ${matn.trim()}`,
+      `Student Input: ${mavzu}`,
       `Explanation:\n${javob}`,
       ...suhbat.map((x) => `Student: ${x.savol}\nCoach: ${x.javob}`),
     ].join("\n\n");

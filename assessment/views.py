@@ -414,8 +414,13 @@ class GrammarCoachView(APIView):
             return Response({"detail": "Kontekst noto'g'ri"}, status=400)
         kontekst = (kontekst or "").strip()
         if len(kontekst) > GRAMMAR_COACH_MAX_KONTEKST:
-            # Eng yangi qismi qoladi — oxirgi savol-javoblar muhimroq
-            kontekst = kontekst[-GRAMMAR_COACH_MAX_KONTEKST:]
+            # Boshi (asl mavzu va tushuntirish) va oxiri (so'nggi savol-javoblar)
+            # qoladi — faqat oxirini olsak, nima haqida gap ketayotgani yo'qoladi
+            bosh = GRAMMAR_COACH_MAX_KONTEKST // 3
+            kontekst = (
+                kontekst[:bosh] + "\n\n[...]\n\n"
+                + kontekst[-(GRAMMAR_COACH_MAX_KONTEKST - bosh):]
+            )
 
         try:
             kalit = getattr(settings, "GEMINI_API_KEY", "")

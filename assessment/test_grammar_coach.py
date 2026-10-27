@@ -68,6 +68,16 @@ class GrammarCoachTest(TestCase):
         self.assertEqual(m.call_args.args, ("Tushuntirish", "Nega had?", "Uzbek"))
         asosiy.assert_not_called()
 
+    def test_followup_uzun_kontekst_boshi_va_oxiri_qoladi(self):
+        uzun = "MAVZU " + "x" * 40000 + " OXIRGI"
+        with mock.patch.object(GeminiProvider, "grammar_coach_followup", return_value="J") as m:
+            javob = self.c.post(URL, {"matn": "Savol", "til": "Uzbek", "kontekst": uzun}, format="json")
+        self.assertEqual(javob.status_code, 200, javob.data)
+        kontekst = m.call_args.args[0]
+        self.assertTrue(kontekst.startswith("MAVZU "))
+        self.assertTrue(kontekst.endswith(" OXIRGI"))
+        self.assertLess(len(kontekst), 30100)
+
     def test_followup_notogri_kontekst_rad(self):
         self.assertEqual(
             self.c.post(URL, {"matn": "x", "til": "Uzbek", "kontekst": ["a"]}, format="json").status_code, 400
