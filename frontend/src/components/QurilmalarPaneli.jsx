@@ -54,6 +54,11 @@ export default function QurilmalarPaneli({ userId, onOzgardi }) {
     bajar(() => api(yol, { method: "POST", body: { amal: "ochir", k: q.k } }));
   }
 
+  function blokla(q) {
+    if (!window.confirm(t("qurilma_bloklash_tasdiq").replace("{nom}", q.nom))) return;
+    bajar(() => api(yol, { method: "POST", body: { amal: "blokla", k: q.k } }));
+  }
+
   const qaror = (sorov, amal) =>
     bajar(() => api(`/api/qurilma-sorovlari/${sorov.id}/qaror/`, { method: "POST", body: { amal, k: tanlov[sorov.id] } }));
 
@@ -66,6 +71,7 @@ export default function QurilmalarPaneli({ userId, onOzgardi }) {
     rad: t("qurilma_holat_rad"),
     avto: t("qurilma_holat_avto"),
     brauzer: t("qurilma_holat_brauzer"),
+    blok: t("qurilma_holat_blok"),
   };
 
   return (
@@ -114,9 +120,14 @@ export default function QurilmalarPaneli({ userId, onOzgardi }) {
                       .join(", ")}
                   </span>
                 </span>
-                <button type="button" className="tugma ikkinchi kichik" onClick={() => ochir(q)} disabled={band}>
-                  {t("ochirish")}
-                </button>
+                <span style={{ display: "flex", gap: 6 }}>
+                  <button type="button" className="tugma ikkinchi kichik" onClick={() => ochir(q)} disabled={band}>
+                    {t("ochirish")}
+                  </button>
+                  <button type="button" className="tugma ikkinchi kichik" onClick={() => blokla(q)} disabled={band}>
+                    {t("qurilma_bloklash")}
+                  </button>
+                </span>
               </div>
             ))}
           </div>
@@ -159,19 +170,22 @@ export default function QurilmalarPaneli({ userId, onOzgardi }) {
         </div>
       ))}
 
-      {/* 2026-10-26 (Shuhrat): rad etilgan qurilma 24 soat bloklanadi — admin
+      {/* 2026-10-26 (Shuhrat): rad etilgan qurilma 24 soat bloklanadi (2026-10-27:
+          admin «Bloklash» bilan bloklagani — muddatsiz; bo'lim har doim ko'rinadi) — admin
           blokdan chiqarsa, so'rov yana kutilayotganlarga qaytadi va yuqoridagi
           qaror tugmalari bilan hal qilinadi. */}
-      {m.bloklangan.length > 0 && (
-        <div>
-          <strong>{t("qurilma_bloklangan")}</strong>
+      <div>
+        <strong>{t("qurilma_bloklangan")}</strong>
+        {m.bloklangan.length === 0 ? (
+          <p className="izoh" style={{ margin: "4px 0 0" }}>{t("qurilma_bloklangan_yoq")}</p>
+        ) : (
           <div style={{ display: "grid", gap: 6, marginTop: 6 }}>
             {m.bloklangan.map((s) => (
               <div key={s.id} style={{ display: "flex", gap: 8, alignItems: "center", justifyContent: "space-between", flexWrap: "wrap" }}>
                 <span style={{ minWidth: 0 }}>
                   {s.nom}
                   <span className="izoh" style={{ display: "block" }}>
-                    {t("qurilma_holat_rad")}: {vaqt(s.hal_vaqti)}
+                    {holatNomi[s.holat]}: {vaqt(s.hal_vaqti)}
                     {s.hal_qildi && ` — ${s.hal_qildi}`}
                   </span>
                 </span>
@@ -181,8 +195,8 @@ export default function QurilmalarPaneli({ userId, onOzgardi }) {
               </div>
             ))}
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {m.jurnal.length > 0 && (
         <div>

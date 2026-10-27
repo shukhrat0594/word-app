@@ -80,7 +80,8 @@ def _qurilmalar_json(user):
 
 class QurilmalarView(APIView):
     """GET — foydalanuvchining qurilmalari, kutilayotgan so'rovlari va jurnali.
-    POST {amal: "ochir", k} — bitta qurilmani o'chiradi (u darhol chiqarib yuboriladi)."""
+    POST {amal: "ochir", k} — bitta qurilmani o'chiradi (u darhol chiqarib yuboriladi);
+    {amal: "blokla", k} — o'chiradi va blokdan chiqarilguncha kirishni yopadi."""
 
     permission_classes = [IsAuthenticated]
 
@@ -94,17 +95,23 @@ class QurilmalarView(APIView):
         user = get_object_or_404(User, pk=pk)
         if xato := _ruxsat_xatosi(request, user):
             return xato
-        if request.data.get("amal") != "ochir":
+        amal, kalit = request.data.get("amal"), str(request.data.get("k") or "")
+        if amal == "ochir":
+            d = qurilma_mantiq.qurilmani_ochir(user, kalit)
+            nom, yangi = d and d.get("nom"), "o'chirildi"
+        elif amal == "blokla":
+            d = qurilma_mantiq.qurilmani_blokla(user, kalit, request.user)
+            nom, yangi = d and d.nom, "bloklandi"
+        else:
             return Response({"detail": "Noma'lum amal"}, status=400)
-        ochirilgan = qurilma_mantiq.qurilmani_ochir(user, str(request.data.get("k") or ""))
-        if ochirilgan is None:
+        if d is None:
             return Response({"detail": "Bu qurilma ro'yxatda yo'q — sahifani yangilang"}, status=400)
         logla(
             foydalanuvchi=request.user,
             harakat=FaoliyatYozuvi.Harakat.OZGARTIRISH,
             obyekt=user,
             obyekt_turi="Foydalanuvchi",
-            ozgarishlar={"qurilma": {"eski": ochirilgan.get("nom"), "yangi": "o'chirildi"}},
+            ozgarishlar={"qurilma": {"eski": nom, "yangi": yangi}},
         )
         user.refresh_from_db()
         return Response(_qurilmalar_json(user))
@@ -121,7 +128,7 @@ class QurilmaSorovlariView(APIView):
         if not _boshqaruvchi(request.user):
             return Response({"detail": "Faqat owner/admin uchun"}, status=403)
         qs = QurilmaSorovi.objects.filter(
-            Q(holat=QurilmaSorovi.Holat.KUTILMOQDA)
+            Q(holat__in=(QurilmaSorovi.Holat.KUTILMOQDA, QurilmaSorovi.Holat.BLOK))
             | Q(holat=QurilmaSorovi.Holat.RAD, hal_vaqti__gt=timezone.now() - qurilma_mantiq.RAD_AMAL_QILADI)
         ).select_related("foydalanuvchi")
         if not owner_mi(request.user):

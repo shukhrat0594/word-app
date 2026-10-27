@@ -322,6 +322,8 @@ class QurilmaSorovi(models.Model):
         RAD = "rad", "Rad etildi"
         AVTO = "avto", "Avtomatik tanildi"
         BRAUZER = "brauzer", "Boshqa brauzer qo'shildi"
+        # 2026-10-27: admin ruxsat etilgan qurilmani bloklagan — blokdan chiqarguncha amal qiladi.
+        BLOK = "blok", "Bloklandi"
 
     foydalanuvchi = models.ForeignKey(User, on_delete=models.CASCADE, related_name="qurilma_sorovlari")
     qid = models.CharField(max_length=64)

@@ -430,6 +430,25 @@ class KopBrauzerTest(QurilmaAsos):
             self.assertEqual(self.profil(j).status_code, 401)
             self.assertEqual(self.yangila(j).status_code, 401)
 
+    def test_ruxsat_etilgan_qurilmani_bloklash(self):
+        self.kirish("tel-1")
+        k = self.royxat()[0]["k"]
+        url = f"/api/foydalanuvchilar/{self.talaba.pk}/qurilmalar/"
+        with self.captureOnCommitCallbacks(execute=True):
+            r = self.admin_klient.post(url, {"amal": "blokla", "k": k}, format="json")
+        self.assertEqual(r.status_code, 200, r.data)
+        self.assertEqual((r.data["qurilmalar"], [b["holat"] for b in r.data["bloklangan"]]), ([], ["blok"]))
+        # Joy bo'sh bo'lsa ham kirmaydi — o'sha brauzer ham, shu telefonning boshqasi ham; 24 soatdan keyin ham.
+        self.assertEqual(self.kirish("tel-1").data["sorov"], "rad")
+        self.assertEqual(self.kirish("tel-2", TELEFON, UA_TELEGRAM).data["sorov"], "rad")
+        QurilmaSorovi.objects.filter(holat="blok").update(hal_vaqti=timezone.now() - timedelta(days=3))
+        self.assertEqual(self.kirish("tel-1").data["sorov"], "rad")
+        self.assertEqual(self.kirish("nout-1", NOUTBUK, UA_WINDOWS).status_code, 200)  # boshqa qurilma kiradi
+        self.assertEqual([x["holat"] for x in self.admin_klient.get("/api/qurilma-sorovlari/").data], ["blok"])
+        s = QurilmaSorovi.objects.get(holat="blok")
+        self.assertEqual(self.qaror(s, amal="blokdan_chiqar").status_code, 200)
+        self.assertEqual(self.kirish("tel-1").data["sorov"], "kutilmoqda")  # endi odatdagi so'rov
+
     def test_bloklangan_qurilmani_blokdan_chiqarish(self):
         s = self.sorov_yarat()
         self.assertEqual(self.qaror(s, amal="rad").status_code, 200)

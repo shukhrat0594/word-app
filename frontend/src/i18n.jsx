@@ -294,6 +294,10 @@ const LUGAT = {
     qurilma_brauzer_nomalum: "noma'lum brauzer",
     qurilma_bloklangan: "Bloklangan qurilmalar",
     qurilma_blokdan_chiqar: "Blokdan chiqarish",
+    qurilma_bloklash: "Bloklash",
+    qurilma_bloklash_tasdiq: "«{nom}» bloklansinmi? U darhol chiqarib yuboriladi va blokdan chiqarmaguningizcha kira olmaydi.",
+    qurilma_bloklangan_yoq: "Bloklangan qurilma yo'q.",
+    qurilma_holat_blok: "Bloklandi",
     login_kirish_cheklangan:
       "Kirishga cheklov o'rnatilgan. Administratorga murojaat qiling.",
     qurilma_tiklash: "Qurilmani tiklash",
@@ -1185,6 +1189,10 @@ const LUGAT = {
     qurilma_brauzer_nomalum: "неизвестный браузер",
     qurilma_bloklangan: "Заблокированные устройства",
     qurilma_blokdan_chiqar: "Разблокировать",
+    qurilma_bloklash: "Заблокировать",
+    qurilma_bloklash_tasdiq: "Заблокировать «{nom}»? Устройство сразу выйдет и не сможет войти, пока вы его не разблокируете.",
+    qurilma_bloklangan_yoq: "Заблокированных устройств нет.",
+    qurilma_holat_blok: "Заблокировано",
     login_kirish_cheklangan:
       "Доступ временно ограничен. Обратитесь к администратору.",
     qurilma_tiklash: "Сбросить устройство",
@@ -2076,6 +2084,10 @@ const LUGAT = {
     qurilma_brauzer_nomalum: "unknown browser",
     qurilma_bloklangan: "Blocked devices",
     qurilma_blokdan_chiqar: "Unblock",
+    qurilma_bloklash: "Block",
+    qurilma_bloklash_tasdiq: "Block «{nom}»? It is signed out at once and cannot log in until you unblock it.",
+    qurilma_bloklangan_yoq: "No blocked devices.",
+    qurilma_holat_blok: "Blocked",
     login_kirish_cheklangan:
       "Access is temporarily restricted. Contact the administrator.",
     qurilma_tiklash: "Reset device",
