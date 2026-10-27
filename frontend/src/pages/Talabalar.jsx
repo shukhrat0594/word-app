@@ -4,6 +4,7 @@ import { api, apiForm } from "../api";
 import { useI18n } from "../i18n";
 import { useProfil } from "../profilContext";
 import NatijalarRoyxati from "../components/NatijalarRoyxati";
+import { panelTanloviOl } from "../components/Layout";
 import { PanelTanlovi, ProfilRasmi, QurilmaTiklashTugmasi, QurilmaLimitiBoshqaruv } from "./Foydalanuvchilar";
 
 // 2026-09-17 (admin talabi): yaratishda qo'shimcha ma'lumot ham kiritiladi.
@@ -155,6 +156,90 @@ function TalabaQatori({ tl, tartibRaqami, boshqaruvMi, arxivKorish, t, onKartaOc
         </span>
       )}
     </div>
+  );
+}
+
+/** Bitta talabaning yangi panel ro'yxati: `yol` qo'shiladi yoki olinadi.
+ * `PanelTanlovi.boshqar` bilan bir xil qoida — hammasi belgilansa `null`. */
+function yangiPanellar(tl, yol, berish) {
+  const tanlov = panelTanloviOl(tl.role, tl.is_owner).map((p) => p.yol);
+  if (!tanlov.includes(yol)) return undefined;
+  const joriy = tl.korinadigan_panellar;
+  const hozirgi = joriy && joriy.length > 0 ? joriy : tanlov;
+  const bormi = hozirgi.includes(yol);
+  if (bormi === berish) return undefined; // o'zgarish yo'q
+  const yangi = berish ? [...hozirgi, yol] : hozirgi.filter((y) => y !== yol);
+  // Oxirgi bo'limni olib bo'lmaydi: backend bo'sh ro'yxatni "cheklovsiz"
+  // (null) deb saqlaydi — talabaga aksincha HAMMA bo'lim ochilib ketardi.
+  if (yangi.length === 0) return undefined;
+  return yangi.length === tanlov.length ? null : yangi;
+}
+
+/** "Hammaga panel" (2026-10-27, guruh TZ #641): bitta bo'limga ruxsatni
+ * ro'yxatdagi BARCHA talabalarga birdaniga berish yoki olish — avval har
+ * talabaning "Panellar" ro'yxatini alohida ochib bosish kerak edi. Mavjud
+ * `PATCH /panellar/` har talaba uchun chaqiriladi (faqat o'zgaradiganlar). */
+function OmmaviyPanelTanlovi({ talabalar, t, onTugadi }) {
+  const [ochiq, setOchiq] = useState(false);
+  const [band, setBand] = useState(false);
+  const [xabar, setXabar] = useState("");
+  const tanlov = panelTanloviOl("student", false);
+
+  async function qolla(p, berish) {
+    const matn = t(berish ? "panel_hammaga_berish_tasdiq" : "panel_hammadan_olish_tasdiq")
+      .replace("{panel}", t(p.kalit))
+      .replace("{soni}", talabalar.length);
+    if (!window.confirm(matn)) return;
+    setBand(true);
+    setXabar("");
+    let xatolar = 0;
+    for (const tl of talabalar) {
+      const yangi = yangiPanellar(tl, p.yol, berish);
+      if (yangi === undefined) continue;
+      try {
+        await api(`/api/foydalanuvchilar/${tl.id}/panellar/`, { method: "PATCH", body: { panellar: yangi } });
+      } catch {
+        xatolar += 1;
+      }
+    }
+    setBand(false);
+    setXabar(xatolar ? `${t("xato_yuz_berdi")} (${xatolar})` : t("panel_ommaviy_saqlandi"));
+    onTugadi();
+  }
+
+  if (tanlov.length === 0 || talabalar.length === 0) return null;
+
+  return (
+    <span style={{ position: "relative" }}>
+      <button type="button" className="tugma ikkinchi kichik" onClick={() => setOchiq((v) => !v)} disabled={band}>
+        {band ? t("yuklanmoqda") : t("panel_hammaga")}
+      </button>
+      {ochiq && (
+        <div
+          style={{
+            position: "absolute", zIndex: 25, top: "100%", right: 0, marginTop: 4,
+            background: "var(--sirt)", border: "1px solid var(--chiziq)", borderRadius: 8,
+            padding: 10, display: "grid", gap: 6, minWidth: 300, boxShadow: "var(--soya)",
+          }}
+        >
+          <div className="izoh">{t("panel_hammaga_izoh").replace("{soni}", talabalar.length)}</div>
+          {tanlov.map((p) => (
+            <div key={p.yol} style={{ display: "flex", alignItems: "center", gap: 6, justifyContent: "space-between" }}>
+              <span>{t(p.kalit)}</span>
+              <span style={{ display: "flex", gap: 4 }}>
+                <button type="button" className="tugma kichik" disabled={band} onClick={() => qolla(p, true)}>
+                  ✓ {t("panel_berish")}
+                </button>
+                <button type="button" className="tugma ikkinchi kichik" disabled={band} onClick={() => qolla(p, false)}>
+                  ✕ {t("panel_olish")}
+                </button>
+              </span>
+            </div>
+          ))}
+          {xabar && <div className="izoh">{xabar}</div>}
+        </div>
+      )}
+    </span>
   );
 }
 
@@ -556,9 +641,12 @@ export default function Talabalar() {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <h3>{arxivKorish ? t("arxivlangan_talabalar") : t("nav_talabalar")}</h3>
               {boshqaruvMi && (
-                <button className="tugma ikkinchi kichik" onClick={() => setArxivKorish((v) => !v)}>
-                  {arxivKorish ? t("faol_talabalar") : t("arxivlangan_talabalar")}
-                </button>
+                <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <OmmaviyPanelTanlovi talabalar={talabalar} t={t} onTugadi={() => yukla()} />
+                  <button className="tugma ikkinchi kichik" onClick={() => setArxivKorish((v) => !v)}>
+                    {arxivKorish ? t("faol_talabalar") : t("arxivlangan_talabalar")}
+                  </button>
+                </span>
               )}
             </div>
             {talabalar.length === 0 && <span className="izoh">{t("talaba_yoq")}</span>}
