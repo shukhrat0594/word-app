@@ -435,6 +435,12 @@ class KopBrauzerTest(QurilmaAsos):
         self.assertEqual(self.qaror(s, amal="rad").status_code, 200)
         self.assertEqual(self.kirish("nout-1", NOUTBUK, UA_WINDOWS).data["sorov"], "rad")
         self.assertEqual([b["id"] for b in self.panel()["bloklangan"]], [s.pk])
+        # Umumiy sahifada ham chiqadi (hamma foydalanuvchilar bo'yicha), 24 soatdan keyin — yo'q.
+        umumiy = lambda: [(x["id"], x["holat"]) for x in self.admin_klient.get("/api/qurilma-sorovlari/").data]
+        self.assertEqual(umumiy(), [(s.pk, "rad")])
+        QurilmaSorovi.objects.filter(pk=s.pk).update(hal_vaqti=timezone.now() - timedelta(hours=25))
+        self.assertEqual(umumiy(), [])
+        QurilmaSorovi.objects.filter(pk=s.pk).update(hal_vaqti=timezone.now())
         r = self.qaror(s, amal="blokdan_chiqar")
         self.assertEqual(r.status_code, 200, r.data)
         self.assertEqual((r.data["bloklangan"], [x["id"] for x in r.data["sorovlar"]]), ([], [s.pk]))

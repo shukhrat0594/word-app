@@ -19,6 +19,14 @@ Format (qat'iy, parser shunga tayanadi):
 
 ---
 
+## 2026-10-27 — Bloklangan qurilmalar bitta sahifada
+
+- **Hamma bloklangan qurilmalar bir joyda.** «Qurilma so'rovlari» sahifasida
+  endi kutilayotgan so'rovlardan tashqari barcha o'quvchilarning bloklangan
+  qurilmalari (oxirgi 24 soatda rad etilganlar) ham chiqadi. Har birini shu
+  yerning o'zidan blokdan chiqarish mumkin — o'quvchini qidirib, uning
+  Qurilmalar oynasini ochish shart emas.
+
 ## 2026-10-26 — Qurilma limiti: bitta telefondagi brauzerlar endi bir-birini chiqarmaydi
 
 - **Chrome va Telegram — bitta qurilma.** O'quvchi saytni bitta telefonda

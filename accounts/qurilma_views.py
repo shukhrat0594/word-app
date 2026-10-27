@@ -4,7 +4,9 @@ Mantiq `accounts/qurilmalar.py`da; bu yerda faqat ruxsat va javob shakli.
 Owner va admin boshqaradi; admin owner'ning qurilmalariga tega olmaydi
 (`QurilmaTiklashView` bilan bir xil qoida)."""
 
+from django.db.models import Q
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -109,14 +111,19 @@ class QurilmalarView(APIView):
 
 
 class QurilmaSorovlariView(APIView):
-    """GET — kutilayotgan qurilma so'rovlari (admin bildirishnomasi shu sahifaga olib keladi)."""
+    """GET — kutilayotgan va hozir bloklangan (24 soat ichida rad etilgan)
+    qurilma so'rovlari, hamma foydalanuvchilar bo'yicha (admin bildirishnomasi
+    shu sahifaga olib keladi; blokdan chiqarish ham shu yerdan — 2026-10-27)."""
 
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         if not _boshqaruvchi(request.user):
             return Response({"detail": "Faqat owner/admin uchun"}, status=403)
-        qs = QurilmaSorovi.objects.filter(holat=QurilmaSorovi.Holat.KUTILMOQDA).select_related("foydalanuvchi")
+        qs = QurilmaSorovi.objects.filter(
+            Q(holat=QurilmaSorovi.Holat.KUTILMOQDA)
+            | Q(holat=QurilmaSorovi.Holat.RAD, hal_vaqti__gt=timezone.now() - qurilma_mantiq.RAD_AMAL_QILADI)
+        ).select_related("foydalanuvchi")
         if not owner_mi(request.user):
             qs = qs.filter(foydalanuvchi__is_superuser=False)
         return Response([
