@@ -7,6 +7,7 @@ markaz o'z kalitini kirita olmaydi (2026-07-17).
 """
 
 import json
+import re
 import time
 
 from django.conf import settings
@@ -588,6 +589,46 @@ def grammar_coach_promt_tuz(student_input, target_language):
     )
 
 
+# AI Grammar Coach follow-up chat (2026-10-27, TZ 640) — prompt TZ ilovasidan
+# AYNAN ko'chirilgan. Talaba tushuntirishdan keyin qo'shimcha savol beradi.
+GRAMMAR_FOLLOWUP_PROMPT = """You are the AI Grammar Coach (Follow-up Mode) integrated into the educational platform.
+
+YOUR TASK:
+Answer the student's follow-up questions, clarify confusing points, or provide deeper explanations about the grammar concept previously discussed.
+
+INPUT CONTEXT (Provided by the system/backend):
+- Previous Explanation Context: {previous_context}
+- Student's Follow-up Question: {followup_question}
+- Selected Explanation Language: {target_language} (Must be one of: "Uzbek", "Russian", or "English")
+
+RULES & INSTRUCTIONS:
+1. Provide deep, clear, and encouraging explanations addressing the student's specific question directly.
+2. Maintain the chosen language ({target_language}):
+   - Uzbek: Use Latin script.
+   - Russian: Use STRICTLY Cyrillic script.
+   - English: Use clear, pedagogical English.
+3. Structure your answer logically:
+   - Direct answer to the question.
+   - Deep-dive nuance/rule explanation (with formulas or contrast tables if helpful).
+   - 2-3 extra clear examples highlighting the difference or exact point queried.
+4. Keep the tone friendly, patient, and supportive—like a dedicated personal tutor."""
+
+
+def grammar_followup_promt_tuz(previous_context, followup_question, target_language):
+    """Bir o'tishda almashtiriladi — kontekst/savoldagi `{...}` qayta
+    almashtirilmasin."""
+    qiymatlar = {
+        "previous_context": previous_context,
+        "followup_question": followup_question,
+        "target_language": target_language,
+    }
+    return re.sub(
+        r"\{(previous_context|followup_question|target_language)\}",
+        lambda m: qiymatlar[m.group(1)],
+        GRAMMAR_FOLLOWUP_PROMPT,
+    )
+
+
 def javobni_parse_qil(raw_text):
     """AI javobidan JSON ajratadi (```json ... ``` o'ramini olib tashlab).
 
@@ -905,6 +946,39 @@ class GeminiProvider:
                 contents=student_input,
                 config=types.GenerateContentConfig(
                     system_instruction=grammar_coach_promt_tuz(student_input, target_language),
+                    max_output_tokens=MAX_OUTPUT_TOKENS,
+                ),
+            ))
+        except Exception as e:
+            if _limit_xatosimi(e):
+                raise ProviderXatosi(
+                    "AI kunlik so'rov limiti tugadi — birozdan so'ng qayta urinib ko'ring"
+                ) from e
+            if _vaqtinchalik_xatomi(e):
+                raise ProviderXatosi(AI_BAND_XABARI) from e
+            raise
+        if not response.text or not response.text.strip():
+            raise ProviderXatosi("AI bo'sh javob qaytardi — qayta urinib ko'ring")
+        return response.text.strip()
+
+    def grammar_coach_followup(self, previous_context, followup_question, target_language):
+        """Grammar Coach follow-up (2026-10-27, TZ 640): avvalgi tushuntirish
+        konteksti + talabaning qo'shimcha savoli -> javob (Markdown)."""
+        from google import genai
+        from google.genai import types
+
+        client = genai.Client(
+            api_key=self.api_key,
+            http_options=types.HttpOptions(timeout=self.timeout_ms),
+        )
+        try:
+            response = _chaqir_qayta_urinib(lambda: client.models.generate_content(
+                model=self.model,
+                contents=followup_question,
+                config=types.GenerateContentConfig(
+                    system_instruction=grammar_followup_promt_tuz(
+                        previous_context, followup_question, target_language
+                    ),
                     max_output_tokens=MAX_OUTPUT_TOKENS,
                 ),
             ))

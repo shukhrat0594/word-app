@@ -7,7 +7,13 @@ from rest_framework.test import APIClient
 
 from accounts.models import Markaz, User
 
-from .providers import GRAMMAR_COACH_PROMPT, GeminiProvider, grammar_coach_promt_tuz
+from .providers import (
+    GRAMMAR_COACH_PROMPT,
+    GRAMMAR_FOLLOWUP_PROMPT,
+    GeminiProvider,
+    grammar_coach_promt_tuz,
+    grammar_followup_promt_tuz,
+)
 
 URL = "/api/grammar/coach/"
 
@@ -50,3 +56,26 @@ class GrammarCoachTest(TestCase):
         self.assertIn("- Student Input: If I {target_language} known", promt)
         self.assertIn('If Russian is "Russian"', promt)
         self.assertNotIn("{student_input}", promt)
+
+    def test_followup_kontekst_bilan(self):
+        with mock.patch.object(GeminiProvider, "grammar_coach_followup", return_value="Javob") as m, \
+                mock.patch.object(GeminiProvider, "grammar_coach_javob") as asosiy:
+            javob = self.c.post(
+                URL, {"matn": " Nega had? ", "til": "Uzbek", "kontekst": " Tushuntirish "}, format="json"
+            )
+        self.assertEqual(javob.status_code, 200, javob.data)
+        self.assertEqual(javob.data["javob"], "Javob")
+        self.assertEqual(m.call_args.args, ("Tushuntirish", "Nega had?", "Uzbek"))
+        asosiy.assert_not_called()
+
+    def test_followup_notogri_kontekst_rad(self):
+        self.assertEqual(
+            self.c.post(URL, {"matn": "x", "til": "Uzbek", "kontekst": ["a"]}, format="json").status_code, 400
+        )
+
+    def test_followup_prompt_tz_bilan_va_qiymat_qoyiladi(self):
+        self.assertTrue(GRAMMAR_FOLLOWUP_PROMPT.startswith("You are the AI Grammar Coach (Follow-up Mode)"))
+        promt = grammar_followup_promt_tuz("ctx {followup_question}", "Q {target_language}", "Russian")
+        self.assertIn("- Previous Explanation Context: ctx {followup_question}", promt)
+        self.assertIn("- Student's Follow-up Question: Q {target_language}", promt)
+        self.assertIn("Maintain the chosen language (Russian)", promt)

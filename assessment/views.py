@@ -385,6 +385,7 @@ class SpeakingTrainerView(APIView):
 
 
 GRAMMAR_COACH_MAX_BELGI = 1000
+GRAMMAR_COACH_MAX_KONTEKST = 30000
 
 
 class GrammarCoachView(APIView):
@@ -406,13 +407,25 @@ class GrammarCoachView(APIView):
             return Response({"detail": "Matn juda uzun — qisqaroq yozing"}, status=400)
         if til not in GRAMMAR_COACH_TILLARI:
             return Response({"detail": "Tushuntirish tili noto'g'ri"}, status=400)
+        # Follow-up (TZ 640): `kontekst` — avvalgi tushuntirish va savol-javoblar;
+        # bo'lsa `matn` qo'shimcha savol sifatida follow-up promptiga beriladi.
+        kontekst = request.data.get("kontekst")
+        if kontekst is not None and not isinstance(kontekst, str):
+            return Response({"detail": "Kontekst noto'g'ri"}, status=400)
+        kontekst = (kontekst or "").strip()
+        if len(kontekst) > GRAMMAR_COACH_MAX_KONTEKST:
+            # Eng yangi qismi qoladi — oxirgi savol-javoblar muhimroq
+            kontekst = kontekst[-GRAMMAR_COACH_MAX_KONTEKST:]
 
         try:
             kalit = getattr(settings, "GEMINI_API_KEY", "")
             if not kalit:
                 raise ProviderXatosi("Platforma GEMINI_API_KEY sozlanmagan (.env)")
             provider = GeminiProvider(kalit, model=GEMINI_MODEL)
-            javob = provider.grammar_coach_javob(matn.strip(), til)
+            if kontekst:
+                javob = provider.grammar_coach_followup(kontekst, matn.strip(), til)
+            else:
+                javob = provider.grammar_coach_javob(matn.strip(), til)
         except ProviderXatosi as e:
             return Response({"detail": str(e)}, status=502)
         except Exception as e:
