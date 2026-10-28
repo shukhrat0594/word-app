@@ -791,6 +791,7 @@ def _tugun_eksport_qil(tugun, zf, fayllar_indeksi, farzandlar=True):
             {
                 "tartib": s.tartib, "en": s.en, "uz": s.uz, "ru": s.ru,
                 "turkum": s.turkum, "misol": s.misol, "manba": s.manba,
+                "sinonimlar": s.sinonimlar or {},
             }
             for s in tugun.sozlar.order_by("tartib", "id")
         ],
@@ -1070,6 +1071,7 @@ def _tugun_import_qil(daraxt, ota, markaz, zf, toliq=False, ildiz_kalitlari=None
             ),
             turkum=s["turkum"], misol=s["misol"],
             manba=s.get("manba", KursSoz.Manba.STUDENTS_BOOK),
+            sinonimlar=s.get("sinonimlar") if isinstance(s.get("sinonimlar"), dict) else {},
         )
         for s in daraxt["sozlar"]
     ])
@@ -2038,6 +2040,7 @@ class KursSozlarView(APIView):
                 {
                     "id": s.id, "en": s.en, "uz": s.uz, "ru": s.ru,
                     "turkum": s.turkum, "misol": s.misol,
+                    "sinonimlar": s.sinonimlar or {},
                 }
                 for s in sozlar_qs
             ]
@@ -2066,7 +2069,17 @@ def _qismlar(matn):
     return qismlar
 
 
-def soz_javobi_togrimi(javob, uz, ru=""):
+def _sinonim_royxati(sinonimlar, til):
+    """`KursSoz.sinonimlar` dan bitta tilning ro'yxati (buzuq qiymatga chidamli)."""
+    if not isinstance(sinonimlar, dict):
+        return []
+    royxat = sinonimlar.get(til)
+    if not isinstance(royxat, list):
+        return []
+    return [str(x) for x in royxat if x]
+
+
+def soz_javobi_togrimi(javob, uz, ru="", sinonimlar=None):
     """Vocabulary tarjima javobi to'g'rimi (2026-10-09, Matn-TZ 138).
     Avval javob butun tarjima satriga aynan teng bo'lishi kerak edi —
     "Приятно познакомиться" ("." siz), "ё" o'rniga "е" yoki
@@ -2077,13 +2090,21 @@ def soz_javobi_togrimi(javob, uz, ru=""):
     2026-10-11 (Matn-TZ 180): talaba bir nechta variantni vergul bilan
     (boshqa tartibda ham) yoki izohni qavssiz yozsa ham to'g'ri — javob
     ham xuddi shunday qismlarga bo'linadi va HAR BIR qism shu tildagi
-    variantlardan biri bo'lishi kerak."""
+    variantlardan biri bo'lishi kerak.
+
+    2026-10-28 (Matn-TZ 674): `sinonimlar` ({"uz": [...], "ru": [...]})
+    — shu turkumdagi boshqa to'g'ri tarjimalar ("taqdirlamoq",
+    "mukofot bermoq"...) o'sha tilning variantlariga qo'shiladi."""
     if not _soz_normal(javob):
         return False
-    for tarjima in (uz, ru):
-        if not tarjima:
+    for til, tarjima in (("uz", uz), ("ru", ru)):
+        qoshimcha = _sinonim_royxati(sinonimlar, til)
+        if not tarjima and not qoshimcha:
             continue
-        variantlar = _qismlar(tarjima) | {_soz_normal(tarjima)}
+        variantlar = (_qismlar(tarjima) | {_soz_normal(tarjima)}) if tarjima else set()
+        for q in qoshimcha:
+            variantlar |= _qismlar(q) | {_soz_normal(q)}
+        variantlar.discard("")
         javob_qismlari = _qismlar(javob)
         if _soz_normal(javob) in variantlar or (javob_qismlari and javob_qismlari <= variantlar):
             return True
@@ -2117,7 +2138,7 @@ class KursSozlarYechishView(APIView):
 
         ball = 0
         for s in sozlar:
-            if soz_javobi_togrimi(javoblar.get(str(s.id), ""), s.uz, s.ru):
+            if soz_javobi_togrimi(javoblar.get(str(s.id), ""), s.uz, s.ru, s.sinonimlar):
                 ball += 1
 
         KursSozYechim.objects.create(talaba=request.user, tugun=tugun, ball=ball, jami=len(sozlar))

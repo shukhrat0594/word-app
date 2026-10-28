@@ -166,4 +166,102 @@ def ruscha_tarjima_qil(sozlar, provider=None):
     return natija
 
 
-__all__ = ["ProviderXatosi", "ruscha_tarjima_qil", "PARTIYA"]
+SINONIM_PROMPT = (
+    "Sen ingliz-o'zbek-rus lug'atchisan. Sanga ingliz so'zlari ro'yxati "
+    "beriladi; har biri uchun talaba yozishi mumkin bo'lgan BARCHA to'g'ri "
+    "o'zbekcha va ruscha tarjimalarni (sinonimlarni) qaytar.\n\n"
+    "Har bir band: \"en\" — ingliz so'zi, \"turkum\" — so'z turkumi "
+    "(n/v/adj/adv va h.k., bo'lishi mumkin), \"uz\" va \"ru\" — bazadagi "
+    "asosiy tarjima (ma'noni aniqlash uchun).\n\n"
+    "QOIDALAR:\n"
+    "1. FAQAT shu turkumdagi va shu ma'nodagi tarjimalar: award (v) -> "
+    "\"taqdirlamoq\", \"mukofotlamoq\", \"mukofot bermoq\", \"e'tirof "
+    "etmoq\"; award (n) uchun fe'l BERMA. Boshqa ma'no yoki boshqa "
+    "turkumdagi so'z — XATO.\n"
+    "2. Fe'llar infinitivda (o'zbekcha -moq, ruscha -ть/-ться; ruscha "
+    "fe'lning ikkala vid shakli ham bo'lishi mumkin).\n"
+    "3. Har element — bitta tarjima (vergulsiz), izoh va qavssiz, kichik "
+    "harf (atoqli otlardan tashqari). O'zbekcha lotin yozuvida.\n"
+    "4. Faqat haqiqatan keng ishlatiladigan, aniq tarjimalar; bilmasang "
+    "yoki shubhali bo'lsa QO'SHMA. Har til uchun ko'pi bilan 8 ta.\n"
+    "5. HAR BIR band uchun javob qaytar, tartib raqami \"n\" bilan bog'la.\n"
+)
+
+SINONIM_SXEMASI = {
+    "type": "object",
+    "properties": {
+        "sozlar": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "n": {"type": "integer"},
+                    "uz": {"type": "array", "items": {"type": "string"}},
+                    "ru": {"type": "array", "items": {"type": "string"}},
+                },
+                "required": ["n", "uz", "ru"],
+                "additionalProperties": False,
+            },
+        }
+    },
+    "required": ["sozlar"],
+    "additionalProperties": False,
+}
+
+# Bitta tilda saqlanadigan sinonimlar soni va uzunligi chegarasi —
+# model ba'zan uzun ro'yxat yoki izohli matn qaytaradi.
+SINONIM_MAX = 8
+SINONIM_UZUNLIK = 80
+
+
+def _sinonimlarni_tozala(royxat):
+    natija = []
+    for x in royxat if isinstance(royxat, list) else []:
+        x = " ".join(str(x or "").split())
+        if x and len(x) <= SINONIM_UZUNLIK and x.lower() not in {y.lower() for y in natija}:
+            natija.append(x)
+    return natija[:SINONIM_MAX]
+
+
+def sinonimlar_qil(sozlar, provider=None):
+    """2026-10-28 (Matn-TZ 674): har so'z uchun shu turkumdagi qo'shimcha
+    to'g'ri tarjimalar. `sozlar` — `KursSoz` obyektlari (`en`, `uz`, `ru`,
+    `turkum`).
+
+    Qaytaradi: `{soz.id: {"uz": [...], "ru": [...]}}` — FAQAT model
+    kamida bitta tarjima bergan so'zlar uchun (qolganlari keyingi
+    ishga tushirishda qayta so'raladi)."""
+    if not sozlar:
+        return {}
+    if provider is None:
+        provider = _provider_ol()
+
+    natija = {}
+    for partiya in _partiyalar(list(sozlar), PARTIYA):
+        bandlar = [
+            {"n": i, "en": s.en, "turkum": s.turkum or "", "uz": s.uz, "ru": s.ru or ""}
+            for i, s in enumerate(partiya, start=1)
+        ]
+        javob = provider.generate_json(
+            SINONIM_PROMPT,
+            json.dumps(bandlar, ensure_ascii=False),
+            javob_sxemasi=SINONIM_SXEMASI,
+            max_tokens=16000,
+        )
+        korilgan = set()
+        for band in javob["natija"].get("sozlar") or []:
+            try:
+                indeks = int(band["n"]) - 1
+            except (KeyError, TypeError, ValueError):
+                continue
+            if not (0 <= indeks < len(partiya)) or indeks in korilgan:
+                continue
+            korilgan.add(indeks)
+            uz = _sinonimlarni_tozala(band.get("uz"))
+            ru = _sinonimlarni_tozala(band.get("ru"))
+            if uz or ru:
+                natija[partiya[indeks].id] = {"uz": uz, "ru": ru}
+    return natija
+
+
+__all__ = ["ProviderXatosi", "ruscha_tarjima_qil", "sinonimlar_qil", "PARTIYA"]

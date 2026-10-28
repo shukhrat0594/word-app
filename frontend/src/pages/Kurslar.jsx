@@ -1564,8 +1564,15 @@ function SozlarniYozishMashqi({ sozlar, tugunId, talabaMi }) {
     if (!javob) return false;
     const s = sozlar[i];
     const javobQismlari = qismlar(javoblar[i]);
-    return [s.uz, s.ru].filter(Boolean).some((tarjima) => {
-      const variantlar = new Set([normal(tarjima), ...qismlar(tarjima)]);
+    // 2026-10-28 (Matn-TZ 674): `sinonimlar` — shu turkumdagi boshqa
+    // to'g'ri tarjimalar (award (v): taqdirlamoq, mukofot bermoq...),
+    // o'z tilining variantlariga qo'shiladi (`soz_javobi_togrimi` kabi).
+    return [["uz", s.uz], ["ru", s.ru]].some(([til, tarjima]) => {
+      const qoshimcha = Array.isArray(s.sinonimlar?.[til]) ? s.sinonimlar[til].filter(Boolean).map(String) : [];
+      const variantlar = new Set(
+        [tarjima, ...qoshimcha].filter(Boolean).flatMap((x) => [normal(x), ...qismlar(x)]).filter(Boolean),
+      );
+      if (!variantlar.size) return false;
       return variantlar.has(javob) || (javobQismlari.length > 0 && javobQismlari.every((q) => variantlar.has(q)));
     });
   }
