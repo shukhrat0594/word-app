@@ -1753,6 +1753,21 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
     }
   }
 
+  // 2026-10-28 (TZ #652): papkani boshqa papka ichiga qo'shish yoki
+  // asosiy darajaga ajratib chiqarish — `parentId` bo'sh bo'lsa chiqaradi.
+  async function papkaniKochir(p, parentId) {
+    try {
+      await api(`/api/imtihon/papkalar/${p.id}/`, {
+        method: "PATCH",
+        body: { parent: parentId || null },
+      });
+      if (parentId) setOchiqPapkalar((v) => ({ ...v, [parentId]: true }));
+      yukla(filtrBolim);
+    } catch (e) {
+      setJsonXato(e.data?.detail || t("xato_yuz_berdi"));
+    }
+  }
+
   async function papkagaKochir(testId, papkaId) {
     try {
       await api(`/api/imtihon/testlar-boshqaruv/${testId}/`, {
@@ -2964,6 +2979,25 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
           />
         </label>
         </>
+        )}
+        {/* Papkani boshqa papka ichiga qo'shish / ajratib chiqarish
+            (2026-10-28, TZ #652). Chuqurlik 2: ichida papkasi bor papka
+            boshqa papkaga kira olmaydi, nishon faqat asosiy papkalar. */}
+        {(p.parent || !papkalar.some((x) => x.parent === p.id)) && (
+          <select
+            value={p.parent || ""}
+            title={t("imtihon_papkani_kochir")}
+            onClick={(e) => e.stopPropagation()}
+            onChange={(e) => papkaniKochir(p, e.target.value)}
+            style={{ maxWidth: 150, fontSize: 12 }}
+          >
+            <option value="">{t("imtihon_papka_asosiy_daraja")}</option>
+            {papkalar
+              .filter((x) => !x.parent && x.id !== p.id)
+              .map((x) => (
+                <option key={x.id} value={x.id}>📁 {x.nomi}</option>
+              ))}
+          </select>
         )}
         <button
           type="button"
