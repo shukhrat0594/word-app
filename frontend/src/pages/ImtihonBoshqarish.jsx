@@ -1618,15 +1618,40 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
   // ko'rinmasdi). Bu yerda HAR bir ota'dan keyin DARHOL o'z bolalarini
   // joylashtirib chiqamiz — ierarxiya faqat tartib orqali ko'rinadi
   // (alohida "daraxt" komponent qurish shart emas).
+  // 2026-10-28 (TZ #657): chuqurlik 3 (Cambridge › Cambridge 3 › Test 1) —
+  // bolalar rekursiv joylashtiriladi.
   const papkalarTartiblangan = (() => {
-    const otalar = papkalar.filter((p) => !p.parent);
     const natija = [];
-    otalar.forEach((ota) => {
-      natija.push(ota);
-      papkalar.filter((p) => p.parent === ota.id).forEach((b) => natija.push(b));
-    });
+    const joyla = (otaId) =>
+      papkalar.filter((p) => (p.parent || null) === otaId).forEach((p) => {
+        natija.push(p);
+        joyla(p.id);
+      });
+    joyla(null);
     return natija;
   })();
+  // Papka daraxti yordamchilari (TZ #657) — backenddagi
+  // `TestPapkasi.daraja/balandlik/mock_papkasimi` bilan bir xil qoida.
+  const PAPKA_CHUQURLIGI = 3;
+  const ichkiPapkalari = (p) => papkalar.filter((x) => x.parent === p.id);
+  const papkaDarajasi = (p) => {
+    let d = 1;
+    let o = p;
+    while (o?.parent) {
+      o = papkalar.find((x) => x.id === o.parent);
+      d += 1;
+    }
+    return d;
+  };
+  const papkaBalandligi = (p) =>
+    1 + Math.max(0, ...ichkiPapkalari(p).map(papkaBalandligi));
+  const mockPapkami = (p) => !!p.parent && ichkiPapkalari(p).length === 0;
+  const avlodimi = (x, p) => {
+    for (let o = x; o; o = papkalar.find((y) => y.id === o.parent)) {
+      if (o.id === p.id) return true;
+    }
+    return false;
+  };
   const [yangiPapka, setYangiPapka] = useState("");
   const [ochiqPapkalar, setOchiqPapkalar] = useState({});
   // 2026-08-11 kech: 2-darajali (ichki) papka qo'shish — foydalanuvchi
@@ -2030,21 +2055,27 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
     // Ichki papkalarni tiklaymiz: shu nomli ichki papka BOR bo'lsa
     // ishlatiladi (birlashtirish), yo'q bo'lsa yaratiladi. Nomlar
     // registrga qaramay solishtiriladi.
+    // 2026-10-28 (TZ #657): chuqurlik 3 — manifestda `yol`
+    // ("Cambridge 3/Test 1") va `ota` (otasining yo'li) bor; eski
+    // arxivlarda ular yo'q, yo'l = nom, ota = bosilgan papka.
     const ichkiIdlar = {};
-    const mavjudIchkilar = papkalar.filter((x) => x.parent === p.id);
     for (const ip of man.ichki_papkalar || []) {
-      const bor = mavjudIchkilar.find(
-        (x) => x.nomi.trim().toLowerCase() === String(ip.nomi).trim().toLowerCase()
+      const yol = ip.yol || ip.nomi;
+      const otaId = ip.ota ? ichkiIdlar[ip.ota] : p.id;
+      if (!otaId) continue;
+      const bor = papkalar.find(
+        (x) => x.parent === otaId
+          && x.nomi.trim().toLowerCase() === String(ip.nomi).trim().toLowerCase()
       );
       if (bor) {
-        ichkiIdlar[ip.nomi] = bor.id;
+        ichkiIdlar[yol] = bor.id;
         continue;
       }
       const yangi = await api("/api/imtihon/papkalar/", {
         method: "POST",
-        body: { nomi: ip.nomi, manba, parent: p.id },
+        body: { nomi: ip.nomi, manba, parent: otaId },
       });
-      ichkiIdlar[ip.nomi] = yangi.id;
+      ichkiIdlar[yol] = yangi.id;
     }
 
     let rejim = "";
@@ -2348,123 +2379,7 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
                 papkalar ham chiqadi (avval faqat testi borlari chiqardi):
                 aks holda yangi yaratilgan bo'sh papkaga ichki papka
                 qo'shib ham, uni o'chirib ham bo'lmasdi. */}
-            {papkalar
-              .filter((p) => !p.parent)
-              .map((top) => {
-                const ichkilar = papkalar.filter((p) => p.parent === top.id);
-                const topTestlar = royxat.filter((r) => r.papka === top.id);
-                const jamiSoni =
-                  topTestlar.length +
-                  ichkilar.reduce((s2, ich) => s2 + royxat.filter((r) => r.papka === ich.id).length, 0);
-                return (
-                  <div key={top.id} style={{ border: "1px solid var(--chiziq)", borderRadius: 8, overflow: "hidden" }}>
-                    <div
-                      className="imtihon-papka-sarlavha"
-                      style={{ padding: "8px 10px" }}
-                      onClick={() => setOchiqPapkalar((v) => ({ ...v, [top.id]: !v[top.id] }))}
-                    >
-                      <span style={{ display: "inline-flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-                        <span>{ochiqPapkalar[top.id] ? "▾" : "▸"} 📁</span>
-                        {papkaNomi(top)}
-                      </span>
-                      {/* Testlar soni — o'ng chekkada, o'chirish tugmasidan
-                          sal oldin (2026-09-03, foydalanuvchi talabi: nomga
-                          juda yaqin turgani noqulay edi). */}
-                      <span style={{ display: "inline-flex", alignItems: "center", gap: 12 }}>
-                        <span className="izoh">{jamiSoni}</span>
-                        {papkaBoshqaruv(top)}
-                      </span>
-                    </div>
-                    {ochiqPapkalar[top.id] && (
-                      <div style={{ display: "grid", gap: 8, padding: "0 8px 8px" }}>
-                        {topTestlar.map((test) => testKartasi(test))}
-                        {ichkilar.map((ich) => {
-                          const ichTestlar = royxat.filter((r) => r.papka === ich.id);
-                          return (
-                            <div
-                              key={ich.id}
-                              style={{
-                                border: "1px solid var(--chiziq)", borderRadius: 8,
-                                overflow: "hidden", marginLeft: 20,
-                              }}
-                            >
-                              <div
-                                className="imtihon-papka-sarlavha"
-                                style={{ padding: "8px 10px" }}
-                                onClick={() => setOchiqPapkalar((v) => ({ ...v, [ich.id]: !v[ich.id] }))}
-                              >
-                                <span style={{ display: "inline-flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-                                  <span>{ochiqPapkalar[ich.id] ? "▾" : "▸"} 📂</span>
-                                  {papkaNomi(ich)}
-                                </span>
-                                <span style={{ display: "inline-flex", alignItems: "center", gap: 12 }}>
-                                  <span className="izoh">{ichTestlar.length}</span>
-                                  {papkaBoshqaruv(ich)}
-                                </span>
-                              </div>
-                              {ochiqPapkalar[ich.id] && (
-                                <div style={{ display: "grid", gap: 8, padding: "0 8px 8px" }}>
-                                  {ichTestlar.map((test) => testKartasi(test))}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                        {/* Ichki papka qo'shish — papka OCHILGANDA shu yerda
-                            (2026-09-03, foydalanuvchi talabi). */}
-                        {ichkiQoshishOchiq === top.id ? (
-                          <div style={{ display: "flex", gap: 6, marginLeft: 20, flexWrap: "wrap" }}>
-                            <input
-                              placeholder={t("imtihon_papka_nomi")}
-                              value={yangiIchkiPapka}
-                              autoFocus
-                              onChange={(e) => setYangiIchkiPapka(e.target.value)}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter") ichkiPapkaYarat(top.id);
-                                if (e.key === "Escape") setIchkiQoshishOchiq(null);
-                              }}
-                              style={{ maxWidth: 200, fontSize: 13 }}
-                            />
-                            <button
-                              type="button"
-                              className="tugma kichik"
-                              onClick={() => ichkiPapkaYarat(top.id)}
-                              disabled={!yangiIchkiPapka.trim()}
-                            >
-                              {t("imtihon_papka_qoshish")}
-                            </button>
-                            <button
-                              type="button"
-                              className="tugma kichik ikkinchi"
-                              onClick={() => setIchkiQoshishOchiq(null)}
-                            >
-                              {t("kurs_blok_bekor_qilish")}
-                            </button>
-                          </div>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setYangiIchkiPapka("");
-                              setIchkiQoshishOchiq(top.id);
-                            }}
-                            title={t("imtihon_ichki_papka_qoshish")}
-                            style={{
-                              marginLeft: 20, width: "fit-content",
-                              display: "inline-flex", alignItems: "center", gap: 6,
-                              padding: "5px 12px", borderRadius: 20, cursor: "pointer",
-                              border: "1px dashed var(--chiziq)", background: "transparent",
-                              color: "var(--matn-sokin)", fontSize: 13,
-                            }}
-                          >
-                            + {t("imtihon_ichki_papka")}
-                          </button>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+            {papkalar.filter((p) => !p.parent).map((top) => papkaBlogi(top))}
             {royxat.filter((test) => !test.papka).map((test) => testKartasi(test))}
           </div>
         )}
@@ -2770,15 +2685,17 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
                       >
                         <option value="">{t("imtihon_papkasiz")}</option>
                         {papkalarTartiblangan.map((p) => {
+                          // TZ #657: "har bo'limdan bittadan" faqat Mock
+                          // papkasiga (ichida papkasi yo'q ichki papka).
                           const ichkimi = !!p.parent;
                           const toligmi =
-                            ichkimi &&
+                            mockPapkami(p) &&
                             royxat.some(
                               (r) => r.papka === p.id && r.bolim === test.bolim && r.id !== test.id
                             );
                           return (
                             <option key={p.id} value={p.id} disabled={toligmi}>
-                              {ichkimi ? "— 📂 " : "📁 "}{p.nomi}
+                              {"— ".repeat(papkaDarajasi(p) - 1)}{ichkimi ? "📂 " : "📁 "}{p.nomi}
                               {toligmi ? ` (${t(`mashq_bolim_${test.bolim}`)} bor)` : ""}
                             </option>
                           );
@@ -2905,6 +2822,111 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
     );
   }
 
+  /** Papka va uning barcha ichki papkalaridagi testlar soni (TZ #657). */
+  function papkaTestlarSoni(p) {
+    return (
+      royxat.filter((r) => r.papka === p.id).length
+      + ichkiPapkalari(p).reduce((s, ich) => s + papkaTestlarSoni(ich), 0)
+    );
+  }
+
+  /** Bitta papka bloki — sarlavha, o'z testlari, ichki papkalari
+   * (rekursiv) va "+ ichki papka" tugmasi (2026-10-28, TZ #657: avval
+   * faqat 2 daraja qo'lda chizilardi; endi "Cambridge › Cambridge 3 ›
+   * Test 1" ham ko'rinadi). */
+  function papkaBlogi(top) {
+    const ichkilar = ichkiPapkalari(top);
+    const topTestlar = royxat.filter((r) => r.papka === top.id);
+    const ichkimi = !!top.parent;
+    // Ichki papka qo'shish: asosiy papkada (avvalgidek) va ichida
+    // papkalari bor 2-darajali papkada ("Cambridge 3" — yangi Test 5 uchun).
+    const ichkiQoshsaBoladi =
+      !ichkimi || (ichkilar.length > 0 && papkaDarajasi(top) < PAPKA_CHUQURLIGI);
+    return (
+                  <div
+                    key={top.id}
+                    style={{
+                      border: "1px solid var(--chiziq)", borderRadius: 8, overflow: "hidden",
+                      ...(ichkimi ? { marginLeft: 20 } : {}),
+                    }}
+                  >
+                    <div
+                      className="imtihon-papka-sarlavha"
+                      style={{ padding: "8px 10px" }}
+                      onClick={() => setOchiqPapkalar((v) => ({ ...v, [top.id]: !v[top.id] }))}
+                    >
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                        <span>{ochiqPapkalar[top.id] ? "▾" : "▸"} {ichkimi ? "📂" : "📁"}</span>
+                        {papkaNomi(top)}
+                      </span>
+                      {/* Testlar soni — o'ng chekkada, o'chirish tugmasidan
+                          sal oldin (2026-09-03, foydalanuvchi talabi: nomga
+                          juda yaqin turgani noqulay edi). */}
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 12 }}>
+                        <span className="izoh">{papkaTestlarSoni(top)}</span>
+                        {papkaBoshqaruv(top)}
+                      </span>
+                    </div>
+                    {ochiqPapkalar[top.id] && (
+                      <div style={{ display: "grid", gap: 8, padding: "0 8px 8px" }}>
+                        {topTestlar.map((test) => testKartasi(test))}
+                        {ichkilar.map((ich) => papkaBlogi(ich))}
+                        {/* Ichki papka qo'shish — papka OCHILGANDA shu yerda
+                            (2026-09-03, foydalanuvchi talabi). */}
+                        {!ichkiQoshsaBoladi ? null : ichkiQoshishOchiq === top.id ? (
+                          <div style={{ display: "flex", gap: 6, marginLeft: 20, flexWrap: "wrap" }}>
+                            <input
+                              placeholder={t("imtihon_papka_nomi")}
+                              value={yangiIchkiPapka}
+                              autoFocus
+                              onChange={(e) => setYangiIchkiPapka(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") ichkiPapkaYarat(top.id);
+                                if (e.key === "Escape") setIchkiQoshishOchiq(null);
+                              }}
+                              style={{ maxWidth: 200, fontSize: 13 }}
+                            />
+                            <button
+                              type="button"
+                              className="tugma kichik"
+                              onClick={() => ichkiPapkaYarat(top.id)}
+                              disabled={!yangiIchkiPapka.trim()}
+                            >
+                              {t("imtihon_papka_qoshish")}
+                            </button>
+                            <button
+                              type="button"
+                              className="tugma kichik ikkinchi"
+                              onClick={() => setIchkiQoshishOchiq(null)}
+                            >
+                              {t("kurs_blok_bekor_qilish")}
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setYangiIchkiPapka("");
+                              setIchkiQoshishOchiq(top.id);
+                            }}
+                            title={t("imtihon_ichki_papka_qoshish")}
+                            style={{
+                              marginLeft: 20, width: "fit-content",
+                              display: "inline-flex", alignItems: "center", gap: 6,
+                              padding: "5px 12px", borderRadius: 20, cursor: "pointer",
+                              border: "1px dashed var(--chiziq)", background: "transparent",
+                              color: "var(--matn-sokin)", fontSize: 13,
+                            }}
+                          >
+                            + {t("imtihon_ichki_papka")}
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+  }
+
   /** Papka nomi — tahrirlash rejimida joyida inputga aylanadi.
    *
    * 2026-09-03 (2), foydalanuvchi talabi: avval nomning O'ZIGA bosish
@@ -2949,8 +2971,10 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
             yuklash"). FAQAT ASOSIY papkada ko'rinadi (foydalanuvchi
             qarori: "ichki papkalarni eksport qilish kerak emas") —
             asosiy papka arxivi ichki papkalarni ham o'z ichiga oladi,
-            shuning uchun ichki papkada alohida tugma kerak emas. */}
-        {!p.parent && (
+            shuning uchun ichki papkada alohida tugma kerak emas.
+            TZ #657: "Cambridge" ichiga kirgan "Cambridge 3" (ichida
+            papkalari bor) uchun ham — u Mock papkasi emas. */}
+        {!mockPapkami(p) && (
         <>
         <button
           type="button"
@@ -2981,24 +3005,40 @@ function AdminBoshqaruv({ manba, onOchirildi }) {
         </>
         )}
         {/* Papkani boshqa papka ichiga qo'shish / ajratib chiqarish
-            (2026-10-28, TZ #652). Chuqurlik 2: ichida papkasi bor papka
-            boshqa papkaga kira olmaydi, nishon faqat asosiy papkalar. */}
-        {(p.parent || !papkalar.some((x) => x.parent === p.id)) && (
-          <select
-            value={p.parent || ""}
-            title={t("imtihon_papkani_kochir")}
-            onClick={(e) => e.stopPropagation()}
-            onChange={(e) => papkaniKochir(p, e.target.value)}
-            style={{ maxWidth: 150, fontSize: 12 }}
-          >
-            <option value="">{t("imtihon_papka_asosiy_daraja")}</option>
-            {papkalar
-              .filter((x) => !x.parent && x.id !== p.id)
-              .map((x) => (
-                <option key={x.id} value={x.id}>📁 {x.nomi}</option>
+            (2026-10-28, TZ #652). TZ #657: chuqurlik 3 — ichida
+            "Test 1..4" bor "Cambridge 3" ham "Cambridge" ichiga kiradi.
+            Nishon: o'zi/o'z ichki papkasi emas, chuqurlikka sig'adi va
+            testli Mock papkasi emas (backend ham shuni tekshiradi). */}
+        {(() => {
+          const nishonlar = papkalarTartiblangan.filter(
+            (x) =>
+              !avlodimi(x, p)
+              && papkaDarajasi(x) + papkaBalandligi(p) <= PAPKA_CHUQURLIGI
+              && !(mockPapkami(x) && royxat.some((r) => r.papka === x.id))
+          );
+          if (!p.parent && nishonlar.length === 0) return null;
+          return (
+            <select
+              value={p.parent || ""}
+              title={t("imtihon_papkani_kochir")}
+              onClick={(e) => e.stopPropagation()}
+              onChange={(e) => papkaniKochir(p, Number(e.target.value) || null)}
+              style={{ maxWidth: 150, fontSize: 12 }}
+            >
+              <option value="">{t("imtihon_papka_asosiy_daraja")}</option>
+              {p.parent && !nishonlar.some((x) => x.id === p.parent) && (
+                <option value={p.parent} disabled>
+                  {papkalar.find((x) => x.id === p.parent)?.nomi}
+                </option>
+              )}
+              {nishonlar.map((x) => (
+                <option key={x.id} value={x.id}>
+                  {"— ".repeat(papkaDarajasi(x) - 1)}{x.parent ? "📂" : "📁"} {x.nomi}
+                </option>
               ))}
-          </select>
-        )}
+            </select>
+          );
+        })()}
         <button
           type="button"
           title={t("imtihon_papka_nomini_tahrirlash")}
