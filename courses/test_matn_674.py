@@ -4,7 +4,9 @@ turkumdagi BARCHA to'g'ri tarjimalari qabul qilinadi — award (v):
 Qo'shimcha tarjimalar `KursSoz.sinonimlar`da, `soz_sinonimlari` buyrug'i
 AI bilan to'ldiradi (sinovda AI soxta provider bilan almashtirilgan)."""
 
+import io
 import json
+import zipfile
 from unittest import mock
 
 from django.core.management import call_command
@@ -13,7 +15,7 @@ from django.test import SimpleTestCase
 from courses.models import KursSoz
 from courses.soz_tarjima import sinonimlar_qil
 from courses.test_video_1008 import SozlarTekshirishAsos
-from courses.views import soz_javobi_togrimi
+from courses.views import _tugun_eksport_qil, _tugun_import_qil, soz_javobi_togrimi
 
 AWARD_V = {"uz": ["taqdirlamoq", "mukofot bermoq", "e‘tirof etmoq"], "ru": ["наградить", "награждать"]}
 
@@ -104,3 +106,45 @@ class SozSinonimlariBuyruqTest(SozlarTekshirishAsos):
         sin = {s["en"]: s["sinonimlar"] for s in j.data}
         self.assertEqual(sin["hotel"], {"uz": ["otel"], "ru": []})
         self.assertEqual(sin["airport"], {})
+
+
+class ImportSinonimlarniSaqlashTest(SozlarTekshirishAsos):
+    """Import so'zlarni o'chirib qayta yozadi — bo'sh sinonimli (lokal yoki
+    eski) ZIP serverda to'ldirilgan sinonimlarni o'chirib yubormasligi kerak."""
+
+    def setUp(self):
+        super().setUp()
+        self.soz1.sinonimlar = {"uz": ["aerovokzal"], "ru": []}
+        self.soz1.save()
+        self.soz2.sinonimlar = {"uz": ["otel"], "ru": []}
+        self.soz2.save()
+
+    def _import(self, ozgartir):
+        bufer = io.BytesIO()
+        with zipfile.ZipFile(bufer, "w") as zf:
+            daraxt = _tugun_eksport_qil(self.vocab, zf, {})
+        ozgartir({s["en"]: s for s in daraxt["sozlar"]})
+        with zipfile.ZipFile(bufer) as zf:
+            _tugun_import_qil(daraxt, self.unit, self.markaz, zf)
+        return {s.en: s.sinonimlar for s in self.vocab.sozlar.all()}
+
+    def test_eksport_sinonimlarni_olib_ketadi(self):
+        sin = self._import(lambda sozlar: None)
+        self.assertEqual(sin, {"airport": {"uz": ["aerovokzal"], "ru": []}, "hotel": {"uz": ["otel"], "ru": []}})
+
+    def test_bosh_sinonimli_zip_eskisini_ochirmaydi(self):
+        def ozgartir(sozlar):
+            sozlar["airport"]["sinonimlar"] = {}  # lokal nusxa — to'ldirilmagan
+            del sozlar["hotel"]["sinonimlar"]  # 674 dan oldingi ZIP
+
+        sin = self._import(ozgartir)
+        self.assertEqual(sin, {"airport": {"uz": ["aerovokzal"], "ru": []}, "hotel": {"uz": ["otel"], "ru": []}})
+
+    def test_tarjimasi_ozgargan_sozga_eski_sinonim_otmaydi_yangisi_yoziladi(self):
+        def ozgartir(sozlar):
+            sozlar["airport"]["sinonimlar"] = {}
+            sozlar["airport"]["uz"] = "aeroport, havo bandargohi"
+            sozlar["hotel"]["sinonimlar"] = {"uz": ["mehmonxona"], "ru": ["гостиница"]}
+
+        sin = self._import(ozgartir)
+        self.assertEqual(sin, {"airport": {}, "hotel": {"uz": ["mehmonxona"], "ru": ["гостиница"]}})

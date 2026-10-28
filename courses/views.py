@@ -812,6 +812,7 @@ def _tugun_eksport_qil(tugun, zf, fayllar_indeksi, farzandlar=True):
                 {
                     "tartib": s.tartib, "en": s.en, "uz": s.uz, "ru": s.ru,
                     "turkum": s.turkum, "misol": s.misol,
+                    "sinonimlar": s.sinonimlar or {},
                 }
                 for s in vocab.sozlar.filter(manba=tugun.kalit).order_by("tartib", "id")
             ]
@@ -980,6 +981,31 @@ def _ru_saqlab(kelgan_ru, manba, en, eski):
     return eski.get((manba, (en or "").strip().lower()), "")
 
 
+def _sinonim_kaliti(manba, en, turkum, uz):
+    return (manba, (en or "").strip().lower(), (turkum or "").strip(), (uz or "").strip())
+
+
+def _eski_sinonim_xaritasi(sozlar):
+    """2026-10-28 (Matn-TZ 674): `_eski_ru_xaritasi` kabi — `sinonimlar`
+    serverda `soz_sinonimlari` buyrug'i bilan to'ldiriladi, shuning uchun
+    bo'sh sinonimli (lokal yoki eski) ZIP import qilinsa, tayyor
+    sinonimlar jimgina o'chib ketmasin. Kalitda `turkum` va `uz` ham bor:
+    tarjimasi o'zgargan so'zga eski ma'noning sinonimlari o'tmaydi."""
+    return {
+        _sinonim_kaliti(s.manba, s.en, s.turkum, s.uz): s.sinonimlar
+        for s in sozlar
+        if isinstance(s.sinonimlar, dict) and s.sinonimlar
+    }
+
+
+def _sinonim_saqlab(s, manba, eski):
+    """ZIPdagi so'z `s` ning sinonimlari; bo'sh bo'lsa — eskisi."""
+    kelgan = s.get("sinonimlar")
+    if isinstance(kelgan, dict) and kelgan:
+        return kelgan
+    return eski.get(_sinonim_kaliti(manba, s["en"], s.get("turkum", ""), s["uz"]), {})
+
+
 def _tugun_import_qil(daraxt, ota, markaz, zf, toliq=False, ildiz_kalitlari=None):
     """`_tugun_eksport_qil`ning teskarisi — JSON tugun tavsifidan haqiqiy
     `KursTugun` (+ mashq/so'z/fayl) yaratadi. `kalit+ota` bo'yicha MAVJUD
@@ -1035,6 +1061,7 @@ def _tugun_import_qil(daraxt, ota, markaz, zf, toliq=False, ildiz_kalitlari=None
     # mashq/so'zlarini tozalab, ZIPdagi holatga TO'LIQ almashtiramiz.
     tugun.mashqlar.all().delete()
     eski_ru = _eski_ru_xaritasi(tugun.sozlar.all())
+    eski_sinonim = _eski_sinonim_xaritasi(tugun.sozlar.all())
     tugun.sozlar.all().delete()
 
     for m in daraxt["mashqlar"]:
@@ -1071,7 +1098,7 @@ def _tugun_import_qil(daraxt, ota, markaz, zf, toliq=False, ildiz_kalitlari=None
             ),
             turkum=s["turkum"], misol=s["misol"],
             manba=s.get("manba", KursSoz.Manba.STUDENTS_BOOK),
-            sinonimlar=s.get("sinonimlar") if isinstance(s.get("sinonimlar"), dict) else {},
+            sinonimlar=_sinonim_saqlab(s, s.get("manba", KursSoz.Manba.STUDENTS_BOOK), eski_sinonim),
         )
         for s in daraxt["sozlar"]
     ])
@@ -1106,6 +1133,7 @@ def _tugun_import_qil(daraxt, ota, markaz, zf, toliq=False, ildiz_kalitlari=None
         setattr(vocab, matn_maydoni, daraxt.get("kitob_vocab_matn") or "")
         vocab.save(update_fields=[matn_maydoni])
         kitob_eski_ru = _eski_ru_xaritasi(vocab.sozlar.filter(manba=tugun.kalit))
+        kitob_eski_sinonim = _eski_sinonim_xaritasi(vocab.sozlar.filter(manba=tugun.kalit))
         vocab.sozlar.filter(manba=tugun.kalit).delete()
         # Wordlist bilan to'ldirilgan Vocabulary'ga kitob so'zlari qaytmaydi.
         KursSoz.objects.bulk_create([] if KursSoz.wordlist_bormi(vocab) else [
@@ -1114,6 +1142,7 @@ def _tugun_import_qil(daraxt, ota, markaz, zf, toliq=False, ildiz_kalitlari=None
                 ru=_ru_saqlab(s.get("ru", ""), tugun.kalit, s["en"], kitob_eski_ru),
                 turkum=s.get("turkum", ""),
                 misol=s.get("misol", ""), manba=tugun.kalit,
+                sinonimlar=_sinonim_saqlab(s, tugun.kalit, kitob_eski_sinonim),
             )
             for s in daraxt.get("kitob_vocab_sozlar") or []
         ])
