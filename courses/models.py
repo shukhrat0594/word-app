@@ -389,6 +389,17 @@ class KursSoz(models.Model):
         ),
     )
     turkum = models.CharField(max_length=50, blank=True, help_text="So'z turkumi (ixtiyoriy)")
+    sinonimlar = models.JSONField(
+        default=dict, blank=True,
+        help_text=(
+            "2026-10-28 (Matn-TZ 674): shu turkumdagi QO'SHIMCHA to'g'ri "
+            "tarjimalar — {\"uz\": [...], \"ru\": [...]}, masalan award (v) "
+            "-> taqdirlamoq, mukofot bermoq, e'tirof etmoq. Tekshiruvda `uz`/"
+            "`ru` bilan birga to'g'ri hisoblanadi (har til alohida). "
+            "`soz_sinonimlari` buyrug'i bilan to'ldiriladi; bo'sh bo'lsa "
+            "faqat `uz`/`ru` tekshiriladi."
+        ),
+    )
     misol = models.TextField(blank=True, help_text="Namuna gap (ixtiyoriy)")
     manba = models.CharField(
         max_length=15, choices=Manba.choices, default=Manba.STUDENTS_BOOK,
