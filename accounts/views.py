@@ -1096,6 +1096,18 @@ class FoydalanuvchiPanellarView(APIView):
         return Response({"id": user.id, "korinadigan_panellar": user.korinadigan_panellar})
 
 
+def _kurs_mashq_joyi(tugun):
+    """Kurs mashqi tugunining joyi: "Elementary Unit 1, Workbook".
+    Daraxt: Kurslar > Fan > Daraja > Unit > kitob (mashq tuguni) — Fan
+    va ildiz ko'rsatilmaydi."""
+    unit = tugun.parent
+    if not unit or not unit.parent_id:
+        return tugun.nomi
+    daraja = unit.parent
+    bosh = f"{daraja.nomi} {unit.nomi}" if daraja.parent_id else unit.nomi
+    return f"{bosh}, {tugun.nomi}"
+
+
 class FoydalanuvchiNatijalariView(APIView):
     """Bitta talabaning BARCHA mashq/test natijalari — turi bo'yicha
     (reading/listening/writing/speaking/kurslar) bitta ro'yxatda,
@@ -1156,8 +1168,14 @@ class FoydalanuvchiNatijalariView(APIView):
                     f"/api/speaking/tekshiruv/{t.id}/audio/" if t.audio_fayl else None
                 ),
             })
-        for y in KursMashqYechim.objects.filter(talaba=talaba).select_related("mashq")[:100]:
-            nomi = (y.mashq.matn or "").strip()[:60] or f"Mashq #{y.mashq.tartib}"
+        # Matn-TZ 679: qaysi Unit'ning qaysi mashqi ekani ko'rinsin —
+        # "Elementary Unit 1, Workbook, Mashq #2" (avval faqat "Mashq #2"
+        # yoki mashq matnining boshi edi).
+        kurs_yechimlari = KursMashqYechim.objects.filter(talaba=talaba).select_related(
+            "mashq__tugun__parent__parent"
+        )[:100]
+        for y in kurs_yechimlari:
+            nomi = f"{_kurs_mashq_joyi(y.mashq.tugun)}, Mashq #{y.mashq.tartib}"
             natijalar.append({
                 "turi": "kurslar", "id": y.id, "nomi": nomi,
                 "ball": y.ball, "jami": y.jami, "sana": y.created_at,

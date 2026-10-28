@@ -137,7 +137,10 @@ export default function NatijalarRoyxati({ talabaId }) {
                 <span className="chip bor" style={{ marginRight: 8 }}>
                   {t(TURI_KALIT[y.turi] || y.turi)}
                 </span>
-                {y.nomi} · {new Date(y.sana).toLocaleDateString()}
+                {/* Matn-TZ 679: sana bilan birga aniq vaqt ham */}
+                {y.nomi} · {new Date(y.sana).toLocaleString([], {
+                  day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit",
+                })}
                 {y.audio_url && " 🎙"}
               </span>
               <strong>{baho}</strong>
