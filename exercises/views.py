@@ -1737,12 +1737,53 @@ class TestPapkaDetailView(APIView):
         if not _mashq_admin_mi(request.user):
             return Response({"detail": "Faqat admin/owner uchun"}, status=403)
         papka = get_object_or_404(TestPapkasi, pk=pk)
-        nomi = (request.data.get("nomi") or "").strip()
-        if not nomi:
-            return Response({"detail": "Papka nomi majburiy"}, status=400)
-        papka.nomi = nomi
-        papka.save(update_fields=["nomi"])
-        return Response({"id": papka.id, "nomi": papka.nomi})
+        maydonlar = []
+        if "nomi" in request.data:
+            nomi = (request.data.get("nomi") or "").strip()
+            if not nomi:
+                return Response({"detail": "Papka nomi majburiy"}, status=400)
+            papka.nomi = nomi
+            maydonlar.append("nomi")
+
+        # 2026-10-28, foydalanuvchi talabi (TZ #652): papkani boshqa papka
+        # ichiga qo'shish yoki ichidan ajratib chiqarish. `parent`: 1-darajali
+        # papka id yoki null (asosiy darajaga chiqarish). Chuqurlik 2 qoidasi
+        # saqlanadi (`TestPapkasi.parent` izohi): ichki papkasi bor papka
+        # boshqa papka ichiga kira olmaydi, ichki papka esa nishon bo'lmaydi.
+        if "parent" in request.data:
+            parent_id = request.data.get("parent")
+            if parent_id in (None, "", "null"):
+                papka.parent = None
+            else:
+                parent = get_object_or_404(TestPapkasi, pk=parent_id, manba=papka.manba)
+                if parent.pk == papka.pk:
+                    return Response({"detail": "Papkani o'z ichiga qo'shib bo'lmaydi."}, status=400)
+                if parent.parent_id:
+                    return Response(
+                        {"detail": "Ichki papkaning ichiga yana papka qo'shib bo'lmaydi (chuqurlik faqat 2 daraja)."},
+                        status=400,
+                    )
+                if papka.ichki_papkalar.exists():
+                    return Response(
+                        {"detail": "Bu papkaning ichida papkalar bor — uni boshqa papka ichiga qo'shib bo'lmaydi (chuqurlik faqat 2 daraja)."},
+                        status=400,
+                    )
+                # Ichki papka — Mock uchun: har bo'limdan faqat bittadan test.
+                bolimlar = list(papka.testlar.values_list("bolim", flat=True))
+                if len(bolimlar) != len(set(bolimlar)):
+                    return Response(
+                        {"detail": "Bu papkada bir bo'limdan bir nechta test bor — ichki papkada har bo'limdan faqat bittadan test bo'lishi mumkin."},
+                        status=400,
+                    )
+                papka.parent = parent
+            maydonlar.append("parent")
+
+        if not maydonlar:
+            return Response({"detail": "O'zgartirish uchun maydon berilmadi"}, status=400)
+        papka.save(update_fields=maydonlar)
+        if "parent" in maydonlar:
+            _papka_mock_moslashtir(papka, request.user)
+        return Response({"id": papka.id, "nomi": papka.nomi, "parent": papka.parent_id})
 
     def delete(self, request, pk):
         if not _mashq_admin_mi(request.user):
