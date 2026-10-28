@@ -763,12 +763,24 @@ class TestPapkaEksportView(APIView):
         if not _mashq_admin_mi(request.user):
             return Response({"detail": "Faqat admin/owner uchun"}, status=403)
         papka = get_object_or_404(TestPapkasi, pk=pk)
-        # (test, ichki_papka_nomi) juftliklari — avval papkaning o'z
+        # (test, ichki_papka_yoli) juftliklari — avval papkaning o'z
         # testlari, so'ng har bir ichki papka o'z tartibida.
-        ichkilar = list(papka.ichki_papkalar.order_by("tartib", "nomi"))
+        # 2026-10-28 (TZ #657): chuqurlik 3 — ichki papkaning ichidagilari
+        # ham olinadi. Kalit — yo'l ("Cambridge 3/Test 1"), chunki har
+        # Cambridge ichida bir xil "Test 1" nomi bor; 2 darajali papkada
+        # yo'l nomning o'zi, eski arxivlar bilan bir xil.
+        ichkilar = []  # (papka, yol, ota_yol)
+
+        def yigish(ota, ota_yol):
+            for ich in ota.ichki_papkalar.order_by("tartib", "nomi"):
+                yol = f"{ota_yol}/{ich.nomi}" if ota_yol else ich.nomi
+                ichkilar.append((ich, yol, ota_yol))
+                yigish(ich, yol)
+
+        yigish(papka, None)
         juftlar = [(t, None) for t in papka.testlar.order_by("bolim", "name")]
-        for ichki in ichkilar:
-            juftlar += [(t, ichki.nomi) for t in ichki.testlar.order_by("bolim", "name")]
+        for ichki, yol, _ in ichkilar:
+            juftlar += [(t, yol) for t in ichki.testlar.order_by("bolim", "name")]
 
         if request.query_params.get("sanoq") == "1":
             sanoq = {b.value: 0 for b in Bolim}
@@ -808,7 +820,8 @@ class TestPapkaEksportView(APIView):
                 "versiya": 2,
                 "papka": {"nomi": papka.nomi, "manba": papka.manba},
                 "ichki_papkalar": [
-                    {"nomi": ichki.nomi, "tartib": ichki.tartib} for ichki in ichkilar
+                    {"nomi": ichki.nomi, "tartib": ichki.tartib, "yol": yol, "ota": ota_yol}
+                    for ichki, yol, ota_yol in ichkilar
                 ],
                 "testlar": yozuvlar,
             }, ensure_ascii=False, indent=1))
@@ -1708,13 +1721,9 @@ class TestPapkaBoshqaruvView(APIView):
         parent_id = request.data.get("parent")
         if parent_id not in (None, "", "null"):
             parent = get_object_or_404(TestPapkasi, pk=parent_id, manba=_manba_ol(request))
-            if parent.parent_id:
-                # Ichki (2-darajali) papkaning o'ziga yana ichki papka
-                # qo'shib bo'lmaydi — foydalanuvchi talabi, chuqurlik 2.
-                return Response(
-                    {"detail": "Ichki papkaning ichiga yana papka qo'shib bo'lmaydi (chuqurlik faqat 2 daraja)."},
-                    status=400,
-                )
+            xato = _papka_ichiga_papka_xatosi(parent)
+            if xato:
+                return Response({"detail": xato}, status=400)
 
         papka = TestPapkasi.objects.create(
             nomi=nomi, manba=_manba_ol(request), markaz=markaz, parent=parent,
@@ -1746,35 +1755,43 @@ class TestPapkaDetailView(APIView):
             maydonlar.append("nomi")
 
         # 2026-10-28, foydalanuvchi talabi (TZ #652): papkani boshqa papka
-        # ichiga qo'shish yoki ichidan ajratib chiqarish. `parent`: 1-darajali
-        # papka id yoki null (asosiy darajaga chiqarish). Chuqurlik 2 qoidasi
-        # saqlanadi (`TestPapkasi.parent` izohi): ichki papkasi bor papka
-        # boshqa papka ichiga kira olmaydi, ichki papka esa nishon bo'lmaydi.
+        # ichiga qo'shish yoki ichidan ajratib chiqarish. `parent`: papka id
+        # yoki null (asosiy darajaga chiqarish).
+        # 2026-10-28 (TZ #657): ichida "Test 1..4" papkalari bor "Cambridge 3"
+        # ham "Cambridge" ichiga kira oladi — chuqurlik 3 gacha
+        # (`TestPapkasi.ENG_KATTA_CHUQURLIK`), avval bu rad etilardi va TZ'ning
+        # asl maqsadi bajarilmay qolgan edi.
         if "parent" in request.data:
             parent_id = request.data.get("parent")
             if parent_id in (None, "", "null"):
                 papka.parent = None
             else:
                 parent = get_object_or_404(TestPapkasi, pk=parent_id, manba=papka.manba)
-                if parent.pk == papka.pk:
-                    return Response({"detail": "Papkani o'z ichiga qo'shib bo'lmaydi."}, status=400)
-                if parent.parent_id:
+                ota = parent
+                while ota is not None:
+                    if ota.pk == papka.pk:
+                        return Response(
+                            {"detail": "Papkani o'z ichiga yoki o'z ichki papkasiga qo'shib bo'lmaydi."},
+                            status=400,
+                        )
+                    ota = ota.parent
+                xato = _papka_ichiga_papka_xatosi(parent)
+                if xato:
+                    return Response({"detail": xato}, status=400)
+                if parent.daraja + papka.balandlik() > TestPapkasi.ENG_KATTA_CHUQURLIK:
                     return Response(
-                        {"detail": "Ichki papkaning ichiga yana papka qo'shib bo'lmaydi (chuqurlik faqat 2 daraja)."},
+                        {"detail": "Papkalar chuqurligi 3 daraja bilan chegaralangan — bu papka ichidagilari bilan u yerga sig'maydi."},
                         status=400,
                     )
-                if papka.ichki_papkalar.exists():
-                    return Response(
-                        {"detail": "Bu papkaning ichida papkalar bor — uni boshqa papka ichiga qo'shib bo'lmaydi (chuqurlik faqat 2 daraja)."},
-                        status=400,
-                    )
-                # Ichki papka — Mock uchun: har bo'limdan faqat bittadan test.
-                bolimlar = list(papka.testlar.values_list("bolim", flat=True))
-                if len(bolimlar) != len(set(bolimlar)):
-                    return Response(
-                        {"detail": "Bu papkada bir bo'limdan bir nechta test bor — ichki papkada har bo'limdan faqat bittadan test bo'lishi mumkin."},
-                        status=400,
-                    )
+                # Ichida papkasi yo'q papka boshqa papka ichida Mock papkasiga
+                # aylanadi — har bo'limdan faqat bittadan test bo'lishi kerak.
+                if not papka.ichki_papkalar.exists():
+                    bolimlar = list(papka.testlar.values_list("bolim", flat=True))
+                    if len(bolimlar) != len(set(bolimlar)):
+                        return Response(
+                            {"detail": "Bu papkada bir bo'limdan bir nechta test bor — ichki papkada har bo'limdan faqat bittadan test bo'lishi mumkin."},
+                            status=400,
+                        )
                 papka.parent = parent
             maydonlar.append("parent")
 
@@ -1791,6 +1808,18 @@ class TestPapkaDetailView(APIView):
         papka = get_object_or_404(TestPapkasi, pk=pk)
         papka.delete()
         return Response(status=204)
+
+
+def _papka_ichiga_papka_xatosi(parent):
+    """`parent` ichiga yangi/ko'chirilayotgan papka qo'yib bo'lmasa — sabab
+    matni, bo'lsa — None (2026-10-28, TZ #657). Eng chuqur darajadagi
+    papkaga hech narsa qo'yilmaydi; testli Mock papkasiga ham — aks holda
+    u Mock papkasi bo'lmay qolib, Mock'i ro'yxatdan tushib qolardi."""
+    if parent.daraja >= TestPapkasi.ENG_KATTA_CHUQURLIK:
+        return "Bu papka ichiga yana papka qo'shib bo'lmaydi (chuqurlik faqat 3 daraja)."
+    if parent.mock_papkasimi() and parent.testlar.exists():
+        return "Bu Mock papkasi (ichida testlar bor) — uning ichiga papka qo'shib bo'lmaydi."
+    return None
 
 
 def _papka_bolim_testlari(papka):
@@ -1863,8 +1892,8 @@ def _papka_mock_moslashtir(papka, foydalanuvchi):
     Hech qachon 4/4 ga YETMAGAN va mock hali YO'Q papka uchun YANGI mock
     OCHIB QO'YMAYDI — "hammasi qo'shilgandan keyin" shartiga qat'iy
     rioya qilinadi."""
-    if not papka.parent_id:
-        return  # faqat 2-darajali (ichki) papkalarga tegishli
+    if not papka.mock_papkasimi():
+        return  # faqat Mock (ichki, o'zida papkasi yo'q) papkalarga tegishli
     bolim_testlari = _papka_bolim_testlari(papka)
     toliqmi = set(bolim_testlari) == _TOLIQ_BOLIMLAR
     mock_bor = hasattr(papka, "mock")
@@ -1890,9 +1919,9 @@ class PapkadanMockYaratishView(APIView):
         if not _mashq_admin_mi(request.user):
             return Response({"detail": "Faqat admin/owner uchun"}, status=403)
         papka = get_object_or_404(TestPapkasi, pk=pk)
-        if not papka.parent_id:
+        if not papka.mock_papkasimi():
             return Response(
-                {"detail": "Mock faqat ichki (2-darajali) papkadan yig'iladi — bu 1-darajali papka."},
+                {"detail": "Mock faqat ichki papkadan (o'zida papkasi yo'q) yig'iladi."},
                 status=400,
             )
         if not papka.testlar.exists():
@@ -1959,7 +1988,9 @@ class ImtihonBoshqaruvDetailView(APIView):
                 # Mock yig'ish uchun mo'ljallangan, shuning uchun har
                 # bo'limdan FAQAT BITTADAN test bo'lishi mumkin (foydalanuvchi
                 # talabi). 1-darajali papkalarda bu cheklov yo'q.
-                if papka.parent_id:
+                # 2026-10-28 (TZ #657): ichida papkalari bor 2-darajali papka
+                # ("Cambridge › Cambridge 3") Mock papkasi emas — cheklovsiz.
+                if papka.mock_papkasimi():
                     band_test = (
                         ImtihonTest.objects.filter(papka=papka, bolim=test.bolim)
                         .exclude(pk=test.pk)
@@ -2676,10 +2707,21 @@ class MockPapkalarView(APIView):
         if oddiy_mi:
             papka_qs = papka_qs.filter(manba=Manba.AI)
 
+        # 2026-10-28 (TZ #657): chuqurlik 3 — "Cambridge › Cambridge 3 ›
+        # Test 1". Mock'lar to'g'ridan-to'g'ri otasi ("Cambridge 3") ostida
+        # chiqadi, xuddi avvalgidek; "Cambridge" kabi faqat papka saqlovchi
+        # papkaning o'zida Mock bo'lmasa, u ro'yxatga tushmaydi.
+        def aylan(papkalar_):
+            for p in sorted(papkalar_, key=_papka_tabiiy_kaliti):
+                yield p
+                yield from aylan(p.ichki_papkalar.all())
+
         papkalar = []
-        for top in sorted(papka_qs, key=_papka_tabiiy_kaliti):
+        for top in aylan(papka_qs):
             ichkilar = []
             for ich in sorted(top.ichki_papkalar.all(), key=_papka_tabiiy_kaliti):
+                if not ich.mock_papkasimi():
+                    continue
                 bolim_testlari = _papka_bolim_testlari(ich)
                 if set(bolim_testlari) != _TOLIQ_BOLIMLAR:
                     continue  # 4/4 emas — ro'yxatda chiqmasin

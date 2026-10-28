@@ -821,11 +821,36 @@ class TestPapkasi(models.Model):
     def __str__(self):
         return f"{self.nomi} [{self.get_manba_display()}]"
 
+    # 2026-10-28 (TZ #657, #652 qayta ko'rildi): "Cambridge 3", "Cambridge 5"
+    # ... papkalarining ICHIDA "Test 1..4" (Mock) papkalari bor, ularni bitta
+    # "Cambridge" papkasiga yig'ish uchun chuqurlik 3 gacha kengaytirildi:
+    # Cambridge › Cambridge 3 › Test 1. Mock papka endi "2-daraja" emas,
+    # balki OTASI BOR va ICHIDA PAPKASI YO'Q papka (`mock_papkasimi`).
+    ENG_KATTA_CHUQURLIK = 3
+
+    @property
+    def daraja(self):
+        """Asosiy papka — 1, uning ichidagisi — 2, undan ichkarisi — 3."""
+        d, p = 1, self.parent
+        while p is not None:
+            d, p = d + 1, p.parent
+        return d
+
+    def balandlik(self):
+        """Papkaning o'zi bilan birga pastga qarab nechta daraja: ichki
+        papkasi yo'q — 1, ichida papkasi bor — 2, ... ."""
+        return 1 + max((ich.balandlik() for ich in self.ichki_papkalar.all()), default=0)
+
+    def mock_papkasimi(self):
+        """Mock yig'iladigan (har bo'limdan bittadan test) papka — otasi bor
+        va o'zida ichki papka yo'q."""
+        return bool(self.parent_id) and not self.ichki_papkalar.exists()
+
     def clean(self):
         super().clean()
-        if self.parent_id and self.parent.parent_id:
+        if self.parent_id and self.parent.daraja >= self.ENG_KATTA_CHUQURLIK:
             raise ValidationError(
-                "Ichki papkaning ichiga yana ichki papka qo'shib bo'lmaydi — chuqurlik 2 bilan chegaralangan."
+                "Papkalar chuqurligi 3 daraja bilan chegaralangan — bu papka ichiga yana papka qo'shib bo'lmaydi."
             )
 
 
