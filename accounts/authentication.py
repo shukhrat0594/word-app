@@ -38,7 +38,7 @@ from rest_framework.exceptions import AuthenticationFailed
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from .models import Markaz, User
-from .qurilmalar import kalit_xatosi
+from .qurilma_tizimi import kalit_xatosi
 
 # ── "Oxirgi faollik" (2026-09-03) ─────────────────────────────────────
 # NEGA MIDDLEWARE EMAS: middleware'da `request.user` hali mavjud
@@ -110,12 +110,10 @@ class KorishRejimliJWTAuthentication(JWTAuthentication):
                      "kod": "kirish_cheklangan"},
                     code="kirish_cheklangan",
                 )
-            # 2026-10-20: qurilma limiti — kalitdagi brauzer (`qid`) ro'yxatda
-            # bo'lmasa (admin o'chirgan/almashtirgan yoki belgisiz eski kalit)
-            # yoki talaba boshqa qurilmasidan kirgan bo'lsa (2026-10-26, bir
-            # paytda bitta qurilma), DARHOL chiqarib yuboriladi. Qo'shimcha
-            # so'rov yo'q — ro'yxat `user` qatorida.
-            xato = kalit_xatosi(user, token.get("qid"))
+            # Qurilmalar limiti (2-tizim, 2026-10-29): kalitdagi brauzer ruxsat
+            # etilgan qurilmaniki bo'lmasa (admin o'chirgan/bloklagan) yoki talaba
+            # boshqa joydan kirgan bo'lsa (bir vaqtda bitta seans), DARHOL chiqariladi.
+            xato = kalit_xatosi(user, token)
             if xato:
                 raise AuthenticationFailed(xato, code=xato["kod"])
             return user, token  # oddiy foydalanuvchilarga tegilmaydi

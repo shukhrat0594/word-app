@@ -23,11 +23,12 @@ export default function Kirish({ onKirdi }) {
     try {
       const javob = await api("/api/token/", {
         method: "POST",
-        // `qurilma_id` va `qurilma_belgilari` — hisobni bo'lishmaslik nazorati
-        // uchun, LMS bilan bir xil (`accounts/qurilmalar.py`). Rad etilsa,
-        // server `detail`da sababini yozadi — u shu yerda ko'rsatiladi.
+        // `qurilma_id` va `qurilma_belgilari` — qurilmalar limiti uchun, LMS bilan bir xil
+        // (`accounts/qurilma_tizimi.py`). Qurilma kaliti bosqichi faqat LMS login sahifasida —
+        // CRM `kalit_qollaydi` yubormaydi. Rad etilsa, server `detail`da sababini yozadi.
         body: {
-          username: login,
+          // 2026-10-29: telefon klaviaturasi login oxiriga bo'sh joy qo'yishi mumkin.
+          username: login.trim(),
           password: parol,
           qurilma_id: qurilmaIdOl(),
           qurilma_belgilari: await qurilmaBelgilari(),

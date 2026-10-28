@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 import datetime
+import secrets
 
 from django.db import models
 from django.utils import timezone
@@ -187,21 +188,13 @@ class User(AbstractUser):
             "endpoint orqali uzatiladi — `FoydalanuvchiRasmView`."
         ),
     )
+    # 2026-10-29: ESKI qurilmalar tizimi (1-tizim). Endi hech narsa o'qimaydi —
+    # 2-tizim (`accounts/qurilma_tizimi.py: eski_formatga_yoz`) eski versiyaga tez
+    # qaytish uchun bu ikkala maydonga eski formatda nusxa yozadi. 2-relizda o'chiriladi.
     qurilmalar = models.JSONField(
         default=list, blank=True,
-        help_text=(
-            "Ruxsat etilgan qurilmalar (OWNER'dan boshqa hamma uchun): "
-            "{k, nom, qoshilgan, oxirgi, brauzerlar: [{id, brauzer, belgilar, "
-            "qoshilgan, oxirgi}]} yozuvlari. Bitta qurilmada bir nechta "
-            "brauzer (2026-10-26). `id` — brauzer ID'si (localStorage), "
-            "`belgilar` — brauzer tarixi tozalansa ham qurilmani tanish uchun. "
-            "Mantiq: `accounts/qurilmalar.py`."
-        ),
+        help_text="Eski tizim nusxasi (faqat qaytish uchun): {k, nom, qoshilgan, oxirgi, brauzerlar: [...]}",
     )
-    # 2026-10-26 (Shuhrat): bir nechta ruxsat etilgan qurilmasi bor talaba
-    # bir paytda faqat bittasidan kiradi — oxirgi login qilingan qurilma
-    # kaliti (`qurilmalar[].k`). Bo'sh — hali belgilanmagan, hech kim
-    # chiqarilmaydi. Mantiq: `accounts/qurilmalar.py: kalit_xatosi`.
     faol_qurilma = models.CharField(max_length=32, blank=True, default="")
     # 2026-09-03, foydalanuvchi talabi ("Aktiv foydalanuvchilar" bo'limi):
     # kim hozir saytda va kimning seansi QOLIB KETGAN — shuni ajratish
@@ -216,9 +209,8 @@ class User(AbstractUser):
     qurilma_limiti = models.PositiveSmallIntegerField(
         default=1,
         help_text=(
-            "Nechta qurilmadan kirish mumkinligi (standart 1; talaba bir "
-            "paytda faqat bittasidan kiradi). Owner va admin kiritadi, "
-            "oraliq cheklovi yo'q (Shuhrat, 2026-10-20) — `QurilmaLimitiView`."
+            "Nechta qurilmadan kirish mumkinligi (standart 1). Owner va admin "
+            "«Qurilmalar» oynasida kiritadi. Eski va yangi tizimga umumiy."
         ),
     )
 
@@ -309,12 +301,9 @@ class Bildirishnoma(models.Model):
 
 
 class QurilmaSorovi(models.Model):
-    """Ruxsat etilmagan qurilmadan kirish urinishi va uning taqdiri
-    (2026-10-20). Bir qurilmaga BITTA kutilayotgan so'rov — takroriy
-    urinishlar `urinishlar`ga qo'shiladi, adminga qayta xabar ketmaydi.
-    `AVTO` — belgilar bo'yicha avtomatik tanilib almashtirilgan brauzer,
-    `BRAUZER` — ruxsat etilgan qurilmaga qo'shilgan boshqa brauzer (ikkalasi
-    jurnal uchun). Mantiq: `accounts/qurilmalar.py`."""
+    """ESKI qurilmalar tizimining so'rovlari (2026-10-20). 2026-10-29 dan faqat eski
+    versiyaga qaytish uchun saqlanadi: 2-tizim bu yerga bloklangan qurilmalarni
+    (`BLOK`) eski formatda yozadi. 2-relizda o'chiriladi."""
 
     class Holat(models.TextChoices):
         KUTILMOQDA = "kutilmoqda", "Kutilmoqda"
@@ -345,6 +334,130 @@ class QurilmaSorovi(models.Model):
 
     def __str__(self):
         return f"{self.foydalanuvchi.username} — {self.nom} ({self.holat})"
+
+
+# ── Qurilmalar limiti, 2-tizim (2026-10-29, Shuhrat; reja: tmp/plans/qurilma-v2-reja.md) ──
+# Mantiq: `accounts/qurilma_tizimi.py`. Yuqoridagi `User.qurilmalar`, `User.faol_qurilma`
+# va `QurilmaSorovi` endi hech narsa tomonidan o'qilmaydi — eski versiyaga tez qaytish
+# uchun (2-reliz kelguncha) ularga faqat eski formatda nusxa yoziladi.
+#
+# Foydalanuvchiga bog'lanishlar `db_constraint=False`: eski versiyaga qaytilsa, eski kod
+# bu jadvallarni bilmaydi va foydalanuvchini o'chirganda bazada bog'lanish xatosi chiqmasin.
+
+def _qurilma_kaliti():
+    return secrets.token_hex(6)
+
+
+class Qurilma(models.Model):
+    """Telefon yoki kompyuter — brauzer emas. Uni qurilma kaliti (`QurilmaKaliti`)
+    taniydi, brauzerlar `BrauzerEslatmasi` sifatida unga bog'lanadi."""
+
+    class Holat(models.TextChoices):
+        RUXSAT = "ruxsat", "Ruxsat etilgan"
+        KUTILMOQDA = "kutilmoqda", "Kutilmoqda"
+        BLOK = "blok", "Bloklangan"
+
+    foydalanuvchi = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="qurilma_yozuvlari", db_constraint=False
+    )
+    holat = models.CharField(max_length=12, choices=Holat.choices, default=Holat.RUXSAT, db_index=True)
+    nom = models.CharField(max_length=120, blank=True)
+    tizim = models.CharField(max_length=20, blank=True)
+    modeli = models.CharField(max_length=60, blank=True)
+    # Brauzer belgilari — qaror uchun emas, faqat adminga «o'xshaydi» maslahati uchun.
+    belgilar = models.JSONField(default=dict, blank=True)
+    urinishlar = models.PositiveIntegerField(default=0)
+    # Eski formatdagi kalit (`User.qurilmalar[].k`, `User.faol_qurilma`) — nusxa yozish uchun.
+    k = models.CharField(max_length=32, default=_qurilma_kaliti)
+    yaratilgan = models.DateTimeField(default=timezone.now)
+    oxirgi = models.DateTimeField(default=timezone.now)
+    hal_qildi = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="+", db_constraint=False
+    )
+    hal_vaqti = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["yaratilgan", "id"]
+        verbose_name_plural = "Qurilmalar"
+
+    def __str__(self):
+        return f"{self.foydalanuvchi_id} — {self.nom} ({self.holat})"
+
+
+class BrauzerEslatmasi(models.Model):
+    """«Bu brauzer shu qurilmada ekani tasdiqlangan» — brauzer xotirasidagi ID
+    (`qurilma_id`, kalitdagi `qid`). Faqat qulaylik: har kirishda telefon qulfini
+    so'ramaslik uchun. Tozalansa, qurilma kaliti bilan qayta bog'lanadi."""
+
+    qurilma = models.ForeignKey(Qurilma, on_delete=models.CASCADE, related_name="brauzerlar")
+    foydalanuvchi = models.ForeignKey(User, on_delete=models.CASCADE, related_name="+", db_constraint=False)
+    qid = models.CharField(max_length=64)
+    brauzer = models.CharField(max_length=40, blank=True)
+    belgilar = models.JSONField(default=dict, blank=True)
+    yaratilgan = models.DateTimeField(default=timezone.now)
+    oxirgi = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["foydalanuvchi", "qid"], name="brauzer_eslatmasi_yagona")
+        ]
+
+
+class QurilmaKaliti(models.Model):
+    """Qurilma kaliti (passkey): telefon qulfi bilan himoyalangan, Android'da Google
+    parol menejerida, iPhone'da iCloud'da saqlanadi — brauzer tarixi tozalansa ham
+    qoladi va shu telefondagi hamma brauzerda bir xil. Serverda faqat ochiq kalit."""
+
+    qurilma = models.ForeignKey(Qurilma, on_delete=models.CASCADE, related_name="kalitlar")
+    foydalanuvchi = models.ForeignKey(User, on_delete=models.CASCADE, related_name="+", db_constraint=False)
+    kalit_id = models.CharField(max_length=1400)  # base64url
+    ochiq_kalit = models.BinaryField()
+    hisoblagich = models.PositiveBigIntegerField(default=0)
+    yaratilgan = models.DateTimeField(default=timezone.now)
+    oxirgi = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["foydalanuvchi", "kalit_id"], name="qurilma_kaliti_yagona")
+        ]
+
+
+class FaolSeans(models.Model):
+    """Oxirgi kirish — qaysi qurilma va brauzerdan. Talabada bir vaqtda bitta seans
+    (Shuhrat, 2026-10-29): kalitdagi `sid` shu bilan mos bo'lmasa, kalit rad etiladi."""
+
+    foydalanuvchi = models.OneToOneField(
+        User, on_delete=models.CASCADE, related_name="faol_seans", db_constraint=False
+    )
+    sid = models.CharField(max_length=32)
+    qurilma = models.ForeignKey(Qurilma, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    brauzer = models.CharField(max_length=40, blank=True)
+    boshlangan = models.DateTimeField(default=timezone.now)
+
+
+class KirishJurnali(models.Model):
+    """Har bir kirish, rad etish, seans yopilishi va admin amali — sababi bilan
+    (admin «Qurilmalar» oynasida ko'radi). 90 kun saqlanadi."""
+
+    class Natija(models.TextChoices):
+        KIRDI = "kirdi", "Kirdi"
+        RAD = "rad", "Rad etildi"
+        CHIQARILDI = "chiqarildi", "Seans yopildi"
+        AMAL = "amal", "Amal"
+
+    foydalanuvchi = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="kirish_jurnali", db_constraint=False
+    )
+    qurilma = models.ForeignKey(Qurilma, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
+    qurilma_nomi = models.CharField(max_length=160, blank=True)
+    natija = models.CharField(max_length=12, choices=Natija.choices)
+    sabab = models.CharField(max_length=40)
+    kim = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name="+", db_constraint=False)
+    vaqt = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["-vaqt", "-id"]
+        indexes = [models.Index(fields=["foydalanuvchi", "vaqt"], name="kirish_jurnali_vaqt")]
 
 
 class Zaxira(models.Model):

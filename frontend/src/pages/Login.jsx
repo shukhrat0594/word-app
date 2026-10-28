@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { api, tokenlarniSaqla, qurilmaIdOl, qurilmaBelgilari } from "../api";
+import {
+  api, tokenlarniSaqla, qurilmaIdOl, qurilmaBelgilari, kalitQollaydimi, kalitBilanTasdiqla,
+  ilovaIchidami, chromeHavolasi,
+} from "../api";
 import { useI18n } from "../i18n";
 import IjtimoiyPanel from "../components/IjtimoiyPanel";
 import { useProfil } from "../profilContext";
@@ -38,13 +41,24 @@ export default function Login() {
   }, []);
   const [band, setBand] = useState(false);
   const [xodimForma, setXodimForma] = useState(false);
+  // 2026-10-29 (qurilmalar limiti, 2-tizim): yangi brauzer yoki tarixi tozalangan brauzer —
+  // «Qurilmangizni tasdiqlang» bosqichi (backend `kalit_kerak`: chipta + kalit sozlamalari).
+  const [kalitBosqichi, setKalitBosqichi] = useState(null);
+  // Telegram/Instagram ichidagi brauzerda qurilma kaliti ishlamaydi va xotirasi alohida —
+  // kirish faqat Chrome yoki Safari'da.
+  const [ilovada] = useState(ilovaIchidami);
+  const [nusxalandi, setNusxalandi] = useState(false);
 
   // 2026-10-20: admin qurilmani o'chirgani/almashtirgani yoki (2026-10-26)
   // talaba boshqa qurilmasidan kirgani uchun chiqarilgan bo'lsa
   // (`api.js: chiqishSababiniYoz`) — sababi bir marta aytiladi.
   useEffect(() => {
     try {
-      const xabar = { qurilma: "login_qurilma_ochirildi", boshqa_qurilma: "login_boshqa_qurilmada" }[
+      const xabar = {
+        qurilma: "login_qurilma_ochirildi",
+        boshqa_qurilma: "login_boshqa_qurilmada",
+        bloklandi: "login_qurilma_bloklangan",
+      }[
         sessionStorage.getItem("chiqish_sababi")
       ];
       if (xabar) {
@@ -58,6 +72,28 @@ export default function Login() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  function xatoMatni(e) {
+    const d = e?.data;
+    // 2026-08-15: Railway ko'chirish davrida owner'dan boshqa hech kim kira olmaydigan holat.
+    if (d?.kod === "kirish_cheklangan") return t("login_kirish_cheklangan");
+    if (d?.kod === "qurilma_mos_emas") {
+      return t(d.sabab === "bloklangan" || d.sorov === "rad" ? "login_qurilma_bloklangan" : "login_qurilma_sorov");
+    }
+    if (d?.kod === "kalit_xatosi") return d.detail;
+    if (e?.status === 429) return t("login_kop_urinish");
+    // 2026-10-23: qurilma ID'si yuborilmagan yoki so'rov umuman ketmagan (internet / brauzer xatosi).
+    if (d?.kod === "qurilma_id_yoq" || !e?.status) return t("login_ulanish_xato");
+    if (e.status === 400 || e.status === 401) return t("login_xato");
+    // 2026-10-29: server xatosi endi «parol noto'g'ri» bo'lib ko'rinmaydi.
+    return t("login_server_xato");
+  }
+
+  async function kirildi(data) {
+    tokenlarniSaqla(data);
+    await yangila();
+    navigate("/");
+  }
+
   async function xodimKirish(e) {
     e.preventDefault();
     setXato("");
@@ -66,41 +102,57 @@ export default function Login() {
       const data = await api("/api/token/", {
         method: "POST",
         body: {
-          username: login,
+          // 2026-10-29: telefon klaviaturasi login oxiriga bo'sh joy qo'yishi mumkin.
+          username: login.trim(),
           password: parol,
           qurilma_id: qurilmaIdOl(),
           qurilma_belgilari: await qurilmaBelgilari(),
+          kalit_qollaydi: await kalitQollaydimi(),
         },
       });
-      tokenlarniSaqla(data);
-      await yangila();
-      navigate("/");
+      await kirildi(data);
     } catch (e) {
-      // 2026-08-15: Railway ko'chirish davrida owner'dan boshqa hech kim
-      // kira olmaydigan holat — backend `kod: "kirish_cheklangan"` bilan
-      // 403 qaytaradi, alohida tushunarli xabar ko'rsatiladi.
-      const d = e?.data;
-      if (d?.kod === "kirish_cheklangan") {
-        setXato(t("login_kirish_cheklangan"));
-      } else if (d?.kod === "qurilma_mos_emas") {
-        // 2026-10-20: ruxsat etilgan qurilma nomi ko'rsatiladi — ko'pincha
-        // o'quvchi saytni boshqa brauzerda (masalan Telegram ichida) ochgan bo'ladi.
-        setXato(
-          d.sorov === "rad"
-            ? t("login_qurilma_rad")
-            : t("login_qurilma_xato").replace("{nomlar}", (d.ruxsat_etilgan || []).join(", ") || "—")
-        );
-      } else if (e?.status === 429) {
-        setXato(t("login_kop_urinish"));
-      } else if (d?.kod === "qurilma_id_yoq" || !e?.status) {
-        // 2026-10-23: qurilma ID'si yuborilmagan yoki so'rov umuman ketmagan
-        // (internet / brauzer xatosi) — bu parol xatosi emas.
-        setXato(t("login_ulanish_xato"));
+      if (e?.data?.kod === "kalit_kerak") {
+        setKalitBosqichi(e.data);
       } else {
-        setXato(t("login_xato"));
+        setXato(xatoMatni(e));
       }
     } finally {
       setBand(false);
+    }
+  }
+
+  /** «Qurilmangizni tasdiqlang»: telefon qulfi bilan kalitni tasdiqlash yoki «Bu yangi
+   * qurilma». Kalit so'rovi BIRINCHI qadam bo'lishi shart — Safari uni faqat bosish
+   * paytida (orada kutishsiz) ruxsat beradi. */
+  async function kalitBilanDavom(kalitsiz) {
+    setXato("");
+    setBand(true);
+    try {
+      const body = { chipta: kalitBosqichi.chipta };
+      if (kalitsiz) body.kalitsiz = true;
+      else body.javob = await kalitBilanTasdiqla(kalitBosqichi.kalit);
+      await kirildi(await api("/api/token/kalit/", { method: "POST", body }));
+    } catch (e) {
+      if (e instanceof DOMException) {
+        // Bekor qilindi yoki bu brauzerda kalit yo'q — tanlov ekranida qolamiz.
+        setXato(t("kalit_topilmadi"));
+      } else {
+        setKalitBosqichi(null);
+        setXato(xatoMatni(e));
+      }
+    } finally {
+      setBand(false);
+    }
+  }
+
+  async function havolaniNusxala() {
+    const havola = `${window.location.origin}/login`;
+    try {
+      await navigator.clipboard.writeText(havola);
+      setNusxalandi(true);
+    } catch {
+      window.prompt(t("havolani_nusxalash"), havola);
     }
   }
 
@@ -116,7 +168,32 @@ export default function Login() {
       </div>
       <div className="login-forma">
         <h3>{t("kirish")}</h3>
-        {!xodimForma ? (
+        {ilovada ? (
+          <div style={{ display: "grid", gap: 12 }}>
+            <strong>{t("ilova_brauzer_sarlavha")}</strong>
+            <p className="izoh" style={{ margin: 0 }}>{t("ilova_brauzer_izoh")}</p>
+            {/Android/i.test(navigator.userAgent) ? (
+              <a className="tugma katta" href={chromeHavolasi()}>{t("ilova_brauzer_chrome")}</a>
+            ) : (
+              <p className="izoh" style={{ margin: 0 }}>{t("ilova_brauzer_ios")}</p>
+            )}
+            <button type="button" className="tugma ikkinchi" onClick={havolaniNusxala}>
+              {nusxalandi ? t("havola_nusxalandi") : t("havolani_nusxalash")}
+            </button>
+          </div>
+        ) : kalitBosqichi ? (
+          <div style={{ display: "grid", gap: 12 }}>
+            <strong>{t("kalit_tasdiq_sarlavha")}</strong>
+            <p className="izoh" style={{ margin: 0 }}>{t("kalit_tasdiq_izoh")}</p>
+            {xato && <div className="xato-xabar">{xato}</div>}
+            <button type="button" className="tugma katta" onClick={() => kalitBilanDavom(false)} disabled={band}>
+              {t("kalit_tasdiqlash")}
+            </button>
+            <button type="button" className="tugma ikkinchi" onClick={() => kalitBilanDavom(true)} disabled={band}>
+              {t("kalit_yangi_qurilma")}
+            </button>
+          </div>
+        ) : !xodimForma ? (
           <button
             type="button"
             className="tugma ikkinchi"
@@ -141,6 +218,9 @@ export default function Login() {
                 value={login}
                 onChange={(e) => setLogin(e.target.value)}
                 autoComplete="username"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
               />
               <input
                 id="login-parol"

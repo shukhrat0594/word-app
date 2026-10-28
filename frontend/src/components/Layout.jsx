@@ -6,6 +6,7 @@ import { useProfil } from "../profilContext";
 import { useTestRejimi } from "../testRejimiContext";
 import Avatar from "./Avatar";
 import IjtimoiyPanel from "./IjtimoiyPanel";
+import QurilmaKalitiTaklifi from "./QurilmaKalitiTaklifi";
 
 // 2026-07-27: "Namunaviy mashqlar" (eski "Mashqlar") bo'limi VAQTINCHA
 // yopildi — hech bir rolga ko'rinmaydi. Kod, sahifa, marshrut va bazadagi
@@ -33,6 +34,7 @@ const PANELLAR = {
   "/xodimlar": { ikon: "🧑‍🏫", kalit: "nav_xodimlar" },
   "/markaz-sozlash": { ikon: "🏢", kalit: "nav_markaz_sozlama" },
   "/foydalanuvchilar": { ikon: "🧑‍🤝‍🧑", kalit: "nav_foydalanuvchilar" },
+  "/qurilmalar": { ikon: "📱", kalit: "nav_qurilmalar" },
   "/hisobotlar": { ikon: "📊", kalit: "nav_hisobotlar" },
   "/profil": { ikon: "👤", kalit: "nav_profil" },
 };
@@ -89,7 +91,8 @@ export const ROL_PANELLARI = {
   owner: [
     "/", "/hisobotlar", "/guruhlar", "/reyting", "/talabalar", "/xodimlar",
     "/kurslar", "/ielts-boshqarish",
-    "/ai-mashqlari", "/speaking-trainer", "/grammar-coach", "/oyinlar", "/foydalanuvchilar", "/markaz-sozlash",
+    "/ai-mashqlari", "/speaking-trainer", "/grammar-coach", "/oyinlar", "/foydalanuvchilar", "/qurilmalar",
+    "/markaz-sozlash",
   ],
   // 2026-07-21: "Mashqlar boshqarish" (bo'lim o'zi ham yopiq), "Davomat"
   // (endi faqat o'qituvchida — u belgilaydi; hisoboti "Hisobotlar"ga
@@ -103,7 +106,7 @@ export const ROL_PANELLARI = {
   // savollar" tabini ko'rsatadi, qolgan 3 tab (Davomat/Audit/Statistika)
   // hamon faqat owner uchun (backend ham 403 qaytaradi).
   admin: [
-    "/", "/guruhlar", "/talabalar", "/xodimlar",
+    "/", "/guruhlar", "/talabalar", "/qurilmalar", "/xodimlar",
     "/ielts-boshqarish", "/ai-mashqlari", "/kurslar",
     "/hisobotlar",
   ],
@@ -323,7 +326,7 @@ function Bildirishnomalar({ t }) {
 export default function Layout() {
   const { til, tilniQoy, t } = useI18n();
   const navigate = useNavigate();
-  const { profil } = useProfil();
+  const { profil, yangila: profilniYangila, xato: profilXato } = useProfil();
   const { testFaol } = useTestRejimi();
   const [menyuOchiq, setMenyuOchiq] = useState(false);
   // 2026-08-21, foydalanuvchi talabi: owner menyusida birinchi 8 bandi
@@ -660,6 +663,15 @@ export default function Layout() {
               </button>
             </div>
           )}
+          {!profil && profilXato && (
+            <div className="karta parol-ogohlantirish">
+              {t("profil_yuklanmadi")}{" "}
+              <button type="button" className="tugma kichik" onClick={profilniYangila}>
+                {t("qayta_urinish")}
+              </button>
+            </div>
+          )}
+          <QurilmaKalitiTaklifi />
           {profil && !profil.parol_bormi && (
             <div className="karta parol-ogohlantirish">
               {t("parol_ogohlantirish")}{" "}

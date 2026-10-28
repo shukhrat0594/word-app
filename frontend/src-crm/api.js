@@ -46,8 +46,8 @@ export function qurilmaIdOl() {
   return id;
 }
 
-// 2026-10-20: brauzer belgilari — tarix tozalanib ID yo'qolsa ham shu
-// qurilmani tanish uchun (backend: `accounts/qurilmalar.py`). `src/api.js`dagi
+// 2026-10-20: brauzer belgilari — qurilma nomi va adminga maslahat uchun
+// (backend: `accounts/qurilma_tizimi.py`). `src/api.js`dagi
 // bilan BIR XIL bo'lishi shart: aks holda LMS va CRM bitta qurilmani ikki xil ko'radi.
 export async function qurilmaBelgilari() {
   const b = {

@@ -12,7 +12,8 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
-from rest_framework_simplejwt.settings import api_settings
+from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
+from rest_framework_simplejwt.serializers import TokenObtainSerializer
 from rest_framework_simplejwt.token_blacklist.models import OutstandingToken
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
@@ -20,15 +21,15 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from audit.models import FaoliyatYozuvi, LoginHistory
 from audit.utils import logla, maydon_diff
 
-from . import qurilmalar as qurilma_mantiq
+from . import qurilma_kaliti, qurilma_tizimi
 from .authentication import asl_owner_mi
 from .models import Bildirishnoma, Markaz, User
 # `birlamchi_owner_mi` 2026-08-09 da ishlatilmay qoldi — u FAQAT rol
 # o'zgartirishda kerak edi ("owner'ning rolini faqat asosiy owner
 # o'zgartiradi"), u esa endi yopiq. Funksiya `permissions.py`da qoldi.
 from .permissions import natijalarni_korish_ruxsati, owner_mi
+from .qurilma_api import kirish_cheklangan_javobi
 from .relizlar import relizlarni_sinxronla
-from .seans_views import kalitlarni_bekor_qil
 
 
 def _parolni_tekshir(parol, user=None):
@@ -99,6 +100,8 @@ class ProfilView(APIView):
                 "asl_owner_mi": asl_owner_mi(u),
                 "korish_rejimi": u.korish_rejimi,
                 "korinadigan_panellar": u.korinadigan_panellar,
+                # 2026-10-29: «Bu qurilmani eslab qolish» taklifi uchun (qurilma kaliti bormi).
+                "qurilma": qurilma_tizimi.joriy_qurilma_malumoti(u, request.auth),
                 "rasm_url": f"/api/foydalanuvchilar/{u.id}/rasm/" if u.rasm else None,
                 # 2026-08-14 — o'z profili, hammasi (shaxsiylari ham) ko'rinadi.
                 "bio": u.bio,
@@ -581,7 +584,7 @@ class FoydalanuvchilarView(APIView):
         # CRM o'quvchilari — "O'chirish" ularni o'chirmaydi, faqat saytga
         # kirishini yopadi; ogohlantirish oynasi shuni oldindan aytadi.
         crm_talabalari = ochirilmaydiganlar(u.id for u in qs if u.role == User.Role.STUDENT)
-        kutayotganlar = qurilma_mantiq.kutayotganlar()
+        sanoqlar = qurilma_tizimi.qurilma_sanoqlari(u.id for u in qs)
         return Response(
             [
                 {
@@ -594,14 +597,10 @@ class FoydalanuvchilarView(APIView):
                     "parol_bormi": u.has_usable_password(),
                     "korinadigan_panellar": u.korinadigan_panellar,
                     "rasm_url": f"/api/foydalanuvchilar/{u.id}/rasm/" if u.rasm else None,
-                    # 2026-08-12: qiymatning o'zi emas, faqat "bor/yo'q" —
-                    # "Qurilmani tiklash" tugmasini ko'rsatish/berkitish uchun.
-                    "qurilma_bormi": bool(u.qurilmalar),
-                    # 2026-08-13: limit va hozir nechta qurilma band ekani;
-                    # 2026-10-20: kutilayotgan qurilma so'rovi belgisi.
+                    # «Qurilmalar n/limit» tugmasi (2026-10-29, 2-tizim) va kutilayotgan so'rov belgisi.
                     "qurilma_limiti": u.qurilma_limiti,
-                    "qurilmalar_soni": len(u.qurilmalar),
-                    "qurilma_sorovi_bor": u.id in kutayotganlar,
+                    "qurilmalar_soni": sanoqlar.get(u.id, (0, False))[0],
+                    "qurilma_sorovi_bor": sanoqlar.get(u.id, (0, False))[1],
                     # 2026-08-14 — owner ko'radi (shaxsiylari ham).
                     "bio": u.bio,
                     "telefon": u.telefon,
@@ -942,112 +941,12 @@ class FoydalanuvchiRasmView(APIView):
         return Response(status=204)
 
 
-class QurilmaTiklashView(APIView):
-    """Owner/admin uchun — foydalanuvchining BARCHA qurilmalarini
-    tozalash (2026-08-12, 2026-08-13 ko'p-qurilmali qilib yangilandi).
-    `qurilmalar` bo'sh bo'lsa keyingi login(lar) AVTOMATIK yangi
-    ro'yxatni (limitgacha) to'ldiradi — bu yerda faqat RO'YXATNI
-    TOZALASH kifoya.
-
-    `qurilma_limiti`ga TEGMAYDI — faqat ro'yxatni bo'shatadi. Limitni
-    o'zgartirish uchun alohida `QurilmaLimitiView`.
-
-    Parol tiklashdan ATAYLAB MUSTAQIL (foydalanuvchi qarori) — ikkalasi
-    bog'lanmagan, alohida harakat sifatida qoladi.
-
-    Sabab (`izoh`) MAJBURIY — profil rasmi o'chirishdagi bilan bir xil
-    naqsh: foydalanuvchi nega qayta "yangi qurilma" sifatida kirishini
-    bilishi kerak."""
-
-    permission_classes = [IsAuthenticated]
-
-    def post(self, request, pk):
-        u = request.user
-        if not (owner_mi(u) or u.role == User.Role.ADMIN):
-            return Response({"detail": "Faqat owner/admin uchun"}, status=403)
-        user = get_object_or_404(User, pk=pk)
-        if user.is_superuser and not owner_mi(u):
-            return Response({"detail": "Owner'ning qurilmasiga tega olmaysiz"}, status=403)
-
-        izoh = str(request.data.get("izoh") or "").strip()
-        if not izoh:
-            return Response(
-                {"detail": "Tiklash sababini yozing — u foydalanuvchiga xabar bo'lib boradi"},
-                status=400,
-            )
-        izoh = izoh[:1000]
-
-        if not user.qurilmalar:
-            return Response({"detail": "Bu foydalanuvchida qurilma qulfi yo'q"}, status=400)
-        user.qurilmalar = []
-        user.save(update_fields=["qurilmalar"])
-        # 2026-10-20: tozalangan qurilmalar darhol chiqarib yuboriladi
-        # (kirish kalitlari ham `authentication.py`da qurilma ro'yxatiga qarab rad etiladi).
-        kalitlarni_bekor_qil(user.pk)
-
-        Bildirishnoma.objects.create(
-            foydalanuvchi=user,
-            turi=Bildirishnoma.Turi.OGOHLANTIRISH,
-            kalit=f"ogohlantirish:qurilma-tiklash:{timezone.now().isoformat()}"[:200],
-            sarlavha="Qurilma qulfi tiklandi",
-            matn=(
-                f"{izoh}\n\nKeyingi login qilgan qurilmangiz endi 'asosiy' "
-                "sifatida qayta belgilanadi."
-            ),
-        )
-        logla(
-            foydalanuvchi=u,
-            harakat=FaoliyatYozuvi.Harakat.OZGARTIRISH,
-            obyekt=user,
-            obyekt_turi="Foydalanuvchi",
-            ozgarishlar={"qurilmalar": {"eski": "bor edi", "yangi": "tozalandi"}, "izoh": izoh},
-        )
-        return Response(status=204)
-
-
-class QurilmaLimitiView(APIView):
-    """Foydalanuvchining ruxsat etilgan qurilmalar sonini (`qurilma_limiti`)
-    o'zgartiradi. 2026-10-20 (Shuhrat): owner VA admin kiritadi, oraliq
-    cheklovi yo'q (faqat kamida 1; yuqori chegara — maydonning o'zi).
-
-    Ro'yxatni (`qurilmalar`) TOZALAMAYDI — limit oshirilsa, bloklangan
-    foydalanuvchi hech qanday qo'shimcha harakatsiz, keyingi login
-    urinishida AVTOMATIK kira oladi (`qurilmalar.kirishni_tekshir`)."""
-
-    permission_classes = [IsAuthenticated]
-
-    def post(self, request, pk):
-        u = request.user
-        if not (owner_mi(u) or u.role == User.Role.ADMIN):
-            return Response({"detail": "Faqat owner/admin uchun"}, status=403)
-        user = get_object_or_404(User, pk=pk)
-        if user.is_superuser and not owner_mi(u):
-            return Response({"detail": "Owner'ning qurilmasiga tega olmaysiz"}, status=403)
-
-        limit = request.data.get("limit")
-        if not isinstance(limit, int) or isinstance(limit, bool) or limit < 1 or limit > 32767:
-            return Response({"detail": "Limit 1 yoki undan katta butun son bo'lishi kerak"}, status=400)
-
-        eski = user.qurilma_limiti
-        user.qurilma_limiti = limit
-        user.save(update_fields=["qurilma_limiti"])
-
-        logla(
-            foydalanuvchi=u,
-            harakat=FaoliyatYozuvi.Harakat.OZGARTIRISH,
-            obyekt=user,
-            obyekt_turi="Foydalanuvchi",
-            ozgarishlar={"qurilma_limiti": {"eski": eski, "yangi": limit}},
-        )
-        return Response({"qurilma_limiti": limit})
-
-
 # frontend/src/components/Layout.jsx'dagi nav yo'llari bilan BIR XIL
 # saqlanishi kerak (2026-08-05) — bu yerda faqat validatsiya uchun.
 KORINADIGAN_PANEL_YOLLARI = {
     "/mashqlar", "/ielts-boshqarish", "/ai-mashqlari", "/speaking-trainer", "/grammar-coach", "/kurslar", "/oyinlar",
     "/reyting", "/guruhlar", "/talabalar", "/xodimlar",
-    "/markaz-sozlash", "/foydalanuvchilar", "/hisobotlar",
+    "/markaz-sozlash", "/foydalanuvchilar", "/hisobotlar", "/qurilmalar",
 }
 
 
@@ -1516,7 +1415,8 @@ class XodimlarView(APIView):
         oqituvchilar = User.objects.filter(
             markaz_id=markaz_id, role=User.Role.TEACHER, is_active=not arxiv
         )
-        kutayotganlar = qurilma_mantiq.kutayotganlar()
+        oqituvchilar = list(oqituvchilar)
+        sanoqlar = qurilma_tizimi.qurilma_sanoqlari(u.id for u in oqituvchilar)
         return Response(
             [
                 {
@@ -1526,10 +1426,9 @@ class XodimlarView(APIView):
                     # owner/admin kiradi, ya'ni qo'shimcha rol tekshiruvi
                     # frontendda shart emas.
                     "rasm_url": f"/api/foydalanuvchilar/{u.id}/rasm/" if u.rasm else None,
-                    "qurilma_bormi": bool(u.qurilmalar),
                     "qurilma_limiti": u.qurilma_limiti,
-                    "qurilmalar_soni": len(u.qurilmalar),
-                    "qurilma_sorovi_bor": u.id in kutayotganlar,
+                    "qurilmalar_soni": sanoqlar.get(u.id, (0, False))[0],
+                    "qurilma_sorovi_bor": sanoqlar.get(u.id, (0, False))[1],
                     "bio": u.bio,
                     "telefon": u.telefon,
                     "ota_ona_telefon": u.ota_ona_telefon,
@@ -1746,7 +1645,8 @@ class TalabalarView(APIView):
                 "admin_maydonlari": t.admin_maydonlari,
             }
 
-        kutayotganlar = qurilma_mantiq.kutayotganlar() if boshqaruv else set()
+        qs = list(qs.order_by("first_name", "username"))
+        sanoqlar = qurilma_tizimi.qurilma_sanoqlari(t.id for t in qs) if boshqaruv else {}
         return Response(
             [
                 {
@@ -1766,14 +1666,13 @@ class TalabalarView(APIView):
                     # Adminda "Foydalanuvchilar" sahifasi YO'Q, shuning uchun
                     # unga yagona yo'l shu.
                     "rasm_url": f"/api/foydalanuvchilar/{t.id}/rasm/" if t.rasm else None,
-                    "qurilma_bormi": bool(t.qurilmalar),
                     "qurilma_limiti": t.qurilma_limiti,
-                    "qurilmalar_soni": len(t.qurilmalar),
-                    "qurilma_sorovi_bor": t.id in kutayotganlar,
+                    "qurilmalar_soni": sanoqlar.get(t.id, (0, False))[0],
+                    "qurilma_sorovi_bor": sanoqlar.get(t.id, (0, False))[1],
                     "bio": t.bio,
                     **shaxsiy(t),
                 }
-                for t in qs.order_by("first_name", "username")
+                for t in qs
             ]
         )
 
@@ -2158,118 +2057,57 @@ class ParolOzgartirishView(APIView):
         return Response({"detail": "Parol yangilandi"})
 
 
+class KirishSerializer(TokenObtainSerializer):
+    """Faqat login/parolni tekshiradi va `self.user`ni qo'yadi — kalit YASAMAYDI: u qurilma
+    tekshiruvidan keyin beriladi (rad etilgan urinish «arvoh seans» qoldirmasin).
+    Login'dagi bo'sh joylarni DRF o'zi olib tashlaydi (2026-10-29: avval foydalanuvchi
+    xom login bilan qayta qidirilardi va bo'sh joyli login qurilma tekshiruvini chetlab
+    o'tardi)."""
+
+    token_class = RefreshToken
+
+
 class XodimLoginView(TokenObtainPairView):
-    """Standart JWT login (`/api/token/`) — brute-force'dan himoya uchun
-    throttling qo'shilgan (login urinishlar soni cheklanadi).
+    """Login (`/api/token/`) — brute-force'dan himoya uchun throttling bilan.
 
-    2026-08-12: hisobni boshqalar bilan bo'lishmaslik uchun — OWNER'dan
-    boshqa har bir foydalanuvchi FAQAT ruxsat etilgan qurilmalardan
-    (`qurilma_limiti` ta, standart 1) kira oladi. Frontend har login
-    so'rovida `qurilma_id` (localStorage'dagi tasodifiy ID) va
-    `qurilma_belgilari`ni yuboradi; parol TO'G'RI bo'lsa-da, qurilma
-    ruxsat etilmasa token BERILMAYDI (403). Tekshiruv tartibi —
-    `accounts/qurilmalar.py: kirishni_tekshir`."""
+    OWNER'dan boshqa har bir foydalanuvchi faqat ruxsat etilgan qurilmalardan kiradi
+    (qurilmalar limiti, 2-tizim — `accounts/qurilma_tizimi.py`). Frontend `qurilma_id`
+    (brauzer xotirasidagi ID) va `qurilma_belgilari`ni yuboradi; yangi frontend
+    `kalit_qollaydi`ni ham. Javoblar: 200 — kalitlar; 409 `kalit_kerak` — «Qurilmangizni
+    tasdiqlang» (`KalitBilanKirishView`); 403 `qurilma_mos_emas` — so'rov yoki blok."""
 
+    serializer_class = KirishSerializer
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = "login"
 
     def post(self, request, *args, **kwargs):
-        javob = super().post(request, *args, **kwargs)
-        if javob.status_code == 200:
-            user = User.objects.filter(username=request.data.get("username")).first()
-            if user is not None:
-                if not owner_mi(user):
-                    # 2026-08-15: sayt kirish cheklangan bo'lsa (Railway
-                    # ko'chirish davrida), OWNER'dan boshqa hech kim —
-                    # parol to'g'ri bo'lsa ham — kira olmaydi. Frontend
-                    # login formani ham umuman ko'rsatmaydi, bu esa
-                    # himoya sifatida backend darajasida qo'shimcha.
-                    markaz = Markaz.objects.first()
-                    if markaz and markaz.kirish_cheklangan:
-                        _berilmagan_kalitni_ochir(javob)
-                        return Response(
-                            {"detail": "Saytga kirish vaqtincha cheklangan",
-                             "kod": "kirish_cheklangan"},
-                            status=403,
-                        )
-                    qid, rad_javobi = _qurilma_tekshir(request, user)
-                    _berilmagan_kalitni_ochir(javob)
-                    if rad_javobi is not None:
-                        return rad_javobi
-                    # 2026-10-20: kalitga qurilma belgisi (`qid`) qo'yiladi —
-                    # qurilma o'chirilsa yoki almashtirilsa, u keyingi
-                    # so'rovdayoq chiqarib yuboriladi (`authentication.py`).
-                    kalit = RefreshToken.for_user(user)
-                    kalit["qid"] = qid
-                    # 2026-10-26: `for_user` kalitni bazaga `qid`siz yozib
-                    # bo'ladi — usiz qurilma seanslarini yopishda bu kalit
-                    # "kimniki noma'lum" bo'lib, boshqa qurilma o'chirilganda
-                    # ham bekor qilinardi (`qurilmalar.qurilma_kalitlarini_bekor_qil`).
-                    OutstandingToken.objects.filter(jti=kalit[api_settings.JTI_CLAIM]).update(token=str(kalit))
-                    javob.data = {"refresh": str(kalit), "access": str(kalit.access_token)}
-                LoginHistory.objects.create(foydalanuvchi=user, rol=user.role)
-        return javob
-
-
-def _berilmagan_kalitni_ochir(javob):
-    """Rad etilgan login uchun yasalib qolgan refresh-kalit yozuvini
-    o'chiradi (2026-09-07, auditda topildi).
-
-    MUAMMO: parol tekshiruvi `super().post()` ichida bo'ladi va SimpleJWT
-    o'sha zahoti kalitni yasab `OutstandingToken` jadvaliga yozadi. Biz
-    esa qurilma cheklovini VA "kirish cheklangan" bayrog'ini undan
-    KEYIN tekshiramiz — ya'ni rad etilgan urinish ham bazada "ochiq
-    seans" bo'lib qolardi.
-
-    Oqibati xavfsizlik emas (kalit mijozga UMUMAN yuborilmaydi — biz
-    boshqa `Response` qaytaramiz), lekin "Aktiv foydalanuvchilar"
-    panelidagi RAQAM buzilardi: boshqa telefondan uch marta kirishga
-    urinib ko'rgan talaba o'sha bo'limda "4 seans" bo'lib turardi.
-    Panelning butun maqsadi esa "kim saytda / kimning seansi qolib
-    ketgan" ni ajratish — arvoh qatorlar aynan shu signalni buzadi.
-
-    NEGA BLACKLIST EMAS, O'CHIRISH: kalit serverdan chiqmagan, ya'ni
-    uni hech kim ushlab qololmaydi — bekor qilinishi kerak bo'lgan
-    narsa yo'q. Qora ro'yxatga qo'shish esa `OutstandingToken` qatorini
-    JOYIDA QOLDIRIB, ustiga yana bitta `BlacklistedToken` qo'shardi,
-    ya'ni tozalamoqchi bo'lgan axlatni ikkilantirardi.
-
-    Hech qachon so'rovni buzmaydi: bu yordamchi ish bermasa ham login
-    rad etilishi kerak (`except` — faqat tozalash o'tkazib yuboriladi).
-    """
-    xom = (getattr(javob, "data", None) or {}).get("refresh")
-    if not xom:
-        return
-    try:
-        jti = RefreshToken(xom).payload.get(api_settings.JTI_CLAIM)
-        if jti:
-            OutstandingToken.objects.filter(jti=jti).delete()
-    except Exception:  # noqa: BLE001 — tozalash hech qachon loginni buzmasin
-        pass
-
-
-def _qurilma_tekshir(request, user):
-    """OWNER bo'lmagan foydalanuvchi uchun qurilma cheklovi (mantiq —
-    `accounts/qurilmalar.py`). Qaytaradi: (qid, None) — kiradi;
-    (None, Response) — login rad etiladi."""
-    qid = qurilma_mantiq.id_tozala(request.data.get("qurilma_id"))
-    if not qid:
-        return None, Response(
-            {"detail": "Qurilma identifikatori yuborilmadi", "kod": "qurilma_id_yoq"},
-            status=400,
-        )
-    belgilar = qurilma_mantiq.belgilarni_tozala(
-        request.data.get("qurilma_belgilari"), request.META.get("HTTP_USER_AGENT", "")
-    )
-    kirdi, rad = qurilma_mantiq.kirishni_tekshir(user, qid, belgilar)
-    if kirdi:
-        return qid, None
-    matn = (
-        "Administrator bu qurilmaga ruxsat bermadi."
-        if rad["sorov"] == "rad"
-        else "Bu hisob boshqa qurilmada ochiq. Administratorga xabar yuborildi — ruxsat berilgach qayta kiring."
-    )
-    return None, Response({"detail": matn, "kod": "qurilma_mos_emas", **rad}, status=403)
+        serializer = self.get_serializer(data=request.data)
+        try:
+            serializer.is_valid(raise_exception=True)
+        except TokenError as e:
+            raise InvalidToken(e.args[0]) from e
+        user = serializer.user
+        if owner_mi(user):
+            javob = qurilma_tizimi.kalit_ber(user)
+        else:
+            # 2026-08-15: sayt kirish cheklangan bo'lsa (Railway ko'chirish davrida)
+            # owner'dan boshqa hech kim — parol to'g'ri bo'lsa ham — kira olmaydi.
+            if cheklov := kirish_cheklangan_javobi():
+                return cheklov
+            qid = qurilma_tizimi.id_tozala(request.data.get("qurilma_id"))
+            if not qid:
+                return Response({"detail": "Qurilma identifikatori yuborilmadi", "kod": "qurilma_id_yoq"}, status=400)
+            belgilar = qurilma_tizimi.belgilarni_tozala(
+                request.data.get("qurilma_belgilari"), request.META.get("HTTP_USER_AGENT", ""))
+            natija = qurilma_tizimi.kirish(
+                user, qid, belgilar, origin=qurilma_kaliti.manzil(request),
+                kalit_qollaydi=request.data.get("kalit_qollaydi") is True,
+            )
+            if not natija.kirdi:
+                return Response(natija.javob, status=natija.status)
+            javob = qurilma_tizimi.kalit_ber(user, qid, natija.qurilma, natija.brauzer)
+        LoginHistory.objects.create(foydalanuvchi=user, rol=user.role)
+        return Response(javob)
 
 
 class GoogleLoginView(APIView):

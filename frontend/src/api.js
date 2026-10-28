@@ -57,12 +57,10 @@ export async function serverdaChiqish() {
 
 // 2026-08-12: hisobni boshqalar bilan bo'lishmaslik uchun — har login
 // so'roviga shu brauzerga xos tasodifiy ID qo'shib yuboriladi
-// (backend: `accounts/views.py: XodimLoginView`/`_qurilma_tekshir`).
-// Birinchi loginda backend shu ID'ni "asosiy qurilma" qilib saqlaydi,
-// keyingi safar mos kelmasa kirish rad etiladi. Tokenlar kabi
-// localStorage'da — brauzer o'zgarsa yoki kesh tozalansa yangi ID
-// generatsiya bo'ladi (bu ATAYLAB shunday: "boshqa qurilma" aynan shu
-// orqali aniqlanadi).
+// (backend: `accounts/qurilma_tizimi.py`). 2026-10-29 (2-tizim): bu ID qurilmaning o'zi
+// emas, «bu brauzer shu qurilmada ekani tasdiqlangan» eslatmasi — tozalansa, qurilma
+// kaliti bilan qayta bog'lanadi. Kalit (seansdagi `qid`) shu ID bilan bir xil qoladi:
+// eski versiyaga qaytilsa ham eski tizim brauzerni taniydi.
 // 2026-10-23 bug (video IMG_7101): eski Android WebView / ilova ichidagi
 // brauzerlarda `crypto.randomUUID` yo'q — xato login'ni so'rov ketmasdan
 // to'xtatib, o'quvchiga "Login yoki parol noto'g'ri" ko'rsatardi. Endi ID
@@ -102,8 +100,8 @@ export function qurilmaIdOl() {
   return id;
 }
 
-// 2026-10-20: brauzer belgilari — tarix tozalanib ID yo'qolsa ham shu
-// qurilmani tanish uchun (backend: `accounts/qurilmalar.py`). Har login'da
+// 2026-10-20: brauzer belgilari. 2026-10-29 dan (2-tizim) qaror uchun ishlatilmaydi —
+// faqat qurilma nomi va adminga «o'xshaydi» maslahati (backend: `accounts/qurilma_tizimi.py`). Har login'da
 // qurilmaning o'zidan o'qiladi, hech qayerda saqlanmaydi. Model faqat Android
 // Chromium brauzerlarida keladi; o'qib bo'lmagan belgi shunchaki yuborilmaydi.
 export async function qurilmaBelgilari() {
@@ -129,6 +127,82 @@ export async function qurilmaBelgilari() {
     // faqat Chromium brauzerlarida bor
   }
   return b;
+}
+
+// 2026-10-29: qurilma kaliti (passkey) — telefon qulfi bilan himoyalangan, Android'da Google
+// parol menejerida, iPhone'da iCloud'da saqlanadi: brauzer tarixi tozalansa ham qoladi va shu
+// telefondagi hamma brauzerda bir xil (backend: `accounts/qurilma_kaliti.py`). Server bilan
+// base64url matn almashiladi, brauzer API'si esa baytlar bilan ishlaydi.
+function b64uBayt(matn) {
+  const b64 = matn.replace(/-/g, "+").replace(/_/g, "/");
+  return Uint8Array.from(atob(b64 + "===".slice((b64.length + 3) % 4)), (c) => c.charCodeAt(0));
+}
+
+function baytB64u(bufer) {
+  let matn = "";
+  for (const b of new Uint8Array(bufer)) matn += String.fromCharCode(b);
+  return btoa(matn).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+const kalitlarBayt = (royxat) => (royxat || []).map((k) => ({ ...k, id: b64uBayt(k.id) }));
+
+/** Shu brauzerda telefon qulfi bilan himoyalangan kalit ishlay oladimi. */
+export async function kalitQollaydimi() {
+  try {
+    return Boolean(
+      window.PublicKeyCredential && (await window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable())
+    );
+  } catch {
+    return false;
+  }
+}
+
+/** Login'dagi «Qurilmangizni tasdiqlang» — telefondagi kalit bilan imzo. */
+export async function kalitBilanTasdiqla(sozlama) {
+  const k = await navigator.credentials.get({
+    publicKey: { ...sozlama, challenge: b64uBayt(sozlama.challenge), allowCredentials: kalitlarBayt(sozlama.allowCredentials) },
+  });
+  const javob = {
+    clientDataJSON: baytB64u(k.response.clientDataJSON),
+    authenticatorData: baytB64u(k.response.authenticatorData),
+    signature: baytB64u(k.response.signature),
+  };
+  if (k.response.userHandle) javob.userHandle = baytB64u(k.response.userHandle);
+  return { id: k.id, rawId: baytB64u(k.rawId), type: k.type, response: javob };
+}
+
+/** «Bu qurilmani eslab qolish» — telefonda yangi kalit yaratish. */
+export async function kalitYarat(sozlama) {
+  const k = await navigator.credentials.create({
+    publicKey: {
+      ...sozlama,
+      challenge: b64uBayt(sozlama.challenge),
+      user: { ...sozlama.user, id: b64uBayt(sozlama.user.id) },
+      excludeCredentials: kalitlarBayt(sozlama.excludeCredentials),
+    },
+  });
+  return {
+    id: k.id, rawId: baytB64u(k.rawId), type: k.type,
+    response: {
+      clientDataJSON: baytB64u(k.response.clientDataJSON),
+      attestationObject: baytB64u(k.response.attestationObject),
+      transports: k.response.getTransports?.() || [],
+    },
+  };
+}
+
+// 2026-10-29: Telegram, Instagram va boshqa ilovalar ichidagi brauzer — u yerda qurilma
+// kaliti ishlamaydi va xotirasi Chrome'dan alohida, shuning uchun kirish Chrome/Safari'da.
+// iPhone'da ilova ichidagi brauzer o'zini "Safari/" demaydi (bosh ekrandagi sayt — ham, lekin u `standalone`).
+export function ilovaIchidami() {
+  const ua = navigator.userAgent || "";
+  if (/Telegram|Instagram|FBAN|FBAV|FB_IAB|Line\/|; wv\)/i.test(ua)) return true;
+  return /iPhone|iPad/.test(ua) && !/Safari\//.test(ua) && !window.navigator.standalone;
+}
+
+/** Android: saytni shu manzil bilan Chrome'da ochadigan havola. */
+export function chromeHavolasi() {
+  return `intent://${window.location.host}/login#Intent;scheme=https;package=com.android.chrome;end`;
 }
 
 // 2026-07-30 bug: PARALLEL_SAHIFA_SONI kabi bir vaqtda bir nechta so'rov
@@ -173,9 +247,13 @@ async function refreshQil() {
   return refreshVadasi;
 }
 
-// 2026-10-20: admin qurilmani o'chirgan/almashtirgan bo'lsa — kirish oynasi sababini aytadi.
-// 2026-10-26: talaba boshqa qurilmasidan kirgan bo'lsa (bir paytda bitta qurilma) — alohida xabar.
-const CHIQISH_SABABLARI = { qurilma_ochirildi: "qurilma", boshqa_qurilmada: "boshqa_qurilma" };
+// Chiqarib yuborilganda kirish oynasi sababini aytadi: qurilma o'chirilgan (2026-10-20),
+// boshqa joydan kirilgan — bir vaqtda bitta seans (2026-10-26/29), qurilma bloklangan (2026-10-29).
+const CHIQISH_SABABLARI = {
+  qurilma_ochirildi: "qurilma",
+  boshqa_qurilmada: "boshqa_qurilma",
+  qurilma_bloklandi: "bloklandi",
+};
 
 async function chiqishSababiniYoz(res) {
   const sabab = await res.clone().json().catch(() => null);
@@ -203,8 +281,14 @@ export async function api(yol, options = {}) {
   // noto'g'ri" degani, seans tugagani emas. Avval sahifa /login'ga qayta
   // yuklanib, xato xabari ko'rinmay qolardi — endi xato Login.jsx'ga qaytadi.
   const loginSorovi = yol === "/api/token/";
+  const ishlatilganKalit = tokenOl();
   let res = await sorov();
   if (!loginSorovi && res.status === 401 && (await refreshQil())) {
+    res = await sorov();
+  }
+  // 2026-10-29: shu orada boshqa tabda qayta kirilgan bo'lsa (kalitlar umumiy) — eski kalit
+  // rad etilgani yangi seansni o'chirib yubormasin: yangi kalit bilan bir marta qayta urinamiz.
+  if (!loginSorovi && res.status === 401 && tokenOl() && tokenOl() !== ishlatilganKalit) {
     res = await sorov();
   }
   if (!loginSorovi && res.status === 401) {

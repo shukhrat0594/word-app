@@ -4,7 +4,7 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import Layout, { NAMUNAVIY_MASHQLAR_OCHIQ } from "./components/Layout";
 import BoshSahifa from "./pages/BoshSahifa";
 import Foydalanuvchilar from "./pages/Foydalanuvchilar";
-import QurilmaSorovlari from "./pages/QurilmaSorovlari";
+import Qurilmalar from "./pages/Qurilmalar";
 import Guruhlar from "./pages/Guruhlar";
 import Hisobotlar from "./pages/Hisobotlar";
 import ImtihonBoshqarish from "./pages/ImtihonBoshqarish";
@@ -73,9 +73,15 @@ export default function App() {
             <Route path="talabalar" element={<Talabalar />} />
             <Route path="markaz-sozlash" element={<MarkazSozlash />} />
             <Route path="foydalanuvchilar" element={<Foydalanuvchilar />} />
-            <Route path="qurilma-sorovlari" element={<QurilmaSorovlari />} />
+            {/* 2026-10-29: qurilmalar limiti, 2-tizim — hammasi bitta oynada. Eski bildirishnomalar
+                "/qurilma-sorovlari"ga olib keladi — o'sha joyga yo'naltiriladi. */}
+            <Route path="qurilmalar" element={<Qurilmalar />} />
+            <Route path="qurilma-sorovlari" element={<Navigate to="/qurilmalar?holat=kutilmoqda" replace />} />
             <Route path="profil" element={<Profil />} />
           </Route>
+          {/* 2026-10-29: noma'lum manzil bosh sahifaga — avval butunlay oq sahifa chiqardi
+              (talaba telefonida eski havola shunday ochilgan). */}
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
     </ErrorBoundary>

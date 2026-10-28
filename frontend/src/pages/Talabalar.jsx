@@ -5,7 +5,7 @@ import { useI18n } from "../i18n";
 import { useProfil } from "../profilContext";
 import NatijalarRoyxati from "../components/NatijalarRoyxati";
 import { panelTanloviOl } from "../components/Layout";
-import { PanelTanlovi, ProfilRasmi, QurilmaTiklashTugmasi, QurilmaLimitiBoshqaruv } from "./Foydalanuvchilar";
+import { PanelTanlovi, ProfilRasmi, QurilmalarHavolasi } from "./Foydalanuvchilar";
 
 // 2026-09-17 (admin talabi): yaratishda qo'shimcha ma'lumot ham kiritiladi.
 // Kiritilgan maydonlar talabaga qulflanadi (`admin_maydonlari`).
@@ -122,7 +122,7 @@ function TalabaKartasi({ talaba, boshqaruvMi, t, onYopish, onSaqlandi, onNatijal
 /** Bitta talaba qatori — guruh papkasida HAM, qidiruv natijalarida HAM
  * (2026-10-06, video-TZ) bir xil ko'rinish ishlatiladi. `tartibRaqami`
  * ixtiyoriy — qidiruv natijasida guruh ichidagi o'rin ma'nosiz. */
-function TalabaQatori({ tl, tartibRaqami, boshqaruvMi, arxivKorish, t, onKartaOchish, rasmOchir, panellarSaqla, qurilmaTiklash, qurilmaYangila, arxivHolatiniOzgartir }) {
+function TalabaQatori({ tl, tartibRaqami, boshqaruvMi, arxivKorish, t, onKartaOchish, rasmOchir, panellarSaqla, arxivHolatiniOzgartir }) {
   return (
     <div className="tarix-el">
       <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -145,8 +145,7 @@ function TalabaQatori({ tl, tartibRaqami, boshqaruvMi, arxivKorish, t, onKartaOc
       {boshqaruvMi && (
         <span style={{ display: "flex", gap: 8, alignItems: "center" }}>
           <PanelTanlovi user={tl} saqlash={panellarSaqla} t={t} />
-          <QurilmaTiklashTugmasi user={tl} tiklash={qurilmaTiklash} t={t} />
-          <QurilmaLimitiBoshqaruv user={tl} yangila={qurilmaYangila} t={t} />
+          <QurilmalarHavolasi user={tl} t={t} />
           <button
             className="tugma ikkinchi kichik"
             onClick={() => arxivHolatiniOzgartir(tl.id, arxivKorish)}
@@ -332,20 +331,6 @@ export default function Talabalar() {
     try {
       await api(`/api/foydalanuvchilar/${id}/rasm/`, { method: "DELETE", body: { izoh } });
       setXabar(t("rasm_ochirildi"));
-      yukla();
-    } catch (e) {
-      setXato(e.data?.detail || t("xato_yuz_berdi"));
-    }
-  }
-
-  /** "Qurilmani tiklash" — sabab MAJBURIY, talabaga ogohlantirish
-   * boradi (`QurilmaTiklashTugmasi` izohiga qarang). */
-  async function qurilmaTiklash(id, izoh) {
-    setXato("");
-    setXabar("");
-    try {
-      await api(`/api/foydalanuvchilar/${id}/qurilma-tiklash/`, { method: "POST", body: { izoh } });
-      setXabar(t("qurilma_tiklash_muvaffaqiyatli"));
       yukla();
     } catch (e) {
       setXato(e.data?.detail || t("xato_yuz_berdi"));
@@ -629,8 +614,6 @@ export default function Talabalar() {
                   onKartaOchish={setKartaTalaba}
                   rasmOchir={rasmOchir}
                   panellarSaqla={panellarSaqla}
-                  qurilmaTiklash={qurilmaTiklash}
-                  qurilmaYangila={yukla}
                   arxivHolatiniOzgartir={arxivHolatiniOzgartir}
                 />
               ))
@@ -666,8 +649,6 @@ export default function Talabalar() {
                     onKartaOchish={setKartaTalaba}
                     rasmOchir={rasmOchir}
                     panellarSaqla={panellarSaqla}
-                    qurilmaTiklash={qurilmaTiklash}
-                    qurilmaYangila={yukla}
                     arxivHolatiniOzgartir={arxivHolatiniOzgartir}
                   />
                 ))}

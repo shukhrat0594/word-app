@@ -19,6 +19,25 @@ Format (qat'iy, parser shunga tayanadi):
 
 ---
 
+## 2026-10-29 — Qurilmalar limiti qaytadan qurildi
+
+- **Bitta «Qurilmalar» oynasi.** Menyuda yangi «Qurilmalar» bo'limi: har bir
+  talaba va xodimning qurilmalari, kutilayotgan so'rovlari, bloklanganlari,
+  limiti, ochiq seansi va kirish jurnali — hammasi bitta joyda. Ro'yxatlardagi
+  «Qurilmalar 1/1» tugmasi shu oynani o'sha odam bilan ochadi.
+- **Brauzer emas, qurilma tekshiriladi.** Talaba «Bu qurilmani eslab qolish»ni
+  bossa (telefon qulfi bilan bir marta tasdiqlaydi), brauzer tarixi tozalansa ham
+  yoki shu telefondagi boshqa brauzerdan kirsa ham qurilmasi admin'siz tanib olinadi.
+- **Bir vaqtda bitta seans.** Talaba boshqa qurilma yoki brauzerdan kirsa, oldingi
+  seans darhol yopiladi.
+- **«Вход с этого устройства закрыт» xatosi tuzatildi.** Login oldida yoki oxirida
+  bo'sh joy bo'lsa (telefon klaviaturasi qo'yadi), kirgandan keyin darhol chiqarib
+  yuborardi.
+- **Har rad etishning sababi ko'rinadi.** Talaba aniq sababni ko'radi («So'rov
+  adminga yuborildi», «Qurilma bloklangan»), admin esa jurnalda.
+- Telegram yoki Instagram ichida sayt ochilsa — «Chrome'da ochish» ekrani chiqadi.
+- Noma'lum manzilda endi oq ekran emas, bosh sahifa ochiladi.
+
 ## 2026-10-27 — Qurilmani bloklash
 
 - **«Bloklash» tugmasi.** Qurilmalar oynasida har qurilmaning «O'chirish»

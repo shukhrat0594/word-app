@@ -25,11 +25,13 @@ from accounts.backup_views import (
     MediaFaylKorishView,
     MediaTozalashView,
 )
-from accounts.qurilma_views import (
-    QurilmaliTokenRefreshView,
-    QurilmalarView,
-    QurilmaSoroviQarorView,
-    QurilmaSorovlariView,
+from accounts.qurilma_api import (
+    FoydalanuvchiQurilmaView,
+    KalitBilanKirishView,
+    KalitYaratishView,
+    QurilmaAmaliView,
+    QurilmalarOynasiView,
+    TokenniYangilashView,
 )
 from accounts.seans_views import (
     AktivFoydalanuvchilarView,
@@ -49,8 +51,6 @@ from accounts.views import (
     FoydalanuvchiNatijalariView,
     FoydalanuvchiPanellarView,
     FoydalanuvchiRasmView,
-    QurilmaTiklashView,
-    QurilmaLimitiView,
     ProfilTahrirlashView,
     FoydalanuvchiRolView,
     FoydalanuvchiYaratishView,
@@ -79,7 +79,8 @@ from accounts.views import (
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/token/', XodimLoginView.as_view(), name='token_obtain_pair'),
-    path('api/token/refresh/', QurilmaliTokenRefreshView.as_view(), name='token_refresh'),
+    path('api/token/refresh/', TokenniYangilashView.as_view(), name='token_refresh'),
+    path('api/token/kalit/', KalitBilanKirishView.as_view(), name='token_kalit'),
     path('api/auth/google/', GoogleLoginView.as_view(), name='google_login'),
     path('api/profil/', ProfilView.as_view(), name='profil'),
     path('api/profil/parol/', ParolOzgartirishView.as_view(), name='parol_ozgartirish'),
@@ -184,20 +185,11 @@ urlpatterns = [
         FoydalanuvchiRasmView.as_view(),
         name='foydalanuvchi_rasm',
     ),
-    path(
-        'api/foydalanuvchilar/<int:pk>/qurilma-tiklash/',
-        QurilmaTiklashView.as_view(),
-        name='foydalanuvchi_qurilma_tiklash',
-    ),
-    path(
-        'api/foydalanuvchilar/<int:pk>/qurilma-limit/',
-        QurilmaLimitiView.as_view(),
-        name='foydalanuvchi_qurilma_limit',
-    ),
-    # Qurilma limiti (2026-10-20) — `accounts/qurilma_views.py`.
-    path('api/foydalanuvchilar/<int:pk>/qurilmalar/', QurilmalarView.as_view(), name='foydalanuvchi_qurilmalar'),
-    path('api/qurilma-sorovlari/', QurilmaSorovlariView.as_view(), name='qurilma_sorovlari'),
-    path('api/qurilma-sorovlari/<int:pk>/qaror/', QurilmaSoroviQarorView.as_view(), name='qurilma_sorovi_qaror'),
+    # Qurilmalar limiti, 2-tizim (2026-10-29) — `accounts/qurilma_api.py`.
+    path('api/qurilmalar/', QurilmalarOynasiView.as_view(), name='qurilmalar'),
+    path('api/qurilmalar/<int:pk>/amal/', QurilmaAmaliView.as_view(), name='qurilma_amali'),
+    path('api/qurilmalar/foydalanuvchi/<int:pk>/', FoydalanuvchiQurilmaView.as_view(), name='foydalanuvchi_qurilma'),
+    path('api/qurilma/kalit/<str:bosqich>/', KalitYaratishView.as_view(), name='qurilma_kaliti'),
     path('api/', include('academics.urls')),
     path('api/', include('exercises.urls')),
     path('api/', include('assessment.urls')),
