@@ -1581,7 +1581,13 @@ function SozlarniYozishMashqi({ sozlar, tugunId, talabaMi }) {
     <div style={{ display: "grid", gap: 6, marginBottom: 14, maxWidth: 420 }}>
       {sozlar.map((s, i) => (
         <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ fontWeight: 600, minWidth: 100 }}>{s.en}</span>
+          {/* 2026-10-28 (Matn-TZ 672): so'z turkumi qavsda — "award (n)" —
+              talaba aynan qaysi turkumdagi tarjima so'ralayotganini bilsin
+              (aks holda otning tarjimasini yozsa, fe'lnikini kutgan bo'lardi). */}
+          <span style={{ fontWeight: 600, minWidth: 100 }}>
+            {s.en}
+            {s.turkum && <span style={{ fontWeight: 400, color: "var(--matn-sokin)" }}> ({s.turkum})</span>}
+          </span>
           <input
             {...IMLO_OFF}
             value={javoblar[i]}
