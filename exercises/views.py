@@ -2183,7 +2183,20 @@ class ImtihonListView(APIView):
         # papkalar endi o'z otasi ICHIDA nested ko'rsatiladi (avval otasidan
         # ajralib, boshqa otalarning bolalari bilan aralashib chiqardi —
         # foydalanuvchi skrinshot bilan ko'rsatdi).
-        qs = qs.select_related("papka", "papka__parent")
+        # 2026-10-28 (TZ #657): papkalar 3 darajagacha (Cambridge ›
+        # Cambridge 3 › Test 1) — talaba tomonida ham shu daraxt chiqishi
+        # uchun `papka_yoli` (asosiy papkadan testning papkasigacha) qo'shildi.
+        # Aks holda "Cambridge" ko'rinmas, "Cambridge 3" esa ikki joyda
+        # (o'z testlari "Cambridge" ostida, Test papkalari alohida) chiqardi.
+        qs = qs.select_related("papka", "papka__parent", "papka__parent__parent")
+
+        def papka_yoli(papka):
+            yol = []
+            while papka is not None:
+                yol.insert(0, {"id": papka.id, "nomi": papka.nomi})
+                papka = papka.parent
+            return yol
+
         return Response([
             {
                 "id": t.id,
@@ -2195,6 +2208,7 @@ class ImtihonListView(APIView):
                 "papka_ota_nomi": (
                     t.papka.parent.nomi if t.papka_id and t.papka.parent_id else None
                 ),
+                "papka_yoli": papka_yoli(t.papka),
             }
             for t in qs
         ])

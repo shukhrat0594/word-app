@@ -119,6 +119,22 @@ class PapkaKochirishTest(TestCase):
         self.assertEqual(javob.status_code, 200)
         self.assertEqual(javob.data["jami"], 4)
 
+    def test_talaba_royxatida_toliq_papka_yoli(self):
+        # TZ #657: talaba ro'yxati "Cambridge › Cambridge 3 › Test 1" daraxtini
+        # qursin — har test asosiy papkadan o'z papkasigacha yo'lni oladi.
+        t1 = TestPapkasi.objects.create(nomi="SINOV Test 1", markaz=self.markaz, parent=self.c3)
+        self.kochir(self.c3, self.cambridge.id)
+        ichida = ImtihonTest.objects.create(name="SINOV ichida", bolim=Bolim.READING, markaz=self.markaz, papka=t1)
+        bevosita = ImtihonTest.objects.create(name="SINOV bevosita", bolim=Bolim.READING, markaz=self.markaz, papka=self.c3)
+        papkasiz = ImtihonTest.objects.create(name="SINOV papkasiz", bolim=Bolim.READING, markaz=self.markaz)
+
+        javob = self.admin.get("/api/imtihon/testlar/")
+        self.assertEqual(javob.status_code, 200)
+        yollar = {r["id"]: [p["nomi"] for p in r["papka_yoli"]] for r in javob.data}
+        self.assertEqual(yollar[ichida.id], ["SINOV Cambridge", "SINOV Cambridge 3", "SINOV Test 1"])
+        self.assertEqual(yollar[bevosita.id], ["SINOV Cambridge", "SINOV Cambridge 3"])
+        self.assertEqual(yollar[papkasiz.id], [])
+
     def test_nomni_tahrirlash_ishlaydi(self):
         javob = self.admin.patch(f"/api/imtihon/papkalar/{self.c3.id}/", {"nomi": "SINOV yangi"}, format="json")
         self.assertEqual(javob.status_code, 200)
