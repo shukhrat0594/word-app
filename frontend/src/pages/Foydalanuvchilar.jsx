@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { api } from "../api";
 import Avatar from "../components/Avatar";
 import { panelTanloviOl } from "../components/Layout";
-import QurilmalarPaneli from "../components/QurilmalarPaneli";
 import { useI18n } from "../i18n";
 import { useProfil } from "../profilContext";
 
@@ -162,124 +162,20 @@ export function ProfilRasmi({ user, ochir, t }) {
   );
 }
 
-/** "Qurilmani tiklash" (2026-08-12) — owner/admin uchun, `ProfilRasmi`
- * bilan bir xil naqsh (majburiy sabab, kichik popup). Faqat
- * `user.qurilma_bormi` bo'lsa va owner bo'lmasa ko'rinadi (owner'da
- * cheklov umuman yo'q, tugma ko'rsatishning ma'nosi yo'q). */
-export function QurilmaTiklashTugmasi({ user, tiklash, t }) {
-  const [ochiq, setOchiq] = useState(false);
-  const [izoh, setIzoh] = useState("");
-  const [band, setBand] = useState(false);
-
-  if (!tiklash || user.is_owner || !user.qurilma_bormi) return null;
-
-  async function tasdiqla() {
-    if (!izoh.trim()) return;
-    setBand(true);
-    try {
-      await tiklash(user.id, izoh.trim());
-      setOchiq(false);
-      setIzoh("");
-    } finally {
-      setBand(false);
-    }
-  }
-
-  return (
-    <span style={{ position: "relative" }}>
-      <button type="button" className="tugma ikkinchi kichik" onClick={() => setOchiq((v) => !v)}>
-        {t("qurilma_tiklash")}
-      </button>
-      {ochiq && (
-        <div
-          style={{
-            position: "absolute", top: "100%", left: 0, marginTop: 6, width: 280,
-            background: "var(--sirt)", border: "1px solid var(--chiziq)",
-            borderRadius: 10, padding: 10, zIndex: 1200,
-            boxShadow: "0 6px 24px rgba(0,0,0,0.25)",
-          }}
-        >
-          <strong style={{ display: "block", marginBottom: 4 }}>{t("qurilma_tiklash")}</strong>
-          <div className="izoh" style={{ marginBottom: 6 }}>{t("qurilma_tiklash_izoh_soralmoqda")}</div>
-          <textarea
-            rows={3}
-            value={izoh}
-            onChange={(e) => setIzoh(e.target.value)}
-            style={{ width: "100%", marginBottom: 6 }}
-          />
-          <div style={{ display: "flex", gap: 6 }}>
-            <button
-              className="tugma kichik"
-              onClick={tasdiqla}
-              disabled={band || !izoh.trim()}
-              title={izoh.trim() ? undefined : t("rasm_ochirish_sababi_shart")}
-            >
-              {t("qurilma_tiklash")}
-            </button>
-            <button
-              className="tugma ikkinchi kichik"
-              onClick={() => { setOchiq(false); setIzoh(""); }}
-              disabled={band}
-            >
-              {t("kurs_blok_bekor_qilish")}
-            </button>
-          </div>
-        </div>
-      )}
-    </span>
-  );
-}
-
-/** "Qurilmalar" tugmasi (2026-10-20; 2026-08-13 dagi owner'ning +/− limit
- * boshqaruvi o'rniga) — owner VA admin uchun. Bosilganda qurilmalar oynasi
- * ochiladi: limit (admin o'zi kiritadi), qurilmalar ro'yxati, kutilayotgan
- * so'rovlar va jurnal (`QurilmalarPaneli`). Kutilayotgan so'rov bo'lsa — "!". */
-export function QurilmaLimitiBoshqaruv({ user, yangila, t }) {
-  const [ochiq, setOchiq] = useState(false);
-  const [ozgardi, setOzgardi] = useState(false);
-
+/** «Qurilmalar n/limit» (2026-10-29, qurilmalar limiti 2-tizim) — owner/admin uchun:
+ * bosilsa «Qurilmalar» oynasi shu odam bilan ochiladi (qurilmalar, so'rovlar, bloklanganlar,
+ * limit, seans va jurnal — hammasi o'sha yerda). Kutilayotgan so'rov bo'lsa — "!". */
+export function QurilmalarHavolasi({ user, t }) {
   if (user.is_owner || user.qurilma_limiti === undefined) return null;
-
-  function yop() {
-    setOchiq(false);
-    if (ozgardi) yangila?.();
-    setOzgardi(false);
-  }
-
   return (
-    <>
-      <button
-        type="button"
-        className="tugma ikkinchi kichik"
-        onClick={() => setOchiq(true)}
-        title={t("qurilma_limiti_izoh")}
-        style={user.qurilma_sorovi_bor ? { borderColor: "var(--ogoh)", color: "var(--ogoh)" } : undefined}
-      >
-        {t("qurilmalar")}: {user.qurilmalar_soni ?? 0}/{user.qurilma_limiti}
-        {user.qurilma_sorovi_bor && " !"}
-      </button>
-      {ochiq && (
-        <div
-          onClick={yop}
-          style={{
-            position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)",
-            display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2000,
-          }}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="karta"
-            style={{ maxWidth: 560, width: "92%", maxHeight: "85vh", overflowY: "auto", display: "grid", gap: 12 }}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-              <h3 style={{ margin: 0 }}>{t("qurilmalar")} — {user.ism || user.username}</h3>
-              <button type="button" className="tugma ikkinchi kichik" onClick={yop}>{t("yopish")}</button>
-            </div>
-            <QurilmalarPaneli userId={user.id} onOzgardi={() => setOzgardi(true)} />
-          </div>
-        </div>
-      )}
-    </>
+    <Link
+      to={`/qurilmalar?foydalanuvchi=${user.id}`}
+      className="tugma ikkinchi kichik"
+      style={user.qurilma_sorovi_bor ? { borderColor: "var(--ogoh)", color: "var(--ogoh)" } : undefined}
+    >
+      {t("qurilmalar")}: {user.qurilmalar_soni ?? 0}/{user.qurilma_limiti}
+      {user.qurilma_sorovi_bor && " !"}
+    </Link>
   );
 }
 
@@ -762,19 +658,6 @@ export default function Foydalanuvchilar() {
     }
   }
 
-  /** "Qurilmani tiklash" — sabab MAJBURIY, egasiga ogohlantirish
-   * boradi (`QurilmaTiklashTugmasi` izohiga qarang). */
-  async function qurilmaTiklash(id, izoh) {
-    setXabar((x) => ({ ...x, [id]: "" }));
-    try {
-      await api(`/api/foydalanuvchilar/${id}/qurilma-tiklash/`, { method: "POST", body: { izoh } });
-      setXabar((x) => ({ ...x, [id]: t("qurilma_tiklash_muvaffaqiyatli") }));
-      yukla();
-    } catch (e) {
-      setXabar((x) => ({ ...x, [id]: e.data?.detail || t("xato_yuz_berdi") }));
-    }
-  }
-
   async function yangiYarat(e) {
     e.preventDefault();
     setYangiXato("");
@@ -954,8 +837,7 @@ export default function Foydalanuvchilar() {
               {!u.is_owner && u.id !== profil?.id && (
                 <PanelTanlovi user={u} saqlash={panellarSaqla} t={t} />
               )}
-              <QurilmaTiklashTugmasi user={u} tiklash={qurilmaTiklash} t={t} />
-              <QurilmaLimitiBoshqaruv user={u} yangila={yukla} t={t} />
+              <QurilmalarHavolasi user={u} t={t} />
               {!u.is_owner && u.id !== profil?.id && (
                 <button
                   className="tugma ikkinchi"

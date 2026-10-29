@@ -87,6 +87,7 @@ textarea {
 .chip { font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; }
 .chip.bor { background: rgba(46, 158, 91, .15); color: var(--yaxshi); }
 .chip.tugadi { background: rgba(214, 69, 69, .12); color: var(--xato); }
+.chip.kutilmoqda { background: rgba(224, 135, 0, .14); color: var(--ogoh); }
 
 .tab-guruh { display: flex; gap: 8px; margin-bottom: 4px; }
 .tab-guruh button {

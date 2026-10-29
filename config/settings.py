@@ -150,6 +150,15 @@ CORS_ALLOWED_ORIGINS = config(
     cast=lambda v: [o.strip() for o in v.split(',')],
 )
 
+# Qurilma kaliti (passkey, 2026-10-29 — `accounts/qurilma_kaliti.py`): kalit sayt (frontend)
+# domeniga bog'lanadi. So'rovdagi `Origin` shu ro'yxatda bo'lsagina kalit ishlatiladi;
+# standart holatda — CORS'da ruxsat etilgan frontend manzillari.
+WEBAUTHN_ORIGINS = config(
+    'WEBAUTHN_ORIGINS',
+    default=','.join(CORS_ALLOWED_ORIGINS),
+    cast=lambda v: [o.strip().rstrip('/') for o in v.split(',') if o.strip()],
+)
+
 # 2026-09-03, HAQIQIY XATO: prodda yuklab olingan fayllar DOIM
 # "yuklab-olindi.zip" nomi bilan saqlanardi (IELTS testi, kurs eksporti —
 # hammasi). Sabab kodda emas: server `Content-Disposition`ni to'g'ri

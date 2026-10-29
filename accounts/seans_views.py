@@ -112,8 +112,11 @@ class AktivFoydalanuvchilarView(APIView):
 
         foydalanuvchilar = User.objects.filter(pk__in=seanslar).only(
             "id", "username", "first_name", "last_name", "role",
-            "is_superuser", "oxirgi_faollik", "qurilmalar",
+            "is_superuser", "oxirgi_faollik",
         )
+        from .qurilma_tizimi import qurilma_sanoqlari
+
+        sanoqlar = qurilma_sanoqlari(seanslar)
         natija = [
             {
                 "id": u.id,
@@ -122,7 +125,7 @@ class AktivFoydalanuvchilarView(APIView):
                 "rol": "owner" if u.is_superuser else u.role,
                 "oxirgi_faollik": u.oxirgi_faollik,
                 "seans_soni": seanslar.get(u.id, 0),
-                "qurilma_soni": len(u.qurilmalar or []),
+                "qurilma_soni": sanoqlar.get(u.id, (0, False))[0],
                 # O'zini tasodifan chiqarib yubormasligi uchun (foydalanuvchi
                 # qarori) — o'z qatorida "Yopish" ko'rsatilmaydi.
                 "ozim": u.id == request.user.pk,
