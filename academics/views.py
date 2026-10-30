@@ -41,7 +41,7 @@ def _dars_sanalari(guruh, sana):
     """`sana` oyidagi haqiqiy dars sanalari (tartiblangan) yoki `None`.
 
     Video-TZ IMG_7340.MOV: o'qituvchi davomatni faqat guruhning dars
-    kunlariga qo'ya olsin (toq kun guruhiga juma/shanba emas). Hisob
+    kunlariga qo'ya olsin (juft kun guruhiga juma emas). Hisob
     `crm.boshqaruv.guruh_dars_sanalari` bilan bir xil: haftalik jadval +
     ko'chirilgan/qo'shimcha darslar − bekor qilingan/ko'chirib ketilganlar.
     CRM modellari `_davomat_izoh_model` kabi runtime'da olinadi.

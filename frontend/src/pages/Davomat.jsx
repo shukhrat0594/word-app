@@ -67,7 +67,10 @@ export default function Davomat({ guruhId: tashqiGuruhId }) {
     }).catch(() => setXato(true));
   }
 
-  function talabalarniYukla() {
+  // `eskirdimi` — javob kelguncha guruh/sana o'zgargan bo'lsa (masalan,
+  // "›" tez ikki marta bosilsa) eski javob e'tiborsiz qoldiriladi: aks holda
+  // u sanani orqaga surib, boshqa kunning holatlarini ko'rsatib qo'yardi.
+  function talabalarniYukla(eskirdimi = () => false) {
     if (!guruhId) {
       setTalabalar(null);
       setDarsSanalari(null);
@@ -76,6 +79,7 @@ export default function Davomat({ guruhId: tashqiGuruhId }) {
     setXabar("");
     api(`/api/davomat/?guruh=${guruhId}&sana=${sana}`)
       .then((d) => {
+        if (eskirdimi()) return;
         const ds = d.dars_sanalari ?? null;
         setDarsSanalari(ds);
         setTalabalar(d.talabalar);
@@ -101,7 +105,11 @@ export default function Davomat({ guruhId: tashqiGuruhId }) {
   }, []);
 
   useEffect(() => {
-    talabalarniYukla();
+    let eskirdi = false;
+    talabalarniYukla(() => eskirdi);
+    return () => {
+      eskirdi = true;
+    };
   }, [guruhId, sana]);
 
   function holatQoy(talabaId, holat, izoh) {
