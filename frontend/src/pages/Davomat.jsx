@@ -14,6 +14,26 @@ function bugun() {
   return new Date().toLocaleDateString("sv-SE");
 }
 
+// "YYYY-MM-DD" satrlari — leksik taqqoslash sana tartibiga mos keladi.
+// Oy surilganda shu oyning 1-sanasi beriladi, keyin `talabalarniYukla`
+// uni o'sha oyning birinchi dars kuniga to'g'rilaydi.
+function oySur(sana, qadam) {
+  const [y, m] = sana.split("-").map(Number);
+  const d = new Date(y, m - 1 + qadam, 1);
+  return d.toLocaleDateString("sv-SE");
+}
+
+const SANA_LOKALI = { uz: "uz-Latn-UZ", ru: "ru-RU", en: "en-GB" };
+
+function sanaMatni(sana, til) {
+  const [y, m, k] = sana.split("-").map(Number);
+  return new Date(y, m - 1, k).toLocaleDateString(SANA_LOKALI[til] || "uz-Latn-UZ", {
+    weekday: "short",
+    day: "numeric",
+    month: "long",
+  });
+}
+
 /** Davomat belgilash.
  *
  * 2026-08-15: avval alohida "/davomat" paneli edi, endi GURUH ICHIDA
@@ -23,10 +43,14 @@ function bugun() {
  * allaqachon ma'lum); berilmasa — avvalgidek o'zi tanlaydi (mustaqil
  * sahifa sifatida ishlatilsa). */
 export default function Davomat({ guruhId: tashqiGuruhId }) {
-  const { t } = useI18n();
+  const { t, til } = useI18n();
   const [guruhlar, setGuruhlar] = useState([]);
   const [ichkiGuruhId, setIchkiGuruhId] = useState("");
   const [sana, setSana] = useState(bugun());
+  // Video-TZ IMG_7340.MOV: davomat faqat guruhning DARS kunlariga
+  // belgilanadi. Server `sana` oyidagi dars sanalarini beradi; `null` —
+  // guruhga jadval kiritilmagan, unda avvalgidek istalgan kun tanlanadi.
+  const [darsSanalari, setDarsSanalari] = useState(null);
   const [talabalar, setTalabalar] = useState(null);
   const [xabar, setXabar] = useState("");
   const [band, setBand] = useState(false);
@@ -43,14 +67,30 @@ export default function Davomat({ guruhId: tashqiGuruhId }) {
     }).catch(() => setXato(true));
   }
 
-  function talabalarniYukla() {
+  // `eskirdimi` — javob kelguncha guruh/sana o'zgargan bo'lsa (masalan,
+  // "›" tez ikki marta bosilsa) eski javob e'tiborsiz qoldiriladi: aks holda
+  // u sanani orqaga surib, boshqa kunning holatlarini ko'rsatib qo'yardi.
+  function talabalarniYukla(eskirdimi = () => false) {
     if (!guruhId) {
       setTalabalar(null);
+      setDarsSanalari(null);
       return;
     }
     setXabar("");
     api(`/api/davomat/?guruh=${guruhId}&sana=${sana}`)
-      .then((d) => setTalabalar(d.talabalar))
+      .then((d) => {
+        if (eskirdimi()) return;
+        const ds = d.dars_sanalari ?? null;
+        setDarsSanalari(ds);
+        setTalabalar(d.talabalar);
+        // Tanlangan kun dars kuni bo'lmasa — shu oydagi eng yaqin O'TGAN
+        // dars kuniga (bugun juma bo'lsa — payshanbaga), u ham bo'lmasa
+        // oyning birinchi dars kuniga o'tiladi.
+        if (ds && ds.length && !ds.includes(sana)) {
+          const otgan = ds.filter((s) => s <= sana);
+          setSana(otgan.length ? otgan[otgan.length - 1] : ds[0]);
+        }
+      })
       .catch(() => setXato(true));
   }
 
@@ -65,7 +105,11 @@ export default function Davomat({ guruhId: tashqiGuruhId }) {
   }, []);
 
   useEffect(() => {
-    talabalarniYukla();
+    let eskirdi = false;
+    talabalarniYukla(() => eskirdi);
+    return () => {
+      eskirdi = true;
+    };
   }, [guruhId, sana]);
 
   function holatQoy(talabaId, holat, izoh) {
@@ -103,6 +147,9 @@ export default function Davomat({ guruhId: tashqiGuruhId }) {
 
   if (xato) return <XatolikHolati qaytaUrin={yukla} />;
 
+  // Jadvalsiz guruhda har kun "dars kuni" hisoblanadi.
+  const darsDa = !darsSanalari || darsSanalari.includes(sana);
+
   // Guruh ichiga joylashtirilganda tashqi "karta" o'rami berilmaydi —
   // aks holda karta ichida karta bo'lib ko'rinadi.
   return (
@@ -123,17 +170,48 @@ export default function Davomat({ guruhId: tashqiGuruhId }) {
         )}
         <div>
           <div className="izoh" style={{ marginBottom: 6 }}>{t("davomat_sana")}</div>
-          <input type="date" value={sana} onChange={(e) => setSana(e.target.value)} />
+          {darsSanalari ? (
+            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+              <button
+                className="tugma ikkinchi"
+                title={t("davomat_oldingi_oy")}
+                onClick={() => setSana(oySur(sana, -1))}
+              >
+                ‹
+              </button>
+              <select value={darsDa ? sana : ""} onChange={(e) => setSana(e.target.value)}>
+                {!darsDa && <option value="">—</option>}
+                {darsSanalari.map((s) => (
+                  <option key={s} value={s}>
+                    {sanaMatni(s, til)}
+                  </option>
+                ))}
+              </select>
+              <button
+                className="tugma ikkinchi"
+                title={t("davomat_keyingi_oy")}
+                onClick={() => setSana(oySur(sana, 1))}
+              >
+                ›
+              </button>
+            </div>
+          ) : (
+            <input type="date" value={sana} onChange={(e) => setSana(e.target.value)} />
+          )}
         </div>
       </div>
 
       {!guruhId && <span className="izoh">{t("guruh_tanlang")}</span>}
 
-      {guruhId && talabalar && talabalar.length === 0 && (
+      {guruhId && darsSanalari && darsSanalari.length === 0 && (
+        <span className="izoh">{t("davomat_oyda_dars_yoq")}</span>
+      )}
+
+      {guruhId && darsDa && talabalar && talabalar.length === 0 && (
         <span className="izoh">{t("talaba_yoq")}</span>
       )}
 
-      {guruhId && talabalar && talabalar.length > 0 && (
+      {guruhId && darsDa && talabalar && talabalar.length > 0 && (
         <>
           {talabalar.map((tl) => (
             <div className="davomat-qator" key={tl.id}>

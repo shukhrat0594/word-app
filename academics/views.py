@@ -1,3 +1,6 @@
+import calendar
+from datetime import date, timedelta
+
 from django.apps import apps as django_apps
 from django.db import transaction
 from django.db.models import Count, Q
@@ -32,6 +35,52 @@ def _davomat_izoh_model():
     app registridan olinadi.
     """
     return django_apps.get_model("crm", "DavomatIzoh")
+
+
+def _dars_sanalari(guruh, sana):
+    """`sana` oyidagi haqiqiy dars sanalari (tartiblangan) yoki `None`.
+
+    Video-TZ IMG_7340.MOV: o'qituvchi davomatni faqat guruhning dars
+    kunlariga qo'ya olsin (juft kun guruhiga juma emas). Hisob
+    `crm.boshqaruv.guruh_dars_sanalari` bilan bir xil: haftalik jadval +
+    ko'chirilgan/qo'shimcha darslar − bekor qilingan/ko'chirib ketilganlar.
+    CRM modellari `_davomat_izoh_model` kabi runtime'da olinadi.
+
+    `None` — cheklov yo'q: CRM o'rnatilmagan yoki guruhga jadval
+    kiritilmagan (avvalgidek istalgan kunga belgilanadi).
+    """
+    try:
+        jadval = django_apps.get_model("crm", "DarsJadvali")
+        ozgarish = django_apps.get_model("crm", "DarsOzgarish")
+    except LookupError:
+        return None
+    hafta_kunlari = set(jadval.objects.filter(guruh=guruh).values_list("hafta_kuni", flat=True))
+    if not hafta_kunlari:
+        return None
+    boshi = sana.replace(day=1)
+    oxiri = sana.replace(day=calendar.monthrange(sana.year, sana.month)[1])
+    sanalar = {
+        boshi + timedelta(days=i)
+        for i in range(oxiri.day)
+        if (boshi + timedelta(days=i)).weekday() in hafta_kunlari
+    }
+    for oz in ozgarish.objects.filter(guruh=guruh):
+        if oz.asl_sana and boshi <= oz.asl_sana <= oxiri and oz.turi in ("kochirish", "bekor"):
+            sanalar.discard(oz.asl_sana)
+        if oz.yangi_sana and boshi <= oz.yangi_sana <= oxiri and oz.turi in ("kochirish", "qoshimcha"):
+            sanalar.add(oz.yangi_sana)
+    return sorted(sanalar)
+
+
+def _sana_ol(qiymat):
+    """"YYYY-MM-DD" → `date`; bo'sh bo'lsa bugungi (Toshkent) sana,
+    noto'g'ri bo'lsa `None`."""
+    if not qiymat:
+        return timezone.localdate()
+    try:
+        return date.fromisoformat(str(qiymat))
+    except ValueError:
+        return None
 
 
 def _foydalanuvchi_dict(u):
@@ -460,7 +509,10 @@ class DavomatView(APIView):
         # 00:00-05:00 oralig'ida ikkalasi bir kunga farq qilardi. Amalda bu
         # zaxira yo'l (frontend sanani doim o'zi yuboradi), lekin noto'g'ri
         # standart qolib ketmasin.
-        sana = request.query_params.get("sana") or str(timezone.localdate())
+        sana = _sana_ol(request.query_params.get("sana"))
+        if sana is None:
+            return Response({"detail": "Sana noto'g'ri"}, status=400)
+        dars_sanalari = _dars_sanalari(guruh, sana)
         mavjud = {}
         for d in Davomat.objects.filter(guruh=guruh, sana=sana).select_related("crm_izoh"):
             izoh = getattr(d, "crm_izoh", None)
@@ -473,7 +525,9 @@ class DavomatView(APIView):
         return Response(
             {
                 "guruh": _guruh_dict(guruh),
-                "sana": sana,
+                "sana": str(sana),
+                # `None` — guruhga jadval kiritilmagan, istalgan kun mumkin.
+                "dars_sanalari": None if dars_sanalari is None else [str(s) for s in dars_sanalari],
                 "talabalar": [
                     {
                         "id": t.id,
@@ -490,7 +544,12 @@ class DavomatView(APIView):
         if not _guruhga_ruxsat_bormi(request.user, guruh):
             return Response({"detail": "Ruxsat yo'q"}, status=403)
 
-        sana = request.data.get("sana") or str(timezone.localdate())
+        sana = _sana_ol(request.data.get("sana"))
+        if sana is None:
+            return Response({"detail": "Sana noto'g'ri"}, status=400)
+        dars_sanalari = _dars_sanalari(guruh, sana)
+        if dars_sanalari is not None and sana not in dars_sanalari:
+            return Response({"detail": "Bu kunda guruhning darsi yo'q"}, status=400)
         yozuvlar = request.data.get("yozuvlar") or []
         azo_idlar = set(guruh.talabalar.values_list("id", flat=True))
 
@@ -520,7 +579,7 @@ class DavomatView(APIView):
                     _davomat_izoh_model().objects.filter(davomat=yozuv).delete()
             saqlandi += 1
 
-        return Response({"saqlandi": saqlandi, "sana": sana})
+        return Response({"saqlandi": saqlandi, "sana": str(sana)})
 
 
 class DavomatHisobotView(APIView):
