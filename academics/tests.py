@@ -9,6 +9,7 @@ har kuni 00:00-05:00 oralig'ida ikkalasi bir kunga farq qilardi.
 import datetime
 from unittest import mock
 
+from django.apps import apps as django_apps
 from django.core.cache import cache
 from django.test import TestCase
 from django.utils import timezone
@@ -197,3 +198,95 @@ class DavomatKechikdiSababliTest(TestCase):
         self.assertEqual(javob.status_code, 200, javob.data)
         self.assertEqual(javob.data["saqlandi"], 0)
         self.assertEqual(Davomat.objects.count(), 0)
+
+
+class DavomatDarsKunlariTest(TestCase):
+    """Video-TZ IMG_7340.MOV: guruhning darsi 29- va 31-oktabrda (juft kun —
+    seshanba/payshanba/shanba), lekin o'qituvchi 30-oktabrga (juma) ham
+    davomat qo'ya olardi. Endi faqat dars kunlariga belgilanadi.
+
+    CRM modellari `django_apps` orqali olinadi — LMS testlari ham `crm`ni
+    statik import qilmasin (`crm.tests.IzolyatsiyaTest`)."""
+
+    def setUp(self):
+        cache.clear()
+        self.markaz = Markaz.objects.create(name="Utmost")
+        self.oqituvchi = User.objects.create_user(
+            username="oqituvchi", password=PAROL, role=User.Role.TEACHER, markaz=self.markaz
+        )
+        self.talaba = User.objects.create_user(
+            username="talaba", password=PAROL, role=User.Role.STUDENT, markaz=self.markaz
+        )
+        self.guruh = Guruh.objects.create(
+            name="SINOV juft kun", markaz=self.markaz, oqituvchi=self.oqituvchi
+        )
+        self.guruh.talabalar.add(self.talaba)
+        jadval = django_apps.get_model("crm", "DarsJadvali")
+        for kun in (1, 3, 5):  # seshanba, payshanba, shanba
+            jadval.objects.create(
+                guruh=self.guruh, hafta_kuni=kun, boshlanish_vaqti="09:00", tugash_vaqti="10:30"
+            )
+
+        self.client_ = APIClient()
+        javob = self.client_.post(
+            "/api/token/",
+            {"username": "oqituvchi", "password": PAROL, "qurilma_id": "q1"},
+            format="json",
+        )
+        self.assertEqual(javob.status_code, 200, javob.data)
+        self.client_.credentials(HTTP_AUTHORIZATION="Bearer " + javob.data["access"])
+
+    def _belgila(self, sana):
+        return self.client_.post(
+            "/api/davomat/",
+            {
+                "guruh": self.guruh.id,
+                "sana": sana,
+                "yozuvlar": [{"talaba": self.talaba.id, "holat": "keldi"}],
+            },
+            format="json",
+        )
+
+    def test_get_oydagi_dars_sanalarini_qaytaradi(self):
+        javob = self.client_.get(f"/api/davomat/?guruh={self.guruh.id}&sana=2026-10-30")
+        self.assertEqual(javob.status_code, 200, javob.data)
+        sanalar = javob.data["dars_sanalari"]
+        self.assertEqual(len(sanalar), 14)
+        self.assertIn("2026-10-29", sanalar)
+        self.assertIn("2026-10-31", sanalar)
+        self.assertNotIn("2026-10-30", sanalar)
+
+    def test_darssiz_kunga_belgilanmaydi(self):
+        javob = self._belgila("2026-10-30")
+        self.assertEqual(javob.status_code, 400, javob.data)
+        self.assertEqual(Davomat.objects.count(), 0)
+
+    def test_dars_kuniga_belgilanadi(self):
+        javob = self._belgila("2026-10-31")
+        self.assertEqual(javob.status_code, 200, javob.data)
+        self.assertEqual(str(Davomat.objects.get().sana), "2026-10-31")
+
+    def test_kochirilgan_va_bekor_qilingan_dars_hisobga_olinadi(self):
+        ozgarish = django_apps.get_model("crm", "DarsOzgarish")
+        ozgarish.objects.create(
+            guruh=self.guruh, turi="kochirish",
+            asl_sana=datetime.date(2026, 10, 29), yangi_sana=datetime.date(2026, 10, 30),
+        )
+        ozgarish.objects.create(guruh=self.guruh, turi="bekor", asl_sana=datetime.date(2026, 10, 31))
+        javob = self.client_.get(f"/api/davomat/?guruh={self.guruh.id}&sana=2026-10-30")
+        sanalar = javob.data["dars_sanalari"]
+        self.assertIn("2026-10-30", sanalar)
+        self.assertNotIn("2026-10-29", sanalar)
+        self.assertNotIn("2026-10-31", sanalar)
+        self.assertEqual(self._belgila("2026-10-30").status_code, 200)
+        self.assertEqual(self._belgila("2026-10-29").status_code, 400)
+
+    def test_jadvalsiz_guruhda_cheklov_yoq(self):
+        django_apps.get_model("crm", "DarsJadvali").objects.filter(guruh=self.guruh).delete()
+        javob = self.client_.get(f"/api/davomat/?guruh={self.guruh.id}&sana=2026-10-30")
+        self.assertIsNone(javob.data["dars_sanalari"])
+        self.assertEqual(self._belgila("2026-10-30").status_code, 200)
+
+    def test_notogri_sana_400(self):
+        javob = self.client_.get(f"/api/davomat/?guruh={self.guruh.id}&sana=nimadir")
+        self.assertEqual(javob.status_code, 400)
