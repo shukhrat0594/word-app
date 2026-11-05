@@ -19,6 +19,7 @@ from decimal import Decimal
 
 from django.db import transaction
 from django.db.models import Count, Exists, OuterRef, Prefetch, Q, Sum
+from django.db.models.functions import Coalesce
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
@@ -1818,6 +1819,23 @@ KETISH_SABABLARI = (
 )
 
 
+def boshqa_guruhda_oqiydi():
+    """`GuruhdanChiqish` so'rovi uchun: o'quvchi hozir boshqa guruhda o'qiyaptimi.
+
+    Admin ko'pincha "Ko'chirish" o'rniga o'quvchini sabab bilan chiqarib,
+    keyin yangi guruhga qo'shadi — yozuv oddiy ketish sababi bilan qoladi,
+    lekin o'quvchi markazdan ketmagan (video-TZ IMG_7538).
+
+    `Coalesce`: eski guruh o'chirilgan bo'lsa `guruh_id` NULL, u bilan
+    solishtirish SQL'da rost bo'lmaydi va o'quvchi "ketgan" bo'lib qolardi.
+    """
+    return Exists(
+        AzolikMoliya.objects.filter(azolik__talaba_id=OuterRef("talaba_id"), azolik__guruh__faol=True)
+        .exclude(holat=AzolikMoliya.Holat.ARXIV)
+        .exclude(azolik__guruh_id=Coalesce(OuterRef("guruh_id"), 0))
+    )
+
+
 def guruhdan_chiqar(kim, azolik, sana, sabab_turi, izoh="", *, tugash_sana=None):
     """Talabani guruhdan chiqaradi va `GuruhdanChiqish` yozuvini qaytaradi.
 
@@ -2429,10 +2447,12 @@ class KorsatkichlarView(CrmView):
         # "To'lovi yaqin" kartochkasi olib tashlandi (video-TZ 2026-09-28: "kerak emas").
 
         # Bitirgan va boshqa guruhga o'tgan "ketgan" emas (markazda qolgan).
-        # Lidga qaytarilganlar ham — "Ketgan o'quvchilar" hisoboti bilan bir xil (video-TZ IMG_7097).
+        # Lidga qaytarilganlar va hozir boshqa guruhda o'qiyotganlar ham —
+        # "Ketgan o'quvchilar" hisoboti bilan bir xil (video-TZ IMG_7097, IMG_7538).
         oy_ketgan = GuruhdanChiqish.objects.filter(sana__gte=oy, sana__lte=bugun).filter(
             filial_q(u, "filial")).exclude(
-            sabab_turi__in=(*GuruhdanChiqish.KETMAGAN_TURLAR, GuruhdanChiqish.SababTuri.LIDGA))
+            sabab_turi__in=(*GuruhdanChiqish.KETMAGAN_TURLAR, GuruhdanChiqish.SababTuri.LIDGA)).filter(
+            ~boshqa_guruhda_oqiydi())
         if filial:
             oy_ketgan = oy_ketgan.filter(filial_id=filial)
 

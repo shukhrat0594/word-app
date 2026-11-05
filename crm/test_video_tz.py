@@ -276,6 +276,77 @@ class KetishHisobotiTest(ApiAsos):
         self.assertEqual([x["oqigan_kun"] for x in d["royxat"]], [133])
 
 
+class BoshqaGuruhdaOqiyotganTest(ApiAsos):
+    """video-TZ IMG_7538: "Ko'chirish" o'rniga sabab bilan chiqarilib, yangi
+    guruhga qo'shilgan o'quvchi "Ketgan talabalar" ro'yxatida chiqmaydi."""
+
+    SOROV = "/api/crm/hisobot/ketganlar/?dan=2026-09-01&gacha=2026-09-30"
+
+    def setUp(self):
+        super().setUp()
+        self.m = self.mijoz(self.admin)
+        self.azolik_qosh()
+        self.yangi = Guruh.objects.create(name="SINOV yangi guruh", markaz=self.markaz, daraja=self.daraja)
+        GuruhMoliya.objects.create(guruh=self.yangi, filial=self.filial, boshlanish_sana=date(2026, 1, 1))
+
+    def chiqar(self, sabab="dars_jadvali"):
+        with bugun(date(2026, 9, 20)):
+            j = self.m.delete(f"/api/crm/guruhlar/{self.guruh.id}/talabalar/"
+                              f"?talaba={self.talaba.id}&sana=2026-09-18&sabab_turi={sabab}")
+        self.assertEqual(j.status_code, 204)
+
+    def yangi_guruhga(self):
+        azolik = GuruhAzoligi.objects.create(guruh=self.yangi, talaba=self.talaba)
+        return AzolikMoliya.objects.create(azolik=azolik, boshlanish_sana=date(2026, 9, 18))
+
+    def hisobot(self):
+        with bugun(date(2026, 9, 20)):
+            return self.m.get(self.SOROV).data, self.mijoz(self.owner).get("/api/crm/korsatkichlar/").data
+
+    def test_chiqarilib_boshqa_guruhga_qoshilgan_ketgan_emas(self):
+        self.chiqar()
+        d, k = self.hisobot()
+        self.assertEqual((d["soni"], k["ketganlar"]), (1, 1))  # hali hech qayerda o'qimayapti
+
+        self.yangi_guruhga()
+        d, k = self.hisobot()
+        self.assertEqual((d["soni"], d["royxat"], d["sabablar"], k["ketganlar"]), (0, [], [], 0))
+        self.assertEqual(d["migratsiya"]["soni"], 1)
+        self.assertEqual(d["migratsiya"]["royxat"][0]["talaba_id"], self.talaba.id)
+
+    def test_eski_guruh_ochirilgan_bolsa_ham_ketgan_emas(self):
+        self.chiqar()
+        self.yangi_guruhga()
+        GuruhdanChiqish.objects.update(guruh=None)
+        d, k = self.hisobot()
+        self.assertEqual((d["soni"], k["ketganlar"], d["migratsiya"]["soni"]), (0, 0, 1))
+
+    def test_yopilgan_yoki_arxivdagi_guruh_oqish_emas(self):
+        self.chiqar()
+        am = self.yangi_guruhga()
+        AzolikMoliya.objects.filter(pk=am.pk).update(holat=AzolikMoliya.Holat.ARXIV)
+        self.assertEqual(self.hisobot()[0]["soni"], 1)
+        AzolikMoliya.objects.filter(pk=am.pk).update(holat=AzolikMoliya.Holat.FAOL)
+        Guruh.objects.filter(pk=self.yangi.pk).update(faol=False)
+        self.assertEqual(self.hisobot()[0]["soni"], 1)
+
+    def test_shu_guruhga_qaytgan_kochgan_hisoblanmaydi(self):
+        self.chiqar()
+        self.azolik_qosh()
+        d = self.hisobot()[0]
+        self.assertEqual((d["soni"], d["migratsiya"]["soni"]), (1, 0))
+
+    def test_bitirgan_va_lidga_qaytarilgan_kochganga_aylanmaydi(self):
+        GuruhdanChiqish.objects.create(
+            talaba=self.talaba, talaba_ism="T", guruh=self.yangi, guruh_nomi="G", filial=self.filial,
+            sana=date(2026, 9, 18), sabab_turi=GuruhdanChiqish.SababTuri.BITIRDI)
+        GuruhdanChiqish.objects.create(
+            talaba=self.talaba, talaba_ism="T", guruh=self.yangi, guruh_nomi="G", filial=self.filial,
+            sana=date(2026, 9, 18), sabab_turi=GuruhdanChiqish.SababTuri.LIDGA)
+        d = self.hisobot()[0]
+        self.assertEqual((d["soni"], d["migratsiya"]["soni"], d["bitirganlar"]), (0, 0, 1))
+
+
 class FilialsizGuruhTest(ApiAsos):
     def test_filial_tanlanganda_sozlanmagan_guruh_ham_chiqadi(self):
         saytdagi = Guruh.objects.create(name="Saytda ochilgan", markaz=self.markaz)
