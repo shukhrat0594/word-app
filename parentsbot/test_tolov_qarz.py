@@ -92,6 +92,14 @@ class TolovXabariTest(Asos):
         self.assertIn("200 000 so'm", self.tg.yuborilgan[-1][1])
         self.assertNotIn("2 000 000", self.tg.yuborilgan[-1][1])
 
+    def test_summa_nolga_tushirilsa_bekor(self):
+        """Video-TZ IMG_7539: ikki marta kiritilgan to'lov 0 qilinsa, "0 so'm qabul qilindi" ketmasin."""
+        b = self.tolov()
+        self.skaner()
+        Tolov.objects.filter(pk=b.pk).update(summa=Decimal(0))
+        self.assertEqual(self.yubor(self.t0 + timedelta(minutes=6)), 0)
+        self.assertEqual(Xabar.objects.get().holat, "bekor")
+
     def test_turi_ozgarsa_bekor(self):
         b = self.tolov()
         self.skaner()

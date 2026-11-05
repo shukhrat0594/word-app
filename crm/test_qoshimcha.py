@@ -173,6 +173,16 @@ class XodimVaHisobotTest(ApiAsos):
         r = m.get("/api/crm/hisobot/eksport/?turi=tolovlar&dan=2026-10-01&gacha=2026-10-31")
         self.assertEqual(r.status_code, 200)
 
+    def test_nolga_tushirilgan_tolov_hisobotda_sanalmaydi(self):
+        """Video-TZ IMG_7539: bekor qilingan (0 so'm) to'lov "birinchi
+        to'lov" bo'lib ham, to'lovlar soniga ham kirmaydi."""
+        from crm.models import Tolov
+        for sana, summa in ((date(2026, 9, 5), 0), (date(2026, 10, 3), NARX)):
+            Tolov.objects.create(talaba=self.talaba, talaba_ism="SINOV", guruh=self.guruh, guruh_nomi="y",
+                                 sana=sana, summa=summa, turi=Tolov.Turi.TOLOV)
+        d = self.mijoz(self.owner).get("/api/crm/hisobot/tolovlar/?dan=2026-09-01&gacha=2026-10-31").data
+        self.assertEqual((d["birinchi_soni"], d["qayta_soni"], len(d["royxat"])), (1, 0, 1))
+
     def test_lidlar_voronkasi(self):
         Lid.objects.create(ism="A", telefon="1", yigilayotgan_guruh=self.guruh)
         Lid.objects.create(ism="B", telefon="2", holat=Lid.Holat.SINOV)
@@ -201,6 +211,11 @@ class XodimVaHisobotTest(ApiAsos):
                               "sinov_chaqirildi": ["B", "C", "D", "E", "F"],
                               "sinov_keldi": ["B", "D", "E", "F"], "sinov_kelmadi": ["C"],
                               "yoqdi": ["D"], "yoqmadi": ["F"], "tolov_1": ["D"], "tolov_2": ["D"]})
+        # Video-TZ IMG_7539: bekor qilingan (0 so'm) to'lov voronkada sanalmaydi.
+        Tolov.objects.filter(pk=Tolov.objects.first().pk).update(summa=0)
+        r = self.mijoz(self.admin).get("/api/crm/hisobot/lidlar/")
+        sonlar = {x["kalit"]: x["soni"] for x in r.data["voronka"]}
+        self.assertEqual((sonlar["tolov_1"], sonlar["tolov_2"]), (1, 0))
 
     def test_eslatma_tahrirlash_faqat_ozinikini(self):
         m = self.mijoz(self.admin)

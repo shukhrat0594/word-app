@@ -1716,8 +1716,10 @@ class TolovDetailView(CrmView):
         try:
             if "summa" in request.data:
                 summa = _son(request.data.get("summa"), "summa")
-                if summa <= 0:
-                    return _xato("summa: musbat bo'lsin")
+                # 0 — xato kiritilgan to'lovni bekor qilish (video-TZ IMG_7539):
+                # o'chirish faqat owner'da, yozuv esa izohi bilan tarixda qoladi.
+                if summa < 0:
+                    return _xato("summa: manfiy bo'lmasin")
                 tolov.summa = summa
             if "sana" in request.data:
                 tolov.sana = _sana(request.data.get("sana"), "sana")

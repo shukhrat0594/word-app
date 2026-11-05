@@ -4,7 +4,7 @@ o'quvchiga qarzdorlik hisoblanmayotgan edi."""
 from datetime import date
 
 from crm.boshqaruv import guruhdan_chiqar
-from crm.models import GuruhdanChiqish, Hisob
+from crm.models import GuruhdanChiqish, Hisob, Tolov
 from crm.test_api import ApiAsos
 from crm.tests import bugun_qilib
 
@@ -36,6 +36,27 @@ class KechagiSanaBilanFaollashtirishTest(ApiAsos):
         hisob = Hisob.objects.get(talaba=self.talaba, oy=OKTABR)
         self.assertGreater(hisob.summa, 0)
         self.assertEqual(hisob.holat, Hisob.Holat.QARZDOR)
+
+    def test_bekor_qilingan_tolov_qarzni_tosmaydi(self):
+        """Video-TZ IMG_7539: 0 so'mga tushirilgan to'lov "bu oyda pul bor"
+        degani emas — oy baribir qayta hisoblanadi."""
+        am = self.qayta_qoshilgan()
+        hisob = Hisob.objects.get(talaba=self.talaba, oy=OKTABR)
+        Tolov.objects.create(talaba=self.talaba, talaba_ism="x", guruh=self.guruh, guruh_nomi="y",
+                             hisob=hisob, sana=BUGUN, summa=0, turi=Tolov.Turi.TOLOV)
+        self.faollashtir(am, "2026-10-19")
+        hisob.refresh_from_db()
+        self.assertGreater(hisob.summa, 0)
+        self.assertEqual(hisob.holat, Hisob.Holat.QARZDOR)
+
+    def test_haqiqiy_tolovli_oy_qayta_hisoblanmaydi(self):
+        am = self.qayta_qoshilgan()
+        hisob = Hisob.objects.get(talaba=self.talaba, oy=OKTABR)
+        Tolov.objects.create(talaba=self.talaba, talaba_ism="x", guruh=self.guruh, guruh_nomi="y",
+                             hisob=hisob, sana=BUGUN, summa=1000, turi=Tolov.Turi.TOLOV)
+        self.faollashtir(am, "2026-10-19")
+        hisob.refresh_from_db()
+        self.assertEqual((hisob.summa, hisob.holat), (0, Hisob.Holat.TOLANDI))
 
     def test_guruh_boyicha_faollashtirishda_ham(self):
         self.qayta_qoshilgan()
