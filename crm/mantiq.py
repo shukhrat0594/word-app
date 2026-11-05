@@ -649,7 +649,7 @@ def faollashtirilganda(azolik_moliya: AzolikMoliya) -> None:
     hisoblar = Hisob.objects.filter(
         talaba=azolik_moliya.azolik.talaba, guruh=azolik_moliya.azolik.guruh,
         oy__gte=oy_boshi(azolik_moliya.boshlanish_sana), holat=Hisob.Holat.TOLANDI, qolda=False,
-    ).exclude(tolovlar__turi__in=Tolov.YOPUVCHI_TURLAR)
+    ).exclude(tolovlar__in=Tolov.objects.filter(turi__in=Tolov.YOPUVCHI_TURLAR, summa__gt=0))
     for hisob in hisoblar:
         # `azolikni_qayta_hisobla` to'langan oyga tegmaydi — bu oyda pul yo'q.
         hisob.holat = Hisob.Holat.QARZDOR

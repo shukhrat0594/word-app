@@ -786,7 +786,7 @@ class LidlarHisobotiView(CrmView):
                     for x in q.order_by("ism", "id")]
 
         keldi_r, kelmadi_r = lidlar(keldi_qs), lidlar(kelmadi_qs)
-        tolovlar = Counter(Tolov.objects.filter(talaba_id__in=talabalar, turi=Tolov.Turi.TOLOV)
+        tolovlar = Counter(Tolov.objects.filter(talaba_id__in=talabalar, turi=Tolov.Turi.TOLOV, summa__gt=0)
                            .values_list("talaba_id", flat=True))
         # Video-TZ IMG_7022: har bir voronka qatorida kimlar ekani ko'rinsin.
         # Bitta talabaga bir nechta lid bog'liq bo'lsa, to'lov qatorlarida
@@ -842,10 +842,11 @@ class TolovlarHisobotiView(CrmView):
         # birinchi `tolov`i — undan oldin (sana, keyin id bo'yicha) boshqa
         # `tolov` yo'q. Filial/davr filtrisiz qaraladi: sentyabrda to'lab,
         # oktyabrda yana to'lagan o'quvchi oktyabrda "qayta" sanaladi.
+        # Bekor qilingan (0 so'm) to'lov to'lov hisoblanmaydi (video-TZ IMG_7539).
         oldingi = Tolov.objects.filter(
-            talaba=OuterRef("talaba"), turi=Tolov.Turi.TOLOV,
+            talaba=OuterRef("talaba"), turi=Tolov.Turi.TOLOV, summa__gt=0,
         ).filter(Q(sana__lt=OuterRef("sana")) | Q(sana=OuterRef("sana"), id__lt=OuterRef("id")))
-        tolov = qs.filter(turi=Tolov.Turi.TOLOV).annotate(qayta=Exists(oldingi))
+        tolov = qs.filter(turi=Tolov.Turi.TOLOV, summa__gt=0).annotate(qayta=Exists(oldingi))
         kunlar = {}
         for x in tolov.values("sana", "qayta").annotate(s=Sum("summa"), n=Count("id")).order_by("sana"):
             k = kunlar.setdefault(x["sana"], {

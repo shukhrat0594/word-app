@@ -218,6 +218,32 @@ class RuxsatTest(ApiAsos):
         # Summa kamaygach oy qayta "qisman" bo'ladi — holat yagona joyda hisoblanadi.
         self.assertEqual(hisob.holat, Hisob.Holat.QISMAN)
 
+    def test_ikki_marta_kiritilgan_tolovni_nolga_tushirish(self):
+        """Video-TZ IMG_7539: admin xato to'lovni o'chira olmaydi, 0 ham
+        qilolmasdi. Endi 0 qilinadi: oy yana qarzdor, balans tuzaladi,
+        yozuv izohi bilan tarixda qoladi. Manfiy summa — baribir rad."""
+        hisob = Hisob.objects.create(
+            talaba=self.talaba, talaba_ism="x", guruh=self.guruh, guruh_nomi="y",
+            oy=date(2026, 9, 1), summa=NARX,
+        )
+        tolov = Tolov.objects.create(
+            talaba=self.talaba, talaba_ism="x", guruh=self.guruh, guruh_nomi="y",
+            hisob=hisob, sana=date(2026, 9, 5), summa=NARX, turi=Tolov.Turi.TOLOV,
+        )
+        mantiq.hisobni_yangila(hisob)
+        yol = f"/api/crm/tolov/{tolov.id}/"
+
+        javob = self.mijoz(self.admin).patch(yol, {"summa": "-1"}, format="json")
+        self.assertEqual(javob.status_code, 400)
+        javob = self.mijoz(self.admin).patch(yol, {"summa": "0", "izoh": "ikki marta kiritilgan"}, format="json")
+        self.assertEqual(javob.status_code, 200, javob.content)
+
+        tolov.refresh_from_db()
+        hisob.refresh_from_db()
+        self.assertEqual((tolov.summa, tolov.izoh), (Decimal("0"), "ikki marta kiritilgan"))
+        self.assertEqual(hisob.holat, Hisob.Holat.QARZDOR)
+        self.assertEqual(mantiq.balans(self.talaba), -NARX)
+
 
 class OqimTest(ApiAsos):
     def test_get_sorovi_hisobni_generatsiya_qiladi(self):

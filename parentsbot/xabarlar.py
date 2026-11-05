@@ -468,7 +468,7 @@ def _hali_yaroqli(x, sozlama, bugun, hozir=None):
                 and _kod_yoqilgan(sozlama, kod))
     if x.turi == "tolov":
         tl = Tolov.objects.filter(pk=x.payload.get("tolov_id")).first()
-        return tl is not None and tl.turi == Tolov.Turi.TOLOV and tl.talaba_id == x.talaba_id
+        return tl is not None and tl.turi == Tolov.Turi.TOLOV and tl.talaba_id == x.talaba_id and tl.summa > 0
     if x.turi == "ielts":
         return TestYechim.objects.filter(pk=x.payload.get("id"), talaba_id=x.talaba_id).exists()
     if x.turi == "ws":
