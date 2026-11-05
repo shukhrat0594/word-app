@@ -31,6 +31,7 @@ from .boshqaruv import (
     _muzlatilgan_kun,
     _telefon,
     _xodimlar_qs,
+    boshqa_guruhda_oqiydi,
     davomat_holati,
     guruh_dars_sanalari,
     talaba_yarat,
@@ -625,7 +626,8 @@ class KetganlarHisobotiView(CrmView):
 
     "Ketgan" — bitirgan va boshqa guruhga o'tganlardan TASHQARI (ular
     markazda qolgan). Boshqa guruhga o'tish alohida — "Guruh o'zgarishi
-    (ichki migratsiya)" bo'limida.
+    (ichki migratsiya)" bo'limida; hozir boshqa guruhda o'qiyotgan o'quvchi
+    ham shu yerda, yozuvi qaysi sabab bilan bo'lishidan qat'i nazar.
 
     Filtrlar: `q` (ism), `kurs`, `guruh`, `oqituvchi`, `sabab_turi`, `chegirma` (1/0),
     `muddat` (yangi — 30 kundan kam o'qib ketgan / eski).
@@ -665,12 +667,16 @@ class KetganlarHisobotiView(CrmView):
         if p.get("oqituvchi"):
             hammasi = hammasi.filter(guruh__oqituvchi_id=p["oqituvchi"])
 
-        kochganlar = list(hammasi.filter(sabab_turi=GuruhdanChiqish.SababTuri.KOCHIRILDI))
         # Lidlarga qaytarilganlar ham ketgan emas — ular lidlar ro'yxatida (video-TZ IMG_7020).
-        ketganlar = hammasi.exclude(sabab_turi__in=(*GuruhdanChiqish.KETMAGAN_TURLAR, GuruhdanChiqish.SababTuri.LIDGA))
+        ketish = ~Q(sabab_turi__in=(*GuruhdanChiqish.KETMAGAN_TURLAR, GuruhdanChiqish.SababTuri.LIDGA))
+        # Sabab bilan chiqarilib, hozir boshqa guruhda o'qiyotgan — ketgan emas,
+        # guruh o'zgarishi (video-TZ IMG_7538).
+        hammasi = hammasi.annotate(boshqa_guruhda=boshqa_guruhda_oqiydi())
+        kochganlar = list(hammasi.filter(
+            Q(sabab_turi=GuruhdanChiqish.SababTuri.KOCHIRILDI) | (ketish & Q(boshqa_guruhda=True))))
         # Kartochkalar va grafiklar — ro'yxat filtrlaridan (qidiruv, sabab,
         # chegirma) OLDINGI to'plamdan: filtr faqat pastdagi jadvalni toraytiradi.
-        umumiy = list(ketganlar)
+        umumiy = list(hammasi.filter(ketish, boshqa_guruhda=False))
         royxat = umumiy
         if p.get("sabab_turi"):
             royxat = [c for c in royxat if c.sabab_turi == p["sabab_turi"]]
