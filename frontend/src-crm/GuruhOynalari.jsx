@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 
 import { api, apiFaylYubor, apiFayluniYuklab } from "./api.js";
 import { useFilial } from "./filialContext.jsx";
-import { oyNomi, pul, sana } from "./format.js";
+import { bugunSana, oyNomi, pul, sana } from "./format.js";
 import { useI18n } from "./i18n.jsx";
 import { useRuxsat } from "./profilContext.jsx";
 import { sorovSatri, useSorov } from "./soragich.js";
@@ -18,7 +18,7 @@ const KUN_KALITLARI = [
 // SoffCRM'dagi "Hafta kunlari" tayyor variantlari.
 const HAFTA_SHABLONLARI = { toq: [0, 2, 4], juft: [1, 3, 5], har_kuni: [0, 1, 2, 3, 4, 5] };
 
-const bugun = () => new Date().toISOString().slice(0, 10);
+const bugun = bugunSana;
 
 // ── Guruh qo'shish / tahrirlash ─────────────────────────────────────
 
@@ -470,7 +470,7 @@ export function DavomatJadvali({ guruhId }) {
   const [kochirish, setKochirish] = useState(null);
   const [menyu, setMenyu] = useState(null); // { talaba, kun, joy }
   const tahrirlaydi = ruxsat("guruhlar.davomat");
-  const bugunSana = new Date().toISOString().slice(0, 10);
+  const bugunSana = bugun();
 
   async function mavzuYoz(sanaQ) {
     const eski = mavzular.malumot?.[sanaQ] || "";

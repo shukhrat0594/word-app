@@ -19,7 +19,7 @@ yuboradi (`api.js`). Bu yerda esa faqat SHU AMAL taqiqlangan, owner
 tizimdan chiqarilmasligi kerak — shuning uchun oddiy Django middleware
 (DRF permission emas) va aniq 403 javob."""
 
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 YOZISH_METODLARI = {"POST", "PUT", "PATCH", "DELETE"}
@@ -76,6 +76,41 @@ class OwnerYozishCheklashMiddleware:
         except Exception:
             return None
         return natija[0] if natija else None
+
+
+class AdminLoginCheklashMiddleware:
+    """Django admin paneli (`/admin/login/`) uchun brute-force himoyasi (2026-11-09).
+
+    `/api/token/` daqiqasiga 10 urinish bilan cheklangan, admin panel logini esa umuman
+    cheklanmagan edi — owner parolini shu yerdan cheksiz sinash mumkin edi. Mijoz IP'si
+    DRF bilan bir xil qoidada aniqlanadi (`NUM_PROXIES` sozlamasi, `config/settings.py`)."""
+
+    CHEGARA = 10
+    ORALIQ_SEK = 60
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        if request.method == "POST" and request.path.startswith("/admin/login"):
+            from django.core.cache import cache
+            from rest_framework.throttling import BaseThrottle
+
+            kalit = f"admin_login:{BaseThrottle().get_ident(request)}"
+            if cache.add(kalit, 1, self.ORALIQ_SEK):
+                soni = 1
+            else:
+                try:
+                    soni = cache.incr(kalit)
+                except ValueError:  # kalit shu orada eskirdi
+                    cache.set(kalit, 1, self.ORALIQ_SEK)
+                    soni = 1
+            if soni > self.CHEGARA:
+                return HttpResponse(
+                    "Juda ko'p urinish — bir daqiqadan keyin qayta urinib ko'ring.",
+                    status=429, content_type="text/plain; charset=utf-8",
+                )
+        return self.get_response(request)
 
 
 class ZaxiraTekshiruvMiddleware:

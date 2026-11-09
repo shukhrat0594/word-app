@@ -34,20 +34,28 @@ def mashq_uchun_xp(sender, instance, created, raw=False, **kwargs):
     # aniqlangan haqiqiy bug, 2026-08-15).
     if raw or not created:
         return
+    # 2026-11-09: faqat BIRINCHI urinish XP beradi (test va kurs mashqi kabi). Avval har
+    # yechim alohida manba edi — bitta mashqni qayta-qayta yuborib reytingni cheksiz
+    # oshirish mumkin edi. Manba yechim id'si bo'lib qoladi (eski yozuvlar bilan to'qnashmasin).
+    if MashqYechim.objects.filter(talaba=instance.talaba, mashq=instance.mashq).exclude(pk=instance.pk).exists():
+        return
     xp_ber(instance.talaba, "mashq_yechildi", manba_id=instance.id)
     if instance.jami and instance.ball == instance.jami:
         xp_ber(instance.talaba, "mashq_mukammal", manba_id=instance.id)
 
 
+# Writing/Speaking: XP tekshiruv TAYYOR bo'lganda beriladi (2026-11-09). Yozuv AI chaqiruvidan
+# OLDIN "kutilmoqda" holatida yaratiladi — avval XP o'sha paytda, AI xato bersa ham berilardi.
+# `xp_ber` manba bo'yicha takror bermaydi, shuning uchun keyingi saqlashlar xavfsiz.
 @receiver(post_save, sender=WritingTekshiruv)
 def writing_uchun_xp(sender, instance, created, raw=False, **kwargs):
-    if not raw and created:
+    if not raw and instance.holat == WritingTekshiruv.Holat.TAYYOR:
         xp_ber(instance.talaba, "writing_tekshiruv", manba_id=instance.id)
 
 
 @receiver(post_save, sender=SpeakingTekshiruv)
 def speaking_uchun_xp(sender, instance, created, raw=False, **kwargs):
-    if not raw and created:
+    if not raw and instance.holat == SpeakingTekshiruv.Holat.TAYYOR:
         xp_ber(instance.talaba, "speaking_tekshiruv", manba_id=instance.id)
 
 
@@ -73,5 +81,7 @@ def kurs_mashq_uchun_xp(sender, instance, created, raw=False, **kwargs):
 
 @receiver(post_save, sender=Davomat)
 def davomat_uchun_xp(sender, instance, created, raw=False, **kwargs):
-    if not raw and created and instance.holat == "keldi":
+    # `created` shart emas (2026-11-09): avval "kelmadi" deb belgilanib, keyin "keldi"ga
+    # tuzatilgan talaba XP olmay qolardi. Takror berilmaydi (`xp_ber` manba bo'yicha).
+    if not raw and instance.holat == "keldi":
         xp_ber(instance.talaba, "davomat_keldi", manba_id=instance.id)

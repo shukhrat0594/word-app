@@ -15,6 +15,11 @@ class CrmConfig(AppConfig):
     ro'yxatiga CRM talabasi tekshiruvi qo'shiladi (`crm/sayt_hisobi.py`).
     Bu signal emas va LMS modeliga tegmaydi — oddiy funksiya ro'yxati; CRM
     olib tashlansa u bilan birga yo'qoladi, sayt avvalgidek ishlaydi.
+
+    2026-11-09: xuddi shu naqshda yana ikkita ilgak (`academics.views`) — talaba
+    SAYTdagi Guruhlar sahifasidan olib tashlansa hisob chiqish kunigacha qayta
+    hisoblanadi, arxivlangan guruh saytdan qaytarilsa arxiv oylariga hisob
+    ochilmaydi. Avval bu ikki amal CRM'ni chetlab o'tib, soxta qarz qoldirardi.
     """
 
     default_auto_field = "django.db.models.BigAutoField"
@@ -32,3 +37,12 @@ class CrmConfig(AppConfig):
         # Xuddi shu naqsh: CRM xodimi o'quvchi ma'lumotini tahrirlay oladi.
         if talabani_tahrirlay_oladi not in TALABANI_TAHRIRLASH_RUXSATLARI:
             TALABANI_TAHRIRLASH_RUXSATLARI.append(talabani_tahrirlay_oladi)
+
+        from academics.views import AZOLIK_OCHIRILISHIDAN_OLDIN, GURUH_ARXIVDAN_QAYTGANDA
+
+        from .sayt_hisobi import guruh_saytda_qaytarildi, saytdan_chiqarildi
+
+        if saytdan_chiqarildi not in AZOLIK_OCHIRILISHIDAN_OLDIN:
+            AZOLIK_OCHIRILISHIDAN_OLDIN.append(saytdan_chiqarildi)
+        if guruh_saytda_qaytarildi not in GURUH_ARXIVDAN_QAYTGANDA:
+            GURUH_ARXIVDAN_QAYTGANDA.append(guruh_saytda_qaytarildi)

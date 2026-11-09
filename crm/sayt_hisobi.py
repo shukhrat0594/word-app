@@ -38,6 +38,45 @@ def crm_talabalari(user_idlar):
     return topildi
 
 
+def saytdan_chiqarildi(azolik, kim):
+    """Talaba SAYTdagi Guruhlar sahifasidan olib tashlanmoqda (`academics.views` ilgagi).
+
+    2026-11-09: avval a'zolik shunchaki o'chardi — joriy oy hisobi to'liq qarz bo'lib
+    qolar, "Ketgan o'quvchilar"da esa iz qolmasdi. Endi CRM'dagi "Guruhdan chiqarish"
+    bilan bir xil yo'l: hisob bugungi kungacha qayta hisoblanadi va chiqish yozuvi
+    qoladi. CRM bu guruhni bilmasa (moliyasi yo'q) yoki o'chirilgan bo'lsa — tegilmaydi."""
+    from django.conf import settings
+    from django.utils import timezone
+
+    if not getattr(settings, "CRM_YOQILGAN", False):
+        return
+    from .models import AzolikMoliya, GuruhdanChiqish
+
+    if getattr(azolik.guruh, "moliya", None) is None:
+        return
+    if getattr(azolik, "moliya", None) is None:
+        # Hali CRM ochilmagan — yozuv `mantiq._moliyasiz_azoliklarni_och` qoidasi bilan.
+        AzolikMoliya.objects.get_or_create(
+            azolik=azolik, defaults={"boshlanish_sana": timezone.localtime(azolik.created_at).date()}
+        )
+        azolik.refresh_from_db()
+    from .boshqaruv import guruhdan_chiqar
+
+    guruhdan_chiqar(kim, azolik, timezone.localdate(), GuruhdanChiqish.SababTuri.BOSHQA,
+                    "Saytdagi Guruhlar sahifasidan olib tashlandi")
+
+
+def guruh_saytda_qaytarildi(guruh):
+    """Arxivlangan guruh SAYTda qayta faollashtirildi — `mantiq.guruh_arxivdan_qaytganda`."""
+    from django.conf import settings
+
+    if not getattr(settings, "CRM_YOQILGAN", False):
+        return
+    from . import mantiq
+
+    mantiq.guruh_arxivdan_qaytganda(guruh)
+
+
 def talabani_tahrirlay_oladi(user, talaba_id):
     """CRM xodimi: "o'quvchini tahrirlash" ruxsati bor va talaba uning
     filialiga ko'rinadi. Saytdagi `PATCH /api/talabalar/<id>/` uchun."""

@@ -13,9 +13,8 @@ Kelajakda to'liq reja (REJA.md "Server/backup rejasi") uchtala tugmani
 ("Kompyuterga yuklab olish" / "R2'ga saqlash" / "tiklash") nazarda tutadi —
 bu yerda faqat birinchi va uchinchisi, va ikkalasi ham FAQAT baza."""
 
-import io
-import json
 import os
+import shutil
 import tempfile
 import zipfile
 from datetime import datetime
@@ -257,32 +256,29 @@ class BackupdanTiklashView(APIView):
         if not fayl:
             return Response({"detail": "ZIP fayl yuborilmadi"}, status=400)
 
-        try:
-            with zipfile.ZipFile(fayl) as z:
-                nomlar = [n for n in z.namelist() if n.endswith(".json")]
-                if not nomlar:
-                    return Response({"detail": "ZIP ichida .json fayl topilmadi"}, status=400)
-                xom_json = z.read(nomlar[0]).decode("utf-8")
-        except zipfile.BadZipFile:
-            return Response({"detail": "Fayl to'g'ri ZIP emas"}, status=400)
-
-        try:
-            # Format tekshiruvi — noto'g'ri JSON bo'lsa `loaddata` ichida
-            # tushunarsiz xato berishi mumkin, oldindan aniq xabar beramiz.
-            json.loads(xom_json)
-        except (ValueError, TypeError):
-            return Response({"detail": "JSON formati noto'g'ri"}, status=400)
-
-        # `loaddata` fayl yo'lini kutadi (stdin orqali maxsus stream
-        # qabul qilmaydi) — shuning uchun vaqtinchalik `.json` faylga
-        # yozib, o'sha yo'lni beramiz.
+        # `loaddata` fayl yo'lini kutadi — ZIP ichidagi JSON to'g'ridan-to'g'ri vaqtinchalik
+        # faylga OQIM bilan ko'chiriladi. 2026-11-09: avval u xotiraga to'liq o'qilib, yana
+        # `decode` va `json.loads` qilinardi — bir necha o'n MB'lik dump RAMda 3-4 nusxa
+        # (va Python obyektlari) bo'lib, 512 MB'lik serverda xotirani tugatishi mumkin edi.
+        # Format xatosini endi `loaddata`ning o'zi aytadi (tranzaksiya ichida — baza tegilmaydi).
         vaqtinchalik_yol = None
+        kim_id, kim_username = request.user.pk, request.user.username
         try:
-            with tempfile.NamedTemporaryFile(
-                mode="w", suffix=".json", delete=False, encoding="utf-8"
-            ) as f:
-                f.write(xom_json)
-                vaqtinchalik_yol = f.name
+            try:
+                with zipfile.ZipFile(fayl) as z:
+                    nomlar = [n for n in z.namelist() if n.endswith(".json")]
+                    if not nomlar:
+                        return Response({"detail": "ZIP ichida .json fayl topilmadi"}, status=400)
+                    with z.open(nomlar[0]) as manba, tempfile.NamedTemporaryFile(
+                        mode="wb", suffix=".json", delete=False
+                    ) as f:
+                        vaqtinchalik_yol = f.name
+                        shutil.copyfileobj(manba, f, 1024 * 1024)
+            except zipfile.BadZipFile:
+                return Response({"detail": "Fayl to'g'ri ZIP emas"}, status=400)
+            with open(vaqtinchalik_yol, "rb") as f:
+                if f.read(64).lstrip(b"\xef\xbb\xbf \t\r\n")[:1] != b"[":
+                    return Response({"detail": "JSON formati noto'g'ri"}, status=400)
             with transaction.atomic():
                 # 1-qadam: mavjud ma'lumotni tozalash. Bitta tranzaksiya
                 # ichida — quyidagi `loaddata` xato bersa, O'CHIRISH HAM
@@ -304,6 +300,21 @@ class BackupdanTiklashView(APIView):
         finally:
             if vaqtinchalik_yol and os.path.exists(vaqtinchalik_yol):
                 os.remove(vaqtinchalik_yol)
+
+        # Audit yozuvi TIKLANGAN bazaga yoziladi (eski jurnal backupdagisi bilan almashdi).
+        # Tiklagan hisob yangi bazada bo'lmasligi mumkin — shunda egasiz, login nomi bilan.
+        from django.contrib.auth import get_user_model
+
+        try:
+            FaoliyatYozuvi.objects.create(
+                foydalanuvchi=get_user_model().objects.filter(pk=kim_id, username=kim_username).first(),
+                harakat=FaoliyatYozuvi.Harakat.OZGARTIRISH,
+                obyekt_turi="Baza",
+                obyekt_nomi="Zaxiradan tiklash",
+                ozgarishlar={"tikladi": kim_username, "fayl": getattr(fayl, "name", "")[:200]},
+            )
+        except Exception:  # noqa: BLE001 — audit yozilmasa ham tiklash muvaffaqiyatli
+            pass
 
         return Response({
             "detail": "Baza muvaffaqiyatli tiklandi. Qayta kirish talab qilinishi mumkin.",

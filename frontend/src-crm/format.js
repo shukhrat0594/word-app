@@ -32,6 +32,24 @@ export function oyQiymati(qiymat) {
   return String(qiymat ?? "").slice(0, 7);
 }
 
+/** Bugungi sana — MAHALLIY vaqt bo'yicha, "2026-09-11".
+ *  `new Date().toISOString()` UTC beradi: Toshkentda yarim tundan 05:00 gacha
+ *  u KECHAGI sanani qaytarardi va to'lov kechagi kun bilan yozilardi. */
+export function bugunSana() {
+  const b = new Date();
+  const ik = (n) => String(n).padStart(2, "0");
+  return `${b.getFullYear()}-${ik(b.getMonth() + 1)}-${ik(b.getDate())}`;
+}
+
+/** Bir martalik so'rov kaliti — to'lov oynasi ochilganda yasaladi va har saqlashga
+ *  qo'shib yuboriladi. Server shu kalit bilan kelgan IKKINCHI so'rovni yangi to'lov
+ *  qilib yozmaydi (tarmoq uzilib qayta yuborilsa yoki ikki bosqichli saqlashning
+ *  ikkinchisi xato berib, "Saqlash" qayta bosilsa — to'lov ikkilanmaydi). */
+export function sorovKaliti() {
+  if (window.crypto?.randomUUID) return window.crypto.randomUUID();
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
+}
+
 /** Joriy oy — "2026-09" */
 export function joriyOy() {
   const b = new Date();

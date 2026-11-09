@@ -2,10 +2,13 @@
 (video-TZ, 2026-09-23 — SoffCRM "Yangi rol yaratish" oynasi).
 
 Daraxt ikki qavatli: bo'lim ("lidlar") -> amallar ("lidlar.excel").
-Backend BO'LIM darajasida tekshiradi (`CrmRuxsati`), amal kalitlari
-frontendda tugmalarni yashirish uchun. Pulni o'chirish kabi xavfli
-amallar baribir alohida `FaqatOwner` bilan himoyalangan (to'lovni
-tuzatish — `moliya.tolov_tahrirlash`, backend amal darajasida tekshiradi).
+Backend avval BO'LIM darajasida tekshiradi (`CrmRuxsati`), keyin har view o'z amal
+kalitini (`_ruxsatsiz(...)`): yozuvchi amallarning hammasi serverda tekshiriladi.
+Faqat KO'RISH tablari uchun kalitlarning bir qismi hamon frontendda (2026-11-09 holati):
+`moliya.qarzdorlar`, `moliya.tolovlar`, `narxlar.korish`, `bosh_sahifa.dars_jadvali` —
+ularning endpointlari (`hisoblar/`, `tolov/`, `kurs-narxlari/`, jadval) to'lov oynasi,
+talaba kartasi, lid va guruh formalarida ham ishlatiladi; kalitga bog'lansa o'sha
+ekranlar ishlamay qoladi. Pulni o'chirish kabi xavfli amallar alohida `FaqatOwner` bilan.
 """
 
 from accounts.models import User

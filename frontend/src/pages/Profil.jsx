@@ -153,7 +153,8 @@ export default function Profil() {
     try {
       await api("/api/profil/parol/", {
         method: "POST",
-        body: { eski_parol: eskiParol, yangi_parol: yangiParol },
+        // `refresh` — shu brauzer seansi saqlanib qoladi, boshqa qurilmalardagisi yopiladi.
+        body: { eski_parol: eskiParol, yangi_parol: yangiParol, refresh: localStorage.getItem("refresh") },
       });
       setXabar(t("parol_yangilandi"));
       setEskiParol("");

@@ -5,10 +5,10 @@
 // kerak — aks holda admin adashib kam yozib yuborsa, pul indamay
 // yo'qolardi va buni hech kim sezmasdi.
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { api } from "./api.js";
-import { pul } from "./format.js";
+import { bugunSana, pul, sorovKaliti } from "./format.js";
 import { useI18n } from "./i18n.jsx";
 import UsulTanlash from "./TolovUsuli.jsx";
 import { sorovSatri, useSorov } from "./soragich.js";
@@ -26,7 +26,9 @@ export default function TolovOynasi({ hisob: boshlangichHisob, onYopish, onSaqla
   const hisob =
     (oylar.malumot || []).find((h) => h.id === hisobId) || boshlangichHisob;
   const [summa, setSumma] = useState(String(hisob.qoldiq ?? hisob.summa ?? ""));
-  const [sana, setSana] = useState(new Date().toISOString().slice(0, 10));
+  const [sana, setSana] = useState(bugunSana());
+  // Takror yozilishdan himoya — `format.js: sorovKaliti` izohiga qarang.
+  const kalit = useRef(sorovKaliti());
   const [usul, setUsul] = useState("naqd");
   const [izoh, setIzoh] = useState("");
   const [xato, setXato] = useState("");
@@ -54,6 +56,7 @@ export default function TolovOynasi({ hisob: boshlangichHisob, onYopish, onSaqla
           sana,
           usul,
           izoh,
+          sorov_kaliti: `${kalit.current}-${turi}-${hisob.id}`,
         },
       });
       return true;

@@ -8,11 +8,11 @@
 // Bonus ALOHIDA yozuv (turi="bonus"): u kassaga pul emas, hisobotda
 // alohida ustun (TZ 3.8), shuning uchun to'lov bilan qo'shib yuborilmaydi.
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { api } from "./api.js";
 import { useFilial } from "./filialContext.jsx";
-import { balansMatn, balansSinfi, pul } from "./format.js";
+import { balansMatn, balansSinfi, bugunSana, pul, sorovKaliti } from "./format.js";
 import { useI18n } from "./i18n.jsx";
 import UsulTanlash from "./TolovUsuli.jsx";
 import { sorovSatri, useSorov } from "./soragich.js";
@@ -29,7 +29,10 @@ export default function TolovQoshishOynasi({ onYopish, onSaqlandi, talabaBilan =
   const [summa, setSumma] = useState("");
   const [bonus, setBonus] = useState("");
   const [izoh, setIzoh] = useState("");
-  const [sana, setSana] = useState(new Date().toISOString().slice(0, 10));
+  const [sana, setSana] = useState(bugunSana());
+  // Takror yozilishdan himoya: to'lov saqlanib, bonus xato bersa va "Saqlash" qayta
+  // bosilsa — to'lov ikkinchi marta yozilmaydi (`format.js: sorovKaliti`).
+  const kalit = useRef(sorovKaliti());
   const [usul, setUsul] = useState("naqd");
   const [xato, setXato] = useState("");
   const [band, setBand] = useState(false);
@@ -79,6 +82,7 @@ export default function TolovQoshishOynasi({ onYopish, onSaqlandi, talabaBilan =
         sana,
         usul,
         izoh,
+        sorov_kaliti: `${kalit.current}-${turi}-${talaba.id}-${hisob?.id ?? 0}`,
       },
     });
   }

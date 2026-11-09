@@ -111,7 +111,16 @@ REST_FRAMEWORK = {
         'anon': '100/minute',
         'user': '300/minute',
         'login': '10/minute',
+        # AI (Writing/Speaking/Trainer/Grammar Coach) — pullik chaqiruvlar, har foydalanuvchiga
+        # alohida (2026-11-09, `assessment/cheklov.py`). Railway'da AI_SOROV_LIMITI bilan o'zgaradi.
+        'ai': config('AI_SOROV_LIMITI', default='120/hour'),
     },
+    # Server oldidagi ishonchli proksilar soni (2026-11-09). Bo'sh qolsa (standart) DRF mijoz
+    # IP'sini butun `X-Forwarded-For` sarlavhasidan oladi — uni so'rovchi o'zi yozadi, ya'ni
+    # login cheklovini har safar boshqa qiymat yuborib chetlab o'tish mumkin. Railway'da bitta
+    # proksi bo'lsa NUM_PROXIES=1 qo'yiladi (oldida Cloudflare ham bo'lsa — 2). Noto'g'ri qiymat
+    # hamma foydalanuvchini bitta IP qilib ko'rsatadi, shuning uchun kodda majburlanmagan.
+    'NUM_PROXIES': config('NUM_PROXIES', default=None, cast=lambda v: int(v) if v not in (None, '') else None),
 }
 
 SIMPLE_JWT = {
@@ -137,6 +146,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'accounts.middleware.AdminLoginCheklashMiddleware',
     'accounts.middleware.OwnerYozishCheklashMiddleware',
     # Avtomatik kunlik zaxira uchun turtki (2026-09-03) — cron o'rniga
     # so'rov paytida tekshiriladi, ish fon oqimida bajariladi

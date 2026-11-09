@@ -290,3 +290,17 @@ class DavomatDarsKunlariTest(TestCase):
     def test_notogri_sana_400(self):
         javob = self.client_.get(f"/api/davomat/?guruh={self.guruh.id}&sana=nimadir")
         self.assertEqual(javob.status_code, 400)
+
+
+class DavomatParametrTest(TestCase):
+    """`?guruh=` raqam bo'lmasa — 404, server xatosi (500) emas (2026-11-09)."""
+
+    def test_guruh_raqam_bolmasa_404(self):
+        cache.clear()
+        owner = User.objects.create_user(
+            username="egasi_dav", password="x", role=User.Role.ADMIN, is_superuser=True, is_staff=True
+        )
+        c = APIClient()
+        c.force_authenticate(owner)
+        self.assertEqual(c.get("/api/davomat/?guruh=abc").status_code, 404)
+        self.assertEqual(c.post("/api/davomat/", {"guruh": "abc"}, format="json").status_code, 404)

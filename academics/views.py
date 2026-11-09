@@ -281,8 +281,12 @@ class GuruhDetailView(APIView):
             guruh.name = name.strip()
             guruh.save(update_fields=["name"])
         if "faol" in request.data:
+            arxivdan_qaytdi = bool(request.data.get("faol")) and not guruh.faol
             guruh.faol = bool(request.data.get("faol"))
             guruh.save(update_fields=["faol"])
+            if arxivdan_qaytdi:
+                for ilgak in GURUH_ARXIVDAN_QAYTGANDA:
+                    ilgak(guruh)
         fan_xato = _fan_darajani_saqla(request, guruh)
         if fan_xato:
             return fan_xato
@@ -391,9 +395,17 @@ def _azolarni_saqla(request, guruh):
         olib_tashlanadigan = eski_idlar - yangi_idlar
         qoshiladigan = yangi_idlar - eski_idlar
         if olib_tashlanadigan:
-            GuruhAzoligi.objects.filter(
-                guruh=guruh, talaba_id__in=olib_tashlanadigan
-            ).delete()
+            with transaction.atomic():
+                if AZOLIK_OCHIRILISHIDAN_OLDIN:
+                    azoliklar = GuruhAzoligi.objects.select_related("guruh", "talaba").filter(
+                        guruh=guruh, talaba_id__in=olib_tashlanadigan
+                    )
+                    for azolik in list(azoliklar):
+                        for ilgak in AZOLIK_OCHIRILISHIDAN_OLDIN:
+                            ilgak(azolik, request.user)
+                GuruhAzoligi.objects.filter(
+                    guruh=guruh, talaba_id__in=olib_tashlanadigan
+                ).delete()
         if qoshiladigan:
             birinchi_unit = None
             if guruh.daraja_id:
@@ -488,6 +500,25 @@ class MarkazAzolariView(APIView):
         )
 
 
+# Qo'shimcha ilovalar (CRM) uchun ilgaklar — `accounts.views.TALABANI_TAHRIRLASH_RUXSATLARI`
+# bilan bir xil naqsh: academics CRM'ni bilmaydi (`crm.tests.IzolyatsiyaTest`), CRM o'zini
+# `crm/apps.py`da qo'shadi; CRM olib tashlansa ro'yxatlar bo'sh qoladi va sayt avvalgidek ishlaydi.
+#   * `fn(azolik, kim)` — a'zolik saytdan o'chirilishidan OLDIN (hisobni chiqish kunigacha
+#     qayta hisoblash uchun). Funksiya a'zolikni o'zi o'chirishi mumkin.
+#   * `fn(guruh)` — arxivlangan guruh qayta faollashtirilganda.
+AZOLIK_OCHIRILISHIDAN_OLDIN = []
+GURUH_ARXIVDAN_QAYTGANDA = []
+
+
+def _butun_id(qiymat):
+    """So'rovdan kelgan id: butun son bo'lmasa `None` (ya'ni 404). Aks holda ORM
+    ValueError ko'tarib, javob 500 bo'lardi (2026-11-09)."""
+    try:
+        return int(qiymat)
+    except (TypeError, ValueError):
+        return None
+
+
 class DavomatView(APIView):
     """Kunlik davomat — ko'rish va belgilash (B2.2, F2.1).
 
@@ -498,7 +529,7 @@ class DavomatView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        guruh = get_object_or_404(Guruh, pk=request.query_params.get("guruh"))
+        guruh = get_object_or_404(Guruh, pk=_butun_id(request.query_params.get("guruh")))
         if not _guruhga_ruxsat_bormi(request.user, guruh):
             return Response({"detail": "Ruxsat yo'q"}, status=403)
 
@@ -540,7 +571,7 @@ class DavomatView(APIView):
         )
 
     def post(self, request):
-        guruh = get_object_or_404(Guruh, pk=request.data.get("guruh"))
+        guruh = get_object_or_404(Guruh, pk=_butun_id(request.data.get("guruh")))
         if not _guruhga_ruxsat_bormi(request.user, guruh):
             return Response({"detail": "Ruxsat yo'q"}, status=403)
 

@@ -63,6 +63,33 @@ def kalitlarni_bekor_qil(user_id):
     return sanoq
 
 
+def parol_ozgargach_seanslarni_yop(user_id, saqla_refresh=None):
+    """Parol almashganda foydalanuvchining BOSHQA seanslari yopiladi (2026-11-09).
+
+    Avval parol o'zgarsa ham eski refresh kalitlar ishlayverardi va har yangilanishda
+    yana bir kunga cho'zilardi — parolni bilib olgan odam paroldan keyin ham hisobda qolardi.
+
+    `saqla_refresh` — o'z parolini o'zgartirayotgan odamning joriy kaliti: u shu
+    qurilmada chiqarib yuborilmaydi. Boshqa odam (owner/admin) tiklaganda berilmaydi —
+    hamma seans yopiladi. Kirish (access) kalitlari o'z muddati (30 daqiqa) tugaguncha
+    ishlaydi — JWT'ni alohida bekor qilib bo'lmaydi. Qaytaradi: nechta kalit bekor qilindi."""
+    saqla_jti = None
+    if saqla_refresh:
+        try:
+            payload = RefreshToken(saqla_refresh).payload
+        except (TokenError, TypeError, ValueError):
+            payload = {}
+        if str(payload.get("user_id")) == str(user_id):
+            saqla_jti = payload.get("jti")
+    sanoq = 0
+    for kalit in amaldagi_kalitlar(user_id):
+        if saqla_jti and kalit.jti == saqla_jti:
+            continue
+        BlacklistedToken.objects.get_or_create(token=kalit)
+        sanoq += 1
+    return sanoq
+
+
 class ChiqishView(APIView):
     """POST — chaqiruvchining refresh kalitini bekor qiladi.
 

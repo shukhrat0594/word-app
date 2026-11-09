@@ -193,11 +193,17 @@ class MarkazlarView(APIView):
         if not name:
             return Response({"detail": "name majburiy"}, status=400)
 
+        rang = request.data.get("brend_rang") or "#FFD400"
+        if not _rang_togrimi(rang):
+            return Response({"detail": "Rang #RRGGBB ko'rinishida bo'lsin (masalan #FFD400)"}, status=400)
+        logo = request.FILES.get("logo")
+        if logo and (xato := _logo_xatosi(logo)):
+            return Response({"detail": xato}, status=400)
         markaz = Markaz.objects.create(
             name=name,
             ai_provider=request.data.get("ai_provider") or Markaz.AIProvider.GEMINI,
-            brend_rang=request.data.get("brend_rang") or "#FFD400",
-            logo=request.data.get("logo") or None,
+            brend_rang=rang,
+            logo=logo or None,
             tasdiqlangan=True,
         )
         logla(
@@ -305,6 +311,40 @@ class MarkazRadEtishView(APIView):
             ozgarishlar={"sabab": "so'rov rad etildi"},
         )
         return Response({"detail": "So'rov rad etildi"})
+
+
+LOGO_MAKS_HAJM = 2 * 1024 * 1024
+_RANG_NAMUNASI = None
+
+
+def _logo_xatosi(logo):
+    """Markaz logosi: hajmi va mazmuni haqiqatan rasm ekani (2026-11-09). Logo `/media/`dan
+    OCHIQ beriladi va `ImageField`ga to'g'ridan-to'g'ri yozilganda Django uni tekshirmaydi —
+    avval istalgan fayl (masalan HTML) logo sifatida yuklanib, server manzilidan ochilardi.
+    Profil rasmi (`FoydalanuvchiRasmView`) bilan bir xil qoida. Xato matni yoki None."""
+    from PIL import Image, UnidentifiedImageError
+
+    if logo.size > LOGO_MAKS_HAJM:
+        return f"Logo hajmi {LOGO_MAKS_HAJM // (1024 * 1024)} MB dan oshmasin"
+    try:
+        rasm = Image.open(logo)
+        rasm.verify()
+    except (UnidentifiedImageError, OSError, ValueError):
+        return "Logo fayli rasm emas yoki buzuq"
+    if (rasm.format or "").upper() not in ("PNG", "JPEG", "WEBP", "GIF"):
+        return "Logo PNG, JPG, WEBP yoki GIF bo'lsin"
+    logo.seek(0)
+    return None
+
+
+def _rang_togrimi(rang):
+    """Brend rangi `#RRGGBB` ko'rinishidami."""
+    import re
+
+    global _RANG_NAMUNASI
+    if _RANG_NAMUNASI is None:
+        _RANG_NAMUNASI = re.compile(r"^#[0-9A-Fa-f]{6}$")
+    return isinstance(rang, str) and bool(_RANG_NAMUNASI.match(rang))
 
 
 def _markaz_sozlama_dict(m):
@@ -431,9 +471,13 @@ class MarkazSozlamaView(APIView):
         logo_ozgardimi = False
         rang = request.data.get("brend_rang")
         if rang:
+            if not _rang_togrimi(rang):
+                return Response({"detail": "Rang #RRGGBB ko'rinishida bo'lsin (masalan #FFD400)"}, status=400)
             m.brend_rang = rang
-        logo = request.data.get("logo")
+        logo = request.FILES.get("logo")
         if logo:
+            if xato := _logo_xatosi(logo):
+                return Response({"detail": xato}, status=400)
             m.logo = logo
             logo_ozgardimi = True
 
@@ -1292,6 +1336,9 @@ class FoydalanuvchiParolTiklashView(APIView):
 
         user.set_password(parol)
         user.save()
+        from .seans_views import parol_ozgargach_seanslarni_yop
+
+        parol_ozgargach_seanslarni_yop(user.pk)
         logla(
             foydalanuvchi=request.user,
             harakat=FaoliyatYozuvi.Harakat.OZGARTIRISH,
@@ -1354,6 +1401,10 @@ class MarkazAdminTayinlashView(APIView):
             user.first_name = ism
         user.set_password(parol)
         user.save()
+        if not created:
+            from .seans_views import parol_ozgargach_seanslarni_yop
+
+            parol_ozgargach_seanslarni_yop(user.pk)
         if created:
             logla(
                 foydalanuvchi=request.user,
@@ -1486,6 +1537,10 @@ class XodimlarView(APIView):
             user.first_name = ism
         user.set_password(parol)
         user.save()
+        if not created:
+            from .seans_views import parol_ozgargach_seanslarni_yop
+
+            parol_ozgargach_seanslarni_yop(user.pk)
         if created:
             logla(
                 foydalanuvchi=request.user,
@@ -1999,7 +2054,10 @@ class ProfilTahrirlashView(APIView):
             return Response({"detail": "Hech narsa yuborilmadi"}, status=400)
 
         try:
-            u.full_clean(validate_unique=False)
+            # `username`/`password` chetlab o'tiladi (2026-11-09) — `_talaba_maydonlarini_yoz`
+            # bilan bir xil sabab: bu yerda ular o'zgarmaydi, lekin logini bo'sh joyli eski
+            # hisoblar o'z profilini umuman tahrirlay olmasdi.
+            u.full_clean(validate_unique=False, exclude=["password", "username"])
         except DjangoValidationError as e:
             return Response({"detail": " ".join(e.messages)}, status=400)
 
@@ -2054,6 +2112,11 @@ class ParolOzgartirishView(APIView):
         # ogohlantirilgan; bu yer o'sha qoidani buzgan yagona joy edi.
         request.user.set_password(yangi_parol)
         request.user.save(update_fields=["password"])
+        # Boshqa qurilmalardagi seanslar yopiladi; shu brauzer (frontend o'z `refresh`
+        # kalitini yuboradi) kirgan holida qoladi.
+        from .seans_views import parol_ozgargach_seanslarni_yop
+
+        parol_ozgargach_seanslarni_yop(request.user.pk, saqla_refresh=request.data.get("refresh"))
         return Response({"detail": "Parol yangilandi"})
 
 

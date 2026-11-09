@@ -10,7 +10,7 @@ from django.test import TransactionTestCase, override_settings
 from django.urls import reverse
 
 from academics.models import Guruh, GuruhAzoligi
-from accounts.models import User
+from accounts.models import Markaz, User
 from crm import urls as crm_urls
 from crm.models import (
     AzolikMoliya, Chegirma, CrmRol, DarsOzgarish, Eslatma, Filial, GuruhMoliya, Hisob, KursNarxi, Lid, LidBolim,
@@ -265,13 +265,14 @@ class MigratsiyaTest(TransactionTestCase):
         executor = MigrationExecutor(connection)
         executor.migrate([("crm", "0008_crm_xodim_sayt_menyusi")])
         eski = executor.loader.project_state([("crm", "0008_crm_xodim_sayt_menyusi")]).apps
-        Markaz = eski.get_model("accounts", "Markaz")
-        EskiUser = eski.get_model("accounts", "User")
+        # Faqat `crm` orqaga qaytariladi — `accounts` jadvallari HOZIRGI holatda qoladi.
+        # Shuning uchun Markaz/User hozirgi modeldan yaratiladi: tarixiy modelda keyin olib
+        # tashlangan ustunlar (masalan `ota_ona`) bor va INSERT yiqilardi (2026-11-09).
         EskiFilial = eski.get_model("crm", "Filial")
         EskiProfil = eski.get_model("crm", "XodimProfil")
-        f = EskiFilial.objects.create(markaz=Markaz.objects.create(name="M"), nomi="F")
-        u = EskiUser.objects.create(username="eski_x", role="admin")
-        EskiProfil.objects.create(user=u, lavozim="ceo", filial=f)
+        f = EskiFilial.objects.create(markaz_id=Markaz.objects.create(name="M").pk, nomi="F")
+        u = User.objects.create(username="eski_x", role="admin")
+        EskiProfil.objects.create(user_id=u.pk, lavozim="ceo", filial=f)
 
         executor = MigrationExecutor(connection)
         executor.loader.build_graph()
