@@ -10,12 +10,13 @@ import { useState } from "react";
 
 import { api } from "./api.js";
 import { useFilial } from "./filialContext.jsx";
+import { bugunSana } from "./format.js";
 import { useI18n } from "./i18n.jsx";
 import { useRuxsat } from "./profilContext.jsx";
 import { sorovSatri, useSorov } from "./soragich.js";
 import TolovQoshishOynasi from "./TolovQoshishOynasi.jsx";
 
-const bugun = () => new Date().toISOString().slice(0, 10);
+const bugun = bugunSana;
 
 // Guruhdan ketish sabablari — SoffCRM "O'quvchini guruhdan chetlatish"
 // ro'yxati bilan bir xil (backend `KETISH_SABABLARI`).

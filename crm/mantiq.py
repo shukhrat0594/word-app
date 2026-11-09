@@ -7,7 +7,7 @@ va farqni hech kim sezmaydi — pulda esa bu qimmatga tushadi.
 
 import calendar
 import logging
-from datetime import date
+from datetime import date, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 
 from django.db import models, transaction
@@ -169,12 +169,24 @@ def talaba_dars_kunlari(azolik_moliya: AzolikMoliya, oy: date, oylik_kunlar: lis
     boshi = oy
     oxiri = oy_oxiri(oy)
 
+    # Muzlatish (2026-11-09, Shuhrat qarori: "muzlatish sanasigacha"):
+    #   * hozir muzlatilgan — muzlatish kunidan boshlab dars sanalmaydi;
+    #   * muzlatishdan qaytgan — `[muzlatish_sana, qayta_faol_sana)` oralig'i TANAFFUS:
+    #     undan oldingi va keyingi darslar sanaladi (shu oyda qaytsa ham). Buning uchun
+    #     `muzlatish_sana` qaytgandan keyin ham saqlanadi (`views.AzolikView`);
+    #   * `muzlatish_sana` yo'q (eski yozuv yoki arxivdan qaytgan guruh) — avvalgidek:
+    #     `qayta_faol_sana` shunchaki quyi chegara.
+    muzlatildi, qaytdi = azolik_moliya.muzlatish_sana, azolik_moliya.qayta_faol_sana
+    muzlatilgan = azolik_moliya.holat == AzolikMoliya.Holat.MUZLATILGAN
+    tanaffus = None
+    if not muzlatilgan and muzlatildi and qaytdi and muzlatildi <= qaytdi:
+        tanaffus = (muzlatildi, qaytdi)
+        qaytdi = None
+
     for sana in (
         guruh_moliya.boshlanish_sana if guruh_moliya else None,
         azolik_moliya.boshlanish_sana,
-        # Muzlatishdan keyin qayta boshlagan sana — o'sha oy shu sanadan
-        # boshlab hisoblanadi.
-        azolik_moliya.qayta_faol_sana,
+        qaytdi,
     ):
         if sana and sana > boshi:
             boshi = sana
@@ -182,11 +194,15 @@ def talaba_dars_kunlari(azolik_moliya: AzolikMoliya, oy: date, oylik_kunlar: lis
     for sana in (
         guruh_moliya.tugash_sana if guruh_moliya else None,
         azolik_moliya.tugash_sana,
+        muzlatildi - timedelta(days=1) if muzlatilgan and muzlatildi else None,
     ):
         if sana and sana < oxiri:
             oxiri = sana
 
-    return [kun for kun in oylik_kunlar if boshi <= kun <= oxiri]
+    return [
+        kun for kun in oylik_kunlar
+        if boshi <= kun <= oxiri and not (tanaffus and tanaffus[0] <= kun < tanaffus[1])
+    ]
 
 
 def proporsional_summa(narx: Decimal, talaba_kunlar: int, oylik_kunlar: int) -> Decimal:
@@ -657,3 +673,77 @@ def faollashtirilganda(azolik_moliya: AzolikMoliya) -> None:
         # Narx/jadval yo'q bo'lsa `azolikni_qayta_hisobla` summaga tegmay
         # qaytadi — holat summaga qarab qaytarilsin (0 so'm "qarzdor" emas).
         hisobni_yangila(azolikni_qayta_hisobla(azolik_moliya, hisob.oy))
+
+
+def azolik_hisoblarini_moslash(azolik_moliya: AzolikMoliya, dan_oy: date) -> list:
+    """A'zolik sanalari o'zgargach (chiqdi, ko'chdi, muzlatildi, qaytdi, boshlanish
+    sanasi tuzatildi) — `dan_oy`dan boshlab OCHILGAN hisoblarni yangi sanalarga moslaydi.
+
+    2026-11-09: avval faqat BITTA oy (chiqish/muzlatish oyi) qayta hisoblanardi. Talaba
+    o'tgan sana bilan chiqarilsa yoki oyning 1-sanasida ko'chirilsa, keyingi oyning
+    allaqachon ochilgan hisobi to'liq qarz bo'lib qolardi (ko'chirishda — ikki guruhda
+    ham to'liq oy).
+
+    Qoidalar:
+      * pul kelgan to'langan oyga tegilmaydi (TZ 4.6 — qaytarish alohida ongli amal);
+      * `qolda` hisobga tegilmaydi (`azolikni_qayta_hisobla` qoidasi);
+      * dars kunlari soni O'ZGARMAGAN oyga tegilmaydi — aks holda o'tgan oylar bugungi
+        narx bilan qayta yozilib ketardi (narx keyin o'zgargan bo'lsa);
+      * 0 gacha qisqargan ("to'landi", lekin ichida pul yo'q) hisob qayta ko'riladi —
+        talaba qaytgan bo'lsa u yana qarzga aylanadi (`faollashtirilganda` naqshi).
+
+    Qaytaradi: o'zgargan hisoblar ro'yxati."""
+    talaba, guruh = azolik_moliya.azolik.talaba, azolik_moliya.azolik.guruh
+    ozgardi = []
+    hisoblar = Hisob.objects.filter(talaba=talaba, guruh=guruh, oy__gte=dan_oy, qolda=False).order_by("oy")
+    for hisob in hisoblar:
+        if hisob.holat == Hisob.Holat.TOLANDI and hisob.tolovlar.filter(
+            turi__in=Tolov.YOPUVCHI_TURLAR, summa__gt=0
+        ).exists():
+            continue
+        oylik_kunlar = oylik_dars_kunlari(guruh, hisob.oy)
+        if not oylik_kunlar:
+            continue
+        if len(talaba_dars_kunlari(azolik_moliya, hisob.oy, oylik_kunlar)) == hisob.darslar_talaba:
+            continue
+        if hisob.holat == Hisob.Holat.TOLANDI:
+            # `azolikni_qayta_hisobla` to'langan oyga tegmaydi — bu oyda pul yo'q.
+            hisob.holat = Hisob.Holat.QARZDOR
+            hisob.save(update_fields=["holat"])
+        ozgardi.append(hisobni_yangila(azolikni_qayta_hisobla(azolik_moliya, hisob.oy)))
+    return ozgardi
+
+
+def azolik_sanasi_ozgarganda(azolik_moliya: AzolikMoliya, dan_oy: date) -> list:
+    """Faol a'zolikning sanasi o'zgardi (muzlatishdan qaytdi, boshlanish sanasi
+    tuzatildi): ochilgan hisoblar moslanadi va watermark tushiriladi — yetishmagan
+    oylarni generatsiya o'zi ochadi (mavjudlariga tegmaydi)."""
+    azolik_moliya.oxirgi_hisob_oy = None
+    azolik_moliya.save(update_fields=["oxirgi_hisob_oy"])
+    return azolik_hisoblarini_moslash(azolik_moliya, dan_oy)
+
+
+def guruh_arxivdan_qaytganda(guruh, sana: date | None = None) -> int:
+    """Arxivlangan guruh qaytarildi (2026-11-09, Shuhrat qarori): arxivda turgan
+    oylarga hisob OCHILMAYDI — hisob qaytarilgan kundan boshlanadi.
+
+    Avval generatsiya arxivdan qaytgan guruhning faol a'zolariga o'tkazib yuborilgan
+    HAR oy uchun to'liq hisob ochardi. Endi orqada qolgan (oxirgi hisobi o'tgan oyda
+    yoki undan oldin) faol a'zoliklarga `qayta_faol_sana` qo'yiladi — generatsiya va
+    dars kunlari shu sanadan boshlanadi. Shu oyning hisobi allaqachon ochilgan a'zolik
+    (guruh shu oy ichida arxivlanib qaytgan) o'zgarmaydi. Qaytaradi: nechta a'zolik."""
+    sana = sana or timezone.localdate()
+    shu_oy = oy_boshi(sana)
+    soni = 0
+    azoliklar = AzolikMoliya.objects.filter(azolik__guruh=guruh, holat=AzolikMoliya.Holat.FAOL)
+    for am in azoliklar:
+        if am.oxirgi_hisob_oy is not None and am.oxirgi_hisob_oy >= shu_oy:
+            continue
+        if am.boshlanish_sana >= sana:
+            continue
+        am.qayta_faol_sana = sana
+        # Eski muzlatish oralig'i yangi sana bilan noto'g'ri "tanaffus" hosil qilmasin.
+        am.muzlatish_sana = None
+        am.save(update_fields=["qayta_faol_sana", "muzlatish_sana"])
+        soni += 1
+    return soni

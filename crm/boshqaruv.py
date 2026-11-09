@@ -29,6 +29,7 @@ from academics.models import Davomat, Guruh, GuruhAzoligi
 from accounts.excel_import import LOGIN_QOIDASI
 from accounts.models import Bildirishnoma, Markaz, User
 from accounts.permissions import owner_mi
+from accounts.seans_views import parol_ozgargach_seanslarni_yop
 from audit.models import FaoliyatYozuvi
 from audit.utils import logla
 from courses.models import KursTugun
@@ -626,6 +627,8 @@ class XodimDetailView(CrmView):
                 return _xato(" ".join(xatolar))
             user.set_password(yangi_parol)
         user.save()
+        if parol_sorandi:
+            parol_ozgargach_seanslarni_yop(user.pk)
         profil.save()
         if filiallar is not None:
             profil.filiallar.set(filiallar)
@@ -1325,6 +1328,7 @@ class TalabaCrmView(CrmView):
             yangi_parol = parol_yarat()
             talaba.set_password(yangi_parol)
             talaba.save(update_fields=["password"])
+            parol_ozgargach_seanslarni_yop(talaba.pk)
         logla(foydalanuvchi=request.user, harakat=FaoliyatYozuvi.Harakat.OZGARTIRISH, obyekt=talaba,
               obyekt_turi="Talaba", obyekt_nomi=_ism(talaba),
               ozgarishlar={k: {"eski": "—", "yangi": str(data[k])} for k in data if k != "parol_tiklash"})
@@ -1393,6 +1397,7 @@ class TalabaOtaOnaView(CrmView):
             parol = parol_yarat()
             ota_ona.set_password(parol)
             ota_ona.save(update_fields=["password"])
+            parol_ozgargach_seanslarni_yop(ota_ona.pk)
             self._adminga_yubor(request.user, ota_ona, parol, talaba, "Ota-ona paroli yangilandi")
             logla(
                 foydalanuvchi=request.user, harakat=FaoliyatYozuvi.Harakat.OZGARTIRISH, obyekt=ota_ona,
@@ -1686,11 +1691,16 @@ class GuruhBoshqaruvView(CrmView):
                     guruh.name = nomi[:200]
                 if "daraja_id" in data or "fan_id" in data:
                     guruh.fan, guruh.daraja = _fan_daraja(data)
+                arxivdan_qaytdi = False
                 if "faol" in data:
                     if bool(data["faol"]) and not guruh.faol:
                         _arxivdan_qaytishda_xona_tekshir(guruh, request.user)
+                        arxivdan_qaytdi = True
                     guruh.faol = bool(data["faol"])
                 guruh.save()
+                if arxivdan_qaytdi:
+                    # Arxivda turgan oylarga hisob ochilmasin (2026-11-09).
+                    mantiq.guruh_arxivdan_qaytganda(guruh)
                 if "oqituvchilar" in data:
                     _oqituvchilarni_saqla(guruh, data["oqituvchilar"])
         except ValueError as e:
@@ -1857,7 +1867,9 @@ def guruhdan_chiqar(kim, azolik, sana, sabab_turi, izoh="", *, tugash_sana=None)
         chegirma_bor = bool(am.narx is not None or mantiq.chegirma_narxi(am, mantiq.oy_boshi(sana)) is not None)
         am.tugash_sana = tugash_sana
         am.save(update_fields=["tugash_sana"])
-        mantiq.azolikni_qayta_hisobla(am, mantiq.oy_boshi(tugash_sana))
+        # Chiqish oyi VA undan keyingi ochilgan oylar (2026-11-09): o'tgan sana bilan
+        # chiqarilsa yoki oy boshida ko'chirilsa, keyingi oy hisobi qarz bo'lib qolmasin.
+        mantiq.azolik_hisoblarini_moslash(am, mantiq.oy_boshi(tugash_sana))
     chiqish = GuruhdanChiqish.objects.create(
         talaba=talaba, talaba_ism=_ism(talaba), guruh=guruh, guruh_nomi=guruh.name,
         filial=moliya.filial if moliya else None,
@@ -2045,7 +2057,7 @@ class GuruhDavomatView(CrmView):
                 "ism": _ism(a.talaba),
                 "holat": am.holat if am else None,
                 # Muzlatilgan o'quvchi davomatda ajralib ko'rinsin (video-TZ IMG_6977.MOV).
-                "muzlatish_sana": am.muzlatish_sana if am else None,
+                "muzlatish_sana": am.muzlatish_sana if am and am.holat == "muzlatilgan" else None,
                 "muzlatish_izoh": am.muzlatish_izoh if am else "",
                 "kunlar": kunlar,
                 "keldi": sum(1 for k in kunlar if k["holat"] in ("keldi", "kechikdi")),
@@ -2636,6 +2648,7 @@ class TalabaSaytHisobiView(CrmView):
             talaba.last_name = ""
             maydonlar += ["first_name", "last_name"]
         talaba.save(update_fields=maydonlar)
+        parol_ozgargach_seanslarni_yop(talaba.pk)
         logla(foydalanuvchi=request.user, harakat=FaoliyatYozuvi.Harakat.OZGARTIRISH, obyekt=talaba,
               obyekt_turi="Talaba", obyekt_nomi=_ism(talaba),
               ozgarishlar={"username": {"eski": eski_login, "yangi": username},

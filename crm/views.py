@@ -11,8 +11,10 @@ import re
 from datetime import timedelta
 from decimal import Decimal, InvalidOperation
 
+from django.core.cache import cache
 from django.db import transaction
 from django.db.models import Avg, Count, Max, Q, Sum
+from django.http import Http404
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
@@ -253,10 +255,17 @@ def _azolik_dict(am, balans=None):
         # Saytdagi Kurslar bo'limida qaysi Unit'dan boshlaydi (LMS
         # `GuruhAzoligi.boshlanish_unit`; bo'sh — Unit 1, odatiy tartib).
         "boshlanish_unit_id": am.azolik.boshlanish_unit_id,
-        "muzlatish_sana": am.muzlatish_sana,
+        "muzlatish_sana": muzlatish_sanasi(am),
         "muzlatish_izoh": am.muzlatish_izoh,
         "balans": balans,
     }
+
+
+def muzlatish_sanasi(am):
+    """Interfeysga beriladigan muzlatish sanasi — faqat HOZIR muzlatilgan o'quvchida.
+    Maydon qaytgandan keyin ham saqlanadi (hisob-kitob uchun, `mantiq.talaba_dars_kunlari`),
+    lekin tashqariga avvalgidek faqat muzlatilgan paytda chiqadi."""
+    return am.muzlatish_sana if am.holat == AzolikMoliya.Holat.MUZLATILGAN else None
 
 
 def daraja_unitlari(guruh):
@@ -1277,6 +1286,7 @@ class AzolikView(CrmView):
             pk=pk,
         )
         eski_holat = am.holat
+        eski_boshlanish, eski_tugash, eski_muzlatish = am.boshlanish_sana, am.tugash_sana, am.muzlatish_sana
         eski = _azolik_dict(am)
 
         try:
@@ -1299,9 +1309,11 @@ class AzolikView(CrmView):
                 if (eski_holat == AzolikMoliya.Holat.SINOV and holat == AzolikMoliya.Holat.FAOL
                         and request.data.get("faollashtirish_sana")):
                     am.boshlanish_sana = _sana(request.data["faollashtirish_sana"], "faollashtirish_sana")
-            # Muzlatish oynasi: sana (standart — bugun) va izoh. Faqat
-            # ma'lumot, hisob-kitobga ta'sir qilmaydi; muzlatishdan
-            # chiqqanda tozalanadi.
+            # Muzlatish oynasi: sana (standart — bugun) va izoh. 2026-11-09 dan
+            # sana hisob-kitobga KIRADI: muzlatish kunidan boshlab dars
+            # sanalmaydi (`mantiq.talaba_dars_kunlari`). Shuning uchun
+            # muzlatishdan chiqqanda sana saqlanadi (qaytgan kungacha bo'lgan
+            # tanaffus), faqat izoh tozalanadi.
             if am.holat == AzolikMoliya.Holat.MUZLATILGAN:
                 if eski_holat != AzolikMoliya.Holat.MUZLATILGAN or "muzlatish_sana" in request.data:
                     am.muzlatish_sana = (
@@ -1311,7 +1323,6 @@ class AzolikView(CrmView):
                 if "muzlatish_izoh" in request.data:
                     am.muzlatish_izoh = str(request.data.get("muzlatish_izoh") or "").strip()[:300]
             else:
-                am.muzlatish_sana = None
                 am.muzlatish_izoh = ""
             if "boshlanish_sana" in request.data:
                 am.boshlanish_sana = _sana(request.data["boshlanish_sana"], "boshlanish_sana")
@@ -1342,18 +1353,31 @@ class AzolikView(CrmView):
         if eski_holat == AzolikMoliya.Holat.MUZLATILGAN and am.holat == AzolikMoliya.Holat.FAOL:
             am.qayta_faol_sana = timezone.localdate()
 
-        am.save()
-        if unit_ozgardi:
-            am.azolik.boshlanish_unit = yangi_unit
-            am.azolik.save(update_fields=["boshlanish_unit"])
+        with transaction.atomic():
+            am.save()
+            if unit_ozgardi:
+                am.azolik.boshlanish_unit = yangi_unit
+                am.azolik.save(update_fields=["boshlanish_unit"])
 
-        # Chiqish yoki muzlatish — joriy oyning TO'LANMAGAN hisobi
-        # proporsional qayta hisoblanadi. Buni generatsiya qila olmaydi:
-        # holat `arxiv`/`muzlatilgan` bo'lgach u bu a'zolikni ko'rmaydi.
-        if am.holat in (AzolikMoliya.Holat.ARXIV, AzolikMoliya.Holat.MUZLATILGAN):
-            mantiq.azolikni_qayta_hisobla(am)
-        elif eski_holat == AzolikMoliya.Holat.SINOV and am.holat == AzolikMoliya.Holat.FAOL:
-            mantiq.faollashtirilganda(am)
+            # Sanalar o'zgarsa — OCHILGAN, to'lanmagan hisoblar yangi sanalarga
+            # moslanadi (`mantiq.azolik_hisoblarini_moslash`). Buni generatsiya
+            # qila olmaydi: u mavjud hisobga tegmaydi, muzlatilgan a'zolikni
+            # esa umuman ko'rmaydi.
+            if am.holat == AzolikMoliya.Holat.MUZLATILGAN:
+                mantiq.azolik_hisoblarini_moslash(
+                    am, mantiq.oy_boshi(min(s for s in (am.muzlatish_sana, eski_muzlatish, timezone.localdate()) if s))
+                )
+            elif eski_holat == AzolikMoliya.Holat.MUZLATILGAN and am.holat == AzolikMoliya.Holat.FAOL:
+                mantiq.azolik_sanasi_ozgarganda(am, mantiq.oy_boshi(eski_muzlatish or am.qayta_faol_sana))
+            elif eski_holat == AzolikMoliya.Holat.SINOV and am.holat == AzolikMoliya.Holat.FAOL:
+                mantiq.faollashtirilganda(am)
+            elif am.holat == AzolikMoliya.Holat.FAOL and (
+                am.boshlanish_sana != eski_boshlanish or am.tugash_sana != eski_tugash
+            ):
+                # Guruh a'zolari jadvalida boshlanish sanasi tuzatildi (2026-11-09):
+                # avval ochilgan oy eski sana bilan qolib ketardi.
+                ozgargan = [s for s in (eski_boshlanish, am.boshlanish_sana, eski_tugash, am.tugash_sana) if s]
+                mantiq.azolik_sanasi_ozgarganda(am, mantiq.oy_boshi(min(ozgargan)))
 
         am.refresh_from_db()
         yangi = _azolik_dict(am)
@@ -1514,8 +1538,9 @@ class HisobDetailView(CrmView):
         # shu qoladi (`mantiq.azolikni_qayta_hisobla`).
         hisob.qolda = True
         hisob.izoh = str(request.data.get("izoh")).strip()[:300]
-        hisob.save(update_fields=["summa", "izoh", "qolda"])
-        mantiq.hisobni_yangila(hisob)
+        with transaction.atomic():
+            hisob.save(update_fields=["summa", "izoh", "qolda"])
+            mantiq.hisobni_yangila(hisob)
 
         logla(
             foydalanuvchi=request.user,
@@ -1634,18 +1659,28 @@ class TolovlarView(CrmView):
             return xato
 
         talaba = get_object_or_404(User, pk=request.data.get("talaba_id"))
-        guruh = get_object_or_404(Guruh, pk=request.data.get("guruh_id"))
-        guruh_tekshir(request.user, guruh)
-        if not talaba_guruhga_bogliqmi(talaba.id, guruh.id):
-            return _xato("Talaba bu guruhda o'qimagan")
-
         hisob = None
         if request.data.get("hisob_id"):
             hisob = get_object_or_404(Hisob, pk=request.data["hisob_id"])
+        # Guruhi SAYTDAN O'CHIRILGAN hisob (`guruh` SET_NULL, 2026-11-09): avval bunday
+        # qarzni to'lab bo'lmasdi — guruh topilmay 404 qaytar, qarz esa "Jami qarz"da
+        # abadiy qolardi. Endi to'lov guruhsiz, hisobdagi nom nusxasi bilan yoziladi.
+        guruhsiz = hisob is not None and hisob.guruh_id is None and not request.data.get("guruh_id")
+        if guruhsiz:
+            guruh = None
+            if not filial_korinadimi(request.user, hisob.filial_id):
+                raise Http404
+        else:
+            guruh = get_object_or_404(Guruh, pk=request.data.get("guruh_id"))
+            guruh_tekshir(request.user, guruh)
+            if not talaba_guruhga_bogliqmi(talaba.id, guruh.id):
+                return _xato("Talaba bu guruhda o'qimagan")
+
+        if hisob is not None:
             # Hisob AYNAN shu talaba va guruhniki bo'lishi shart (2026-09-17
             # tekshiruvda topildi): aks holda to'lov bir talabaga yozilib,
             # BOSHQA talabaning oyi "to'landi" bo'lib qolardi.
-            if hisob.talaba_id != talaba.id or hisob.guruh_id != guruh.id:
+            if hisob.talaba_id != talaba.id or hisob.guruh_id != (guruh.id if guruh else None):
                 return _xato("Hisob boshqa talaba yoki guruhga tegishli")
         elif request.data.get("oy") and turi != Tolov.Turi.QAYTARISH:
             # `qaytarish` ATAYLAB oyga bog'lanmaydi — u umumiy hisob-kitob
@@ -1657,21 +1692,46 @@ class TolovlarView(CrmView):
             except ValueError as e:
                 return _xato(str(e))
 
-        tolov = Tolov.objects.create(
-            talaba=talaba,
-            talaba_ism=talaba.get_full_name() or talaba.username,
-            guruh=guruh,
-            guruh_nomi=guruh.name,
-            hisob=hisob,
-            sana=sana,
-            summa=summa,
-            turi=turi,
-            usul=usul,
-            izoh=(request.data.get("izoh") or "").strip()[:300],
-            kim_kiritdi=request.user,
-        )
-        if hisob is not None:
-            mantiq.hisobni_yangila(hisob)
+        # Takror so'rovdan himoya (2026-11-09): oyna har saqlashga bir martalik kalit
+        # yuboradi. Tarmoq uzilib, o'sha so'rov qayta kelsa — ikkinchi to'lov
+        # YOZILMAYDI, birinchisi qaytariladi. Kalit yuborilmasa (eski frontend) — avvalgidek.
+        takror_kaliti = None
+        xom_kalit = str(request.data.get("sorov_kaliti") or "").strip()
+        if xom_kalit:
+            takror_kaliti = f"crm_tolov:{request.user.pk}:{xom_kalit[:80]}"
+            if not cache.add(takror_kaliti, 0, 600):
+                oldingi = Tolov.objects.select_related("hisob", "kim_kiritdi", "talaba", "guruh").filter(
+                    pk=cache.get(takror_kaliti) or 0
+                ).first()
+                if oldingi is not None:
+                    return Response(_tolov_dict(oldingi), status=201)
+                return _xato("Bu to'lov hozir saqlanmoqda — ro'yxatni yangilab tekshiring", kod=409)
+
+        try:
+            # To'lov va oy holati BIRGA yoziladi: biri yozilib, ikkinchisi xato bersa
+            # pul bor-u oy "qarzdor" bo'lib qolardi.
+            with transaction.atomic():
+                tolov = Tolov.objects.create(
+                    talaba=talaba,
+                    talaba_ism=talaba.get_full_name() or talaba.username,
+                    guruh=guruh,
+                    guruh_nomi=guruh.name if guruh else hisob.guruh_nomi,
+                    hisob=hisob,
+                    sana=sana,
+                    summa=summa,
+                    turi=turi,
+                    usul=usul,
+                    izoh=(request.data.get("izoh") or "").strip()[:300],
+                    kim_kiritdi=request.user,
+                )
+                if hisob is not None:
+                    mantiq.hisobni_yangila(hisob)
+        except Exception:
+            if takror_kaliti:
+                cache.delete(takror_kaliti)  # yozilmadi — qayta urinish mumkin bo'lsin
+            raise
+        if takror_kaliti:
+            cache.set(takror_kaliti, tolov.pk, 600)
 
         logla(
             foydalanuvchi=request.user,
@@ -1712,6 +1772,11 @@ class TolovDetailView(CrmView):
         if xato := _ruxsatsiz(request, "moliya.tolov_tahrirlash", "To'lovni tahrirlashga ruxsat yo'q"):
             return xato
         tolov = get_object_or_404(Tolov, pk=pk)
+        # Pul qaytarish yozuvini tuzatish — "Pul qaytarish" ruxsati ham kerak (2026-11-09):
+        # aks holda qaytarishga ruxsati yo'q xodim uning summasini o'zgartira olardi.
+        if tolov.turi == Tolov.Turi.QAYTARISH:
+            if xato := _ruxsatsiz(request, "moliya.qaytarish", "Pul qaytarish yozuvini tahrirlashga ruxsat yo'q"):
+                return xato
         eski = {"summa": str(tolov.summa), "sana": str(tolov.sana), "izoh": tolov.izoh}
         try:
             if "summa" in request.data:
@@ -1731,9 +1796,10 @@ class TolovDetailView(CrmView):
             if request.data["usul"] not in dict(Tolov.Usul.choices):
                 return _xato("Noma'lum to'lov usuli")
             tolov.usul = request.data["usul"]
-        tolov.save(update_fields=["summa", "sana", "izoh", "usul"])
-        if tolov.hisob_id:
-            mantiq.hisobni_yangila(tolov.hisob)
+        with transaction.atomic():
+            tolov.save(update_fields=["summa", "sana", "izoh", "usul"])
+            if tolov.hisob_id:
+                mantiq.hisobni_yangila(tolov.hisob)
 
         logla(
             foydalanuvchi=request.user,
@@ -1756,9 +1822,10 @@ class TolovDetailView(CrmView):
         hisob = tolov.hisob
         snapshot = {"talaba": tolov.talaba_ism, "guruh": tolov.guruh_nomi,
                     "turi": tolov.turi, "summa": str(tolov.summa), "sana": str(tolov.sana)}
-        tolov.delete()
-        if hisob is not None:
-            mantiq.hisobni_yangila(hisob)
+        with transaction.atomic():
+            tolov.delete()
+            if hisob is not None:
+                mantiq.hisobni_yangila(hisob)
 
         logla(
             foydalanuvchi=request.user,
@@ -1860,7 +1927,7 @@ class TalabalarView(CrmView):
                     "filial_id": getattr(getattr(am.azolik.guruh, "moliya", None), "filial_id", None),
                     # Muzlatilish sababi (video-TZ): talabalar ro'yxatida ham
                     # ko'rinsin — guruh a'zolari sahifasida allaqachon bor edi.
-                    "muzlatish_sana": am.muzlatish_sana,
+                    "muzlatish_sana": muzlatish_sanasi(am),
                     "muzlatish_izoh": am.muzlatish_izoh,
                 }
             )
@@ -2343,16 +2410,47 @@ def _hisobot_qatorlari(oy=None, filial_id=None, user=None):
             olingan=Sum("summa", filter=Q(turi=Tolov.Turi.TOLOV), default=NOL),
             chegirma=Sum("summa", filter=Q(turi=Tolov.Turi.CHEGIRMA), default=NOL),
             bonus=Sum("summa", filter=Q(turi=Tolov.Turi.BONUS), default=NOL),
-            qaytarilgan=Sum("summa", filter=Q(turi=Tolov.Turi.QAYTARISH), default=NOL),
         )
     }
+    # Pul qaytarish (2026-11-09): u oyga (hisobga) BOG'LANMAYDI, shuning uchun yuqoridagi
+    # `hisob__oy`/`hisob__filial` bo'yicha so'rovga hech qachon tushmasdi va "Qaytarilgan"
+    # ustuni doim 0 chiqardi. Endi qaytarish o'z SANASI va guruh filiali bo'yicha
+    # sanaladi — bosh sahifadagi tushum bilan bir xil qoida (`crm.filial.tolov_q`).
+    qaytarishlar = Tolov.objects.filter(turi=Tolov.Turi.QAYTARISH)
+    if user:
+        qaytarishlar = qaytarishlar.filter(tolov_q(user))
+    if oy:
+        qaytarishlar = qaytarishlar.filter(sana__gte=oy, sana__lte=mantiq.oy_oxiri(oy))
+    if filial_id:
+        qaytarishlar = qaytarishlar.filter(tolov_filiali_q(filial_id))
+    qaytarilgan, qaytarish_guruhi = {}, {}
+    for q in qaytarishlar.values(
+        "guruh_id", "guruh_nomi", "hisob_id", "hisob__filial_id", "guruh__moliya__filial_id"
+    ).annotate(jami=Sum("summa", default=NOL)):
+        kalit = (q["hisob__filial_id"] if q["hisob_id"] else q["guruh__moliya__filial_id"], q["guruh_id"])
+        qaytarilgan[kalit] = qaytarilgan.get(kalit, NOL) + q["jami"]
+        qaytarish_guruhi[kalit] = q["guruh_nomi"]
     # Qarz — har o'quvchining to'lanmagan qoldig'i yig'indisi (Video-TZ
     # IMG_2210): guruhda birovning ortiqcha to'lovi boshqaning qarzini
-    # yemasligi kerak. Qoida `hisoblar/?qarzli=1` ro'yxati bilan bir xil.
+    # yemasligi kerak. Qoida `hisoblar/?qarzli=1` ro'yxati bilan bir xil
+    # (`_balansi_qarzlilar`): faqat BALANSI MANFIY o'quvchining hisobi qarz.
+    # 2026-11-09: avval bu yerda balans tekshirilmasdi — bir oyga ortiqcha to'lagan
+    # o'quvchining keyingi oyi "qarz" bo'lib chiqar, bosh sahifadagi "Joriy oy qarzi"
+    # "Jami qarz"ga zid kelardi.
+    qarzli_hisoblar = list(
+        hisoblar.filter(holat__in=[Hisob.Holat.QARZDOR, Hisob.Holat.QISMAN]).annotate(
+            yopilgan=Sum("tolovlar__summa", filter=Q(tolovlar__turi__in=Tolov.YOPUVCHI_TURLAR), default=NOL)
+        )
+    )
+    if user:
+        doira = balans_doirasi(user, filial_id)
+    elif filial_id:
+        doira = (Q(filial_id=filial_id), tolov_filiali_q(filial_id))
+    else:
+        doira = (Q(), Q())
+    balanslar = mantiq.balanslarni_ol({h.talaba_id for h in qarzli_hisoblar if h.talaba_id}, *doira)
     qarzlar = {}
-    for h in hisoblar.filter(holat__in=[Hisob.Holat.QARZDOR, Hisob.Holat.QISMAN]).annotate(
-        yopilgan=Sum("tolovlar__summa", filter=Q(tolovlar__turi__in=Tolov.YOPUVCHI_TURLAR), default=NOL)
-    ):
+    for h in _balansi_qarzlilar(qarzli_hisoblar, balanslar):
         kalit = (h.filial_id, h.guruh_id)
         qarzlar[kalit] = qarzlar.get(kalit, NOL) + max(h.summa - h.yopilgan, NOL)
     filial_nomlari = dict(Filial.objects.values_list("id", "nomi"))
@@ -2375,13 +2473,21 @@ def _hisobot_qatorlari(oy=None, filial_id=None, user=None):
                 "olingan": olingan,
                 "chegirma": chegirma,
                 "bonus": bonus,
-                "qaytarilgan": p.get("qaytarilgan", NOL),
+                "qaytarilgan": qaytarilgan.pop(kalit, NOL),
                 "qarz": qarzlar.get(kalit, NOL),
                 # Yig'ilish foizi — HAQIQIY pul bo'yicha (chegirma
                 # qo'shilmaydi), aks holda ko'rsatkich soxta yaxshi chiqardi.
                 "yigilish_foizi": round(float(olingan / jami * 100), 1) if jami else 0.0,
             }
         )
+    # Shu davrda hisobi yo'q guruhdan qaytarilgan pul ham ko'rinsin (alohida qator).
+    for kalit, summa in qaytarilgan.items():
+        qatorlar.append({
+            "filial_id": kalit[0], "filial": filial_nomlari.get(kalit[0]) or "—",
+            "guruh_id": kalit[1], "guruh": qaytarish_guruhi.get(kalit) or "—",
+            "talaba_soni": 0, "hisoblangan": NOL, "olingan": NOL, "chegirma": NOL, "bonus": NOL,
+            "qaytarilgan": summa, "qarz": NOL, "yigilish_foizi": 0.0,
+        })
     qatorlar.sort(key=lambda x: (x["filial"], x["guruh"]))
     return qatorlar
 
@@ -2389,7 +2495,15 @@ def _hisobot_qatorlari(oy=None, filial_id=None, user=None):
 class HisobotView(CrmView):
     bolim = "hisobotlar"
 
+    # Moliyaviy sarhisobni ko'rsatadigan ekranlarning ruxsatlari (2026-11-09): Moliya >
+    # Hisobot tabi, bosh sahifadagi Moliya bloki, "Moliyaviy hisobot". Avval "Hisobotlar"
+    # bo'limining ISTALGAN ruxsati (masalan faqat lidlar hisoboti) yetarli edi — tab
+    # interfeysda yashirilsa ham pul raqamlari API orqali o'qilardi.
+    KERAKLI = {"moliya.hisobot", "hisobotlar.moliya", "bosh_sahifa.moliya"}
+
     def get(self, request):
+        if not self.KERAKLI & ruxsatlar(request.user):
+            return _xato("Moliyaviy hisobotga ruxsat yo'q", kod=403)
         oy = None
         if request.query_params.get("oy"):
             try:

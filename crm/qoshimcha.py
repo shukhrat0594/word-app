@@ -949,6 +949,10 @@ class HisobotlarDavrView(CrmView):
 
     def get(self, request):
         turi = request.query_params.get("turi")
+        # Rol oynasidagi "Excel" belgisi (`hisobotlar.excel`) endi serverda ham tekshiriladi
+        # (2026-11-09) — avval u hech qayerda ishlatilmasdi.
+        if "hisobotlar.excel" not in ruxsatlar(request.user):
+            return _xato("Excel'ga yuklab olishga ruxsat yo'q", kod=403)
         # Tab ruxsati yo'q bo'lsa — uning Excel'i ham yo'q (TZ #477).
         if turi in ("ketganlar", "lidlar", "tolovlar") and f"hisobotlar.{turi}" not in ruxsatlar(request.user):
             return _xato("Bu hisobotga ruxsat yo'q", kod=403)

@@ -4,17 +4,18 @@
 // kartasidan chaqiriladi. Ikki nusxa bo'lsa, biriga qo'shilgan tekshiruv
 // ikkinchisida unutilib qolardi — pul harakatida bu qimmat.
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { api } from "./api.js";
-import { pul } from "./format.js";
+import { bugunSana, pul, sorovKaliti } from "./format.js";
 import { useI18n } from "./i18n.jsx";
 import UsulTanlash from "./TolovUsuli.jsx";
 
 export default function QaytarishOynasi({ talabaId, talabaIsmi, guruhId, guruhNomi, balans, onYopish, onSaqlandi }) {
   const { t } = useI18n();
   const [summa, setSumma] = useState("");
-  const [sana, setSana] = useState(new Date().toISOString().slice(0, 10));
+  const [sana, setSana] = useState(bugunSana());
+  const kalit = useRef(sorovKaliti());  // takror yozilishdan himoya (`format.js`)
   const [usul, setUsul] = useState("naqd");
   const [izoh, setIzoh] = useState("");
   const [xato, setXato] = useState("");
@@ -41,6 +42,7 @@ export default function QaytarishOynasi({ talabaId, talabaIsmi, guruhId, guruhNo
           sana,
           usul,
           izoh,
+          sorov_kaliti: `${kalit.current}-qaytarish`,
         },
       });
       onSaqlandi();

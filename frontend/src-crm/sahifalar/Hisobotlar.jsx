@@ -155,11 +155,12 @@ const HISOBOT_TABLARI = ["dinamika", "tolovlar", "lidlar", "ketganlar", "bitiruv
 
 function DavrTanlash({ dan, setDan, gacha, setGacha, turi, filial }) {
   const { t } = useI18n();
+  const excelMumkin = useRuxsat()("hisobotlar.excel");
   return (
     <div className="filtrlar">
       <label className="yonma">{t("dan")}<input type="date" value={dan} onChange={(e) => setDan(e.target.value)} /></label>
       <label className="yonma">{t("gacha")}<input type="date" value={gacha} onChange={(e) => setGacha(e.target.value)} /></label>
-      {turi && (
+      {turi && excelMumkin && (
         <button className="tugma tugma-sokin kichik-tugma" type="button"
                 onClick={() => apiFayluniYuklab("/api/crm/hisobot/eksport/" + sorovSatri({ turi, dan, gacha, filial }))}>
           ⬇ Excel
@@ -196,6 +197,7 @@ function KunlikGrafik({ dan, gacha, qatorlar }) {
 function KetishHisoboti() {
   const { t } = useI18n();
   const { tanlangan } = useFilial();
+  const excelMumkin = useRuxsat()("hisobotlar.excel");
   const b = new Date();
   const [dan, setDan] = useState(`${b.getFullYear()}-${String(b.getMonth() + 1).padStart(2, "0")}-01`);
   const [gacha, setGacha] = useState(b.toISOString().slice(0, 10));
@@ -216,11 +218,13 @@ function KetishHisoboti() {
       <div className="filtrlar">
         <label className="yonma">{t("dan")}<input type="date" value={dan} onChange={(e) => setDan(e.target.value)} /></label>
         <label className="yonma">{t("gacha")}<input type="date" value={gacha} onChange={(e) => setGacha(e.target.value)} /></label>
-        <button className="tugma tugma-sokin kichik-tugma" type="button"
-                onClick={() => apiFayluniYuklab("/api/crm/hisobot/eksport/" + sorovSatri({ turi: "ketganlar", ...parametrlar }))
-                  .catch((e) => setEksportXato(e.message))}>
-          ⬇ Excel
-        </button>
+        {excelMumkin && (
+          <button className="tugma tugma-sokin kichik-tugma" type="button"
+                  onClick={() => apiFayluniYuklab("/api/crm/hisobot/eksport/" + sorovSatri({ turi: "ketganlar", ...parametrlar }))
+                    .catch((e) => setEksportXato(e.message))}>
+            ⬇ Excel
+          </button>
+        )}
       </div>
       {(xato || eksportXato) && <div className="xato">{xato || eksportXato}</div>}
       {yuklanmoqda && !d && <p className="kichik">{t("yuklanmoqda")}</p>}
