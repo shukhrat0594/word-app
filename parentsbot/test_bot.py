@@ -108,14 +108,16 @@ class IsmBilanUlashTest(BotAsos):
         self.yubor(100, "Sevara Jorayeva")
         self.assertIn("sanasini", self.tg.oxirgi())
 
-    def test_ism_va_sana_aniq_mos_kelsa_ulanadi(self):
+    def test_ism_va_sana_aniq_mos_kelsa_ham_admin_tasdiqlaydi(self):
+        # 2026-11-09: ism + tug'ilgan sana avtomatik ULAMAYDI (begona ham biladi) —
+        # so'rov adminga boradi, aniq mos kelgan o'quvchi nomzodlar boshida.
         self.telefonsiz()
         self.yubor(100, "Sevara Jorayeva")
         self.yubor(100, "03.03.2011")
-        self.assertIn("Ulandi", self.tg.oxirgi())
-        b = Boglanish.objects.get()
-        self.assertEqual((b.talaba, b.usul), (self.t2, "ism_sana"))
-        self.assertEqual(Sorov.objects.count(), 0)
+        self.assertIn("adminlariga yuborildi", self.tg.oxirgi())
+        self.assertEqual(Boglanish.objects.count(), 0)
+        s = Sorov.objects.get()
+        self.assertEqual((s.holat, s.nomzodlar[0]), ("kutilmoqda", self.t2.id))
 
     def test_sana_noto_gri_bolsa_sorov_adminga_va_javob_bir_xil(self):
         self.telefonsiz()
@@ -253,13 +255,14 @@ class TugmalarMenyusiTest(BotAsos):
         self.yubor(100, "Sevara Jorayeva")  # oddiy ism — tugma emas
         self.assertIn("sanasini", self.tg.oxirgi())
 
-    def test_ism_bilan_ulanganda_ham_menyu(self):
+    def test_ism_bilan_sorov_yuborilganda_menyu_yoq(self):
+        # 2026-11-09: ism + sana avtomatik ulamaydi — admin tasdiqlaguncha menyu ham chiqmaydi.
         self.tilgacha()
         self.yubor(100, contact={"phone_number": "+998931112233", "user_id": 100})
         self.yubor(100, "Sevara Jorayeva")
         self.yubor(100, "03.03.2011")
-        self.assertIn("Ulandi", self.tg.oxirgi())
-        self.assertEqual(len(self.tugma_matnlari()), len(MENYU))
+        self.assertIn("adminlariga yuborildi", self.tg.oxirgi())
+        self.assertEqual(Boglanish.objects.count(), 0)
 
 
 class FarzandQoshishTest(BotAsos):
@@ -275,12 +278,14 @@ class FarzandQoshishTest(BotAsos):
         self.assertIn("ism-familiya", self.tg.oxirgi())
         self.yubor(100, "Sevara Jorayeva")
         self.yubor(100, "03.03.2011")
-        self.assertIn("Sevara", self.tg.oxirgi())
-        self.assertEqual(set(Boglanish.objects.filter(faol=True).values_list("talaba", flat=True)),
-                         {self.t1.id, self.t2.id})
+        # 2026-11-09: ikkinchi farzand ham ism + sana bilan avtomatik ULANMAYDI — so'rov
+        # adminga boradi (telefon bilan ulangan ota-ona ham begona bolani ulay olmasin).
+        self.assertIn("adminlariga yuborildi", self.tg.oxirgi())
+        self.assertEqual(set(Boglanish.objects.filter(faol=True).values_list("talaba", flat=True)), {self.t1.id})
+        self.assertEqual(Sorov.objects.get().nomzodlar[0], self.t2.id)
         self.yubor(100, "/farzandlarim")
         self.assertIn("Aziz", self.tg.oxirgi())
-        self.assertIn("Sevara", self.tg.oxirgi())
+        self.assertNotIn("Sevara", self.tg.oxirgi())
 
     def test_telefon_boyicha_yangi_moslik_darhol_ulanadi(self):
         self.ulangan()

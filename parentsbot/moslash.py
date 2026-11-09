@@ -3,8 +3,9 @@
 Qoidalar (Shuhrat, 2026-10-04):
 - telefon mos kelsa — ulanadi (ota-ona kontaktni O'Z hisobidan ulashgan bo'lishi shart —
   bu `bot.py`da tekshiriladi);
-- mos kelmasa — ism-familiya VA tug'ilgan sana ikkalasi aniq BITTA o'quvchiga mos kelsa;
-- aks holda — adminlarga so'rov. Ism yumshoq taqqoslanadi (harf registri, apostrof,
+- mos kelmasa — ism-familiya va tug'ilgan sana so'raladi va adminlarga so'rov boradi
+  (2026-11-09 dan aniq moslik ham avtomatik ULAMAYDI — bu ma'lumotni begonalar ham biladi;
+  `bot.Bot._sana` izohi). Ism yumshoq taqqoslanadi (harf registri, apostrof,
   lotin/kirill, ism-familiya tartibi hisobga olinmaydi).
 """
 

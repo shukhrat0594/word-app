@@ -239,13 +239,15 @@ class Bot:
             return self._yubor(ab, "urinish_kop")
         ab.urinishlar = songgilari + [hozir.isoformat()]
         ism = (ab.kontekst or {}).get("ism", "")
-        mos = moslash.aniq_moslik(ism, sana)
         ab.kontekst = {}
         ab.holat = Abonent.Holat.TAYYOR
         ab.save(update_fields=["urinishlar", "kontekst", "holat"])
-        if len(mos) == 1:
-            xizmat.ulash(ab, mos, Boglanish.Usul.ISM_SANA)
-            return self._yubor(ab, "ulandi", self._menyu(ab), ismlar=xizmat.ismlar_matni(mos))
-        # Topilmadi yoki bir nechta mos keldi: ota-onaga ATAYLAB bir xil javob; adminlar hal qiladi.
+        # 2026-11-09 (Shuhrat qarori): ism va tug'ilgan sana ANIQ mos kelsa ham avtomatik
+        # ULANMAYDI — so'rov adminga boradi. Bu ikki ma'lumotni sinfdoshlar ham biladi:
+        # avval ularni bilgan istalgan Telegram hisobi bolaning davomati, bahosi, qarzi va
+        # ustoz telefonini ola boshlardi. Avtomatik ulanish faqat telefon bo'yicha (ota-ona
+        # kontaktni o'z hisobidan ulashadi). Aniq mos kelgan o'quvchi nomzodlar ro'yxatining
+        # boshida turadi — admin bir bosishda tasdiqlaydi. Javob har holatda BIR XIL:
+        # bot kim o'qishini oshkor qilmaydi.
         xizmat.sorov_yarat(ab, ism, matn.strip()[:30], moslash.nomzodlar(ism, sana))
         self._yubor(ab, "sorov_yuborildi")
