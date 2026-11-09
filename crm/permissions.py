@@ -9,6 +9,7 @@ tekshiriladi.
 from django.conf import settings
 from django.http import Http404
 from rest_framework.permissions import BasePermission, IsAuthenticated
+from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from accounts.permissions import owner_mi
@@ -76,6 +77,15 @@ class CrmView(APIView):
     """
 
     permission_classes = [IsAuthenticated, CrmRuxsati]
+
+    def handle_exception(self, exc):
+        # `?guruh=abc` yoki `talaba_id: "x"` — ORM "Field 'id' expected a number" deb
+        # ValueError/TypeError ko'taradi va javob 500 bo'lardi (2026-11-09). Bu so'rov
+        # xatosi, server xatosi emas. Faqat AYNAN shu xabar ushlanadi — boshqa xatolar
+        # avvalgidek 500 bo'lib, logda ko'rinadi.
+        if isinstance(exc, (ValueError, TypeError)) and "expected a number" in str(exc):
+            return Response({"detail": "Identifikator noto'g'ri — butun son kutilgan"}, status=400)
+        return super().handle_exception(exc)
 
     def initial(self, request, *args, **kwargs):
         # CRM o'chirilgan bo'lsa (prod) — 404. ATAYLAB 403 emas: 403

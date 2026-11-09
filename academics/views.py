@@ -488,6 +488,15 @@ class MarkazAzolariView(APIView):
         )
 
 
+def _butun_id(qiymat):
+    """So'rovdan kelgan id: butun son bo'lmasa `None` (ya'ni 404). Aks holda ORM
+    ValueError ko'tarib, javob 500 bo'lardi (2026-11-09)."""
+    try:
+        return int(qiymat)
+    except (TypeError, ValueError):
+        return None
+
+
 class DavomatView(APIView):
     """Kunlik davomat — ko'rish va belgilash (B2.2, F2.1).
 
@@ -498,7 +507,7 @@ class DavomatView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        guruh = get_object_or_404(Guruh, pk=request.query_params.get("guruh"))
+        guruh = get_object_or_404(Guruh, pk=_butun_id(request.query_params.get("guruh")))
         if not _guruhga_ruxsat_bormi(request.user, guruh):
             return Response({"detail": "Ruxsat yo'q"}, status=403)
 
@@ -540,7 +549,7 @@ class DavomatView(APIView):
         )
 
     def post(self, request):
-        guruh = get_object_or_404(Guruh, pk=request.data.get("guruh"))
+        guruh = get_object_or_404(Guruh, pk=_butun_id(request.data.get("guruh")))
         if not _guruhga_ruxsat_bormi(request.user, guruh):
             return Response({"detail": "Ruxsat yo'q"}, status=403)
 

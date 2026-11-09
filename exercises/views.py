@@ -19,6 +19,7 @@ from rest_framework.views import APIView
 
 from accounts.models import Markaz, User
 from accounts.permissions import owner_mi
+from assessment.cheklov import AiCheklovli
 from assessment.providers import ProviderXatosi
 from audit.models import FaoliyatYozuvi
 from audit.utils import logla, maydon_diff
@@ -2399,7 +2400,7 @@ def _yozgap_qism_tartibi(qism):
     return (_YOZGAP_NAVBATI.get(qism.tur, 99), qism.tartib)
 
 
-class ImtihonYozGapTekshirishView(APIView):
+class ImtihonYozGapTekshirishView(AiCheklovli, APIView):
     """Writing/Speaking to'liq testga javob — har bir qism (Task1+Task2 yoki
     Part1/2/3) uchun AI orqali baholanadi (assessment.providers — Writing/
     Speaking AI-tekshiruv paneli bilan bir xil mexanizm, mavzuga moslik

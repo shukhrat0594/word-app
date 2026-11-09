@@ -114,6 +114,10 @@ class GrammatikaTekshirishView(APIView):
 
     def post(self, request):
         javoblar = request.data.get("javoblar") or []
+        if not isinstance(javoblar, list) or not all(
+            isinstance(j, dict) and isinstance(j.get("id"), int) for j in javoblar
+        ):
+            return Response({"detail": "javoblar — {id, javob} ro'yxati bo'lishi kerak"}, status=400)
         idlar = [j.get("id") for j in javoblar]
         savollar = {s.id: s for s in GrammatikaSavoli.objects.filter(pk__in=idlar)}
 

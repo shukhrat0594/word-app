@@ -7,6 +7,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from .cheklov import RASM_MAKS_HAJM, AiCheklovli, audio_xatosi
 from .models import SpeakingTekshiruv, WritingTekshiruv
 from .providers import (
     GEMINI_MODEL,
@@ -56,7 +57,7 @@ def _tanlangan_providerlar(request):
     return [(model_kaliti, gemini_provider_ol(model_kaliti))]
 
 
-class WritingTekshirishView(APIView):
+class WritingTekshirishView(AiCheklovli, APIView):
     """Insho/xat yuboriladi -> AI baholaydi -> natija saqlanadi va qaytadi.
 
     2026-07-20 (v5): frontend `savol_matni` (mashqning asl savol matni) va
@@ -87,6 +88,9 @@ class WritingTekshirishView(APIView):
             return None, None
 
         grafik_b64 = request.data.get("grafik_rasm")
+        # base64 asl hajmdan ~4/3 marta uzun — dekodlashdan OLDIN tekshiriladi.
+        if grafik_b64 and len(grafik_b64) > RASM_MAKS_HAJM * 4 // 3:
+            return None, None
         if grafik_b64:
             # 2026-07-27: MIME avval har doim "image/png" deb qattiq yozilgan
             # edi. "O'z mavzuyim" bo'limida talaba o'z faylini yuklaydi va u
@@ -153,7 +157,7 @@ class WritingTekshirishView(APIView):
         return Response({"natijalar": natijalar})
 
 
-class SpeakingMatnView(APIView):
+class SpeakingMatnView(AiCheklovli, APIView):
     """Speaking — Matn rejimi (600 so'm): matn -> 3 mezon (Pronunciation'siz).
 
     2026-07-20 (v5): Writing bilan bir xil sababga ko'ra, frontend
@@ -215,7 +219,7 @@ class SpeakingMatnView(APIView):
         return Response({"natijalar": natijalar})
 
 
-class SpeakingTranskripsiyaView(APIView):
+class SpeakingTranskripsiyaView(AiCheklovli, APIView):
     """Faqat TRANSKRIPSIYA (baholashsiz), 2026-07-30: "IELTS testlari"/"AI
     mashqlari" bo'limidagi HAQIQIY imtihon oqimi (`ImtihonYozGap.jsx`)
     barcha Part 1/2/3'ni BITTA so'rovda ('/api/imtihon/testlar/{id}/
@@ -232,6 +236,8 @@ class SpeakingTranskripsiyaView(APIView):
         audio = request.FILES.get("audio")
         if not audio:
             return Response({"detail": "audio fayli majburiy"}, status=400)
+        if xato := audio_xatosi(audio):
+            return xato
         try:
             kalit = getattr(settings, "GEMINI_API_KEY", "")
             if not kalit:
@@ -247,7 +253,7 @@ class SpeakingTranskripsiyaView(APIView):
         return Response({"transkript": transkript})
 
 
-class SpeakingAudioView(APIView):
+class SpeakingAudioView(AiCheklovli, APIView):
     """Speaking — Mikrofon rejimi (2026-07-29): talaba brauzerda ovoz
     yozib oladi, audio bu yerga yuboriladi -> Gemini transkripsiya qiladi
     -> xuddi Matn rejimidagi 3 mezon (Pronunciation'siz) bilan baholanadi.
@@ -269,6 +275,8 @@ class SpeakingAudioView(APIView):
         audio = request.FILES.get("audio")
         if not audio:
             return Response({"detail": "audio fayli majburiy"}, status=400)
+        if xato := audio_xatosi(audio):
+            return xato
 
         savol_matni = (request.data.get("savol_matni") or "").strip()
         tur = request.data.get("tur") or "part1"
@@ -328,7 +336,7 @@ TRAINER_MAX_XABAR = 60
 TRAINER_MAX_BELGI = 8000
 
 
-class SpeakingTrainerView(APIView):
+class SpeakingTrainerView(AiCheklovli, APIView):
     """AI Speaking Trainer (2026-10-20, TZ 421) — murabbiy bilan suhbat.
 
     Holat serverda saqlanmaydi: frontend butun suhbat tarixini
@@ -361,6 +369,8 @@ class SpeakingTrainerView(APIView):
             ):
                 return Response({"detail": "xabarlar noto'g'ri formatda"}, status=400)
             tozalangan.append({"rol": x["rol"], "matn": x["matn"][:TRAINER_MAX_BELGI]})
+        if xato := audio_xatosi(request.FILES.get("audio")):
+            return xato
 
         try:
             kalit = getattr(settings, "GEMINI_API_KEY", "")
@@ -388,7 +398,7 @@ GRAMMAR_COACH_MAX_BELGI = 1000
 GRAMMAR_COACH_MAX_KONTEKST = 30000
 
 
-class GrammarCoachView(APIView):
+class GrammarCoachView(AiCheklovli, APIView):
     """AI Grammar Coach (2026-10-26, TZ 613) — talaba grammatika mavzusi
     nomini yoki inglizcha gapni yozadi, AI (Speaking Trainer bilan bir xil
     Gemini modeli) tanlangan tilda (`til`: Uzbek/Russian/English)
