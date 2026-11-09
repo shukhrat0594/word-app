@@ -19,6 +19,44 @@ Format (qat'iy, parser shunga tayanadi):
 
 ---
 
+## 2026-11-09 — Xavfsizlik va to'lov hisob-kitobi tuzatishlari
+
+- **Guruhdan chiqarilgan talabada soxta qarz qolmaydi.** Talaba o'tgan sana bilan
+  chiqarilsa yoki oyning 1-sanasida boshqa guruhga ko'chirilsa, keyingi oyning
+  allaqachon ochilgan hisobi ham tuzatiladi (avval u to'liq qarz bo'lib qolardi,
+  ko'chirishda esa ikkala guruhda ham to'liq oy yozilardi).
+- **Muzlatish endi hisobga ta'sir qiladi.** Muzlatilgan oy faqat muzlatish
+  sanasigacha hisoblanadi; talaba shu oyda qaytsa, qaytgan kundan keyingi darslar
+  qo'shiladi. To'langan oyga tegilmaydi.
+- **Arxivdan qaytarilgan guruh.** Arxivda turgan oylar uchun hisob ochilmaydi —
+  hisob guruh qaytarilgan kundan boshlanadi.
+- **Boshlanish sanasi tuzatilsa** ochilgan oy ham qayta hisoblanadi.
+- **Saytdagi «Guruhlar» sahifasi CRM bilan bir xil ishlaydi.** U yerdan olib
+  tashlangan talabaning hisobi chiqish kunigacha qayta hisoblanadi va «Ketgan
+  o'quvchilar»da ko'rinadi.
+- **O'chirilgan guruhning qarzini to'lash mumkin** (avval to'lov qabul qilinmasdi).
+- **To'lov ikki marta yozilib qolmaydi.** Internet uzilib so'rov qayta ketsa yoki
+  bonus xato berib «Saqlash» qayta bosilsa — ikkinchi to'lov yozilmaydi. Yarim
+  tundan keyin kiritilgan to'lovga endi kechagi emas, bugungi sana qo'yiladi.
+- **Hisobot raqamlari bir-biriga mos.** Ortiqcha to'lagan o'quvchining keyingi oyi
+  endi «Joriy oy qarzi»da va hisobotda qarz bo'lib ko'rinmaydi. Qaytarilgan pul
+  hisobotdagi «Qaytarilgan» ustunida chiqadi (avval doim 0 edi).
+- **CRM ruxsatlari.** Moliyaviy hisobot va hisobotlarni Excel'ga yuklash endi o'z
+  ruxsatini talab qiladi; pul qaytarish yozuvini faqat «Pul qaytarish» ruxsati
+  bor xodim tuzatadi. Rolda «Excel» belgisi yo'q bo'lsa, tugma ko'rinmaydi.
+- **Reyting ballari.** Bitta mashqni qayta-qayta yechish endi ball bermaydi —
+  faqat birinchi urinish. Writing va Speaking uchun ball tekshiruv tugagach
+  beriladi (AI xato bersa berilmaydi).
+- **AI tekshiruvlariga chegara.** Har foydalanuvchi soatiga 120 tagacha AI so'rovi
+  yubora oladi (owner'ga chegara yo'q); audio 25 MB dan katta bo'lmasin.
+- **Parol almashganda boshqa qurilmalardagi seanslar yopiladi.** Owner yoki admin
+  parolni tiklaganda ham.
+- **Ota-ona boti.** Farzandning ismi va tug'ilgan sanasi mos kelsa ham endi
+  avtomatik ulanmaydi — so'rov CRM'ga tushadi va admin tasdiqlaydi. Telefon raqami
+  mos kelsa avvalgidek darhol ulanadi.
+- Admin paneliga kirishga urinishlar cheklandi; markaz logosi sifatida faqat rasm
+  qabul qilinadi; logini bo'sh joyli eski hisoblar profilini tahrirlay oladi.
+
 ## 2026-10-29 — Qurilmalar limiti qaytadan qurildi
 
 - **Bitta «Qurilmalar» oynasi.** Menyuda yangi «Qurilmalar» bo'limi: har bir
