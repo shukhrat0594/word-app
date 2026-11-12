@@ -10,6 +10,7 @@ import Hisobotlar from "./pages/Hisobotlar";
 import ImtihonBoshqarish from "./pages/ImtihonBoshqarish";
 import Kurslar from "./pages/Kurslar";
 import Leaderboard from "./pages/Leaderboard";
+import ListeningTrainer from "./pages/ListeningTrainer";
 import Login from "./pages/Login";
 import Mashqlar from "./pages/Mashqlar";
 import MashqlarBoshqarish from "./pages/MashqlarBoshqarish";
@@ -56,6 +57,7 @@ export default function App() {
             <Route path="ai-mashqlari" element={<ImtihonBoshqarish manba="ai" />} />
             <Route path="speaking-trainer" element={<SpeakingTrainer />} />
             <Route path="grammar-coach" element={<GrammarCoach />} />
+            <Route path="listening-trainer" element={<ListeningTrainer />} />
             <Route path="kurslar" element={<Kurslar />} />
             <Route path="reyting" element={<Leaderboard />} />
             <Route path="oyinlar" element={<Oyinlar />} />

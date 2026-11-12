@@ -26,6 +26,7 @@ const PANELLAR = {
   "/ai-mashqlari": { ikon: "🤖", kalit: "nav_ai_mashqlari" },
   "/speaking-trainer": { ikon: "🎙", kalit: "nav_speaking_trainer" },
   "/grammar-coach": { ikon: "📘", kalit: "nav_grammar_coach" },
+  "/listening-trainer": { ikon: "🎧", kalit: "nav_listening_trainer" },
   "/kurslar": { ikon: "📚", kalit: "nav_kurslar" },
   "/oyinlar": { ikon: "🎮", kalit: "nav_oyinlar" },
   "/reyting": { ikon: "🏆", kalit: "nav_reyting" },
@@ -71,6 +72,7 @@ const TALABA_PANELLARI = [
   "/ai-mashqlari",
   "/speaking-trainer",
   "/grammar-coach",
+  "/listening-trainer",
   "/kurslar",
   "/oyinlar",
   "/reyting",
@@ -91,7 +93,7 @@ export const ROL_PANELLARI = {
   owner: [
     "/", "/hisobotlar", "/guruhlar", "/reyting", "/talabalar", "/xodimlar",
     "/kurslar", "/ielts-boshqarish",
-    "/ai-mashqlari", "/speaking-trainer", "/grammar-coach", "/oyinlar", "/foydalanuvchilar", "/qurilmalar",
+    "/ai-mashqlari", "/speaking-trainer", "/grammar-coach", "/listening-trainer", "/oyinlar", "/foydalanuvchilar", "/qurilmalar",
     "/markaz-sozlash",
   ],
   // 2026-07-21: "Mashqlar boshqarish" (bo'lim o'zi ham yopiq), "Davomat"
