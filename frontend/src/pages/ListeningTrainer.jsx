@@ -6,9 +6,13 @@ import { DARAJALAR } from "../listeningMatnlar";
 const TEZLIKLAR = [0.7, 0.85, 1];
 
 /** Taqqoslash uchun so'z: kichik harf, tinish belgilarisiz, egri apostrof
- * to'g'risiga almashtirilgan ("Don’t," == "don't"). */
+ * to'g'risiga almashtirilgan ("Don’t," == "don't"), urg'u belgisi olingan
+ * ("café" == "cafe" — aks holda é kesilib "caf" qolardi va "cafe" xato
+ * chiqardi). */
 function sozTozala(s) {
   return s
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
     .toLowerCase()
     .replace(/[’‘`]/g, "'")
     .replace(/[^a-z0-9']/g, "");
@@ -23,9 +27,15 @@ function sozlarga(matn) {
  * tushib qolsa, undan keyingilari ham xato ko'rinadi, bu talabaga
  * "qayerdan adashganini" ko'rsatadi. */
 export function gapniTekshir(asl, yozilgan) {
-  const togri = asl.split(/\s+/).filter(Boolean);
+  // Faqat tinish belgisidan iborat bo'lak ("—") so'z emas: uni hech kim
+  // "to'g'ri" yoza olmasdi.
+  const togri = asl.split(/\s+/).filter((s) => sozTozala(s));
   const yozSozlar = sozlarga(yozilgan);
-  return togri.map((soz, i) => ({ soz, mos: sozTozala(soz) === (yozSozlar[i] ?? null) }));
+  const natija = togri.map((soz, i) => ({ soz, mos: sozTozala(soz) === (yozSozlar[i] ?? null) }));
+  // Ortiqcha yozilgan so'zlar ham xato — aks holda "I go to bed at ten
+  // o'clock" ham "To'g'ri!" chiqardi.
+  for (const soz of yozSozlar.slice(togri.length)) natija.push({ soz, mos: false, ortiqcha: true });
+  return natija;
 }
 
 /** Listening trainer (2026-11-12, TZ 712) — diktant: gap ovoz bilan
@@ -169,7 +179,9 @@ export default function ListeningTrainer() {
           if (e.key === "Enter" && !e.shiftKey) {
             e.preventDefault();
             tekshir();
-          } else if (e.key === "Control" || e.key === "Meta") {
+          } else if ((e.key === "Control" || e.key === "Meta") && !e.repeat) {
+            // Bosib turilganda keydown takrorlanadi — har safar boshidan
+            // o'qib, gap umuman eshitilmasdi.
             oqi();
           }
         }}
@@ -183,7 +195,7 @@ export default function ListeningTrainer() {
               key={i}
               style={{ color: x.mos ? "var(--yaxshi)" : "var(--xato)", marginRight: 6 }}
             >
-              {x.mos || ochildi ? x.soz : "*".repeat(Math.max(3, sozTozala(x.soz).length))}
+              {x.ortiqcha ? <s>{x.soz}</s> : x.mos || ochildi ? x.soz : "*".repeat(Math.max(3, sozTozala(x.soz).length))}
             </span>
           ))}
           {hammasiTogri && <div style={{ color: "var(--yaxshi)", fontWeight: 700 }}>✓ {t("listening_togri")}</div>}
