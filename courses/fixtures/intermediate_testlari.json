@@ -166,7 +166,7 @@
    "savol": "What did your grandfather die ____? — A heart attack.",
    "variantlar": [
     "of",
-    "from",
+    "at",
     "with"
    ],
    "togri": "of"
@@ -192,8 +192,8 @@
   {
    "savol": "Who was Mary talking ____ on the phone? — Her sister.",
    "variantlar": [
-    "with",
-    "about",
+    "at",
+    "from",
     "to"
    ],
    "togri": "to"
@@ -221,7 +221,7 @@
    "variantlar": [
     "like",
     "looking",
-    "want"
+    "wanting"
    ],
    "togri": "like"
   },
@@ -896,7 +896,7 @@
   {
    "savol": "What is the noun form of the verb 'educate'?",
    "variantlar": [
-    "Educator",
+    "Educative",
     "Education",
     "Educated"
    ],
@@ -1414,7 +1414,7 @@
    "savol": "When we arrived at the theatre, the play ____ already finished.",
    "variantlar": [
     "did",
-    "was",
+    "has",
     "had"
    ],
    "togri": "had"
@@ -2744,7 +2744,7 @@
    "variantlar": [
     "make",
     "making",
-    "to make"
+    "made"
    ],
    "togri": "making"
   },
@@ -2967,8 +2967,8 @@
   {
    "savol": "Don't waste your ____ trying to explain it to him.",
    "variantlar": [
-    "words",
-    "time",
+    "voice",
+    "air",
     "breath"
    ],
    "togri": "breath"
@@ -2976,7 +2976,7 @@
   {
    "savol": "The party got completely out of ____ late at night.",
    "variantlar": [
-    "control",
+    "arm",
     "hand",
     "foot"
    ],
@@ -3086,7 +3086,7 @@
    "variantlar": [
     "off",
     "out",
-    "down"
+    "up"
    ],
    "togri": "out"
   },
@@ -4224,7 +4224,7 @@
   {
    "savol": "The teacher is checking Maria's exercise. She ____ finished already!",
    "variantlar": [
-    "must have",
+    "must",
     "can't have",
     "might"
    ],
@@ -4588,7 +4588,7 @@
    "variantlar": [
     "has gone",
     "had gone",
-    "went"
+    "goes"
    ],
    "togri": "had gone"
   },
@@ -4892,7 +4892,7 @@
   {
    "savol": "I'm exhausted from working all day! Let's call it a ____.",
    "variantlar": [
-    "night",
+    "week",
     "time",
     "day"
    ],
