@@ -11,7 +11,7 @@ from accounts.models import Markaz, User
 
 from .providers import (
     AI_BAND_XABARI, SPEAKING_TRAINER_PROMPT, TRAINER_BOSHLASH, GeminiProvider, ProviderXatosi,
-    trainer_boshlash_xabari,
+    IELTS_TRAINER_PROMPT, trainer_boshlash_xabari, trainer_prompti,
 )
 
 URL = "/api/speaking/trainer/"
@@ -122,3 +122,33 @@ class SpeakingTrainerTest(TestCase):
         self.assertEqual(trainer_boshlash_xabari("Z9", "uz"), TRAINER_BOSHLASH)
         self.assertEqual(trainer_boshlash_xabari("A1", "de"), TRAINER_BOSHLASH)
         self.assertEqual(trainer_boshlash_xabari(None, None), TRAINER_BOSHLASH)
+
+    def test_ielts_alohida_prompt(self):
+        """TZ 733: IELTS darajasida IELTS prompti, ball va rejim AI'ga beriladi."""
+        with mock.patch.object(GeminiProvider, "trainer_javob", return_value="Part 1 — Step 1/10") as m:
+            javob = self.c.post(URL, {"xabarlar": "[]", "daraja": "IELTS", "til": "ru", "ball": "7.0", "rejim": "B"})
+        self.assertEqual(javob.status_code, 200, javob.data)
+        self.assertIs(m.call_args.kwargs["prompt"], IELTS_TRAINER_PROMPT)
+        birinchi = m.call_args.args[0][0]["matn"]
+        self.assertIn("Feedback Language: Russian", birinchi)
+        self.assertIn("Target IELTS Band Score: Band 7.0", birinchi)
+        self.assertIn("Mode B: Real Mock Exam Simulation", birinchi)
+
+    def test_boshqa_darajalarda_eski_prompt(self):
+        """TZ 733: IELTS bo'lmagan darajalarda prompt o'zgarmagan."""
+        with mock.patch.object(GeminiProvider, "trainer_javob", return_value="Q1") as m:
+            self.c.post(URL, {"xabarlar": "[]", "daraja": "C1", "til": "uz"})
+        self.assertIs(m.call_args.kwargs["prompt"], SPEAKING_TRAINER_PROMPT)
+        self.assertIs(trainer_prompti(None), SPEAKING_TRAINER_PROMPT)
+
+    def test_ielts_prompt_tz_bilan(self):
+        self.assertTrue(IELTS_TRAINER_PROMPT.startswith('You are the "IELTS Speaking AI Trainer"'))
+        self.assertIn("GATEKEEPER RULE (CRITICAL)", IELTS_TRAINER_PROMPT)
+        self.assertTrue(IELTS_TRAINER_PROMPT.endswith("realistic exam-day advice."))
+
+    def test_ielts_toliq_tanlanmasa_ai_ozi_soraydi(self):
+        self.assertEqual(trainer_boshlash_xabari("IELTS", "uz", "7.0", None), TRAINER_BOSHLASH)
+        self.assertEqual(trainer_boshlash_xabari("IELTS", "uz", "9.0", "A"), TRAINER_BOSHLASH)
+        # IELTS prompti tahlilni faqat o'zbek/rus tilida beradi.
+        self.assertEqual(trainer_boshlash_xabari("IELTS", "en", "7.0", "A"), TRAINER_BOSHLASH)
+        self.assertIn("Mode A", trainer_boshlash_xabari("IELTS", "uz", "8.0", "A"))

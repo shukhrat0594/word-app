@@ -355,7 +355,7 @@ class SpeakingTrainerView(AiCheklovli, APIView):
     def post(self, request):
         import json
 
-        from .providers import trainer_boshlash_xabari
+        from .providers import trainer_boshlash_xabari, trainer_prompti
 
         try:
             xabarlar = json.loads(request.data.get("xabarlar") or "[]")
@@ -390,10 +390,14 @@ class SpeakingTrainerView(AiCheklovli, APIView):
                 tozalangan.append({"rol": "user", "matn": transkript[:TRAINER_MAX_BELGI]})
             if not tozalangan or tozalangan[0]["rol"] != "user":
                 # TZ 727: tanlangan daraja va tahlil tili (bo'lmasa — AI o'zi so'raydi).
+                # TZ 733: IELTS — maqsadli ball va mashq rejimi ham.
                 tozalangan.insert(0, {"rol": "user", "matn": trainer_boshlash_xabari(
                     request.data.get("daraja"), request.data.get("til"),
+                    request.data.get("ball"), request.data.get("rejim"),
                 )})
-            javob = provider.trainer_javob(tozalangan)
+            javob = provider.trainer_javob(
+                tozalangan, prompt=trainer_prompti(request.data.get("daraja")),
+            )
         except ProviderXatosi as e:
             return Response({"detail": str(e)}, status=502)
         except Exception as e:
