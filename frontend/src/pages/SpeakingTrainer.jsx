@@ -10,11 +10,25 @@ const DARAJALAR = [
   ["B1", "Pre-Intermediate"],
   ["B2", "Intermediate"],
   ["C1", "Upper-Intermediate"],
+  ["IELTS", "IELTS"], // TZ 733 — alohida prompt
 ];
 const TILLAR = [
   ["uz", "O'zbekcha"],
   ["ru", "Русский"],
   ["en", "English"],
+];
+// TZ 733: IELTS tanlovlari (backend IELTS_BALLAR / IELTS_REJIMLAR bilan bir xil).
+// IELTS prompti tahlilni faqat o'zbek yoki rus tilida beradi.
+const IELTS_TILLAR = ["uz", "ru"];
+const IELTS_BALLAR = [
+  ["6.5", "Band 6.5"],
+  ["7.0", "Band 7.0"],
+  ["7.5", "Band 7.5"],
+  ["8.0", "Band 8.0+"],
+];
+const IELTS_REJIMLAR = [
+  ["A", "trainer_rejim_a"],
+  ["B", "trainer_rejim_b"],
 ];
 
 /** AI Speaking Trainer (2026-10-20, TZ 421) — murabbiy bilan suhbat.
@@ -37,6 +51,17 @@ export default function SpeakingTrainer() {
   // TZ 727: mashg'ulotdan oldin daraja va tahlil tili tanlanadi.
   const [daraja, setDaraja] = useState("");
   const [til, setTil] = useState("");
+  // TZ 733: IELTS uchun maqsadli ball va mashq rejimi.
+  const [ball, setBall] = useState("");
+  const [rejim, setRejim] = useState("");
+  const ielts = daraja === "IELTS";
+  const tillar = ielts ? TILLAR.filter(([kod]) => IELTS_TILLAR.includes(kod)) : TILLAR;
+  const tayyor = daraja && til && (!ielts || (ball && rejim));
+
+  function darajaTanla(kod) {
+    setDaraja(kod);
+    if (kod === "IELTS" && !IELTS_TILLAR.includes(til)) setTil("");
+  }
 
   useEffect(() => {
     pastRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -58,6 +83,10 @@ export default function SpeakingTrainer() {
       fd.append("xabarlar", JSON.stringify(tarix));
       fd.append("daraja", daraja);
       fd.append("til", til);
+      if (ielts) {
+        fd.append("ball", ball);
+        fd.append("rejim", rejim);
+      }
       if (audio) fd.append("audio", audio, "yozuv.webm");
       const res = await apiForm("/api/speaking/trainer/", { method: "POST", formData: fd });
       const yangi = [...tarix];
@@ -138,15 +167,45 @@ export default function SpeakingTrainer() {
                 key={kod}
                 className={daraja === kod ? "tugma" : "tugma ikkinchi"}
                 disabled={yuklanmoqda}
-                onClick={() => setDaraja(kod)}
+                onClick={() => darajaTanla(kod)}
               >
-                {nom} ({kod})
+                {kod === nom ? nom : `${nom} (${kod})`}
               </button>
             ))}
           </div>
+          {ielts && (
+            <>
+              <div style={{ fontWeight: 600, marginBottom: 6 }}>{t("trainer_ball_tanlang")}</div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
+                {IELTS_BALLAR.map(([kod, nom]) => (
+                  <button
+                    key={kod}
+                    className={ball === kod ? "tugma" : "tugma ikkinchi"}
+                    disabled={yuklanmoqda}
+                    onClick={() => setBall(kod)}
+                  >
+                    {nom}
+                  </button>
+                ))}
+              </div>
+              <div style={{ fontWeight: 600, marginBottom: 6 }}>{t("trainer_rejim_tanlang")}</div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
+                {IELTS_REJIMLAR.map(([kod, kalit]) => (
+                  <button
+                    key={kod}
+                    className={rejim === kod ? "tugma" : "tugma ikkinchi"}
+                    disabled={yuklanmoqda}
+                    onClick={() => setRejim(kod)}
+                  >
+                    {t(kalit)}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
           <div style={{ fontWeight: 600, marginBottom: 6 }}>{t("trainer_til_tanlang")}</div>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
-            {TILLAR.map(([kod, nom]) => (
+            {tillar.map(([kod, nom]) => (
               <button
                 key={kod}
                 className={til === kod ? "tugma" : "tugma ikkinchi"}
@@ -159,7 +218,7 @@ export default function SpeakingTrainer() {
           </div>
           <button
             className="tugma katta"
-            disabled={yuklanmoqda || !daraja || !til}
+            disabled={yuklanmoqda || !tayyor}
             onClick={() => yubor({ tarix: [] })}
           >
             {yuklanmoqda ? t("trainer_kutilmoqda") : t("trainer_boshlash")}
