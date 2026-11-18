@@ -332,7 +332,11 @@ class SpeakingAudioView(AiCheklovli, APIView):
         )
 
 
-TRAINER_MAX_XABAR = 60
+# TZ 727: yangi prompt — 10 savol, har savolga kamida 2 urinish (85 ball
+# bo'lmaguncha yana). Har urinish = talaba + AI xabari, ya'ni bitta savol
+# 4–8+ xabar. 60 da o'rtacha 3 urinishdan oshgan talaba yakuniy hisobotga
+# yetmay "Suhbat juda uzun" olardi; 100 — o'rtacha 5 urinishgacha.
+TRAINER_MAX_XABAR = 100
 TRAINER_MAX_BELGI = 8000
 
 
@@ -351,7 +355,7 @@ class SpeakingTrainerView(AiCheklovli, APIView):
     def post(self, request):
         import json
 
-        from .providers import TRAINER_BOSHLASH
+        from .providers import trainer_boshlash_xabari
 
         try:
             xabarlar = json.loads(request.data.get("xabarlar") or "[]")
@@ -385,7 +389,10 @@ class SpeakingTrainerView(AiCheklovli, APIView):
                 )
                 tozalangan.append({"rol": "user", "matn": transkript[:TRAINER_MAX_BELGI]})
             if not tozalangan or tozalangan[0]["rol"] != "user":
-                tozalangan.insert(0, {"rol": "user", "matn": TRAINER_BOSHLASH})
+                # TZ 727: tanlangan daraja va tahlil tili (bo'lmasa — AI o'zi so'raydi).
+                tozalangan.insert(0, {"rol": "user", "matn": trainer_boshlash_xabari(
+                    request.data.get("daraja"), request.data.get("til"),
+                )})
             javob = provider.trainer_javob(tozalangan)
         except ProviderXatosi as e:
             return Response({"detail": str(e)}, status=502)

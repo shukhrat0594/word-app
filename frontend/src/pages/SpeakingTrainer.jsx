@@ -3,9 +3,24 @@ import { apiForm } from "../api";
 import { useI18n } from "../i18n";
 import { IMLO_OFF } from "../imlo";
 
+// TZ 727: darajalar (kod backend TRAINER_DARAJALAR bilan bir xil) va tahlil tillari.
+const DARAJALAR = [
+  ["A1", "Beginner"],
+  ["A2", "Elementary"],
+  ["B1", "Pre-Intermediate"],
+  ["B2", "Intermediate"],
+  ["C1", "Upper-Intermediate"],
+];
+const TILLAR = [
+  ["uz", "O'zbekcha"],
+  ["ru", "Русский"],
+  ["en", "English"],
+];
+
 /** AI Speaking Trainer (2026-10-20, TZ 421) — murabbiy bilan suhbat.
- * AI darajani so'raydi, savol beradi, talaba ovoz (yoki matn) bilan
- * javob beradi, tahlil o'zbek va rus tilida keladi. Suhbat tarixi faqat
+ * Talaba avval darajasi va tahlil tilini tanlaydi (TZ 727), AI savol
+ * beradi, talaba ovoz (yoki matn) bilan javob beradi, tahlil tanlangan
+ * tilda keladi. Suhbat tarixi faqat
  * shu sahifada saqlanadi — har so'rovda backendga to'liq yuboriladi
  * (`/api/speaking/trainer/`). */
 export default function SpeakingTrainer() {
@@ -19,6 +34,9 @@ export default function SpeakingTrainer() {
   const mediaRecorderRef = useRef(null);
   const bolaklarRef = useRef([]);
   const pastRef = useRef(null);
+  // TZ 727: mashg'ulotdan oldin daraja va tahlil tili tanlanadi.
+  const [daraja, setDaraja] = useState("");
+  const [til, setTil] = useState("");
 
   useEffect(() => {
     pastRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -38,6 +56,8 @@ export default function SpeakingTrainer() {
     try {
       const fd = new FormData();
       fd.append("xabarlar", JSON.stringify(tarix));
+      fd.append("daraja", daraja);
+      fd.append("til", til);
       if (audio) fd.append("audio", audio, "yozuv.webm");
       const res = await apiForm("/api/speaking/trainer/", { method: "POST", formData: fd });
       const yangi = [...tarix];
@@ -110,9 +130,41 @@ export default function SpeakingTrainer() {
       </div>
 
       {!boshlangan && (
-        <button className="tugma katta" disabled={yuklanmoqda} onClick={() => yubor({ tarix: [] })}>
-          {yuklanmoqda ? t("trainer_kutilmoqda") : t("trainer_boshlash")}
-        </button>
+        <div className="karta" style={{ marginBottom: 14 }}>
+          <div style={{ fontWeight: 600, marginBottom: 6 }}>{t("trainer_daraja_tanlang")}</div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
+            {DARAJALAR.map(([kod, nom]) => (
+              <button
+                key={kod}
+                className={daraja === kod ? "tugma" : "tugma ikkinchi"}
+                disabled={yuklanmoqda}
+                onClick={() => setDaraja(kod)}
+              >
+                {nom} ({kod})
+              </button>
+            ))}
+          </div>
+          <div style={{ fontWeight: 600, marginBottom: 6 }}>{t("trainer_til_tanlang")}</div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
+            {TILLAR.map(([kod, nom]) => (
+              <button
+                key={kod}
+                className={til === kod ? "tugma" : "tugma ikkinchi"}
+                disabled={yuklanmoqda}
+                onClick={() => setTil(kod)}
+              >
+                {nom}
+              </button>
+            ))}
+          </div>
+          <button
+            className="tugma katta"
+            disabled={yuklanmoqda || !daraja || !til}
+            onClick={() => yubor({ tarix: [] })}
+          >
+            {yuklanmoqda ? t("trainer_kutilmoqda") : t("trainer_boshlash")}
+          </button>
+        </div>
       )}
 
       {boshlangan && (
