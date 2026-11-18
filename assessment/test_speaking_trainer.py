@@ -102,6 +102,18 @@ class SpeakingTrainerTest(TestCase):
         self.assertIn("Feedback Language: English", birinchi["matn"])
         self.assertEqual(m.call_args.args[0][1:], tarix)
 
+    def test_10_savollik_uzun_suhbat_sigadi(self):
+        """TZ 727: 10 savol, har biriga 5 urinish (100 xabar) — rad etilmaydi; undan uzuni — 400."""
+        tarix = [{"rol": "model" if i % 2 == 0 else "user", "matn": f"x{i}"} for i in range(100)]
+        with mock.patch.object(GeminiProvider, "trainer_javob", return_value="Passed!"):
+            javob = self.c.post(URL, {"xabarlar": json.dumps(tarix), "daraja": "A1", "til": "uz"})
+        self.assertEqual(javob.status_code, 200, javob.data)
+        tarix.append({"rol": "model", "matn": "ortiqcha"})
+        with mock.patch.object(GeminiProvider, "trainer_javob", return_value="Passed!") as m:
+            javob = self.c.post(URL, {"xabarlar": json.dumps(tarix), "daraja": "A1", "til": "uz"})
+        self.assertEqual(javob.status_code, 400)
+        m.assert_not_called()
+
     def test_daraja_til_xabari_variantlari(self):
         self.assertIn("Russian", trainer_boshlash_xabari("A1", "ru"))
         self.assertIn("Beginner (A1)", trainer_boshlash_xabari("A1", "ru"))

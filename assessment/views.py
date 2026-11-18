@@ -332,7 +332,11 @@ class SpeakingAudioView(AiCheklovli, APIView):
         )
 
 
-TRAINER_MAX_XABAR = 60
+# TZ 727: yangi prompt — 10 savol, har savolga kamida 2 urinish (85 ball
+# bo'lmaguncha yana). Har urinish = talaba + AI xabari, ya'ni bitta savol
+# 4–8+ xabar. 60 da o'rtacha 3 urinishdan oshgan talaba yakuniy hisobotga
+# yetmay "Suhbat juda uzun" olardi; 100 — o'rtacha 5 urinishgacha.
+TRAINER_MAX_XABAR = 100
 TRAINER_MAX_BELGI = 8000
 
 
