@@ -11,6 +11,7 @@ from accounts.models import Markaz, User
 
 from .providers import (
     AI_BAND_XABARI, SPEAKING_TRAINER_PROMPT, TRAINER_BOSHLASH, GeminiProvider, ProviderXatosi,
+    trainer_boshlash_xabari,
 )
 
 URL = "/api/speaking/trainer/"
@@ -82,6 +83,30 @@ class SpeakingTrainerTest(TestCase):
         self.assertEqual(str(ctx.exception), AI_BAND_XABARI)
 
     def test_prompt_tz_bilan(self):
-        self.assertTrue(SPEAKING_TRAINER_PROMPT.startswith("Act as an interactive English Speaking Coach"))
-        self.assertIn("UZBEK and RUSSIAN", SPEAKING_TRAINER_PROMPT)
-        self.assertTrue(SPEAKING_TRAINER_PROMPT.endswith("Start now by asking me my English level."))
+        """TZ 727: prompt TZ ilovasidagi yangi matn bilan almashtirilgan."""
+        self.assertTrue(SPEAKING_TRAINER_PROMPT.startswith('You are the "Speaking AI Trainer"'))
+        self.assertIn("STRICT 2-STEP MASTERY CYCLE", SPEAKING_TRAINER_PROMPT)
+        self.assertIn("The 85-Point Gatekeeper Rule", SPEAKING_TRAINER_PROMPT)
+        self.assertTrue(SPEAKING_TRAINER_PROMPT.endswith("readiness for the next CEFR level."))
+        self.assertNotIn("Act as an interactive English Speaking Coach", SPEAKING_TRAINER_PROMPT)
+
+    def test_daraja_va_til_birinchi_xabarda(self):
+        """TZ 727: tanlangan daraja va tahlil tili AI'ga birinchi xabarda beriladi."""
+        tarix = [{"rol": "model", "matn": "Question 1/10 (Attempt 1): ..."}, {"rol": "user", "matn": "I like tea."}]
+        with mock.patch.object(GeminiProvider, "trainer_javob", return_value="Score") as m:
+            javob = self.c.post(URL, {"xabarlar": json.dumps(tarix), "daraja": "B2", "til": "en"})
+        self.assertEqual(javob.status_code, 200, javob.data)
+        birinchi = m.call_args.args[0][0]
+        self.assertEqual(birinchi["rol"], "user")
+        self.assertIn("Intermediate (B2)", birinchi["matn"])
+        self.assertIn("Feedback Language: English", birinchi["matn"])
+        self.assertEqual(m.call_args.args[0][1:], tarix)
+
+    def test_daraja_til_xabari_variantlari(self):
+        self.assertIn("Russian", trainer_boshlash_xabari("A1", "ru"))
+        self.assertIn("Beginner (A1)", trainer_boshlash_xabari("A1", "ru"))
+        self.assertIn("Uzbek", trainer_boshlash_xabari("C1", "uz"))
+        # Noma'lum yoki yo'q qiymat — AI o'zi so'raydi (eski xatti-harakat).
+        self.assertEqual(trainer_boshlash_xabari("Z9", "uz"), TRAINER_BOSHLASH)
+        self.assertEqual(trainer_boshlash_xabari("A1", "de"), TRAINER_BOSHLASH)
+        self.assertEqual(trainer_boshlash_xabari(None, None), TRAINER_BOSHLASH)
