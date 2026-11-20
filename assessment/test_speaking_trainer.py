@@ -90,6 +90,14 @@ class SpeakingTrainerTest(TestCase):
         self.assertTrue(SPEAKING_TRAINER_PROMPT.endswith("readiness for the next CEFR level."))
         self.assertNotIn("Act as an interactive English Speaking Coach", SPEAKING_TRAINER_PROMPT)
 
+    def test_prompt_tz_742(self):
+        """TZ 742: A1–C1 prompti ilovadagi matn bilan almashtirilgan, eski matn yo'q."""
+        self.assertIn("ANTI-REPETITION & DYNAMIC QUESTION GENERATION RULE", SPEAKING_TRAINER_PROMPT)
+        self.assertIn("HARD LENGTH CAPS (MANDATORY PENALTIES)", SPEAKING_TRAINER_PROMPT)
+        self.assertIn("10 diverse, non-repetitive questions", SPEAKING_TRAINER_PROMPT)
+        self.assertNotIn("LEVEL-ADAPTIVE SYLLABUS & CRITERIA", SPEAKING_TRAINER_PROMPT)
+        self.assertNotIn("10 progressive questions", SPEAKING_TRAINER_PROMPT)
+
     def test_daraja_va_til_birinchi_xabarda(self):
         """TZ 727: tanlangan daraja va tahlil tili AI'ga birinchi xabarda beriladi."""
         tarix = [{"rol": "model", "matn": "Question 1/10 (Attempt 1): ..."}, {"rol": "user", "matn": "I like tea."}]
