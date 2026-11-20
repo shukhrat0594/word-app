@@ -54,6 +54,9 @@ export default function SpeakingTrainer() {
   // TZ 733: IELTS uchun maqsadli ball va mashq rejimi.
   const [ball, setBall] = useState("");
   const [rejim, setRejim] = useState("");
+  // TZ 742 qo'shimcha (2026-11-20): sessiya urug'i — server shundan shu
+  // suhbat mavzularini tanlaydi; har "Boshlash"da yangi son.
+  const urugRef = useRef("");
   const ielts = daraja === "IELTS";
   const tillar = ielts ? TILLAR.filter(([kod]) => IELTS_TILLAR.includes(kod)) : TILLAR;
   const tayyor = daraja && til && (!ielts || (ball && rejim));
@@ -83,6 +86,7 @@ export default function SpeakingTrainer() {
       fd.append("xabarlar", JSON.stringify(tarix));
       fd.append("daraja", daraja);
       fd.append("til", til);
+      fd.append("urug", urugRef.current);
       if (ielts) {
         fd.append("ball", ball);
         fd.append("rejim", rejim);
@@ -219,7 +223,10 @@ export default function SpeakingTrainer() {
           <button
             className="tugma katta"
             disabled={yuklanmoqda || !tayyor}
-            onClick={() => yubor({ tarix: [] })}
+            onClick={() => {
+              urugRef.current = String(Math.floor(Math.random() * 1e9));
+              yubor({ tarix: [] });
+            }}
           >
             {yuklanmoqda ? t("trainer_kutilmoqda") : t("trainer_boshlash")}
           </button>
