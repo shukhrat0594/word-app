@@ -142,9 +142,22 @@ class SpeakingTrainerTest(TestCase):
         self.assertIs(trainer_prompti(None), SPEAKING_TRAINER_PROMPT)
 
     def test_ielts_prompt_tz_bilan(self):
-        self.assertTrue(IELTS_TRAINER_PROMPT.startswith('You are the "IELTS Speaking AI Trainer"'))
-        self.assertIn("GATEKEEPER RULE (CRITICAL)", IELTS_TRAINER_PROMPT)
-        self.assertTrue(IELTS_TRAINER_PROMPT.endswith("realistic exam-day advice."))
+        """TZ 746: IELTS prompti yangi matnga almashtirilgan, 6.5 varianti yo'q."""
+        self.assertTrue(IELTS_TRAINER_PROMPT.startswith(
+            'You are the "IELTS Speaking AI Trainer", a strict, certified-style'))
+        self.assertIn("CRITICAL ANTI-REPETITION & TOPIC DIVERSITY RULE", IELTS_TRAINER_PROMPT)
+        self.assertIn("STRICT ANTI-INFLATION & MINIMUM LENGTH GATEKEEPER", IELTS_TRAINER_PROMPT)
+        self.assertIn("Band 7.0 / Band 7.5 / Band 8.0+", IELTS_TRAINER_PROMPT)
+        self.assertNotIn("Band 6.5 /", IELTS_TRAINER_PROMPT)
+        # Eski prompt matni qolmagan.
+        self.assertNotIn("STRICT, UNBIASED GRADING POLICY", IELTS_TRAINER_PROMPT)
+        self.assertTrue(IELTS_TRAINER_PROMPT.endswith(
+            "objective, candid closing evaluation in the chosen feedback language."))
+
+    def test_ielts_65_ball_yoq(self):
+        """TZ 746: maqsadli ball variantlaridan 6.5 olib tashlangan."""
+        self.assertEqual(trainer_boshlash_xabari("IELTS", "uz", "6.5", "A"), TRAINER_BOSHLASH)
+        self.assertIn("Band 7.0", trainer_boshlash_xabari("IELTS", "uz", "7.0", "A"))
 
     def test_ielts_toliq_tanlanmasa_ai_ozi_soraydi(self):
         self.assertEqual(trainer_boshlash_xabari("IELTS", "uz", "7.0", None), TRAINER_BOSHLASH)

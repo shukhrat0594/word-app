@@ -19,9 +19,9 @@ const TILLAR = [
 ];
 // TZ 733: IELTS tanlovlari (backend IELTS_BALLAR / IELTS_REJIMLAR bilan bir xil).
 // IELTS prompti tahlilni faqat o'zbek yoki rus tilida beradi.
+// TZ 746: 6.5 varianti olib tashlandi.
 const IELTS_TILLAR = ["uz", "ru"];
 const IELTS_BALLAR = [
-  ["6.5", "Band 6.5"],
   ["7.0", "Band 7.0"],
   ["7.5", "Band 7.5"],
   ["8.0", "Band 8.0+"],
