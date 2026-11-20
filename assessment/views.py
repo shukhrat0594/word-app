@@ -391,9 +391,12 @@ class SpeakingTrainerView(AiCheklovli, APIView):
             if not tozalangan or tozalangan[0]["rol"] != "user":
                 # TZ 727: tanlangan daraja va tahlil tili (bo'lmasa — AI o'zi so'raydi).
                 # TZ 733: IELTS — maqsadli ball va mashq rejimi ham.
+                # TZ 742 qo'shimcha (2026-11-20): sessiya urug'i — shundan shu
+                # suhbat mavzulari tanlanadi (har so'rovda bir xil chiqadi).
                 tozalangan.insert(0, {"rol": "user", "matn": trainer_boshlash_xabari(
                     request.data.get("daraja"), request.data.get("til"),
                     request.data.get("ball"), request.data.get("rejim"),
+                    request.data.get("urug"),
                 )})
             javob = provider.trainer_javob(
                 tozalangan, prompt=trainer_prompti(request.data.get("daraja")),

@@ -7,6 +7,7 @@ markaz o'z kalitini kirita olmaydi (2026-07-17).
 """
 
 import json
+import random
 import re
 import time
 
@@ -627,6 +628,76 @@ Repeat for all 10 steps:
 # navbatni user'dan kutadi) — talabaga ko'rsatilmaydi.
 TRAINER_BOSHLASH = "Start."
 
+# TZ 742 qo'shimcha (2026-11-20): bir xil yashirin birinchi xabar tufayli
+# model har suhbatda bir xil mavzularga tushardi — endi mavzularni server
+# tasodifiy tanlaydi. Matnlar SPEAKING_TRAINER_PROMPT'dagi Pool A–D'dan AYNAN
+# olingan (prompt o'zgarsa — test ushlaydi).
+TRAINER_MAVZULAR = (
+    (  # Pool A (Daily Life & Habits)
+        "Morning routines",
+        "weekend rituals",
+        "favorite local cafe/food",
+        "screen time/phone habits",
+        "shopping preferences",
+        "public transport vs. walking",
+        "sleep habits",
+        "household chores",
+    ),
+    (  # Pool B (Past Experiences & Stories)
+        "A memorable childhood toy/game",
+        "a funny mistake",
+        "the last movie/video watched",
+        "a recent celebration",
+        "a time you helped someone",
+        "your first day at school/work",
+        "a trip that went wrong",
+    ),
+    (  # Pool C (Preferences & Descriptions)
+        "Describing a close friend's personality",
+        "your ideal workspace/room",
+        "seasonal weather preferences",
+        "traditional vs. fast food",
+        "indoor vs. outdoor activities",
+        "a skill you admire in others",
+    ),
+    (  # Pool D (Future, Hypotheticals & Opinions)
+        "A skill you want to learn this year",
+        "dream travel destination",
+        "how technology changes learning",
+        "ideal job environment",
+        "city vs. countryside living",
+        "advice for younger students",
+    ),
+)
+
+
+def _urug_tozala(urug):
+    """TZ 742 qo'shimcha: sessiya urug'i AI'ga boradigan matnga tushadi —
+    prompt-inyeksiya bo'lmasligi uchun faqat 1–12 xonali raqam o'tadi."""
+    if isinstance(urug, str) and re.fullmatch(r"\d{1,12}", urug, re.ASCII):
+        return urug
+    return None
+
+
+def trainer_mavzulari(urug):
+    """TZ 742 qo'shimcha: urug'dan deterministik 10 ta mavzu. Server holat
+    saqlamaydi va birinchi xabarni har so'rovda qayta tuzadi — mavzular
+    sessiya ichida o'zgarmasligi uchun tanlov faqat urug'ga bog'liq
+    (global `random` holatiga tegilmaydi). Poollar navbatma-navbat olinadi:
+    takror yo'q, har pooldan kamida 2 ta."""
+    rng = random.Random(urug)
+    poollar = [list(pool) for pool in TRAINER_MAVZULAR]
+    for pool in poollar:
+        rng.shuffle(pool)
+    rng.shuffle(poollar)
+    mavzular = []
+    for i in range(max(len(pool) for pool in poollar)):
+        for pool in poollar:
+            if i < len(pool) and len(mavzular) < 10:
+                mavzular.append(pool[i])
+    return mavzular
+
+
 # TZ 727: talaba darajani va tahlil tilini sahifada tanlaydi — ular
 # birinchi xabarda AI'ga beriladi (prompt: "unless the platform already
 # passed both parameters in the first message"). Kalitlar — frontend qiymati.
@@ -662,11 +733,13 @@ def trainer_prompti(daraja=None):
     return IELTS_TRAINER_PROMPT if daraja == "IELTS" else SPEAKING_TRAINER_PROMPT
 
 
-def trainer_boshlash_xabari(daraja=None, til=None, ball=None, rejim=None):
+def trainer_boshlash_xabari(daraja=None, til=None, ball=None, rejim=None, urug=None):
     """Suhbatning birinchi (talabaga ko'rinmaydigan) xabari. Daraja va til
     tanlangan bo'lsa — ular AI'ga beriladi va u darhol 1-savolni beradi;
     aks holda eski xatti-harakat (AI o'zi so'raydi). IELTS uchun (TZ 733)
-    maqsadli ball va mashq rejimi ham kerak."""
+    maqsadli ball va mashq rejimi ham kerak. TZ 742 qo'shimcha (2026-11-20):
+    A1–C1 da yaroqli `urug` bo'lsa — oxiriga shu sessiya mavzulari qo'shiladi;
+    yo'q/yaroqsiz bo'lsa xabar avvalgidek (eski keshlangan frontend buzilmaydi)."""
     if daraja == "IELTS":
         if til not in IELTS_TILLAR or ball not in IELTS_BALLAR or rejim not in IELTS_REJIMLAR:
             return TRAINER_BOSHLASH
@@ -679,12 +752,23 @@ def trainer_boshlash_xabari(daraja=None, til=None, ball=None, rejim=None):
         )
     if daraja not in TRAINER_DARAJALAR or til not in TRAINER_TILLAR:
         return TRAINER_BOSHLASH
-    return (
+    xabar = (
         "Start. The platform has already passed both parameters:\n"
         f"- Feedback Language: {TRAINER_TILLAR[til]}\n"
         f"- Current English Level: {TRAINER_DARAJALAR[daraja]}\n"
         "Skip the selection step and immediately ask Question 1/10 (Attempt 1). "
         f"Deliver all explanations, corrections, hints and reports strictly in {TRAINER_TILLAR[til].split(' (')[0]}."
+    )
+    urug = _urug_tozala(urug)
+    if urug is None:
+        return xabar
+    mavzular = "\n".join(f"{n}. {mavzu}" for n, mavzu in enumerate(trainer_mavzulari(urug), 1))
+    return (
+        f"{xabar}\n"
+        f"Session Seed: {urug}\n"
+        "Topic plan for THIS session (picked at random by the platform from your Topic Pool). "
+        "Use exactly one topic per question, in this order, and do not replace them with other topics:\n"
+        f"{mavzular}"
     )
 
 
