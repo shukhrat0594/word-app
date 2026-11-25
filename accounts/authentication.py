@@ -85,12 +85,23 @@ def faollikni_belgila(user):
 # O'ZGARTIRISH so'rovlari (POST/PATCH/PUT/DELETE) esa faqat shaxsiy
 # endpointlarga va ikkita AI trenajyorga ruxsat — qolgani 403.
 #
-# Simulyatsiya QILINMAYDIGAN yo'llar (asl rol "head_teacher" qoladi):
-#   * /api/crm/ — CRM ruxsatlari rolga qaraydi (`crm.ruxsatlar._lavozim`):
-#     "head_teacher" uchun lavozim yo'q -> ruxsatlar bo'sh -> CRM yopiq.
-#   * /api/profil/ — frontend asl rolni bilishi kerak (menyu, CRM havolasi
-#     yashirinadi, sahifalar tahrirlash tugmalarini ko'rsatmaydi).
-HEAD_TEACHER_ASL_ROL_YOLLARI = ("/api/crm/", "/api/profil/")
+# Admin sifatida ko'rish FAQAT TZ'dagi bo'limlar API'larida (ro'yxat —
+# ruxsat etilganlar, ya'ni yangi endpoint avtomatik ochilib qolmaydi).
+# Qolgan hamma yo'lda asl rol "head_teacher" qoladi: admin ro'yxatlari
+# (Xodimlar, Qurilmalar, O'chirilganlar, Hisobotlar...) 403; CRM ruxsatlari
+# rolga qaraydi (`crm.ruxsatlar._lavozim`) — "head_teacher" uchun lavozim
+# yo'q -> CRM yopiq; /api/profil/ asl rolni qaytaradi (frontend menyusi).
+HEAD_TEACHER_KORISH_YOLLARI = (
+    "/api/talabalar/",  # Talabalar
+    "/api/foydalanuvchilar/",  # talaba natijalari va profil rasmi (ro'yxatning o'zi owner'ga)
+    "/api/kurslar/",  # Kurslar
+    "/api/leaderboard/",  # Reyting
+    "/api/gamifikatsiya/",
+    "/api/imtihon/",  # IELTS testlari
+    "/api/imtihon-mock/",
+    "/api/speaking/",  # Speaking Trainer (+ natijalardagi speaking audiosi)
+    "/api/grammar/",  # AI Grammar coach
+)
 HEAD_TEACHER_YOZISH_YOLLARI = (
     "/api/profil/",  # parol, o'z profilini tahrirlash
     "/api/chiqish/",
@@ -107,7 +118,7 @@ def head_teacher_rolini_qol(user, request):
     yol = request.path
     user._asl_rol = User.Role.HEAD_TEACHER
     if request.method in SAFE_METHODS:
-        if not yol.startswith(HEAD_TEACHER_ASL_ROL_YOLLARI):
+        if yol.startswith(HEAD_TEACHER_KORISH_YOLLARI):
             user.role = User.Role.ADMIN
         return
     if yol.startswith(HEAD_TEACHER_YOZISH_YOLLARI):

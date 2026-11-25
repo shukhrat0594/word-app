@@ -1416,7 +1416,12 @@ function AdminMashqBoshqaruv({ tugunId, jsonKiritishKorinadi = true }) {
  * yuborilar, u esa backendda 403 qaytarar va xato `catch(() => {})` bilan
  * yutilib, o'qituvchiga BO'SH panel ko'rinardi. */
 function MashqPaneli({ tugunId, talabaMi, oqituvchiMi, jsonKiritishKorinadi = true, testMi = false }) {
-  const korinishMi = talabaMi || oqituvchiMi;
+  // Matn-TZ 759: Head Teacher — kuzatuvchi. Mashqlarni o'qituvchi kabi
+  // (javoblari bilan) ko'radi; admin tahrirlash paneli unga chiqmaydi.
+  const { profil } = useProfil();
+  const kuzatuvchiMi = profil?.role === "head_teacher";
+  const korinishMi = talabaMi || oqituvchiMi || kuzatuvchiMi;
+  const javoblarOchiq = oqituvchiMi || kuzatuvchiMi;
   const { t } = useI18n();
   const [mashqlar, setMashqlar] = useState(null);
   const [xato, setXato] = useState("");
@@ -1477,7 +1482,7 @@ function MashqPaneli({ tugunId, talabaMi, oqituvchiMi, jsonKiritishKorinadi = tr
           key={`guruh-${m.rasm_guruhi_id}`}
           guruh={guruh}
           boshRaqam={raqam}
-          javoblarOchiq={oqituvchiMi}
+          javoblarOchiq={javoblarOchiq}
         />,
       );
       raqam += guruh.length;
@@ -1485,9 +1490,9 @@ function MashqPaneli({ tugunId, talabaMi, oqituvchiMi, jsonKiritishKorinadi = tr
     }
     chizilgan.add(m.id);
     if (m.bloklar?.length) {
-      bloklar.push(<BlokMashqi key={m.id} mashq={m} raqam={raqam} javoblarOchiq={oqituvchiMi} />);
+      bloklar.push(<BlokMashqi key={m.id} mashq={m} raqam={raqam} javoblarOchiq={javoblarOchiq} />);
     } else {
-      bloklar.push(<TalabaMashqi key={m.id} mashq={m} raqam={raqam} javoblarOchiq={oqituvchiMi} testMi={testMi} />);
+      bloklar.push(<TalabaMashqi key={m.id} mashq={m} raqam={raqam} javoblarOchiq={javoblarOchiq} testMi={testMi} />);
     }
     raqam += 1;
   }

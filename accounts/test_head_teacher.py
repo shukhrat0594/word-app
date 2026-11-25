@@ -73,6 +73,15 @@ class HeadTeacherTest(TestCase):
         self.assertEqual(self.talaba.first_name, "Ali")
         self.assertFalse(User.objects.filter(username="SINOV_t").exists())
 
+    def test_tz_dan_tashqari_admin_royxatlari_yopiq(self):
+        # Admin sifatida ko'rish faqat TZ bo'limlarida — boshqa admin
+        # ro'yxatlari (menyuda yo'q) API orqali ham ochilmaydi.
+        c = self.mijoz(self.ht)
+        for yol in ("/api/xodimlar/", "/api/qurilmalar/", "/api/ochirilganlar/", "/api/markaz-sozlama/"):
+            self.assertEqual(c.get(yol).status_code, 403, yol)
+        # Talaba natijalari (Talabalar bo'limidagi oyna) esa ochiq.
+        self.assertEqual(c.get(f"/api/foydalanuvchilar/{self.talaba.id}/natijalar/").status_code, 200)
+
     def test_crm_yopiq(self):
         c = self.mijoz(self.ht)
         self.assertEqual(c.get("/api/crm/men/").status_code, 403)
