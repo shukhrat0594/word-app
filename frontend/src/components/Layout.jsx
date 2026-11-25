@@ -126,6 +126,14 @@ export const ROL_PANELLARI = {
     (y) => y !== "/ielts-boshqarish" && y !== "/kurslar"
   ),
   parent: ["/"],
+  // Matn-TZ 759 (2026-11-25): Head Teacher — kuzatuvchi. Backend o'qish
+  // so'rovlarida unga admin ma'lumotini beradi, o'zgartirishni yopadi
+  // (accounts/authentication.py). Sahifalar `role === "admin"` bo'lmagani
+  // uchun tahrirlash tugmalarini ko'rsatmaydi; CRM havolasi ham yo'q.
+  head_teacher: [
+    "/", "/talabalar", "/kurslar", "/reyting", "/ielts-boshqarish",
+    "/speaking-trainer", "/grammar-coach",
+  ],
 };
 
 /** Shu foydalanuvchi roli ko'ra oladigan panellar (qat'iy jadvaldan).
