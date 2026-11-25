@@ -72,7 +72,8 @@ class LoginHistory(models.Model):
         related_name="login_tarixi",
     )
     rol = models.CharField(
-        max_length=10, help_text="Login paytidagi rol snapshoti (keyin o'zgarishi mumkin)"
+        # 20 — "head_teacher" (12 belgi) sig'ishi uchun (Matn-TZ 759).
+        max_length=20, help_text="Login paytidagi rol snapshoti (keyin o'zgarishi mumkin)"
     )
     vaqt = models.DateTimeField(auto_now_add=True)
 

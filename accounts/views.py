@@ -714,13 +714,16 @@ class FoydalanuvchiYaratishView(APIView):
             role_value = User.Role.PARENT
         elif rol == "oddiy":
             role_value = User.Role.ODDIY
+        elif rol == "head_teacher":
+            # Matn-TZ 759: kuzatuvchi (accounts/authentication.py).
+            role_value = User.Role.HEAD_TEACHER
         else:
             return Response({"detail": "Noto'g'ri rol"}, status=400)
 
         user = User(username=username, role=role_value, is_superuser=is_super, is_staff=is_super)
         if ism:
             user.first_name = ism
-        if role_value in (User.Role.ADMIN, User.Role.TEACHER) and not is_super:
+        if role_value in (User.Role.ADMIN, User.Role.TEACHER, User.Role.HEAD_TEACHER) and not is_super:
             markaz = Markaz.objects.first()
             if markaz:
                 user.markaz = markaz

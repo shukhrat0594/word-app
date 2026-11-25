@@ -34,7 +34,8 @@ import time
 import threading
 
 from django.utils import timezone
-from rest_framework.exceptions import AuthenticationFailed
+from rest_framework.exceptions import AuthenticationFailed, PermissionDenied
+from rest_framework.permissions import SAFE_METHODS
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from .models import Markaz, User
@@ -71,6 +72,52 @@ def faollikni_belgila(user):
         User.objects.filter(pk=user.pk).update(oxirgi_faollik=timezone.now())
     except Exception:  # noqa: BLE001 — faollik yozuvi hech qachon so'rovni buzmasin
         pass
+
+
+# ── "Head Teacher" — kuzatuvchi (Matn-TZ 759, 2026-11-25) ─────────────
+# Talab: Talabalar, Kurslar, Reyting, IELTS testlari, Speaking Trainer,
+# Grammar coach'ga KUZATUVCHI sifatida kirsin; CRM'ga kira olmasin.
+#
+# Yuqoridagi "Ko'rish rejimi" bilan bir xil yondashuv (o'nlab view'ni
+# alohida o'zgartirmaslik uchun): O'QISH so'rovlarida (GET/HEAD/OPTIONS)
+# `request.user.role` XOTIRADA "admin" qilinadi — sahifalar admin ko'radigan
+# ma'lumotni (hamma talabalar, qulfsiz kurslar, butun reyting) beradi.
+# O'ZGARTIRISH so'rovlari (POST/PATCH/PUT/DELETE) esa faqat shaxsiy
+# endpointlarga va ikkita AI trenajyorga ruxsat — qolgani 403.
+#
+# Simulyatsiya QILINMAYDIGAN yo'llar (asl rol "head_teacher" qoladi):
+#   * /api/crm/ — CRM ruxsatlari rolga qaraydi (`crm.ruxsatlar._lavozim`):
+#     "head_teacher" uchun lavozim yo'q -> ruxsatlar bo'sh -> CRM yopiq.
+#   * /api/profil/ — frontend asl rolni bilishi kerak (menyu, CRM havolasi
+#     yashirinadi, sahifalar tahrirlash tugmalarini ko'rsatmaydi).
+HEAD_TEACHER_ASL_ROL_YOLLARI = ("/api/crm/", "/api/profil/")
+HEAD_TEACHER_YOZISH_YOLLARI = (
+    "/api/profil/",  # parol, o'z profilini tahrirlash
+    "/api/chiqish/",
+    "/api/bildirishnomalar/",  # o'qildi belgisi
+    "/api/qurilma/kalit/",  # "Bu qurilmani eslab qolish"
+    "/api/speaking/trainer/",
+    "/api/grammar/coach/",
+)
+
+
+def head_teacher_rolini_qol(user, request):
+    """Head Teacher so'rovini tekshiradi va kerak bo'lsa rolini (faqat
+    xotirada) "admin" qiladi. Ruxsat yo'q yozish so'rovida 403."""
+    yol = request.path
+    user._asl_rol = User.Role.HEAD_TEACHER
+    if request.method in SAFE_METHODS:
+        if not yol.startswith(HEAD_TEACHER_ASL_ROL_YOLLARI):
+            user.role = User.Role.ADMIN
+        return
+    if yol.startswith(HEAD_TEACHER_YOZISH_YOLLARI):
+        return
+    # O'z profil rasmini yuklash/o'chirish.
+    if yol == f"/api/foydalanuvchilar/{user.pk}/rasm/":
+        return
+    raise PermissionDenied(
+        "Head Teacher — kuzatuvchi: ma'lumotni o'zgartira olmaysiz."
+    )
 
 
 def asl_owner_mi(user):
@@ -116,6 +163,8 @@ class KorishRejimliJWTAuthentication(JWTAuthentication):
             xato = kalit_xatosi(user, token)
             if xato:
                 raise AuthenticationFailed(xato, code=xato["kod"])
+            if user.role == User.Role.HEAD_TEACHER:
+                head_teacher_rolini_qol(user, request)
             return user, token  # oddiy foydalanuvchilarga tegilmaydi
 
         rejim = user.korish_rejimi or User.KorishRejimi.OWNER

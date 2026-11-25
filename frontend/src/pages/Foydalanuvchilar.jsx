@@ -6,7 +6,8 @@ import { panelTanloviOl } from "../components/Layout";
 import { useI18n } from "../i18n";
 import { useProfil } from "../profilContext";
 
-const ROLLAR = ["owner", "admin", "teacher", "student", "parent", "oddiy"];
+// "head_teacher" — Matn-TZ 759: kuzatuvchi (ko'radi, o'zgartirmaydi, CRM yopiq).
+const ROLLAR = ["owner", "admin", "head_teacher", "teacher", "student", "parent", "oddiy"];
 
 /** Ota-onaga farzand(lar) biriktirish (2026-08-09). Bitta ota-onada bir
  * nechta farzand, 2026-10-26 dan bitta bolada ham bir nechta ota-ona

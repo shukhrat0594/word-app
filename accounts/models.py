@@ -107,6 +107,11 @@ class User(AbstractUser):
         STUDENT = "student", "Talaba"
         PARENT = "parent", "Ota-ona"
         ODDIY = "oddiy", "Oddiy foydalanuvchi"
+        # 2026-11-25 (Matn-TZ 759): KUZATUVCHI — saytdagi Talabalar, Kurslar,
+        # Reyting, IELTS testlari, Speaking Trainer, Grammar coach'ni admin
+        # darajasida KO'RADI, lekin hech narsani o'zgartirmaydi; CRM yopiq.
+        # Qoidasi bitta joyda: accounts/authentication.py (`head_teacher_rolini_qol`).
+        HEAD_TEACHER = "head_teacher", "Head Teacher"
 
     class KorishRejimi(models.TextChoices):
         """Faqat OWNER (superuser) uchun (2026-07-29) — profil sahifasida
@@ -138,7 +143,7 @@ class User(AbstractUser):
         PARENT = "parent", "Ota-ona"
         ODDIY = "oddiy", "Mehmon (oddiy foydalanuvchi)"
 
-    role = models.CharField(max_length=10, choices=Role.choices, default=Role.STUDENT, db_index=True)
+    role = models.CharField(max_length=20, choices=Role.choices, default=Role.STUDENT, db_index=True)
     korish_rejimi = models.CharField(
         max_length=10, choices=KorishRejimi.choices, default=KorishRejimi.OWNER, blank=True,
         help_text="Faqat owner uchun — 'Ko'rish rejimi' (View As) joriy tanlovi",
