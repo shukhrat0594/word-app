@@ -355,7 +355,7 @@ class SpeakingTrainerView(AiCheklovli, APIView):
     def post(self, request):
         import json
 
-        from .providers import trainer_boshlash_xabari, trainer_prompti
+        from .providers import SPEAKING_TRAINER_PROMPT, trainer_boshlash_xabari
 
         try:
             xabarlar = json.loads(request.data.get("xabarlar") or "[]")
@@ -390,17 +390,13 @@ class SpeakingTrainerView(AiCheklovli, APIView):
                 tozalangan.append({"rol": "user", "matn": transkript[:TRAINER_MAX_BELGI]})
             if not tozalangan or tozalangan[0]["rol"] != "user":
                 # TZ 727: tanlangan daraja va tahlil tili (bo'lmasa — AI o'zi so'raydi).
-                # TZ 733: IELTS — maqsadli ball va mashq rejimi ham.
-                # TZ 742 qo'shimcha (2026-11-20): sessiya urug'i — shundan shu
-                # suhbat mavzulari tanlanadi (har so'rovda bir xil chiqadi).
+                # TZ 742 qo'shimcha (2026-11-20): sessiya urug'i (Session Seed).
+                # TZ 767: bitta prompt — IELTS ball/rejimi endi yuborilmaydi.
                 tozalangan.insert(0, {"rol": "user", "matn": trainer_boshlash_xabari(
                     request.data.get("daraja"), request.data.get("til"),
-                    request.data.get("ball"), request.data.get("rejim"),
                     request.data.get("urug"),
                 )})
-            javob = provider.trainer_javob(
-                tozalangan, prompt=trainer_prompti(request.data.get("daraja")),
-            )
+            javob = provider.trainer_javob(tozalangan, prompt=SPEAKING_TRAINER_PROMPT)
         except ProviderXatosi as e:
             return Response({"detail": str(e)}, status=502)
         except Exception as e:
