@@ -129,3 +129,55 @@ class Davomat(models.Model):
 
     def __str__(self):
         return f"{self.sana} — {self.talaba} — {self.get_holat_display()}"
+
+
+class DarsPunktualligi(models.Model):
+    """Ustoz darsni o'z vaqtida boshladimi (Matn-TZ 779, Head Teacher
+    dashboard, 4-bo'lim "Punktuallik nazorati").
+
+    Bitta yozuv = bitta dars: rejadagi va amaliy boshlanish vaqti, sabab/
+    izoh. Kechikish daqiqasi saqlanmaydi — ikkala vaqtdan hisoblanadi
+    (bitta manba). Kiritadi/yangilaydi: Head Teacher, admin, owner;
+    o'chirish API'da YO'Q (TZ: "Delete cheklanadi").
+    """
+
+    guruh = models.ForeignKey(Guruh, on_delete=models.CASCADE, related_name="punktuallik")
+    # Ustoz guruhdan keyin almashishi mumkin — yozuv o'sha kundagi ustozga
+    # tegishli bo'lib qolishi kerak, shuning uchun alohida saqlanadi.
+    oqituvchi = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name="dars_punktualligi",
+    )
+    sana = models.DateField()
+    rejadagi_vaqt = models.TimeField()
+    amaliy_vaqt = models.TimeField(null=True, blank=True, help_text="Bo'sh — hali kiritilmagan")
+    sabab = models.CharField(max_length=300, blank=True)
+    kim = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-sana", "-rejadagi_vaqt"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["guruh", "sana", "rejadagi_vaqt"], name="dars_punktualligi_unikal"
+            )
+        ]
+        verbose_name_plural = "Dars punktualligi"
+
+    @property
+    def kechikish_daqiqa(self):
+        """Necha daqiqa kech boshlangan (erta/o'z vaqtida — 0); amaliy
+        vaqt kiritilmagan bo'lsa `None`."""
+        if self.amaliy_vaqt is None:
+            return None
+        farq = (
+            (self.amaliy_vaqt.hour * 60 + self.amaliy_vaqt.minute)
+            - (self.rejadagi_vaqt.hour * 60 + self.rejadagi_vaqt.minute)
+        )
+        return max(0, farq)
+
+    def __str__(self):
+        return f"{self.guruh.name} — {self.sana} {self.rejadagi_vaqt}"

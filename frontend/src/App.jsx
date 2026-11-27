@@ -18,6 +18,12 @@ import MarkazSozlash from "./pages/MarkazSozlash";
 import Markazlar from "./pages/Markazlar";
 import Oyinlar from "./pages/Oyinlar";
 import GrammarCoach from "./pages/GrammarCoach";
+import {
+  HeadTeacherDashboard,
+  HeadTeacherGuruhlarTalabalar,
+  HeadTeacherPunktuallik,
+  HeadTeacherTalabaProfil,
+} from "./pages/HeadTeacher";
 import Profil from "./pages/Profil";
 import SpeakingTrainer from "./pages/SpeakingTrainer";
 import Talabalar from "./pages/Talabalar";
@@ -80,6 +86,11 @@ export default function App() {
             <Route path="qurilmalar" element={<Qurilmalar />} />
             <Route path="qurilma-sorovlari" element={<Navigate to="/qurilmalar?holat=kutilmoqda" replace />} />
             <Route path="profil" element={<Profil />} />
+            {/* Matn-TZ 779: Head Teacher dashboard (pages/HeadTeacher.jsx). */}
+            <Route path="head-teacher" element={<HeadTeacherDashboard />} />
+            <Route path="head-teacher/groups-students" element={<HeadTeacherGuruhlarTalabalar />} />
+            <Route path="head-teacher/talaba/:id" element={<HeadTeacherTalabaProfil />} />
+            <Route path="head-teacher/punktuallik" element={<HeadTeacherPunktuallik />} />
           </Route>
           {/* 2026-10-29: noma'lum manzil bosh sahifaga — avval butunlay oq sahifa chiqardi
               (talaba telefonida eski havola shunday ochilgan). */}
