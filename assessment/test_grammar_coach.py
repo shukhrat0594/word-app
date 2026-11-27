@@ -39,6 +39,18 @@ class GrammarCoachTest(TestCase):
         self.assertEqual(javob.data["javob"], "### 📌 MAVZU")
         self.assertEqual(m.call_args.args, ("Present Perfect", "Uzbek"))
 
+    def test_tarixga_yoziladi(self):
+        # Matn-TZ 779: Head Teacher talaba profilida Grammar Coach tarixini ko'radi.
+        from .models import AiTrenajyorYozuvi
+
+        with mock.patch.object(GeminiProvider, "grammar_coach_javob", return_value="Tushuntirish"):
+            self.c.post(URL, {"matn": "Present Perfect", "til": "Uzbek"}, format="json")
+        with mock.patch.object(GeminiProvider, "grammar_coach_followup", return_value="Qo'shimcha"):
+            self.c.post(URL, {"matn": "nega?", "til": "Uzbek", "kontekst": "Tushuntirish"}, format="json")
+        y = AiTrenajyorYozuvi.objects.get(talaba=self.talaba)
+        self.assertEqual((y.tur, y.mavzu, y.xabar_soni, y.oxirgi_javob),
+                         ("grammar_coach", "Present Perfect", 2, "Qo'shimcha"))
+
     def test_bosh_matn_rad(self):
         self.assertEqual(self.c.post(URL, {"matn": "  ", "til": "Uzbek"}, format="json").status_code, 400)
 

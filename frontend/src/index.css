@@ -1376,3 +1376,40 @@ input.imtihon-bosh-joy.faol { border-color: var(--sariq-toq); box-shadow: 0 0 0 
   background: var(--sirt-2); border-radius: 8px; padding: 8px 10px;
 }
 .ochirish-modal-tugmalar { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+
+/* Head Teacher dashboard (Matn-TZ 779) — pages/HeadTeacher.jsx */
+.ht-filtrlar { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; margin-bottom: 20px; }
+.ht-filtrlar h3 { margin-bottom: 0; }
+.ht-filtr { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--matn-sokin); font-weight: 600; min-width: 140px; }
+.ht-filtr input, .ht-filtr select { padding: 7px 9px; border: 1px solid var(--chiziq); border-radius: 8px; background: var(--sirt); color: var(--matn); font-size: 13.5px; }
+.ht-filtr-keng { flex: 1 1 220px; }
+.ht-bosh { padding: 18px 0; text-align: center; }
+.ht-holat { padding: 2px 8px; border-radius: 10px; font-size: 11.5px; }
+.ht-holat-yaxshi { background: rgba(48, 164, 108, .15); color: var(--yaxshi); }
+.ht-holat-orta { background: rgba(255, 212, 0, .2); }
+.ht-holat-diqqat { background: rgba(229, 72, 77, .15); color: var(--xato); }
+.ht-bar-qator { display: grid; grid-template-columns: minmax(90px, 1.2fr) 2fr auto; gap: 10px; align-items: center; padding: 6px 0; font-size: 13px; }
+.ht-bar-qiymat { font-variant-numeric: tabular-nums; font-weight: 600; white-space: nowrap; }
+.ht-chiziq { height: 10px; background: var(--sirt-2); border-radius: 6px; overflow: hidden; }
+.ht-chiziq > div { height: 100%; border-radius: 6px; }
+.ht-havola { float: right; font-size: 12.5px; font-weight: 600; }
+.ht-jadval-wrap { overflow-x: auto; }
+.ht-jadval { width: 100%; border-collapse: collapse; font-size: 13px; }
+.ht-jadval th, .ht-jadval td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--chiziq); vertical-align: top; }
+.ht-jadval th { font-size: 12px; color: var(--matn-sokin); font-weight: 700; white-space: nowrap; }
+.ht-jadval input { padding: 4px 6px; border: 1px solid var(--chiziq); border-radius: 6px; background: var(--sirt); color: var(--matn); max-width: 160px; }
+.ht-bosiladi { cursor: pointer; }
+.ht-bosiladi:hover { background: var(--sirt-2); }
+.ht-diqqat { display: flex; flex-direction: column; gap: 2px; padding: 9px 0; border-bottom: 1px solid var(--chiziq); color: inherit; text-decoration: none; }
+.ht-diqqat:last-child { border-bottom: none; }
+.ht-diqqat:hover b { text-decoration: underline; }
+.ht-teglar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.ht-teg { background: rgba(229, 72, 77, .12); color: var(--xato); border-radius: 10px; padding: 1px 8px; font-size: 11.5px; font-weight: 600; }
+.ht-tablar { display: flex; gap: 8px; margin-bottom: 14px; }
+.ht-profil { display: grid; grid-template-columns: 1.4fr 1fr; gap: 20px; font-size: 13.5px; line-height: 1.7; }
+.ht-javob { white-space: pre-wrap; max-height: 320px; overflow: auto; font-size: 12.5px; margin-top: 6px; }
+@media (max-width: 720px) {
+  .ht-profil { grid-template-columns: 1fr; }
+  .ht-filtr { min-width: 0; flex: 1 1 45%; }
+  .ht-bar-qator { grid-template-columns: 1fr; gap: 4px; }
+}

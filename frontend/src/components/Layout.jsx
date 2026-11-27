@@ -38,13 +38,18 @@ const PANELLAR = {
   "/qurilmalar": { ikon: "📱", kalit: "nav_qurilmalar" },
   "/hisobotlar": { ikon: "📊", kalit: "nav_hisobotlar" },
   "/profil": { ikon: "👤", kalit: "nav_profil" },
+  // Matn-TZ 779: Head Teacher dashboard bo'limlari
+  "/head-teacher": { ikon: "▦", kalit: "nav_ht_dashboard" },
+  "/head-teacher/groups-students": { ikon: "🎒", kalit: "nav_ht_guruhlar" },
+  "/head-teacher/punktuallik": { ikon: "⏱", kalit: "nav_ht_punktuallik" },
 };
 
 // HAR DOIM ko'rinadigan panellar (2026-08-09 qarori): foydalanuvchi
 // kamida bitta sahifani ko'rishi va o'z profilini (parol, rasm)
 // boshqarishi kerak. Bular "ko'rinadigan panellar" tanlovida CHIQMAYDI
 // va hech qachon yashirilmaydi.
-export const MAJBURIY_PANELLAR = ["/", "/profil"];
+// "/head-teacher" — Head Teacher'ning bosh sahifasi (Matn-TZ 779).
+export const MAJBURIY_PANELLAR = ["/", "/profil", "/head-teacher"];
 
 // ROL -> PANELLAR — QAT'IY jadval (2026-08-09, foydalanuvchi qarori:
 // "rollar bo'yicha qaysi rolga qaysi panellar ko'rinishi qat'iy
@@ -130,8 +135,11 @@ export const ROL_PANELLARI = {
   // so'rovlarida unga admin ma'lumotini beradi, o'zgartirishni yopadi
   // (accounts/authentication.py). Sahifalar `role === "admin"` bo'lmagani
   // uchun tahrirlash tugmalarini ko'rsatmaydi; CRM havolasi ham yo'q.
+  // Matn-TZ 779 (2026-11-27): "/" o'rniga o'z dashboardi ("/" ham u yerga
+  // yo'naltiradi — BoshSahifa.jsx), guruhlar/talabalar va punktuallik.
   head_teacher: [
-    "/", "/talabalar", "/kurslar", "/reyting", "/ielts-boshqarish",
+    "/head-teacher", "/head-teacher/groups-students", "/head-teacher/punktuallik",
+    "/talabalar", "/kurslar", "/reyting", "/ielts-boshqarish",
     "/speaking-trainer", "/grammar-coach",
   ],
 };
@@ -479,7 +487,7 @@ export default function Layout() {
     return (
       <NavLink
         to={n.yol}
-        end={n.yol === "/"}
+        end={n.yol === "/" || n.yol === "/head-teacher"}
         className={({ isActive }) =>
           "nav-tugma" + (isActive ? " aktiv" : "") + (testFaol ? " nofaol" : "")
         }

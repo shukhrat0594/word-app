@@ -1,3 +1,4 @@
+import json
 import logging
 
 from django.conf import settings
@@ -8,7 +9,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .cheklov import RASM_MAKS_HAJM, AiCheklovli, audio_xatosi
-from .models import SpeakingTekshiruv, WritingTekshiruv
+from .models import AiTrenajyorYozuvi, SpeakingTekshiruv, WritingTekshiruv
 from .providers import (
     GEMINI_MODEL,
     GEMINI_MODEL_TANLOVLARI,
@@ -401,6 +402,13 @@ class SpeakingTrainerView(AiCheklovli, APIView):
             return Response({"detail": str(e)}, status=502)
         except Exception as e:
             return ai_xatosi_javobi(e, f"Speaking trainer (talaba id={request.user.id})")
+        ai_trenajyor_yozuvi(
+            request.user, AiTrenajyorYozuvi.Tur.SPEAKING_TRAINER,
+            sessiya=str(request.data.get("urug") or "")[:20],
+            mavzu=str(request.data.get("daraja") or ""),
+            xabar_soni=sum(1 for x in tozalangan[1:] if x["rol"] == "user"),
+            javob=javob,
+        )
         return Response({"javob": javob, "transkript": transkript})
 
 
@@ -455,7 +463,41 @@ class GrammarCoachView(AiCheklovli, APIView):
             return Response({"detail": str(e)}, status=502)
         except Exception as e:
             return ai_xatosi_javobi(e, f"Grammar coach (talaba id={request.user.id})")
+        ai_trenajyor_yozuvi(
+            request.user, AiTrenajyorYozuvi.Tur.GRAMMAR_COACH,
+            mavzu=matn.strip(), javob=javob, davomi=bool(kontekst),
+        )
         return Response({"javob": javob})
+
+
+def ai_trenajyor_yozuvi(user, tur, sessiya="", mavzu="", xabar_soni=None, javob="", davomi=False):
+    """Matn-TZ 779: trenajyor mashg'ulotini tarixga yozadi (Head Teacher
+    talaba profilida ko'radi). Yozuv xatosi javobni HECH QACHON buzmasin.
+
+    Trainer: (`sessiya`) bo'yicha bitta yozuv yangilanadi. Coach: yangi
+    mavzu — yangi yozuv; `davomi` (follow-up) — oxirgi yozuv yangilanadi."""
+    try:
+        if not isinstance(javob, str):
+            javob = json.dumps(javob, ensure_ascii=False)
+        javob = javob[:4000]
+        mavzu = mavzu[:200]
+        yozuv = None
+        qs = AiTrenajyorYozuvi.objects.filter(talaba=user, tur=tur)
+        if sessiya:
+            yozuv = qs.filter(sessiya=sessiya).first()
+        elif davomi:
+            yozuv = qs.first()  # ordering: -updated_at
+        if yozuv is None:
+            AiTrenajyorYozuvi.objects.create(
+                talaba=user, tur=tur, sessiya=sessiya, mavzu=mavzu,
+                xabar_soni=xabar_soni if xabar_soni is not None else 1, oxirgi_javob=javob,
+            )
+            return
+        yozuv.xabar_soni = xabar_soni if xabar_soni is not None else yozuv.xabar_soni + 1
+        yozuv.oxirgi_javob = javob
+        yozuv.save(update_fields=["xabar_soni", "oxirgi_javob", "updated_at"])
+    except Exception:  # noqa: BLE001
+        logger.exception("AI trenajyor yozuvi saqlanmadi (user id=%s)", getattr(user, "id", None))
 
 
 def speaking_audio_yoli(tekshiruv):

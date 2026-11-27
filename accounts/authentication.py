@@ -109,6 +109,10 @@ HEAD_TEACHER_YOZISH_YOLLARI = (
     "/api/qurilma/kalit/",  # "Bu qurilmani eslab qolish"
     "/api/speaking/trainer/",
     "/api/grammar/coach/",
+    # Matn-TZ 779: punktuallik qaydlarini kiritish/yangilash (Create/Update).
+    # O'chirish endpointi yo'q. `/api/head-teacher/` o'qishda asl rol qoladi
+    # (KORISH ro'yxatida emas) — view'lar head_teacher rolini o'zi tekshiradi.
+    "/api/head-teacher/punktuallik/",
 )
 
 
