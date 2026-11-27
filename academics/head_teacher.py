@@ -99,10 +99,13 @@ def _filtr_bormi(request):
 
 def _talabalar(request, guruhlar):
     """Filtr bo'lsa — shu guruhlar a'zolari; bo'lmasa markazdagi barcha
-    faol talabalar (guruhsizlari ham — "barcha talabalar", TZ 1)."""
+    faol talabalar (guruhsizlari ham — "barcha talabalar", TZ 1).
+
+    Talaba `markaz_id` bo'yicha FILTRLANMAYDI: 2026-08-02 dan talaba
+    markazga bog'lanmaydi (`markaz_id=None` — CRM/Excel/qo'lda yaratishda),
+    Head Teacher'da esa markaz bor. Filtrlansa ro'yxat bo'sh qolardi.
+    Admin ro'yxati ham shunday (`accounts.views.TalabalarView`)."""
     qs = User.objects.filter(role=User.Role.STUDENT, is_active=True)
-    if request.user.markaz_id:
-        qs = qs.filter(markaz_id=request.user.markaz_id)
     if _filtr_bormi(request):
         qs = qs.filter(talaba_guruhlari__in=guruhlar).distinct()
     q = (request.query_params.get("q") or "").strip()
@@ -485,10 +488,8 @@ class TalabaProfilView(APIView):
     permission_classes = [HeadTeacherRuxsati]
 
     def get(self, request, pk):
-        qs = User.objects.filter(role=User.Role.STUDENT)
-        if request.user.markaz_id:
-            qs = qs.filter(markaz_id=request.user.markaz_id)
-        t = get_object_or_404(qs, pk=pk)
+        # Talaba markazga bog'lanmaydi (`_talabalar` izohi) — markaz filtri yo'q.
+        t = get_object_or_404(User, pk=pk, role=User.Role.STUDENT)
         from assessment.models import AiTrenajyorYozuvi
 
         guruhlar = [

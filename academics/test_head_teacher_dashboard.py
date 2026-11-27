@@ -105,6 +105,22 @@ class HeadTeacherDashboardTest(TestCase):
         j = c.get(f"/api/head-teacher/talabalar/?guruh={boshqa.id}")
         self.assertEqual(j.data, [])
 
+    def test_markazsiz_talaba_korinadi(self):
+        # Haqiqiy talabalar markazga bog'lanmaydi (markaz_id=None — CRM/Excel),
+        # Head Teacher'da esa markaz bor: ro'yxat, KPI va profilda ko'rinishi kerak.
+        t3 = User.objects.create_user(username="SINOV_t3", password="x", role=User.Role.STUDENT,
+                                      first_name="Sardor")
+        GuruhAzoligi.objects.create(guruh=self.guruh, talaba=t3)
+        c = self.mijoz(self.ht)
+        self.assertEqual(c.get("/api/head-teacher/dashboard/").data["kpi"]["talabalar"], 3)
+        j = c.get("/api/head-teacher/talabalar/?q=sardor")
+        self.assertEqual([t["id"] for t in j.data], [t3.id])
+        j = c.get(f"/api/head-teacher/talabalar/?guruh={self.guruh.id}")
+        self.assertIn(t3.id, [t["id"] for t in j.data])
+        self.assertEqual(c.get(f"/api/head-teacher/talabalar/{t3.id}/").status_code, 200)
+        # Talaba bo'lmagan foydalanuvchi profili ochilmaydi.
+        self.assertEqual(c.get(f"/api/head-teacher/talabalar/{self.ustoz.id}/").status_code, 404)
+
     def test_talaba_profili_ai_tarixi_bilan(self):
         ai_trenajyor_yozuvi(self.t1, "speaking_trainer", sessiya="123", mavzu="B1",
                             xabar_soni=0, javob="Savol 1")
