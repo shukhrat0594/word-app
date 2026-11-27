@@ -2,7 +2,7 @@
 // academics/head_teacher.py (`/api/head-teacher/...`).
 //
 // Sahifalar:
-//   /head-teacher                  — bosh sahifa: 4 KPI, grafiklar, pastki bloklar
+//   /head-teacher                  — bosh sahifa: 3 KPI, grafiklar, pastki bloklar
 //   /head-teacher/groups-students  — guruhlar va talabalar ro'yxati
 //   /head-teacher/talaba/:id       — talaba profili (natijalar + AI trenajyorlar)
 //   /head-teacher/punktuallik      — ustozlar punktualligi (kiritish/yangilash)
@@ -248,16 +248,7 @@ export function HeadTeacherDashboard() {
       <Holatlar h={h} m={m}>
         {d && (
           <>
-            <div className="stat-qator">
-              <div className="stat">
-                <div className="nom">{m("kpi_guruh")}</div>
-                <div className="qiymat">
-                  {k.guruhlar} <small>{m("guruhlar")}</small> · {k.talabalar} <small>{m("talabalar")}</small>
-                </div>
-                <div className="izoh">
-                  {k.darajalar.map((r) => `${r.nomi || m("darajasiz")}: ${r.talabalar}`).join(" · ")}
-                </div>
-              </div>
+            <div className="stat-qator ht-stat-uch">
               <div className="stat">
                 <div className="nom">{m("kpi_natija")}</div>
                 <div className="qiymat">{foiz(k.natija_foiz)}</div>

@@ -186,6 +186,7 @@ a.logo:hover .logo-nom { color: var(--sariq); }
 
 /* ==== Statlar ==== */
 .stat-qator { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+.stat-qator.ht-stat-uch { grid-template-columns: repeat(3, 1fr); }
 .stat { background: var(--sirt); border: 1px solid var(--chiziq); border-radius: 12px; padding: 16px 18px; box-shadow: var(--soya); }
 .stat .nom { font-size: 12px; color: var(--matn-sokin); font-weight: 600; }
 .stat .qiymat { font-size: 28px; font-weight: 800; font-variant-numeric: tabular-nums; margin-top: 4px; }
@@ -887,7 +888,7 @@ input.imtihon-bosh-joy.faol { border-color: var(--sariq-toq); box-shadow: 0 0 0 
   .menyu-parda.ochiq {
     display: block; position: fixed; inset: 0; background: rgba(0, 0, 0, .4); z-index: 30;
   }
-  .stat-qator { grid-template-columns: repeat(2, 1fr); }
+  .stat-qator, .stat-qator.ht-stat-uch { grid-template-columns: repeat(2, 1fr); }
   .ikki-ustun { grid-template-columns: 1fr; }
   .login-brend { display: none; }
   .login-forma { width: 100%; }
