@@ -419,6 +419,23 @@ class KursQoshishTest(ApiAsos):
         self.assertEqual((fan.parent_id, fan.tez_kunda), (self.ildiz.id, True))
         self.assertEqual(j.data["fan"], "Matematika")
 
+    def test_individual_kurs_har_dars_narxi_bilan(self):
+        """TZ #791: "Kurs qo'shish" oynasida narxni har bir dars uchun belgilash."""
+        from crm.models import KursNarxi
+
+        m = self.mijoz(self.admin)
+        j = m.post("/api/crm/kurs-narxlari/", {"fan_id": self.fan.id, "nomi": "SINOV individual",
+                                               "narx": "150000", "dars_uchun": True}, format="json")
+        self.assertEqual(j.status_code, 201, j.data)
+        kn = KursNarxi.objects.get(daraja_id=j.data["daraja_id"])
+        self.assertEqual((kn.narx, kn.dars_uchun), (150000, True))
+        qator = next(x for x in m.get("/api/crm/kurs-narxlari/").data if x["daraja_id"] == kn.daraja_id)
+        self.assertTrue(qator["dars_uchun"])
+        # Belgisiz — oddiy oylik narx.
+        j = m.post("/api/crm/kurs-narxlari/", {"fan_id": self.fan.id, "nomi": "SINOV oylik", "narx": "400000"},
+                   format="json")
+        self.assertFalse(KursNarxi.objects.get(daraja_id=j.data["daraja_id"]).dars_uchun)
+
     def test_takror_nom_va_notogri_narx(self):
         m = self.mijoz(self.admin)
         tana = {"fan_id": self.fan.id, "nomi": "Kids", "narx": "300000"}

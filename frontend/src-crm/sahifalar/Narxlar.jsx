@@ -22,6 +22,9 @@ function KursQoshishOynasi({ onYopish, onSaqlandi }) {
   const [yangiFan, setYangiFan] = useState("");
   const [nomi, setNomi] = useState("");
   const [narx, setNarx] = useState("");
+  // Individual kurs (TZ #791): narx oylik emas, HAR BIR DARS uchun —
+  // oylik summa = 1 dars narxi × oydagi darslar soni (`KursNarxi.dars_uchun`).
+  const [darsUchun, setDarsUchun] = useState(false);
   const [xato, setXato] = useState("");
   const [band, setBand] = useState(false);
   const YANGI = "yangi";
@@ -30,13 +33,13 @@ function KursQoshishOynasi({ onYopish, onSaqlandi }) {
     setXato("");
     if (!fanId || (fanId === YANGI && !yangiFan.trim())) return setXato(t("fanni_tanlang"));
     if (!nomi.trim()) return setXato(t("kurs_nomini_yozing"));
-    if (!(Number(narx) > 0)) return setXato(t("narx_kiriting"));
+    if (!(Number(narx) > 0)) return setXato(t(darsUchun ? "dars_narxi_kiriting" : "narx_kiriting"));
     setBand(true);
     try {
       await api("/api/crm/kurs-narxlari/", {
         method: "POST",
         body: {
-          nomi: nomi.trim(), narx: String(narx),
+          nomi: nomi.trim(), narx: String(narx), dars_uchun: darsUchun,
           ...(fanId === YANGI ? { fan_nomi: yangiFan.trim() } : { fan_id: Number(fanId) }),
         },
       });
@@ -70,7 +73,14 @@ function KursQoshishOynasi({ onYopish, onSaqlandi }) {
           <input value={nomi} onChange={(e) => setNomi(e.target.value)} maxLength={200}
                  placeholder={t("kurs_nomi_namuna")} />
         </label>
-        <label>{t("oylik_narx")} *
+        <label>{t("narx_turi")}
+          <select value={darsUchun ? "dars" : "oylik"} onChange={(e) => setDarsUchun(e.target.value === "dars")}>
+            <option value="oylik">{t("narx_turi_oylik")}</option>
+            <option value="dars">{t("narx_turi_dars")}</option>
+          </select>
+        </label>
+        {darsUchun && <p className="kichik">{t("dars_uchun_narx_izoh")}</p>}
+        <label>{t(darsUchun ? "dars_narxi" : "oylik_narx")} *
           <input type="number" min="0" step="1000" value={narx} onChange={(e) => setNarx(e.target.value)}
                  onKeyDown={(e) => e.key === "Enter" && saqla()} />
         </label>
